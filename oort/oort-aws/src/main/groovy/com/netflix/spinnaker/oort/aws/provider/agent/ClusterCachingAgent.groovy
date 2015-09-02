@@ -170,13 +170,19 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent {
     Map onDemandData = metricsSupport.readData {
       def clients = new AmazonClients(amazonClientProvider, account, region, true)
 
-      List<AutoScalingGroup> asgs = clients.autoScaling.describeAutoScalingGroups(
-        new DescribeAutoScalingGroupsRequest().withAutoScalingGroupNames(asgName)
-      ).autoScalingGroups
+      List<AutoScalingGroup> asgs = metricsSupport.readData {
+        clients.autoScaling.describeAutoScalingGroups(
+            new DescribeAutoScalingGroupsRequest().withAutoScalingGroupNames(asgName)
+        ).autoScalingGroups
+      }
 
-      Map<String, Collection<Map>> scalingPolicies = loadScalingPolicies(clients, asgName)
+      Map<String, Collection<Map>> scalingPolicies = metricsSupport.readData {
+        loadScalingPolicies(clients, asgName)
+      }
 
-      Map<String, Collection<Map>> scheduledActions = loadScheduledActions(clients, asgName)
+      Map<String, Collection<Map>> scheduledActions = metricsSupport.readData {
+        loadScheduledActions(clients, asgName)
+      }
 
       Map<String, String> subnetMap = [:]
       asgs.each {
