@@ -1,0 +1,15 @@
+/**
+ * Pull in the top-level package and build it as a runnable Spring Boot JAR
+ */
+
+apply plugin: 'spring-boot'
+apply plugin: 'groovy'
+
+dependencies {
+  compile project(':clouddriver-web')
+}
+
+bootRepackage {
+  enabled = true
+  mainClass = 'com.netflix.spinnaker.clouddriver.Main'
+}
