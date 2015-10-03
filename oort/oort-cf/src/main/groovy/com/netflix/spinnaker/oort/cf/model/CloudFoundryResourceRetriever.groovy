@@ -22,7 +22,9 @@ import com.netflix.spinnaker.kato.cf.security.CloudFoundryAccountCredentials
 import com.netflix.spinnaker.oort.model.HealthState
 import groovy.util.logging.Slf4j
 import org.cloudfoundry.client.lib.CloudFoundryClient
-import org.cloudfoundry.client.lib.domain.*
+import org.cloudfoundry.client.lib.domain.CloudService
+import org.cloudfoundry.client.lib.domain.CloudSpace
+import org.cloudfoundry.client.lib.domain.InstanceState
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.client.HttpServerErrorException
 
@@ -61,7 +63,9 @@ class CloudFoundryResourceRetriever {
       [:].withDefault {[:].withDefault {new CloudFoundryCluster()}}
   Map<String, Set<CloudFoundryCluster>> clustersByAccount = [:].withDefault {[] as Set<CloudFoundryCluster>}
 
+  Set<CloudFoundryService> services = [] as Set<CloudFoundryService>
   Map<String, Set<CloudFoundryService>> servicesByAccount = [:].withDefault {[] as Set<CloudFoundryService>}
+  Map<String, Set<CloudFoundryService>> servicesByRegion = [:].withDefault {[] as Set<CloudFoundryService>}
 
   Map<String, CloudFoundryApplication> applicationByName = [:].withDefault {new CloudFoundryApplication()}
 
@@ -137,10 +141,23 @@ class CloudFoundryResourceRetriever {
 
               def serverGroup = new CloudFoundryServerGroup([
                   name: app.name,
-                  nativeApplication: app,
-                  services: app.services as Set,
-                  nativeServices: app.services.collect { name -> name == serviceCache[space.meta.guid].name }
+                  nativeApplication: app
               ])
+
+              serverGroup.services.addAll(serviceCache[space.meta.guid].findAll {app.services.contains(it.name)}
+                .collect {new CloudFoundryService([
+                  type: 'cf',
+                  id: it.meta.guid,
+                  name: it.name,
+                  application: app.name,
+                  accountName: account,
+                  region: space.organization.name,
+                  nativeService: it
+                ])})
+              services.addAll(serverGroup.services)
+              servicesByAccount[account].addAll(serverGroup.services)
+              servicesByRegion[space.organization.name].addAll(serverGroup.services)
+
 
               serverGroupsByAccount[account].add(serverGroup)
 
@@ -154,23 +171,12 @@ class CloudFoundryResourceRetriever {
               cluster.name = clusterName
               cluster.accountName = account
               cluster.serverGroups.add(serverGroup)
-              cluster.services.addAll(serviceCache[space.meta.guid].findAll {serverGroup.services.contains(it.name)}
-                  .collect {new CloudFoundryService([
-                      name: it.name,
-                      type: it.label,
-                      nativeService: it
-                  ])})
-
-              cluster.services.each { service ->
-                service.serverGroups.add(serverGroup.name)
-              }
 
               clustersByApplicationName[cluster.name].add(cluster)
 
               clustersByApplicationAndAccount[cluster.name][account].add(cluster)
 
               clustersByAccount[account].add(cluster)
-              servicesByAccount[account].addAll(cluster.services)
 
               def application = applicationByName[cluster.name]
               application.name = cluster.name
