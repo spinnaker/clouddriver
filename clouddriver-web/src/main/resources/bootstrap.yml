@@ -1,0 +1,16 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+      uri: http://localhost:8080/config     # For TLS, be sure to use https://
+
+#
+# To use TLS, uncomment and enter details.
+# See ConfigClientSslProperties and CustomConfigClientConfiguration for details.
+#
+#config-client:
+#  ssl:
+#    enabled: true
+#    key-store: client-keystore.jks
+#    key-store-password: password
+#    key-store-type: jks
