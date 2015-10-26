@@ -84,6 +84,7 @@ subprojects { project ->
 
   dependencies {
     compile spinnaker.dependency('groovy')
+    compile 'org.springframework.cloud:spring-cloud-starter-config:1.0.3.RELEASE'
     spinnaker.group('test')
   }
 }
