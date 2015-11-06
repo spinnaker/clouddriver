@@ -18,6 +18,7 @@ package com.netflix.spinnaker.oort.cf.model
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.cf.config.CloudFoundryConfigurationProperties
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
+import com.netflix.spinnaker.kato.cf.deploy.handlers.CloudFoundryDeployHandler
 import com.netflix.spinnaker.kato.cf.security.CloudFoundryAccountCredentials
 import com.netflix.spinnaker.oort.model.HealthState
 import groovy.util.logging.Slf4j
@@ -68,6 +69,11 @@ class CloudFoundryResourceRetriever {
 
   Map<String, CloudFoundryApplication> applicationByName = [:].withDefault {new CloudFoundryApplication()}
 
+  Map<String, Set<CloudFoundryLoadBalancer>> loadBalancersByAccount = [:].withDefault {[] as Set<CloudFoundryLoadBalancer>}
+  Map<String, Set<CloudFoundryLoadBalancer>> loadBalancersByApplication = [:].withDefault {[] as Set<CloudFoundryLoadBalancer>}
+  Map<String, Map<String, Set<CloudFoundryLoadBalancer>>> loadBalancersByAccountAndClusterName =
+      [:].withDefault {[:].withDefault {[] as Set<CloudFoundryLoadBalancer>}}
+
   Map<String, Map<String, CloudFoundryApplicationInstance>> instancesByAccountAndId =
           [:].withDefault {[:] as Map<String, CloudFoundryApplicationInstance>}
 
@@ -117,6 +123,11 @@ class CloudFoundryResourceRetriever {
 
       Map<String, CloudFoundryApplication> tempApplicationByName = [:].withDefault {new CloudFoundryApplication()}
 
+      Map<String, Set<CloudFoundryLoadBalancer>> tempLoadBalancersByAccount = [:].withDefault {[] as Set<CloudFoundryLoadBalancer>}
+      Map<String, Set<CloudFoundryLoadBalancer>> tempLoadBalancersByApplication = [:].withDefault {[] as Set<CloudFoundryLoadBalancer>}
+      Map<String, Map<String, Set<CloudFoundryLoadBalancer>>> tempLoadBalancersByAccountAndClusterName =
+          [:].withDefault {[:].withDefault {[] as Set<CloudFoundryLoadBalancer>}}
+
       Map<String, Map<String, CloudFoundryApplicationInstance>> tempInstancesByAccountAndId =
           [:].withDefault {[:] as Map<String, CloudFoundryApplicationInstance>}
 
@@ -124,6 +135,7 @@ class CloudFoundryResourceRetriever {
         try {
           if (accountCredentials instanceof CloudFoundryAccountCredentials) {
             CloudFoundryAccountCredentials credentials = (CloudFoundryAccountCredentials) accountCredentials
+            def account = credentials.name
 
             log.info "Logging in to ${credentials.api} as ${credentials.name}"
 
@@ -153,11 +165,22 @@ class CloudFoundryResourceRetriever {
               conn.logout()
             }
 
-
             def space = tempSpaceCache.values().find {
               it?.name == credentials.space && it?.organization.name == credentials.org
             }
             client = new CloudFoundryClient(credentials.credentials, credentials.api.toURL(), space, true)
+
+            log.info "Lookup all domains and routes..."
+            client.getDomainsForOrg().each { domain ->
+              client.getRoutes(domain.name).each { route ->
+                tempLoadBalancersByAccount[credentials.name].add(new CloudFoundryLoadBalancer([
+                    name: route.host,
+                    nativeRoute: route,
+                    region: space.organization.name,
+                    account: account
+                ]))
+              }
+            }
 
             log.info "Look up all applications..."
             def cfApplications = client.applications
@@ -165,14 +188,22 @@ class CloudFoundryResourceRetriever {
             cfApplications.each { app ->
 
               app.space = space
-              def account = credentials.name
 
               Names names = Names.parseName(app.name)
 
               def serverGroup = new CloudFoundryServerGroup([
                   name: app.name,
                   nativeApplication: app,
-                  envVariables: app.envAsMap
+                  envVariables: app.envAsMap,
+                  buildInfo: [
+                      commit: app.envAsMap[CloudFoundryDeployHandler.COMMIT_HASH],
+                      package_name: app.envAsMap[CloudFoundryDeployHandler.PACKAGE],
+                      jenkins: [
+                          host: app.envAsMap[CloudFoundryDeployHandler.JENKINS_HOST],
+                          name: app.envAsMap[CloudFoundryDeployHandler.JENKINS_NAME],
+                          number: app.envAsMap[CloudFoundryDeployHandler.JENKINS_BUILD]
+                      ]
+                  ]
               ])
 
               serverGroup.services.addAll(tempServiceCache[space.meta.guid].findAll {app.services.contains(it.name)}
@@ -212,6 +243,61 @@ class CloudFoundryResourceRetriever {
                 log.warn "Unable to retrieve instance data about ${app.name} in ${account} => ${e.message}"
               }
 
+              try {
+                def loadBalancers = app.uris.collect { uri ->
+
+                  /**
+                   * Routes that match the server group name can't be unmapped and thus aren't load balancers
+                   */
+                  if (uri.startsWith(serverGroup.name)) {
+                    return null
+                  }
+
+                  def instances = [] as Set
+                  def detachedInstances = [] as Set
+
+                  serverGroup.instances.each { instance ->
+                    instances << [
+                        id    : instance.name,
+                        zone  : instance.zone,
+                        health : [
+                            state : "Unknown",
+                            description : "Cloud Foundry routes have no health"
+                        ]
+                    ]
+                  }
+
+                  def serverGroupSummary = [
+                      name      :        serverGroup.name,
+                      isDisabled:        serverGroup.isDisabled(),
+                      instances :        instances,
+                      detachedInstances: detachedInstances
+                  ]
+
+                  def loadBalancer = tempLoadBalancersByAccount[account].find { it.name == uri }
+
+                  if (loadBalancer != null) {
+                    loadBalancer.serverGroups.add(serverGroupSummary)
+                    return loadBalancer
+
+                  } else {
+
+                    def newLoadBalancer = new CloudFoundryLoadBalancer([
+                        name        : uri,
+                        serverGroups: [serverGroupSummary] as Set,
+                        region      : space.organization.name,
+                        account     : account
+                    ])
+                    tempLoadBalancersByAccount[account].add(newLoadBalancer)
+                    return newLoadBalancer
+
+                  }
+                }.findAll {it != null}
+                serverGroup.nativeLoadBalancers = loadBalancers
+              } catch (HttpServerErrorException e) {
+                log.warn "Unable to retrieve routes for ${app.name} in ${account} -> ${e.message}"
+              }
+
               tempServices.addAll(serverGroup.services)
               tempServicesByAccount[account].addAll(serverGroup.services)
               tempServicesByRegion[space.organization.name].addAll(serverGroup.services)
@@ -237,17 +323,27 @@ class CloudFoundryResourceRetriever {
                 cluster.serverGroups.remove(serverGroup)
               }
               cluster.serverGroups.add(serverGroup)
+              cluster.loadBalancers.addAll(serverGroup.nativeLoadBalancers)
 
               tempClustersByApplicationName[names.app].add(cluster)
-
               tempClustersByApplicationAndAccount[names.app][account].add(cluster)
-
               tempClustersByAccount[account].add(cluster)
+
+              tempLoadBalancersByAccount[account].removeAll {it.name.startsWith(serverGroup.name)}
+              tempLoadBalancersByAccount[account].each { loadBalancer ->
+                if (loadBalancer.name.startsWith(cluster.name)) {
+                  tempLoadBalancersByAccountAndClusterName[account][cluster.name].add(loadBalancer)
+                }
+                if (loadBalancer.name.startsWith(names.app)) {
+                  tempLoadBalancersByApplication[names.app].add(loadBalancer)
+                }
+              }
 
               def application = tempApplicationByName[names.app]
               application.name = names.app
               application.applicationClusters[account].add(cluster)
               application.clusterNames[account].add(cluster.name)
+
             }
 
             log.info "Done loading new version of data"
@@ -276,6 +372,10 @@ class CloudFoundryResourceRetriever {
       servicesByRegion = tempServicesByRegion
 
       applicationByName = tempApplicationByName
+
+      loadBalancersByAccount = tempLoadBalancersByAccount
+      loadBalancersByApplication = tempLoadBalancersByApplication
+      loadBalancersByAccountAndClusterName = tempLoadBalancersByAccountAndClusterName
 
       instancesByAccountAndId = tempInstancesByAccountAndId
     } finally {

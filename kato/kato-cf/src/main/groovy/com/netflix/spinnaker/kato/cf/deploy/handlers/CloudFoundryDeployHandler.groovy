@@ -43,6 +43,12 @@ class CloudFoundryDeployHandler implements DeployHandler<CloudFoundryDeployDescr
   private static final Integer DEFAULT_MEMORY = 512
   private static final Integer DEFAULT_APP_STARTUP_TIMEOUT = 5  // minutes
 
+  static String COMMIT_HASH = 'SPINNAKER_BUILD_COMMITHASH'
+  static String JENKINS_HOST = 'SPINNAKER_BUILD_JENKINS_HOST'
+  static String JENKINS_NAME = 'SPINNAKER_BUILD_JENKINS_NAME'
+  static String JENKINS_BUILD = 'SPINNAKER_BUILD_JENKINS_BUILD'
+  static String PACKAGE = 'SPINNAKER_BUILD_PACKAGE'
+
   private final String username
   private final String password
 
@@ -203,6 +209,21 @@ class CloudFoundryDeployHandler implements DeployHandler<CloudFoundryDeployDescr
       task.updateStatus BASE_PHASE, "Uploading ${contentLength} bytes to ${serverGroupName}"
 
       client.uploadApplication(serverGroupName, description.targetPackage.package, file.newInputStream())
+
+      List<String> urlParts = description.targetPackage.buildUrl?.tokenize("/")
+      def suffix = urlParts[urlParts.size()-3] + '/' + urlParts[urlParts.size()-2] + '/' + urlParts[urlParts.size()-1]
+      if (description.targetPackage.buildUrl.endsWith('/')) {
+        suffix += '/'
+      }
+      def rootUrl = description.targetPackage.buildUrl - suffix
+
+      def env = [:]
+      env[JENKINS_HOST] = rootUrl
+      env[JENKINS_NAME] = description.targetPackage.job
+      env[JENKINS_BUILD] = description.targetPackage.buildNumber
+      env[PACKAGE] = description.targetPackage.package
+      env[COMMIT_HASH] = description.targetPackage.commitHash
+      client.updateApplicationEnv(serverGroupName, env)
     } catch (IOException e) {
       throw new IllegalStateException("Error uploading application => ${e.message}.", e)
     }

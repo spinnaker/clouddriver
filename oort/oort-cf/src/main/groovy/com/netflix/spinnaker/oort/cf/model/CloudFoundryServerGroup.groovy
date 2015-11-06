@@ -39,6 +39,8 @@ class CloudFoundryServerGroup implements ServerGroup, Serializable {
   Set<CloudFoundryService> services = [] as Set<CloudFoundryService>
   Map<String, Object> envVariables = new HashMap<>()
   Map<String, Object> cfSettings = new HashMap<>() // scaling, memory, etc.
+  Set<CloudFoundryLoadBalancer> nativeLoadBalancers
+  Map buildInfo
 
   @Override
   String getRegion() {
@@ -70,7 +72,7 @@ class CloudFoundryServerGroup implements ServerGroup, Serializable {
 
   @Override
   Set<String> getLoadBalancers() {
-    Collections.emptySet()
+    nativeLoadBalancers.collect {it.name} as Set<String>
   }
 
   @Override
@@ -118,7 +120,7 @@ class CloudFoundryServerGroup implements ServerGroup, Serializable {
 
   @Override
   ServerGroup.ImageSummary getImageSummary() {
-    // TODO(gturnquist): Implement
+    def bi = buildInfo
     return new ServerGroup.ImageSummary() {
       String serverGroupName = name
       String imageName
@@ -126,12 +128,12 @@ class CloudFoundryServerGroup implements ServerGroup, Serializable {
 
       @Override
       Map<String, Object> getBuildInfo() {
-        return null
+        buildInfo
       }
 
       @Override
       Map<String, Object> getImage() {
-        return null
+        return [:]
       }
     }
   }
