@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package com.netflix.spinnaker.kato.aws.deploy.handlers
 
 import com.amazonaws.services.autoscaling.model.BlockDeviceMapping
@@ -24,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.kato.aws.deploy.AmiIdResolver
 import com.netflix.spinnaker.kato.aws.deploy.AutoScalingWorker
+import com.netflix.spinnaker.kato.aws.deploy.BlockDeviceConfig
 import com.netflix.spinnaker.kato.aws.deploy.ResolvedAmiResult
 import com.netflix.spinnaker.kato.aws.deploy.description.BasicAmazonDeployDescription
 import com.netflix.spinnaker.kato.aws.deploy.ops.loadbalancer.UpsertAmazonLoadBalancerResult
@@ -107,13 +107,9 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         }
       }
 
-      if (!description.blockDevices) {
-        def blockDeviceConfig = deployDefaults.instanceClassBlockDevices.find {
-          it.handlesInstanceType(description.instanceType)
-        }
-        if (blockDeviceConfig) {
-          description.blockDevices = blockDeviceConfig.blockDevices
-        }
+      def blockDeviceMappingForInstanceType = BlockDeviceConfig.blockDevicesByInstanceType[description.instanceType]
+      if (blockDeviceMappingForInstanceType) {
+        description.blockDevices = blockDeviceMappingForInstanceType
       }
 
       // find by 1) result of a previous step (we performed allow launch)

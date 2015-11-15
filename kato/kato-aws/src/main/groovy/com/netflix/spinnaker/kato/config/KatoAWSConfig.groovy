@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package com.netflix.spinnaker.kato.config
 
 import com.netflix.spinnaker.cats.agent.Agent
@@ -27,7 +26,6 @@ import com.netflix.spinnaker.kato.aws.agent.CleanupDetachedInstancesAgent
 import com.netflix.spinnaker.kato.aws.deploy.handlers.BasicAmazonDeployHandler
 import com.netflix.spinnaker.kato.aws.deploy.userdata.LocalFileUserDataProvider
 import com.netflix.spinnaker.kato.aws.deploy.userdata.UserDataProvider
-import com.netflix.spinnaker.kato.aws.model.AmazonInstanceClassBlockDevice
 import com.netflix.spinnaker.kato.aws.provider.AwsCleanupProvider
 import com.netflix.spinnaker.kato.aws.services.RegionScopedProviderFactory
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
@@ -64,7 +62,6 @@ class KatoAWSConfig {
   static class DeployDefaults {
     String iamRole
     String classicLinkSecurityGroupName
-    List<AmazonInstanceClassBlockDevice> instanceClassBlockDevices = []
   }
 
   @Bean

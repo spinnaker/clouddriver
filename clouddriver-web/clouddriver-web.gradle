@@ -1,6 +1,5 @@
 apply plugin: 'spring-boot'
 apply plugin: 'nebula.ospackage'
-apply plugin: 'groovy'
 
 ext {
   springConfigLocation = System.getProperty('spring.config.location', "${System.getProperty('user.home')}/.spinnaker/")
@@ -52,7 +51,6 @@ jar {
   }
 }
 
-
 startScripts {
   doLast {
     unixScript.text = unixScript.text.replace('DEFAULT_JVM_OPTS=', '\n if [ -f /etc/default/spinnaker ];then \n set -a\n . /etc/default/spinnaker \n set +a\n fi \n DEFAULT_JVM_OPTS=')
@@ -98,10 +96,3 @@ ospackage {
 buildDeb {
   dependsOn installApp
 }
-
-buildRpm {
-  arch = NOARCH
-  os = LINUX
-  dependsOn installApp
-}
-
