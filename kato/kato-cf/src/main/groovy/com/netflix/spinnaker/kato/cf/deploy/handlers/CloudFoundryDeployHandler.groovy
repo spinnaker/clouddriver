@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 package com.netflix.spinnaker.kato.cf.deploy.handlers
-
+import com.netflix.frigga.NameBuilder
+import com.netflix.frigga.Names
 import com.netflix.spinnaker.kato.cf.deploy.description.CloudFoundryDeployDescription
 import com.netflix.spinnaker.kato.cf.security.CloudFoundryClientFactory
 import com.netflix.spinnaker.kato.data.task.Task
@@ -31,7 +32,6 @@ import org.springframework.http.*
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.web.client.HttpServerErrorException
 import org.springframework.web.client.RestTemplate
-
 /**
  * A deployment handler for Cloud Foundry. Inspired by cf-maven-plugin's {@literal AbstractPush}
  *
@@ -69,7 +69,21 @@ class CloudFoundryDeployHandler implements DeployHandler<CloudFoundryDeployDescr
     task.updateStatus BASE_PHASE, "Initializing handler..."
     def deploymentResult = new DeploymentResult()
 
+    def nameBuilder = new NameBuilder() {
+      @Override
+      public String combineAppStackDetail(String appName, String stack, String detail) {
+        return super.combineAppStackDetail(appName, stack, detail)
+      }
+    }
+
+    def clusterName = nameBuilder.combineAppStackDetail(description.application, description.stack, description.freeFormDetails)
+
+    def nextSequence = getNextSequence(clusterName, client)
+    task.updateStatus BASE_PHASE, "Found next sequence ${nextSequence}."
+
+    description.serverGroupName = "${clusterName}-v${nextSequence}".toString()
     task.updateStatus BASE_PHASE, "Preparing deployment of ${description.serverGroupName}"
+
     if (description.urls.empty) {
       description.urls = ["${description.serverGroupName}.${client.defaultDomain.name}".toString()]
     }
@@ -106,7 +120,7 @@ class CloudFoundryDeployHandler implements DeployHandler<CloudFoundryDeployDescr
 
     client.startApplication(description.serverGroupName)
 
-    deploymentResult.serverGroupNames = [description.serverGroupName]
+    deploymentResult.serverGroupNames << "${description.credentials.org}:${description.serverGroupName}".toString()
     deploymentResult.serverGroupNameByRegion[description.credentials.org] = description.serverGroupName
     deploymentResult.messages = task.history.collect { "${it.phase} : ${it.status}".toString() }
 
@@ -212,4 +226,28 @@ class CloudFoundryDeployHandler implements DeployHandler<CloudFoundryDeployDescr
   boolean handles(DeployDescription description) {
     return description instanceof CloudFoundryDeployDescription
   }
+
+  /**
+   * Scan through all the apps in this space, and find the maximum one with a matching cluster name
+   *
+   * @param clusterName
+   * @param project
+   * @param region
+   * @param client
+   * @return
+   */
+  private def getNextSequence(String clusterName, CloudFoundryClient client) {
+    def maxSeqNumber = -1
+
+    client.applications.each { app ->
+      def names = Names.parseName(app.name)
+
+      if (names.cluster == clusterName) {
+        maxSeqNumber = Math.max(maxSeqNumber, names.sequence)
+      }
+    }
+
+    String.format("%03d", ++maxSeqNumber)
+  }
+
 }
