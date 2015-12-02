@@ -69,8 +69,8 @@ class KatoCloudFoundryConfig {
   @Bean
   OperationPoller cloudFoundryOperationPoller(com.netflix.spinnaker.clouddriver.cf.config.CloudFoundryConfigurationProperties properties) {
     new OperationPoller(
-        asyncOperationMaxPollingIntervalSeconds: properties.asyncOperationMaxPollingIntervalSeconds,
-        asyncOperationTimeoutSecondsDefault: properties.asyncOperationTimeoutSecondsDefault
+        properties.asyncOperationMaxPollingIntervalSeconds,
+        properties.asyncOperationTimeoutSecondsDefault
     )
   }
 
