@@ -16,20 +16,16 @@
 
 package com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model
 
-import com.netflix.spinnaker.clouddriver.azure.common.AzureBaseDescription
+import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
 
-class AzureLoadBalancerDescription extends AzureBaseDescription {
+class AzureLoadBalancerDescription extends AzureResourceOpsDescription {
   String loadBalancerName
-  String stack
-  String detail
   String vnet
-  List<AzureLoadBalancerProbe> probes = []
   String securityGroups
+  String dnsName
+  List<AzureLoadBalancerProbe> probes = []
   List<AzureLoadBalancingRule> loadBalancingRules = []
   List<AzureLoadBalancerInboundNATRule> inboundNATRules = []
-  String dnsName
-  Integer createdTime
-
 
   static class AzureLoadBalancerProbe {
     enum AzureLoadBalancerProbesType {

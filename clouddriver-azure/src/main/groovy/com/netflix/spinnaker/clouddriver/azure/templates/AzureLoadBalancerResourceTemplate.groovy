@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.azure.templates
 
+import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.UpsertAzureLoadBalancerDescription
 import org.codehaus.jackson.map.ObjectMapper
 import org.codehaus.jackson.map.SerializationConfig
@@ -103,7 +104,7 @@ class AzureLoadBalancerResourceTemplate {
     AzureProbeProperty properties
     String name
 
-    AzureProbe(UpsertAzureLoadBalancerDescription.AzureLoadBalancerProbe probe) {
+    AzureProbe(AzureLoadBalancerDescription.AzureLoadBalancerProbe probe) {
       properties = new AzureProbeProperty(probe)
       name = probe.probeName
     }
@@ -115,7 +116,7 @@ class AzureLoadBalancerResourceTemplate {
       String requestPath
       Integer numberOfProbes
 
-      AzureProbeProperty(UpsertAzureLoadBalancerDescription.AzureLoadBalancerProbe probe){
+      AzureProbeProperty(AzureLoadBalancerDescription.AzureLoadBalancerProbe probe){
         protocol = probe.probeProtocol.toString().toLowerCase()
         port = probe.probePort
         intervalInSeconds = probe.probeInterval
@@ -253,7 +254,7 @@ class AzureLoadBalancerResourceTemplate {
     String name
     LoadBalancingRuleProperties properties
 
-    LoadBalancingRule(UpsertAzureLoadBalancerDescription.AzureLoadBalancingRule rule){
+    LoadBalancingRule(AzureLoadBalancerDescription.AzureLoadBalancingRule rule){
       name = rule.ruleName
       properties = new LoadBalancingRuleProperties(rule)
     }
@@ -267,7 +268,7 @@ class AzureLoadBalancerResourceTemplate {
     Integer backendPort
     IdRef probe
 
-    LoadBalancingRuleProperties(UpsertAzureLoadBalancerDescription.AzureLoadBalancingRule rule){
+    LoadBalancingRuleProperties(AzureLoadBalancerDescription.AzureLoadBalancingRule rule){
       frontendIPConfiguration = new IdRef("[variables('frontEndIPConfig')]")
       protocol = rule.protocol.toString().toLowerCase()
       frontendPort = rule.externalPort

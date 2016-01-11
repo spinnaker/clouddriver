@@ -16,6 +16,7 @@
 package com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.deploy.templates
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.azure.security.AzureNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.ops.converters.UpsertAzureLoadBalancerAtomicOperationConverter
@@ -52,9 +53,9 @@ class AzureLoadBalancerResourceTemplateSpec extends Specification {
     description.detail = 'd11'
     description.region = 'West US'
     description.vnet = null
-    description.probes = new ArrayList<UpsertAzureLoadBalancerDescription.AzureLoadBalancerProbe>()
+    description.probes = new ArrayList<AzureLoadBalancerDescription.AzureLoadBalancerProbe>()
 
-    UpsertAzureLoadBalancerDescription.AzureLoadBalancerProbe probe = new UpsertAzureLoadBalancerDescription.AzureLoadBalancerProbe()
+    AzureLoadBalancerDescription.AzureLoadBalancerProbe probe = new AzureLoadBalancerDescription.AzureLoadBalancerProbe()
     probe.probeName = 'healthcheck1'
     probe.probeProtocol = 'HTTP'
     probe.probePort = 7001
@@ -64,9 +65,9 @@ class AzureLoadBalancerResourceTemplateSpec extends Specification {
 
     description.probes.add(probe)
     description.securityGroups = null
-    description.loadBalancingRules = new ArrayList<UpsertAzureLoadBalancerDescription.AzureLoadBalancingRule>()
+    description.loadBalancingRules = new ArrayList<AzureLoadBalancerDescription.AzureLoadBalancingRule>()
 
-    UpsertAzureLoadBalancerDescription.AzureLoadBalancingRule rule = new UpsertAzureLoadBalancerDescription.AzureLoadBalancingRule()
+    AzureLoadBalancerDescription.AzureLoadBalancingRule rule = new AzureLoadBalancerDescription.AzureLoadBalancingRule()
     rule.ruleName = 'lbrule1'
     rule.protocol = 'TCP'
     rule.externalPort = 80
@@ -76,12 +77,12 @@ class AzureLoadBalancerResourceTemplateSpec extends Specification {
     rule.idleTimeout = 4
 
     description.loadBalancingRules.add(rule)
-    description.inboundNATRules = new ArrayList<UpsertAzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule>()
+    description.inboundNATRules = new ArrayList<AzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule>()
 
-    UpsertAzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule natRule = new UpsertAzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule()
+    AzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule natRule = new AzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule()
     natRule.ruleName = 'inboundRule1'
-    natRule.serviceType = UpsertAzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule.AzureLoadBalancerInboundNATRulesServiceType.SSH
-    natRule.protocol = UpsertAzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule.AzureLoadBalancerInboundNATRulesProtocolType.TCP
+    natRule.serviceType = AzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule.AzureLoadBalancerInboundNATRulesServiceType.SSH
+    natRule.protocol = AzureLoadBalancerDescription.AzureLoadBalancerInboundNATRule.AzureLoadBalancerInboundNATRulesProtocolType.TCP
     natRule.port = 80
 
     description.inboundNATRules.add(natRule)

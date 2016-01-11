@@ -23,6 +23,8 @@ import com.microsoft.azure.management.network.models.LoadBalancer
 import com.microsoft.azure.management.network.models.VirtualNetwork
 import com.microsoft.azure.utility.NetworkHelper
 import com.microsoft.windowsazure.core.OperationResponse
+import com.netflix.spinnaker.clouddriver.azure.resources.network.model.AzureVirtualNetworkDescription
+import com.netflix.spinnaker.clouddriver.azure.resources.subnet.model.AzureSubnetDescription
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
 import groovy.transform.CompileStatic
 
@@ -112,6 +114,81 @@ class AzureNetworkClient extends AzureBaseClient {
     }
   }
 
+  /**
+   * Retrieve a collection of all subnets for a give set of credentials, regardless of resource group/region
+   * @param creds the credentials to use when communicating to the Azure subscription(s)
+   * @return a Collection of objects which represent a Subnet in Azure
+   */
+  Collection<AzureSubnetDescription> getSubnetsAll(AzureCredentials creds) {
+    def list = this.getNetworkResourceProviderClient(creds).getVirtualNetworksOperations().listAll().virtualNetworks
+
+    def result = new ArrayList<AzureSubnetDescription>()
+
+    for (VirtualNetwork item : list) {
+      for (com.microsoft.azure.management.network.models.Subnet itemSubnet : item.subnets) {
+        def subnetItem = new AzureSubnetDescription()
+        subnetItem.name = itemSubnet.name
+        subnetItem.region = item.location
+        subnetItem.provisioningState = itemSubnet.provisioningState
+        subnetItem.etag = itemSubnet.etag
+        subnetItem.id = itemSubnet.id
+        subnetItem.addressPrefix = itemSubnet.addressPrefix
+        //subnetItem.ipConfigurations = itemSubnet.ipConfigurations
+        subnetItem.networkSecurityGroup = itemSubnet.networkSecurityGroup.id
+        subnetItem.routeTable = itemSubnet.routeTable.id
+        result += subnetItem
+      }
+    }
+
+    result
+  }
+
+  /**
+   * Retrieve a collection of all virtual networks for a give set of credentials, regardless of resource group/region
+   * @param creds the credentials to use when communicating to the Azure subscription(s)
+   * @return a Collection of objects which represent a Virtual Network in Azure
+   */
+  Collection<AzureVirtualNetworkDescription> getVirtualNetworksAll(AzureCredentials creds) {
+    def list = this.getNetworkResourceProviderClient(creds).getVirtualNetworksOperations().listAll().virtualNetworks
+
+    def result = new ArrayList<AzureVirtualNetworkDescription>()
+
+    for (VirtualNetwork item : list) {
+      def vnetItem = new AzureVirtualNetworkDescription()
+
+      vnetItem.name = item.name
+      vnetItem.location = item.location
+      vnetItem.region = item.location
+      vnetItem.addressSpace = item.addressSpace.addressPrefixes
+      vnetItem.dhcpOptions = item.dhcpOptions.dnsServers
+      vnetItem.provisioningState = item.provisioningState
+      vnetItem.resourceGuid = item.resourceGuid
+
+      def resultSubnet = new ArrayList<AzureSubnetDescription>()
+      for (com.microsoft.azure.management.network.models.Subnet itemSubnet : item.subnets) {
+        def subnetItem = new AzureSubnetDescription()
+        subnetItem.name = itemSubnet.name
+        subnetItem.region = item.location
+        subnetItem.provisioningState = itemSubnet.provisioningState
+        subnetItem.etag = itemSubnet.etag
+        subnetItem.id = itemSubnet.id
+        subnetItem.addressPrefix = itemSubnet.addressPrefix
+        //subnetItem.ipConfigurations = itemSubnet.ipConfigurations
+        subnetItem.networkSecurityGroup = itemSubnet.networkSecurityGroup.id
+        subnetItem.routeTable = itemSubnet.routeTable.id
+        resultSubnet += subnetItem
+      }
+
+      vnetItem.subnets = resultSubnet
+      vnetItem.etag = item.etag
+      vnetItem.id = item.id
+      vnetItem.tags = item.tags
+      vnetItem.type = item.type
+      result += vnetItem
+    }
+
+    result
+  }
 
   /**
    * get the NetworkResourceProviderClient which will be used for all interaction related to network resources in Azure

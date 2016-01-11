@@ -30,9 +30,12 @@ import spock.lang.Specification
 
 class UpsertAzureLoadBalancerDescriptionValidatorSpec extends Specification {
   private static final LOAD_BALANCER_NAME = "azureapp1-st1-d1"
-  private static final REGION = "West US"
+  private static final REGION = "westus"
   private static final ACCOUNT_NAME = "azurecred1"
   private static final CLOUD_PROVIDER = "azure"
+  private static final ACCOUNT_CLIENTID = "azureclientid"
+  private static final ACCOUNT_TENANTID = "azuretenantid1"
+  private static final ACCOUNT_APPKEY = "azureappkey1"
   private static final APP_NAME = "azureapp1"
   private static final STACK = "st1"
   private static final DETAIL = "d1"
@@ -66,27 +69,28 @@ class UpsertAzureLoadBalancerDescriptionValidatorSpec extends Specification {
   ObjectMapper mapper = new ObjectMapper()
 
   @Shared
+  AzureCredentials azureCredentials
+
+  @Shared
   UpsertAzureLoadBalancerAtomicOperationConverter converter
 
   @Shared
   UpsertAzureLoadBalancerDescriptionValidator validator
 
   void setupSpec() {
-    validator = new UpsertAzureLoadBalancerDescriptionValidator()
-    def accountCredentialsProvider = Mock(AccountCredentialsProvider)
-    def mockCredentials = Mock(AzureNamedAccountCredentials)
-    accountCredentialsProvider.getCredentials(_) >> mockCredentials
+    azureCredentials = new AzureCredentials(ACCOUNT_CLIENTID, ACCOUNT_TENANTID, ACCOUNT_APPKEY, null, null, null)
 
     def credentialsRepo = new MapBackedAccountCredentialsRepository()
-    def credentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
     def credentials = Mock(AzureNamedAccountCredentials)
+    credentials.getAccountName() >> ACCOUNT_NAME
     credentials.getName() >> ACCOUNT_NAME
-    credentials.getCredentials() >> new AzureCredentials(null,null,null,null,null,null)
+    credentials.getCredentials() >> azureCredentials
     credentialsRepo.save(ACCOUNT_NAME, credentials)
+    def credentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
+    validator = new UpsertAzureLoadBalancerDescriptionValidator()
     validator.accountCredentialsProvider = credentialsProvider
     this.converter = new UpsertAzureLoadBalancerAtomicOperationConverter(objectMapper: mapper)
-    converter.accountCredentialsProvider = accountCredentialsProvider
-
+    converter.accountCredentialsProvider = credentialsProvider
   }
 
   void "pass validation with proper description inputs"() {
@@ -139,6 +143,7 @@ class UpsertAzureLoadBalancerDescriptionValidatorSpec extends Specification {
       ]
 
       def description = converter.convertDescription(input)
+      description.credentials = azureCredentials
       def errors = Mock(Errors)
 
     when:

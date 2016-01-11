@@ -14,11 +14,23 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model
+package com.netflix.spinnaker.clouddriver.azure.resources.network.model
 
 import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
-import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
+import com.netflix.spinnaker.clouddriver.azure.resources.subnet.model.AzureSubnetDescription
 
-class DeleteAzureLoadBalancerDescription extends AzureResourceOpsDescription {
-  String loadBalancerName
+class AzureVirtualNetworkDescription extends AzureResourceOpsDescription {
+  String id
+  String type
+  List<String> addressSpace /* see addressPrefix */
+  List<String> dhcpOptions /* see dnsServers */
+  String provisioningState
+  String resourceGuid
+  String etag
+  String location
+  Map<String, String> tags
+  List<String> ipConfigurations
+  String networkSecurityGroup
+  String routeTable
+  List<AzureSubnetDescription> subnets
 }

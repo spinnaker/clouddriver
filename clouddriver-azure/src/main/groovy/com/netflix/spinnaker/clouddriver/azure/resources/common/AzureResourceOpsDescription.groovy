@@ -14,11 +14,18 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model
+package com.netflix.spinnaker.clouddriver.azure.resources.common
 
-import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
 
-class DeleteAzureLoadBalancerDescription extends AzureResourceOpsDescription {
-  String loadBalancerName
+class AzureResourceOpsDescription {
+  String name
+  String cloudProvider
+  String appName
+  String stack
+  String detail
+  AzureCredentials credentials
+  String region
+  String user
+  Integer createdTime
 }
