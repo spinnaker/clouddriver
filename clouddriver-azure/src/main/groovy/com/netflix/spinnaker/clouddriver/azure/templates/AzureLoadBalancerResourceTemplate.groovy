@@ -80,7 +80,7 @@ class AzureLoadBalancerResourceTemplate {
 
   static class Location{
     String type = "string"
-    ArrayList<String> allowedValues = ["East US", "eastus", "West US", "westus", "West Europe", "westeurope", "East Asia", "eastasia", "Southeast Asia", "southeastus"]
+    ArrayList<String> allowedValues = ["East US", "eastus", "West US", "westus", "West Europe", "westeurope", "East Asia", "eastasia", "Southeast Asia", "southeastasia"]
     Map<String, String> metadata = ["description":"Location to deploy"]
   }
 
@@ -273,7 +273,7 @@ class AzureLoadBalancerResourceTemplate {
       protocol = rule.protocol.toString().toLowerCase()
       frontendPort = rule.externalPort
       backendPort = rule.backendPort
-      probe = new IdRef("[concat(variables('loadBalancerID'),'/probes/healthcheck1')]")
+      probe = new IdRef("[concat(variables('loadBalancerID'),'/probes/" + rule.probeName + "')]")
     }
   }
 }

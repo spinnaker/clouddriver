@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.azure.common
+package com.netflix.spinnaker.clouddriver.azure.resources.common.cache
 
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.azure.AzureCloudProvider
