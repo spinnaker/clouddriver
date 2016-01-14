@@ -89,6 +89,7 @@ class AzureResourceRetriever {
             def resourceGroupName = AzureUtilities.getResourceGroupNameFromResourceId(lb.id)
             def loadBalancer = getDescriptionForLoadBalancer(lb)
             loadBalancer.appName = appName
+            loadBalancer.tags = lb.tags
             loadBalancer.dnsName = networkClient.getDnsNameForLoadBalancer(azureCredentials, resourceGroupName, lb.name)
             tmpLoadBalancerMap[accountName][appName].add(loadBalancer)
           }
