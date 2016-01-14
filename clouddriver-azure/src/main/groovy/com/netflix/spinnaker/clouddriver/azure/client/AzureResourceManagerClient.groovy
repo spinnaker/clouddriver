@@ -52,34 +52,21 @@ class AzureResourceManagerClient extends AzureBaseClient {
     super(subscriptionId)
   }
 
-  DeploymentExtended createLoadBalancerFromTemplate(AzureCredentials credentials,
+  DeploymentExtended createResourceFromTemplate(AzureCredentials credentials,
                                         String template,
                                         String resourceGroupName,
                                         String region,
-                                        String loadBalancerName) {
-    def parameters = [location : region]
-    createLoadBalancerFromTemplate(credentials,
-                                   template,
-                                   parameters,
-                                   resourceGroupName,
-                                   region,
-                                   loadBalancerName)
-  }
+                                        String resourceName) {
 
-  DeploymentExtended createLoadBalancerFromTemplate(AzureCredentials credentials,
-                                                    String template,
-                                                    Map<String, String> templateParams,
-                                                    String resourceGroupName,
-                                                    String region,
-                                                    String loadBalancerName) {
     if (!resourceGroupExists(credentials, resourceGroupName)) {
       createResourceGroup(credentials, resourceGroupName, region)
       createResourceGroupVNet(credentials, resourceGroupName, region)
     }
 
-    String deploymentName = loadBalancerName + AzureUtilities.NAME_SEPARATOR +"deployment"
+    String deploymentName = resourceName + AzureUtilities.NAME_SEPARATOR +"deployment"
+    def templateParams = [location : region]
 
-    DeploymentExtended deployment = createTemplateDeploymentFromPath(this.getResourceManagementClient(credentials),
+    DeploymentExtended deployment = createTemplateDeployment(this.getResourceManagementClient(credentials),
                                                                      resourceGroupName,
                                                                      DeploymentMode.Incremental,
                                                                      deploymentName,
@@ -146,22 +133,13 @@ class AzureResourceManagerClient extends AzureBaseClient {
     ResourceManagementService.create(this.buildConfiguration(creds))
   }
 
-  private void createResourceGroupVNet(AzureCredentials creds, String resourceGroupName, String region) {
-    def networkClient = NetworkResourceProviderService.create(this.buildConfiguration(creds))
-    String vNetName = String.format("vnet"+AzureUtilities.NAME_SEPARATOR+"%s", resourceGroupName)
-    VirtualNetwork vNet = new VirtualNetwork(region)
-    AddressSpace addressSpace = new AddressSpace()
-    addressSpace.addressPrefixes.add("10.0.0.0/16")
-    vNet.setAddressSpace(addressSpace)
-    try {
-      networkClient.virtualNetworksOperations.createOrUpdate(resourceGroupName, vNetName, vNet)
-    }
-    catch (ServiceException se) {
-      throw new RuntimeException(String.format("Unable to create Virtual Network %s for Resource Group %s", vNetName, resourceGroupName), se)
-    }
+  private static void createResourceGroupVNet(AzureCredentials creds, String resourceGroupName, String region) {
+    def vNetName = AzureUtilities.VNET_NAME_PREFIX + resourceGroupName
+
+    creds.getNetworkClient().createVirtualNetwork(creds, resourceGroupName, vNetName, resourceGroupName, "10.0.0.0/16")
   }
 
-  private static DeploymentExtended createTemplateDeploymentFromPath(
+  private static DeploymentExtended createTemplateDeployment(
     ResourceManagementClient resourceManagementClient,
     String resourceGroupName,
     DeploymentMode deploymentMode,

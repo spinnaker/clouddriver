@@ -17,12 +17,18 @@
 package com.netflix.spinnaker.clouddriver.azure.common
 
 import com.microsoft.azure.management.resources.ResourceManagementClient
+import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancerDescription
 
 class AzureUtilities {
 
   static final String PATH_SEPARATOR = "/"
   static final String NAME_SEPARATOR = "-"
+  static final String VNET_NAME_PREFIX = "vnet-"
+  static final String PUBLICIP_NAME_PREFIX = "pip-"
+  static final String LBFRONTEND_NAME_PREFIX = "fe-"
+  static final String DNS_NAME_PREFIX = "dns-"
+  static final String IPCONFIG_NAME_PREFIX = "ipc-"
 
   static String getResourceNameFromID(String resourceId) {
     int idx = resourceId.lastIndexOf(PATH_SEPARATOR)
@@ -32,7 +38,7 @@ class AzureUtilities {
     resourceId
   }
 
-  static String getResourceGroupName(AzureLoadBalancerDescription description) {
+  static String getResourceGroupName(AzureResourceOpsDescription description) {
     description.appName + NAME_SEPARATOR + description.region
   }
 
@@ -40,7 +46,7 @@ class AzureUtilities {
     appName + NAME_SEPARATOR + region.replace(' ', '').toLowerCase()
   }
 
-  static String getResourceGroupLocation(AzureLoadBalancerDescription description) {
+  static String getResourceGroupLocation(AzureResourceOpsDescription description) {
     def resourceGroupName = getResourceGroupName(description)
 
     description.credentials.getResourceManagerClient().getResourceGroupLocation(resourceGroupName, description.getCredentials())
