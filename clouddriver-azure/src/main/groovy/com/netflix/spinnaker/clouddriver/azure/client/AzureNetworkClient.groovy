@@ -23,9 +23,11 @@ import com.microsoft.azure.management.network.models.LoadBalancer
 import com.microsoft.azure.management.network.models.VirtualNetwork
 import com.microsoft.azure.utility.NetworkHelper
 import com.microsoft.windowsazure.core.OperationResponse
+import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.network.model.AzureVirtualNetworkDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.subnet.model.AzureSubnetDescription
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
+import groovy.json.JsonBuilder
 import groovy.transform.CompileStatic
 
 @CompileStatic
@@ -92,6 +94,16 @@ class AzureNetworkClient extends AzureBaseClient {
    * @return an OperationResponse object
    */
   OperationResponse deleteLoadBalancer(AzureCredentials creds, String resourceGroupName, String loadBalancerName) {
+    // First delete the public Ip associated with the load balancer
+    def loadBalancer = getNetworkResourceProviderClient(creds).getLoadBalancersOperations().get(resourceGroupName, loadBalancerName).getLoadBalancer()
+
+    if (loadBalancer.frontendIpConfigurations.size() != 1) {
+      throw new Exception("Unexpected number of public IP addresses associated with the load balancer (should be only one)!")
+    }
+
+    def publicIpAddressName = AzureUtilities.getResourceNameFromID(loadBalancer.frontendIpConfigurations.first().getPublicIpAddress().id)
+    this.getNetworkResourceProviderClient(creds).getPublicIpAddressesOperations().delete(resourceGroupName, publicIpAddressName)
+
     this.getNetworkResourceProviderClient(creds).getLoadBalancersOperations().delete(resourceGroupName, loadBalancerName)
   }
 
@@ -191,6 +203,25 @@ class AzureNetworkClient extends AzureBaseClient {
   }
 
   /**
+   * get the dns name associated with a load balancer in Azure
+   * @param creds the credentials to use when communicating to the Azure subscription(s)
+   * @param resourceGroupName name of the resource group where the load balancer was created (see application name and region/location)
+   * @param loadBalancerName the name of the load balancer in Azure
+   * @return the dns name of the given load balancer
+   */
+  String getDnsNameForLoadBalancer(AzureCredentials creds, String resourceGroupName, String loadBalancerName) {
+    def loadBalancer = this.getNetworkResourceProviderClient(creds).getLoadBalancersOperations().get(resourceGroupName, loadBalancerName).getLoadBalancer()
+    if (loadBalancer.frontendIpConfigurations.size() != 1) {
+      throw new Exception("Unexpected number of public IP addresses associated with the load balancer (should be only one)!")
+    }
+
+    def publicIpResource = loadBalancer.frontendIpConfigurations.first().getPublicIpAddress().id
+    def publicIp = this.getNetworkResourceProviderClient(creds).getPublicIpAddressesOperations().get(resourceGroupName, AzureUtilities.getNameFromResourceId(publicIpResource)).publicIpAddress
+
+    publicIp.dnsSettings.fqdn
+  }
+
+  /**
    * get the NetworkResourceProviderClient which will be used for all interaction related to network resources in Azure
    * @param creds the credentials to use when communicating to the Azure subscription(s)
    * @return an instance of the Azure NetworkResourceProviderClient
@@ -208,4 +239,5 @@ class AzureNetworkClient extends AzureBaseClient {
   private static LoadBalancer findLoadBalancer(Collection<LoadBalancer> loadBalancers, String loadBalancerName) {
     loadBalancers.find { it.name == loadBalancerName }
   }
+
 }
