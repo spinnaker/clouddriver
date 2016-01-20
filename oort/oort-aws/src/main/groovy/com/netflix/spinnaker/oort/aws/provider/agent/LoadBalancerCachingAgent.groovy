@@ -16,7 +16,9 @@
 
 package com.netflix.spinnaker.oort.aws.provider.agent
 
+import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancerAttributesRequest
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersRequest
+import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerAttributes
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerNotFoundException
 import com.fasterxml.jackson.annotation.JsonCreator
@@ -161,18 +163,32 @@ class LoadBalancerCachingAgent implements CachingAgent, OnDemandAgent, AccountAw
       return null
     }
 
+    String name = data.loadBalancerName
+
     List<LoadBalancerDescription> loadBalancers = metricsSupport.readData {
       def loadBalancing = amazonClientProvider.getAmazonElasticLoadBalancing(account, region, true)
       try {
         return loadBalancing.describeLoadBalancers(
-          new DescribeLoadBalancersRequest().withLoadBalancerNames(data.loadBalancerName as String)
+          new DescribeLoadBalancersRequest().withLoadBalancerNames(name)
         ).loadBalancerDescriptions
       } catch (LoadBalancerNotFoundException ignored) {
         return []
       }
     }
 
-    def cacheResult = metricsSupport.transformData { buildCacheResult(loadBalancers, [:], System.currentTimeMillis(), []) }
+    LoadBalancerAttributes attributes = metricsSupport.readData {
+      def loadBalancing = amazonClientProvider.getAmazonElasticLoadBalancing(account, region, true)
+      try {
+        return loadBalancing.describeLoadBalancerAttributes(
+            new DescribeLoadBalancerAttributesRequest().withLoadBalancerName(name)
+        ).loadBalancerAttributes
+      } catch (LoadBalancerNotFoundException ignored) {
+        return new LoadBalancerAttributes()
+      }
+    }
+
+    def cacheResult = metricsSupport.transformData {
+      buildCacheResult(loadBalancers, [name: attributes], [:], System.currentTimeMillis(), []) }
     metricsSupport.onDemandStore {
       def cacheData = new DefaultCacheData(
         Keys.getLoadBalancerKey(data.loadBalancerName as String, account.name, region, loadBalancers ? loadBalancers[0].getVPCId() : null),
@@ -223,6 +239,16 @@ class LoadBalancerCachingAgent implements CachingAgent, OnDemandAgent, AccountAw
       }
     }
 
+    Map attributes = [:]
+    allLoadBalancers.each {
+      try {
+        attributes[it.loadBalancerName] = loadBalancing.describeLoadBalancerAttributes(
+            new DescribeLoadBalancerAttributesRequest()
+            .withLoadBalancerName(it.loadBalancerName)
+        ).loadBalancerAttributes
+      } catch (LoadBalancerNotFoundException ignored) {}
+    }
+
     if (!start) {
       if (account.eddaEnabled) {
         log.warn("${agentType} did not receive lastModified value in response metadata")
@@ -240,10 +266,14 @@ class LoadBalancerCachingAgent implements CachingAgent, OnDemandAgent, AccountAw
       }
     }
 
-    buildCacheResult(allLoadBalancers, usableOnDemandCacheDatas.collectEntries { [it.id, it] }, start, evictableOnDemandCacheDatas)
+    buildCacheResult(allLoadBalancers, attributes, usableOnDemandCacheDatas.collectEntries { [it.id, it] }, start, evictableOnDemandCacheDatas)
   }
 
-  private CacheResult buildCacheResult(Collection<LoadBalancerDescription> allLoadBalancers, Map<String, CacheData> onDemandCacheDataByLb, long start, Collection<CacheData> evictableOnDemandCacheDatas) {
+  private CacheResult buildCacheResult(Collection<LoadBalancerDescription> allLoadBalancers,
+                                       Map<String, LoadBalancerAttributes> allAttributes,
+                                       Map<String, CacheData> onDemandCacheDataByLb,
+                                       long start,
+                                       Collection<CacheData> evictableOnDemandCacheDatas) {
 
     Map<String, CacheData> instances = cache()
     Map<String, CacheData> loadBalancers = cache()
@@ -259,9 +289,11 @@ class LoadBalancerCachingAgent implements CachingAgent, OnDemandAgent, AccountAw
       } else {
         Collection<String> instanceIds = lb.instances.collect { Keys.getInstanceKey(it.instanceId, account.name, region) }
         Map<String, Object> lbAttributes = objectMapper.convertValue(lb, ATTRIBUTES)
+        Map<String, Object> otherAttributes = objectMapper.convertValue(allAttributes[lb.loadBalancerName] ?: [:], ATTRIBUTES)
         String loadBalancerId = Keys.getLoadBalancerKey(lb.loadBalancerName, account.name, region, lb.getVPCId())
         loadBalancers[loadBalancerId].with {
           attributes.putAll(lbAttributes)
+          attributes.putAll(otherAttributes)
           relationships[INSTANCES.ns].addAll(instanceIds)
         }
         for (String instanceId : instanceIds) {
