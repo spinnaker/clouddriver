@@ -87,17 +87,6 @@ ospackage {
   into "/opt/${project.applicationName}"
   from ("${project.buildDir}/install/${project.applicationName}")
 
-// installer scripts
-  postInstall = file('pkg_scripts/postInstall.sh')
-  postUninstall = file('pkg_scripts/postUninstall.sh')
-
-  from(file('etc/init/clouddriver.conf')) {
-    into('/etc/init')
-    user = 'root'
-    permissionGroup = 'root'
-    fileType = CONFIG | NOREPLACE
-  }
-
   from(file('etc/logrotate.d/clouddriver')) {
     into('/etc/logrotate.d')
     user = 'root'
@@ -108,4 +97,27 @@ ospackage {
 
 buildDeb {
   dependsOn installDist
+// installer scripts
+  postInstall = file('pkg_scripts/deb/postInstall.sh')
+  postUninstall = file('pkg_scripts/deb/postUninstall.sh')
+  from(file('etc/init/clouddriver.conf')) {
+    into('/etc/init')
+    user = 'root'
+    permissionGroup = 'root'
+    fileType = CONFIG | NOREPLACE
+  }
+}
+
+buildRpm {
+  dependsOn installDist
+// installer scripts
+  postInstall = file('pkg_scripts/rpm/postInstall.sh')
+  postUninstall = file('pkg_scripts/rpm/postUninstall.sh')
+  from(file('etc/init.d/clouddriver')) {
+    into('/etc/init.d')
+    user = 'root'
+    permissionGroup = 'root'
+    fileType = CONFIG | NOREPLACE
+  }
+  os LINUX
 }
