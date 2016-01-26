@@ -9,7 +9,6 @@
 . /etc/init.d/functions
 
 daemon=clouddriver
-# ** edit the line below - this is the command to start your service **
 prog="/opt/clouddriver/bin/clouddriver"
 lockfile=/var/lock/subsys/$daemon
 PID_FILE="/var/run/${daemon}.pid"
@@ -18,9 +17,9 @@ PID_FILE="/var/run/${daemon}.pid"
 start() {
     #Make some checks for requirements before continuing
 
-    # Start our daemon daemon
+    # Start our daemon
     echo -n $"Starting $daemon ($prog): "
-    MODE=production nohup $prog < /dev/null > /var/log/spinnaker/${daemon}/${daemon}.log 2>&1 &
+    nohup $prog < /dev/null > /var/log/spinnaker/${daemon}/${daemon}.log 2>&1 &
     echo $! > "$PID_FILE"
     RETVAL=$?
     echo
