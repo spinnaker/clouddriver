@@ -89,7 +89,7 @@ buildscript {
 }
 
 ospackage {
-  requires(‘daemontools’)
+  requires('daemontools')
   packageName = "spinnaker-" + project.applicationName
   version = toVers(project.version.toString())
   release '4'
