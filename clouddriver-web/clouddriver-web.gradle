@@ -84,6 +84,7 @@ ospackage {
   packageName = "spinnaker-" + project.applicationName
   version = toVers(project.version.toString())
   release '4'
+  os = LINUX
   into "/opt/${project.applicationName}"
   from ("${project.buildDir}/install/${project.applicationName}")
 
