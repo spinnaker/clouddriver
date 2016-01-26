@@ -89,12 +89,15 @@ buildscript {
 }
 
 ospackage {
-  requires('daemontools')
   packageName = "spinnaker-" + project.applicationName
   version = toVers(project.version.toString())
   release '4'
   into "/opt/${project.applicationName}"
   from ("${project.buildDir}/install/${project.applicationName}")
+
+// installer scripts
+  postInstall = file('pkg_scripts/postInstall.sh')
+  postUninstall = file('pkg_scripts/postUninstall.sh')
 
   from(file('etc/logrotate.d/clouddriver')) {
     into('/etc/logrotate.d')
@@ -104,6 +107,7 @@ ospackage {
   }
 }
 
+
 daemon {
   daemonName = "clouddriver"
   command = "/opt/clouddriver/bin/clouddriver 2>&1 > /var/log/spinnaker/clouddriver/clouddriver.log &"
@@ -112,10 +116,32 @@ daemon {
 }
 
 buildDeb {
+  requires('daemontools') //should work for ubuntu
   dependsOn installDist
+
+/* commenting out for now, trying to make it work with daemontools
+  from(file('etc/init/clouddriver.conf')) {
+    into('/etc/init')
+    user = 'root'
+    permissionGroup = 'root'
+    fileType = CONFIG | NOREPLACE
+  }
+*/
 }
 
 buildRpm {
   dependsOn installDist
+
+/* commenting out for now, trying to make it work with daemontools
+  postInstall 'chkconfig --add clouddriver'
+  postInstall 'chkconfig --level 2345 clouddriver on'
+
+  from(file('etc/init.d/clouddriver')) {
+    into('/etc/init.d')
+    user = 'root'
+    permissionGroup = 'root'
+    fileType = CONFIG | NOREPLACE
+  }
+*/
   os LINUX
 }
