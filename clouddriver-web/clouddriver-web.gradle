@@ -1,6 +1,5 @@
 apply plugin: 'spring-boot'
 apply plugin: 'nebula.ospackage'
-apply plugin: 'nebula.ospackage-daemon'
 
 ext {
   springConfigLocation = System.getProperty('spring.config.location', "${System.getProperty('user.home')}/.spinnaker/")
@@ -81,12 +80,6 @@ String toVers(String v) {
   return v
 }
 
-buildscript {
-  repositories { jcenter() }
-  dependencies {
-    classpath 'com.netflix.nebula:nebula-ospackage-plugin:3.0.0'
-  }
-}
 
 ospackage {
   packageName = "spinnaker-" + project.applicationName
@@ -99,6 +92,13 @@ ospackage {
   postInstall = file('pkg_scripts/postInstall.sh')
   postUninstall = file('pkg_scripts/postUninstall.sh')
 
+  from(file('etc/init/clouddriver.conf')) {
+    into('/etc/init')
+    user = 'root'
+    permissionGroup = 'root'
+    fileType = CONFIG | NOREPLACE
+  }
+
   from(file('etc/logrotate.d/clouddriver')) {
     into('/etc/logrotate.d')
     user = 'root'
@@ -108,40 +108,11 @@ ospackage {
 }
 
 
-daemon {
-  daemonName = "clouddriver"
-  command = "/opt/clouddriver/bin/clouddriver 2>&1 > /var/log/spinnaker/clouddriver/clouddriver.log &"
-  user = 'root'
-  runLevels = [2,3,4,5]
-}
-
 buildDeb {
-  requires('daemontools') //should work for ubuntu
   dependsOn installDist
-
-/* commenting out for now, trying to make it work with daemontools
-  from(file('etc/init/clouddriver.conf')) {
-    into('/etc/init')
-    user = 'root'
-    permissionGroup = 'root'
-    fileType = CONFIG | NOREPLACE
-  }
-*/
 }
 
 buildRpm {
   dependsOn installDist
-
-/* commenting out for now, trying to make it work with daemontools
-  postInstall 'chkconfig --add clouddriver'
-  postInstall 'chkconfig --level 2345 clouddriver on'
-
-  from(file('etc/init.d/clouddriver')) {
-    into('/etc/init.d')
-    user = 'root'
-    permissionGroup = 'root'
-    fileType = CONFIG | NOREPLACE
-  }
-*/
   os LINUX
 }
