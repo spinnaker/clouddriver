@@ -80,7 +80,6 @@ String toVers(String v) {
   return v
 }
 
-
 ospackage {
   packageName = "spinnaker-" + project.applicationName
   version = toVers(project.version.toString())
@@ -106,7 +105,6 @@ ospackage {
     fileType = CONFIG | NOREPLACE
   }
 }
-
 
 buildDeb {
   dependsOn installDist
