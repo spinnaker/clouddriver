@@ -109,7 +109,7 @@ class AzureLoadBalancerResourceTemplateSpec extends Specification {
     "publicIPAddressName" : "pip-azuremasm-st1-d11",
     "publicIPAddressType" : "Dynamic",
     "loadBalancerFrontEnd" : "fe-azuremasm-st1-d11",
-    "dnsNameForLBIP" : "dns-azuremasm",
+    "dnsNameForLBIP" : "dns-azuremasm-st1-d11",
     "ipConfigName" : "ipc-azuremasm-st1-d11",
     "loadBalancerID" : "[resourceID('Microsoft.Network/loadBalancers',variables('loadBalancerName'))]",
     "publicIPAddressID" : "[resourceID('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]",
