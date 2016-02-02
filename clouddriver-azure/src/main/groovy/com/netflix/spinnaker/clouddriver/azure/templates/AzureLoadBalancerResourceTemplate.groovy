@@ -19,12 +19,12 @@ package com.netflix.spinnaker.clouddriver.azure.templates
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.UpsertAzureLoadBalancerDescription
-import org.codehaus.jackson.map.ObjectMapper
-import org.codehaus.jackson.map.SerializationConfig
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
 
 class AzureLoadBalancerResourceTemplate {
 
-  static ObjectMapper mapper = new ObjectMapper().configure(SerializationConfig.Feature.INDENT_OUTPUT, true)
+  static ObjectMapper mapper = new ObjectMapper().configure(SerializationFeature.INDENT_OUTPUT, true)
 
   static String getTemplate(UpsertAzureLoadBalancerDescription description) {
     LoadBalancerTemplate template = new LoadBalancerTemplate(description)
@@ -86,7 +86,6 @@ class AzureLoadBalancerResourceTemplate {
   }
 
   static class LoadBalancer extends DependingResource{
-    Map<String, String> tags
     LoadBalancerProperties properties
 
     LoadBalancer(UpsertAzureLoadBalancerDescription description) {

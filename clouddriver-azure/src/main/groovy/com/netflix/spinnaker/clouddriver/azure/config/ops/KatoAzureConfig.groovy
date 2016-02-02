@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.azure.config.ops
 
-import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import groovy.util.logging.Slf4j
 

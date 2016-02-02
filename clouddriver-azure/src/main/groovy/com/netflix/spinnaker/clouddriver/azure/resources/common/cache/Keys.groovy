@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.azure.common
+package com.netflix.spinnaker.clouddriver.azure.resources.common.cache
 
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.azure.AzureCloudProvider
@@ -23,7 +23,10 @@ class Keys {
   static enum Namespace {
     SECURITY_GROUPS,
     SUBNETS,
-    NETWORKS
+    NETWORKS,
+    LOAD_BALANCERS,
+    APPLICATIONS,
+    CLUSTERS
 
     final String ns
 
@@ -62,6 +65,13 @@ class Keys {
       case Namespace.SUBNETS.ns:
         result << [id: parts[2], account: parts[3], region: parts[4]]
         break
+      case Namespace.LOAD_BALANCERS.ns:
+        def names = Names.parseName(parts[2])
+        result << [application: names.app, name: parts[2], id: parts[3], cluster: parts[4], appname: parts[5], region: parts[6], account: parts[7]]
+        break
+      case Namespace.APPLICATIONS.ns:
+        result << [application: parts[2].toLowerCase()]
+        break
       default:
         return null
         break
@@ -90,5 +100,20 @@ class Keys {
                               String region,
                               String account) {
     "$azureCloudProvider.id:${Namespace.NETWORKS}:${networkId}:${account}:${region}"
+  }
+
+  static String getLoadBalancerKey(AzureCloudProvider azureCloudProvider,
+                                   String loadBalancerName,
+                                   String loadBalancerId,
+                                   String application,
+                                   String cluster,
+                                   String region,
+                                   String account) {
+    "$azureCloudProvider.id:${Namespace.LOAD_BALANCERS}:${loadBalancerName}:${loadBalancerId}:${cluster}:${application}:${region}:${account}"
+  }
+
+  static String getApplicationKey(AzureCloudProvider azureCloudProvider,
+                                  String application ) {
+    "$azureCloudProvider.id:${Namespace.APPLICATIONS}:${application.toLowerCase()}"
   }
 }

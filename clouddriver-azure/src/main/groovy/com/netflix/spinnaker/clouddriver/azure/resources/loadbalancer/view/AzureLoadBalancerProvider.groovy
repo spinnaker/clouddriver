@@ -16,7 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.view
 
-import com.netflix.spinnaker.clouddriver.azure.common.AzureResourceRetriever
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spinnaker.cats.cache.Cache
+import com.netflix.spinnaker.cats.cache.CacheData
+import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
+import com.netflix.spinnaker.clouddriver.azure.AzureCloudProvider
+import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancer
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
@@ -26,8 +31,16 @@ import org.springframework.stereotype.Component
 @Component
 class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalancer> {
 
+  private final AzureCloudProvider azureCloudProvider
+  private final Cache cacheView
+  final ObjectMapper objectMapper
+
   @Autowired
-  AzureResourceRetriever azureResourceRetriever
+  AzureLoadBalancerProvider(AzureCloudProvider azureCloudProvider, Cache cacheView, ObjectMapper objectMapper) {
+    this.azureCloudProvider = azureCloudProvider
+    this.cacheView = cacheView
+    this.objectMapper = objectMapper
+  }
 
   /**
    * Retrieves all load balancers, keyed on load balancer name
@@ -36,7 +49,12 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
    */
   @Override
   Map<String, Set<AzureLoadBalancer>> getLoadBalancers() {
-    return null;
+    Map<String, Set<AzureLoadBalancer>> partitionedLb = [:].withDefault { new HashSet<AzureLoadBalancer>() }
+    getAllMatchingKeyPattern(Keys.getLoadBalancerKey(azureCloudProvider, '*', '*', '*', '*', '*', '*')).each {
+      lb -> partitionedLb[lb.account].add(lb)
+    }
+
+    partitionedLb
   }
 
   /**
@@ -47,7 +65,7 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
    */
   @Override
   Set<AzureLoadBalancer> getLoadBalancers(String account) {
-    [] as Set<AzureLoadBalancer>
+    getAllMatchingKeyPattern(Keys.getLoadBalancerKey(azureCloudProvider, '*', '*', '*', '*', '*', account))
   }
 
   /**
@@ -59,7 +77,7 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
    */
   @Override
   Set<AzureLoadBalancer> getLoadBalancers(String account, String cluster) {
-    [] as Set<AzureLoadBalancer>
+    getAllMatchingKeyPattern(Keys.getLoadBalancerKey(azureCloudProvider, '*', '*', '*', cluster, '*', account))
   }
 
   /**
@@ -73,7 +91,9 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
    */
   @Override
   Set<AzureLoadBalancer> getLoadBalancers(String account, String cluster, String type) {
-    [] as Set<AzureLoadBalancer>
+    def azureLoadBalancers = getAllMatchingKeyPattern(Keys.getLoadBalancerKey(azureCloudProvider, '*', '*', cluster, '*', '*', account))
+
+    azureLoadBalancers
   }
 
   /**
@@ -88,8 +108,7 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
    */
   @Override
   Set<AzureLoadBalancer> getLoadBalancer(String account, String cluster, String type, String loadBalancerName) {
-    def loadBalancers = [] as Set<AzureLoadBalancer>
-    loadBalancers
+    getAllMatchingKeyPattern(Keys.getLoadBalancerKey(azureCloudProvider, loadBalancerName, '*', '*', cluster, '*', account))
   }
 
   /**
@@ -104,7 +123,7 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
    */
   @Override
   AzureLoadBalancer getLoadBalancer(String account, String cluster, String type, String loadBalancerName, String region) {
-    null
+    getAllMatchingKeyPattern(Keys.getLoadBalancerKey(azureCloudProvider, loadBalancerName, '*', '*', cluster, region, account)).first()
   }
 
   /**
@@ -118,17 +137,40 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
    */
   @Override
   Set<AzureLoadBalancer> getApplicationLoadBalancers(String application) {
-    List<AzureLoadBalancer> applicationLoadBalancers = new ArrayList<AzureLoadBalancer>()
+    getAllMatchingKeyPattern(Keys.getLoadBalancerKey(azureCloudProvider, '*', '*', application, '*', '*', '*'))
+  }
 
-    azureResourceRetriever.applicationLoadBalancerMap.each() { account, appMap ->
-      if (appMap.containsKey(application)) {
-        for (AzureLoadBalancerDescription lb : appMap[application]) {
-          def azureLB = new AzureLoadBalancer(account: account, name: lb.loadBalancerName, region: lb.region)
-          applicationLoadBalancers.add(azureLB)
-        }
-      }
-    }
-    applicationLoadBalancers
+  Set<AzureLoadBalancer> getAllMatchingKeyPattern(String pattern) {
+    loadResults(cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns, pattern))
+  }
+
+  Set<AzureLoadBalancer> loadResults(Collection<String> identifiers) {
+    def transform = this.&fromCacheData
+    def data = cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none())
+    def transformed = data.collect(transform)
+
+    return transformed
+  }
+
+  AzureLoadBalancer fromCacheData(CacheData cacheData) {
+    AzureLoadBalancerDescription loadBalancerDescription = objectMapper.convertValue(cacheData.attributes['loadbalancer'], AzureLoadBalancerDescription)
+    def parts = Keys.parse(azureCloudProvider, cacheData.id)
+
+    new AzureLoadBalancer(
+      account: parts.account?: "none",
+      name: loadBalancerDescription.loadBalancerName,
+      region: loadBalancerDescription.region,
+      vnet: loadBalancerDescription.vnet?: "none"
+    )
+  }
+
+  AzureLoadBalancerDescription getLoadBalancerDescription(String account, String appName, String region, String loadBalancerName) {
+    def pattern = Keys.getLoadBalancerKey(azureCloudProvider, loadBalancerName, '*', appName, '*', region, account)
+    def identifiers = cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns, pattern)
+    def data = cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none())
+    CacheData cacheData = data? data.first() : null
+
+    cacheData? objectMapper.convertValue(cacheData.attributes['loadbalancer'], AzureLoadBalancerDescription) : null
   }
 
 }

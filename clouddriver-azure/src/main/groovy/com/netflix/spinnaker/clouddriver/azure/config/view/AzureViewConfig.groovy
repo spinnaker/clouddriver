@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.azure.config.view
 
 
-import com.netflix.spinnaker.clouddriver.azure.common.AzureResourceRetriever
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
@@ -28,9 +27,12 @@ import org.springframework.context.annotation.Configuration
 @ComponentScan(["com.netflix.spinnaker.clouddriver.azure"])
 class AzureViewConfig {
 
-  @Bean
-  AzureResourceRetriever azureResourceRetriever() {
-    new AzureResourceRetriever()
-  }
+// Add here any global object that needs to be constructed first
+//  was:
+//
+//  @Bean
+//  AzureResourceRetriever azureResourceRetriever() {
+//    new AzureResourceRetriever()
+//  }
 
 }

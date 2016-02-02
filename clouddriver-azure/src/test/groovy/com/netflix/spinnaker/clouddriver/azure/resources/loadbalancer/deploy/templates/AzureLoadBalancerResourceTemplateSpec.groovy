@@ -120,6 +120,7 @@ class AzureLoadBalancerResourceTemplateSpec extends Specification {
     "name" : "[variables('publicIPAddressName')]",
     "type" : "Microsoft.Network/publicIPAddresses",
     "location" : "[parameters('location')]",
+    "tags" : null,
     "properties" : {
       "publicIPAllocationMethod" : "[variables('publicIPAddressType')]",
       "dnsSettings" : {
@@ -131,12 +132,12 @@ class AzureLoadBalancerResourceTemplateSpec extends Specification {
     "name" : "[variables('loadBalancerName')]",
     "type" : "Microsoft.Network/loadBalancers",
     "location" : "[parameters('location')]",
-    "dependsOn" : [ "[concat('Microsoft.Network/publicIPAddresses/',variables('publicIPAddressName'))]" ],
     "tags" : {
       "appName" : "azureMASM",
       "stack" : "st1",
       "detail" : "d11"
     },
+    "dependsOn" : [ "[concat('Microsoft.Network/publicIPAddresses/',variables('publicIPAddressName'))]" ],
     "properties" : {
       "frontEndIPConfigurations" : [ {
         "name" : "[variables('loadBalancerFrontEnd')]",
