@@ -83,12 +83,12 @@ class AzureSecurityGroupProvider implements SecurityGroupProvider<AzureSecurityG
   }
 
   Set<AzureSecurityGroup> getAllMatchingKeyPattern(String pattern, boolean includeRules) {
-    loadResults(includeRules, cacheView.filterIdentifiers(Keys.Namespace.AZURE_SECURITY_GROUPS.ns, pattern))
+    loadResults(includeRules, cacheView.filterIdentifiers(Keys.Namespace.SECURITY_GROUPS.ns, pattern))
   }
 
   Set<AzureSecurityGroup> loadResults(boolean includeRules, Collection<String> identifiers) {
     def transform = this.&fromCacheData.curry(includeRules)
-    def data = cacheView.getAll(Keys.Namespace.AZURE_SECURITY_GROUPS.ns, identifiers, RelationshipCacheFilter.none())
+    def data = cacheView.getAll(Keys.Namespace.SECURITY_GROUPS.ns, identifiers, RelationshipCacheFilter.none())
     def transformed = data.collect(transform)
 
     return transformed

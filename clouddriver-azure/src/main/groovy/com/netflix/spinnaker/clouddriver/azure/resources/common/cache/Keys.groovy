@@ -21,7 +21,7 @@ import com.netflix.spinnaker.clouddriver.azure.AzureCloudProvider
 
 class Keys {
   static enum Namespace {
-    AZURE_SECURITY_GROUPS,
+    SECURITY_GROUPS,
     AZURE_SUBNETS,
     AZURE_NETWORKS,
     AZURE_LOAD_BALANCERS,
@@ -57,7 +57,7 @@ class Keys {
     }
 
     switch (result.type) {
-      case Namespace.AZURE_SECURITY_GROUPS.ns:
+      case Namespace.SECURITY_GROUPS.ns:
         def names = Names.parseName(parts[2])
         result << [application: names.app, name: parts[2], id: parts[3], region: parts[4], account: parts[5]]
         break
@@ -87,7 +87,7 @@ class Keys {
                                     String securityGroupId,
                                     String region,
                                     String account) {
-    "$azureCloudProvider.id:${Namespace.AZURE_SECURITY_GROUPS}:${securityGroupName}:${securityGroupId}:${region}:${account}"
+    "$azureCloudProvider.id:${Namespace.SECURITY_GROUPS}:${securityGroupName}:${securityGroupId}:${region}:${account}"
   }
 
   static String getSubnetKey(AzureCloudProvider azureCloudProvider,
