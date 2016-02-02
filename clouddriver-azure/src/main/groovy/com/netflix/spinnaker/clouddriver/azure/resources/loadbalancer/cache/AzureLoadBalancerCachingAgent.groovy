@@ -45,7 +45,7 @@ class AzureLoadBalancerCachingAgent implements CachingAgent, AccountAware {
   final ObjectMapper objectMapper
 
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
-    AUTHORITATIVE.forType(Keys.Namespace.LOAD_BALANCERS.ns)
+    AUTHORITATIVE.forType(Keys.Namespace.AZURE_LOAD_BALANCERS.ns)
   ] as Set)
 
   AzureLoadBalancerCachingAgent(AzureCloudProvider azureCloudProvider,
@@ -100,6 +100,6 @@ class AzureLoadBalancerCachingAgent implements CachingAgent, AccountAware {
     }
 
     log.info("Caching ${data.size()} items in ${agentType}")
-    new DefaultCacheResult([(Keys.Namespace.LOAD_BALANCERS.ns): data])
+    new DefaultCacheResult([(Keys.Namespace.AZURE_LOAD_BALANCERS.ns): data])
   }
 }

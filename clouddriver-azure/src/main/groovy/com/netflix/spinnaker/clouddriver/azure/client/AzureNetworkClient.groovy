@@ -25,7 +25,6 @@ import com.microsoft.azure.management.network.models.NetworkSecurityGroup
 import com.microsoft.azure.management.network.models.PublicIpAddress
 import com.microsoft.azure.management.network.models.Subnet
 import com.microsoft.azure.management.network.models.VirtualNetwork
-import com.microsoft.azure.utility.NetworkHelper
 import com.microsoft.windowsazure.core.OperationResponse
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancerDescription

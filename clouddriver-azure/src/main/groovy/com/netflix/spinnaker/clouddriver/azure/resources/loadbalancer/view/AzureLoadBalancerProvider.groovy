@@ -141,12 +141,12 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
   }
 
   Set<AzureLoadBalancer> getAllMatchingKeyPattern(String pattern) {
-    loadResults(cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns, pattern))
+    loadResults(cacheView.filterIdentifiers(Keys.Namespace.AZURE_LOAD_BALANCERS.ns, pattern))
   }
 
   Set<AzureLoadBalancer> loadResults(Collection<String> identifiers) {
     def transform = this.&fromCacheData
-    def data = cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none())
+    def data = cacheView.getAll(Keys.Namespace.AZURE_LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none())
     def transformed = data.collect(transform)
 
     return transformed
@@ -166,8 +166,8 @@ class AzureLoadBalancerProvider implements LoadBalancerProvider<AzureLoadBalance
 
   AzureLoadBalancerDescription getLoadBalancerDescription(String account, String appName, String region, String loadBalancerName) {
     def pattern = Keys.getLoadBalancerKey(azureCloudProvider, loadBalancerName, '*', appName, '*', region, account)
-    def identifiers = cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns, pattern)
-    def data = cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none())
+    def identifiers = cacheView.filterIdentifiers(Keys.Namespace.AZURE_LOAD_BALANCERS.ns, pattern)
+    def data = cacheView.getAll(Keys.Namespace.AZURE_LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none())
     CacheData cacheData = data? data.first() : null
 
     cacheData? objectMapper.convertValue(cacheData.attributes['loadbalancer'], AzureLoadBalancerDescription) : null

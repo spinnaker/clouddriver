@@ -45,7 +45,7 @@ class AzureSubnetCachingAgent implements CachingAgent, AccountAware {
   final ObjectMapper objectMapper
 
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
-    AUTHORITATIVE.forType(Keys.Namespace.SUBNETS.ns)
+    AUTHORITATIVE.forType(Keys.Namespace.AZURE_SUBNETS.ns)
   ] as Set)
 
   AzureSubnetCachingAgent(AzureCloudProvider azureCloudProvider,
@@ -94,6 +94,6 @@ class AzureSubnetCachingAgent implements CachingAgent, AccountAware {
     }
 
     log.info("Caching ${data.size()} items in ${agentType}")
-    new DefaultCacheResult([(Keys.Namespace.SUBNETS.ns): data])
+    new DefaultCacheResult([(Keys.Namespace.AZURE_SUBNETS.ns): data])
   }
 }

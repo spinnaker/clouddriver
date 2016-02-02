@@ -49,7 +49,7 @@ class AzureNetworkProvider implements NetworkProvider<AzureNetwork> {
 
   @Override
   Set<AzureNetwork> getAll() {
-    cacheView.getAll(Keys.Namespace.NETWORKS.ns, RelationshipCacheFilter.none()).collect(this.&fromCacheData)
+    cacheView.getAll(Keys.Namespace.AZURE_NETWORKS.ns, RelationshipCacheFilter.none()).collect(this.&fromCacheData)
   }
 
   AzureNetwork fromCacheData(CacheData cacheData) {

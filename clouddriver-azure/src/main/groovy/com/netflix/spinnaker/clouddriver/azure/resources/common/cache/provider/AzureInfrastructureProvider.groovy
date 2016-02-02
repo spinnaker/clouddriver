@@ -21,9 +21,11 @@ import com.netflix.spinnaker.cats.agent.AgentSchedulerAware
 import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys
 import com.netflix.spinnaker.clouddriver.cache.SearchableProvider
 import com.netflix.spinnaker.clouddriver.azure.AzureCloudProvider
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 
-import static com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys.Namespace.SECURITY_GROUPS
+import static com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys.Namespace.AZURE_SECURITY_GROUPS
 
+@ConditionalOnProperty('azure.enabled')
 class AzureInfrastructureProvider extends AgentSchedulerAware implements SearchableProvider {
   public static final String PROVIDER_NAME = AzureInfrastructureProvider.name
 
@@ -45,10 +47,10 @@ class AzureInfrastructureProvider extends AgentSchedulerAware implements Searcha
     agents
   }
 
-  final Set<String> defaultCaches = [SECURITY_GROUPS.ns].asImmutable()
+  final Set<String> defaultCaches = [AZURE_SECURITY_GROUPS.ns].asImmutable()
 
   final Map<String, String> urlMappingTemplates = [
-    (SECURITY_GROUPS.ns): '/securityGroups/$account/$provider/$name?region=$region'
+    (AZURE_SECURITY_GROUPS.ns): '/securityGroups/$account/$provider/$name?region=$region'
   ]
 
   final Map<String, SearchableProvider.SearchResultHydrator> searchResultHydrators = Collections.emptyMap()

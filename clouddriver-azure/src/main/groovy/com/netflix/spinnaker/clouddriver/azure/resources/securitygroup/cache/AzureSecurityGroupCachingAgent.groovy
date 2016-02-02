@@ -45,7 +45,7 @@ class AzureSecurityGroupCachingAgent implements CachingAgent, AccountAware {
   final ObjectMapper objectMapper
 
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
-    AUTHORITATIVE.forType(Keys.Namespace.SECURITY_GROUPS.ns)
+    AUTHORITATIVE.forType(Keys.Namespace.AZURE_SECURITY_GROUPS.ns)
   ] as Set)
 
   AzureSecurityGroupCachingAgent(AzureCloudProvider azureCloudProvider,
@@ -94,6 +94,6 @@ class AzureSecurityGroupCachingAgent implements CachingAgent, AccountAware {
     }
 
     log.info("Caching ${data.size()} items in ${agentType}")
-    new DefaultCacheResult([(Keys.Namespace.SECURITY_GROUPS.ns): data])
+    new DefaultCacheResult([(Keys.Namespace.AZURE_SECURITY_GROUPS.ns): data])
   }
 }

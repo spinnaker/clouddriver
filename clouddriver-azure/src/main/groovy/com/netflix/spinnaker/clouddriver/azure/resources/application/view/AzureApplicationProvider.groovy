@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.clouddriver.azure.resources.application.view
 
-import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spinnaker.cats.cache.Cache
@@ -29,9 +28,9 @@ class AzureApplicationProvider implements ApplicationProvider {
 
   @Override
   Set<Application> getApplications(boolean expand) {
-    def relationships = expand ? RelationshipCacheFilter.include(Keys.Namespace.CLUSTERS.ns) : RelationshipCacheFilter.none()
+    def relationships = expand ? RelationshipCacheFilter.include(Keys.Namespace.AZURE_CLUSTERS.ns) : RelationshipCacheFilter.none()
     Collection<CacheData> applications = cacheView.getAll(
-      Keys.Namespace.APPLICATIONS.ns, cacheView.filterIdentifiers(Keys.Namespace.APPLICATIONS.ns, "${azureCloudProvider.id}:*"), relationships
+      Keys.Namespace.AZURE_APPLICATIONS.ns, cacheView.filterIdentifiers(Keys.Namespace.AZURE_APPLICATIONS.ns, "${azureCloudProvider.id}:*"), relationships
     )
     applications.collect this.&translate
   }
@@ -41,7 +40,7 @@ class AzureApplicationProvider implements ApplicationProvider {
     Map<String, String> attributes = [:]
     Map<String, Set<String>> clusterNames = [:].withDefault { new HashSet<String>() }
     // TODO:
-    // translate(cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(azureCloudProvider, name)))
+    // translate(cacheView.get(Keys.Namespace.AZURE_APPLICATIONS.ns, Keys.getApplicationKey(azureCloudProvider, name)))
 
     new AzureApplication(name, attributes, clusterNames)
   }
@@ -54,7 +53,7 @@ class AzureApplicationProvider implements ApplicationProvider {
     String name = Keys.parse(cacheData.id).application
     Map<String, String> attributes = objectMapper.convertValue(cacheData.attributes, AzureApplication.ATTRIBUTES)
     Map<String, Set<String>> clusterNames = [:].withDefault { new HashSet<String>() }
-    for (String clusterId : cacheData.relationships[Keys.Namespace.CLUSTERS.ns]) {
+    for (String clusterId : cacheData.relationships[Keys.Namespace.AZURE_CLUSTERS.ns]) {
       Map<String, String> cluster = Keys.parse(clusterId)
       if (cluster.account && cluster.cluster) {
         clusterNames[cluster.account].add(cluster.cluster)

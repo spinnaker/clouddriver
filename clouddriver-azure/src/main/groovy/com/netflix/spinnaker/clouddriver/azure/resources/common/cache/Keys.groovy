@@ -21,12 +21,14 @@ import com.netflix.spinnaker.clouddriver.azure.AzureCloudProvider
 
 class Keys {
   static enum Namespace {
-    SECURITY_GROUPS,
-    SUBNETS,
-    NETWORKS,
-    LOAD_BALANCERS,
-    APPLICATIONS,
-    CLUSTERS
+    AZURE_SECURITY_GROUPS,
+    AZURE_SUBNETS,
+    AZURE_NETWORKS,
+    AZURE_LOAD_BALANCERS,
+    AZURE_APPLICATIONS,
+    AZURE_CLUSTERS,
+    AZURE_SERVER_GROUPS,
+    AZURE_INSTANCES
 
     final String ns
 
@@ -55,21 +57,21 @@ class Keys {
     }
 
     switch (result.type) {
-      case Namespace.SECURITY_GROUPS.ns:
+      case Namespace.AZURE_SECURITY_GROUPS.ns:
         def names = Names.parseName(parts[2])
         result << [application: names.app, name: parts[2], id: parts[3], region: parts[4], account: parts[5]]
         break
-      case Namespace.NETWORKS.ns:
+      case Namespace.AZURE_NETWORKS.ns:
         result << [id: parts[2], account: parts[3], region: parts[4]]
         break
-      case Namespace.SUBNETS.ns:
+      case Namespace.AZURE_SUBNETS.ns:
         result << [id: parts[2], account: parts[3], region: parts[4]]
         break
-      case Namespace.LOAD_BALANCERS.ns:
+      case Namespace.AZURE_LOAD_BALANCERS.ns:
         def names = Names.parseName(parts[2])
         result << [application: names.app, name: parts[2], id: parts[3], cluster: parts[4], appname: parts[5], region: parts[6], account: parts[7]]
         break
-      case Namespace.APPLICATIONS.ns:
+      case Namespace.AZURE_APPLICATIONS.ns:
         result << [application: parts[2].toLowerCase()]
         break
       default:
@@ -85,21 +87,21 @@ class Keys {
                                     String securityGroupId,
                                     String region,
                                     String account) {
-    "$azureCloudProvider.id:${Namespace.SECURITY_GROUPS}:${securityGroupName}:${securityGroupId}:${region}:${account}"
+    "$azureCloudProvider.id:${Namespace.AZURE_SECURITY_GROUPS}:${securityGroupName}:${securityGroupId}:${region}:${account}"
   }
 
   static String getSubnetKey(AzureCloudProvider azureCloudProvider,
                              String subnetId,
                              String region,
                              String account) {
-    "$azureCloudProvider.id:${Namespace.SUBNETS}:${subnetId}:${account}:${region}"
+    "$azureCloudProvider.id:${Namespace.AZURE_SUBNETS}:${subnetId}:${account}:${region}"
   }
 
   static String getNetworkKey(AzureCloudProvider azureCloudProvider,
                               String networkId,
                               String region,
                               String account) {
-    "$azureCloudProvider.id:${Namespace.NETWORKS}:${networkId}:${account}:${region}"
+    "$azureCloudProvider.id:${Namespace.AZURE_NETWORKS}:${networkId}:${account}:${region}"
   }
 
   static String getLoadBalancerKey(AzureCloudProvider azureCloudProvider,
@@ -109,11 +111,11 @@ class Keys {
                                    String cluster,
                                    String region,
                                    String account) {
-    "$azureCloudProvider.id:${Namespace.LOAD_BALANCERS}:${loadBalancerName}:${loadBalancerId}:${cluster}:${application}:${region}:${account}"
+    "$azureCloudProvider.id:${Namespace.AZURE_LOAD_BALANCERS}:${loadBalancerName}:${loadBalancerId}:${cluster}:${application}:${region}:${account}"
   }
 
   static String getApplicationKey(AzureCloudProvider azureCloudProvider,
                                   String application ) {
-    "$azureCloudProvider.id:${Namespace.APPLICATIONS}:${application.toLowerCase()}"
+    "$azureCloudProvider.id:${Namespace.AZURE_APPLICATIONS}:${application.toLowerCase()}"
   }
 }

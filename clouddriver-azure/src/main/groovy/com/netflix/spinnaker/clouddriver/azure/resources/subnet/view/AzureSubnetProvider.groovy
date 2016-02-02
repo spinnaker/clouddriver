@@ -48,7 +48,7 @@ class AzureSubnetProvider implements SubnetProvider<AzureSubnet> {
 
   @Override
   Set<AzureSubnet> getAll() {
-    cacheView.getAll(Keys.Namespace.SUBNETS.ns, RelationshipCacheFilter.none()).collect(this.&fromCacheData)
+    cacheView.getAll(Keys.Namespace.AZURE_SUBNETS.ns, RelationshipCacheFilter.none()).collect(this.&fromCacheData)
   }
 
   AzureSubnet fromCacheData(CacheData cacheData) {
