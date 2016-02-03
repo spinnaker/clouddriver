@@ -244,6 +244,7 @@ class UpsertAmazonLoadBalancerAtomicOperationSpec extends Specification {
 
   void "should handle VPC ELB creation"() {
       description.subnetType = "internal"
+      description.isInternal = true;
 
       when:
       operation.operate([])
