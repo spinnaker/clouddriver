@@ -17,25 +17,22 @@
 package com.netflix.spinnaker.clouddriver.azure.resources.securitygroup.model
 
 import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
-import com.netflix.spinnaker.clouddriver.azure.resources.subnet.model.AzureSubnetDescription
-import com.microsoft.azure.management.network.models.NetworkSecurityGroup
 
 class AzureSecurityGroupDescription extends AzureResourceOpsDescription {
+  String securityGroupName
   String id
   String etag
   String location
   String type
-  Map<String, String> tags
+  Map<String, String> tags = [:]
   String provisioningState
   String resourceGuid
-  List<AzureSGRule> defaultSecurityRules
-  List<AzureSGRule> securityRules
-  List<AzureSGRule> inboundRules
-  List<AzureSGRule> outboundRules
-  List<String> networkInterfaces
-  List<AzureSubnetDescription> subnets
+  List<AzureSGRule> securityRules = []
+  List<String> networkInterfaces = []
+  List<String> subnets = []
+  String subnet
 
-  class AzureSGRule {
+  static class AzureSGRule {
     String id
     String name
     String etag

@@ -36,7 +36,7 @@ class DeleteAzureLoadBalancerAtomicOperation implements AtomicOperation<Void> {
   }
 
   /**
-   * curl -X POST -H "Content-Type: application/json" -d '[ { "deleteLoadBalancer": { "cloudProvider" : "azure", "providerType" : "azure", "appName" : "azure1", "loadBalancerName" : "azure1-st1-d1", "region": "West US", "credentials": "azure-cred1" }} ]' localhost:7002/gce/ops
+   * curl -X POST -H "Content-Type: application/json" -d '[ { "deleteLoadBalancer": { "cloudProvider" : "azure", "providerType" : "azure", "appName" : "azure1", "loadBalancerName" : "azure1-st1-d1", "regions": ["westus"], "region": "westus", "credentials": "azure-cred1" }} ]' localhost:7002/ops
    */
   @Override
   Void operate(List priorOutputs) {

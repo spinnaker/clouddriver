@@ -64,7 +64,7 @@ azure:
   defaults:
 
   accounts:
-    - name: default
+    - name: azure-cred1
       clientId: ${AZURE_CLIENT_ID}
       appKey: ${AZURE_APPKEY}
       tenantId: ${AZURE_TENANT_ID}

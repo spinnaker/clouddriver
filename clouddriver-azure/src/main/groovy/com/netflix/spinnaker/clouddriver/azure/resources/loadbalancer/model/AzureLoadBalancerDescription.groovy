@@ -23,6 +23,7 @@ class AzureLoadBalancerDescription extends AzureResourceOpsDescription {
   String vnet
   String securityGroups
   String dnsName
+  String cluster
   List<AzureLoadBalancerProbe> probes = []
   List<AzureLoadBalancingRule> loadBalancingRules = []
   List<AzureLoadBalancerInboundNATRule> inboundNATRules = []
