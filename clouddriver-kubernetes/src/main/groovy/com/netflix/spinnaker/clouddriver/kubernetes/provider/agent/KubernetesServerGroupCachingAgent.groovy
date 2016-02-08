@@ -42,7 +42,7 @@ class KubernetesServerGroupCachingAgent implements CachingAgent, OnDemandAgent, 
   @Deprecated
   private static final String LEGACY_ON_DEMAND_TYPE = 'KubernetesCluster'
 
-  private static final String ON_DEMAND_TYPE = 'Cluster'
+  private static final List<String> ON_DEMAND_TYPES = ['ServerGroup', 'Cluster', 'Instance']
 
   final KubernetesCloudProvider kubernetesCloudProvider
   final String accountName
@@ -73,7 +73,7 @@ class KubernetesServerGroupCachingAgent implements CachingAgent, OnDemandAgent, 
     this.objectMapper = objectMapper
     this.namespace = namespace
     this.util = util
-    this.metricsSupport = new OnDemandMetricsSupport(registry, this, kubernetesCloudProvider.id + ":" + ON_DEMAND_TYPE)
+    this.metricsSupport = new OnDemandMetricsSupport(registry, this, "${Keys.Namespace.provider}:${ON_DEMAND_TYPES}".toString())
   }
 
   @Override
@@ -121,7 +121,6 @@ class KubernetesServerGroupCachingAgent implements CachingAgent, OnDemandAgent, 
 
     new OnDemandAgent.OnDemandResult(
       sourceAgentType: getAgentType(),
-      authoritativeTypes: [Keys.Namespace.SERVER_GROUPS.ns],
       cacheResult: result
     )
   }
@@ -138,7 +137,7 @@ class KubernetesServerGroupCachingAgent implements CachingAgent, OnDemandAgent, 
 
   @Override
   boolean handles(String type, String cloudProvider) {
-    type == ON_DEMAND_TYPE && cloudProvider == kubernetesCloudProvider.id
+    ON_DEMAND_TYPES.contains(type) && cloudProvider == kubernetesCloudProvider.id
   }
 
   List<ReplicationController> loadReplicationControllers() {
