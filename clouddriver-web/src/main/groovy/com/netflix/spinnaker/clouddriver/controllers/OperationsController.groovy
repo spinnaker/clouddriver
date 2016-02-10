@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.controllers
 
+import com.google.common.collect.ImmutableMap
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidationErrors
@@ -189,7 +190,7 @@ class OperationsController {
                                      AtomicOperationConverter converter,
                                      Map descriptionInput) {
     def descriptionClass = converter.metaClass.methods.find { it.name == "convertDescription" }.returnType
-    descriptionPreProcessors.findAll { it.supports(descriptionClass) }.each {
+    descriptionPreProcessors.findAll { it.supports(descriptionClass, ImmutableMap.copyOf(descriptionInput)) }.each {
       descriptionInput = it.process(descriptionInput)
     }
 
