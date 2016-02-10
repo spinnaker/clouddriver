@@ -220,7 +220,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
     }
 
     def cacheResult = metricsSupport.transformData {
-      buildCacheResult(onDemandData.asgs, onDemandData.scalingPolicies, onDemandData.scheduledActions, onDemandData.subnetMap, [:], [])
+      buildCacheResult(onDemandData.asgs, onDemandData.scalingPolicies, onDemandData.scheduledActions, onDemandData.subnetMap, [:], [], Long.MAX_VALUE)
     }
     def cacheResultAsJson = objectMapper.writeValueAsString(cacheResult.cacheResults)
 
@@ -426,7 +426,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
       }
     }
 
-    CacheResult result = buildCacheResult(asgs, scalingPolicies, scheduledActions, getSubnetToVpcIdMap(clients), usableOnDemandCacheDatas.collectEntries { [it.id, it] }, evictableOnDemandCacheDatas*.id)
+    CacheResult result = buildCacheResult(asgs, scalingPolicies, scheduledActions, getSubnetToVpcIdMap(clients), usableOnDemandCacheDatas.collectEntries { [it.id, it] }, evictableOnDemandCacheDatas*.id, start)
     recordDrift(start)
     def cacheResults = result.cacheResults
     log.info("Caching ${cacheResults[APPLICATIONS.ns]?.size()} applications in ${agentType}")
@@ -470,7 +470,8 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
                                        Map<String, List<Map>> scheduledActions,
                                        Map<String, String> subnetMap,
                                        Map<String, CacheData> onDemandCacheDataByAsg,
-                                       Collection<String> evictableOnDemandCacheDataIdentifiers) {
+                                       Collection<String> evictableOnDemandCacheDataIdentifiers,
+                                       Long cacheStart) {
     Map<String, CacheData> applications = cache()
     Map<String, CacheData> clusters = cache()
     Map<String, CacheData> serverGroups = cache()
@@ -480,7 +481,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
 
     for (AutoScalingGroup asg : asgs) {
       def onDemandCacheData = onDemandCacheDataByAsg ? onDemandCacheDataByAsg[Keys.getServerGroupKey(asg.autoScalingGroupName, account.name, region)] : null
-      if (onDemandCacheData) {
+      if (onDemandCacheData && onDemandCacheData.attributes.cacheTime >= cacheStart) {
         log.info("Using onDemand cache value (id: ${onDemandCacheData.id}, json: ${onDemandCacheData.attributes.cacheResults})")
 
         Map<String, List<CacheData>> cacheResults = objectMapper.readValue(onDemandCacheData.attributes.cacheResults as String, new TypeReference<Map<String, List<MutableCacheData>>>() {
