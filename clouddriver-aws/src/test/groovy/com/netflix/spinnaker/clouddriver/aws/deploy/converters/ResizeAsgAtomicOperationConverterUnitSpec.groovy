@@ -56,4 +56,29 @@ class ResizeAsgAtomicOperationConverterUnitSpec extends Specification {
     then:
     operation instanceof ResizeAsgAtomicOperation
   }
+
+  void "should convert legacy resize asg descriptions"() {
+    given:
+    def preProcessor = new ResizeAsgAtomicOperationConverter.ResizeAsgDescriptionPreProcessor()
+    def legacyDescription = [
+      regions        : ["us-east-1"],
+      serverGroupName: "s-v001",
+      asgName        : "s-v001",
+      capacity       : [
+        min    : 0,
+        max    : 0,
+        desired: 0
+      ]
+    ]
+
+    when:
+    def processedDescription = preProcessor.process(legacyDescription)
+
+    then:
+    processedDescription == [
+        asgs: [
+          [serverGroupName: "s-v001", region: "us-east-1", capacity: [min: 0, max: 0, desired: 0]]
+        ]
+    ]
+  }
 }

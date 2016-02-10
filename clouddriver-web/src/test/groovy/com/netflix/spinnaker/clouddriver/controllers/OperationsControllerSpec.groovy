@@ -70,7 +70,7 @@ class OperationsControllerSpec extends Specification {
   @Shared
   def googlePreProcessor = new AtomicOperationDescriptionPreProcessor() {
     @Override
-    boolean supports(Class descriptionClass) {
+    boolean supports(Class descriptionClass, Map description) {
       return descriptionClass == BasicGoogleDeployDescription
     }
 
@@ -83,7 +83,7 @@ class OperationsControllerSpec extends Specification {
   @Shared
   def amazonPreProcessor = new AtomicOperationDescriptionPreProcessor() {
     @Override
-    boolean supports(Class descriptionClass) {
+    boolean supports(Class descriptionClass, Map description) {
       return descriptionClass == BasicAmazonDeployDescription
     }
 

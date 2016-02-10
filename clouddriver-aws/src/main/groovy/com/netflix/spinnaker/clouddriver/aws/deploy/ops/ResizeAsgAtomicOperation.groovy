@@ -42,29 +42,24 @@ class ResizeAsgAtomicOperation implements AtomicOperation<Void> {
 
   @Override
   Void operate(List priorOutputs) {
-    String descriptor = description.asgName ?:
-        description.asgs.size() == 1 ? description.asgs[0].toString() :
-        description.asgs.collect { it.toString() }
+    String descriptor = description.asgs.collect { it.toString() }
     task.updateStatus PHASE, "Initializing Resize ASG operation for $descriptor..."
 
-    for (String region : description.regions) {
-      resizeAsg(description.asgName, region, description.capacity)
-    }
     for (asg in description.asgs) {
-      resizeAsg(asg.asgName, asg.region, asg.capacity)
+      resizeAsg(asg.serverGroupName, asg.region, asg.capacity)
     }
     task.updateStatus PHASE, "Finished Resize ASG operation for $descriptor."
     null
   }
 
-  private void resizeAsg(String asgName, String region, ResizeAsgDescription.Capacity capacity) {
-    task.updateStatus PHASE, "Beginning resize of ${asgName} in ${region} to ${capacity}."
+  private void resizeAsg(String serverGroupName, String region, ResizeAsgDescription.Capacity capacity) {
+    task.updateStatus PHASE, "Beginning resize of ${serverGroupName} in ${region} to ${capacity}."
     def autoScaling = amazonClientProvider.getAutoScaling(description.credentials, region, true)
-    def request = new UpdateAutoScalingGroupRequest().withAutoScalingGroupName(asgName)
+    def request = new UpdateAutoScalingGroupRequest().withAutoScalingGroupName(serverGroupName)
         .withMinSize(capacity.min).withMaxSize(capacity.max)
         .withDesiredCapacity(capacity.desired)
 
     autoScaling.updateAutoScalingGroup request
-    task.updateStatus PHASE, "Completed resize of ${asgName} in ${region}."
+    task.updateStatus PHASE, "Completed resize of ${serverGroupName} in ${region}."
   }
 }
