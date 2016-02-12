@@ -17,10 +17,10 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.description
 
 class ResizeAsgDescription extends AbstractAmazonCredentialsDescription {
-  List<AsgDescription> asgs = []
+  List<AsgTargetDescription> asgs = []
 
   @Deprecated
-  String asgName
+  String serverGroupName
 
   @Deprecated
   List<String> regions = []
@@ -37,14 +37,12 @@ class ResizeAsgDescription extends AbstractAmazonCredentialsDescription {
     }
   }
 
-  static class AsgDescription {
-    String region
-    String asgName
+  static class AsgTargetDescription extends AsgDescription {
     Capacity capacity
 
     @Override
     String toString() {
-      "region: $region, asgName: $asgName, capacity: $capacity"
+      "region: $region, serverGroupName: $serverGroupName, capacity: $capacity"
     }
   }
 }

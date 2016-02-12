@@ -18,10 +18,12 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.converters
 
 import com.netflix.spinnaker.clouddriver.aws.AmazonOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationDescriptionPreProcessor
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ResizeAsgDescription
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.ResizeAsgAtomicOperation
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 @Component("resizeAsgDescription")
@@ -38,4 +40,36 @@ class ResizeAsgAtomicOperationConverter extends AbstractAtomicOperationsCredenti
     converted.credentials = getCredentialsObject(input.credentials as String)
     converted
   }
+
+  /**
+   * Converts legacy resize asg descriptions to their modern equivalent.
+   *
+   * Expects to be run after {@see AsgNameToServerGroupNameDescriptionPreProcessor}.
+   */
+  @Order(0)
+  @Component
+  static class ResizeAsgDescriptionPreProcessor implements AtomicOperationDescriptionPreProcessor {
+    @Override
+    boolean supports(Class descriptionClass, Map description) {
+      return descriptionClass == ResizeAsgDescription
+    }
+
+    @Override
+    Map process(Map description) {
+      if (description.asgs) {
+        return description
+      }
+
+      description.asgs = description.regions.collect {
+        [serverGroupName: description.serverGroupName, region: it, capacity: description.capacity]
+      }
+
+      description.remove("serverGroupName")
+      description.remove("asgName")
+      description.remove("regions")
+      description.remove("capacity")
+      return description
+    }
+  }
+
 }
