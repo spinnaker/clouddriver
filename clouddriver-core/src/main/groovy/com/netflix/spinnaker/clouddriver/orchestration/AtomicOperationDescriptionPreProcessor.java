@@ -27,7 +27,7 @@ import java.util.Map;
  * Provides an extension point for manipulating an {@code AtomicOperation} context prior to execution.
  */
 public interface AtomicOperationDescriptionPreProcessor {
-  boolean supports(Class descriptionClass);
+  boolean supports(Class descriptionClass, Map description);
   Map process(Map description);
 
   default <T> T mapTo(ObjectMapper objectMapper, Map description, Class<T> clazz) throws IOException {
