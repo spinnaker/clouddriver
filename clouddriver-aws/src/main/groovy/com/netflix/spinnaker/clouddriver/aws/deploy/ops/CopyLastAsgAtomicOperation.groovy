@@ -130,6 +130,8 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
       newDescription.instanceMonitoring = description.instanceMonitoring != null ? description.instanceMonitoring : ancestorLaunchConfiguration.instanceMonitoring
       newDescription.ebsOptimized = description.ebsOptimized != null ? description.ebsOptimized : ancestorLaunchConfiguration.ebsOptimized
       newDescription.tags = description.tags ?: ancestorAsg.tags.collectEntries { [(it.getKey()): it.getValue()] }
+      newDescription.classicLinkVpcId = description.classicLinkVpcId != null ? description.classicLinkVpcId : ancestorLaunchConfiguration.classicLinkVPCId
+      newDescription.classicLinkVPCSecurityGroups = description.classicLinkVPCSecurityGroups != null ? description.classicLinkVPCSecurityGroups : ancestorLaunchConfiguration.classicLinkVPCSecurityGroups
 
       task.updateStatus BASE_PHASE, "Initiating deployment."
       def thisResult = basicAmazonDeployHandler.handle(newDescription, priorOutputs)
