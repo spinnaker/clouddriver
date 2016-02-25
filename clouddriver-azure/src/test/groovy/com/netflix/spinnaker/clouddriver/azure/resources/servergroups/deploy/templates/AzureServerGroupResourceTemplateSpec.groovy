@@ -48,6 +48,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     description.application = 'azureMASM'
     description.stack = 'st1'
     description.detail = 'd11'
+    description.clusterName = description.getClusterName()
     description.region = 'westus'
     description.user = '[anonymous]'
     description.loadBalancerName = 'azureMASM-st1-d11'
@@ -120,6 +121,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       "appName" : "azureMASM",
       "stack" : "st1",
       "detail" : "d11"
+      "cluster" : "azureMASM-st1-d11"
     },
     "copy" : {
       "name" : "storageLoop",

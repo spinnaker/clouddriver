@@ -174,7 +174,10 @@ class AzureServerGroupResourceTemplate {
       location = "[parameters('location')]"
 
       copy = new CopyOperation("storageLoop", description.getStorageAccountCount())
-      tags = ["appName":description.application, "stack":description.stack, "detail":description.detail]
+      tags = ["appName":description.application,
+              "stack":description.stack,
+              "detail":description.detail,
+              "cluster":description.getClusterName()]
       properties = new StorageAccountProperties()
     }
   }
