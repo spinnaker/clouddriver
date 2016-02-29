@@ -38,8 +38,9 @@ class AmazonClientProviderSpec extends Specification {
       getCredentials() >> new BasicAWSCredentials('foo', 'bar')
   }
 
-  @Shared NetflixAmazonCredentials credentialsWithEdda = new NetflixAmazonCredentials("test", "test", "test", "1", null, [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1e'])], null, credentialsProvider, 'foo', true, null, null, null, null, null, null)
-  @Shared NetflixAmazonCredentials credentialsNoEdda = new NetflixAmazonCredentials("test", "test", "test", "1", null, [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1e'])], null, credentialsProvider, null, null, null, null, null, null, null, null)
+  @Shared NetflixAmazonCredentials credentialsWithEdda = new NetflixAmazonCredentials("test", "test", "test", "1", null, [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1e'])],null, null, credentialsProvider, 'foo', true, null, null, null, null, null, null)
+  @Shared NetflixAmazonCredentials credentialsNoEdda = new NetflixAmazonCredentials("test", "test", "test", "1", null, [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1e'])],null, null, credentialsProvider, null, null, null, null, null, null, null, null)
+  @Shared NetflixAmazonCredentials credentialsWithProxy = new NetflixAmazonCredentials("test", "test", "test", "1", null, [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1e'])],new AmazonCredentials.AWSProxy('dummyHost','1234', 'username','password','HTTP'), null, credentialsProvider, 'foo', null, null, null, null, null, null, null)
 
   void "client proxies to edda when available"() {
     setup:
@@ -48,6 +49,23 @@ class AmazonClientProviderSpec extends Specification {
 
     when:
     def client = provider.getAutoScaling(credentialsWithEdda, "us-east-1")
+    client.describeAutoScalingGroups()
+
+    then:
+    client instanceof AmazonAutoScaling
+    1 * mockHttp.execute(_) >> {
+      mockResponse
+    }
+    provider.lastModified == MTIME
+  }
+
+  void "client routes aws requests to a proxyHost"() {
+    setup:
+    def mockHttp = Mock(HttpClient)
+    def provider = new AmazonClientProvider(mockHttp)
+
+    when:
+    def client = provider.getAutoScaling(credentialsWithProxy, "us-east-1")
     client.describeAutoScalingGroups()
 
     then:

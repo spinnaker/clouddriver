@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.security;
 
 import com.amazonaws.AmazonWebServiceClient;
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.regions.Region;
@@ -274,12 +275,83 @@ public class AmazonClientProvider {
     }
   }
 
+  private boolean isNTLMProxy(NetflixAmazonCredentials amazonCredentials){
+
+    boolean isNTLMProxy = false;
+
+    AmazonCredentials.AWSProxy proxy = amazonCredentials.getAWSProxy();
+
+    if(proxy != null){
+
+      if(proxy.getProxyHost() != null && proxy.getProxyPort() != null && proxy.getProxyDomain() != null && proxy.getProxyWorkstation() != null )
+        isNTLMProxy = true;
+
+    }
+
+    return isNTLMProxy;
+  }
+
+  private boolean isProxyConfigMode(NetflixAmazonCredentials amazonCredentials){
+
+    boolean isProxy = false;
+
+    AmazonCredentials.AWSProxy proxy = amazonCredentials.getAWSProxy();
+
+    if(proxy != null){
+
+      if(proxy.getProxyHost() != null && proxy.getProxyPort() != null)
+
+        isProxy = true;
+        try{
+          Integer.parseInt(proxy.getProxyPort());
+        }catch(NumberFormatException nfe){
+           isProxy = false;
+        }
+
+
+    }
+
+    return isProxy;
+  }
+
   protected <T extends AmazonWebServiceClient> T getClient(Class<T> impl, NetflixAmazonCredentials amazonCredentials, String region) throws IllegalAccessException, InvocationTargetException,
     InstantiationException, NoSuchMethodException {
     Constructor<T> constructor = impl.getConstructor(AWSCredentialsProvider.class, ClientConfiguration.class);
 
     ClientConfiguration clientConfiguration = new ClientConfiguration();
     clientConfiguration.setRetryPolicy(retryPolicy);
+
+    if(isProxyConfigMode(amazonCredentials)){
+      AmazonCredentials.AWSProxy proxy = amazonCredentials.getAWSProxy();
+
+      String proxyHost = proxy.getProxyHost();
+      String proxyPort = proxy.getProxyPort();
+      String username = proxy.getProxyUsername();
+      String password = proxy.getProxyPassword();
+      String proxyDomain = proxy.getProxyDomain();
+      String proxyWorkstation = proxy.getProxyWorkstation();
+      String strProtocol = proxy.getProtocol();
+
+      clientConfiguration.setProxyHost(proxyHost);
+      clientConfiguration.setProxyPort(Integer.parseInt(proxyPort));
+      clientConfiguration.setProxyUsername(username);
+      clientConfiguration.setProxyPassword(password);
+
+      Protocol protocol = Protocol.HTTP;
+
+      if("HTTPS".equalsIgnoreCase(strProtocol))
+        protocol = Protocol.HTTPS;
+
+      clientConfiguration.setProtocol(protocol);
+
+      if(isNTLMProxy(amazonCredentials)){
+        clientConfiguration.setProxyDomain(proxyDomain);
+        clientConfiguration.setProxyWorkstation(proxyWorkstation);
+      }
+
+
+    }
+
 
     T delegate = constructor.newInstance(amazonCredentials.getCredentialsProvider(), clientConfiguration);
     for (RequestHandler2 requestHandler : requestHandlers) {
