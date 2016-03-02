@@ -31,8 +31,6 @@ import java.util.List;
  * Basic set of Amazon credentials that will a provided {@link com.amazonaws.auth.AWSCredentialsProvider} to resolve account credentials.
  * If none provided, the {@link com.amazonaws.auth.DefaultAWSCredentialsProviderChain} will be used. The account's active
  * regions and availability zones can be specified as well.
- *
- *
  */
 public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
     private static final String CLOUD_PROVIDER = "aws";
@@ -44,6 +42,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
     private final String defaultKeyPair;
     private final List<String> requiredGroupMembership;
     private final List<AWSRegion> regions;
+    private final AWSProxy proxy;
     private final AWSCredentialsProvider credentialsProvider;
 
     public static AmazonCredentials fromAWSCredentials(String name, String environment, String accountType, AWSCredentialsProvider credentialsProvider) {
@@ -54,7 +53,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
         AWSAccountInfoLookup lookup = new DefaultAWSAccountInfoLookup(credentialsProvider);
         final String accountId = lookup.findAccountId();
         final List<AWSRegion> regions = lookup.listRegions();
-        return new AmazonCredentials(name, environment, accountType, accountId, defaultKeyPair, regions, null, credentialsProvider);
+        return new AmazonCredentials(name, environment, accountType, accountId, defaultKeyPair, regions, null, null, credentialsProvider);
     }
 
     public AmazonCredentials(@JsonProperty("name") String name,
@@ -63,20 +62,22 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
                              @JsonProperty("accountId") String accountId,
                              @JsonProperty("defaultKeyPair") String defaultKeyPair,
                              @JsonProperty("regions") List<AWSRegion> regions,
+                             @JsonProperty("proxy") AWSProxy proxy,
                              @JsonProperty("requiredGroupMembership") List<String> requiredGroupMembership) {
-        this(name, environment, accountType, accountId, defaultKeyPair, regions, requiredGroupMembership, null);
+        this(name, environment, accountType, accountId, defaultKeyPair, regions, proxy, requiredGroupMembership, null);
     }
 
     public AmazonCredentials(AmazonCredentials source, AWSCredentialsProvider credentialsProvider) {
         this(
-            source.getName(),
-            source.getEnvironment(),
-            source.getAccountType(),
-            source.getAccountId(),
-            source.getDefaultKeyPair(),
-            source.getRegions(),
-            source.getRequiredGroupMembership(),
-            credentialsProvider
+                source.getName(),
+                source.getEnvironment(),
+                source.getAccountType(),
+                source.getAccountId(),
+                source.getDefaultKeyPair(),
+                source.getRegions(),
+                source.getAWSProxy(),
+                source.getRequiredGroupMembership(),
+                credentialsProvider
         );
     }
 
@@ -86,6 +87,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
                       String accountId,
                       String defaultKeyPair,
                       List<AWSRegion> regions,
+                      AWSProxy proxy,
                       List<String> requiredGroupMembership,
                       AWSCredentialsProvider credentialsProvider) {
         this.name = notNull(name, "name");
@@ -94,6 +96,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
         this.accountId = notNull(accountId, "accountId");
         this.defaultKeyPair = defaultKeyPair;
         this.regions = regions == null ? Collections.<AWSRegion>emptyList() : Collections.unmodifiableList(regions);
+        this.proxy = proxy;
         this.requiredGroupMembership = requiredGroupMembership == null ? Collections.<String>emptyList() : Collections.unmodifiableList(requiredGroupMembership);
         this.credentialsProvider = credentialsProvider;
     }
@@ -123,6 +126,109 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
 
     public List<AWSRegion> getRegions() {
         return regions;
+    }
+
+    public AWSProxy getAWSProxy() {
+        return proxy;
+    }
+
+    public static class AWSProxy {
+        private final String proxyHost;
+        private final String proxyPort;
+        private final String proxyUsername;
+        private final String proxyPassword;
+        private final String proxyDomain;
+        private final String proxyWorkstation;
+        private final String protocol;
+
+        public AWSProxy(String proxyHost, String proxyPort, String proxyUsername, String proxyPassword, String protocol) {
+            this(proxyHost, proxyPort, proxyUsername, proxyPassword, null, null, protocol);
+        }
+
+        public AWSProxy(@JsonProperty("proxyHost") String proxyHost,
+                        @JsonProperty("proxyPort") String proxyPort,
+                        @JsonProperty("proxyUsername") String proxyUsername,
+                        @JsonProperty("proxyPassword") String proxyPassword,
+                        @JsonProperty("proxyDomain") String proxyDomain,
+                        @JsonProperty("proxyWorkstation") String proxyWorkstation,
+                        @JsonProperty("protocol") String protocol
+        ) {
+
+       
+            if (proxyHost == null) {
+                throw new IllegalArgumentException("proxyHost is null");
+            }
+
+            if (proxyPort == null) {
+                throw new IllegalArgumentException("proxyPort is null");
+            }
+
+            if (protocol == null) {
+                throw new IllegalArgumentException("protocol is null");
+            }
+
+
+            this.proxyHost = proxyHost;
+            this.proxyPort = proxyPort;
+            this.proxyUsername = proxyUsername;
+            this.proxyDomain = proxyDomain;
+            this.proxyWorkstation = proxyWorkstation;
+            this.proxyPassword = proxyPassword;
+            this.protocol = protocol;
+
+
+        }
+
+        public String getProxyHost() {
+            return proxyHost;
+        }
+
+        public String getProxyUsername() {
+            return proxyUsername;
+        }
+
+        public String getProxyPort() {
+            return proxyPort;
+        }
+
+        public String getProxyPassword() {
+            return proxyPassword;
+        }
+
+        public String getProxyDomain() {
+            return proxyDomain;
+        }
+
+        public String getProxyWorkstation() {
+            return proxyWorkstation;
+        }
+
+        public String getProtocol() {
+            return protocol;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            AWSProxy awsProxy = (AWSProxy) o;
+
+            return proxyHost.equals(awsProxy.proxyHost) &&
+                    proxyPort.equals(awsProxy.proxyPort) &&
+                    protocol.equals(awsProxy.protocol);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = proxyHost.hashCode();
+            result = 31
+                    * result
+                    + proxyPort.hashCode()
+                    + protocol.hashCode();
+
+            return result;
+        }
     }
 
     public static class AWSRegion {
@@ -172,7 +278,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
             return deprecated;
         }
 
-      @Override
+        @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
@@ -180,17 +286,17 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
             AWSRegion awsRegion = (AWSRegion) o;
 
             return name.equals(awsRegion.name) &&
-              availabilityZones.equals(awsRegion.availabilityZones) &&
-              preferredZones.equals(awsRegion.preferredZones);
+                    availabilityZones.equals(awsRegion.availabilityZones) &&
+                    preferredZones.equals(awsRegion.preferredZones);
         }
 
         @Override
         public int hashCode() {
             int result = name.hashCode();
             result = 31
-              * result
-              + availabilityZones.hashCode()
-              + preferredZones.hashCode();
+                    * result
+                    + availabilityZones.hashCode()
+                    + preferredZones.hashCode();
             return result;
         }
     }
@@ -207,11 +313,13 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
     }
 
     @Override
-    public String getProvider() { return getCloudProvider(); }
+    public String getProvider() {
+        return getCloudProvider();
+    }
 
     @Override
     public String getCloudProvider() {
-       return CLOUD_PROVIDER;
+        return CLOUD_PROVIDER;
     }
 
     @Override

@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.aws.security.config;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
+
 import java.util.List;
 
 /**
@@ -23,6 +26,68 @@ import java.util.List;
  * credentials implementations.
  */
 public class CredentialsConfig {
+
+    public static class Proxy {
+        private  String proxyHost;
+        private  String proxyPort;
+        private  String proxyUsername;
+        private  String proxyPassword;
+        private  String proxyDomain;
+        private  String proxyWorkstation;
+        private  String protocol;
+
+        public Proxy(){}
+
+        public void setProxyHost(String proxyHost) {
+            this.proxyHost = proxyHost;
+        }
+        public String getProxyHost(){ return proxyHost;}
+
+        public void setProxyUsername(String proxyUsername) {
+            this.proxyUsername = proxyUsername;
+        }
+        public String getProxyUsername(){ return proxyUsername;}
+
+        public void setProxyPort(String proxyPort) {
+            this.proxyPort = proxyPort;
+        }
+        public String getProxyPort(){ return proxyPort;}
+
+        public void setProxyPassword(String proxyPassword) {
+            this.proxyPassword = proxyPassword;
+        }
+        public String getProxyPassword(){ return proxyPassword;}
+
+        public void setProxyDomain(String proxyDomain) {
+            this.proxyDomain = proxyDomain;
+        }
+        public String getProxyDomain(){ return proxyDomain;}
+
+        public void setProxyWorkstation(String proxyWorkstation) {
+            this.proxyWorkstation = proxyWorkstation;
+        }
+        public String getProxyWorkstation(){ return proxyWorkstation;}
+
+        public void setProtocol(String protocol) {
+            this.protocol = protocol;
+        }
+        public String getProtocol(){ return protocol;}
+
+        Proxy copyOf() {
+            Proxy clone = new Proxy();
+            clone.setProtocol(getProtocol());
+            clone.setProxyWorkstation(getProxyWorkstation());
+            clone.setProxyDomain(getProxyDomain());
+            clone.setProxyPassword(getProxyPassword());
+            clone.setProxyPort(getProxyPort());
+            clone.setProxyPassword(getProxyPassword());
+            clone.setProxyUsername(getProxyUsername());
+            clone.setProxyHost(getProxyHost());
+
+            return clone;
+        }
+    }
+
     public static class Region {
         private String name;
         private List<String> availabilityZones;
@@ -79,6 +144,8 @@ public class CredentialsConfig {
         private String accountId;
         private String defaultKeyPair;
         private List<Region> regions;
+        private Proxy proxy;
+
         private List<String> requiredGroupMembership;
         private String edda;
         private Boolean eddaEnabled;
@@ -90,6 +157,14 @@ public class CredentialsConfig {
         private Boolean bastionEnabled;
         private String assumeRole;
         private String sessionName;
+
+        public Proxy getProxy() {
+            return proxy;
+        }
+
+        public void setProxy(Proxy proxy) {
+            this.proxy = proxy;
+        }
 
         public String getName() {
             return name;
@@ -238,6 +313,15 @@ public class CredentialsConfig {
     private String defaultSessionName;
 
     private List<Account> accounts;
+    private Proxy proxy;
+
+    public void setProxy(Proxy proxy){
+        this.proxy = proxy;
+    }
+
+    public Proxy getProxy(){
+        return proxy;
+    }
 
     public String getDefaultKeyPairTemplate() {
         return defaultKeyPairTemplate;

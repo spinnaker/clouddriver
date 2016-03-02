@@ -289,6 +289,15 @@ spring:
     #   regions: #override default regions
     #     - name: us-east-1
     #     - name: ap-northeast-1
+    #   proxy:
+    #     proxyHost: proxyhostname
+    #     proxyPort: 8099
+    #     proxyUsername: foo
+    #     proxyPassword: foo
+    #     proxyDomain: foo
+    #     proxyWorkstation: foo
+    #     protocol: HTTP
+
 
 ---
 

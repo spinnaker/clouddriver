@@ -59,7 +59,7 @@ public class AssumeRoleAmazonCredentials extends AmazonCredentials {
     }
 
     AssumeRoleAmazonCredentials(String name, String environment, String accountType, String accountId, String defaultKeyPair, List<AWSRegion> regions, List<String> requiredGroupMembership, AWSCredentialsProvider credentialsProvider, String assumeRole, String sessionName) {
-        super(name, environment, accountType, accountId, defaultKeyPair, regions, requiredGroupMembership, createSTSCredentialsProvider(credentialsProvider, accountId, assumeRole, sessionName == null ? DEFAULT_SESSION_NAME : sessionName));
+        super(name, environment, accountType, accountId, defaultKeyPair, regions, null, requiredGroupMembership, createSTSCredentialsProvider(credentialsProvider, accountId, assumeRole, sessionName == null ? DEFAULT_SESSION_NAME : sessionName));
         this.assumeRole = assumeRole;
         this.sessionName = sessionName == null ? DEFAULT_SESSION_NAME : sessionName;
     }
