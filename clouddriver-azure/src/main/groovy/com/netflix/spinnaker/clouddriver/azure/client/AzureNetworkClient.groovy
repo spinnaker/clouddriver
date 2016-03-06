@@ -20,6 +20,7 @@ import com.microsoft.azure.management.network.models.AddressSpace
 import com.microsoft.azure.management.network.models.LoadBalancer
 import com.microsoft.azure.management.network.models.NetworkSecurityGroup
 import com.microsoft.azure.management.network.models.PublicIpAddress
+import com.microsoft.azure.management.network.models.ResourceId
 import com.microsoft.azure.management.network.models.Subnet
 import com.microsoft.azure.management.network.models.VirtualNetwork
 import com.microsoft.azure.management.network.NetworkResourceProviderClient
@@ -213,9 +214,15 @@ class AzureNetworkClient extends AzureBaseClient {
     }
   }
 
-  void createSubnet(AzureCredentials creds, String resourceGroupName, String virtualNetworkName, String subnetName, String addressPrefix = '10.0.0.0/24') {
+  void createSubnet(AzureCredentials creds, String resourceGroupName, String virtualNetworkName, String subnetName,
+                    String addressPrefix, String securityGroupName) {
     try {
       def subnet = new Subnet(addressPrefix)
+
+      if (securityGroupName) {
+        addSecurityGroupToSubnet(creds, resourceGroupName, securityGroupName, subnet)
+      }
+
       this.getNetworkResourceProviderClient(creds).
         getSubnetsOperations().
         createOrUpdate(resourceGroupName, virtualNetworkName, subnetName, subnet)
@@ -224,6 +231,13 @@ class AzureNetworkClient extends AzureBaseClient {
     catch (e) {
       throw new RuntimeException("Unable to create subnet ${subnetName} in Resource Group ${resourceGroupName}", e)
     }
+  }
+
+  private void addSecurityGroupToSubnet(AzureCredentials creds, String resourceGroupName, String securityGroupName, Subnet subnet) {
+    def securityGroup = getNetworkSecurityGroup(creds, resourceGroupName, securityGroupName)
+    def resourceId = new ResourceId()
+    resourceId.setId(securityGroup.resourceId)
+    subnet.networkSecurityGroup = resourceId
   }
 
   /**
