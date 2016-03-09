@@ -18,9 +18,18 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.handlers
 
 import com.amazonaws.services.autoscaling.model.BlockDeviceMapping
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
+import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressRequest
+import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest
+import com.amazonaws.services.ec2.model.IpPermission
+import com.amazonaws.services.ec2.model.UserIdGroupPair
+import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing
+import com.amazonaws.services.elasticloadbalancing.model.ApplySecurityGroupsToLoadBalancerRequest
+import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersRequest
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.aws.AwsConfiguration
+import com.netflix.spinnaker.clouddriver.aws.model.SecurityGroupNotFoundException
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
+import com.netflix.spinnaker.clouddriver.aws.services.SecurityGroupService
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
@@ -119,6 +128,11 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         }
       }
 
+      final subnetAnalyzer = regionScopedProvider.subnetAnalyzer
+      final vpcId = subnetAnalyzer.getVpcIdForSubnetPurpose(subnetType)
+      associateAppSecurityGroups(vpcId, description, regionScopedProvider.securityGroupService,
+        regionScopedProvider.amazonElasticLoadBalancing)
+
       if (description.blockDevices == null) {
         description.blockDevices = BlockDeviceConfig.blockDevicesByInstanceType[description.instanceType]
       }
@@ -198,6 +212,28 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
     }
 
     return deploymentResult
+  }
+
+  private void associateAppSecurityGroups(String vpcId, BasicAmazonDeployDescription description,
+      SecurityGroupService securityGroupService, AmazonElasticLoadBalancing amazonElasticLoadBalancing) {
+    final applicationName = description.application
+    final appElbSecurityGroupName = "${applicationName}-elb"
+    final hasLoadBalancers = !description.loadBalancers.isEmpty()
+    def securityGroupNameToId = securityGroupService.ensureApplicationSecurityGroupsExist(applicationName, vpcId, hasLoadBalancers)
+    if (vpcId) {
+      final appElbSecurityGroupId = securityGroupNameToId[appElbSecurityGroupName]
+      final result = amazonElasticLoadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest(description.loadBalancers))
+      result.loadBalancerDescriptions.each { elb ->
+        if (!elb.securityGroups.contains(appElbSecurityGroupId)) {
+          amazonElasticLoadBalancing.applySecurityGroupsToLoadBalancer(new ApplySecurityGroupsToLoadBalancerRequest(
+            loadBalancerName: elb.loadBalancerName,
+            securityGroups: elb.securityGroups + appElbSecurityGroupId
+          ))
+        }
+      }
+    }
+    final originalSecurityGroups = description.securityGroups ?: []
+    description.securityGroups = (originalSecurityGroups + securityGroupNameToId[applicationName]).unique()
   }
 
   @VisibleForTesting
