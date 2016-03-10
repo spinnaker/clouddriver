@@ -32,9 +32,9 @@ class CloudFoundryServerGroup implements ServerGroup, Serializable {
   CloudApplication nativeApplication
   Boolean disabled = true
   Set<CloudFoundryApplicationInstance> instances = new HashSet<>()
-  Set<CloudFoundryService> services = [] as Set<CloudFoundryService>
+  transient Set<CloudFoundryService> services = [] as Set<CloudFoundryService>
   Map<String, Object> cfSettings = new HashMap<>() // scaling, memory, etc.
-  Set<CloudFoundryLoadBalancer> nativeLoadBalancers
+  transient Set<CloudFoundryLoadBalancer> nativeLoadBalancers
   Map buildInfo
   String consoleLink
   String logsLink

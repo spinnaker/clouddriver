@@ -80,7 +80,7 @@ class GoogleLoadBalancerHealth {
     final Type type = Type.LoadBalancer
     final HealthClass healthClass = null
 
-    List<LBHealthSummary> loadBalancers = GoogleLoadBalancerHealth.this.lbHealthSummaries
+    transient List<LBHealthSummary> loadBalancers = GoogleLoadBalancerHealth.this.lbHealthSummaries
 
     HealthState getState() {
       GoogleLoadBalancerHealth.this.status?.toHeathState()
