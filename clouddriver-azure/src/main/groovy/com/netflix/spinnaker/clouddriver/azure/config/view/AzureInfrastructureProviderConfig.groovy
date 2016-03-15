@@ -96,7 +96,7 @@ class AzureInfrastructureProviderConfig {
           newlyAddedAgents << new AzureSubnetCachingAgent(azureCloudProvider, creds.accountName, creds.credentials, region.name, objectMapper)
           newlyAddedAgents << new AzureVMImageCachingAgent(azureCloudProvider, creds.accountName, creds.credentials, region.name, objectMapper)
           newlyAddedAgents << new AzureCustomImageCachingAgent(azureCloudProvider, creds.accountName, creds.credentials, region.name, creds.vmCustomImages, objectMapper)
-          newlyAddedAgents << new AzureServerGroupCachingAgent(azureCloudProvider, creds.accountName, creds.credentials, region.name, objectMapper)
+          newlyAddedAgents << new AzureServerGroupCachingAgent(azureCloudProvider, creds.accountName, creds.credentials, region.name, objectMapper, registry)
 
           // If there is an agent scheduler, then this provider has been through the AgentController in the past.
           // In that case, we need to do the scheduling here (because accounts have been added to a running system).

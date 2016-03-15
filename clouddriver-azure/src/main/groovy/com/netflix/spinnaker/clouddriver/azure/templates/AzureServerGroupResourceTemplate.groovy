@@ -231,7 +231,10 @@ class AzureServerGroupResourceTemplate {
       name = description.getIdentifier()
       type = "Microsoft.Compute/virtualMachineScaleSets"
       location = "[parameters('location')]"
-      tags = ["appName":description.application, "stack":description.stack, "detail":description.detail]
+      tags = ["appName" : description.application,
+              "stack" : description.stack,
+              "detail" : description.detail,
+              "cluster" : description.getClusterName()]
 
       if (!description.image.isCustom) {
         description.getStorageAccountCount().times { idx ->

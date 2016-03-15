@@ -81,9 +81,7 @@ class AzureServerGroupDescriptionUnitSpec extends Specification {
       && description.upgradePolicy == getPolicy(scaleSet.upgradePolicy.mode)
       && isValidImage(description.image, scaleSet)
       && isValidOsConfig(description.osConfig, scaleSet)
-      && isValidSku(description.sku, scaleSet)
-    )
-
+      && isValidSku(description.sku, scaleSet))
   }
 
   private static AzureServerGroupDescription.UpgradePolicy getPolicy(String scaleSetPolicyMode)

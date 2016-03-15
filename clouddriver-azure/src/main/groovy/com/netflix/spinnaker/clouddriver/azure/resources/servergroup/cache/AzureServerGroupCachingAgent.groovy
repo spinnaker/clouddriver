@@ -88,11 +88,15 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
 
         // Look for an entry for the server Group in the On Demand list
         def onDemandServerGroup = usableOnDemandCacheData[serverGroupKey] as CacheData
-        if (onDemandServerGroup
-          && onDemandServerGroup.attributes.cachTime > serverGroup.lastReadTime
-          && onDemandServerGroup.attributes.onDemandCacheType == ON_DEMAND_UPDATED) {
+        if (onDemandServerGroup) {
+          if (onDemandServerGroup.attributes.cachTime > serverGroup.lastReadTime) {
+            if (onDemandServerGroup.attributes.onDemandCacheType == ON_DEMAND_UPDATED) {
+              sg = objectMapper.readValue(onDemandServerGroup.attributes.AzureResourceDescription as String, AzureServerGroupDescription)
+            }
+          }
+        }
 
-          sg = objectMapper.readValue(onDemandServerGroup.attributes.AzureResourceDescription as String, AzureServerGroupDescription)
+        if (sg) {
 
           def clusterKey = Keys.getClusterKey(azureCloudProvider,
             sg.clusterName,
@@ -255,7 +259,11 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
 
   @Override
   Boolean validKeys(Map<String, ? extends Object> data) {
-    true
+    (data.containsKey("serverGroupName")
+      && data.containsKey("account")
+      && data.containsKey("region")
+      && accountName == data.account
+      && region == data.region)
   }
 
   @Override

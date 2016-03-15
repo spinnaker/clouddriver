@@ -20,6 +20,7 @@ import com.microsoft.azure.CloudException
 import com.microsoft.azure.credentials.ApplicationTokenCredentials
 import com.microsoft.azure.management.compute.ComputeManagementClient
 import com.microsoft.azure.management.compute.ComputeManagementClientImpl
+import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureVMImage
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
