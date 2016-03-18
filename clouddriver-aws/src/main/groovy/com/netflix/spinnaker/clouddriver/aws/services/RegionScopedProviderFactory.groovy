@@ -17,6 +17,7 @@ package com.netflix.spinnaker.clouddriver.aws.services
 
 import com.amazonaws.services.autoscaling.AmazonAutoScaling
 import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing
 import com.netflix.spinnaker.clouddriver.aws.AwsConfiguration
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
@@ -72,6 +73,10 @@ class RegionScopedProviderFactory {
 
     AmazonEC2 getAmazonEC2() {
       amazonClientProvider.getAmazonEC2(amazonCredentials, region, true)
+    }
+
+    AmazonElasticLoadBalancing getAmazonElasticLoadBalancing() {
+      amazonClientProvider.getAmazonElasticLoadBalancing(amazonCredentials, region, true)
     }
 
     AmazonAutoScaling getAutoScaling() {

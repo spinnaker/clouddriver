@@ -16,9 +16,12 @@
 package com.netflix.spinnaker.clouddriver.aws.services
 
 import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressRequest
 import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest
 import com.amazonaws.services.ec2.model.CreateSecurityGroupResult
 import com.amazonaws.services.ec2.model.DescribeSecurityGroupsResult
+import com.amazonaws.services.ec2.model.IpPermission
+import com.amazonaws.services.ec2.model.UserIdGroupPair
 import com.netflix.spinnaker.clouddriver.aws.model.SecurityGroupNotFoundException
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetAnalyzer
 
@@ -62,6 +65,7 @@ class SecurityGroupService {
       def missingGroups = securityGroupNames - securityGroups.keySet()
       def ex = new SecurityGroupNotFoundException("Missing security groups: ${missingGroups.join(',')}")
       ex.missingSecurityGroups = missingGroups
+      ex.foundSecurityGroups = securityGroups
       throw ex
     }
     securityGroups
@@ -71,7 +75,7 @@ class SecurityGroupService {
    * Find security group ids for provided security group names
     * @param securityGroupNames names to resolve to ids
    * @param subnetPurpose if not null, will find the vpcId matching the subnet purpose and locate groups in that vpc
-   * @return group ids
+   * @return Map of security group ids keyed by corresponding security group name
    */
   Map<String, String> getSecurityGroupIdsWithSubnetPurpose(Collection<String> securityGroupNames, String subnetPurpose = null) {
     String vpcId = subnetPurpose == null ? null : subnetAnalyzer.getVpcIdForSubnetPurpose(subnetPurpose)
@@ -79,20 +83,96 @@ class SecurityGroupService {
   }
 
   /**
-   * Create a security group for this this application. Security Group name will equal the application's.
+   * Create security groups for this this application. Security Group name will equal the application's.
    * (ie. "application") name.
    *
    * @param applicationName
-   * @param subnetPurpose
-   * @return id of the security group created
+   * @param vpcId
+   * @param hasLoadBalancers
+   * @return Map of security group ids keyed by corresponding security group name
    */
-  String createSecurityGroup(String applicationName, String subnetPurpose = null) {
-    CreateSecurityGroupRequest request = new CreateSecurityGroupRequest(applicationName, "Security Group for $applicationName")
-    if (subnetPurpose) {
-      request.withVpcId(subnetAnalyzer.getVpcIdForSubnetPurpose(subnetPurpose))
+  Map<String, String> ensureApplicationSecurityGroupsExist(String applicationName, String vpcId, boolean hasLoadBalancers) {
+    final appElbSecurityGroupName = "${applicationName}-elb"
+    final requiredAppSecurityGroupNames = [applicationName]
+    if (hasLoadBalancers) {
+      requiredAppSecurityGroupNames.add(appElbSecurityGroupName)
     }
-    CreateSecurityGroupResult result = amazonEC2.createSecurityGroup(request)
-    result.groupId
+    def nameToId
+    try {
+      nameToId = getSecurityGroupIds(requiredAppSecurityGroupNames, vpcId)
+    } catch (SecurityGroupNotFoundException securityGroupNotFoundException) {
+      nameToId = securityGroupNotFoundException.foundSecurityGroups
+      def appElbSecurityGroupId = securityGroupNotFoundException.foundSecurityGroups[appElbSecurityGroupName]
+      if (vpcId && securityGroupNotFoundException.missingSecurityGroups.contains(appElbSecurityGroupName)) {
+        appElbSecurityGroupId = createElbAppSecurityGroup(applicationName, vpcId)
+        nameToId[appElbSecurityGroupName] = appElbSecurityGroupId
+      }
+      if (securityGroupNotFoundException.missingSecurityGroups.contains(applicationName)) {
+        final id = createAppSecurityGroup(applicationName, vpcId, appElbSecurityGroupId)
+        nameToId[applicationName] = id
+      }
+    }
+    nameToId
+  }
+
+  private String createElbAppSecurityGroup(String applicationName, String vpcId) {
+    CreateSecurityGroupRequest request = new CreateSecurityGroupRequest(
+      groupName: "${applicationName}-elb",
+      vpcId: vpcId,
+      description: "ELB Security Group for $applicationName"
+    )
+    final id = amazonEC2.createSecurityGroup(request).groupId
+    amazonEC2.authorizeSecurityGroupIngress(new AuthorizeSecurityGroupIngressRequest(
+      groupId: id,
+      ipPermissions: [
+        new IpPermission(
+          ipProtocol: 'tcp',
+          fromPort: 80,
+          toPort: 80,
+          ipRanges: ['0.0.0.0/0']
+        ),
+        new IpPermission(
+          ipProtocol: 'tcp',
+          fromPort: 443,
+          toPort: 443,
+          ipRanges: ['0.0.0.0/0']
+        )
+      ]
+    ))
+    id
+  }
+
+  private String createAppSecurityGroup(String applicationName, String vpcId, String appElbSecurityGroupId) {
+    CreateSecurityGroupRequest request = new CreateSecurityGroupRequest(
+      groupName: applicationName,
+      vpcId: vpcId,
+      description: "Security Group for $applicationName"
+    )
+    final id = amazonEC2.createSecurityGroup(request).groupId
+    if (appElbSecurityGroupId) {
+      amazonEC2.authorizeSecurityGroupIngress(new AuthorizeSecurityGroupIngressRequest(
+        groupId: id,
+        ipPermissions: [
+          new IpPermission(
+            ipProtocol: 'tcp',
+            fromPort: 7001,
+            toPort: 7001,
+            userIdGroupPairs: [
+              new UserIdGroupPair(groupId: appElbSecurityGroupId)
+            ]
+          ),
+          new IpPermission(
+            ipProtocol: 'tcp',
+            fromPort: 7002,
+            toPort: 7002,
+            userIdGroupPairs: [
+              new UserIdGroupPair(groupId: appElbSecurityGroupId)
+            ]
+          )
+        ]
+      ))
+    }
+    id
   }
 
 }

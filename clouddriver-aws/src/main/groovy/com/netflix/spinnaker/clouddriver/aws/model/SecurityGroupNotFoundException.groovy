@@ -23,4 +23,5 @@ import org.springframework.web.bind.annotation.ResponseStatus
 @InheritConstructors
 class SecurityGroupNotFoundException extends RuntimeException {
   Collection<String> missingSecurityGroups
+  Map<String, String> foundSecurityGroups
 }

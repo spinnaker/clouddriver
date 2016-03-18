@@ -132,14 +132,6 @@ class DefaultLaunchConfigurationBuilder implements LaunchConfigurationBuilder {
     }
 
     List<String> securityGroupIds = resolveSecurityGroupIds(settings.securityGroups, subnetType)
-    if (!securityGroupIds) {
-      String applicationSecurityGroup = securityGroupService.getSecurityGroupForApplication(application, subnetType)
-      if (!applicationSecurityGroup) {
-        applicationSecurityGroup = securityGroupService.createSecurityGroup(application, subnetType)
-      }
-
-      securityGroupIds << applicationSecurityGroup
-    }
     settings = settings.copyWith(securityGroups: securityGroupIds)
 
     if (settings.classicLinkVpcSecurityGroups) {

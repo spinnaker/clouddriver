@@ -28,8 +28,14 @@ import com.amazonaws.services.ec2.model.DescribeImagesResult
 import com.amazonaws.services.ec2.model.DescribeVpcClassicLinkResult
 import com.amazonaws.services.ec2.model.Image
 import com.amazonaws.services.ec2.model.VpcClassicLink
+import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing
+import com.amazonaws.services.elasticloadbalancing.model.ApplySecurityGroupsToLoadBalancerRequest
+import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersRequest
+import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersResult
+import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.aws.AwsConfiguration
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
+import com.netflix.spinnaker.clouddriver.aws.services.SecurityGroupService
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
@@ -492,5 +498,39 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     'mystery.big' | 'hvm'
     'mystery.big' | 'paravirtual'
     'what.the'    | 'heck'
+  }
+
+  void 'should associate app security groups'() {
+    final description = new BasicAmazonDeployDescription(
+      application: "helloclay",
+      loadBalancers: ["elb1", "elb2"],
+      securityGroups: ["sg1"]
+    )
+    final securityGroupService = Mock(SecurityGroupService)
+    final amazonElasticLoadBalancing = Mock(AmazonElasticLoadBalancing)
+
+    when:
+    handler.associateAppSecurityGroups("vpc1", description, securityGroupService,
+      amazonElasticLoadBalancing)
+
+    then:
+    description.securityGroups as Set == ["sg1", "appSg"] as Set
+    1 * securityGroupService.ensureApplicationSecurityGroupsExist("helloclay", "vpc1", true) >> [
+      "helloclay": "appSg",
+      "helloclay-elb": "elbSg"
+    ]
+    1 * amazonElasticLoadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest(["elb1", "elb2"])) >>
+      new DescribeLoadBalancersResult(loadBalancerDescriptions: [
+              new LoadBalancerDescription(loadBalancerName: "elb1"),
+              new LoadBalancerDescription(loadBalancerName: "elb2", securityGroups: ["sg1"])
+      ])
+    1 * amazonElasticLoadBalancing.applySecurityGroupsToLoadBalancer(new ApplySecurityGroupsToLoadBalancerRequest(
+      loadBalancerName: "elb1",
+      securityGroups: ["elbSg"]
+    ))
+    1 * amazonElasticLoadBalancing.applySecurityGroupsToLoadBalancer(new ApplySecurityGroupsToLoadBalancerRequest(
+      loadBalancerName: "elb2",
+      securityGroups: ["sg1", "elbSg"]
+    ))
   }
 }

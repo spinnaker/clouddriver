@@ -16,10 +16,13 @@
 package com.netflix.spinnaker.clouddriver.aws.services
 
 import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressRequest
 import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest
 import com.amazonaws.services.ec2.model.CreateSecurityGroupResult
 import com.amazonaws.services.ec2.model.DescribeSecurityGroupsResult
+import com.amazonaws.services.ec2.model.IpPermission
 import com.amazonaws.services.ec2.model.SecurityGroup
+import com.amazonaws.services.ec2.model.UserIdGroupPair
 import com.netflix.spinnaker.clouddriver.aws.model.SecurityGroupNotFoundException
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetAnalyzer
 import com.netflix.spinnaker.clouddriver.aws.services.SecurityGroupService
@@ -88,20 +91,40 @@ class SecurityGroupServiceSpec extends Specification {
     0 * _
   }
 
-  void "should create Security Group"() {
+  void "should create app Security Groups"() {
     when:
-    def result = securityGroupService.createSecurityGroup("myApp", "internal")
+    def result = securityGroupService.ensureApplicationSecurityGroupsExist("myApp", "vpc1", true)
 
     then:
-    result == "sg-123"
+    result == [
+      "myApp-elb": "myApp-elb_ID",
+      "myApp": "myApp_ID"
+    ]
 
-    and:
-    1 * securityGroupService.subnetAnalyzer.getVpcIdForSubnetPurpose("internal") >> "vpc-123"
+    then:
+    1 * securityGroupService.amazonEC2.describeSecurityGroups() >> new DescribeSecurityGroupsResult(
+      securityGroups: []
+    )
+    1 * securityGroupService.amazonEC2.createSecurityGroup(new CreateSecurityGroupRequest(
+      groupName: "myApp-elb",
+      description: "ELB Security Group for myApp",
+      vpcId: "vpc1"
+    )) >> new CreateSecurityGroupResult(groupId: "myApp-elb_ID")
+    1 * securityGroupService.amazonEC2.authorizeSecurityGroupIngress(_) >> {
+      assert it[0].groupId == "myApp-elb_ID"
+      assert !it[0].ipPermissions.isEmpty()
+    }
+
+    then:
     1 * securityGroupService.amazonEC2.createSecurityGroup(new CreateSecurityGroupRequest(
       groupName: "myApp",
       description: "Security Group for myApp",
-      vpcId: "vpc-123"
-    )) >> new CreateSecurityGroupResult(groupId: "sg-123")
+      vpcId: "vpc1"
+    )) >> new CreateSecurityGroupResult(groupId: "myApp_ID")
+    1 * securityGroupService.amazonEC2.authorizeSecurityGroupIngress(_) >> {
+      assert it[0].groupId == "myApp_ID"
+      assert !it[0].ipPermissions.isEmpty()
+    }
     0 * _
   }
 
