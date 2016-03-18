@@ -182,6 +182,8 @@ class RedisCacheSpec extends WriteableCacheSpec {
         finalMergeCount = finalMerge > 0 ? 1 : 0
     }
 
+
+
     private static class Bean {
         String key
         Integer key2

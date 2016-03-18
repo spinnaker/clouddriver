@@ -17,10 +17,12 @@
 package com.netflix.spinnaker.clouddriver.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AgentScheduler
 import com.netflix.spinnaker.cats.cache.NamedCacheFactory
 import com.netflix.spinnaker.cats.redis.JedisPoolSource
 import com.netflix.spinnaker.cats.redis.JedisSource
+import com.netflix.spinnaker.cats.redis.cache.RedisCache
 import com.netflix.spinnaker.cats.redis.cache.RedisCacheOptions
 import com.netflix.spinnaker.cats.redis.cache.RedisNamedCacheFactory
 import com.netflix.spinnaker.cats.redis.cluster.AgentIntervalProvider
@@ -56,11 +58,53 @@ class RedisCacheConfig {
   }
 
   @Bean
+  RedisCache.CacheMetrics cacheMetrics(final Registry registry) {
+    return new RedisCache.CacheMetrics() {
+      @Override
+      void merge(String prefix, String type, int itemCount, int keysWritten, int relationshipCount, int hashMatches, int hashUpdates, int saddOperations, int msetOperations, int hmsetOperations, int pipelineOperations, int expireOperations) {
+        final String[] tags = ['prefix', prefix, 'type', type]
+        registry.counter('caching.redis.merge.items', tags).increment(itemCount)
+        registry.counter('caching.redis.merge.keysWritten', tags).increment(keysWritten)
+        registry.gauge(registry.createId('caching.redis.merge.relationshipCount', tags), Integer.valueOf(relationshipCount))
+        registry.counter('caching.redis.merge.hashMatches', tags).increment(hashMatches)
+        registry.counter('caching.redis.merge.hashUpdates', tags).increment(hashUpdates)
+        registry.counter('caching.redis.merge.saddOperations', tags).increment(saddOperations)
+        registry.counter('caching.redis.merge.msetOperations', tags).increment(msetOperations)
+        registry.counter('caching.redis.merge.hmsetOperations', tags).increment(hmsetOperations)
+        registry.counter('caching.redis.merge.pipelineOperations', tags).increment(pipelineOperations)
+        registry.counter('caching.redis.merge.expireOperations', tags).increment(expireOperations)
+      }
+
+      @Override
+      void evict(String prefix, String type, int itemCount, int keysDeleted, int hashesDeleted, int delOperations, int hdelOperations, int sremOperations) {
+        final String[] tags = ['prefix', prefix, 'type', type]
+        registry.counter('caching.redis.evict.items', tags).increment(itemCount)
+        registry.counter('caching.redis.evict.keysDeleted', tags).increment(keysDeleted)
+        registry.counter('caching.redis.evict.hashesDeleted', tags).increment(hashesDeleted)
+        registry.counter('caching.redis.evict.delOperations', tags).increment(delOperations)
+        registry.counter('caching.redis.evict.hdelOperations', tags).increment(hdelOperations)
+        registry.counter('caching.redis.evict.sremOperations', tags).increment(sremOperations)
+      }
+
+      @Override
+      void get(String prefix, String type, int itemCount, int requestedSize, int keysRequested, int relationshipsRequested, int mgetOperationCount) {
+        final String[] tags = ['prefix', prefix, 'type', type]
+        registry.counter('caching.redis.get.items', tags).increment(itemCount)
+        registry.distributionSummary('caching.redis.get.requestedSize', tags).record(requestedSize)
+        registry.counter('caching.redis.get.keysRequested', tags).increment(keysRequested)
+        registry.counter('caching.redis.get.relationshipsRequested', tags).increment(relationshipsRequested)
+        registry.counter('caching.redis.get.mgetOperationCount', tags).increment(mgetOperationCount)
+      }
+    }
+  }
+
+  @Bean
   NamedCacheFactory cacheFactory(
     JedisSource jedisSource,
     ObjectMapper objectMapper,
-    RedisCacheOptions redisCacheOptions) {
-    new RedisNamedCacheFactory(jedisSource, objectMapper, redisCacheOptions, null)
+    RedisCacheOptions redisCacheOptions,
+    RedisCache.CacheMetrics cacheMetrics) {
+    new RedisNamedCacheFactory(jedisSource, objectMapper, redisCacheOptions, cacheMetrics)
   }
 
   @Bean
