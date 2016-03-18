@@ -63,9 +63,16 @@ jar {
 }
 
 startScripts {
-  defaultJvmOpts = applicationDefaultJvmArgs + ["-Dspring.config.location=/opt/spinnaker/config/"]
+   defaultJvmOpts = applicationDefaultJvmArgs + ["-Dspring.config.location=/opt/spinnaker/config/"]
   doLast {
     unixScript.text = unixScript.text.replace('DEFAULT_JVM_OPTS=', '''\
+        java_version=$(java -version 2>&1|head -1)
+        releasenum=$(echo $java_version | sed 's/[^\\.]*\\.\\([^\\.]*\\)\\..*/\\1/')
+        if [[ "$releasenum" != "8" ]]; then
+          >&2 echo "Java 1.8 is required. You are running $java_version."
+          exit -1
+        fi
+
         if [ -f /etc/default/spinnaker ]; then
           set -a
           . /etc/default/spinnaker
