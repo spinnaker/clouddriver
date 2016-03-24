@@ -220,7 +220,7 @@ class InstanceCachingAgent implements CachingAgent, AccountAware, DriftMetric {
       this.instanceId = Keys.getInstanceKey(instance.instanceId, account, region)
       String sgTag = instance.tags?.find { it.key == ASG_TAG_NAME }?.value
       this.serverGroup = sgTag ? Keys.getServerGroupKey(sgTag, account, region) : null
-      this.imageId = Keys.getImageKey(instance.imageId, account, region)
+      this.imageId = Keys.getImageKey(instance.imageId, region)
     }
 
   }

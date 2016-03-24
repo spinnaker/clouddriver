@@ -77,7 +77,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster> {
     CacheData launchConfigs = cacheView.get(LAUNCH_CONFIGS.ns, launchConfigKey)
 
     String imageId = launchConfigs?.attributes?.get('imageId')
-    CacheData imageConfigs = imageId ? cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, account, region)) : null
+    CacheData imageConfigs = imageId ? cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, region)) : null
 
     def serverGroup = new AmazonServerGroup(name: name, region: region)
     serverGroup.accountName = account

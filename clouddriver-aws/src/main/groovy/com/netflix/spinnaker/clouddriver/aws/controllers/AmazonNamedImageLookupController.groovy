@@ -52,7 +52,7 @@ class AmazonNamedImageLookupController {
 
   @RequestMapping(value = '/{account}/{region}/{imageId:.+}', method = RequestMethod.GET)
   List<NamedImage> getByAmiId(@PathVariable String account, @PathVariable String region, @PathVariable String imageId) {
-    CacheData cd = cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, account, region))
+    CacheData cd = cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, region))
     if (cd == null) {
       throw new ImageNotFoundException("${imageId} not found in ${account}/${region}")
     }
@@ -84,8 +84,8 @@ class AmazonNamedImageLookupController {
       glob = "*${glob}*"
     }
 
-    def namedImageSearch = Keys.getNamedImageKey(lookupOptions.account ?: '*', glob)
-    def imageSearch = Keys.getImageKey(glob, lookupOptions.account ?: '*', lookupOptions.region ?: '*')
+    def namedImageSearch = Keys.getNamedImageKey(glob)
+    def imageSearch = Keys.getImageKey(glob, lookupOptions.region ?: '*')
 
     Collection<String> namedImageIdentifiers = !isAmi ? cacheView.filterIdentifiers(NAMED_IMAGES.ns, namedImageSearch) : []
     Collection<String> imageIdentifiers = namedImageIdentifiers.isEmpty() ? cacheView.filterIdentifiers(IMAGES.ns, imageSearch) : []
