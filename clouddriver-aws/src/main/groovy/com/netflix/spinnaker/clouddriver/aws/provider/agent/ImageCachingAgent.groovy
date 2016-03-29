@@ -102,10 +102,10 @@ class ImageCachingAgent implements CachingAgent, AccountAware, DriftMetric {
     Collection<CacheData> namedImageCacheData = new ArrayList<>(images.size())
 
     for (Image image : images) {
-      if (includePublicImages || !image.public) {
+      if (includePublicImages || !image.public || image.ownerId == account.accountId) {
         Map<String, Object> attributes = objectMapper.convertValue(image, ATTRIBUTES)
-        def imageId = Keys.getImageKey(image.imageId, account.name, region)
-        def namedImageId = Keys.getNamedImageKey(account.name, image.name)
+        def imageId = Keys.getImageKey(image.imageId, region)
+        def namedImageId = Keys.getNamedImageKey(image.name)
         imageCacheData.add(new DefaultCacheData(imageId, attributes, [(NAMED_IMAGES.ns): [namedImageId]]))
         namedImageCacheData.add(new DefaultCacheData(namedImageId, [
           name              : image.name,

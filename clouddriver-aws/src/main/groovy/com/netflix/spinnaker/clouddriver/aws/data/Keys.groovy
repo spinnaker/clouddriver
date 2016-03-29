@@ -103,12 +103,16 @@ class Keys {
     result
   }
 
-  static String getImageKey(String imageId, String account, String region) {
-    "${PROVIDER}:${Namespace.IMAGES}:${account}:${region}:${imageId}"
+  static String getImageKey(String imageId, String region) {
+    //we used to encode the account in here, for upgradeability of an existing system, this puts
+    // global in place of the account name
+    "${PROVIDER}:${Namespace.IMAGES}:global:${region}:${imageId}"
   }
 
-  static String getNamedImageKey(String account, String imageName) {
-    "${PROVIDER}:${Namespace.NAMED_IMAGES}:${account}:${imageName}"
+  static String getNamedImageKey(String imageName) {
+    //we used to encode the account in here, for upgradeability of an existing system, this puts
+    // global in place of the account name
+    "${PROVIDER}:${Namespace.NAMED_IMAGES}:global:${imageName}"
   }
 
   static String getServerGroupKey(String autoScalingGroupName, String account, String region) {

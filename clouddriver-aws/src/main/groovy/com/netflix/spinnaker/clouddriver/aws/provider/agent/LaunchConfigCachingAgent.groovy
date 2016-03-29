@@ -107,7 +107,7 @@ class LaunchConfigCachingAgent implements CachingAgent, AccountAware, DriftMetri
 
     Collection<CacheData> launchConfigData = launchConfigs.collect { LaunchConfiguration lc ->
       Map<String, Object> attributes = objectMapper.convertValue(lc, ATTRIBUTES);
-      Map<String, Collection<String>> relationships = [(IMAGES.ns):[Keys.getImageKey(lc.imageId, account.name, region)]]
+      Map<String, Collection<String>> relationships = [(IMAGES.ns):[Keys.getImageKey(lc.imageId, region)]]
       new DefaultCacheData(Keys.getLaunchConfigKey(lc.launchConfigurationName, account.name, region), attributes, relationships)
     }
 
