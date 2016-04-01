@@ -19,9 +19,14 @@ package com.netflix.spinnaker.clouddriver.controllers
 import com.netflix.spinnaker.clouddriver.model.Subnet
 import com.netflix.spinnaker.clouddriver.model.SubnetProvider
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.MessageSource
+import org.springframework.context.i18n.LocaleContextHolder
+import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
 @RequestMapping("/subnets")
@@ -30,6 +35,21 @@ class SubnetController {
 
   @Autowired
   List<SubnetProvider> subnetProviders
+
+  @Autowired
+  MessageSource messageSource
+
+  @ExceptionHandler
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  Map handleSubnetNotFoundException(SubnetNotFoundException ex) {
+    def message = messageSource.getMessage("subnet.not.found", [ex.provider, ex.id] as String[], "subnet.not.found", LocaleContextHolder.locale)
+    [error: "subnet.not.found", message: message, status: HttpStatus.NOT_FOUND]
+  }
+
+  static class SubnetNotFoundException extends RuntimeException {
+    String provider
+    String id
+  }
 
   @RequestMapping(method = RequestMethod.GET)
   Set<Subnet> list() {
@@ -45,6 +65,16 @@ class SubnetController {
     } collectMany {
       it.all
     }
+  }
+
+  @RequestMapping(method = RequestMethod.GET, value = "/{cloudProvider}/{subnetId}")
+  Subnet getByProviderAndId(@PathVariable String cloudProvider, @PathVariable String subnetId) {
+    Subnet subnet = listByCloudProvider(cloudProvider).find { it.id == subnetId }
+    if (!subnet) {
+      throw new SubnetNotFoundException(provider: cloudProvider, id: subnetId)
+    }
+
+    subnet
   }
 
   // TODO: implement the rest
