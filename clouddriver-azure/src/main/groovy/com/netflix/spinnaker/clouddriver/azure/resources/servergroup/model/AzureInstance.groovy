@@ -8,6 +8,8 @@ import com.netflix.spinnaker.clouddriver.model.Instance
 
 class AzureInstance implements Instance, Serializable {
   String name
+  String resourceId
+  String vhd
   HealthState healthState
   Long launchTime
   String zone
@@ -16,6 +18,8 @@ class AzureInstance implements Instance, Serializable {
   static AzureInstance build(VirtualMachineScaleSetVM vm) {
     AzureInstance instance = new AzureInstance()
     instance.name = vm.name
+    instance.resourceId = vm.instanceId
+    instance.vhd = vm.storageProfile?.osDisk?.vhd?.uri
     vm.instanceView.statuses.each { status ->
       def codes = status.code.split('/')
       switch (codes[0]) {
