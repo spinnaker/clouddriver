@@ -219,7 +219,7 @@ class AzureResourceManagerClient extends AzureBaseClient {
     // Deserialize to pass it as an instance of a JSON Node object
     deploymentProperties.setTemplate(mapper.readTree(template))
 
-    // initialize the parameters for this template
+    // initialize the parameters for resourceManagementClientthis template
     if (templateParameters) {
       Map<String, ParameterValue> parameters = new HashMap<String, ParameterValue>()
       for (Map.Entry<String, String> entry : templateParameters.entrySet()) {
@@ -250,6 +250,29 @@ class AzureResourceManagerClient extends AzureBaseClient {
     resourceManagementClient.setSubscriptionId(this.subscriptionId)
     resourceManagementClient.setLogLevel(HttpLoggingInterceptor.Level.NONE)
     resourceManagementClient
+  }
+
+  void registerProvider(String namespace) {
+    def ops = client.getProvidersOperations()
+    try {
+      if (ops.get(namespace).body.registrationState != "Registered") {
+        log.info("Registering Azure provider: {$namespace}")
+        ops.register(namespace)
+        log.info("Azure provider {$namespace} registered")
+      }
+    } catch (Exception e) {
+      // Something went wrong. log the exception
+      log.error("Unable to register Azure Provider: {$namespace}", e)
+    }
+  }
+
+  /***
+   * The namespace for the Azure Resource Provider
+   * @return namespace of the resource provider
+   */
+  @Override
+  String getProviderNamespace() {
+    "Microsoft.Resources"
   }
 
   @Canonical
