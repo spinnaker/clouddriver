@@ -54,7 +54,11 @@ class AzureCredentials {
     registerProviders()
   }
 
+  /**
+   * For each client, register the associated provider.
+   */
   private void registerProviders() {
+    resourceManagerClient.register(resourceManagerClient)
     networkClient.register(resourceManagerClient)
     computeClient.register(resourceManagerClient)
     storageClient.register(resourceManagerClient)
