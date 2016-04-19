@@ -118,8 +118,6 @@ class GoogleInstanceProvider implements InstanceProvider<GoogleInstance2.View> {
           //   to receive them."
           // This implies that the load balancer state should be UNHEALTHY in cases where the platform health state is
           // not RUNNING.
-          //
-          // See com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleLoadBalancerCachingAgent.TargetPoolInstanceHealthCallback.onSuccess
           instance.loadBalancerHealths.addAll(foundHealths)
         }
       }
