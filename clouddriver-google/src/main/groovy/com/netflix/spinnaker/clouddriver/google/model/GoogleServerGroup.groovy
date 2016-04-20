@@ -28,12 +28,12 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import groovy.transform.Canonical
 
 @Canonical
-class GoogleServerGroup2 {
+class GoogleServerGroup {
 
   String name
   String region
   String zone
-  Set<GoogleInstance2> instances = []
+  Set<GoogleInstance> instances = []
   Set health = []
   Map<String, Object> launchConfig = [:]
   Map<String, Object> asg = [:]
@@ -50,7 +50,7 @@ class GoogleServerGroup2 {
 
   // Non-serialized values built up by providers
   @JsonIgnore
-  Set<GoogleLoadBalancer2> loadBalancers = []
+  Set<GoogleLoadBalancer> loadBalancers = []
 
   @JsonIgnore
   View getView() {
@@ -62,19 +62,19 @@ class GoogleServerGroup2 {
   class View implements ServerGroup {
     final String type = GoogleCloudProvider.GCE
 
-    String name = GoogleServerGroup2.this.name
-    String region = GoogleServerGroup2.this.region
-    Set<String> zones = [GoogleServerGroup2.this.zone]
-    Set<GoogleInstance2.View> instances = GoogleServerGroup2.this.instances.collect { it?.view }
-    Map<String, Object> asg = GoogleServerGroup2.this.asg
-    Map<String, Object> launchConfig = GoogleServerGroup2.this.launchConfig
-    Set<String> securityGroups = GoogleServerGroup2.this.securityGroups
-    Boolean disabled = GoogleServerGroup2.this.disabled
-    String networkName = GoogleServerGroup2.this.networkName
-    Set<String> instanceTemplateTags = GoogleServerGroup2.this.instanceTemplateTags
-    String selfLink = GoogleServerGroup2.this.selfLink
-    InstanceGroupManagerActionsSummary currentActions = GoogleServerGroup2.this.currentActions
-    AutoscalingPolicy autoscalingPolicy = GoogleServerGroup2.this.autoscalingPolicy
+    String name = GoogleServerGroup.this.name
+    String region = GoogleServerGroup.this.region
+    Set<String> zones = [GoogleServerGroup.this.zone]
+    Set<GoogleInstance.View> instances = GoogleServerGroup.this.instances.collect { it?.view }
+    Map<String, Object> asg = GoogleServerGroup.this.asg
+    Map<String, Object> launchConfig = GoogleServerGroup.this.launchConfig
+    Set<String> securityGroups = GoogleServerGroup.this.securityGroups
+    Boolean disabled = GoogleServerGroup.this.disabled
+    String networkName = GoogleServerGroup.this.networkName
+    Set<String> instanceTemplateTags = GoogleServerGroup.this.instanceTemplateTags
+    String selfLink = GoogleServerGroup.this.selfLink
+    InstanceGroupManagerActionsSummary currentActions = GoogleServerGroup.this.currentActions
+    AutoscalingPolicy autoscalingPolicy = GoogleServerGroup.this.autoscalingPolicy
 
     @Override
     Boolean isDisabled() { // Because groovy isn't smart enough to generate this method :-(
@@ -88,7 +88,7 @@ class GoogleServerGroup2 {
 
     @Override
     ServerGroup.Capacity getCapacity() {
-      def asg = GoogleServerGroup2.this.asg
+      def asg = GoogleServerGroup.this.asg
       asg ?
           new ServerGroup.Capacity(min: asg.minSize ? asg.minSize as Integer : 0,
                                    max: asg.maxSize ? asg.maxSize as Integer : 0,
@@ -99,7 +99,7 @@ class GoogleServerGroup2 {
     @Override
     Set<String> getLoadBalancers() {
       Set<String> loadBalancerNames = []
-      def asg = GoogleServerGroup2.this.asg
+      def asg = GoogleServerGroup.this.asg
       if (asg && asg.containsKey("loadBalancerNames")) {
         loadBalancerNames = (Set<String>) asg.loadBalancerNames
       }
@@ -108,7 +108,7 @@ class GoogleServerGroup2 {
 
     @Override
     ServerGroup.ImagesSummary getImagesSummary() {
-      def bi = GoogleServerGroup2.this.buildInfo
+      def bi = GoogleServerGroup.this.buildInfo
       return new ServerGroup.ImagesSummary() {
         @Override
         List<ServerGroup.ImageSummary> getSummaries() {

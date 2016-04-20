@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.model.GoogleHealthCheck
-import com.netflix.spinnaker.clouddriver.google.model.GoogleLoadBalancer2
+import com.netflix.spinnaker.clouddriver.google.model.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.beans.factory.annotation.Autowired
@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController
 @ConditionalOnProperty(value = "google.providerImpl", havingValue = "new")
 @RestController
 @RequestMapping("/gce/loadBalancers")
-class GoogleLoadBalancerController2 {
+class GoogleLoadBalancerController {
 
   @Autowired
   AccountCredentialsProvider accountCredentialsProvider
@@ -45,10 +45,10 @@ class GoogleLoadBalancerController2 {
   List<GoogleLoadBalancerAccountRegionSummary> list() {
     def loadBalancerViewsByName = googleLoadBalancerProvider.getApplicationLoadBalancers("").groupBy { it.name }
 
-    loadBalancerViewsByName.collect { String name, List<GoogleLoadBalancer2.View> views ->
+    loadBalancerViewsByName.collect { String name, List<GoogleLoadBalancer.View> views ->
       def summary = new GoogleLoadBalancerAccountRegionSummary(name: name)
 
-      views.each { GoogleLoadBalancer2.View view ->
+      views.each { GoogleLoadBalancer.View view ->
         summary.mappedAccounts[view.account].mappedRegions[view.region].loadBalancers << new GoogleLoadBalancerSummary(
             account: view.account,
             region: view.region,
@@ -70,7 +70,7 @@ class GoogleLoadBalancerController2 {
   List<GoogleLoadBalancerDetails> getDetailsInAccountAndRegionByName(@PathVariable String account,
                                                                      @PathVariable String region,
                                                                      @PathVariable String name) {
-    GoogleLoadBalancer2.View view = googleLoadBalancerProvider.getApplicationLoadBalancers(name).find { view ->
+    GoogleLoadBalancer.View view = googleLoadBalancerProvider.getApplicationLoadBalancers(name).find { view ->
       view.account == account && view.region == region
     }
 

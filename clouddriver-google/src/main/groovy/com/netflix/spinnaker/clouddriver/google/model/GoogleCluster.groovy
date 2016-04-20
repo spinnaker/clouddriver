@@ -25,7 +25,7 @@ import groovy.transform.EqualsAndHashCode
 
 @CompileStatic
 @EqualsAndHashCode(includes = ["name", "accountName"])
-class GoogleCluster2 {
+class GoogleCluster {
   String name
   String accountName
 
@@ -39,10 +39,10 @@ class GoogleCluster2 {
 
     final String type = GoogleCloudProvider.GCE
 
-    String name = GoogleCluster2.this.name
-    String accountName = GoogleCluster2.this.accountName
+    String name = GoogleCluster.this.name
+    String accountName = GoogleCluster.this.accountName
 
-    Set<GoogleServerGroup2.View> serverGroups = [] as Set
-    Set<GoogleLoadBalancer2.View> loadBalancers = [] as Set
+    Set<GoogleServerGroup.View> serverGroups = [] as Set
+    Set<GoogleLoadBalancer.View> loadBalancers = [] as Set
   }
 }

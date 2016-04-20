@@ -23,7 +23,7 @@ import groovy.transform.EqualsAndHashCode
 
 @CompileStatic
 @EqualsAndHashCode(includes = ["name"])
-class GoogleApplication2 {
+class GoogleApplication {
   String name
 
   View getView() {
@@ -32,7 +32,7 @@ class GoogleApplication2 {
 
   @Canonical
   class View implements Application {
-    String name = GoogleApplication2.this.name
+    String name = GoogleApplication.this.name
     Map<String, String> attributes = [:]
 
     /**

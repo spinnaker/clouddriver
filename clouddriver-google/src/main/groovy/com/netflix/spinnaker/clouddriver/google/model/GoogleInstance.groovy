@@ -35,7 +35,7 @@ import groovy.transform.Canonical
 import groovy.transform.EqualsAndHashCode
 
 @EqualsAndHashCode(includes = "name")
-class GoogleInstance2 {
+class GoogleInstance {
 
   String name
   String instanceType
@@ -72,23 +72,23 @@ class GoogleInstance2 {
 
     final String providerType = GoogleCloudProvider.GCE
 
-    String name = GoogleInstance2.this.name
-    String instanceId = GoogleInstance2.this.name
-    String instanceType = GoogleInstance2.this.instanceType
-    Long launchTime = GoogleInstance2.this.launchTime
-    String zone = GoogleInstance2.this.zone
-    String region = GoogleInstance2.this.region
-    Map placement = ["availabilityZone": GoogleInstance2.this.zone]
-    List<NetworkInterface> networkInterfaces = GoogleInstance2.this.networkInterfaces
-    Metadata metadata = GoogleInstance2.this.metadata
-    List<Disk> disks = GoogleInstance2.this.disks
-    List<ServiceAccount> serviceAccounts = GoogleInstance2.this.serviceAccounts
-    String selfLink = GoogleInstance2.this.selfLink
-    String serverGroup = GoogleInstance2.this.serverGroup
-    Tags tags = GoogleInstance2.this.tags
+    String name = GoogleInstance.this.name
+    String instanceId = GoogleInstance.this.name
+    String instanceType = GoogleInstance.this.instanceType
+    Long launchTime = GoogleInstance.this.launchTime
+    String zone = GoogleInstance.this.zone
+    String region = GoogleInstance.this.region
+    Map placement = ["availabilityZone": GoogleInstance.this.zone]
+    List<NetworkInterface> networkInterfaces = GoogleInstance.this.networkInterfaces
+    Metadata metadata = GoogleInstance.this.metadata
+    List<Disk> disks = GoogleInstance.this.disks
+    List<ServiceAccount> serviceAccounts = GoogleInstance.this.serviceAccounts
+    String selfLink = GoogleInstance.this.selfLink
+    String serverGroup = GoogleInstance.this.serverGroup
+    Tags tags = GoogleInstance.this.tags
 
     List<Map<String, String>> getSecurityGroups() {
-      GoogleInstance2.this.securityGroups.collect {
+      GoogleInstance.this.securityGroups.collect {
         ["groupName": it, "groupId": it]
       }
     }
