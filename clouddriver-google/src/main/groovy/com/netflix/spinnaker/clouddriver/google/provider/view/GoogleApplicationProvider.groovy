@@ -33,7 +33,6 @@ import org.springframework.stereotype.Component
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.APPLICATIONS
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.CLUSTERS
 
-@ConditionalOnProperty(value = "google.providerImpl", havingValue = "new")
 @Component
 class GoogleApplicationProvider implements ApplicationProvider {
   @Autowired

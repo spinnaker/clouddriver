@@ -33,7 +33,6 @@ import org.springframework.stereotype.Component
 
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.*
 
-@ConditionalOnProperty(value = "google.providerImpl", havingValue = "new")
 @Component
 class GoogleLoadBalancerProvider implements LoadBalancerProvider<GoogleLoadBalancer.View> {
 

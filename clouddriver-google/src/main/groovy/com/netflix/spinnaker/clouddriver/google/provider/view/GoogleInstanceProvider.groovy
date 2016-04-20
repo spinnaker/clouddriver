@@ -36,7 +36,6 @@ import org.springframework.stereotype.Component
 
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.*
 
-@ConditionalOnProperty(value = "google.providerImpl", havingValue = "new")
 @Component
 @Slf4j
 class GoogleInstanceProvider implements InstanceProvider<GoogleInstance.View> {

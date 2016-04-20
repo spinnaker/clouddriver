@@ -35,7 +35,6 @@ import org.springframework.stereotype.Component
 
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.*
 
-@ConditionalOnProperty(value = "google.providerImpl", havingValue = "new")
 @Component
 class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
 
