@@ -71,6 +71,12 @@ subprojects { project ->
           if (it.requested.group == 'org.apache.xbean') {
             it.useVersion '4.3'
           }
+          if (it.requested.group == 'com.fasterxml.jackson.core'
+                  || it.requested.group == 'com.fasterxml.jackson.datatype'
+                  || it.requested.group == 'com.fasterxml.jackson.dataformat'
+                  || it.requested.group == 'com.fasterxml.jackson.module') {
+            it.useVersion '2.5.4'
+          }
         }
       }
     }
