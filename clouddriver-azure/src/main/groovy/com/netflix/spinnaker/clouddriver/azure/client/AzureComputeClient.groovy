@@ -177,10 +177,16 @@ public class AzureComputeClient extends AzureBaseClient {
     null
   }
 
+  /**
+   * It deletes a given server group 
+   * @param resourceGroupName - name of the resource group
+   * @param serverGroupName - name of the server group
+   * @return a ServiceResponse object
+   */
   ServiceResponse<Void> destroyServerGroup(String resourceGroupName, String serverGroupName) {
 
     deleteAzureResource(
-      getScaleSetOps().&delete,
+      scaleSetOps.&delete,
       resourceGroupName,
       serverGroupName,
       null,
@@ -189,7 +195,7 @@ public class AzureComputeClient extends AzureBaseClient {
     )
   }
 
-  ServiceResponse<Void> disableServerGroup(String resourceGroupName, String serverGroupName) {
+  ServiceResponse<Void> powerOffServerGroup(String resourceGroupName, String serverGroupName) {
 
     List<String> instanceIds = this.getServerGroupInstances(resourceGroupName,serverGroupName)?.collect {it.resourceId}
 
@@ -199,7 +205,7 @@ public class AzureComputeClient extends AzureBaseClient {
     //ops.deallocate(resourceGroupName, serverGroupName, instanceIds)
   }
 
-  ServiceResponse<Void> enableServerGroup(String resourceGroupName, String serverGroupName) {
+  ServiceResponse<Void> powerOnServerGroup(String resourceGroupName, String serverGroupName) {
 
     List<String> instanceIds = this.getServerGroupInstances(resourceGroupName,serverGroupName)?.collect {it.resourceId}
 
