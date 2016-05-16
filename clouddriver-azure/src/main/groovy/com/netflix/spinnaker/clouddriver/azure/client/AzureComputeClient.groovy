@@ -178,7 +178,7 @@ public class AzureComputeClient extends AzureBaseClient {
   }
 
   /**
-   * It deletes a given server group 
+   * It deletes a given server group
    * @param resourceGroupName - name of the resource group
    * @param serverGroupName - name of the server group
    * @return a ServiceResponse object
@@ -193,23 +193,6 @@ public class AzureComputeClient extends AzureBaseClient {
       "Delete Server Group ${serverGroupName}",
       "Failed to delete Server Group ${serverGroupName} in ${resourceGroupName}"
     )
-  }
-
-  ServiceResponse<Void> powerOffServerGroup(String resourceGroupName, String serverGroupName) {
-
-    List<String> instanceIds = this.getServerGroupInstances(resourceGroupName,serverGroupName)?.collect {it.resourceId}
-
-    scaleSetOps.powerOff(resourceGroupName, serverGroupName, instanceIds)
-
-    // TODO: investigate if we can deallocate the VMs
-    //ops.deallocate(resourceGroupName, serverGroupName, instanceIds)
-  }
-
-  ServiceResponse<Void> powerOnServerGroup(String resourceGroupName, String serverGroupName) {
-
-    List<String> instanceIds = this.getServerGroupInstances(resourceGroupName,serverGroupName)?.collect {it.resourceId}
-
-    scaleSetOps.start(resourceGroupName, serverGroupName, instanceIds)
   }
 
   /**
