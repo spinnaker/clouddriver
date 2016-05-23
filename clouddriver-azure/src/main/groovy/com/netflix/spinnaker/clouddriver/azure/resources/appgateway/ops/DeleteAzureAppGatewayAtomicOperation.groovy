@@ -55,7 +55,7 @@ class DeleteAzureAppGatewayAtomicOperation implements AtomicOperation<Void> {
 
     try {
       task.updateStatus(BASE_PHASE, "Deleting Azure Application Gateway ${description.loadBalancerName} " + "in ${description.region}...")
-      String resourceGroupName = AzureUtilities.getResourceGroupName(description.appName, description.region)
+      String resourceGroupName = AzureUtilities.getResourceGroupName(description.loadBalancerName, description.region)
 
       description
         .credentials

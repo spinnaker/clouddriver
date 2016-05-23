@@ -50,7 +50,7 @@ class DeleteAzureLoadBalancerAtomicOperation implements AtomicOperation<Void> {
       }
 
       try {
-        String resourceGroupName = AzureUtilities.getResourceGroupName(description.appName, region)
+        String resourceGroupName = AzureUtilities.getResourceGroupName(description.loadBalancerName, region)
 
         description
           .credentials
