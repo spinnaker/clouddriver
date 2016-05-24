@@ -254,7 +254,17 @@ google:
         sizeGb: 10
 
 openstack:
-  enabled: false
+  enabled: ${OS_ENABLED}
+  accounts:
+    - name: test
+      environment: test
+      accountType: v2
+      master: test
+      username: ${OS_USERNAME}
+      password: ${OS_PASSWORD}
+      tenantName: PRD-spinnakeropenstack
+      domainName: Default
+      endpoint: ${OS_AUTH_URL}
 
 kubernetes:
   enabled: false
