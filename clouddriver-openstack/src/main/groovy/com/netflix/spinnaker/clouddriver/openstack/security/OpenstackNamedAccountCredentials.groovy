@@ -33,6 +33,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
   final String endpoint
   final List<String> requiredGroupMembership
   final OpenstackCredentials credentials
+  final Boolean insecure
 
   OpenstackNamedAccountCredentials(String accountName,
                                    String environment,
@@ -42,8 +43,9 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
                                    String password,
                                    String tenantName,
                                    String domainName,
-                                   String endpoint) {
-    this(accountName, environment, accountType, master, username, password, null, tenantName, domainName, endpoint)
+                                   String endpoint,
+                                   Boolean insecure) {
+    this(accountName, environment, accountType, master, username, password, null, tenantName, domainName, endpoint, insecure)
   }
 
   OpenstackNamedAccountCredentials(String accountName,
@@ -55,7 +57,8 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
                                    List<String> requiredGroupMembership,
                                    String tenantName,
                                    String domainName,
-                                   String endpoint) {
+                                   String endpoint,
+                                   Boolean insecure) {
     this.name = accountName
     this.environment = environment
     this.accountType = accountType
@@ -66,6 +69,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
     this.domainName = domainName
     this.endpoint = endpoint
     this.requiredGroupMembership = requiredGroupMembership
+    this.insecure = insecure
     this.credentials = buildCredentials()
   }
 

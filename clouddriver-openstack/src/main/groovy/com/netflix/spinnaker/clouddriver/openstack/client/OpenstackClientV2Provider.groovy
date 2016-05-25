@@ -27,6 +27,11 @@ class OpenstackClientV2Provider extends OpenstackClientProvider {
     super(client)
   }
 
+  @Override
+  String getTokenId() {
+    ((OSClient.OSClientV2)client).access.token.id
+  }
+
   //TODO v2 specific operations
 
 }

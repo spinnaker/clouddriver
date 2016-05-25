@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.openstack.client
 
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import org.openstack4j.api.OSClient
+import org.openstack4j.core.transport.Config
 import org.openstack4j.model.common.Identifier
 import org.openstack4j.openstack.OSFactory
 
@@ -29,18 +30,21 @@ class OpenstackProviderFactory {
   static OpenstackClientProvider createProvider(OpenstackNamedAccountCredentials credentials) {
     OSClient osClient
     OpenstackClientProvider provider
+    Config config = credentials.insecure ? Config.newConfig().withSSLVerificationDisabled() : Config.newConfig()
     if (AccountType.V2.value() == credentials.accountType) {
       osClient = OSFactory.builderV2()
+        .withConfig(config)
         .endpoint(credentials.endpoint)
         .credentials(credentials.username, credentials.password)
-        .tenantId(credentials.tenantName)
+        .tenantName(credentials.tenantName)
         .authenticate()
       provider = new OpenstackClientV2Provider(osClient)
     } else if (AccountType.V3.value() == credentials.accountType) {
       osClient = OSFactory.builderV3()
+        .withConfig(config)
         .endpoint(credentials.endpoint)
         .credentials(credentials.username, credentials.password, Identifier.byName(credentials.domainName))
-        .scopeToProject(Identifier.byName(credentials.tenantName))
+        .scopeToProject(Identifier.byName(credentials.tenantName), Identifier.byName(credentials.domainName))
         .authenticate()
       provider = new OpenstackClientV3Provider(osClient)
     } else {

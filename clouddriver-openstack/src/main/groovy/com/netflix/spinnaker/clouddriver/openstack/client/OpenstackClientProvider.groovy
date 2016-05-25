@@ -30,9 +30,20 @@ abstract class OpenstackClientProvider {
   }
 
   //TODO test
+  /**
+   * Delete an instance.
+   * @param instanceId
+   * @return
+   */
   def deleteInstance(String instanceId) {
     client.compute().servers().delete(instanceId)
   }
+
+  /**
+   * Get a new token id.
+   * @return
+   */
+  abstract String getTokenId()
 
   //TODO stuff common to v2 and v3
 

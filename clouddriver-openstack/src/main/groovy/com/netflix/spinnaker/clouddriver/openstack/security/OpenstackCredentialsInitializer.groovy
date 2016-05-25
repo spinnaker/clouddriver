@@ -71,7 +71,8 @@ class OpenstackCredentialsInitializer implements CredentialsInitializerSynchroni
                                                                     managedAccount.password,
                                                                     managedAccount.tenantName,
                                                                     managedAccount.domainName,
-                                                                    managedAccount.endpoint
+                                                                    managedAccount.endpoint,
+                                                                    managedAccount.insecure
                                                                     )
         accountCredentialsRepository.save(managedAccount.name, openstackAccount)
       } catch (e) {
