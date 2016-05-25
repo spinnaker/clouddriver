@@ -20,6 +20,7 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.aws.security.AWSAccountInfoLookup;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.aws.security.DefaultAWSAccountInfoLookup;
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig.Account;
@@ -47,12 +48,12 @@ public class CredentialsLoader<T extends AmazonCredentials> {
     private final CredentialTranslator<T> credentialTranslator;
     private final ObjectMapper objectMapper;
 
-    public CredentialsLoader(AWSCredentialsProvider credentialsProvider, Class<T> credentialsType) {
-        this(credentialsProvider, credentialsType, Collections.<String, String>emptyMap());
+    public CredentialsLoader(AWSCredentialsProvider credentialsProvider, AmazonClientProvider amazonClientProvider, Class<T> credentialsType) {
+        this(credentialsProvider, amazonClientProvider, credentialsType, Collections.<String, String>emptyMap());
     }
 
-    public CredentialsLoader(AWSCredentialsProvider credentialsProvider, Class<T> credentialsType, Map<String, String> templateValues) {
-        this(credentialsProvider, new DefaultAWSAccountInfoLookup(credentialsProvider), credentialsType, templateValues);
+    public CredentialsLoader(AWSCredentialsProvider credentialsProvider, AmazonClientProvider amazonClientProvider,Class<T> credentialsType, Map<String, String> templateValues) {
+        this(credentialsProvider, new DefaultAWSAccountInfoLookup(credentialsProvider, amazonClientProvider), credentialsType, templateValues);
     }
 
     public CredentialsLoader(AWSCredentialsProvider credentialsProvider, AWSAccountInfoLookup awsAccountInfoLookup, Class<T> credentialsType) {

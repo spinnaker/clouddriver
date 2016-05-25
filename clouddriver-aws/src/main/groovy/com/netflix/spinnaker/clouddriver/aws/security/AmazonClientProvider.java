@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.security;
 
 import com.amazonaws.AmazonWebServiceClient;
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.regions.Region;
@@ -49,6 +50,7 @@ import com.netflix.awsobjectmapper.AmazonObjectMapper;
 import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -225,6 +227,86 @@ public class AmazonClientProvider {
     return AmazonClientInvocationHandler.lastModified.get();
   }
 
+  public AmazonEC2 getAmazonEC2(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AmazonEC2Client.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AWSLambda getAmazonLambda(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AWSLambdaClient.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AWSLambdaAsync getAmazonLambdaAsync(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AWSLambdaAsyncClient.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AmazonAutoScaling getAutoScaling(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AmazonAutoScalingClient.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AmazonRoute53 getAmazonRoute53(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AmazonRoute53Client.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AmazonElasticLoadBalancing getAmazonElasticLoadBalancing(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AmazonElasticLoadBalancingClient.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AmazonSimpleWorkflow getAmazonSimpleWorkflow(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AmazonSimpleWorkflowClient.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AmazonCloudWatch getAmazonCloudWatch(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AmazonCloudWatchClient.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AmazonSNS getAmazonSNS(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AmazonSNSClient.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
+  public AmazonCloudWatch getCloudWatch(AWSCredentialsProvider amazonCredentialsProvider) {
+    try {
+      return getClient(AmazonCloudWatchClient.class, amazonCredentialsProvider, "");
+    } catch (Exception e) {
+      throw new RuntimeException("Instantiation of client implementation failed!", e);
+    }
+  }
+
   public AmazonEC2 getAmazonEC2(NetflixAmazonCredentials amazonCredentials, String region) {
     checkCredentials(amazonCredentials);
     return getProxyHandler(AmazonEC2.class, AmazonEC2Client.class, amazonCredentials, region);
@@ -326,7 +408,7 @@ public class AmazonClientProvider {
 
   protected <T extends AmazonWebServiceClient, U> U getProxyHandler(Class<U> interfaceKlazz, Class<T> impl, NetflixAmazonCredentials amazonCredentials, String region, boolean skipEdda) {
     try {
-      T delegate = getClient(impl, amazonCredentials, region);
+      T delegate = getClient(impl, amazonCredentials.getCredentialsProvider(), region);
       if (amazonCredentials.getEddaEnabled() && !skipEdda) {
         return interfaceKlazz.cast(Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{interfaceKlazz},
                 getInvocationHandler(delegate, delegate.getServiceName(), region, amazonCredentials)));
@@ -338,7 +420,7 @@ public class AmazonClientProvider {
     }
   }
 
-  protected <T extends AmazonWebServiceClient> T getClient(Class<T> impl, NetflixAmazonCredentials amazonCredentials, String region) throws IllegalAccessException, InvocationTargetException,
+  protected <T extends AmazonWebServiceClient> T getClient(Class<T> impl, AWSCredentialsProvider awsCredentialsProvider, String region) throws IllegalAccessException, InvocationTargetException,
     InstantiationException, NoSuchMethodException {
     Constructor<T> constructor = impl.getConstructor(AWSCredentialsProvider.class, ClientConfiguration.class);
 
@@ -349,7 +431,7 @@ public class AmazonClientProvider {
         proxy.apply(clientConfiguration);
     }
 
-    T delegate = constructor.newInstance(amazonCredentials.getCredentialsProvider(), clientConfiguration);
+    T delegate = constructor.newInstance(awsCredentialsProvider, clientConfiguration);
     for (RequestHandler2 requestHandler : requestHandlers) {
       delegate.addRequestHandler(requestHandler);
     }
