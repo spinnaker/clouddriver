@@ -47,12 +47,12 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
     private final List<String> defaultSecurityGroups;
     private final AWSCredentialsProvider credentialsProvider;
 
-    public static AmazonCredentials fromAWSCredentials(String name, String environment, String accountType, AWSCredentialsProvider credentialsProvider) {
-        return fromAWSCredentials(name, environment, accountType, null, credentialsProvider);
+    public static AmazonCredentials fromAWSCredentials(String name, String environment, String accountType, AWSCredentialsProvider credentialsProvider, AmazonClientProvider amazonClientProvider) {
+        return fromAWSCredentials(name, environment, accountType, null, credentialsProvider, amazonClientProvider);
     }
 
-    public static AmazonCredentials fromAWSCredentials(String name, String environment, String accountType, String defaultKeyPair, AWSCredentialsProvider credentialsProvider) {
-        AWSAccountInfoLookup lookup = new DefaultAWSAccountInfoLookup(credentialsProvider);
+    public static AmazonCredentials fromAWSCredentials(String name, String environment, String accountType, String defaultKeyPair, AWSCredentialsProvider credentialsProvider, AmazonClientProvider amazonClientProvider) {
+        AWSAccountInfoLookup lookup = new DefaultAWSAccountInfoLookup(credentialsProvider, amazonClientProvider);
         final String accountId = lookup.findAccountId();
         final List<AWSRegion> regions = lookup.listRegions();
         return new AmazonCredentials(name, environment, accountType, accountId, defaultKeyPair, regions, null, null, credentialsProvider);
