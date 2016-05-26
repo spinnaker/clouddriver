@@ -56,7 +56,7 @@ class ResizeGoogleServerGroupAtomicOperation implements AtomicOperation<Void> {
     def serverGroupName = description.serverGroupName
     def serverGroup = GCEUtil.queryServerGroup(googleClusterProvider, accountName, region, serverGroupName)
     def isRegional = serverGroup.regional
-    // Will return null if this is a zonal server group.
+    // Will return null if this is a regional server group.
     def zone = serverGroup.zone
     int targetSize = description.targetSize instanceof Number ? description.targetSize : description.capacity.desired
 

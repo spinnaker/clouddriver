@@ -68,7 +68,7 @@ class AbandonAndDecrementGoogleServerGroupAtomicOperation implements AtomicOpera
     def serverGroupName = description.serverGroupName
     def serverGroup = GCEUtil.queryServerGroup(googleClusterProvider, accountName, region, serverGroupName)
     def isRegional = serverGroup.regional
-    // Will return null if this is a zonal server group.
+    // Will return null if this is a regional server group.
     def zone = serverGroup.zone
     def instanceIds = description.instanceIds
     def instanceUrls = GCEUtil.collectInstanceUrls(serverGroup, instanceIds)
