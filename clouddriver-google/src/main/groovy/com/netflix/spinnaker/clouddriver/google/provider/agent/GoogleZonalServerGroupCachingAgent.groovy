@@ -294,7 +294,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
         }
       }
 
-      if (shouldUseOnDemandData(cacheResultBuilder, serverGroup)) {
+      if (shouldUseOnDemandData(cacheResultBuilder, serverGroupKey)) {
         moveOnDemandDataToNamespace(cacheResultBuilder, serverGroup)
       } else {
         cacheResultBuilder.namespace(SERVER_GROUPS.ns).keep(serverGroupKey).with {
@@ -318,8 +318,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     cacheResultBuilder.build()
   }
 
-  boolean shouldUseOnDemandData(CacheResultBuilder cacheResultBuilder, GoogleServerGroup googleServerGroup) {
-    def serverGroupKey = getServerGroupKey(googleServerGroup)
+  static boolean shouldUseOnDemandData(CacheResultBuilder cacheResultBuilder, String serverGroupKey) {
     CacheData cacheData = cacheResultBuilder.onDemand.toKeep[serverGroupKey]
 
     return cacheData ? cacheData.attributes.cacheTime >= cacheResultBuilder.startTime : false
