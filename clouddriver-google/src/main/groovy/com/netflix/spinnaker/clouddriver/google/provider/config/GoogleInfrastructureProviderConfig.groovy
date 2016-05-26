@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleImageCachin
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleInstanceCachingAgent
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleLoadBalancerCachingAgent
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleNetworkCachingAgent
+import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleRegionalServerGroupCachingAgent
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleSecurityGroupCachingAgent
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleServerGroupCachingAgent
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleSubnetCachingAgent
@@ -34,7 +35,6 @@ import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCrede
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -130,6 +130,11 @@ class GoogleInfrastructureProviderConfig {
                                                                  objectMapper,
                                                                  region,
                                                                  registry)
+          newlyAddedAgents << new GoogleRegionalServerGroupCachingAgent(googleConfiguration.googleApplicationName(),
+                                                                        credentials,
+                                                                        objectMapper,
+                                                                        region,
+                                                                        registry)
           newlyAddedAgents << new GoogleServerGroupCachingAgent(googleConfiguration.googleApplicationName(),
                                                                 credentials,
                                                                 objectMapper,
