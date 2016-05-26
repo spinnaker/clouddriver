@@ -55,7 +55,7 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.*
 
 @Slf4j
-class GoogleServerGroupCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent {
+class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent {
 
   final String region
 
@@ -67,15 +67,15 @@ class GoogleServerGroupCachingAgent extends AbstractGoogleCachingAgent implement
     INFORMATIVE.forType(LOAD_BALANCERS.ns),
   ] as Set
 
-  String agentType = "${accountName}/${region}/${GoogleServerGroupCachingAgent.simpleName}"
+  String agentType = "${accountName}/${region}/${GoogleZonalServerGroupCachingAgent.simpleName}"
   String onDemandAgentType = "${agentType}-OnDemand"
   final OnDemandMetricsSupport metricsSupport
 
-  GoogleServerGroupCachingAgent(String googleApplicationName,
-                                GoogleNamedAccountCredentials credentials,
-                                ObjectMapper objectMapper,
-                                String region,
-                                Registry registry) {
+  GoogleZonalServerGroupCachingAgent(String googleApplicationName,
+                                     GoogleNamedAccountCredentials credentials,
+                                     ObjectMapper objectMapper,
+                                     String region,
+                                     Registry registry) {
     super(googleApplicationName,
           credentials,
           objectMapper)

@@ -480,7 +480,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
         def imageKey = Keys.getImageKey(accountName, serverGroup.launchConfig.imageId)
         def image = providerCache.get(IMAGES.ns, imageKey)
 
-        GoogleServerGroupCachingAgent.extractBuildInfo(image?.attributes?.image?.description, serverGroup)
+        GoogleZonalServerGroupCachingAgent.extractBuildInfo(image?.attributes?.image?.description, serverGroup)
       }
 
       def instanceMetadata = instanceTemplate?.properties?.metadata
