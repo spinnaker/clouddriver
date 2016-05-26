@@ -114,7 +114,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
   }
 
   private List<GoogleServerGroup> getServerGroups(ProviderCache providerCache) {
-    constructServerGroups(providerCache, null /*onDemandServerGroupName*/)
+    constructServerGroups(providerCache)
   }
 
   private GoogleServerGroup getServerGroup(ProviderCache providerCache, String onDemandServerGroupName) {
@@ -122,7 +122,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
     serverGroups ? serverGroups.first() : null
   }
 
-  private List<GoogleServerGroup> constructServerGroups(ProviderCache providerCache, String onDemandServerGroupName) {
+  private List<GoogleServerGroup> constructServerGroups(ProviderCache providerCache, String onDemandServerGroupName = null) {
     Set<String> zoneNames = credentials.getZonesFromRegion(region).collect { Utils.getLocalName(it) } as Set
     List<GoogleServerGroup> serverGroups = []
 
