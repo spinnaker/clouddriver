@@ -36,11 +36,7 @@ class RebootOpenstackInstancesDescriptionValidator extends DescriptionValidator<
   @Override
   void validate(List priorDescriptions, OpenstackInstancesDescription description, Errors errors) {
     def validator = new OpenstackAttributeValidator("rebootOpenstackInstancesAtomicOperationDescription", errors)
-
-    //validate credentials
     validator.validateCredentials(description.account, accountCredentialsProvider)
-
-    //validate instance ids
     validator.validateNotEmpty(description.instanceIds, "instanceIds")
   }
 }
