@@ -54,6 +54,7 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
     ComputeVersion computeVersion = ComputeVersion.V1
     Map<String, List<String>> regionToZonesMap
     String jsonKey
+    Compute compute
 
     /**
      * If true, overwrites any value in regionToZoneMap with values from the platform.
@@ -115,12 +116,19 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
       return this
     }
 
+    @VisibleForTesting
+    Builder compute(Compute compute) {
+      this.compute = compute
+      this.regionLookupEnabled = false
+      return this
+    }
+
 
     GoogleNamedAccountCredentials build() {
       GoogleCredentials credentials = jsonKey ?
           new GoogleJsonCredentials(project, computeVersion, jsonKey) :
           new GoogleCredentials(project, computeVersion)
-      Compute compute = credentials.getCompute(applicationName)
+      Compute compute = this.compute ?: credentials.getCompute(applicationName)
 
       if (regionLookupEnabled) {
         regionToZonesMap = queryRegions(compute, project)
