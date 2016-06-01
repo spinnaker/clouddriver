@@ -52,7 +52,7 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
     String applicationName
     List<String> imageProjects = []
     ComputeVersion computeVersion = ComputeVersion.V1
-    Map<String, List<String>> regionToZonesMap
+    Map<String, List<String>> regionToZonesMap = [:]
     String jsonKey
     Compute compute
 
@@ -151,12 +151,12 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
   }
 
   public List<Map> getRegions() {
-    List<Map> regionList = new ArrayList<Map>()
+    List<Map> regionList = []
 
-    for (Map.Entry<String, List<String>> regionToZonesEntry : regionToZonesMap.entrySet()) {
+    regionToZonesMap.each { String region, List<String> zones ->
       Map regionMap = new HashMap()
-      regionMap.put("name", regionToZonesEntry.getKey())
-      regionMap.put("zones", regionToZonesEntry.getValue())
+      regionMap.put("name", region)
+      regionMap.put("zones", zones)
       regionList.add(regionMap)
     }
     return regionList
