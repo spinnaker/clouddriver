@@ -69,6 +69,9 @@ aws:
     - name: us-east-1
   defaultKeyPairTemplate: '{{name}}-keypair'
 
+  # defaultKeyPair will override defaultKeyPairTemplate
+  # defaultKeyPair: 
+
   # an empty list means we are directly managing the AWS account we have credentials for (named default.account.env)
   # see prod profile section below for an example configuration to manage other accounts via STS assume role
   accounts: []

@@ -225,7 +225,7 @@ public class CredentialsLoader<T extends AmazonCredentials> {
             templateContext.put("environment", account.getEnvironment());
             templateContext.put("accountType", account.getAccountType());
 
-            account.setDefaultKeyPair(templateFirstNonNull(templateContext, account.getDefaultKeyPair(), config.getDefaultKeyPairTemplate()));
+            account.setDefaultKeyPair(templateFirstNonNull(templateContext, account.getDefaultKeyPair(), config.getDefaultKeyPair(), config.getDefaultKeyPairTemplate()));
             account.setEdda(templateFirstNonNull(templateContext, account.getEdda(), config.getDefaultEddaTemplate()));
             account.setFront50(templateFirstNonNull(templateContext, account.getFront50(), config.getDefaultFront50Template()));
             account.setDiscovery(templateFirstNonNull(templateContext, account.getDiscovery(), config.getDefaultDiscoveryTemplate()));

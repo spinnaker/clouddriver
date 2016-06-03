@@ -146,6 +146,30 @@ class CredentialsLoaderSpec extends Specification {
         }
     }
 
+    def 'defaultKeyPair overrides defaultKeyPairTemplate'() {
+        def config = new CredentialsConfig(defaultRegions: [
+                new Region(name: 'us-east-1', availabilityZones: ['us-east-1c', 'us-east-1d', 'us-east-1e']),
+                new Region(name: 'us-west-2', availabilityZones: ['us-west-2a', 'us-west-2b'])],
+                defaultKeyPairTemplate: 'nf-{{name}}-keypair-a',
+                defaultKeyPair: 'number-one-keypair',
+                accounts: [
+                        new Account(name: 'test', accountId: 12345, regions: [
+                            new Region(name: 'us-west-2', deprecated: true)
+                        ])
+                ])
+        AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
+        AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
+        CredentialsLoader<AmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AmazonCredentials)
+
+        when:
+        List<AmazonCredentials> creds = ci.load(config)
+
+        then:        
+        with(creds.first()) { AmazonCredentials cred ->
+            cred.getDefaultKeyPair() == 'number-one-keypair'
+        }
+    }
+
     def 'account overrides defaults'() {
         setup:
         def config = new CredentialsConfig(defaultRegions: [
