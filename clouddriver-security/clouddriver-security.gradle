@@ -7,5 +7,6 @@ dependencies {
 
   testCompile project(':clouddriver-aws')
   testCompile project(':clouddriver-google')
+  testCompile project(':clouddriver-google').sourceSets.test.output
   testCompile project(':cats:cats-test')
 }
