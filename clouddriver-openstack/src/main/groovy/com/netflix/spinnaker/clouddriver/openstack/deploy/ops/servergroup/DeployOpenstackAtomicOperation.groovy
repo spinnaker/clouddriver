@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.openstack.deploy.ops.servergroup
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.openstack.deploy.OpenstackServerGroupNameResolver
-import com.netflix.spinnaker.clouddriver.openstack.deploy.description.DeployOpenstackAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.DeployOpenstackAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import groovy.util.logging.Slf4j
 
