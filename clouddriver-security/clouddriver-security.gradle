@@ -4,6 +4,7 @@ dependencies {
   compile spinnaker.dependency('kork')
   compile spinnaker.dependency('slf4j')
   compile project(':cats:cats-core')
+  compile spinnaker.dependency('korkSecurity')
 
   testCompile project(':clouddriver-aws')
   testCompile project(':clouddriver-google')

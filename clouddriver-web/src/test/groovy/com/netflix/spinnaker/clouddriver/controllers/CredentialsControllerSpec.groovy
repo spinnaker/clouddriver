@@ -49,7 +49,7 @@ class CredentialsControllerSpec extends Specification {
 
     List<Map> parsedResponse = new JsonSlurper().parseText(result.response.contentAsString) as List
 
-    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: ["test"], challengeDestructiveActions: false, primaryAccount: false]]
+    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: [], challengeDestructiveActions: false, primaryAccount: false]]
   }
 
   static class TestNamedAccountCredentials implements AccountCredentials<Map> {
@@ -58,20 +58,8 @@ class CredentialsControllerSpec extends Specification {
     String environment = "env"
     String accountType = "acctType"
 
-    @Override
-    Map getCredentials() {
-      [access: "a", secret: "b"]
-    }
-
-    @Override
-    String getCloudProvider() {
-      "testProvider"
-    }
-
-    @Override
-    List<String> getRequiredGroupMembership() {
-      ["test"]
-    }
+    Map credentials =  [access: "a", secret: "b"]
+    String cloudProvider = "testProvider"
+    List<String> requiredGroupMembership = []
   }
-
 }
