@@ -43,4 +43,9 @@ class OpenstackClientV2Provider extends OpenstackClientProvider {
 
   //TODO v2 specific operations
 
+  @Override
+  String getRegion() {
+    // v2 does not have a way to access the region
+    return ""
+  }
 }

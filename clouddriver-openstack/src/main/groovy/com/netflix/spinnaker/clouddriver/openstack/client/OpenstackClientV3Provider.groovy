@@ -43,4 +43,8 @@ class OpenstackClientV3Provider extends OpenstackClientProvider {
 
   //TODO v3 specific operations
 
+  @Override
+  String getRegion() {
+    return client.identity().regions().list().get(0)
+  }
 }

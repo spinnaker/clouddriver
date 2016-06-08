@@ -218,4 +218,13 @@ class OpenstackAttributeValidator {
     validateNotEmpty(value, attribute) &&
       validateByContainment(value, attribute, [Rule.RULE_TYPE_TCP])
   }
+
+  def validateServerGroupCloneSource(Object value, String attribute) {
+    if (!value) {
+      errors.rejectValue("${context}.${attribute}",  "${context}.${attribute}.empty")
+      return false
+    } else {
+      return validateNotEmpty(value.stackName, attribute)
+    }
+  }
 }
