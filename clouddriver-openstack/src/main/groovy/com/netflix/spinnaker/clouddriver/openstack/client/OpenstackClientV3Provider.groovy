@@ -42,5 +42,4 @@ class OpenstackClientV3Provider extends OpenstackClientProvider {
   }
 
   //TODO v3 specific operations
-
 }
