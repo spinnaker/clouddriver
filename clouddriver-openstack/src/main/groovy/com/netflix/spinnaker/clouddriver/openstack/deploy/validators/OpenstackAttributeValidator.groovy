@@ -224,7 +224,7 @@ class OpenstackAttributeValidator {
       errors.rejectValue("${context}.${attribute}",  "${context}.${attribute}.empty")
       return false
     } else {
-      return validateNotEmpty(value.stackName, attribute)
+      return validateNotEmpty(value.stackName, attribute) && validateNotEmpty(value.region, attribute)
     }
   }
 }

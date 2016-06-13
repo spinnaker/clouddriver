@@ -43,6 +43,7 @@ class CloneOpenstackAtomicOperationValidator extends DescriptionValidator<CloneO
     OpenstackCredentials credentials = (OpenstackCredentials) accountCredentialsProvider.getCredentials(description.account).credentials
 
     helper.validateServerGroupCloneSource(description.source, "source")
+
     if (description.application) {
       helper.validateApplication(description.application, "application")
     }

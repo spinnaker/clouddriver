@@ -25,4 +25,5 @@ class CloneOpenstackAtomicOperationDescription extends DeployOpenstackAtomicOper
 @Canonical
 class OpenstackCloneSource {
   String stackName
+  String region
 }

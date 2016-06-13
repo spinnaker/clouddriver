@@ -133,10 +133,9 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
   def "builds a description based on ancestor server group, overrides nothing"() {
     given:
     def inputDescription = new CloneOpenstackAtomicOperationDescription(
-      source: [stackName: ANCESTOR_STACK_NAME],
+      source: [stackName: ANCESTOR_STACK_NAME, region: REGION],
       account: ACCOUNT_NAME,
-      credentials: credentials,
-      region: REGION
+      credentials: credentials
     )
 
     @Subject def operation = new CloneOpenstackAtomicOperation(inputDescription)
@@ -156,7 +155,7 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
     resultDescription.parameters == ancestorDeployAtomicOperationDescription.parameters
     resultDescription.disableRollback == ancestorDeployAtomicOperationDescription.disableRollback
     resultDescription.account == ancestorDeployAtomicOperationDescription.account
-
+    resultDescription.region == ancestorDeployAtomicOperationDescription.region
   }
 
   def "builds a description based on ancestor server group, overrides everything"() {
@@ -170,7 +169,7 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
       timeoutMins: TIMEOUT_MINS_N,
       parameters: PARAMS_MAP,
       disableRollback: DISABLE_ROLLBACK_N,
-      source: [stackName: ANCESTOR_STACK_NAME],
+      source: [stackName: ANCESTOR_STACK_NAME, region: REGION],
       credentials: credentials,
       account: ACCOUNT_NAME
     )
@@ -181,7 +180,7 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
     def resultDescription = operation.cloneAndOverrideDescription()
 
     then:
-    1 * inputDescription.credentials.provider.getServerGroup(REGION_N, ANCESTOR_STACK_NAME) >> createHeatStack()
+    1 * inputDescription.credentials.provider.getServerGroup(REGION, ANCESTOR_STACK_NAME) >> createHeatStack()
 
     resultDescription.application == newDeployAtomicOperationDescription.application
     resultDescription.stack == newDeployAtomicOperationDescription.stack
@@ -191,5 +190,6 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
     resultDescription.parameters == newDeployAtomicOperationDescription.parameters
     resultDescription.disableRollback == newDeployAtomicOperationDescription.disableRollback
     resultDescription.account == newDeployAtomicOperationDescription.account
+    resultDescription.region == newDeployAtomicOperationDescription.region
   }
 }

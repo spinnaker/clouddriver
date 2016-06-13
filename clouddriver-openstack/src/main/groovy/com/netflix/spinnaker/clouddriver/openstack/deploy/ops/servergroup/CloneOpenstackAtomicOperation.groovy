@@ -42,7 +42,7 @@ class CloneOpenstackAtomicOperation implements AtomicOperation<DeploymentResult>
   }
 
   /*
-    * curl -X POST -H "Content-Type: application/json" -d '[{"cloneServerGroup": {"source": {"stackName": "myapp-teststack-v000"},"account": "test"}}]' localhost:7002/openstack/ops
+  * curl -X POST -H "Content-Type: application/json" -d '[{"cloneServerGroup": {"source": {"stackName": "myapp-teststack-v000", "region": "RegionOne"},"account": "test"}}]' localhost:7002/openstack/ops
   */
   @Override
   DeploymentResult operate (List priorOutputs) {
@@ -63,9 +63,7 @@ class CloneOpenstackAtomicOperation implements AtomicOperation<DeploymentResult>
 
     task.updateStatus BASE_PHASE, "Reading ancestor stack name ${description.source.stackName}..."
 
-    def credentials = newDescription.credentials
-
-    HeatStack ancestorStack = description.credentials.provider.getServerGroup(description.region, description.source.stackName)
+    HeatStack ancestorStack = description.credentials.provider.getServerGroup(description.source.region, description.source.stackName)
     if (!ancestorStack) {
       throw new OpenstackResourceNotFoundException(AtomicOperations.CLONE_SERVER_GROUP, "Source stack ${description.source.stackName} does not exist.")
     }
@@ -76,8 +74,8 @@ class CloneOpenstackAtomicOperation implements AtomicOperation<DeploymentResult>
     newDescription.application = description.application ?: ancestorNames.app
     newDescription.stack = description.stack ?: ancestorNames.stack
     newDescription.freeFormDetails = description.freeFormDetails ?: ancestorNames.detail
-    newDescription.region = description.region ?: description.credentials.provider.getRegion()
-    newDescription.heatTemplate = description.heatTemplate ?: description.credentials.provider.getHeatTemplate(description.region, ancestorStack.name, ancestorStack.id)
+    newDescription.region = description.region ?: description.source.region
+    newDescription.heatTemplate = description.heatTemplate ?: description.credentials.provider.getHeatTemplate(description.source.region, ancestorStack.name, ancestorStack.id)
     newDescription.parameters = description.parameters ?: [:]
     newDescription.disableRollback = description.disableRollback ?: false
     newDescription.timeoutMins = description.timeoutMins ?: ancestorStack.timeoutMins

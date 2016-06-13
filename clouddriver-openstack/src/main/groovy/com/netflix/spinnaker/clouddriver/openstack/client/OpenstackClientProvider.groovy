@@ -368,12 +368,6 @@ abstract class OpenstackClientProvider {
     result
   }
 
-  /***
-  * Get region.
-  * @return
-  */
-  abstract String getRegion()
-
   /**
    * Handler for an Openstack4J request with error common handling.
    * @param closure makes the needed Openstack4J request

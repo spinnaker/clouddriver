@@ -66,11 +66,6 @@ class OpenstackClientProviderSpec extends Specification {
         null
       }
 
-      @Override
-      String getRegion() {
-        return "default"
-      }
-
       OSClient getRegionClient(String region) {
         mockClient
       }
