@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.openstack.deploy.exception
+package com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup
 
-import groovy.transform.InheritConstructors
-import org.openstack4j.model.common.ActionResponse
+import groovy.transform.Canonical
 
-/**
- *
- */
-@InheritConstructors
-class OpenstackProviderException extends RuntimeException {
+class CloneOpenstackAtomicOperationDescription extends DeployOpenstackAtomicOperationDescription {
+  OpenstackCloneSource source
+}
 
-  OpenstackProviderException(ActionResponse actionResponse) {
-    super("Operation failed: fault $actionResponse.fault with code $actionResponse.code")
-  }
-
+@Canonical
+class OpenstackCloneSource {
+  String stackName
+  String region
 }

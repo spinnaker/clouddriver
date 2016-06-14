@@ -62,4 +62,10 @@ class OpenstackServerGroupNameResolver extends AbstractServerGroupNameResolver {
       }
     }
   }
+
+  @Override
+  String combineAppStackDetail(String appName, String stack, String detail) {
+    super.combineAppStackDetail(appName, stack, detail)
+  }
+
 }
