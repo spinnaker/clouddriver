@@ -1,0 +1,45 @@
+heat_template_version: 2015-04-30
+description: Auto scaling group for Spinnaker
+parameters:
+  flavor:
+    type: string
+    description: flavor used by the web servers
+  image:
+    type: string
+    description: Image used for servers
+  internal_port:
+    type: string
+    description: internal app port for each server
+  max_size:
+    type: number
+    description: maximum cluster size
+  min_size:
+    type: number
+    description: minimum cluster size
+  network_id:
+    type: string
+    description: Network used by the servers
+  pool_id:
+    type: string
+    description: Load balancer to use for this group
+  security_groups:
+    type: comma_delimited_list
+    description: security groups to use
+resources:
+  asg:
+    type: OS::Heat::AutoScalingGroup
+    properties:
+      min_size: {get_param: min_size}
+      max_size: {get_param: max_size}
+      resource:
+        type: asg_resource.yaml
+        properties:
+          flavor: {get_param: flavor}
+          image: {get_param: image}
+          internal_port: {get_param: internal_port}
+          network_id: {get_param: network_id}
+          pool_id: {get_param: pool_id}
+          security_groups: {get_param: security_groups}
+outputs:
+  OS::stack_id:
+    value: {get_resource: asg}

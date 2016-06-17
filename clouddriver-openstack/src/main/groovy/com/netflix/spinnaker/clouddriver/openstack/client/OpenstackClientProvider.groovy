@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.openstack.client
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.securitygroup.UpsertOpenstackSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException
+import com.netflix.spinnaker.clouddriver.openstack.domain.ServerGroupParameters
 import com.netflix.spinnaker.clouddriver.openstack.domain.LoadBalancerPool
 import com.netflix.spinnaker.clouddriver.openstack.domain.PoolHealthMonitor
 import com.netflix.spinnaker.clouddriver.openstack.domain.VirtualIP
@@ -30,6 +31,7 @@ import org.openstack4j.model.common.ActionResponse
 import org.openstack4j.model.compute.IPProtocol
 import org.openstack4j.model.compute.FloatingIP
 import org.openstack4j.model.compute.RebootType
+import org.openstack4j.model.heat.StackCreate
 import org.openstack4j.model.network.NetFloatingIP
 import org.openstack4j.model.network.Port
 import org.openstack4j.model.network.ext.HealthMonitor
@@ -421,11 +423,36 @@ abstract class OpenstackClientProvider {
    * @param timeoutMins
    * @return
    */
-  void deploy(String region, String stackName, String heatTemplate, Map<String, String> parameters, boolean disableRollback, Long timeoutMins) {
+  void deploy(String region, String stackName, String template, Map<String, String> subtemplate, ServerGroupParameters parameters, boolean disableRollback, Long timeoutMins) {
+
     handleRequest {
-      getRegionClient(region).heat().stacks().create(stackName, heatTemplate, parameters, disableRollback, timeoutMins)
+
+      Map<String, String> params = [
+        'flavor':parameters.instanceType,
+        'image':parameters.image,
+        'internal_port':"$parameters.internalPort".toString(),
+        'max_size':"$parameters.maxSize".toString(),
+        'min_size':"$parameters.minSize".toString(),
+        'network_id':parameters.networkId,
+        'pool_id':parameters.poolId,
+        'security_groups':parameters.securityGroups.join(',')
+      ]
+
+      StackCreate create = Builders.stack()
+        .name(stackName)
+        .template(template)
+        .parameters(params)
+        .files(subtemplate)
+        .disableRollback(disableRollback)
+        .timeoutMins(timeoutMins)
+        .build()
+
+      getRegionClient(region).heat().stacks().create(create)
+
     }
+
     //TODO: Handle heat autoscaling migration to senlin in versions > Mitaka
+
   }
 
   /***

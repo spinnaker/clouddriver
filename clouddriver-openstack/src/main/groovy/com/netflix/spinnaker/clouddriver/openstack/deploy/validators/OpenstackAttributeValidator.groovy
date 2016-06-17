@@ -131,14 +131,13 @@ class OpenstackAttributeValidator {
     result
   }
 
-  boolean validateHeatTemplate(String value, String attribute, AccountCredentialsProvider accountCredentialsProvider, String account) {
+  boolean validateGreaterThan(int subject, int other, String attribute) {
     def result
-    def credentials = accountCredentialsProvider.getCredentials(account)
-    def client = ((OpenstackCredentials)credentials.getCredentials()).getProvider().getClient()
-    if (client && client.heat().templates().validateTemplate(value).isValid()) {
+    if (other < subject) {
       result = true
-    } else {
-      errors.rejectValue("${context}.${attribute}", "${context}.${attribute}.notValidHeatTemplate")
+    }
+    else {
+      errors.rejectValue("${context}.${attribute}", "${context}.${attribute}.notGreaterThan")
       result = false
     }
     result
