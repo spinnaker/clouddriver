@@ -23,70 +23,73 @@ import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvide
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackProviderFactory
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.CloneOpenstackAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.DeployOpenstackAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.openstack.domain.ServerGroupParameters
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackCredentials
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
-import org.openstack4j.openstack.heat.domain.HeatStack
+import org.openstack4j.model.heat.Stack
 import spock.lang.Specification
 import spock.lang.Subject
 
 class CloneOpenstackAtomicOperationSpec extends Specification {
+
   private static final String ACCOUNT_NAME = 'myaccount'
-  private static final APPLICATION = "app"
+
   private static final STACK = "stack"
+  private static final APPLICATION = "app"
   private static final DETAILS = "details"
   private static final REGION = "region"
-  private static final String HEAT_TEMPLATE = '{"heat_template_version":"2013-05-23",' +
-    '"description":"Simple template to test heat commands",' +
-    '"parameters":{"flavor":{"default":"m1.nano","type":"string"}},' +
-    '"resources":{"hello_world":{"type":"OS::Nova::Server",' +
-    'properties":{"flavor":{"get_param":"flavor"},' +
-    '"image":"cirros-0.3.4-x86_64-uec","user_data":""}}}}'
   private static final Integer TIMEOUT_MINS = 5
-  private static final Map<String,String> PARAMS_MAP = Collections.emptyMap()
   private static final Boolean DISABLE_ROLLBACK = false
+  private static final String INSTANCE_TYPE = 'm1.medium'
+  private static final String IMAGE = 'ubuntu-latest-orig'
+  private static final int MAX_SIZE = 6
+  private static final int MIN_SIZE = 4
+  private static final String NETWORK_ID = '12356'
+  private static final String POOL_ID = '47890'
+  private static final List<String> SECURITY_GROUPS = ['sg99','sg3434']
 
   private static final SEQUENCE = "v000"
   private static final ANCESTOR_STACK_NAME = "$APPLICATION-$STACK-$DETAILS-$SEQUENCE"
-  private static final ANCESTOR_STACK_ID = "978f378f-0b98-469d-90dd-f61a73f8703a"
 
   // Changed Parameters
   private static final STACK_N = "stackn"
   private static final APPLICATION_N = "appn"
   private static final DETAILS_N = "detailn"
   private static final REGION_N = "regionn"
-  private static final String HEAT_TEMPLATE_N = '{"heat_template_version":"2013-06-10",' +
-    '"description":"Simple template to test heat commands",' +
-    '"parameters":{"flavor":{"default":"m1.nano","type":"string"}},' +
-    '"resources":{"hello_world":{"type":"OS::Nova::Server",' +
-    'properties":{"flavor":{"get_param":"flavor"},' +
-    '"image":"cirros-0.3.4-x86_64-uec","user_data":""}}}}'
   private static final Integer TIMEOUT_MINS_N = 6
   private static final Boolean DISABLE_ROLLBACK_N = true
+  private static final String INSTANCE_TYPE_N = 'm1.small'
+  private static final String IMAGE_N = 'ubuntu-latest'
+  private static final int MAX_SIZE_N = 5
+  private static final int MIN_SIZE_N = 3
+  private static final String NETWORK_ID_N = '1234'
+  private static final String POOL_ID_N = '5678'
+  private static final List<String> SECURITY_GROUPS_N = ['sg1']
 
   def credentials
   def provider
 
-  HeatStack createHeatStack() {
-    return new HeatStack(
-      id: ANCESTOR_STACK_ID,
-      name: ANCESTOR_STACK_NAME,
-      status: "CREATE_COMPLETE",
-      timeoutMins: 5
-    )
+  DeployOpenstackAtomicOperation createDeployOpenstackAO() {
+    new DeployOpenstackAtomicOperation(createAncestorDeployAtomicOperationDescription())
   }
 
-  DeployOpenstackAtomicOperation createDeployOpenstackAO() {
-    return new DeployOpenstackAtomicOperation(createAncestorDeployAtomicOperationDescription())
-  }
   DeployOpenstackAtomicOperationDescription createAncestorDeployAtomicOperationDescription() {
-    return new DeployOpenstackAtomicOperationDescription(
+    def params = new ServerGroupParameters(
+      instanceType: INSTANCE_TYPE,
+      image:IMAGE,
+      maxSize: MAX_SIZE,
+      minSize: MIN_SIZE,
+      networkId: NETWORK_ID,
+      poolId: POOL_ID,
+      securityGroups: SECURITY_GROUPS
+    )
+    new DeployOpenstackAtomicOperationDescription(
       stack: STACK,
       application: APPLICATION,
       freeFormDetails: DETAILS,
       region: REGION,
-      heatTemplate: HEAT_TEMPLATE,
+      serverGroupParameters: params,
       timeoutMins: TIMEOUT_MINS,
-      parameters: PARAMS_MAP,
       disableRollback: DISABLE_ROLLBACK,
       account: ACCOUNT_NAME,
       credentials: credentials
@@ -94,25 +97,27 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
   }
 
   DeployOpenstackAtomicOperationDescription createNewDeployAtomicOperationDescription() {
-    return new DeployOpenstackAtomicOperationDescription(
+    def params = new ServerGroupParameters(
+      instanceType: INSTANCE_TYPE_N,
+      image:IMAGE_N,
+      maxSize: MAX_SIZE_N,
+      minSize: MIN_SIZE_N,
+      networkId: NETWORK_ID_N,
+      poolId: POOL_ID_N,
+      securityGroups: SECURITY_GROUPS_N
+    )
+    new DeployOpenstackAtomicOperationDescription(
       stack: STACK_N,
       application: APPLICATION_N,
       freeFormDetails: DETAILS_N,
       region: REGION_N,
-      heatTemplate: HEAT_TEMPLATE_N,
+      serverGroupParameters: params,
       timeoutMins: TIMEOUT_MINS_N,
-      parameters: PARAMS_MAP,
       disableRollback: DISABLE_ROLLBACK_N,
       account: ACCOUNT_NAME,
       credentials: credentials
     )
   }
-
-  def ancestorNames = [
-  "app": APPLICATION,
-  "stack": STACK,
-  "detail": DETAILS
-  ]
 
   def ancestorDeployAtomicOperationDescription = createAncestorDeployAtomicOperationDescription()
   def newDeployAtomicOperationDescription = createNewDeployAtomicOperationDescription()
@@ -127,16 +132,22 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
     OpenstackNamedAccountCredentials creds = Mock(OpenstackNamedAccountCredentials)
     OpenstackProviderFactory.createProvider(creds) >> { provider }
     credentials = new OpenstackCredentials(creds)
-
   }
 
   def "builds a description based on ancestor server group, overrides nothing"() {
     given:
     def inputDescription = new CloneOpenstackAtomicOperationDescription(
-      source: [stackName: ANCESTOR_STACK_NAME, region: REGION],
+      source: new CloneOpenstackAtomicOperationDescription.OpenstackCloneSource(
+        serverGroup: ANCESTOR_STACK_NAME,
+        region: REGION
+      ),
+      region: REGION,
       account: ACCOUNT_NAME,
       credentials: credentials
     )
+    Stack mockStack = Mock(Stack)
+    mockStack.parameters >> { ancestorDeployAtomicOperationDescription.serverGroupParameters.toParamsMap() }
+    mockStack.timeoutMins >> { ancestorDeployAtomicOperationDescription.timeoutMins }
 
     @Subject def operation = new CloneOpenstackAtomicOperation(inputDescription)
 
@@ -144,15 +155,12 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
     def resultDescription = operation.cloneAndOverrideDescription()
 
     then:
-    1 * inputDescription.credentials.provider.getStack(REGION, ANCESTOR_STACK_NAME) >> createHeatStack()
-    1 * inputDescription.credentials.provider.getHeatTemplate(REGION, ANCESTOR_STACK_NAME, ANCESTOR_STACK_ID) >> HEAT_TEMPLATE
-
+    1 * inputDescription.credentials.provider.getStack(REGION, ANCESTOR_STACK_NAME) >> mockStack
     resultDescription.application == ancestorDeployAtomicOperationDescription.application
     resultDescription.stack == ancestorDeployAtomicOperationDescription.stack
     resultDescription.timeoutMins == ancestorDeployAtomicOperationDescription.timeoutMins
-    resultDescription.heatTemplate == ancestorDeployAtomicOperationDescription.heatTemplate
+    resultDescription.serverGroupParameters == ancestorDeployAtomicOperationDescription.serverGroupParameters
     resultDescription.freeFormDetails == ancestorDeployAtomicOperationDescription.freeFormDetails
-    resultDescription.parameters == ancestorDeployAtomicOperationDescription.parameters
     resultDescription.disableRollback == ancestorDeployAtomicOperationDescription.disableRollback
     resultDescription.account == ancestorDeployAtomicOperationDescription.account
     resultDescription.region == ancestorDeployAtomicOperationDescription.region
@@ -160,19 +168,33 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
 
   def "builds a description based on ancestor server group, overrides everything"() {
     given:
+    def params = new ServerGroupParameters(
+      instanceType: INSTANCE_TYPE_N,
+      image:IMAGE_N,
+      maxSize: MAX_SIZE_N,
+      minSize: MIN_SIZE_N,
+      networkId: NETWORK_ID_N,
+      poolId: POOL_ID_N,
+      securityGroups: SECURITY_GROUPS_N
+    )
     def inputDescription = new CloneOpenstackAtomicOperationDescription(
       stack: STACK_N,
       application: APPLICATION_N,
       freeFormDetails: DETAILS_N,
       region: REGION_N,
-      heatTemplate: HEAT_TEMPLATE_N,
       timeoutMins: TIMEOUT_MINS_N,
-      parameters: PARAMS_MAP,
       disableRollback: DISABLE_ROLLBACK_N,
-      source: [stackName: ANCESTOR_STACK_NAME, region: REGION],
+      source: new CloneOpenstackAtomicOperationDescription.OpenstackCloneSource(
+        serverGroup: ANCESTOR_STACK_NAME,
+        region: REGION
+      ),
       credentials: credentials,
-      account: ACCOUNT_NAME
+      account: ACCOUNT_NAME,
+      serverGroupParameters: params
     )
+    Stack mockStack = Mock(Stack)
+    mockStack.parameters >> { ancestorDeployAtomicOperationDescription.serverGroupParameters.toParamsMap() }
+    mockStack.timeoutMins >> { ancestorDeployAtomicOperationDescription.timeoutMins }
 
     @Subject def operation = new CloneOpenstackAtomicOperation(inputDescription)
 
@@ -180,14 +202,13 @@ class CloneOpenstackAtomicOperationSpec extends Specification {
     def resultDescription = operation.cloneAndOverrideDescription()
 
     then:
-    1 * inputDescription.credentials.provider.getStack(REGION, ANCESTOR_STACK_NAME) >> createHeatStack()
+    1 * inputDescription.credentials.provider.getStack(REGION, ANCESTOR_STACK_NAME) >> mockStack
 
     resultDescription.application == newDeployAtomicOperationDescription.application
     resultDescription.stack == newDeployAtomicOperationDescription.stack
-    resultDescription.heatTemplate == newDeployAtomicOperationDescription.heatTemplate
+    resultDescription.serverGroupParameters == newDeployAtomicOperationDescription.serverGroupParameters
     resultDescription.timeoutMins == newDeployAtomicOperationDescription.timeoutMins
     resultDescription.freeFormDetails == newDeployAtomicOperationDescription.freeFormDetails
-    resultDescription.parameters == newDeployAtomicOperationDescription.parameters
     resultDescription.disableRollback == newDeployAtomicOperationDescription.disableRollback
     resultDescription.account == newDeployAtomicOperationDescription.account
     resultDescription.region == newDeployAtomicOperationDescription.region

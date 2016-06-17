@@ -427,16 +427,7 @@ abstract class OpenstackClientProvider {
 
     handleRequest {
 
-      Map<String, String> params = [
-        'flavor':parameters.instanceType,
-        'image':parameters.image,
-        'internal_port':"$parameters.internalPort".toString(),
-        'max_size':"$parameters.maxSize".toString(),
-        'min_size':"$parameters.minSize".toString(),
-        'network_id':parameters.networkId,
-        'pool_id':parameters.poolId,
-        'security_groups':parameters.securityGroups.join(',')
-      ]
+      Map<String, String> params = parameters.toParamsMap()
 
       StackCreate create = Builders.stack()
         .name(stackName)

@@ -18,16 +18,15 @@ package com.netflix.spinnaker.clouddriver.openstack.deploy.ops.servergroup
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
 import com.netflix.spinnaker.clouddriver.openstack.deploy.OpenstackServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.DeployOpenstackAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import groovy.util.logging.Slf4j
 import org.apache.commons.io.IOUtils
 import org.openstack4j.model.network.ext.LbPool
 
-@Slf4j
-class DeployOpenstackAtomicOperation implements AtomicOperation<Void> {
+class DeployOpenstackAtomicOperation implements AtomicOperation<DeploymentResult> {
   private final String BASE_PHASE = "DEPLOY"
   DeployOpenstackAtomicOperationDescription description;
 
@@ -44,7 +43,7 @@ class DeployOpenstackAtomicOperation implements AtomicOperation<Void> {
   * curl -X GET -H "Accept: application/json" localhost:7002/task/1
   */
   @Override
-  Void operate(List priorOutputs) {
+  DeploymentResult operate(List priorOutputs) {
     task.updateStatus BASE_PHASE, "Initializing creation of server group"
     OpenstackClientProvider provider = description.credentials.provider
 
@@ -75,5 +74,11 @@ class DeployOpenstackAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Finished creating heat stack $stackName"
 
     task.updateStatus BASE_PHASE, "Successfully created server group."
+
+    DeploymentResult deploymentResult = new DeploymentResult()
+    deploymentResult.deployedNames = Arrays.asList(stackName)
+    deploymentResult.deployedNamesByLocation = [(description.region):deploymentResult.deployedNames]
+    deploymentResult
+
   }
 }
