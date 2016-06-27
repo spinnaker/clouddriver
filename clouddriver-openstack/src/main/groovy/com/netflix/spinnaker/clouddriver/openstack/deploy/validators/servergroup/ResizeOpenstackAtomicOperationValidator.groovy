@@ -1,40 +1,47 @@
 /*
- * Copyright 2016 Veritas Technologies LLC.
+ * Copyright 2016 Target, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
+ *  See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
 package com.netflix.spinnaker.clouddriver.openstack.deploy.validators.servergroup
 
 import com.netflix.spinnaker.clouddriver.openstack.OpenstackOperation
-import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.OpenstackServerGroupAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.ResizeOpenstackAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.validators.OpenstackAttributeValidator
 import com.netflix.spinnaker.clouddriver.openstack.deploy.validators.AbstractOpenstackDescriptionValidator
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import org.springframework.stereotype.Component
 import org.springframework.validation.Errors
 
-@OpenstackOperation(AtomicOperations.ENABLE_SERVER_GROUP)
+@OpenstackOperation(AtomicOperations.RESIZE_SERVER_GROUP)
 @Component
-class EnableOpenstackAtomicOperationValidator extends AbstractOpenstackDescriptionValidator<OpenstackServerGroupAtomicOperationDescription> {
+class ResizeOpenstackAtomicOperationValidator extends AbstractOpenstackDescriptionValidator<ResizeOpenstackAtomicOperationDescription> {
 
   @Override
-  void validate(OpenstackAttributeValidator validator, List priorDescriptions, OpenstackServerGroupAtomicOperationDescription description, Errors errors) {
+  void validate(OpenstackAttributeValidator validator, List priorDescriptions, ResizeOpenstackAtomicOperationDescription description, Errors errors) {
     validator.validateNotEmpty(description.serverGroupName, "serverGroupName")
+    validateCapacity(validator, description.capacity)
   }
 
   @Override
   String getContext() {
     "openstackServerGroupAtomicOperationDescription"
+  }
+
+  def validateCapacity(OpenstackAttributeValidator validator, ResizeOpenstackAtomicOperationDescription.Capacity capacity) {
+    validator.validateNotNull(capacity, "capacity")
+    validator.validatePositive(capacity.min, "capacity.min")
+    validator.validateGreaterThanEqual(capacity.max, capacity.min, "capacity.max")
   }
 }

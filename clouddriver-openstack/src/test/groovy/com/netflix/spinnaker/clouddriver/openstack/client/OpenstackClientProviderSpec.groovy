@@ -52,6 +52,7 @@ import org.openstack4j.model.compute.Server
 import org.openstack4j.model.heat.Resource
 import org.openstack4j.model.heat.Stack
 import org.openstack4j.model.heat.StackCreate
+import org.openstack4j.model.heat.StackUpdate
 import org.openstack4j.model.network.NetFloatingIP
 import org.openstack4j.model.network.Port
 import org.openstack4j.model.network.Subnet
@@ -2238,4 +2239,111 @@ class OpenstackClientProviderSpec extends Specification {
     Exception e = thrown(OpenstackProviderException)
     e.message == "Action request failed with fault foo and code 400"
   }
+
+  def "resize stack succeeds"() {
+    setup:
+    ActionResponse success = ActionResponse.actionSuccess()
+    String stackName = 'stackofpancakesyumyum'
+    String stackId = UUID.randomUUID().toString()
+    HeatService heatService = Mock(HeatService)
+    StackService stackService = Mock(StackService)
+    mockClient.heat() >> heatService
+    heatService.stacks() >> stackService
+    Stack mockStack = Mock(Stack)
+    mockStack.name >> stackName
+    mockStack.id >> stackId
+    String region = 'r1'
+    String instanceType = 'm1.small'
+    String image = 'ubuntu-latest'
+    int maxSize = 5
+    int minSize = 3
+    String networkId = '1234'
+    String poolId = '5678'
+    List<String> securityGroups = ['sg1']
+    ServerGroupParameters parameters = new ServerGroupParameters(instanceType: instanceType, image:image, maxSize: maxSize, minSize: minSize, networkId: networkId, poolId: poolId, securityGroups: securityGroups)
+    Map<String, String> params = [
+      'flavor':parameters.instanceType,
+      'image':parameters.image,
+      'internal_port':"$parameters.internalPort".toString(),
+      'max_size':"$parameters.maxSize".toString(),
+      'min_size':"$parameters.minSize".toString(),
+      'network_id':parameters.networkId,
+      'pool_id':parameters.poolId,
+      'security_groups':parameters.securityGroups.join(',')
+    ]
+
+    when:
+    provider.updateStack(region, stackName, stackId, parameters)
+
+    then:
+    1 * stackService.update(stackName, stackId, _ as StackUpdate) >> { String name, String id, StackUpdate su ->
+      name == stackName
+      id == stackId
+      su.parameters == params
+      success
+    }
+    noExceptionThrown()
+  }
+
+  def "resize stack failed - failed status"() {
+    setup:
+    ActionResponse failed = ActionResponse.actionFailed('ERROR', 500)
+    String stackName = 'stackofpancakesyumyum'
+    String stackId = UUID.randomUUID().toString()
+    HeatService heatService = Mock(HeatService)
+    StackService stackService = Mock(StackService)
+    mockClient.heat() >> heatService
+    heatService.stacks() >> stackService
+    Stack mockStack = Mock(Stack)
+    mockStack.name >> stackName
+    mockStack.id >> stackId
+    String region = 'r1'
+    String instanceType = 'm1.small'
+    String image = 'ubuntu-latest'
+    int maxSize = 5
+    int minSize = 3
+    String networkId = '1234'
+    String poolId = '5678'
+    List<String> securityGroups = ['sg1']
+    ServerGroupParameters parameters = new ServerGroupParameters(instanceType: instanceType, image:image, maxSize: maxSize, minSize: minSize, networkId: networkId, poolId: poolId, securityGroups: securityGroups)
+
+    when:
+    provider.updateStack(region, stackName, stackId, parameters)
+
+    then:
+    1 * stackService.update(stackName, stackId, _ as StackUpdate) >> { String name, String id, StackUpdate su ->
+      failed
+    }
+    thrown(OpenstackProviderException)
+  }
+
+  def "resize stack failed - exception thrown"() {
+    setup:
+    String stackName = 'stackofpancakesyumyum'
+    String stackId = UUID.randomUUID().toString()
+    HeatService heatService = Mock(HeatService)
+    StackService stackService = Mock(StackService)
+    mockClient.heat() >> heatService
+    heatService.stacks() >> stackService
+    Stack mockStack = Mock(Stack)
+    mockStack.name >> stackName
+    mockStack.id >> stackId
+    String region = 'r1'
+    String instanceType = 'm1.small'
+    String image = 'ubuntu-latest'
+    int maxSize = 5
+    int minSize = 3
+    String networkId = '1234'
+    String poolId = '5678'
+    List<String> securityGroups = ['sg1']
+    ServerGroupParameters parameters = new ServerGroupParameters(instanceType: instanceType, image:image, maxSize: maxSize, minSize: minSize, networkId: networkId, poolId: poolId, securityGroups: securityGroups)
+
+    when:
+    provider.updateStack(region, stackName, stackId, parameters)
+
+    then:
+    1 * stackService.update(stackName, stackId, _ as StackUpdate) >> { throw new Exception('foo') }
+    thrown(OpenstackProviderException)
+  }
+
 }

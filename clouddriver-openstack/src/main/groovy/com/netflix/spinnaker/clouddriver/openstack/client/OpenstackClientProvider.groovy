@@ -36,6 +36,7 @@ import org.openstack4j.model.compute.Server
 import org.openstack4j.model.heat.Resource
 import org.openstack4j.model.heat.Stack
 import org.openstack4j.model.heat.StackCreate
+import org.openstack4j.model.heat.StackUpdate
 import org.openstack4j.model.network.NetFloatingIP
 import org.openstack4j.model.network.Port
 import org.openstack4j.model.network.ext.HealthMonitor
@@ -515,6 +516,23 @@ abstract class OpenstackClientProvider {
 
     //TODO: Handle heat autoscaling migration to senlin in versions > Mitaka
 
+  }
+
+  /**
+   * Updates a Spinnaker Server Group (Openstack Heat Stack).
+   * @param stackName
+   * @param heatTemplate
+   * @param parameters
+   * @param disableRollback
+   * @param timeoutMins
+   * @return
+   */
+  void updateStack(String region, String stackName, String stackId, ServerGroupParameters parameters) {
+    handleRequest {
+      Map<String, String> params = parameters.toParamsMap()
+      StackUpdate update = Builders.stackUpdate().parameters(params).build()
+      getRegionClient(region).heat().stacks().update(stackName, stackId, update)
+    }
   }
 
   /**

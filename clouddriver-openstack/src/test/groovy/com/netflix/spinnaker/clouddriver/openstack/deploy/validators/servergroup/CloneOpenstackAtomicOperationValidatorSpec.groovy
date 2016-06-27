@@ -14,28 +14,31 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.openstack.deploy.validators.loadbalancer
+package com.netflix.spinnaker.clouddriver.openstack.deploy.validators.servergroup
 
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackProviderFactory
-import com.netflix.spinnaker.clouddriver.openstack.deploy.description.loadbalancer.DeleteOpenstackLoadBalancerDescription
+import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.CloneOpenstackAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.ResizeOpenstackAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackCredentials
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.validation.Errors
-import spock.lang.Shared
 import spock.lang.Specification
-import spock.lang.Unroll
 
-class DeleteOpenstackLoadBalancerDescriptionValidatorSpec extends Specification {
+class CloneOpenstackAtomicOperationValidatorSpec extends Specification {
 
   Errors errors
   AccountCredentialsProvider provider
-  DeleteOpenstackLoadBalancerDescriptionValidator validator
+  ResizeOpenstackAtomicOperationValidator validator
   OpenstackNamedAccountCredentials credentials
-  @Shared
   OpenstackCredentials credz
   OpenstackClientProvider clientProvider
+
+  String account = 'foo'
+  String application = 'app1'
+  String region = 'r1'
+  String stack = 'stack1'
 
   def setup() {
     clientProvider = Mock(OpenstackClientProvider)
@@ -50,31 +53,29 @@ class DeleteOpenstackLoadBalancerDescriptionValidatorSpec extends Specification 
     provider = Mock(AccountCredentialsProvider) {
       _ * getCredentials(_) >> credentials
     }
+    validator = new ResizeOpenstackAtomicOperationValidator(accountCredentialsProvider: provider)
   }
 
-  def "Validate no exception"() {
+  def "Validate - no error"() {
     given:
-    validator = new DeleteOpenstackLoadBalancerDescriptionValidator(accountCredentialsProvider: provider)
-    DeleteOpenstackLoadBalancerDescription description = new DeleteOpenstackLoadBalancerDescription(account: 'foo', region: 'r1', id: UUID.randomUUID().toString(), credentials: credz)
+    ResizeOpenstackAtomicOperationDescription description = new ResizeOpenstackAtomicOperationDescription(serverGroupName: 'from', region: 'r1', credentials: credz, account: account, capacity: new ResizeOpenstackAtomicOperationDescription.Capacity(max: 5, min: 3))
 
     when:
     validator.validate([], description, errors)
 
     then:
-    0 * errors.rejectValue(_, _)
+    0 * errors.rejectValue(_,_)
   }
 
-  @Unroll
-  def "Validate empty required fields exception"() {
+  def "Validate invalid sizing"() {
     given:
-    validator = new DeleteOpenstackLoadBalancerDescriptionValidator(accountCredentialsProvider: provider)
-    DeleteOpenstackLoadBalancerDescription description = new DeleteOpenstackLoadBalancerDescription(account: 'a', region: 'r1', credentials: credz, id: '')
+    ResizeOpenstackAtomicOperationDescription description = new ResizeOpenstackAtomicOperationDescription(serverGroupName: 'from', region: 'r1', credentials: credz, account: account, capacity: new ResizeOpenstackAtomicOperationDescription.Capacity(max: 3, min: 4))
 
     when:
     validator.validate([], description, errors)
 
     then:
     1 * errors.rejectValue(_,_)
-
   }
+
 }

@@ -17,14 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.deploy.validators.securitygroup
 
-import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.openstack.OpenstackOperation
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.securitygroup.UpsertOpenstackSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.validators.OpenstackAttributeValidator
+import com.netflix.spinnaker.clouddriver.openstack.deploy.validators.AbstractOpenstackDescriptionValidator
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.apache.commons.lang.StringUtils
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import org.springframework.validation.Errors
 
@@ -33,16 +31,10 @@ import org.springframework.validation.Errors
  */
 @OpenstackOperation(AtomicOperations.UPSERT_SECURITY_GROUP)
 @Component
-class UpsertOpenstackSecurityGroupDescriptionValidator extends DescriptionValidator<UpsertOpenstackSecurityGroupDescription> {
-
-  @Autowired
-  AccountCredentialsProvider accountCredentialsProvider
+class UpsertOpenstackSecurityGroupDescriptionValidator extends AbstractOpenstackDescriptionValidator<UpsertOpenstackSecurityGroupDescription> {
 
   @Override
-  void validate(List priorDescriptions, UpsertOpenstackSecurityGroupDescription description, Errors errors) {
-    def validator = new OpenstackAttributeValidator('upsertOpenstackSecurityGroupAtomicOperationDescription', errors)
-    validator.validateCredentials(description.account, accountCredentialsProvider)
-    validator.validateNotEmpty(description.region, "region")
+  void validate(OpenstackAttributeValidator validator, List priorDescriptions, UpsertOpenstackSecurityGroupDescription description, Errors errors) {
     if (StringUtils.isNotEmpty(description.id)) {
       validator.validateUUID(description.id, 'id')
     }
@@ -54,6 +46,11 @@ class UpsertOpenstackSecurityGroupDescriptionValidator extends DescriptionValida
         validator.validateRuleType(r.ruleType, 'ruleType')
       }
     }
+  }
+
+  @Override
+  String getContext() {
+    "upsertOpenstackSecurityGroupAtomicOperationDescription"
   }
 
 }
