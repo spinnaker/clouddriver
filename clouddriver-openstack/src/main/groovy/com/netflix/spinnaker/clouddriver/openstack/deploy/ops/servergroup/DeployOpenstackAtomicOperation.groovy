@@ -53,7 +53,7 @@ class DeployOpenstackAtomicOperation implements AtomicOperation<DeploymentResult
   //and needs to be loaded into memory as a String
   private final String SUBTEMPLATE_FILE = 'asg_resource.yaml'
 
-  DeployOpenstackAtomicOperationDescription description;
+  DeployOpenstackAtomicOperationDescription description
 
   DeployOpenstackAtomicOperation(DeployOpenstackAtomicOperationDescription description) {
     this.description = description

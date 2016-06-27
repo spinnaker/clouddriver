@@ -17,11 +17,14 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.deploy.validators.securitygroup
 
+import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
+import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackProviderFactory
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.securitygroup.DeleteOpenstackSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackCredentials
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.validation.Errors
+import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -29,26 +32,33 @@ class DeleteOpenstackSecurityGroupDescriptionValidatorSpec extends Specification
 
   Errors errors
   AccountCredentialsProvider provider
+  @Shared
   DeleteOpenstackSecurityGroupDescriptionValidator validator
   OpenstackNamedAccountCredentials namedAccountCredentials
-  OpenstackCredentials credentials
+  OpenstackNamedAccountCredentials credentials
+  OpenstackCredentials credz
+  OpenstackClientProvider clientProvider
 
   def setup() {
-    credentials = Mock(OpenstackCredentials)
-    namedAccountCredentials = Mock(OpenstackNamedAccountCredentials) {
-      1 * getCredentials() >> credentials
+    clientProvider = Mock(OpenstackClientProvider)
+    clientProvider.getProperty('allRegions') >> ['r1']
+    GroovyMock(OpenstackProviderFactory, global: true)
+    OpenstackProviderFactory.createProvider(credentials) >> clientProvider
+    credz = new OpenstackCredentials(credentials)
+    errors = Mock(Errors)
+    credentials = Mock(OpenstackNamedAccountCredentials) {
+      _ * getCredentials() >> credz
     }
     provider = Mock(AccountCredentialsProvider) {
-      1 * getCredentials(_) >> namedAccountCredentials
+      _ * getCredentials(_) >> credentials
     }
-    errors = Mock(Errors)
     validator = new DeleteOpenstackSecurityGroupDescriptionValidator(accountCredentialsProvider: provider)
   }
 
   def "valid id"() {
     given:
     def id = UUID.randomUUID().toString()
-    def description = new DeleteOpenstackSecurityGroupDescription(account: 'foo', region: 'west', id: id)
+    def description = new DeleteOpenstackSecurityGroupDescription(account: 'foo', region: 'r1', id: id, credentials: credz)
 
     when:
     validator.validate([], description, errors)
@@ -57,22 +67,10 @@ class DeleteOpenstackSecurityGroupDescriptionValidatorSpec extends Specification
     0 * errors.rejectValue(_, _)
   }
 
-  def "missing region"() {
-    given:
-    def id = UUID.randomUUID().toString()
-    def description = new DeleteOpenstackSecurityGroupDescription(account: 'foo', id: id)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue(_, DeleteOpenstackSecurityGroupDescriptionValidator.CONTEXT + '.region.empty')
-  }
-
   @Unroll
   def "invalid ids"() {
     given:
-    def description = new DeleteOpenstackSecurityGroupDescription(account: 'foo', id: id)
+    def description = new DeleteOpenstackSecurityGroupDescription(account: 'foo', id: id, credentials: credz, region: 'r1')
 
     when:
     validator.validate([], description, errors)
@@ -82,8 +80,8 @@ class DeleteOpenstackSecurityGroupDescriptionValidatorSpec extends Specification
 
     where:
     id     | expected | msg
-    null   | false    | DeleteOpenstackSecurityGroupDescriptionValidator.CONTEXT + '.id.empty'
-    ''     | false    | DeleteOpenstackSecurityGroupDescriptionValidator.CONTEXT + '.id.empty'
-    '1234' | false    | DeleteOpenstackSecurityGroupDescriptionValidator.CONTEXT + '.id.notUUID'
+    null   | false    | validator.context + '.id.empty'
+    ''     | false    | validator.context + '.id.empty'
+    '1234' | false    | validator.context + '.id.notUUID'
   }
 }

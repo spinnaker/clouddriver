@@ -27,7 +27,7 @@ import org.springframework.validation.Errors
 import spock.lang.Specification
 import spock.lang.Unroll
 
-class DeployOpenstackAtomicOperationValidatorSpec extends Specification {
+class ResizeOpenstackAtomicOperationValidatorSpec extends Specification {
 
   Errors errors
   AccountCredentialsProvider provider

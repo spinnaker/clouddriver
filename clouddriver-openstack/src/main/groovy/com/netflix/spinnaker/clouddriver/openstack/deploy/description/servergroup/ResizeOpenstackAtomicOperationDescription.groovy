@@ -14,17 +14,23 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.openstack.deploy.validators.instance
+package com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup
 
-import com.netflix.spinnaker.clouddriver.openstack.OpenstackOperation
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
-import org.springframework.stereotype.Component
+import com.netflix.spinnaker.clouddriver.openstack.deploy.description.OpenstackAtomicOperationDescription
+import groovy.transform.Canonical
 
-@OpenstackOperation(AtomicOperations.REGISTER_INSTANCES_WITH_LOAD_BALANCER)
-@Component
-class RegisterOpenstackInstancesDescriptionValidator extends AbstractRegistrationOpenstackInstancesDescriptionValidator {
-  @Override
-  String getContext() {
-    "registerOpenstackRegistrationAtomicOperationDescription"
+/**
+ *
+ */
+@Canonical
+class ResizeOpenstackAtomicOperationDescription extends OpenstackAtomicOperationDescription {
+
+  String serverGroupName
+  Capacity capacity = new Capacity()
+
+  static class Capacity {
+    int min
+    int max
   }
+
 }
