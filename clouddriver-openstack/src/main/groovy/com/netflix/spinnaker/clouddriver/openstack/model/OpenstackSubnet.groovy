@@ -16,18 +16,32 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.model
 
-import com.netflix.spinnaker.clouddriver.model.Application
-import groovy.transform.EqualsAndHashCode
+import com.netflix.spinnaker.clouddriver.model.Subnet
+import groovy.transform.Canonical
 
-@EqualsAndHashCode
-class OpenstackApplication implements Application {
-  final String name
-  final Map<String, String> attributes
-  final Map<String, Set<String>> clusterNames
+@Canonical
+class OpenstackSubnet implements Subnet {
+  String type
+  String name
+  String id
+  String cidrBlock
+  List<Range> allocationPools
+  List<String> dnsNameservers
+  boolean enableDhcp
+  String gatewayIp
+  Integer ipVersion
+  String networkId
+  String account
+  String region
+  String purpose = 'n/a'
 
-  OpenstackApplication(String name, Map<String, String> attributes, Map<String, Set<String>> clusterNames) {
-    this.name = name
-    this.attributes = attributes
-    this.clusterNames = clusterNames
+  static class Range {
+    String start
+    String end
+
+    Range(String start, String end) {
+      this.start = start
+      this.end = end
+    }
   }
 }

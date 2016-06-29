@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.provider.view
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.clouddriver.openstack.cache.Keys
@@ -26,9 +27,13 @@ import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackCredentials
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.openstack4j.model.common.ActionResponse
+import org.openstack4j.model.compute.Server
+import org.openstack4j.openstack.compute.domain.NovaServer
 import spock.lang.Specification
 
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.INSTANCES
+import java.time.ZonedDateTime
+
+import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.INSTANCES
 
 class OpenstackInstanceProviderSpec extends Specification {
 
@@ -37,12 +42,14 @@ class OpenstackInstanceProviderSpec extends Specification {
 
   OpenstackInstanceProvider instanceProvider
   Cache cache
+  ObjectMapper objectMapper
   AccountCredentialsProvider accountCredentialsProvider
 
   void "setup"() {
     accountCredentialsProvider = Mock(AccountCredentialsProvider)
     cache = Mock(Cache)
-    instanceProvider = new OpenstackInstanceProvider(cache, accountCredentialsProvider)
+    objectMapper = Mock(ObjectMapper)
+    instanceProvider = new OpenstackInstanceProvider(cache, accountCredentialsProvider, objectMapper)
   }
 
   void "test get instance"() {
@@ -50,23 +57,26 @@ class OpenstackInstanceProviderSpec extends Specification {
     String id = 'instance'
     CacheData cacheData = Mock(CacheData)
     Map<String, Object> attributes = Mock(Map)
-    OpenstackInstance expected = new OpenstackInstance(name: 'expected', region: region, zone: 'zone'
-      , instanceId: id, launchTime: -1, metadata: 'stuff', status: 'up', keyName: 'key')
+    OpenstackInstance expected = new OpenstackInstance(name: 'expected', region: region, account: account, zone: 'zone'
+      , instanceId: id, launchedAt: ZonedDateTime.now(), metadata: ['key': 'value'], status: 'active', keyName: 'key')
+    String instanceKey = Keys.getInstanceKey(id, account, region)
+    Server server = Mock(Server)
 
     when:
     OpenstackInstance result = instanceProvider.getInstance(account, region, id)
 
     then:
-    1 * cache.get(INSTANCES.ns, Keys.getInstanceKey(id, account, region)) >> cacheData
-    8 * cacheData.attributes >> attributes
-    1 * attributes.get('region') >> region
-    1 * attributes.get('name') >> expected.name
-    1 * attributes.get('zone') >> expected.zone
-    1 * attributes.get('instanceId') >> expected.instanceId
-    1 * attributes.get('launchedTime') >> expected.launchTime
-    1 * attributes.get('metadata') >> expected.metadata
-    1 * attributes.get('status') >> expected.status
-    1 * attributes.get('keyName') >> expected.keyName
+    1 * cache.get(INSTANCES.ns, instanceKey) >> cacheData
+    1 * objectMapper.convertValue(attributes, NovaServer) >> server
+    1 * cacheData.id >> instanceKey
+    1 * cacheData.attributes >> attributes
+    1 * server.name >> expected.name
+    1 * server.availabilityZone >> expected.zone
+    1 * server.id >> expected.instanceId
+    _ * server.launchedAt >> Date.from(expected.launchedAt.toInstant())
+    1 * server.metadata >> expected.metadata
+    1 * server.status >> Server.Status.ACTIVE
+    1 * server.keyName >> expected.keyName
     result == expected
     noExceptionThrown()
   }

@@ -16,29 +16,32 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
-import com.netflix.spinnaker.clouddriver.openstack.OpenstackCloudProvider
 import groovy.transform.EqualsAndHashCode
+
+import java.time.ZonedDateTime
 
 import static org.openstack4j.model.compute.Server.Status
 
 @EqualsAndHashCode
 class OpenstackInstance implements Instance, Serializable {
-  final String providerType = OpenstackCloudProvider.ID
   String name
   String instanceId
-  long launchTime
+  @JsonIgnore
+  ZonedDateTime launchedAt
   String zone
   String region
   String status
   String keyName
-  String metadata
+  Map<String, String> metadata
+  String account
 
   //TODO - Determine if load balancers, security groups, and server groups are needed
   @Override
   Long getLaunchTime() {
-    this.launchTime
+    this.launchedAt?.toEpochSecond()
   }
 
   // TODO - Determine which external health checks matter

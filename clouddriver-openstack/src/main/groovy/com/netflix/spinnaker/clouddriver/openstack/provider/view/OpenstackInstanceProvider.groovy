@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.provider.view
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider
@@ -24,23 +25,26 @@ import com.netflix.spinnaker.clouddriver.openstack.cache.Keys
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackInstance
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import groovy.util.logging.Slf4j
+import org.openstack4j.model.compute.Server
+import org.openstack4j.openstack.compute.domain.NovaServer
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.INSTANCES
+import java.time.ZoneId
+
+import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.INSTANCES
 
 @Component
-@Slf4j
 class OpenstackInstanceProvider implements InstanceProvider<OpenstackInstance> {
-
-  private final Cache cacheView
-  private final AccountCredentialsProvider accountCredentialsProvider
+  final Cache cacheView
+  final AccountCredentialsProvider accountCredentialsProvider
+  final ObjectMapper objectMapper
 
   @Autowired
-  OpenstackInstanceProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider) {
+  OpenstackInstanceProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider, ObjectMapper objectMapper) {
     this.cacheView = cacheView
     this.accountCredentialsProvider = accountCredentialsProvider
+    this.objectMapper = objectMapper
   }
 
   @Override
@@ -54,14 +58,18 @@ class OpenstackInstanceProvider implements InstanceProvider<OpenstackInstance> {
 
     CacheData instanceEntry = cacheView.get(INSTANCES.ns, Keys.getInstanceKey(id, account, region))
     if (instanceEntry) {
-      result = new OpenstackInstance(name: instanceEntry.attributes.name
-        , region: instanceEntry.attributes.region
-        , zone: instanceEntry.attributes.zone
-        , instanceId: instanceEntry.attributes.instanceId
-        , launchTime: instanceEntry.attributes.launchedTime
-        , metadata: instanceEntry.attributes.metadata
-        , status: instanceEntry.attributes.status
-        , keyName: instanceEntry.attributes.keyName)
+      Server server = objectMapper.convertValue(instanceEntry.attributes, NovaServer)
+      Map<String, String> parts = Keys.parse(instanceEntry.id)
+
+      result = new OpenstackInstance(name: server.name
+        , region: parts.region
+        , account: parts.account
+        , zone: server.availabilityZone
+        , instanceId: server.id
+        , launchedAt: !server.launchedAt ?: server.launchedAt.toInstant().atZone(ZoneId.systemDefault())
+        , metadata: server.metadata
+        , status: server.status?.value()
+        , keyName: server.keyName)
     }
     result
   }
