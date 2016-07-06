@@ -33,6 +33,7 @@ final class AtomicOperations {
   public static final String UPDATE_LAUNCH_CONFIG = "updateLaunchConfig"
   public static final String UPSERT_SCALING_POLICY = "upsertScalingPolicy"
   public static final String DELETE_SCALING_POLICY = "deleteScalingPolicy"
+  public static final String MIGRATE_SERVER_GROUP = "migrateServerGroup"
 
   // Instance operations
   public static final String REBOOT_INSTANCES = "rebootInstances"
@@ -48,10 +49,12 @@ final class AtomicOperations {
   // Load Balancer operations
   public static final String DELETE_LOAD_BALANCER = "deleteLoadBalancer"
   public static final String UPSERT_LOAD_BALANCER = "upsertLoadBalancer"
+  public static final String MIGRATE_LOAD_BALANCER = "migrateLoadBalancer"
 
   // Security Group operations
   public static final String DELETE_SECURITY_GROUP = "deleteSecurityGroup"
   public static final String UPSERT_SECURITY_GROUP = "upsertSecurityGroup"
+  public static final String MIGRATE_SECURITY_GROUP = "migrateSecurityGroup"
 
   // Job operations
   public static final String RUN_JOB = "runJob"

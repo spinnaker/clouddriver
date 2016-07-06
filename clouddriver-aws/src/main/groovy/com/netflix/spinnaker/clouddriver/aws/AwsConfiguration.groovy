@@ -23,22 +23,28 @@ import com.netflix.awsobjectmapper.AmazonObjectMapper
 import com.netflix.spectator.aws.SpectatorMetricCollector
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
-
 import com.netflix.spinnaker.clouddriver.aws.agent.CleanupAlarmsAgent
 import com.netflix.spinnaker.clouddriver.aws.agent.CleanupDetachedInstancesAgent
 import com.netflix.spinnaker.clouddriver.aws.agent.ReconcileClassicLinkSecurityGroupsAgent
 import com.netflix.spinnaker.clouddriver.aws.bastion.BastionConfig
 import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.BasicAmazonDeployHandler
+import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.DefaultMigrateLoadBalancerStrategy
+import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.DefaultMigrateSecurityGroupStrategy
+import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.DefaultMigrateServerGroupStrategy
+import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.MigrateLoadBalancerStrategy
+import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.MigrateSecurityGroupStrategy
+import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.MigrateServerGroupStrategy
+import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.SecurityGroupLookupFactory
+import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.SecurityGroupLookupFactory.SecurityGroupLookup
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.NullOpUserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider
-import com.netflix.spinnaker.clouddriver.aws.model.SecurityGroupLookupFactory
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsCleanupProvider
 import com.netflix.spinnaker.clouddriver.aws.security.AWSProxy
-import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig
-import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig.Builder
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentialsInitializer
+import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig
+import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig.Builder
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -139,6 +145,34 @@ class AwsConfiguration {
   @ConditionalOnMissingBean(UserDataProvider)
   NullOpUserDataProvider nullOpUserDataProvider() {
     new NullOpUserDataProvider()
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  MigrateSecurityGroupStrategy migrateSecurityGroupStrategy(AmazonClientProvider amazonClientProvider) {
+    new DefaultMigrateSecurityGroupStrategy(amazonClientProvider)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  MigrateLoadBalancerStrategy migrateLoadBalancerStrategy(AmazonClientProvider amazonClientProvider,
+                                                          RegionScopedProviderFactory regionScopedProviderFactory,
+                                                          MigrateSecurityGroupStrategy migrateSecurityGroupStrategy,
+                                                          DeployDefaults deployDefaults) {
+    new DefaultMigrateLoadBalancerStrategy(amazonClientProvider, regionScopedProviderFactory,
+      migrateSecurityGroupStrategy, deployDefaults)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  MigrateServerGroupStrategy migrateServerGroupStrategy(AmazonClientProvider amazonClientProvider,
+                                                        BasicAmazonDeployHandler basicAmazonDeployHandler,
+                                                        RegionScopedProviderFactory regionScopedProviderFactory,
+                                                        DeployDefaults deployDefaults,
+                                                        MigrateSecurityGroupStrategy migrationStrategy,
+                                                        MigrateLoadBalancerStrategy migrateLoadBalancerStrategy) {
+    new DefaultMigrateServerGroupStrategy(amazonClientProvider, basicAmazonDeployHandler,
+      regionScopedProviderFactory, deployDefaults, migrationStrategy, migrateLoadBalancerStrategy)
   }
 
   @Bean

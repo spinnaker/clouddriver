@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.model
+package com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup
 
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressRequest
@@ -29,7 +29,9 @@ import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertSecurityGr
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
+import groovy.util.logging.Slf4j
 
+@Slf4j
 class SecurityGroupLookupFactory {
 
   private final AmazonClientProvider amazonClientProvider
@@ -59,6 +61,7 @@ class SecurityGroupLookupFactory {
     private final ImmutableSet<NetflixAmazonCredentials> accounts
 
     private final Map<String, SecurityGroup> securityGroupByName = [:]
+    private final Map<String, SecurityGroup> securityGroupById = [:]
 
     SecurityGroupLookup(AmazonClientProvider amazonClientProvider, String region,
                         ImmutableSet<NetflixAmazonCredentials> accounts) {
@@ -67,12 +70,24 @@ class SecurityGroupLookupFactory {
       this.accounts = accounts
     }
 
-    private NetflixAmazonCredentials getCredentialsForName(String accountName) {
+    NetflixAmazonCredentials getCredentialsForName(String accountName) {
       accounts.find { it.name == accountName }
+    }
+
+    NetflixAmazonCredentials getCredentialsForId(String accountId) {
+      accounts.find { it.accountId == accountId }
     }
 
     String getAccountIdForName(String accountName) {
       getCredentialsForName(accountName)?.accountId ?: accountName
+    }
+
+    String getAccountNameForId(String accountId) {
+      accounts.find { it.accountId == accountId }?.name ?: accountId
+    }
+
+    boolean accountIdExists(String accountId) {
+      accounts.any { it.accountId == accountId }
     }
 
     SecurityGroupUpdater createSecurityGroup(UpsertSecurityGroupDescription description) {
@@ -96,9 +111,10 @@ class SecurityGroupLookupFactory {
       def cachedSecurityGroupKey = name.toLowerCase() + "." + vpcId
       def cachedSecurityGroup = securityGroupByName.get(cachedSecurityGroupKey)
       if (cachedSecurityGroup) {
+        log.debug("From cache by name ($cachedSecurityGroupKey)")
         return new SecurityGroupUpdater(cachedSecurityGroup, amazonEC2)
       }
-
+      log.debug("Requesting from AWS by name ($cachedSecurityGroupKey)")
       def describeSecurityGroupsRequest = new DescribeSecurityGroupsRequest().withFilters(
         new Filter("group-name", [name])
       )
@@ -109,6 +125,33 @@ class SecurityGroupLookupFactory {
       }
       if (securityGroup) {
         securityGroupByName[cachedSecurityGroupKey] = securityGroup
+        securityGroupById[securityGroup.groupId + "." + vpcId] = securityGroup
+        return new SecurityGroupUpdater(securityGroup, amazonEC2)
+      }
+      null
+    }
+
+    SecurityGroupUpdater getSecurityGroupById(String accountName, String groupId, String vpcId) {
+      final credentials = getCredentialsForName(accountName)
+      if (!credentials) { return null }
+
+      def amazonEC2 = amazonClientProvider.getAmazonEC2(credentials, region, true)
+      def cachedSecurityGroupKey = groupId.toLowerCase() + "." + vpcId
+      def cachedSecurityGroup = securityGroupById.get(cachedSecurityGroupKey)
+      if (cachedSecurityGroup) {
+        log.debug("From cache by id ($cachedSecurityGroupKey)")
+        return new SecurityGroupUpdater(cachedSecurityGroup, amazonEC2)
+      }
+      log.debug("Requesting from AWS by id ($cachedSecurityGroupKey)")
+      def describeSecurityGroupsRequest = new DescribeSecurityGroupsRequest().withGroupIds(groupId)
+
+      def securityGroups = amazonEC2.describeSecurityGroups(describeSecurityGroupsRequest).securityGroups
+      def securityGroup = securityGroups.find {
+        it.groupId == groupId && it.vpcId == vpcId
+      }
+      if (securityGroup) {
+        securityGroupById[cachedSecurityGroupKey] = securityGroup
+        securityGroupByName[securityGroup.groupName.toLowerCase() + "." + vpcId] = securityGroup
         return new SecurityGroupUpdater(securityGroup, amazonEC2)
       }
       null
