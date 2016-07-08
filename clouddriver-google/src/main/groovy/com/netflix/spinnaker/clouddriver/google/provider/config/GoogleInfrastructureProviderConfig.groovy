@@ -23,6 +23,7 @@ import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.google.GoogleConfiguration
 import com.netflix.spinnaker.clouddriver.google.provider.GoogleInfrastructureProvider
+import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleHttpLoadBalancerCachingAgent
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleImageCachingAgent
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleInstanceCachingAgent
 import com.netflix.spinnaker.clouddriver.google.provider.agent.GoogleLoadBalancerCachingAgent
@@ -108,6 +109,11 @@ class GoogleInfrastructureProviderConfig {
         newlyAddedAgents << new GoogleNetworkCachingAgent(googleConfiguration.googleApplicationName(),
                                                           credentials,
                                                           objectMapper)
+
+        newlyAddedAgents << new GoogleHttpLoadBalancerCachingAgent(googleConfiguration.googleApplicationName(),
+            credentials,
+            objectMapper,
+            registry)
 
         regions.each { String region ->
           newlyAddedAgents << new GoogleSubnetCachingAgent(googleConfiguration.googleApplicationName(),
