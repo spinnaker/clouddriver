@@ -14,12 +14,25 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.google.model.loadbalancing
+package com.netflix.spinnaker.clouddriver.google.model.loadbalancing.http
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.AbstractGoogleLoadBalancer
 import groovy.transform.Canonical
 
 @Canonical
-class GoogleHostRule {
-  List<String> hostPatterns
-  GooglePathMatcher pathMatcher
+abstract class AbstractGoogleHttpLoadBalancer extends AbstractGoogleLoadBalancer {
+  String defaultService
+  List<GoogleHostRule> hostRules
+
+  @JsonIgnore
+  @Override
+  View getView() {
+    new View()
+  }
+
+  @Canonical
+  class View extends AbstractGoogleLoadBalancer.View {
+    List<GoogleHostRule> hostRules = AbstractGoogleHttpLoadBalancer.this.hostRules
+  }
 }

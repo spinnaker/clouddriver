@@ -24,10 +24,10 @@ import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.model.GoogleApplication
 import com.netflix.spinnaker.clouddriver.google.model.GoogleCluster
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.GoogleSecurityGroup
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.AbstractGoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -146,8 +146,8 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
     GoogleServerGroup serverGroup = objectMapper.convertValue(cacheData.attributes, GoogleServerGroup)
 
     def loadBalancerKeys = cacheData.relationships[LOAD_BALANCERS.ns]
-    List<GoogleLoadBalancer> loadBalancers = cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeys).collect {
-      GoogleLoadBalancer loadBalancer = objectMapper.convertValue(it.attributes, GoogleLoadBalancer)
+    List<AbstractGoogleLoadBalancer> loadBalancers = cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeys).collect {
+      AbstractGoogleLoadBalancer loadBalancer = objectMapper.convertValue(it.attributes, AbstractGoogleLoadBalancer)
       serverGroup.loadBalancers << loadBalancer
       loadBalancer
     }
@@ -173,7 +173,7 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
     serverGroup
   }
 
-  static List<GoogleLoadBalancerHealth> getLoadBalancerHealths(String instanceName, List<GoogleLoadBalancer> loadBalancers) {
+  static List<GoogleLoadBalancerHealth> getLoadBalancerHealths(String instanceName, List<AbstractGoogleLoadBalancer> loadBalancers) {
     loadBalancers*.healths.findResults { List<GoogleLoadBalancerHealth> glbhs ->
       glbhs.findAll { GoogleLoadBalancerHealth glbh ->
         glbh.instanceName == instanceName

@@ -37,14 +37,13 @@ import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.model.GoogleHealthCheck
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.AbstractGoogleHttpLoadBalancer
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHostRule
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.AbstractGoogleLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.http.GoogleHostRule
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.http.GoogleHttpLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GooglePathMatcher
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GooglePathRule
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.http.GooglePathMatcher
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.http.GooglePathRule
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import groovy.util.logging.Slf4j
 
@@ -81,12 +80,12 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent impl
 
   @Override
   CacheResult loadData(ProviderCache providerCache) {
-    List<GoogleLoadBalancer> loadBalancers = getHttpLoadBalancers()
+    List<AbstractGoogleLoadBalancer> loadBalancers = getHttpLoadBalancers()
     buildCacheResult(providerCache, loadBalancers)
   }
 
-  List<GoogleLoadBalancer> getHttpLoadBalancers() {
-    List<GoogleLoadBalancer> loadBalancers = []
+  List<AbstractGoogleLoadBalancer> getHttpLoadBalancers() {
+    List<AbstractGoogleLoadBalancer> loadBalancers = []
 
     BatchRequest forwardingRulesRequest = buildBatchRequest()
     BatchRequest targetProxyRequest = buildBatchRequest()
@@ -114,12 +113,12 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent impl
     return loadBalancers
   }
 
-  CacheResult buildCacheResult(ProviderCache _, List<GoogleLoadBalancer> googleLoadBalancers) {
+  CacheResult buildCacheResult(ProviderCache _, List<AbstractGoogleLoadBalancer> googleLoadBalancers) {
     log.info "Describing items in ${agentType}"
 
     def cacheResultBuilder = new CacheResultBuilder()
 
-    googleLoadBalancers.each { GoogleLoadBalancer loadBalancer ->
+    googleLoadBalancers.each { AbstractGoogleLoadBalancer loadBalancer ->
       def loadBalancerKey = Keys.getLoadBalancerKey(loadBalancer.region,
           loadBalancer.account,
           loadBalancer.name)
@@ -170,7 +169,7 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent impl
       return null
     }
 
-    List<GoogleLoadBalancer> loadBalancers = metricsSupport.readData {
+    List<AbstractGoogleLoadBalancer> loadBalancers = metricsSupport.readData {
       getHttpLoadBalancers()
     }
 
@@ -187,7 +186,7 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent impl
 
   class ForwardingRulesCallback<ForwardingRuleList> extends JsonBatchCallback<ForwardingRuleList> implements FailureLogger {
 
-    List<GoogleLoadBalancer> loadBalancers
+    List<AbstractGoogleLoadBalancer> loadBalancers
     BatchRequest targetProxyRequest
 
     // Pass through objects

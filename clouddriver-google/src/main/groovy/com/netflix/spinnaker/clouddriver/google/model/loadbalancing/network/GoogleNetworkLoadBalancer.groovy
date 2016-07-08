@@ -14,11 +14,24 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.google.model.loadbalancing
+package com.netflix.spinnaker.clouddriver.google.model.loadbalancing.network
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.AbstractGoogleLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
 import groovy.transform.Canonical
 
 @Canonical
-class GoogleHttpsLoadBalancer extends AbstractGoogleHttpLoadBalancer {
-  static final googleLoadBalancerType = GoogleLoadBalancerType.HTTPS
+class GoogleNetworkLoadBalancer extends AbstractGoogleLoadBalancer {
+  static final GoogleLoadBalancerType googleLoadBalancerType = GoogleLoadBalancerType.NETWORK
+
+  @JsonIgnore
+  @Override
+  View getView() {
+    new View()
+  }
+
+  @Canonical
+  class View extends AbstractGoogleLoadBalancer.View {
+  }
 }

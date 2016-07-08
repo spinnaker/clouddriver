@@ -33,7 +33,7 @@ import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.model.GoogleHealthCheck
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.network.GoogleNetworkLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
@@ -45,7 +45,7 @@ import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.INST
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.LOAD_BALANCERS
 
 @Slf4j
-class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent {
+class GoogleNetworkLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent {
 
   final String region
 
@@ -54,15 +54,15 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
       INFORMATIVE.forType(INSTANCES.ns),
   ] as Set
 
-  String agentType = "${accountName}/${region}/${GoogleLoadBalancerCachingAgent.simpleName}"
+  String agentType = "${accountName}/${region}/${GoogleNetworkLoadBalancerCachingAgent.simpleName}"
   String onDemandAgentType = "${agentType}-OnDemand"
   final OnDemandMetricsSupport metricsSupport
 
-  GoogleLoadBalancerCachingAgent(String googleApplicationName,
-                                 GoogleNamedAccountCredentials credentials,
-                                 ObjectMapper objectMapper,
-                                 String region,
-                                 Registry registry) {
+  GoogleNetworkLoadBalancerCachingAgent(String googleApplicationName,
+                                        GoogleNamedAccountCredentials credentials,
+                                        ObjectMapper objectMapper,
+                                        String region,
+                                        Registry registry) {
     super(googleApplicationName,
           credentials,
           objectMapper)
@@ -75,12 +75,12 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
 
   @Override
   CacheResult loadData(ProviderCache providerCache) {
-    List<GoogleLoadBalancer> loadBalancers = getLoadBalancers()
+    List<GoogleNetworkLoadBalancer> loadBalancers = getLoadBalancers()
     buildCacheResult(providerCache, loadBalancers)
   }
 
-  List<GoogleLoadBalancer> getLoadBalancers() {
-    List<GoogleLoadBalancer> loadBalancers = []
+  List<GoogleNetworkLoadBalancer> getLoadBalancers() {
+    List<GoogleNetworkLoadBalancer> loadBalancers = []
 
     BatchRequest forwardingRulesRequest = buildBatchRequest()
     BatchRequest targetPoolsRequest = buildBatchRequest()
@@ -101,12 +101,12 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
     return loadBalancers
   }
 
-  CacheResult buildCacheResult(ProviderCache _, List<GoogleLoadBalancer> googleLoadBalancers) {
+  CacheResult buildCacheResult(ProviderCache _, List<GoogleNetworkLoadBalancer> googleLoadBalancers) {
     log.info "Describing items in ${agentType}"
 
     def cacheResultBuilder = new CacheResultBuilder()
 
-    googleLoadBalancers.each { GoogleLoadBalancer loadBalancer ->
+    googleLoadBalancers.each { GoogleNetworkLoadBalancer loadBalancer ->
       def loadBalancerKey = Keys.getLoadBalancerKey(loadBalancer.region,
                                                     loadBalancer.account,
                                                     loadBalancer.name)
@@ -154,7 +154,7 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
       return null
     }
 
-    List<GoogleLoadBalancer> loadBalancers = metricsSupport.readData {
+    List<GoogleNetworkLoadBalancer> loadBalancers = metricsSupport.readData {
       getLoadBalancers()
     }
 
@@ -171,7 +171,7 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
 
   class ForwardingRulesCallback<ForwardingRuleList> extends JsonBatchCallback<ForwardingRuleList> implements FailureLogger {
 
-    List<GoogleLoadBalancer> loadBalancers
+    List<GoogleNetworkLoadBalancer> loadBalancers
     BatchRequest targetPoolsRequest
 
     // Pass through objects
@@ -181,7 +181,7 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
     @Override
     void onSuccess(ForwardingRuleList forwardingRuleList, HttpHeaders responseHeaders) throws IOException {
       forwardingRuleList?.items?.each { ForwardingRule forwardingRule ->
-        def newLoadBalancer = new GoogleLoadBalancer(
+        def newLoadBalancer = new GoogleNetworkLoadBalancer(
             name: forwardingRule.name,
             account: accountName,
             region: region,
@@ -206,7 +206,7 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
 
   class TargetPoolCallback<TargetPool> extends JsonBatchCallback<TargetPool> implements FailureLogger {
 
-    GoogleLoadBalancer googleLoadBalancer
+    GoogleNetworkLoadBalancer googleLoadBalancer
 
     BatchRequest httpHealthChecksRequest
     BatchRequest instanceHealthRequest
@@ -232,7 +232,7 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
 
   class HttpHealthCheckCallback<HttpHealthCheck> extends JsonBatchCallback<HttpHealthCheck> implements FailureLogger {
 
-    GoogleLoadBalancer googleLoadBalancer
+    GoogleNetworkLoadBalancer googleLoadBalancer
     def targetPool
 
     BatchRequest instanceHealthRequest
@@ -258,7 +258,7 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
 
   class TargetPoolInstanceHealthCallInvoker {
 
-    GoogleLoadBalancer googleLoadBalancer
+    GoogleNetworkLoadBalancer googleLoadBalancer
     def targetPool
 
     BatchRequest instanceHealthRequest
@@ -284,7 +284,7 @@ class GoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implemen
 
   class TargetPoolInstanceHealthCallback<TargetPoolInstanceHealth> extends JsonBatchCallback<TargetPoolInstanceHealth> implements FailureLogger {
 
-    GoogleLoadBalancer googleLoadBalancer
+    GoogleNetworkLoadBalancer googleLoadBalancer
     String instanceName
     String instanceZone
 

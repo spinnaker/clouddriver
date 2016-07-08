@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.google.model.loadbalancing
+package com.netflix.spinnaker.clouddriver.google.model.loadbalancing.http
 
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
 import groovy.transform.Canonical
 
 @Canonical
-class GooglePathMatcher {
-  List<GooglePathRule> pathRules
-  String defaultService
+class GoogleHttpsLoadBalancer extends AbstractGoogleHttpLoadBalancer {
+  final static GoogleLoadBalancerType googleLoadBalancerType = GoogleLoadBalancerType.HTTPS
 }
