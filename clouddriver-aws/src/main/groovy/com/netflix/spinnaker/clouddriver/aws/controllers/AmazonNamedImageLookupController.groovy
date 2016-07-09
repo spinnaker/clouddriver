@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.controllers
 
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
+import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import groovy.transform.InheritConstructors
@@ -63,8 +64,8 @@ class AmazonNamedImageLookupController {
       throw new ImageNotFoundException("Name not found on image ${imageId} in ${account}/${region}")
     }
 
-    Collection<CacheData> namedImages = cacheView.getAll(NAMED_IMAGES.ns, namedImageKeys)
-    render(namedImages, null, imageTags, region)
+    Collection<CacheData> namedImages = cacheView.getAll(NAMED_IMAGES.ns, namedImageKeys, RelationshipCacheFilter.include(IMAGES.ns))
+    render(namedImages, null, imageTags, region, true)
   }
 
   @RequestMapping(value = '/find', method = RequestMethod.GET)
@@ -95,10 +96,12 @@ class AmazonNamedImageLookupController {
 
     Collection<CacheData> matchesByImageId = cacheView.getAll(IMAGES.ns, imageIdentifiers)
 
-    render(matchesByName, matchesByImageId, null, lookupOptions.q, lookupOptions.region)
+    render(matchesByName, matchesByImageId, null, lookupOptions.q, lookupOptions.region, false)
   }
 
-  private List<NamedImage> render(Collection<CacheData> namedImages, Collection<CacheData> images, Collection<CacheData> imageTags, String requestedName = null, String requiredRegion = null) {
+  private List<NamedImage> render(Collection<CacheData> namedImages, Collection<CacheData> images,
+                                  Collection<CacheData> imageTags, String requestedName = null,
+                                  String requiredRegion = null, boolean includeImageDetails) {
     Map<String, NamedImage> byImageName = [:].withDefault { new NamedImage(imageName: it) }
     for (CacheData data : namedImages) {
       Map<String, String> keyParts = Keys.parse(data.id)
@@ -109,6 +112,9 @@ class AmazonNamedImageLookupController {
       for (String imageKey : data.relationships[IMAGES.ns] ?: []) {
         Map<String, String> imageParts = Keys.parse(imageKey)
         thisImage.amis[imageParts.region].add(imageParts.imageId)
+        if (includeImageDetails) {
+          thisImage.attributes.put("blockDeviceMappings", cacheView.get(IMAGES.ns, imageKey).attributes.get("blockDeviceMappings"))
+        }
       }
 
       imageTags?.each {
