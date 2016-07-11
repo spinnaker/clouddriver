@@ -55,7 +55,6 @@ import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.LOAD
 @Slf4j
 class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent {
 
-
   final Set<AgentDataType> providedDataTypes = [
       AUTHORITATIVE.forType(LOAD_BALANCERS.ns),
       INFORMATIVE.forType(INSTANCES.ns),
