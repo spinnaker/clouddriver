@@ -25,7 +25,7 @@ import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
 import groovy.transform.Canonical
 
 @Canonical
-abstract class AbstractGoogleLoadBalancer {
+class GoogleLoadBalancer {
   static final GoogleLoadBalancerType googleLoadBalancerType
 
   String name
@@ -47,14 +47,14 @@ abstract class AbstractGoogleLoadBalancer {
   class View implements LoadBalancer {
     final String type = GoogleCloudProvider.GCE
 
-    String name = AbstractGoogleLoadBalancer.this.name
-    String account = AbstractGoogleLoadBalancer.this.account
-    String region = AbstractGoogleLoadBalancer.this.region
-    Long createdTime = AbstractGoogleLoadBalancer.this.createdTime
-    String ipAddress = AbstractGoogleLoadBalancer.this.ipAddress
-    String ipProtocol = AbstractGoogleLoadBalancer.this.ipProtocol
-    String portRange = AbstractGoogleLoadBalancer.this.portRange
-    GoogleHealthCheck.View healthCheck = AbstractGoogleLoadBalancer.this.healthCheck?.view
+    String name = GoogleLoadBalancer.this.name
+    String account = GoogleLoadBalancer.this.account
+    String region = GoogleLoadBalancer.this.region
+    Long createdTime = GoogleLoadBalancer.this.createdTime
+    String ipAddress = GoogleLoadBalancer.this.ipAddress
+    String ipProtocol = GoogleLoadBalancer.this.ipProtocol
+    String portRange = GoogleLoadBalancer.this.portRange
+    GoogleHealthCheck.View healthCheck = GoogleLoadBalancer.this.healthCheck?.view
 
     Set<LoadBalancerServerGroup> serverGroups = new HashSet<>()
   }

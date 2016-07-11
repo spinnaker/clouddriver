@@ -293,9 +293,6 @@ class GoogleNetworkLoadBalancerCachingAgent extends AbstractGoogleCachingAgent i
       targetPoolInstanceHealth?.healthStatus?.each { HealthStatus healthStatus ->
         def googleLBHealthStatus = GoogleLoadBalancerHealth.PlatformStatus.valueOf(healthStatus.healthState)
 
-        // Google APIs return instances as UNHEALTHY if an instance is associated with a target pool (load balancer)
-        // but that target pool does not have a health check. This is the wrong behavior, because the instance may still
-        // receive traffic if it is in the RUNNING state.
         if (!googleLoadBalancer.healthCheck) {
           googleLBHealthStatus = GoogleLoadBalancerHealth.PlatformStatus.HEALTHY
         }

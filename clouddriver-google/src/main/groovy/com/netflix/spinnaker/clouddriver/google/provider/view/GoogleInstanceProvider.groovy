@@ -23,7 +23,7 @@ import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.AbstractGoogleLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.GoogleSecurityGroup
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
 import com.netflix.spinnaker.clouddriver.google.security.GoogleCredentials
@@ -104,7 +104,7 @@ class GoogleInstanceProvider implements InstanceProvider<GoogleInstance.View> {
     def loadBalancerKeys = cacheData.relationships[LOAD_BALANCERS.ns]
     if (loadBalancerKeys) {
       cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeys).each { CacheData loadBalancerCacheData ->
-        AbstractGoogleLoadBalancer loadBalancer = objectMapper.convertValue(loadBalancerCacheData.attributes, AbstractGoogleLoadBalancer)
+        GoogleLoadBalancer loadBalancer = objectMapper.convertValue(loadBalancerCacheData.attributes, GoogleLoadBalancer)
         def foundHealths = loadBalancer.healths.findAll { GoogleLoadBalancerHealth health ->
           health.instanceName == instance.name
         }

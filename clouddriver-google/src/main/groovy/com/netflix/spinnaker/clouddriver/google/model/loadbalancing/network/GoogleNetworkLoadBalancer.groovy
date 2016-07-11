@@ -17,12 +17,12 @@
 package com.netflix.spinnaker.clouddriver.google.model.loadbalancing.network
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.AbstractGoogleLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
 import groovy.transform.Canonical
 
 @Canonical
-class GoogleNetworkLoadBalancer extends AbstractGoogleLoadBalancer {
+class GoogleNetworkLoadBalancer extends GoogleLoadBalancer {
   static final GoogleLoadBalancerType googleLoadBalancerType = GoogleLoadBalancerType.NETWORK
 
   @JsonIgnore
@@ -32,6 +32,6 @@ class GoogleNetworkLoadBalancer extends AbstractGoogleLoadBalancer {
   }
 
   @Canonical
-  class View extends AbstractGoogleLoadBalancer.View {
+  class View extends GoogleLoadBalancer.View {
   }
 }
