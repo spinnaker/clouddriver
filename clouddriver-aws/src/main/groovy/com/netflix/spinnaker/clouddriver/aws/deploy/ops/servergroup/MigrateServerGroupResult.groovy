@@ -14,24 +14,14 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.deploy.description
+package com.netflix.spinnaker.clouddriver.aws.deploy.ops.servergroup
 
-import com.fasterxml.jackson.annotation.JsonIgnore
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
+import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.MigrateLoadBalancerResult
+import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.MigrateSecurityGroupResult
 
-import static com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.LoadBalancerMigrator.LoadBalancerLocation
-
-class MigrateLoadBalancerDescription {
-
-  LoadBalancerLocation source
-  LoadBalancerLocation target
-  String subnetType
-  String application
-  boolean dryRun
-
-  @JsonIgnore
-  NetflixAmazonCredentials getCredentials() {
-    return target.getCredentials();
-  }
-
+class MigrateServerGroupResult {
+  String serverGroupName
+  List<String> warnings
+  List<MigrateLoadBalancerResult> loadBalancers
+  List<MigrateSecurityGroupResult> securityGroups
 }
