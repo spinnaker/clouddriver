@@ -84,6 +84,8 @@ azure:
       appKey: ${AZURE_APPKEY}
       tenantId: ${AZURE_TENANT_ID}
       subscriptionId: ${AZURE_SUBSCRIPTION_ID}
+      defaultKeyVault: ${AZURE_KEY_VAULT:"SpinnakerVault"}
+      defaultResourceGroup: ${AZURE_DEFAULT_RESOURCE_GROUP:"SpinnakerDefault"}
       regions: ["westus", "eastus"]
       vmImages:
       - publisher: "MicrosoftWindowsServer"
