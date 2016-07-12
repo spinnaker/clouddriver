@@ -20,6 +20,6 @@ import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBa
 import groovy.transform.Canonical
 
 @Canonical
-class GoogleHttpsLoadBalancer extends AbstractGoogleHttpLoadBalancer {
+class GoogleHttpsLoadBalancer extends BaseGoogleHttpLoadBalancer {
   final static GoogleLoadBalancerType googleLoadBalancerType = GoogleLoadBalancerType.HTTPS
 }

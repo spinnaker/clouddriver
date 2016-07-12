@@ -93,7 +93,8 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent impl
     BatchRequest groupHealthRequest = buildBatchRequest()
     BatchRequest httpHealthChecksRequest = buildBatchRequest()
 
-    ForwardingRulesCallback callback = new ForwardingRulesCallback(loadBalancers: loadBalancers,
+    ForwardingRulesCallback callback = new ForwardingRulesCallback(
+        loadBalancers: loadBalancers,
         targetProxyRequest: targetProxyRequest,
         urlMapRequest: urlMapRequest,
         backendServiceRequest: backendServiceRequest,
@@ -297,7 +298,7 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent impl
             .get(project, Utils.getLocalName(pathMatcher.defaultService))
             .queue(backendServiceRequest, backendServiceCallback)
         pathMatcher.pathRules?.each { PathRule pathRule ->
-          if (pathRule?.service) {
+          if (pathRule.service) {
             def serviceName = Utils.getLocalName(pathRule.service)
             compute.backendServices().get(project, serviceName).queue(backendServiceRequest, backendServiceCallback)
           }

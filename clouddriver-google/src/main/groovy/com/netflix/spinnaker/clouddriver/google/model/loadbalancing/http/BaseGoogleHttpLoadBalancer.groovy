@@ -21,7 +21,7 @@ import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBa
 import groovy.transform.Canonical
 
 @Canonical
-abstract class AbstractGoogleHttpLoadBalancer extends GoogleLoadBalancer {
+class BaseGoogleHttpLoadBalancer extends GoogleLoadBalancer {
   String defaultService
   List<GoogleHostRule> hostRules
 
@@ -33,6 +33,6 @@ abstract class AbstractGoogleHttpLoadBalancer extends GoogleLoadBalancer {
 
   @Canonical
   class View extends GoogleLoadBalancer.View {
-    List<GoogleHostRule> hostRules = AbstractGoogleHttpLoadBalancer.this.hostRules
+    List<GoogleHostRule> hostRules = BaseGoogleHttpLoadBalancer.this.hostRules
   }
 }
