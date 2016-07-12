@@ -285,6 +285,10 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
         loadBalancerKeys << Keys.getLoadBalancerKey(region,
                                                     accountName,
                                                     loadBalancerName)
+        // Add global region keys for L7 LBs.
+        loadBalancerKeys << Keys.getLoadBalancerKey('global',
+            accountName,
+            loadBalancerName)
       }
 
       loadBalancerKeys.each { String loadBalancerKey ->
