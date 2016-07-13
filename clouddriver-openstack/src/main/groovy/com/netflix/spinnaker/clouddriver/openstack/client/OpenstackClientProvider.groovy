@@ -57,7 +57,7 @@ import java.util.regex.Pattern
 /**
  * Provides access to the Openstack API.
  *
- * TODO region support will need to be added to all client calls not already using regions
+ * TODO move lbaas-related methods into an lbaas provider. This class can then delegate to the appropriate v1 or v2 lbaas provider.
  *
  * TODO tokens will need to be regenerated if they are expired.
  */
