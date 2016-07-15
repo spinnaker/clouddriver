@@ -19,24 +19,29 @@ package com.netflix.spinnaker.clouddriver.openstack.provider.agent
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
+import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.openstack.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.openstack.cache.Keys
+import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackFloatingIP
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancer
+import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackPort
+import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackServerGroup
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackSubnet
+import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackVip
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import groovy.util.logging.Slf4j
-import org.openstack4j.model.compute.FloatingIP
 import org.openstack4j.model.network.ext.HealthMonitor
 import org.openstack4j.model.network.ext.LbPool
-import org.openstack4j.model.network.ext.Vip
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
-import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.INSTANCES
+import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.FLOATING_IPS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.LOAD_BALANCERS
+import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.PORTS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.SERVER_GROUPS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.SUBNETS
+import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.VIPS
 import static com.netflix.spinnaker.clouddriver.openstack.provider.OpenstackInfrastructureProvider.ATTRIBUTES
 
 @Slf4j
@@ -50,7 +55,8 @@ class OpenstackLoadBalancerCachingAgent extends AbstractOpenstackCachingAgent {
 
   String agentType = "${accountName}/${region}/${OpenstackLoadBalancerCachingAgent.simpleName}"
 
-  OpenstackLoadBalancerCachingAgent(OpenstackNamedAccountCredentials account, String region,
+  OpenstackLoadBalancerCachingAgent(OpenstackNamedAccountCredentials account,
+                                    String region,
                                     final ObjectMapper objectMapper) {
     super(account, region)
     this.objectMapper = objectMapper
@@ -65,36 +71,53 @@ class OpenstackLoadBalancerCachingAgent extends AbstractOpenstackCachingAgent {
     List<LbPool> pools = clientProvider.getAllLoadBalancerPools(region)
 
     pools.collect { pool ->
-      String vipId = pool.vipId
-      //we could create VIP caching agent and get the VIP from there. We could.
-      Vip vip = vipId ? clientProvider.getVip(region, vipId) : null
-
-      //same for floating ips.
-      FloatingIP ip = vipId ? clientProvider.getAssociatedFloatingIp(region, vipId) : null
-
-      //same for health monitors
+      //health monitors get looked up
       Set<HealthMonitor> healthMonitors = pool.healthMonitors?.collect { healthId ->
         clientProvider.getHealthMonitor(region, healthId)
       }?.toSet()
 
+      //vips cached
+      Map<String, Object> vipMap = providerCache.get(VIPS.ns, Keys.getVipKey(pool.vipId, accountName, region))?.attributes
+      OpenstackVip vip = vipMap ? objectMapper.convertValue(vipMap, OpenstackVip) : null
+
+      //ips cached
+      OpenstackFloatingIP ip = null
+      if (vip) {
+        Collection<String> portFilters = providerCache.filterIdentifiers(PORTS.ns, Keys.getPortKey('*', accountName, region))
+        Collection<CacheData> portsData = providerCache.getAll(PORTS.ns, portFilters, RelationshipCacheFilter.none())
+        CacheData portCacheData = portsData?.find { p -> p.attributes?.name == "vip-${vip.id}" }
+        Map<String, Object> portAttributes = portCacheData?.attributes
+        OpenstackPort port = objectMapper.convertValue(portAttributes, OpenstackPort)
+        if (port) {
+          Collection<String> ipFilters = providerCache.filterIdentifiers(FLOATING_IPS.ns, Keys.getFloatingIPKey('*', accountName, region))
+          Collection<CacheData> ipsData = providerCache.getAll(FLOATING_IPS.ns, ipFilters, RelationshipCacheFilter.none())
+          CacheData ipCacheData = ipsData.find { i -> i.attributes?.instanceId == port.deviceId }
+          Map<String, Object> ipAttributes = ipCacheData?.attributes
+          ip = objectMapper.convertValue(ipAttributes, OpenstackFloatingIP)
+        }
+      }
+
       //subnets cached
-      Map<String, Object> subnetMap = providerCache.get(SUBNETS.ns, Keys.getSubnetKey(pool.subnetId, region, accountName))?.attributes
+      Map<String, Object> subnetMap = providerCache.get(SUBNETS.ns, Keys.getSubnetKey(pool.subnetId, accountName, region))?.attributes
       OpenstackSubnet subnet = subnetMap ? objectMapper.convertValue(subnetMap, OpenstackSubnet) : null
 
       //server groups cached
       String loadBalancerKey = Keys.getLoadBalancerKey(pool.id, accountName, region)
-      Collection<String> filters = providerCache.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey('*', accountName, region))
-      Collection<Map<String, Object>> serverGroups = providerCache.getAll(SERVER_GROUPS.ns, filters, RelationshipCacheFilter.include(INSTANCES.ns, LOAD_BALANCERS.ns))?.attributes
-      //TODO make object once Derek's cluster caching PR is merged
-      Collection<Map<String, Object>> filteredServerGroups = serverGroups?.findAll { sg -> sg.loadBalancers?.find { lbkey -> lbkey == loadBalancerKey } }
+      Collection<String> filters = providerCache.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey('*', '*', accountName, region))
+      Collection<CacheData> serverGroupsData = providerCache.getAll(SERVER_GROUPS.ns, filters, RelationshipCacheFilter.include(LOAD_BALANCERS.ns))
+      Set<OpenstackServerGroup> serverGroups = serverGroupsData?.findAll { s ->
+        s.relationships[LOAD_BALANCERS.ns].find { lbKey -> lbKey == loadBalancerKey } != null
+      }?.collect { s ->
+        objectMapper.convertValue(s?.attributes, OpenstackServerGroup)
+      }?.toSet()
 
       //create load balancer and relationships
-      OpenstackLoadBalancer loadBalancer = OpenstackLoadBalancer.from(pool, vip, subnet, ip, healthMonitors, filteredServerGroups, accountName, region)
+      OpenstackLoadBalancer loadBalancer = OpenstackLoadBalancer.from(pool, vip, subnet, ip, healthMonitors, accountName, region)
       cacheResultBuilder.namespace(LOAD_BALANCERS.ns).keep(loadBalancerKey).with {
         attributes = objectMapper.convertValue(loadBalancer, ATTRIBUTES)
-        filteredServerGroups?.each { sg ->
-          //TODO test these
-          relationships[SERVER_GROUPS.ns].add(Keys.getServerGroupKey(sg.name.toString(), accountName, region))
+        serverGroups?.each { sg ->
+          println sg.name
+          relationships[SERVER_GROUPS.ns].add(Keys.getServerGroupKey(sg.name, accountName, region))
         }
       }
     }

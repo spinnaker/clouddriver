@@ -151,6 +151,18 @@ abstract class OpenstackClientProvider {
   }
 
   /**
+   * Get all vips in a region.
+   * @param region
+   * @return
+     */
+  List<? extends Vip> listVips(final String region) {
+    List<? extends Vip> vips = handleRequest {
+      getRegionClient(region).networking().loadbalancers().vip().list()
+    }
+    vips
+  }
+
+  /**
    * Gets VIP for a given region.
    * @param region
    * @param vipId
@@ -423,6 +435,17 @@ abstract class OpenstackClientProvider {
   }
 
   /**
+   * List all floating ips in the region.
+   * @param region
+   * @return
+     */
+  List<? extends FloatingIP> listFloatingIps(final String region) {
+    handleRequest {
+      getRegionClient(region).compute().floatingIps().list()
+    }
+  }
+
+  /**
    * Internal helper to look up port associated to vip.
    * @param region
    * @param vipId
@@ -431,6 +454,17 @@ abstract class OpenstackClientProvider {
   protected Port getPortForVip(final String region, final String vipId) {
     handleRequest {
       getRegionClient(region).networking().port().list()?.find { it.name == "vip-${vipId}" }
+    }
+  }
+
+  /**
+   * List all ports in the region.
+   * @param region
+   * @return
+     */
+  List<? extends Port> listPorts(final String region) {
+    handleRequest {
+      getRegionClient(region).networking().port().list()
     }
   }
 

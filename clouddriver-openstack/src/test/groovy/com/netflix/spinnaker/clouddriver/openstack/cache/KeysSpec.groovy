@@ -21,6 +21,7 @@ import spock.lang.Unroll
 
 import static com.netflix.spinnaker.clouddriver.openstack.OpenstackCloudProvider.ID
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.INSTANCES
+import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.NETWORKS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.SUBNETS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.APPLICATIONS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.CLUSTERS
@@ -104,7 +105,7 @@ class KeysSpec extends Specification {
     String subnetId = UUID.randomUUID().toString()
     String region = 'region'
     String account = 'account'
-    String subnetKey = Keys.getSubnetKey(subnetId, region, account)
+    String subnetKey = Keys.getSubnetKey(subnetId, account, region)
 
     when:
     Map<String, String> result = Keys.parse(subnetKey)
@@ -171,10 +172,23 @@ class KeysSpec extends Specification {
     String account = 'account'
 
     when:
-    String result = Keys.getSubnetKey(subnetId, region, account)
+    String result = Keys.getSubnetKey(subnetId, account, region)
 
     then:
-    result == "${ID}:${SUBNETS}:${subnetId}:${account}:${region}" as String
+    result == "${ID}:${SUBNETS}:${account}:${region}:${subnetId}" as String
+  }
+
+  void "test get network key"() {
+    given:
+    String networkId = UUID.randomUUID().toString()
+    String region = 'region'
+    String account = 'account'
+
+    when:
+    String result = Keys.getNetworkKey(networkId, account, region)
+
+    then:
+    result == "${ID}:${NETWORKS}:${account}:${region}:${networkId}" as String
   }
 
   def "test get security group key"() {

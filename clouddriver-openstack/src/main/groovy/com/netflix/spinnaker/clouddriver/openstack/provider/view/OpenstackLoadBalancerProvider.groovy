@@ -21,38 +21,72 @@ import com.google.common.collect.Sets
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
+import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
+import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
+import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.openstack.cache.Keys
+import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackInstance
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancer
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
-import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.INSTANCES
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.LOAD_BALANCERS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.SERVER_GROUPS
 
 @Component
 class OpenstackLoadBalancerProvider implements LoadBalancerProvider<OpenstackLoadBalancer> {
 
-    final Cache cacheView
-    final ObjectMapper objectMapper
+  final Cache cacheView
+  final ObjectMapper objectMapper
+  final OpenstackClusterProvider clusterProvider
 
-    @Autowired
-    OpenstackLoadBalancerProvider(final Cache cacheView, final ObjectMapper objectMapper) {
-        this.cacheView = cacheView
-        this.objectMapper = objectMapper
-    }
+  @Autowired
+  OpenstackLoadBalancerProvider(final Cache cacheView, final ObjectMapper objectMapper, final OpenstackClusterProvider clusterProvider) {
+    this.cacheView = cacheView
+    this.objectMapper = objectMapper
+    this.clusterProvider = clusterProvider
+  }
 
-    @Override
-    Set<OpenstackLoadBalancer> getApplicationLoadBalancers(String application) {
-        String pattern = Keys.getLoadBalancerKey("*", "*", "${application}*")
-        Collection<String> identifiers = cacheView.filterIdentifiers(LOAD_BALANCERS.ns, pattern)
-        Collection<CacheData> data = cacheView.getAll(LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.include(SERVER_GROUPS.ns, INSTANCES.ns))
-        !data ? Sets.newHashSet() : data.collect(this.&fromCacheData)
-    }
+  /**
+   * Usual pattern will be to call this with "" for application, since load balancers are cached by account/region.
+   * @param application
+   * @return
+   */
+  @Override
+  Set<OpenstackLoadBalancer> getApplicationLoadBalancers(String application) {
+    String pattern = Keys.getLoadBalancerKey("*", "*", "${application}*")
+    Collection<String> identifiers = cacheView.filterIdentifiers(LOAD_BALANCERS.ns, pattern)
+    Collection<CacheData> data = cacheView.getAll(LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.include(SERVER_GROUPS.ns))
+    !data ? Sets.newHashSet() : data.collect(this.&fromCacheData)
+  }
 
-    OpenstackLoadBalancer fromCacheData(CacheData cacheData) {
-        objectMapper.convertValue(cacheData.attributes, OpenstackLoadBalancer)
+  /**
+   * Get load balancer(s) by account, region, and name.
+   * @param account
+   * @param region
+   * @param name
+   * @return
+   */
+  Set<OpenstackLoadBalancer> getLoadBalancers(String account, String region, String name) {
+    String pattern = Keys.getLoadBalancerKey(name, account, region)
+    Collection<String> identifiers = cacheView.filterIdentifiers(LOAD_BALANCERS.ns, pattern)
+    Collection<CacheData> data = cacheView.getAll(LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.include(SERVER_GROUPS.ns))
+    !data ? Sets.newHashSet() : data.collect(this.&fromCacheData)
+  }
+
+  OpenstackLoadBalancer fromCacheData(CacheData cacheData) {
+    OpenstackLoadBalancer loadBalancer = objectMapper.convertValue(cacheData.attributes, OpenstackLoadBalancer)
+    Set<LoadBalancerServerGroup> serverGroups = cacheData.relationships[SERVER_GROUPS.ns].collect { key ->
+      ServerGroup serverGroup = clusterProvider.getServerGroup(loadBalancer.account, loadBalancer.region, Keys.parse(key)['serverGroup'])
+      LoadBalancerServerGroup loadBalancerServerGroup = new LoadBalancerServerGroup(name: serverGroup?.name, isDisabled: serverGroup?.isDisabled())
+      loadBalancerServerGroup.instances = serverGroup?.instances?.collect { instance ->
+        new LoadBalancerInstance(id: ((OpenstackInstance) instance).instanceId, health: instance.health && instance.health.size() > 0 ? instance.health[0] : null)
+      }?.toSet()
+      loadBalancerServerGroup
     }
+    loadBalancer.serverGroups = serverGroups
+    loadBalancer
+  }
 
 }

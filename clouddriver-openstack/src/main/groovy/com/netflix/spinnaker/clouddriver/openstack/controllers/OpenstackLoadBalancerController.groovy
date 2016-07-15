@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.openstack.controllers
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancer
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancerSummary
 import com.netflix.spinnaker.clouddriver.openstack.provider.view.OpenstackLoadBalancerProvider
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -33,26 +32,25 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/openstack/loadBalancers")
 class OpenstackLoadBalancerController {
 
-    @Autowired
-    AccountCredentialsProvider accountCredentialsProvider
+  OpenstackLoadBalancerProvider provider
 
-    @Autowired
-    OpenstackLoadBalancerProvider openstackLoadBalancerProvider
+  @Autowired
+  OpenstackLoadBalancerController(final OpenstackLoadBalancerProvider provider) {
+    this.provider = provider
+  }
 
-    @RequestMapping(method = RequestMethod.GET)
-    List<OpenstackLoadBalancerSummary> list() {
-        openstackLoadBalancerProvider.getApplicationLoadBalancers('').collect { lb ->
-            new OpenstackLoadBalancerSummary(account: lb.account, region: lb.region, id: lb.id, name: lb.name)
-        }.sort { it.name }
-    }
+  @RequestMapping(method = RequestMethod.GET)
+  Set<OpenstackLoadBalancerSummary> list() {
+    provider.getApplicationLoadBalancers('').collect { lb ->
+      new OpenstackLoadBalancerSummary(account: lb.account, region: lb.region, id: lb.id, name: lb.name)
+    }.sort { it.name }
+  }
 
-    @RequestMapping(value = "/{account}/{region}/{name:.+}", method = RequestMethod.GET)
-    List<OpenstackLoadBalancer> getDetailsInAccountAndRegionByName(@PathVariable String account,
-                                                                   @PathVariable String region,
-                                                                   @PathVariable String name) {
-        openstackLoadBalancerProvider.getApplicationLoadBalancers('').findAll { lb ->
-            lb.account == account && lb.region == region && lb.name == name
-        }
-    }
+  @RequestMapping(value = "/{account}/{region}/{name:.+}", method = RequestMethod.GET)
+  Set<OpenstackLoadBalancer> getDetailsInAccountAndRegionByName(@PathVariable String account,
+                                                                @PathVariable String region,
+                                                                @PathVariable String name) {
+    provider.getLoadBalancers(account, region, name)
+  }
 
 }
