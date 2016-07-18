@@ -47,8 +47,11 @@ class OpenstackLoadBalancer implements LoadBalancer, Serializable, LoadBalancerR
 
   static OpenstackLoadBalancer from(LbPool pool, OpenstackVip vip, OpenstackSubnet subnet, OpenstackFloatingIP ip,
                                     Set<HealthMonitor> healthMonitors, String account, String region) {
-    new OpenstackLoadBalancer(account: account, region: region, id: pool?.id, name: pool?.name, description: pool?.description,
-      status: pool?.status, protocol: pool?.protocol?.name(), method: pool?.lbMethod?.name(),
+    if (!pool) {
+      throw new IllegalArgumentException("Pool must not be null.")
+    }
+    new OpenstackLoadBalancer(account: account, region: region, id: pool.id, name: pool.name, description: pool.description,
+      status: pool.status, protocol: pool.protocol?.name(), method: pool.lbMethod?.name(),
       ip: ip?.floatingIpAddress, externalPort: vip?.port,
       subnet: subnet?.name, healthChecks: healthMonitors?.collect { h -> PoolHealthMonitor.from(h) }?.toSet())
   }

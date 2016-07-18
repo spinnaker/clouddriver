@@ -18,9 +18,6 @@ package com.netflix.spinnaker.clouddriver.openstack.model
 
 import groovy.transform.Canonical
 
-/**
- *
- */
 @Canonical
 class OpenstackLoadBalancerSummary {
 

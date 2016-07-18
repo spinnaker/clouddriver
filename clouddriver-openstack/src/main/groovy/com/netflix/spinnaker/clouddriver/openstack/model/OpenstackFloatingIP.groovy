@@ -30,7 +30,7 @@ class OpenstackFloatingIP {
   String region
 
   /**
-   *
+   * Produce a domain specific floating IP from an openstack floating IP.
    * @param vip
    * @return
    */

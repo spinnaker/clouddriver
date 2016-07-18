@@ -29,10 +29,10 @@ class OpenstackPort {
   String region
 
   /**
-   *
+   * Convert an openstack Port into a domain specific object.
    * @param port
    * @return
-     */
+   */
   static OpenstackPort from(Port port, String account, String region) {
     new OpenstackPort(deviceId: port.deviceId, name: port.name, networkId: port.networkId,
       securityGroups: port.securityGroups, account: account, region: region)

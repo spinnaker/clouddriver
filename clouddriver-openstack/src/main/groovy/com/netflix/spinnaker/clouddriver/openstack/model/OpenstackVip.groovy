@@ -29,7 +29,7 @@ class OpenstackVip {
   String region
 
   /**
-   *
+   * Convert and Openstack vip into a domain specific object.
    * @param vip
    * @return
    */

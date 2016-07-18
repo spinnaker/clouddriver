@@ -163,8 +163,8 @@ class Keys {
   }
 
   //this one works with wildcards
-  static String getServerGroupKey(String cluster, String group, String account, String region) {
-    "${ID}:${Namespace.SERVER_GROUPS}:${cluster}:${account}:${region}:${group}"
+  static String getServerGroupKey(String cluster, String serverGroupName, String account, String region) {
+    "${ID}:${Namespace.SERVER_GROUPS}:${cluster}:${account}:${region}:${serverGroupName}"
   }
 
   static String getClusterKey(String account, String application, String clusterName) {
