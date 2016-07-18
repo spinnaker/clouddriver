@@ -75,7 +75,7 @@ class Keys {
             break
           case Namespace.INSTANCE_TYPES.ns:
             if (parts.length == 5) {
-              result << [account: parts[3], region: parts[4], instanceTypeId: parts[2]]
+              result << [account: parts[2], region: parts[3], instanceTypeId: parts[4]]
             }
             break
           case Namespace.APPLICATIONS.ns:
@@ -117,22 +117,22 @@ class Keys {
             break
           case Namespace.LOAD_BALANCERS.ns:
             if (parts.length == 5) {
-              result << [id: parts[2], account: parts[3], region: parts[4]]
+              result << [account: parts[2], region: parts[3], id: parts[4]]
             }
             break
           case Namespace.VIPS.ns:
             if (parts.length == 5) {
-              result << [id: parts[2], account: parts[3], region: parts[4]]
+              result << [account: parts[2], region: parts[3], id: parts[4]]
             }
             break
           case Namespace.FLOATING_IPS.ns:
             if (parts.length == 5) {
-              result << [id: parts[2], account: parts[3], region: parts[4]]
+              result << [account: parts[2], region: parts[3], id: parts[4]]
             }
             break
           case Namespace.PORTS.ns:
             if (parts.length == 5) {
-              result << [id: parts[2], account: parts[3], region: parts[4]]
+              result << [account: parts[2], region: parts[3], id: parts[4]]
             }
             break
         }
@@ -200,6 +200,6 @@ class Keys {
   }
 
   static String getInstanceTypeKey(String instanceType, String account, String region) {
-    "${ID}:${Namespace.INSTANCE_TYPES}:${instanceType}:${account}:${region}"
+    "${ID}:${Namespace.INSTANCE_TYPES}:${account}:${region}:${instanceType}"
   }
 }
