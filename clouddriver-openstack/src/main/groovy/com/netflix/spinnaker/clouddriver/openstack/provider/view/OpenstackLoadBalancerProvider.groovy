@@ -26,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.openstack.cache.Keys
+import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackCluster
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackInstance
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancer
 import org.springframework.beans.factory.annotation.Autowired
@@ -49,16 +50,28 @@ class OpenstackLoadBalancerProvider implements LoadBalancerProvider<OpenstackLoa
   }
 
   /**
-   * Usual pattern will be to call this with "" for application, since load balancers are cached by account/region.
+   * Find all load balancers associated with all clusters that are a part of the application.
    * @param application
    * @return
    */
   @Override
   Set<OpenstackLoadBalancer> getApplicationLoadBalancers(String application) {
-    String pattern = Keys.getLoadBalancerKey("*", "*", "${application}*")
-    Collection<String> identifiers = cacheView.filterIdentifiers(LOAD_BALANCERS.ns, pattern)
-    Collection<CacheData> data = cacheView.getAll(LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.include(SERVER_GROUPS.ns))
-    !data ? Sets.newHashSet() : data.collect(this.&fromCacheData)
+    Map<String, Set<OpenstackCluster>> appClusters = clusterProvider.getClusterDetails(application)
+    appClusters?.collect { String k, Set<OpenstackCluster> v ->
+      v.collect { OpenstackCluster c ->
+        c.loadBalancers?.each { lb ->
+          lb.serverGroups = c.serverGroups?.findAll { s ->
+            s.loadBalancers.find { it.contains(lb.id) } != null
+          }?.collect { s ->
+            LoadBalancerServerGroup loadBalancerServerGroup = new LoadBalancerServerGroup(name: s?.name, isDisabled: s?.isDisabled())
+            loadBalancerServerGroup.instances = s?.instances?.collect { instance ->
+              new LoadBalancerInstance(id: ((OpenstackInstance) instance).instanceId, health: instance.health && instance.health.size() > 0 ? instance.health[0] : null)
+            }?.toSet()
+            loadBalancerServerGroup
+          }
+        }
+      }?.flatten()
+    }?.flatten()?.toSet()
   }
 
   /**

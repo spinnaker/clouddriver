@@ -31,7 +31,7 @@ import spock.lang.Unroll
 class OpenstackLoadBalancerControllerSpec extends Specification {
   OpenstackLoadBalancerController controller
   OpenstackLoadBalancerProvider provider
-  
+
   String account = 'test'
   String region = 'r1'
 
@@ -45,7 +45,7 @@ class OpenstackLoadBalancerControllerSpec extends Specification {
     Set<OpenstackLoadBalancerSummary> result = controller.list()
 
     then:
-    1 * provider.getApplicationLoadBalancers('') >> lbs
+    1 * provider.getLoadBalancers('*','*','*') >> lbs
     result.size() == lbs.size()
     if (result.size() > 0) {
       result.each {
@@ -69,7 +69,7 @@ class OpenstackLoadBalancerControllerSpec extends Specification {
     controller.list()
 
     then:
-    1 * provider.getApplicationLoadBalancers('') >> { throw throwable }
+    1 * provider.getLoadBalancers('*','*','*') >> { throw throwable }
     Throwable thrownException = thrown(JedisException)
     thrownException == throwable
   }
