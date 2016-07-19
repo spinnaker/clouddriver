@@ -107,8 +107,8 @@ class OpenstackLoadBalancerCachingAgent extends AbstractOpenstackCachingAgent {
       Collection<CacheData> serverGroupsData = providerCache.getAll(SERVER_GROUPS.ns, filters, RelationshipCacheFilter.include(LOAD_BALANCERS.ns))
       Set<OpenstackServerGroup> serverGroups = serverGroupsData?.findAll { s ->
         s.relationships[LOAD_BALANCERS.ns].find { lbKey -> lbKey == loadBalancerKey } != null
-      }?.collect { s ->
-        objectMapper.convertValue(s?.attributes, OpenstackServerGroup)
+      }?.findResults { s ->
+        objectMapper.convertValue(s.attributes, OpenstackServerGroup)
       }?.toSet()
 
       //create load balancer and relationships

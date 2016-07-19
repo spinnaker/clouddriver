@@ -63,8 +63,8 @@ class OpenstackLoadBalancerProvider implements LoadBalancerProvider<OpenstackLoa
           lb.serverGroups = c.serverGroups?.findAll { s ->
             s.loadBalancers.find { it.contains(lb.id) } != null
           }?.collect { s ->
-            LoadBalancerServerGroup loadBalancerServerGroup = new LoadBalancerServerGroup(name: s?.name, isDisabled: s?.isDisabled())
-            loadBalancerServerGroup.instances = s?.instances?.collect { instance ->
+            LoadBalancerServerGroup loadBalancerServerGroup = new LoadBalancerServerGroup(name: s.name, isDisabled: s.isDisabled())
+            loadBalancerServerGroup.instances = s.instances?.collect { instance ->
               new LoadBalancerInstance(id: ((OpenstackInstance) instance).instanceId, health: instance.health && instance.health.size() > 0 ? instance.health[0] : null)
             }?.toSet()
             loadBalancerServerGroup
@@ -88,16 +88,24 @@ class OpenstackLoadBalancerProvider implements LoadBalancerProvider<OpenstackLoa
     !data ? Sets.newHashSet() : data.collect(this.&fromCacheData)
   }
 
+  /**
+   * Convert load balancer cache data to a load balancer domain item.
+   * @param cacheData
+   * @return
+     */
   OpenstackLoadBalancer fromCacheData(CacheData cacheData) {
     OpenstackLoadBalancer loadBalancer = objectMapper.convertValue(cacheData.attributes, OpenstackLoadBalancer)
-    Set<LoadBalancerServerGroup> serverGroups = cacheData.relationships[SERVER_GROUPS.ns].collect { key ->
+    Set<LoadBalancerServerGroup> serverGroups = cacheData.relationships[SERVER_GROUPS.ns]?.findResults { key ->
+      LoadBalancerServerGroup loadBalancerServerGroup = null
       ServerGroup serverGroup = clusterProvider.getServerGroup(loadBalancer.account, loadBalancer.region, Keys.parse(key)['serverGroup'])
-      LoadBalancerServerGroup loadBalancerServerGroup = new LoadBalancerServerGroup(name: serverGroup?.name, isDisabled: serverGroup?.isDisabled())
-      loadBalancerServerGroup.instances = serverGroup?.instances?.collect { instance ->
-        new LoadBalancerInstance(id: ((OpenstackInstance) instance).instanceId, health: instance.health && instance.health.size() > 0 ? instance.health[0] : null)
-      }?.toSet()
+      if (serverGroup) {
+        loadBalancerServerGroup = new LoadBalancerServerGroup(name: serverGroup.name, isDisabled: serverGroup.isDisabled())
+        loadBalancerServerGroup.instances = serverGroup.instances?.collect { instance ->
+          new LoadBalancerInstance(id: ((OpenstackInstance) instance).instanceId, health: instance.health && instance.health.size() > 0 ? instance.health[0] : null)
+        }?.toSet()
+      }
       loadBalancerServerGroup
-    }
+    }?.toSet()
     loadBalancer.serverGroups = serverGroups
     loadBalancer
   }
