@@ -156,10 +156,9 @@ abstract class OpenstackClientProvider {
    * @return
      */
   List<? extends Vip> listVips(final String region) {
-    List<? extends Vip> vips = handleRequest {
+    handleRequest {
       getRegionClient(region).networking().loadbalancers().vip().list()
     }
-    vips
   }
 
   /**
