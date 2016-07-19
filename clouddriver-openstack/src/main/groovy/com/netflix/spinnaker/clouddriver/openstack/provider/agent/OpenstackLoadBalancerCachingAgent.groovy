@@ -116,7 +116,6 @@ class OpenstackLoadBalancerCachingAgent extends AbstractOpenstackCachingAgent {
       cacheResultBuilder.namespace(LOAD_BALANCERS.ns).keep(loadBalancerKey).with {
         attributes = objectMapper.convertValue(loadBalancer, ATTRIBUTES)
         serverGroups?.each { sg ->
-          println sg.name
           relationships[SERVER_GROUPS.ns].add(Keys.getServerGroupKey(sg.name, accountName, region))
         }
       }
