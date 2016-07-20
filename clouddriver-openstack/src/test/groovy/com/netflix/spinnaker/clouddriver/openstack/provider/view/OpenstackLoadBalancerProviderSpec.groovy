@@ -21,9 +21,8 @@ import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
-import com.netflix.spinnaker.clouddriver.openstack.OpenstackCloudProvider
+import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.openstack.cache.Keys
-import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackCluster
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancer
 import redis.clients.jedis.exceptions.JedisException
 import spock.lang.Specification
@@ -36,7 +35,6 @@ class OpenstackLoadBalancerProviderSpec extends Specification {
   String account = 'test'
   String region = 'east'
 
-  OpenstackLoadBalancerProvider loadBalancerProvider
   OpenstackClusterProvider clusterProvider
   Cache cache
   ObjectMapper objectMapper
@@ -45,7 +43,6 @@ class OpenstackLoadBalancerProviderSpec extends Specification {
     cache = Mock(Cache)
     objectMapper = Mock(ObjectMapper)
     clusterProvider = Mock(OpenstackClusterProvider)
-    loadBalancerProvider = new OpenstackLoadBalancerProvider(cache, objectMapper, clusterProvider)
   }
 
   void "test get all load balancers"() {
@@ -53,26 +50,29 @@ class OpenstackLoadBalancerProviderSpec extends Specification {
     String app = 'myapp'
     String cluster = "$app-teststack"
     String lbid = 'lb1'
+    String lbName = "$app-lb"
     String name = "$cluster-v002"
+    String lbKey = Keys.getLoadBalancerKey(lbName, lbid, account, region)
     CacheData cacheData = Mock(CacheData)
     Collection<CacheData> cacheDataList = [cacheData]
-    Map<String, Object> attributes = Mock(Map)
     OpenstackLoadBalancer loadBalancer = Mock(OpenstackLoadBalancer) {
       it.id >> { lbid }
+      it.name >> { lbName }
       it.account >> { account }
       it.region >> { region }
       it.serverGroups >> { [new LoadBalancerServerGroup(name: name)] }
     }
-    OpenstackCluster c1 = Mock(OpenstackCluster) { OpenstackCluster c ->
-      c.loadBalancers >> { [loadBalancer] }
+    OpenstackLoadBalancerProvider loadBalancerProvider = Spy(OpenstackLoadBalancerProvider, constructorArgs: [cache, objectMapper, clusterProvider]) {
+      fromCacheData(cacheData) >> { loadBalancer }
     }
-    Map<String, Set<OpenstackCluster>> clusterMap = [(account):[c1].toSet()]
 
     when:
     Set<OpenstackLoadBalancer> result = loadBalancerProvider.getApplicationLoadBalancers(app)
 
     then:
-    1 * clusterProvider.getClusterDetails(app) >> clusterMap
+    1 * cache.filterIdentifiers(LOAD_BALANCERS.ns, Keys.getLoadBalancerKey(app, '*', '*', '*')) >> [lbKey].toSet()
+    1 * cache.filterIdentifiers(LOAD_BALANCERS.ns, Keys.getLoadBalancerKey("$app-*", '*', '*', '*')) >> [lbKey].toSet()
+    1 * cache.getAll(LOAD_BALANCERS.ns, [lbKey].toSet(), _ as RelationshipCacheFilter) >> cacheDataList
     result.size() == 1
     result[0] == loadBalancer
     noExceptionThrown()
@@ -81,13 +81,19 @@ class OpenstackLoadBalancerProviderSpec extends Specification {
   void "test get all load balancers - throw exception"() {
     given:
     String app = 'myapp'
+    String lbid = 'lb1'
+    String lbName = "$app-lb"
+    String lbKey = Keys.getLoadBalancerKey(lbName, lbid, account, region)
     Throwable throwable = new JedisException('test')
+    OpenstackLoadBalancerProvider loadBalancerProvider = Spy(OpenstackLoadBalancerProvider, constructorArgs: [cache, objectMapper, clusterProvider])
 
     when:
     loadBalancerProvider.getApplicationLoadBalancers(app)
 
     then:
-    1 * clusterProvider.getClusterDetails(app) >> { throw throwable }
+    1 * cache.filterIdentifiers(LOAD_BALANCERS.ns, Keys.getLoadBalancerKey(app, '*', '*', '*')) >> [lbKey].toSet()
+    1 * cache.filterIdentifiers(LOAD_BALANCERS.ns, Keys.getLoadBalancerKey("$app-*", '*', '*', '*')) >> [lbKey].toSet()
+    1 * cache.getAll(LOAD_BALANCERS.ns, [lbKey].toSet(), _ as RelationshipCacheFilter) >> { throw throwable }
     Throwable thrownException = thrown(JedisException)
     throwable == thrownException
   }
@@ -98,16 +104,17 @@ class OpenstackLoadBalancerProviderSpec extends Specification {
     String name = 'myapp-teststack-v002'
     CacheData cacheData = Mock(CacheData)
     Collection<CacheData> cacheDataList = [cacheData]
-    Map<String, Object> attributes = Mock(Map)
-    String lbKey = Keys.getLoadBalancerKey(lbid, account, region)
+    String lbKey = Keys.getLoadBalancerKey('*', lbid, account, region)
     OpenstackLoadBalancer loadBalancer = Mock(OpenstackLoadBalancer) {
       it.id >> { lbid }
       it.account >> { account }
       it.region >> { region }
       it.serverGroups >> { [new LoadBalancerServerGroup(name: name)] }
     }
+    OpenstackLoadBalancerProvider loadBalancerProvider = Spy(OpenstackLoadBalancerProvider, constructorArgs: [cache, objectMapper, clusterProvider]) {
+      fromCacheData(cacheData) >> { loadBalancer }
+    }
     List<String> filter = ['filter']
-    List<String> sgKeys = ["${OpenstackCloudProvider.ID}:${SERVER_GROUPS.ns}:myapp-teststack:test:TTEOSCORE1:${name}"]
 
     when:
     Set<OpenstackLoadBalancer> result = loadBalancerProvider.getLoadBalancers(account, region, lbid)
@@ -115,31 +122,20 @@ class OpenstackLoadBalancerProviderSpec extends Specification {
     then:
     1 * cache.filterIdentifiers(LOAD_BALANCERS.ns, lbKey) >> filter
     1 * cache.getAll(LOAD_BALANCERS.ns, filter, _ as RelationshipCacheFilter) >> cacheDataList
-    1 * cacheData.attributes >> attributes
-    1 * objectMapper.convertValue(attributes, OpenstackLoadBalancer) >> loadBalancer
-    1 * cacheData.relationships >> [(SERVER_GROUPS.ns) : sgKeys]
-    1 * clusterProvider.getServerGroup(account, region, name)
     result.size() == 1
     result[0] == loadBalancer
     noExceptionThrown()
   }
 
-  void "test get load balancer by account, region, and name- throw exception"() {
+  void "test get load balancer by account, region, and name - exception"() {
     given:
     String lbid = 'lb1'
-    String name = 'myapp-teststack-v002'
     CacheData cacheData = Mock(CacheData)
     Collection<CacheData> cacheDataList = [cacheData]
-    Map<String, Object> attributes = Mock(Map)
-    String lbKey = Keys.getLoadBalancerKey(lbid, account, region)
-    OpenstackLoadBalancer loadBalancer = Mock(OpenstackLoadBalancer) {
-      it.id >> { lbid }
-      it.account >> { account }
-      it.region >> { region }
-      it.serverGroups >> { [new LoadBalancerServerGroup(name: name)] }
-    }
+    String lbKey = Keys.getLoadBalancerKey('*', lbid, account, region)
     List<String> filter = ['filter']
     Throwable throwable = new JedisException('test')
+    OpenstackLoadBalancerProvider loadBalancerProvider = Spy(OpenstackLoadBalancerProvider, constructorArgs: [cache, objectMapper, clusterProvider])
 
     when:
     loadBalancerProvider.getLoadBalancers(account, region, lbid)
@@ -147,10 +143,66 @@ class OpenstackLoadBalancerProviderSpec extends Specification {
     then:
     1 * cache.filterIdentifiers(LOAD_BALANCERS.ns, lbKey) >> filter
     1 * cache.getAll(LOAD_BALANCERS.ns, filter, _ as RelationshipCacheFilter) >> { throw throwable }
-    0 * cacheData.attributes
-    0 * objectMapper.convertValue(attributes, OpenstackLoadBalancer)
-    0 * cacheData.relationships
-    0 * clusterProvider.getServerGroup(account, region, name)
+    Throwable thrownException = thrown(JedisException)
+    throwable == thrownException
+  }
+
+  def "test convert cache data to load balancer"() {
+    given:
+    String lbid = 'lb1'
+    String name = 'myapp-teststack-v002'
+    CacheData cacheData = Mock(CacheData)
+    Map<String, Object> attributes = Mock(Map)
+    String sgKey = Keys.getServerGroupKey(name, account, region)
+    ServerGroup serverGroup = Mock(ServerGroup) {
+      getName() >> { name }
+      isDisabled() >> { false }
+      getInstances() >> { [] }
+    }
+    OpenstackLoadBalancer loadBalancer = Mock(OpenstackLoadBalancer) {
+      it.id >> { lbid }
+      it.account >> { account }
+      it.region >> { region }
+      it.serverGroups >> { [new LoadBalancerServerGroup(name: name)] }
+    }
+    OpenstackLoadBalancerProvider loadBalancerProvider = new OpenstackLoadBalancerProvider(cache, objectMapper, clusterProvider)
+
+    when:
+    OpenstackLoadBalancer result = loadBalancerProvider.fromCacheData(cacheData)
+
+    then:
+    1 * cacheData.attributes >> attributes
+    1 * objectMapper.convertValue(attributes, OpenstackLoadBalancer) >> loadBalancer
+    1 * cacheData.relationships >> [(SERVER_GROUPS.ns):[sgKey]]
+    1 * clusterProvider.getServerGroup(account, region, name) >> serverGroup
+    result == loadBalancer
+    noExceptionThrown()
+  }
+
+  def "test convert cache data to load balancer - exception"() {
+    given:
+    String lbid = 'lb1'
+    String name = 'myapp-teststack-v002'
+    CacheData cacheData = Mock(CacheData)
+    Map<String, Object> attributes = Mock(Map)
+    String sgKey = Keys.getServerGroupKey(name, account, region)
+    OpenstackLoadBalancer loadBalancer = Mock(OpenstackLoadBalancer) {
+      it.id >> { lbid }
+      it.account >> { account }
+      it.region >> { region }
+      it.serverGroups >> { [new LoadBalancerServerGroup(name: name)] }
+    }
+    Throwable throwable = new JedisException('test')
+    OpenstackLoadBalancerProvider loadBalancerProvider = new OpenstackLoadBalancerProvider(cache, objectMapper, clusterProvider)
+
+    when:
+    loadBalancerProvider.fromCacheData(cacheData)
+
+    then:
+    1 * cacheData.attributes >> attributes
+    1 * objectMapper.convertValue(attributes, OpenstackLoadBalancer) >> loadBalancer
+    1 * cacheData.relationships >> [(SERVER_GROUPS.ns):[sgKey]]
+    1 * clusterProvider.getServerGroup(account, region, name) >> { throw throwable }
     Throwable thrownException = thrown(JedisException)
     throwable == thrownException
   }

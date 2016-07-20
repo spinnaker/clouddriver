@@ -179,8 +179,9 @@ class Keys {
     "${ID}:${Namespace.SECURITY_GROUPS}:${securityGroupName}:${securityGroupId}:${region}:${account}"
   }
 
-  static String getLoadBalancerKey(String loadBalancerId, String account, String region) {
-    "${ID}:${Namespace.LOAD_BALANCERS}:${account}:${region}:${loadBalancerId}"
+  //loadBalancerName = appname or appname-stack or appname-stack-lbdescription
+  static String getLoadBalancerKey(String loadBalancerName, String loadBalancerId, String account, String region) {
+    "${ID}:${Namespace.LOAD_BALANCERS}:${account}:${region}:${loadBalancerId}:${loadBalancerName}"
   }
 
   static String getVipKey(String vipId, String account, String region) {

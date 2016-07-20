@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.openstack.cache.Keys
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackFloatingIP
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancer
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackPort
-import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackServerGroup
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackSubnet
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackVip
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
@@ -39,7 +38,6 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.FLOATING_IPS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.LOAD_BALANCERS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.PORTS
-import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.SERVER_GROUPS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.SUBNETS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.VIPS
 import static com.netflix.spinnaker.clouddriver.openstack.provider.OpenstackInfrastructureProvider.ATTRIBUTES
@@ -101,23 +99,11 @@ class OpenstackLoadBalancerCachingAgent extends AbstractOpenstackCachingAgent {
       Map<String, Object> subnetMap = providerCache.get(SUBNETS.ns, Keys.getSubnetKey(pool.subnetId, accountName, region))?.attributes
       OpenstackSubnet subnet = subnetMap ? objectMapper.convertValue(subnetMap, OpenstackSubnet) : null
 
-      //server groups cached
-      String loadBalancerKey = Keys.getLoadBalancerKey(pool.id, accountName, region)
-      Collection<String> filters = providerCache.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey('*', '*', accountName, region))
-      Collection<CacheData> serverGroupsData = providerCache.getAll(SERVER_GROUPS.ns, filters, RelationshipCacheFilter.include(LOAD_BALANCERS.ns))
-      Set<OpenstackServerGroup> serverGroups = serverGroupsData?.findAll { s ->
-        s.relationships[LOAD_BALANCERS.ns].find { lbKey -> lbKey == loadBalancerKey } != null
-      }?.findResults { s ->
-        objectMapper.convertValue(s.attributes, OpenstackServerGroup)
-      }?.toSet()
-
-      //create load balancer and relationships
+      //create load balancer. Server group relationships are not cached here as they are cached in the server group caching agent.
       OpenstackLoadBalancer loadBalancer = OpenstackLoadBalancer.from(pool, vip, subnet, ip, healthMonitors, accountName, region)
+      String loadBalancerKey = Keys.getLoadBalancerKey(pool.name, pool.id, accountName, region)
       cacheResultBuilder.namespace(LOAD_BALANCERS.ns).keep(loadBalancerKey).with {
         attributes = objectMapper.convertValue(loadBalancer, ATTRIBUTES)
-        serverGroups?.each { sg ->
-          relationships[SERVER_GROUPS.ns].add(Keys.getServerGroupKey(sg.name, accountName, region))
-        }
       }
     }
 

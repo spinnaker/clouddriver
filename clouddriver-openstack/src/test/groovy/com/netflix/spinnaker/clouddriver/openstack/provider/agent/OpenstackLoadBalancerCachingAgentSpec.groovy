@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackPro
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackFloatingIP
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancer
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackPort
-import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackServerGroup
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackSubnet
 import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackVip
 import com.netflix.spinnaker.clouddriver.openstack.provider.OpenstackInfrastructureProvider
@@ -41,7 +40,6 @@ import spock.lang.Specification
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.FLOATING_IPS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.LOAD_BALANCERS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.PORTS
-import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.SERVER_GROUPS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.SUBNETS
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.VIPS
 
@@ -79,16 +77,18 @@ class OpenstackLoadBalancerCachingAgentSpec extends Specification {
     String vipId = UUID.randomUUID().toString()
     String portId = UUID.randomUUID().toString()
     String ipId = UUID.randomUUID().toString()
+    String lbName = 'myapp-lb'
     String subnetId = UUID.randomUUID().toString()
     LbPool pool = Mock(LbPool) {
       it.id >> { lbId }
+      it.name >> { lbName }
       it.vipId >> { vipId }
       it.subnetId >> { subnetId }
       it.healthMonitors >> { [healthId] }
     }
     HealthMonitor healthMonitor = Mock(HealthMonitor)
     Map<String, Object> lbAttributes = Mock(Map)
-    String lbKey = Keys.getLoadBalancerKey(lbId, account, region)
+    String lbKey = Keys.getLoadBalancerKey(lbName, lbId, account, region)
 
     and:
     Map<String, Object> vipAttributes = Mock(Map)
@@ -127,19 +127,6 @@ class OpenstackLoadBalancerCachingAgentSpec extends Specification {
     OpenstackSubnet subnet = Mock(OpenstackSubnet)
 
     and:
-    List<String> serverKeys = [Keys.getServerGroupKey("*", "*", account, region)]
-    Set<String> foundServerKeys = [Keys.getServerGroupKey(serverGroupName, account, region)]
-    Map<String, Object> serverAttributes = [:]
-    CacheData serverCacheData = Mock(CacheData) {
-      it.attributes >> { serverAttributes }
-      it.relationships >> { [(LOAD_BALANCERS.ns):[Keys.getLoadBalancerKey(lbId, account, region)]] }
-    }
-    Collection<CacheData> serverCacheDataList = [serverCacheData]
-    OpenstackServerGroup serverGroup = Mock(OpenstackServerGroup) {
-      it.name >> { serverGroupName }
-    }
-
-    and:
     OpenstackLoadBalancer loadBalancer = Mock(OpenstackLoadBalancer)
     OpenstackLoadBalancer.metaClass.static.from = { LbPool p, OpenstackVip v, OpenstackSubnet s,
                                                     OpenstackFloatingIP i, Set<HealthMonitor> h,
@@ -171,17 +158,11 @@ class OpenstackLoadBalancerCachingAgentSpec extends Specification {
     1 * objectMapper.convertValue(subnetAttributes, OpenstackSubnet) >> subnet
 
     and:
-    1 * providerCache.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey('*', '*', account, region)) >> serverKeys
-    1 * providerCache.getAll(SERVER_GROUPS.ns, serverKeys, _ as RelationshipCacheFilter) >> serverCacheDataList
-    1 * objectMapper.convertValue(serverAttributes, OpenstackServerGroup) >> serverGroup
-
-    and:
     1 * objectMapper.convertValue(loadBalancer, OpenstackInfrastructureProvider.ATTRIBUTES) >> lbAttributes
 
     and:
     result.cacheResults.get(LOAD_BALANCERS.ns).first().id == lbKey
     result.cacheResults.get(LOAD_BALANCERS.ns).first().attributes == lbAttributes
-    result.cacheResults.get(LOAD_BALANCERS.ns).first().relationships[SERVER_GROUPS.ns] == foundServerKeys
     noExceptionThrown()
   }
 

@@ -241,14 +241,15 @@ class KeysSpec extends Specification {
   void "test get lb key"() {
     given:
     String lbId = UUID.randomUUID().toString()
+    String lbName = 'myapp-lb'
     String region = 'region'
     String account = 'account'
 
     when:
-    String result = Keys.getLoadBalancerKey(lbId, account, region)
+    String result = Keys.getLoadBalancerKey(lbName, lbId, account, region)
 
     then:
-    result == "${ID}:${LOAD_BALANCERS}:${account}:${region}:${lbId}" as String
+    result == "${ID}:${LOAD_BALANCERS}:${account}:${region}:${lbId}:${lbName}" as String
   }
 
   void "test get vip key"() {
