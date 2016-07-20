@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.openstack.security
 
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
-import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackProviderFactory
 import com.netflix.spinnaker.clouddriver.openstack.config.OpenstackConfigurationProperties
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
@@ -31,7 +30,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
-
 
 @Component
 @Configuration
@@ -70,8 +68,12 @@ class OpenstackCredentialsInitializer implements CredentialsInitializerSynchroni
       try {
         def openstackAccount = new OpenstackNamedAccountCredentials(managedAccount.name,
                                                                     managedAccount.environment ?: managedAccount.name,
-                                                                    managedAccount.accountType ?: managedAccount.name,
-                                                                    managedAccount.lbaasVersion ?: LbaasVersion.V1.value(),
+                                                                    managedAccount.accountType ?: 'liberty',
+                                                                    managedAccount.compute,
+                                                                    managedAccount.identity,
+                                                                    managedAccount.images,
+                                                                    managedAccount.networking,
+                                                                    managedAccount.orchestration,
                                                                     managedAccount.master,
                                                                     managedAccount.username,
                                                                     managedAccount.password,

@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.openstack.security
+package com.netflix.spinnaker.clouddriver.openstack.config
 
-enum AccountType {
-  V2, V3
+/**
+ *
+ */
+enum Releases {
+  KILO, LIBERTY, MITAKA
 
   String value() {
     return toString().toLowerCase()
   }
+
 }

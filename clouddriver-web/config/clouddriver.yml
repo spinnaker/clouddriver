@@ -258,8 +258,12 @@ openstack:
   accounts:
     - name: test
       environment: test
-      accountType: v2
-      lbaasVersion: v1
+      accountType: kilo
+      compute: current
+      identity: v2
+      images: v1
+      networking: v1
+      orchestration: v1
       master: test
       username: ${OS_USERNAME:'username'}
       password: ${OS_PASSWORD:'password'}

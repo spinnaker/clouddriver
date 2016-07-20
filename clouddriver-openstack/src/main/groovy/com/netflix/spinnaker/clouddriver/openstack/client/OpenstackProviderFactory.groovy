@@ -16,12 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.client
 
-import com.netflix.spinnaker.clouddriver.openstack.security.AccountType
+import com.netflix.spinnaker.clouddriver.openstack.config.Releases
+import com.netflix.spinnaker.clouddriver.openstack.config.VersionType
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
-import org.openstack4j.api.OSClient
-import org.openstack4j.core.transport.Config
-import org.openstack4j.model.common.Identifier
-import org.openstack4j.openstack.OSFactory
 
 /**
  * Builds the appropriate {@link OpenstackClientProvider} based on the configuration.
@@ -29,29 +26,144 @@ import org.openstack4j.openstack.OSFactory
 class OpenstackProviderFactory {
 
   static OpenstackClientProvider createProvider(OpenstackNamedAccountCredentials credentials) {
-    OSClient osClient
-    OpenstackClientProvider provider
-    Config config = credentials.insecure ? Config.newConfig().withSSLVerificationDisabled() : Config.newConfig()
-    if (AccountType.V2.value() == credentials.accountType) {
-      osClient = OSFactory.builderV2()
-        .withConfig(config)
-        .endpoint(credentials.endpoint)
-        .credentials(credentials.username, credentials.password)
-        .tenantName(credentials.tenantName)
-        .authenticate()
-      provider = new OpenstackClientV2Provider(osClient, credentials.regions)
-    } else if (AccountType.V3.value() == credentials.accountType) {
-      osClient = OSFactory.builderV3()
-        .withConfig(config)
-        .endpoint(credentials.endpoint)
-        .credentials(credentials.username, credentials.password, Identifier.byName(credentials.domainName))
-        .scopeToProject(Identifier.byName(credentials.tenantName), Identifier.byName(credentials.domainName))
-        .authenticate()
-      provider = new OpenstackClientV3Provider(osClient)
-    } else {
-      throw new IllegalArgumentException("Unknown account type ${credentials.accountType}")
+    OpenstackIdentityProvider identityProvider
+    OpenstackComputeProvider computeProvider
+    OpenstackNetworkingProvider networkingProvider
+    OpenstackOrchestrationProvider orchestrationProvider
+    OpenstackImageProvider imageProvider
+    if (!(credentials.accountType in Releases.values().collect { it.value() })) {
+      throw new IllegalArgumentException("Unknown openstack release ${credentials.accountType}")
     }
-    provider
+    identityProvider = createIdentityProvider(credentials)
+    computeProvider = createComputeProvider(credentials, identityProvider)
+    networkingProvider = createNetworkingProvider(credentials, identityProvider)
+    orchestrationProvider = createOrchestrationProvider(credentials, identityProvider)
+    imageProvider = createImageProvider(credentials, identityProvider)
+    new OpenstackClientProvider(computeProvider, networkingProvider, orchestrationProvider, imageProvider)
+  }
+
+  /**
+   * Set identity provider version.
+   * @param credentials
+   * @return
+   */
+  static OpenstackIdentityProvider createIdentityProvider(OpenstackNamedAccountCredentials credentials) {
+    OpenstackIdentityProvider identityProvider = null
+    if (credentials.identity) {
+      switch (credentials.identity) {
+        case VersionType.V2.value():
+          identityProvider = new OpenstackIdentityV2Provider(credentials)
+          break
+        case VersionType.V3.value():
+          identityProvider = new OpenstackIdentityV3Provider(credentials)
+          break
+        default:
+          throw new IllegalArgumentException("Unknown identity provider ${credentials.identity}")
+      }
+    } else {
+      if (Releases.KILO.value() == credentials.accountType) {
+        identityProvider = new OpenstackIdentityV2Provider(credentials)
+      } else if (Releases.LIBERTY.value() == credentials.accountType) {
+        identityProvider = new OpenstackIdentityV3Provider(credentials)
+      }
+    }
+    identityProvider
+  }
+
+  /**
+   * Set compute provider version.
+   * @param credentials
+   * @param identityProvider
+   * @return
+     */
+  static OpenstackComputeProvider createComputeProvider(OpenstackNamedAccountCredentials credentials, OpenstackIdentityProvider identityProvider) {
+    OpenstackComputeProvider computeProvider
+    if (credentials.compute) {
+      switch (credentials.compute) {
+        case VersionType.CURRENT.value():
+          computeProvider = new OpenstackComputeProvider(identityProvider)
+          break
+        default:
+          throw new IllegalArgumentException("Unknown compute provider ${credentials.compute}")
+      }
+    } else {
+      computeProvider = new OpenstackComputeProvider(identityProvider)
+    }
+    computeProvider
+  }
+
+  /**
+   * Set networking provider version.
+   * @param credentials
+   * @param identityProvider
+   * @return
+     */
+  static OpenstackNetworkingProvider createNetworkingProvider(OpenstackNamedAccountCredentials credentials, OpenstackIdentityProvider identityProvider) {
+    OpenstackNetworkingProvider networkingProvider
+    if (credentials.networking) {
+      switch (credentials.networking) {
+        case VersionType.V1.value():
+          networkingProvider = new OpenstackNetworkingV1Provider(identityProvider)
+          break
+        case VersionType.V2.value():
+          throw new IllegalArgumentException("Networking provider ${credentials.networking} is not supported yet.")
+          break
+        default:
+          throw new IllegalArgumentException("Unknown networking provider ${credentials.networking}")
+      }
+    } else {
+      //TODO this should be changed to check the release name once V2 is available for liberty and beyond
+      networkingProvider = new OpenstackNetworkingV1Provider(identityProvider)
+    }
+    networkingProvider
+  }
+
+  /**
+   * Set orchestration provider version.
+   * @param credentials
+   * @param identityProvider
+   * @return
+     */
+  static OpenstackOrchestrationProvider createOrchestrationProvider(OpenstackNamedAccountCredentials credentials, OpenstackIdentityProvider identityProvider) {
+    OpenstackOrchestrationProvider orchestrationProvider
+    if (credentials.orchestration) {
+      switch (credentials.orchestration) {
+        case VersionType.V1.value():
+          orchestrationProvider = new OpenstackOrchestrationV1Provider(identityProvider)
+          break
+        default:
+          throw new IllegalArgumentException("Unknown orchestration provider ${credentials.orchestration}")
+      }
+    } else {
+      orchestrationProvider = new OpenstackOrchestrationV1Provider(identityProvider)
+    }
+    orchestrationProvider
+  }
+
+  /**
+   * Set image provider version.
+   * @param credentials
+   * @param identityProvider
+   * @return
+   */
+  static OpenstackImageProvider createImageProvider(OpenstackNamedAccountCredentials credentials, OpenstackIdentityProvider identityProvider) {
+    OpenstackImageProvider imageProvider
+    if (credentials.images) {
+      switch (credentials.images) {
+        case VersionType.V1.value():
+          imageProvider = new OpenstackImageV1Provider(identityProvider)
+          break
+        case VersionType.V2.value():
+          throw new IllegalArgumentException("Images provider ${credentials.images} is not supported yet.")
+          break
+        default:
+          throw new IllegalArgumentException("Unknown networking provider ${credentials.images}")
+      }
+    } else {
+      //TODO this should be changed to check the release name once V2 is available for liberty and beyond
+      imageProvider = new OpenstackImageV1Provider(identityProvider)
+    }
+    imageProvider
   }
 
 }
