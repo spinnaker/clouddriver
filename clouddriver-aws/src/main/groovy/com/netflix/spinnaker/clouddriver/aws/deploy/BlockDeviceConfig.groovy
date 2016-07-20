@@ -28,7 +28,7 @@ class BlockDeviceConfig {
     }
   }
 
-  static def defaultBlockDevicesForEbsOnly() {
+  static def defaultBlockDevicesForEbsOnly()  {
     [
       new AmazonBlockDevice(deviceName: "/dev/sdb", size: 125),
       new AmazonBlockDevice(deviceName: "/dev/sdc", size: 125),
@@ -36,20 +36,20 @@ class BlockDeviceConfig {
   }
 
   static final def blockDevicesByInstanceType = [
-    "t2.micro" : [],
-    "t2.small" : [],
-    "t2.medium" : [],
-    "t2.large" : [],
-    "m4.large" : defaultBlockDevicesForEbsOnly(),
-    "m4.xlarge" : defaultBlockDevicesForEbsOnly(),
-    "m4.2xlarge" : defaultBlockDevicesForEbsOnly(),
-    "m4.4xlarge" : defaultBlockDevicesForEbsOnly(),
-    "m4.10xlarge" : defaultBlockDevicesForEbsOnly(),
-    "c4.large" : defaultBlockDevicesForEbsOnly(),
-    "c4.xlarge" : defaultBlockDevicesForEbsOnly(),
-    "c4.2xlarge" : defaultBlockDevicesForEbsOnly(),
-    "c4.4xlarge" : defaultBlockDevicesForEbsOnly(),
-    "c4.8xlarge" : defaultBlockDevicesForEbsOnly(),
+    "t2.micro" : enumeratedBlockDevicesWithVirtualName(2),
+    "t2.small" : enumeratedBlockDevicesWithVirtualName(2),
+    "t2.medium" : enumeratedBlockDevicesWithVirtualName(2),
+    "t2.large" : enumeratedBlockDevicesWithVirtualName(2),
+    "m4.large" : enumeratedBlockDevicesWithVirtualName(2),
+    "m4.xlarge" : enumeratedBlockDevicesWithVirtualName(2),
+    "m4.2xlarge" : enumeratedBlockDevicesWithVirtualName(2),
+    "m4.4xlarge" : enumeratedBlockDevicesWithVirtualName(2),
+    "m4.10xlarge" : enumeratedBlockDevicesWithVirtualName(2),
+    "c4.large" : enumeratedBlockDevicesWithVirtualName(2),
+    "c4.xlarge" : enumeratedBlockDevicesWithVirtualName(2),
+    "c4.2xlarge" : enumeratedBlockDevicesWithVirtualName(2),
+    "c4.4xlarge" : enumeratedBlockDevicesWithVirtualName(2),
+    "c4.8xlarge" : enumeratedBlockDevicesWithVirtualName(2),
     "c3.large": enumeratedBlockDevicesWithVirtualName(2),
     "c3.xlarge": enumeratedBlockDevicesWithVirtualName(2),
     "c3.2xlarge": enumeratedBlockDevicesWithVirtualName(2),
