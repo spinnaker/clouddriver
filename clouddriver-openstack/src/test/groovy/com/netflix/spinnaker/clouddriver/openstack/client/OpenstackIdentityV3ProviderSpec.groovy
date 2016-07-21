@@ -28,29 +28,23 @@ import spock.lang.Unroll
 
 
 @Unroll
-class OpenstackClientV3ProviderSpec extends Specification {
-  OpenstackClientV3Provider provider
+class OpenstackIdentityV3ProviderSpec extends Specification {
+  OpenstackIdentityV3Provider provider
   OSClient.OSClientV3 mockClient
 
   def "setup"() {
     mockClient = Mock(OSClient.OSClientV3)
-    provider = new OpenstackClientV3Provider(mockClient) {
-      @Override
-      OSClient getClient() {
-        mockClient
-      }
-
-      OSClient getRegionClient(String region) {
-        mockClient
-      }
+    provider = Spy(OpenstackIdentityV3Provider, constructorArgs:[mockClient]) {
+      getClient() >> { mockClient }
+      getRegionClient(_ as String) >> { mockClient }
     }
   }
 
   def "test get regions lookup"() {
     given:
-    IdentityService identityService = Mock()
-    RegionService regionService = Mock()
-    Region region = Mock()
+    IdentityService identityService = Mock(IdentityService)
+    RegionService regionService = Mock(RegionService)
+    Region region = Mock(Region)
     String regionId = UUID.randomUUID().toString()
     List<? extends Region> regions = [region]
 
@@ -68,8 +62,8 @@ class OpenstackClientV3ProviderSpec extends Specification {
 
   def "test get regions lookup exception"() {
     given:
-    IdentityService identityService = Mock()
-    RegionService regionService = Mock()
+    IdentityService identityService = Mock(IdentityService)
+    RegionService regionService = Mock(RegionService)
     Throwable throwable = new ServerResponseException('foo', HttpStatus.INTERNAL_SERVER_ERROR.value())
 
     when:

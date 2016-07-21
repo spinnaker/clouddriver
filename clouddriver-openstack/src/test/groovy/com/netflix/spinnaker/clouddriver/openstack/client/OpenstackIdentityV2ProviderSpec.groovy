@@ -16,24 +16,28 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.client
 
+import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import org.openstack4j.api.OSClient
 import spock.lang.Specification
 import spock.lang.Unroll
 
 
 @Unroll
-class OpenstackClientV2ProviderSpec extends Specification {
-  OpenstackClientV2Provider provider
+class OpenstackIdentityV2ProviderSpec extends Specification {
+
   OSClient.OSClientV2 osClient
+  OpenstackNamedAccountCredentials namedAccountCredentials = Mock(OpenstackNamedAccountCredentials)
 
   def "setup"() {
     osClient = Mock(OSClient.OSClientV2)
-    provider = new OpenstackClientV2Provider(osClient, null)
   }
 
   def "test get regions - #testCase"() {
     given:
-    provider.regions = expectedResult
+    OpenstackIdentityV2Provider provider = Spy(OpenstackIdentityV2Provider, constructorArgs:[namedAccountCredentials]) {
+      buildClient() >> { osClient }
+      getAllRegions() >> { expectedResult }
+    }
 
     when:
     List<String> result = provider.getAllRegions()
