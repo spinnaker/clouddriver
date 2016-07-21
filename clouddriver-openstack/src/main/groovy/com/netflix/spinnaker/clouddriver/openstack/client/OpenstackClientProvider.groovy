@@ -22,6 +22,9 @@ package com.netflix.spinnaker.clouddriver.openstack.client
 class OpenstackClientProvider {
 
   @Delegate
+  OpenstackIdentityProvider identityProvider
+
+  @Delegate
   OpenstackComputeProvider computeProvider
 
   @Delegate
@@ -33,10 +36,12 @@ class OpenstackClientProvider {
   @Delegate
   OpenstackImageProvider imageProvider
 
-  public OpenstackClientProvider(OpenstackComputeProvider computeProvider,
+  public OpenstackClientProvider(OpenstackIdentityProvider identityProvider,
+                                 OpenstackComputeProvider computeProvider,
                                  OpenstackNetworkingProvider networkingProvider,
                                  OpenstackOrchestrationProvider orchestrationProvider,
                                  OpenstackImageProvider imageProvider) {
+    this.identityProvider = identityProvider
     this.computeProvider = computeProvider
     this.networkingProvider = networkingProvider
     this.orchestrationProvider = orchestrationProvider

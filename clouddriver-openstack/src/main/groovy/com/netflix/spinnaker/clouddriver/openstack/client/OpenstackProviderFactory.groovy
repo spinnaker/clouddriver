@@ -39,7 +39,7 @@ class OpenstackProviderFactory {
     networkingProvider = createNetworkingProvider(credentials, identityProvider)
     orchestrationProvider = createOrchestrationProvider(credentials, identityProvider)
     imageProvider = createImageProvider(credentials, identityProvider)
-    new OpenstackClientProvider(computeProvider, networkingProvider, orchestrationProvider, imageProvider)
+    new OpenstackClientProvider(identityProvider, computeProvider, networkingProvider, orchestrationProvider, imageProvider)
   }
 
   /**

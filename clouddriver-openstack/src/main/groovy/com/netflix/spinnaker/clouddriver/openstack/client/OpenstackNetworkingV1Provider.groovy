@@ -39,14 +39,13 @@ import org.openstack4j.model.network.ext.Vip
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
-class OpenstackNetworkingV1Provider implements OpenstackNetworkingProvider, OpenstackRequestHandler {
+class OpenstackNetworkingV1Provider implements OpenstackNetworkingProvider, OpenstackRequestHandler, OpenstackIdentityAware {
 
   final int minPort = 1
   final int maxPort = (1 << 16) - 1
   final String lbDescriptionRegex = ".*internal_port=([0-9]+).*"
   final Pattern lbDescriptionPattern = Pattern.compile(lbDescriptionRegex)
 
-  @Delegate
   OpenstackIdentityProvider identityProvider
 
   OpenstackNetworkingV1Provider(OpenstackIdentityProvider identityProvider) {

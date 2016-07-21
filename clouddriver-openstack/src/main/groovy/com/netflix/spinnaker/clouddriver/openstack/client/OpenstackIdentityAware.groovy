@@ -16,28 +16,22 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.client
 
-import org.openstack4j.model.image.Image
+import org.openstack4j.api.OSClient
 
-class OpenstackImageV1Provider implements OpenstackImageProvider, OpenstackRequestHandler, OpenstackIdentityAware {
+/**
+ * Allow sub-providers access to necessary identity methods.
+ * These are defined once here, instead of repeated in each sub-provider.
+ */
+trait OpenstackIdentityAware {
 
-  OpenstackIdentityProvider identityProvider
-
-  OpenstackImageV1Provider(OpenstackIdentityProvider identityProvider) {
-    this.identityProvider = identityProvider
+  OSClient getRegionClient(String region) {
+    identityProvider.getRegionClient(region)
   }
 
-  @Override
-  List<Image> listImages(String region, Map<String, String> filters) {
-    handleRequest {
-      getRegionClient(region).images().list(filters)
-    }
+  OSClient getClient() {
+    identityProvider.client
   }
 
-  @Override
-  List<Image> listImages(String region) {
-    handleRequest {
-      getRegionClient(region).images().list(null)
-    }
-  }
+  abstract OpenstackIdentityProvider getIdentityProvider()
 
 }

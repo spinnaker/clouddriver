@@ -20,31 +20,31 @@ import org.openstack4j.api.OSClient
 
 interface OpenstackIdentityProvider {
 
-  abstract OSClient buildClient()
+  OSClient buildClient()
 
   /**
    * Returns a list of regions.
    * @return
    */
-  abstract List<String> getAllRegions()
+  List<String> getAllRegions()
 
   /**
    * Thread-safe way to get client.
    * @return
    */
-  abstract OSClient getClient()
+  OSClient getClient()
 
   /**
    * Get a new token id.
    * @return
    */
-  abstract String getTokenId()
+  String getTokenId()
 
   /**
    * Check if a token is expired
    * @return
    */
-  abstract boolean isTokenExpired()
+  boolean isTokenExpired()
 
   /**
    * Helper method to get region based thread-safe OS client.

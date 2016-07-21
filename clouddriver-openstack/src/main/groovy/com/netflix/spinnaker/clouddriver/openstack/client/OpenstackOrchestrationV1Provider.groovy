@@ -24,9 +24,8 @@ import org.openstack4j.model.heat.Stack
 import org.openstack4j.model.heat.StackCreate
 import org.openstack4j.model.heat.StackUpdate
 
-class OpenstackOrchestrationV1Provider implements OpenstackOrchestrationProvider, OpenstackRequestHandler {
+class OpenstackOrchestrationV1Provider implements OpenstackOrchestrationProvider, OpenstackRequestHandler, OpenstackIdentityAware {
 
-  @Delegate
   OpenstackIdentityProvider identityProvider
 
   OpenstackOrchestrationV1Provider(OpenstackIdentityProvider identityProvider) {
@@ -75,7 +74,7 @@ class OpenstackOrchestrationV1Provider implements OpenstackOrchestrationProvider
   @Override
   Stack getStack(String region, String stackName) {
     Stack stack = handleRequest {
-      client.useRegion(region).heat().stacks().getStackByName(stackName)
+      getRegionClient(region).heat().stacks().getStackByName(stackName)
     }
     if (!stack) {
       throw new OpenstackProviderException("Unable to find stack $stackName in region $region")
@@ -86,7 +85,7 @@ class OpenstackOrchestrationV1Provider implements OpenstackOrchestrationProvider
   @Override
   void destroy(String region, Stack stack) {
     handleRequest {
-      client.useRegion(region).heat().stacks().delete(stack.name, stack.id)
+      getRegionClient(region).heat().stacks().delete(stack.name, stack.id)
     }
   }
 

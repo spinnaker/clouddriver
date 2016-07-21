@@ -34,9 +34,8 @@ import java.util.Map;
 /**
  * Methods for interacting with the current compute api.
  */
-public class OpenstackComputeProvider implements OpenstackRequestHandler {
+public class OpenstackComputeProvider implements OpenstackRequestHandler, OpenstackIdentityAware {
 
-  @Delegate
   OpenstackIdentityProvider identityProvider
 
   OpenstackComputeProvider(OpenstackIdentityProvider identityProvider) {
