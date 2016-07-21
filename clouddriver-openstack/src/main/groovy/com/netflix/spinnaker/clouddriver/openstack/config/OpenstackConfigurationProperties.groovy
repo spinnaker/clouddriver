@@ -25,19 +25,13 @@ class OpenstackConfigurationProperties {
   static class ManagedAccount {
     String name
     String environment
-    String accountType = 'liberty'
-    String compute
-    String identity
-    String networking
-    String orchestration
-    String images
+    String accountType
     String master
     String username
     String password
     String tenantName
     String domainName
     String endpoint
-    List<String> regions
     Boolean insecure
   }
 

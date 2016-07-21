@@ -25,7 +25,7 @@ class OpenstackClientProvider {
   OpenstackIdentityProvider identityProvider
 
   @Delegate
-  OpenstackComputeProvider computeProvider
+  OpenstackComputeV2Provider computeProvider
 
   @Delegate
   OpenstackNetworkingProvider networkingProvider
@@ -37,7 +37,7 @@ class OpenstackClientProvider {
   OpenstackImageProvider imageProvider
 
   public OpenstackClientProvider(OpenstackIdentityProvider identityProvider,
-                                 OpenstackComputeProvider computeProvider,
+                                 OpenstackComputeV2Provider computeProvider,
                                  OpenstackNetworkingProvider networkingProvider,
                                  OpenstackOrchestrationProvider orchestrationProvider,
                                  OpenstackImageProvider imageProvider) {

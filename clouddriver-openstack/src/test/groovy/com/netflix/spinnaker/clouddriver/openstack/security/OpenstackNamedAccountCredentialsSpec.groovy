@@ -16,11 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.security
 
-import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackIdentityV2Provider
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackIdentityV3Provider
 import org.openstack4j.api.OSClient
 import org.openstack4j.api.client.IOSClientBuilder
-import org.openstack4j.model.identity.v2.Access
 import org.openstack4j.model.identity.v3.Token
 import spock.lang.Specification
 
@@ -32,21 +30,6 @@ class OpenstackNamedAccountCredentialsSpec extends Specification {
     regions = ['east']
   }
 
-  def "Provider factory returns v2 provider"() {
-    setup:
-    // Mock out the authenticate call within Openstack4J
-    OSClient.OSClientV2 mockClient = Mock(OSClient.OSClientV2)
-    IOSClientBuilder.V2.metaClass.authenticate = { mockClient }
-
-    when:
-    def credentials = new OpenstackNamedAccountCredentials("name", "test", "kilo", "current", "v2", "v1", "v1", "v1", "test", "user", "pw", "tenant", "domain", "endpoint", regions, false)
-
-    then:
-    1 * mockClient.access >> Mock(Access)
-    credentials.credentials.provider.identityProvider instanceof OpenstackIdentityV2Provider
-    credentials.credentials.provider.identityProvider.access instanceof Access
-  }
-
   def "Provider factory returns v3 provider"() {
     setup:
     // Mock out the authenticate call within Openstack4J
@@ -54,21 +37,14 @@ class OpenstackNamedAccountCredentialsSpec extends Specification {
     IOSClientBuilder.V3.metaClass.authenticate = { mockClient }
 
     when:
-    def credentials = new OpenstackNamedAccountCredentials("name", "test", "liberty", "current", "v3", "v1", "v1", "v1", "test", "user", "pw", "tenant", "domain", "endpoint", regions, false)
+    def credentials = new OpenstackNamedAccountCredentials("name", "test", "main", "test", "user", "pw", "tenant", "domain", "endpoint", false)
+    def client = credentials.credentials.provider.client
 
     then:
     1 * mockClient.token >> Mock(Token)
     credentials.credentials.provider.identityProvider instanceof OpenstackIdentityV3Provider
     credentials.credentials.provider.identityProvider.token instanceof Token
-  }
-
-
-  def "Provider factory throws exception for unknown account type"() {
-    when:
-    new OpenstackNamedAccountCredentials("name", "test", "juno", "current", "v2", "v1", "v1", "v1", "test", "user", "pw", "tenant", "domain", "endpoint", regions, false)
-
-    then:
-    thrown IllegalArgumentException
+    client instanceof OSClient.OSClientV3
   }
 
 }

@@ -1477,65 +1477,6 @@ class OpenstackClientProviderSpec extends Specification {
     openstackProviderException.cause == throwable
   }
 
-  def "handle request succeeds"() {
-    setup:
-    def success = ActionResponse.actionSuccess()
-
-    when:
-    def response = provider.handleRequest { success }
-
-    then:
-    success == response
-    noExceptionThrown()
-  }
-
-  def "handle request fails with failed action request"() {
-    setup:
-    def failed = ActionResponse.actionFailed("foo", 500)
-
-    when:
-    provider.handleRequest { failed }
-
-    then:
-    Exception ex = thrown(OpenstackProviderException)
-    ex.message.contains("foo")
-    ex.message.contains("500")
-  }
-
-  def "handle request fails with closure throwing exception"() {
-    setup:
-    def exception = new Exception("foo")
-
-    when:
-    provider.handleRequest { throw exception }
-
-    then:
-    Exception ex = thrown(OpenstackProviderException)
-    ex.cause == exception
-    ex.cause.message.contains("foo")
-  }
-
-  def "handle request non-action response"() {
-    setup:
-    def object = new Object()
-
-    when:
-    def response = provider.handleRequest { object }
-
-    then:
-    object == response
-    noExceptionThrown()
-  }
-
-  def "handle request null response"() {
-    when:
-    def response = provider.handleRequest { null }
-
-    then:
-    response == null
-    noExceptionThrown()
-  }
-
   def "deploy heat stack succeeds"() {
     setup:
     Stack stack = Mock(Stack)

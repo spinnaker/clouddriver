@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.openstack.deploy.validators
 
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
-import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackIdentityV2Provider
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackIdentityV3Provider
 import com.netflix.spinnaker.clouddriver.openstack.domain.LoadBalancerMethod
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackCredentials
@@ -367,37 +366,21 @@ class OpenstackAttributeValidatorSpec extends Specification {
   def "ValidateRegion"() {
     given:
     String region = 'region1'
-    def v2 = Mock(OpenstackIdentityV2Provider)
-    def v2provider = new OpenstackClientProvider(v2, null, null, null, null)
     def v3 = Mock(OpenstackIdentityV3Provider)
     def v3provider = new OpenstackClientProvider(v3, null, null, null, null)
 
     when:
-    boolean actual = validator.validateRegion(region, v2provider)
+    boolean actual = validator.validateRegion(region, v3provider)
 
     then:
-    _ * v2.getProperty('allRegions') >> result
+    _ * v3.allRegions >> result
     actual == expected
-
-    when:
-    actual = validator.validateRegion(region, v3provider)
-
-    then:
-    _ * v3.getProperty('allRegions') >> result
-    actual == expected
-
-    when:
-    actual = validator.validateRegion('', v2provider)
-
-    then:
-    0 * v2.getProperty('allRegions')
-    !actual
 
     when:
     actual = validator.validateRegion('', v3provider)
 
     then:
-    0 * v3.getProperty('allRegions')
+    0 * v3.allRegions
     !actual
 
     where:

@@ -16,51 +16,31 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.client
 
-import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException
-import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
-import org.apache.commons.lang.StringUtils
-import org.openstack4j.api.Builders
 import org.openstack4j.model.compute.Flavor
 import org.openstack4j.model.compute.FloatingIP
-import org.openstack4j.model.compute.IPProtocol;
+import org.openstack4j.model.compute.IPProtocol
 import org.openstack4j.model.compute.RebootType
-import org.openstack4j.model.compute.SecGroupExtension;
+import org.openstack4j.model.compute.SecGroupExtension
 import org.openstack4j.model.compute.Server
-import org.openstack4j.model.network.Port;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * Methods for interacting with the current compute api.
  */
-public class OpenstackComputeProvider implements OpenstackRequestHandler, OpenstackIdentityAware {
-
-  OpenstackIdentityProvider identityProvider
-
-  OpenstackComputeProvider(OpenstackIdentityProvider identityProvider) {
-    this.identityProvider = identityProvider
-  }
+interface OpenstackComputeProvider {
 
   /**
    * Returns a list of instances in a given region.
    * @param region
    * @return
    */
-  List<? extends Server> getInstances(String region) {
-    handleRequest {
-      getRegionClient(region).compute().servers().list()
-    }
-  }
+  List<? extends Server> getInstances(String region)
 
   /**
    * Returns a map of instances grouped by server group UUID.  Matches not found are added into an unknown bucket.
    * @param region
    * @return
    */
-  Map<String, List<? extends Server>> getInstancesByServerGroup(String region) {
-    getInstances(region)?.groupBy { server -> server?.metadata['metering.stack'] ?: 'unknown' }
-  }
+  Map<String, List<? extends Server>> getInstancesByServerGroup(String region)
 
   /**
    * Returns all of the console output for a given server and region.
@@ -68,33 +48,29 @@ public class OpenstackComputeProvider implements OpenstackRequestHandler, Openst
    * @param serverId
    * @return
    */
-  String getConsoleOutput(String region, String serverId) {
-    handleRequest {
-      getRegionClient(region).compute().servers().getConsoleOutput(serverId, -1)
-    }
-  }
+  String getConsoleOutput(String region, String serverId)
 
   /**
    * Delete an instance.
    * @param instanceId
    * @return
    */
-  void deleteInstance(String region, String instanceId) {
-    handleRequest {
-      getRegionClient(region).compute().servers().delete(instanceId)
-    }
-  }
+  void deleteInstance(String region, String instanceId)
 
   /**
-   * Reboot an instance ... Default to SOFT reboot if not passed.
+   * Reboot an instance.
+   * @param region
    * @param instanceId
-   * @return
-   */
-  void rebootInstance(String region, String instanceId, RebootType rebootType = RebootType.SOFT) {
-    handleRequest {
-      getRegionClient(region).compute().servers().reboot(instanceId, rebootType)
-    }
-  }
+   * @param rebootType
+     */
+  void rebootInstance(String region, String instanceId, RebootType rebootType)
+
+  /**
+   * Reboot an instance ... Default to SOFT reboot.
+   * @param region
+   * @param instanceId
+     */
+  void rebootInstance(String region, String instanceId)
 
   /**
    * Get an unallocated IP from the network, or if none are found, try to create a new floating IP in the network.
@@ -102,18 +78,7 @@ public class OpenstackComputeProvider implements OpenstackRequestHandler, Openst
    * @param networkName
    * @return
    */
-  FloatingIP getOrCreateFloatingIp(final String region, final String networkName) {
-    handleRequest {
-      FloatingIP ip = getRegionClient(region).compute().floatingIps().list().find { !it.fixedIpAddress }
-      if (!ip) {
-        ip = client.useRegion(region).compute().floatingIps().allocateIP(networkName)
-        if (!ip) {
-          throw new OpenstackProviderException("Unable to allocate new IP address on network $networkName")
-        }
-      }
-      ip
-    }
-  }
+  FloatingIP getOrCreateFloatingIp(final String region, final String networkName)
 
   /**
    * Looks up the port associated by vip and uses the deviceId to get the attached floatingIp.
@@ -121,27 +86,14 @@ public class OpenstackComputeProvider implements OpenstackRequestHandler, Openst
    * @param vipId
    * @return
    */
-  FloatingIP getAssociatedFloatingIp(final String region, final String vipId) {
-    Port port = getPortForVip(region, vipId)
-    if (!port) {
-      throw new OpenstackProviderException("Unable to find port for vip ${vipId}")
-    } else {
-      handleRequest {
-        getRegionClient(region).compute().floatingIps().list()?.find { it.instanceId == port.deviceId }
-      }
-    }
-  }
+  FloatingIP getAssociatedFloatingIp(final String region, final String vipId)
 
   /**
    * List all floating ips in the region.
    * @param region
    * @return
    */
-  List<? extends FloatingIP> listFloatingIps(final String region) {
-    handleRequest {
-      getRegionClient(region).compute().floatingIps().list()
-    }
-  }
+  List<? extends FloatingIP> listFloatingIps(final String region)
 
   /**
    * Deletes a security group.
@@ -149,23 +101,14 @@ public class OpenstackComputeProvider implements OpenstackRequestHandler, Openst
    * @param region the region the security group is in
    * @param securityGroupId id of the security group
    */
-  void deleteSecurityGroup(String region, String securityGroupId) {
-    handleRequest {
-      getRegionClient(region).compute().securityGroups().delete(securityGroupId)
-    }
-  }
+  void deleteSecurityGroup(String region, String securityGroupId)
 
   /**
    * Deletes a security group rule
    * @param region the region to delete the rule from
    * @param id id of the rule to delete
    */
-  void deleteSecurityGroupRule(String region, String id) {
-    handleRequest {
-      client.useRegion(region).compute().securityGroups().deleteRule(id)
-    }
-  }
-
+  void deleteSecurityGroupRule(String region, String id)
   /**
    * Creates a security group rule.
    *
@@ -190,32 +133,7 @@ public class OpenstackComputeProvider implements OpenstackRequestHandler, Openst
                                                  Integer fromPort,
                                                  Integer toPort,
                                                  Integer icmpType,
-                                                 Integer icmpCode) {
-
-    def builder = Builders.secGroupRule()
-      .parentGroupId(securityGroupId)
-      .protocol(protocol)
-
-    /*
-     * Openstack/Openstack4J overload the port range to indicate ICMP type and code. This isn't immediately
-     * obvious and was found through testing and inferring things from the Openstack documentation.
-     */
-    if (protocol == IPProtocol.ICMP) {
-      builder.range(icmpType, icmpCode)
-    } else {
-      builder.range(fromPort, toPort)
-    }
-
-    if (remoteSecurityGroupId) {
-      builder.groupId(remoteSecurityGroupId)
-    } else {
-      builder.cidr(cidr)
-    }
-
-    handleRequest {
-      client.useRegion(region).compute().securityGroups().createRule(builder.build())
-    }
-  }
+                                                 Integer icmpCode)
 
   /**
    * Updates a security group with the new name and description
@@ -225,91 +143,45 @@ public class OpenstackComputeProvider implements OpenstackRequestHandler, Openst
    * @param description the new description for the security group
    * @return the updated security group
    */
-  SecGroupExtension updateSecurityGroup(String region, String id, String name, String description) {
-    handleRequest {
-      client.useRegion(region).compute().securityGroups().update(id, name, description)
-    }
-  }
+  SecGroupExtension updateSecurityGroup(String region, String id, String name, String description)
 
   /**
    * Creates a security group with the given name and description
    * @return the created security group
    */
-  SecGroupExtension createSecurityGroup(String region, String name, String description) {
-    handleRequest {
-      client.useRegion(region).compute().securityGroups().create(name, description)
-    }
-  }
+  SecGroupExtension createSecurityGroup(String region, String name, String description)
 
   /**
    * Returns the security group for the given id.
    * @param region the region to look up the security group in
    * @param id id of the security group.
    */
-  SecGroupExtension getSecurityGroup(String region, String id) {
-    SecGroupExtension securityGroup = handleRequest {
-      client.useRegion(region).compute().securityGroups().get(id)
-    }
-    if (!securityGroup) {
-      throw new OpenstackResourceNotFoundException("Unable to find security group ${id}")
-    }
-    securityGroup
-  }
+  SecGroupExtension getSecurityGroup(String region, String id)
 
   /**
    * Returns the list of all security groups for the given region
    */
-  List<SecGroupExtension> getSecurityGroups(String region) {
-    handleRequest {
-      getRegionClient(region).compute().securityGroups().list()
-    }
-  }
+  List<SecGroupExtension> getSecurityGroups(String region)
 
   /**
    * Get a compute server based on id.
    * @param instanceId
    * @return
    */
-  Server getServerInstance(String region, String instanceId) {
-    Server server = handleRequest {
-      client.useRegion(region).compute().servers().get(instanceId)
-    }
-    if (!server) {
-      throw new OpenstackProviderException("Could not find server with id ${instanceId}")
-    }
-    server
-  }
+  Server getServerInstance(String region, String instanceId)
 
   /**
    * Returns a list of flavors by region.
    * @param region
    * @return
    */
-  List<? extends Flavor> listFlavors(String region) {
-    handleRequest {
-      this.getRegionClient(region).compute().flavors().list()
-    }
-  }
+  List<? extends Flavor> listFlavors(String region)
 
   /**
    * Get an IP address from a server.
    * @param server
    * @return
    */
-  String getIpForInstance(String region, String instanceId) {
-    Server server = getServerInstance(region, instanceId)
-    /* TODO
-      For now just get the first address found. Openstack does not associate an instance id
-      with load balancer membership, just an ip address. An instance can have multiple IP addresses.
-      perhaps we just look for the first 192.* address found. It would also help to know the network name
-      from which to choose the IP list. I am not sure if we will have that. We can certainly add that into
-      the api later on when we know what data deck will have access to.
-    */
-    String ip = server.addresses?.addresses?.collect { n -> n.value }?.find()?.find()?.addr
-    if (StringUtils.isEmpty(ip)) {
-      throw new OpenstackProviderException("Instance ${instanceId} has no IP address")
-    }
-    ip
-  }
+  String getIpForInstance(String region, String instanceId)
 
 }

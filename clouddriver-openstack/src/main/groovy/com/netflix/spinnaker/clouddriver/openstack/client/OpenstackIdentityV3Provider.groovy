@@ -26,11 +26,10 @@ import org.openstack4j.openstack.OSFactory
 class OpenstackIdentityV3Provider implements OpenstackIdentityProvider, OpenstackRequestHandler {
 
   OpenstackNamedAccountCredentials credentials
-  Token token
+  Token token = null
 
   OpenstackIdentityV3Provider(OpenstackNamedAccountCredentials credentials) {
     this.credentials = credentials
-    this.token = buildClient().token
   }
 
   @Override
@@ -48,7 +47,7 @@ class OpenstackIdentityV3Provider implements OpenstackIdentityProvider, Openstac
 
   @Override
   OSClient getClient() {
-    if (tokenExpired) {
+    if (!token || tokenExpired) {
       token = buildClient().token
     }
     OSFactory.clientFromToken(token)

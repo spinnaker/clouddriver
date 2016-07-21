@@ -68,19 +68,13 @@ class OpenstackCredentialsInitializer implements CredentialsInitializerSynchroni
       try {
         def openstackAccount = new OpenstackNamedAccountCredentials(managedAccount.name,
                                                                     managedAccount.environment ?: managedAccount.name,
-                                                                    managedAccount.accountType ?: 'liberty',
-                                                                    managedAccount.compute,
-                                                                    managedAccount.identity,
-                                                                    managedAccount.images,
-                                                                    managedAccount.networking,
-                                                                    managedAccount.orchestration,
+                                                                    managedAccount.accountType ?: managedAccount.name,
                                                                     managedAccount.master,
                                                                     managedAccount.username,
                                                                     managedAccount.password,
                                                                     managedAccount.tenantName,
                                                                     managedAccount.domainName,
                                                                     managedAccount.endpoint,
-                                                                    managedAccount.regions,
                                                                     managedAccount.insecure
                                                                     )
         accountCredentialsRepository.save(managedAccount.name, openstackAccount)

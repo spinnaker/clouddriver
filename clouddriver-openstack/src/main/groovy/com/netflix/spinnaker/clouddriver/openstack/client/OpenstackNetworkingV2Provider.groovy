@@ -39,7 +39,7 @@ import org.openstack4j.model.network.ext.Vip
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
-class OpenstackNetworkingV1Provider implements OpenstackNetworkingProvider, OpenstackRequestHandler, OpenstackIdentityAware {
+class OpenstackNetworkingV2Provider implements OpenstackNetworkingProvider, OpenstackRequestHandler, OpenstackIdentityAware {
 
   final int minPort = 1
   final int maxPort = (1 << 16) - 1
@@ -48,7 +48,7 @@ class OpenstackNetworkingV1Provider implements OpenstackNetworkingProvider, Open
 
   OpenstackIdentityProvider identityProvider
 
-  OpenstackNetworkingV1Provider(OpenstackIdentityProvider identityProvider) {
+  OpenstackNetworkingV2Provider(OpenstackIdentityProvider identityProvider) {
     this.identityProvider = identityProvider
   }
 

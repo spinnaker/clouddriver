@@ -258,12 +258,7 @@ openstack:
   accounts:
     - name: test
       environment: test
-      accountType: kilo
-      compute: current
-      identity: v2
-      images: v1
-      networking: v1
-      orchestration: v1
+      accountType: main
       master: test
       username: ${OS_USERNAME:'username'}
       password: ${OS_PASSWORD:'password'}
