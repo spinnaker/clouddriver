@@ -337,7 +337,8 @@ class OpenstackNetworkingV2Provider implements OpenstackNetworkingProvider, Open
    * @param vipId
    * @return
    */
-  protected Port getPortForVip(final String region, final String vipId) {
+  @Override
+  Port getPortForVip(final String region, final String vipId) {
     handleRequest {
       getRegionClient(region).networking().port().list()?.find { it.name == "vip-${vipId}" }
     }

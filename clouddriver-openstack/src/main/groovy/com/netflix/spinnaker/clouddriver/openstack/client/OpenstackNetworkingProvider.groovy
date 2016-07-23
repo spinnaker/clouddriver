@@ -242,4 +242,11 @@ interface OpenstackNetworkingProvider {
    */
   Subnet getSubnet(final String region, final String subnetId)
 
+  /**
+   * Internal helper to look up port associated to vip.
+   * @param region
+   * @param vipId
+   * @return
+   */
+  Port getPortForVip(final String region, final String vipId)
 }

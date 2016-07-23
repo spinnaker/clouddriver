@@ -91,14 +91,9 @@ public class OpenstackComputeV2Provider implements OpenstackComputeProvider, Ope
   }
 
   @Override
-  FloatingIP getAssociatedFloatingIp(final String region, final String vipId) {
-    Port port = getPortForVip(region, vipId)
-    if (!port) {
-      throw new OpenstackProviderException("Unable to find port for vip ${vipId}")
-    } else {
-      handleRequest {
-        getRegionClient(region).compute().floatingIps().list()?.find { it.instanceId == port.deviceId }
-      }
+  FloatingIP getAssociatedFloatingIp(final String region, final String portDeviceId, final String vipId) {
+    handleRequest {
+      getRegionClient(region).compute().floatingIps().list()?.find { it.instanceId == portDeviceId }
     }
   }
 
