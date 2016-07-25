@@ -92,4 +92,12 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
     credentials
   }
 
+  /**
+   *
+   * @return
+     */
+  Set<String> getRegions() {
+    credentials.provider.getAllRegions()
+  }
+
 }
