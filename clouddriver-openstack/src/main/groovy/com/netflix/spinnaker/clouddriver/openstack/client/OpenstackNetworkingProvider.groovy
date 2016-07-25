@@ -39,7 +39,7 @@ interface OpenstackNetworkingProvider {
   List<? extends LbPool> getAllLoadBalancerPools(final String region)
 
   /**
-   * Gets load balancer portId for a given region by load balancer UUID.
+   * Gets load balancer pool for a given region by load balancer UUID.
    * @param region
    * @param loadBalancerId
    * @return
@@ -62,7 +62,7 @@ interface OpenstackNetworkingProvider {
   Vip getVip(final String region, final String vipId)
 
   /**
-   * Creates load balancer portId in provided region.
+   * Creates load balancer pool in provided region.
    * @param region
    * @param loadBalancerPool
    * @return LbPool
@@ -70,7 +70,7 @@ interface OpenstackNetworkingProvider {
   LbPool createLoadBalancerPool(final String region, final LoadBalancerPool loadBalancerPool)
 
   /**
-   * Updates existing load balancer portId's name or load balancer method.
+   * Updates existing load balancer pool's name or load balancer method.
    * @param region
    * @param loadBalancerPool
    * @return
@@ -78,7 +78,7 @@ interface OpenstackNetworkingProvider {
   LbPool updateLoadBalancerPool(final String region, final LoadBalancerPool loadBalancerPool)
 
   /**
-   * Creates VIP for given region and portId.
+   * Creates VIP for given region and vip.
    * @param region
    * @param virtualIP
    * @return
@@ -102,7 +102,7 @@ interface OpenstackNetworkingProvider {
   HealthMonitor getHealthMonitor(final String region, final String healthMonitorId)
 
   /**
-   * Creates health check for given portId in specified region.
+   * Creates health check for given pool in specified region.
    * @param region
    * @param lbPoolId
    * @param monitor
@@ -135,7 +135,7 @@ interface OpenstackNetworkingProvider {
   ActionResponse deleteHealthMonitor(String region, String healthMonitorId)
 
   /**
-   * Disassociates health monitor from loadbalancer portId.
+   * Disassociates health monitor from loadbalancer pool.
    * @param region
    * @param lbPoolId
    * @param healMonitorId
@@ -207,14 +207,14 @@ interface OpenstackNetworkingProvider {
   String getMemberIdForInstance(String region, String ip, LbPool lbPool)
 
   /**
-   * Remove load balancer portId.
+   * Remove load balancer vip.
    * @param region
    * @param poolId
    */
   void deleteVip(String region, String vipId)
 
   /**
-   * Remove load balancer portId.
+   * Remove load balancer pool.
    * @param region
    * @param poolId
    */
