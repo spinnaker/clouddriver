@@ -39,7 +39,7 @@ interface OpenstackNetworkingProvider {
   List<? extends LbPool> getAllLoadBalancerPools(final String region)
 
   /**
-   * Gets load balancer pool for a given region by load balancer UUID.
+   * Gets load balancer portId for a given region by load balancer UUID.
    * @param region
    * @param loadBalancerId
    * @return
@@ -62,7 +62,7 @@ interface OpenstackNetworkingProvider {
   Vip getVip(final String region, final String vipId)
 
   /**
-   * Creates load balancer pool in provided region.
+   * Creates load balancer portId in provided region.
    * @param region
    * @param loadBalancerPool
    * @return LbPool
@@ -70,7 +70,7 @@ interface OpenstackNetworkingProvider {
   LbPool createLoadBalancerPool(final String region, final LoadBalancerPool loadBalancerPool)
 
   /**
-   * Updates existing load balancer pool's name or load balancer method.
+   * Updates existing load balancer portId's name or load balancer method.
    * @param region
    * @param loadBalancerPool
    * @return
@@ -78,7 +78,7 @@ interface OpenstackNetworkingProvider {
   LbPool updateLoadBalancerPool(final String region, final LoadBalancerPool loadBalancerPool)
 
   /**
-   * Creates VIP for given region and pool.
+   * Creates VIP for given region and portId.
    * @param region
    * @param virtualIP
    * @return
@@ -102,7 +102,7 @@ interface OpenstackNetworkingProvider {
   HealthMonitor getHealthMonitor(final String region, final String healthMonitorId)
 
   /**
-   * Creates health check for given pool in specified region.
+   * Creates health check for given portId in specified region.
    * @param region
    * @param lbPoolId
    * @param monitor
@@ -135,7 +135,7 @@ interface OpenstackNetworkingProvider {
   ActionResponse deleteHealthMonitor(String region, String healthMonitorId)
 
   /**
-   * Disassociates health monitor from loadbalancer pool.
+   * Disassociates health monitor from loadbalancer portId.
    * @param region
    * @param lbPoolId
    * @param healMonitorId
@@ -207,14 +207,14 @@ interface OpenstackNetworkingProvider {
   String getMemberIdForInstance(String region, String ip, LbPool lbPool)
 
   /**
-   * Remove load balancer pool.
+   * Remove load balancer portId.
    * @param region
    * @param poolId
    */
   void deleteVip(String region, String vipId)
 
   /**
-   * Remove load balancer pool.
+   * Remove load balancer portId.
    * @param region
    * @param poolId
    */
@@ -249,4 +249,19 @@ interface OpenstackNetworkingProvider {
    * @return
    */
   Port getPortForVip(final String region, final String vipId)
+
+  /**
+   * Helper to get the floating ip bound to a port.
+   * @param region
+   * @param portId
+   * @return
+   */
+  NetFloatingIP getFloatingIpForPort(final String region, final String portId)
+
+  /**
+   * List network floating ips.
+   * @param region
+   * @return
+   */
+  List<NetFloatingIP> listNetFloatingIps(final String region)
 }
