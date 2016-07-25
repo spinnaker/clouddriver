@@ -56,6 +56,7 @@ class GoogleServerGroup {
   InstanceGroupManagerAutoHealingPolicy autoHealingPolicy
 
   // Non-serialized values built up by providers
+  // TODO(jacobkiefer): Change this to GoogleLoadBalancerView?
   @JsonIgnore
   Set<GoogleLoadBalancer> loadBalancers = []
 

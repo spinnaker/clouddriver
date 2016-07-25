@@ -416,7 +416,7 @@ class GCEUtilSpec extends Specification {
   }
 
   @Unroll
-  void "checkAllForwardingRulesExist should fail only if we can't find all loadbalancers"() {
+  void "checkAllForwardingRulesExist should fail if any loadbalancers aren't found"() {
     setup:
       def application = "my-application"
       def task = Mock(Task)

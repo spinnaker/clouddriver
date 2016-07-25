@@ -227,10 +227,10 @@ class GCEUtil {
   }
 
   static List<GoogleLoadBalancerView> queryAllLoadBalancers(GoogleLoadBalancerProvider googleLoadBalancerProvider,
-                                           List<String> forwardingRuleNames,
-                                           String application,
-                                           Task task,
-                                           String phase) {
+                                                            List<String> forwardingRuleNames,
+                                                            String application,
+                                                            Task task,
+                                                            String phase) {
     def loadBalancers = googleLoadBalancerProvider.getApplicationLoadBalancers(application) as List
     def foundLoadBalancers = loadBalancers.findAll { it.name in forwardingRuleNames }
 

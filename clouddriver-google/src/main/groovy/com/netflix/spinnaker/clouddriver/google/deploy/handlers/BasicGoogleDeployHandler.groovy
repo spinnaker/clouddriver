@@ -136,7 +136,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                              description.application,
                                                              task,
                                                              BASE_PHASE)
-      def networkLoadBalancers = foundLoadBalancers.findAll { it.type == GoogleLoadBalancerType.NETWORK.toString() }
+      def networkLoadBalancers = foundLoadBalancers.findAll { it.loadBalancerType == GoogleLoadBalancerType.NETWORK.toString() }
       targetPools = networkLoadBalancers.collect { it.targetPool }
     }
 
@@ -206,14 +206,14 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     def migCreateOperation
     if (isRegional) {
       migCreateOperation = compute.regionInstanceGroupManagers().insert(project,
-                                                                            region,
-                                                                            new InstanceGroupManager()
-                                                                                .setName(serverGroupName)
-                                                                                .setBaseInstanceName(serverGroupName)
-                                                                                .setInstanceTemplate(instanceTemplateUrl)
-                                                                                .setTargetSize(description.targetSize)
-                                                                                .setTargetPools(targetPools)
-                                                                                .setAutoHealingPolicies(autoHealingPolicy)).execute()
+                                                                        region,
+                                                                        new InstanceGroupManager()
+                                                                            .setName(serverGroupName)
+                                                                            .setBaseInstanceName(serverGroupName)
+                                                                            .setInstanceTemplate(instanceTemplateUrl)
+                                                                            .setTargetSize(description.targetSize)
+                                                                            .setTargetPools(targetPools)
+                                                                            .setAutoHealingPolicies(autoHealingPolicy)).execute()
 
       if (autoscalerIsSpecified(description)) {
         // Before creating the Autoscaler we must wait until the managed instance group is created.
