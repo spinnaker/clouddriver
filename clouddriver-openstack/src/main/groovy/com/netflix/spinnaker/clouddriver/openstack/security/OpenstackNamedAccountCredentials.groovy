@@ -33,6 +33,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
   final String endpoint
   final List<String> requiredGroupMembership
   final OpenstackCredentials credentials
+  List<String> regions
   final Boolean insecure
 
   OpenstackNamedAccountCredentials(String accountName,
@@ -44,8 +45,9 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
                                    String tenantName,
                                    String domainName,
                                    String endpoint,
+                                   List<String> regions,
                                    Boolean insecure) {
-    this(accountName, environment, accountType, master, username, password, null, tenantName, domainName, endpoint, insecure)
+    this(accountName, environment, accountType, master, username, password, null, tenantName, domainName, endpoint, regions, insecure)
   }
 
   OpenstackNamedAccountCredentials(String accountName,
@@ -58,6 +60,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
                                    String tenantName,
                                    String domainName,
                                    String endpoint,
+                                   List<String> regions,
                                    Boolean insecure) {
     this.name = accountName
     this.environment = environment
@@ -69,6 +72,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
     this.domainName = domainName
     this.endpoint = endpoint
     this.requiredGroupMembership = requiredGroupMembership
+    this.regions = regions
     this.insecure = insecure
     this.credentials = buildCredentials()
   }
@@ -90,14 +94,6 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
   @Override
   OpenstackCredentials getCredentials() {
     credentials
-  }
-
-  /**
-   *
-   * @return
-   */
-  Set<String> getRegions() {
-    credentials.provider.getAllRegions()
   }
 
 }

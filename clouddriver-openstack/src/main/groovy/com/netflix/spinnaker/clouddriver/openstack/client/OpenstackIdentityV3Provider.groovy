@@ -55,7 +55,7 @@ class OpenstackIdentityV3Provider implements OpenstackIdentityProvider, Openstac
 
   @Override
   String getTokenId() {
-    token.id
+    token?.id
   }
 
   @Override
@@ -72,7 +72,7 @@ class OpenstackIdentityV3Provider implements OpenstackIdentityProvider, Openstac
    */
   @Override
   List<String> getAllRegions() {
-    handleRequest {
+    credentials.regions ?: handleRequest {
       client.identity().regions().list()?.collect { it.id }
     }
   }

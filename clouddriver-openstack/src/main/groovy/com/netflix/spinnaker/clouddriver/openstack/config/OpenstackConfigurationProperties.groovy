@@ -32,6 +32,7 @@ class OpenstackConfigurationProperties {
     String tenantName
     String domainName
     String endpoint
+    List<String> regions
     Boolean insecure
   }
 
