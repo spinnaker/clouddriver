@@ -17,16 +17,21 @@
 package com.netflix.spinnaker.clouddriver.consul.config
 
 import com.netflix.spinnaker.clouddriver.consul.api.v1.ConsulCatalog
+import com.netflix.spinnaker.clouddriver.consul.api.v1.services.CatalogApi
+import com.squareup.okhttp.OkHttpClient
+import retrofit.RestAdapter
+import retrofit.client.OkClient
 
+import java.lang.invoke.ConstantCallSite
 import java.util.concurrent.TimeUnit
 
 class ConsulConfig {
   boolean enabled
-  // required: reachable Consul server endpoints (IP address or DNS name)
-  List<String> servers
-  // optional: datacenters to cache/keep updated
+  // optional: (default = localhost) reachable Consul node endpoint connected to the Consul cluster
+  String agentEndpoint
+  // optional: (default = all) datacenters to cache/keep updated
   List<String> datacenters
-  // optional: Port consul is running on for every agent
+  // optional: (default = 8500) Port consul is running on for every agent
   Integer agentPort
 
   // Since this is config injected into every participating provider's Spring config, there is no easy way to
@@ -41,12 +46,14 @@ class ConsulConfig {
       agentPort = 8500 // Default used by consul
     }
 
-    if (!servers) {
-      throw new IllegalArgumentException("Consul servers must be provided.")
+    if (!agentEndpoint) {
+      agentEndpoint = "localhost"
     }
 
     if (!datacenters) {
-      datacenters = (new ConsulCatalog(this)).api.datacenters()
+      def catalog = new ConsulCatalog(this)
+
+      datacenters = catalog.api.datacenters()
     }
   }
 }

@@ -20,6 +20,7 @@ import groovy.transform.ToString
 
 @ToString(includeNames = true)
 class OpenstackConfigurationProperties {
+
   @ToString(includeNames = true, excludes = "password")
   static class ManagedAccount {
     String name

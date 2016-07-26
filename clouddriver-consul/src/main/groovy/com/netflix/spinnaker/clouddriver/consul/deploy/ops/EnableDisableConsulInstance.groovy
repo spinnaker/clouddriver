@@ -27,7 +27,7 @@ class EnableDisableConsulInstance {
   }
 
   static void operate(ConsulConfig config, String agentEndpoint, State state) {
-    def agent = new ConsulAgent("${agentEndpoint}:${config.agentPort}", ConsulProperties.DEFAULT_TIMEOUT_MILLIS)
+    def agent = new ConsulAgent("${agentEndpoint}:${config.agentPort}")
 
     // Enabling maintenance mode means the instance is removed from discovery & DNS lookups
     agent.api.maintenance(state == State.disable, "Spinnaker ${state} Operation")

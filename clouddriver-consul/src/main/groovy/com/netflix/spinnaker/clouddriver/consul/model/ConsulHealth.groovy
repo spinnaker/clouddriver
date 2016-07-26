@@ -19,21 +19,18 @@ package com.netflix.spinnaker.clouddriver.consul.model
 import com.netflix.spinnaker.clouddriver.consul.api.v1.model.CheckResult
 import com.netflix.spinnaker.clouddriver.model.DiscoveryHealth
 import com.netflix.spinnaker.clouddriver.model.HealthState
+import groovy.transform.Canonical
 
+@Canonical
 class ConsulHealth extends DiscoveryHealth {
   @Override
-  public static String getDiscoveryType() {
+  public String getDiscoveryType() {
     return "Consul"
   }
 
   CheckResult result
 
   String source
-
-  ConsulHealth(CheckResult result) {
-    this.result = result
-    this.source = result.checkId
-  }
 
   @Override
   HealthState getState() {
