@@ -75,9 +75,11 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
     def newTargetPoolUrls = []
 
     if (disable) {
-      task.updateStatus phaseName, "Deregistering instances from load balancers..."
+      task.updateStatus phaseName, "Deregistering server group from Http(s) load balancers..."
 
       GCEUtil.destroyHttpLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, phaseName)
+
+      task.updateStatus phaseName, "Deregistering server group from network load balancers..."
 
       currentTargetPoolUrls.each { targetPoolUrl ->
         def targetPoolLocalName = GCEUtil.getLocalName(targetPoolUrl)

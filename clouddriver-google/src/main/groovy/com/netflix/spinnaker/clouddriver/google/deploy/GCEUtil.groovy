@@ -709,7 +709,7 @@ class GCEUtil {
               getLocalName(backend.group) == serverGroupName
             }
             compute.backendServices().update(project, backendServiceName, backendService).execute()
-            task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from load balancer backend service ${backendServiceName}."
+            task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from Http(s) load balancer backend service ${backendServiceName}."
           }
         }
       }
