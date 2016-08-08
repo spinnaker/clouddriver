@@ -30,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
+import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.model.GoogleHealthCheck
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
@@ -370,20 +371,13 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent impl
       // We have to update the backend service objects we created from the UrlMapCallback.
       // The UrlMapCallback knows which backend service is the defaultService, etc and the
       // BackendServiceCallback has the actual serving capacity and server group data.
-      List<GoogleBackendService> backendServicesInMap = Utils.getBackendServicesFromHttpLoadBalancer(googleLoadBalancer)
+      List<GoogleBackendService> backendServicesInMap = Utils.getBackendServicesFromHttpLoadBalancerView(googleLoadBalancer.view)
       def backendServicesToUpdate = backendServicesInMap.findAll { it && it.name == backendService.name }
       backendServicesToUpdate.each { GoogleBackendService service ->
         service.backends = backendService.backends?.collect { Backend backend ->
-          def backendBalancingMode = GoogleHttpLoadBalancingPolicy.BalancingMode.valueOf(backend.balancingMode)
           new GoogleLoadBalancedBackend(
               serverGroupUrl: backend.group,
-              policy: new GoogleHttpLoadBalancingPolicy(
-                  balancingMode: backend.balancingMode,
-                  maxRatePerInstance: backendBalancingMode == GoogleHttpLoadBalancingPolicy.BalancingMode.RATE ?
-                      backend.maxRatePerInstance : null,
-                  maxUtilization: backendBalancingMode == GoogleHttpLoadBalancingPolicy.BalancingMode.UTILIZATION ?
-                      backend.maxUtilization : null,
-              )
+              policy: GCEUtil.loadBalancingPolicyFromBackend(backend)
           )
         }
       }
