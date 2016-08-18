@@ -22,7 +22,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
-import com.netflix.spinnaker.clouddriver.google.deploy.description.DeleteGoogleHttpLoadBalancerDescription
+import com.netflix.spinnaker.clouddriver.google.deploy.description.DeleteGoogleLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationException
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationTimedOutException
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
@@ -100,7 +100,7 @@ class DeleteGoogleHttpLoadBalancerAtomicOperationUnitSpec extends Specification 
       def healthChecksOperationGet = Mock(Compute.GlobalOperations.Get)
 
       def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-      def description = new DeleteGoogleHttpLoadBalancerDescription(
+      def description = new DeleteGoogleLoadBalancerDescription(
           loadBalancerName: HTTP_LOAD_BALANCER_NAME,
           accountName: ACCOUNT_NAME,
           credentials: credentials)
@@ -223,7 +223,7 @@ class DeleteGoogleHttpLoadBalancerAtomicOperationUnitSpec extends Specification 
       def healthChecksOperationGet2 = Mock(Compute.GlobalOperations.Get)
 
       def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-      def description = new DeleteGoogleHttpLoadBalancerDescription(
+      def description = new DeleteGoogleLoadBalancerDescription(
           loadBalancerName: HTTP_LOAD_BALANCER_NAME,
           accountName: ACCOUNT_NAME,
           credentials: credentials)
@@ -298,7 +298,7 @@ class DeleteGoogleHttpLoadBalancerAtomicOperationUnitSpec extends Specification 
       def globalForwardingRules = Mock(Compute.GlobalForwardingRules)
       def globalForwardingRulesGet = Mock(Compute.GlobalForwardingRules.Get)
       def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-      def description = new DeleteGoogleHttpLoadBalancerDescription(
+      def description = new DeleteGoogleLoadBalancerDescription(
           loadBalancerName: HTTP_LOAD_BALANCER_NAME,
           accountName: ACCOUNT_NAME,
           credentials: credentials)
@@ -364,7 +364,7 @@ class DeleteGoogleHttpLoadBalancerAtomicOperationUnitSpec extends Specification 
       def healthChecksOperationGet = Mock(Compute.GlobalOperations.Get)
 
       def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-      def description = new DeleteGoogleHttpLoadBalancerDescription(
+      def description = new DeleteGoogleLoadBalancerDescription(
           loadBalancerName: HTTP_LOAD_BALANCER_NAME,
           accountName: ACCOUNT_NAME,
           credentials: credentials)
@@ -440,7 +440,7 @@ class DeleteGoogleHttpLoadBalancerAtomicOperationUnitSpec extends Specification 
       def globalForwardingRulesOperationGet = Mock(Compute.GlobalOperations.Get)
 
       def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-      def description = new DeleteGoogleHttpLoadBalancerDescription(
+      def description = new DeleteGoogleLoadBalancerDescription(
           deleteOperationTimeoutSeconds: 0,
           loadBalancerName: HTTP_LOAD_BALANCER_NAME,
           accountName: ACCOUNT_NAME,
@@ -523,7 +523,7 @@ class DeleteGoogleHttpLoadBalancerAtomicOperationUnitSpec extends Specification 
       def healthChecksOperationGet = Mock(Compute.GlobalOperations.Get)
 
       def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-      def description = new DeleteGoogleHttpLoadBalancerDescription(
+      def description = new DeleteGoogleLoadBalancerDescription(
           loadBalancerName: HTTP_LOAD_BALANCER_NAME,
           accountName: ACCOUNT_NAME,
           credentials: credentials)
@@ -591,7 +591,7 @@ class DeleteGoogleHttpLoadBalancerAtomicOperationUnitSpec extends Specification 
     def backendServicesGet = Mock(Compute.BackendServices.Get)
     def backendService = new BackendService(healthChecks: [HEALTH_CHECK_URL])
     def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-    def description = new DeleteGoogleHttpLoadBalancerDescription(
+    def description = new DeleteGoogleLoadBalancerDescription(
         loadBalancerName: HTTP_LOAD_BALANCER_NAME,
         accountName: ACCOUNT_NAME,
         credentials: credentials)
@@ -634,7 +634,7 @@ class DeleteGoogleHttpLoadBalancerAtomicOperationUnitSpec extends Specification 
     def backendServicesGet = Mock(Compute.BackendServices.Get)
     def backendService = new BackendService(healthChecks: [HEALTH_CHECK_URL], backends: [new Backend()])
     def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
-    def description = new DeleteGoogleHttpLoadBalancerDescription(
+    def description = new DeleteGoogleLoadBalancerDescription(
         loadBalancerName: HTTP_LOAD_BALANCER_NAME,
         accountName: ACCOUNT_NAME,
         credentials: credentials)
