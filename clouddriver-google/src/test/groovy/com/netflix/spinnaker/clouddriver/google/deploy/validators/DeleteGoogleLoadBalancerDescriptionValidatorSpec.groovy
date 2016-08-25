@@ -79,19 +79,19 @@ class DeleteGoogleLoadBalancerDescriptionValidatorSpec extends Specification {
 
   void "fail validation with bad region"() {
     setup:
-    def description = new DeleteGoogleLoadBalancerDescription(
-        deleteOperationTimeoutSeconds: TIMEOUT_SECONDS,
-        loadBalancerName: LOAD_BALANCER_NAME,
-        region: null,
-        loadBalancerType: GoogleLoadBalancerType.NETWORK,
-        accountName: ACCOUNT_NAME)
-    def errors = Mock(Errors)
+      def description = new DeleteGoogleLoadBalancerDescription(
+          deleteOperationTimeoutSeconds: TIMEOUT_SECONDS,
+          loadBalancerName: LOAD_BALANCER_NAME,
+          region: null,
+          loadBalancerType: GoogleLoadBalancerType.NETWORK,
+          accountName: ACCOUNT_NAME)
+      def errors = Mock(Errors)
 
     when:
-    validator.validate([], description, errors)
+      validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue("region", _)
+      1 * errors.rejectValue("region", _)
   }
 
   void "null input fails validation"() {

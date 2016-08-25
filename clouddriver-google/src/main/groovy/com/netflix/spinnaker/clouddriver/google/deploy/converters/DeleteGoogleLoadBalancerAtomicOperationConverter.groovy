@@ -40,7 +40,7 @@ class DeleteGoogleLoadBalancerAtomicOperationConverter extends AbstractAtomicOpe
         return new DeleteGoogleHttpLoadBalancerAtomicOperation(description)
         break
       default:
-        // Note: This is for backwards compatibility for L4 deletion.
+        // TODO(jacobkiefer): This is for backwards compatibility for L4 deletion.
         return new DeleteGoogleLoadBalancerAtomicOperation(description)
         break
     }
