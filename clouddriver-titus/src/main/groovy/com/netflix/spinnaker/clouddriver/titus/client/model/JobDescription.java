@@ -57,7 +57,7 @@ public class JobDescription {
     JobDescription() {}
 
     JobDescription(SubmitJobRequest request) {
-        type = request.getJobType();
+        type = request.getType();
         name = request.getJobName();
         applicationName = request.getDockerImageName();
         version = request.getDockerImageVersion();

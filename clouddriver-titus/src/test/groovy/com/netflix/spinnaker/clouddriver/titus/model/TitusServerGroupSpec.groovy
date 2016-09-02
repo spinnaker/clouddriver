@@ -38,6 +38,7 @@ class TitusServerGroupSpec extends Specification {
     instancesDesired: 5,
     environment: [account: 'test'],
     submittedAt: launchDate,
+    type: 'service',
     tasks: [new Job.TaskSummary(
       id: '5678',
       region: 'us-east-1',
@@ -74,6 +75,7 @@ class TitusServerGroupSpec extends Specification {
     titusServerGroup.capacity?.min == job.instancesMin
     titusServerGroup.capacity?.max == job.instancesMax
     titusServerGroup.capacity?.desired == job.instancesDesired
+    titusServerGroup.type == 'service'
   }
 
   void 'can handle empty ports'() {

@@ -54,7 +54,7 @@ public class SubmitJobRequest {
         }
     }
 
-    private String jobType;
+    private String type;
     private String application;
     private String jobName;
     private String dockerImageName;
@@ -78,8 +78,8 @@ public class SubmitJobRequest {
     private Map<String, String> labels = new HashMap<String, String>();
     private List<String> securityGroups = null;
 
-    public SubmitJobRequest withJobType(String jobType) {
-        this.jobType = jobType;
+    public SubmitJobRequest withType(String type) {
+        this.type = type;
         return this;
     }
 
@@ -202,8 +202,8 @@ public class SubmitJobRequest {
     // Getters
 
 
-    public String getJobType() {
-        return jobType;
+    public String getType() {
+        return type;
     }
 
     public int getInstanceMin() {

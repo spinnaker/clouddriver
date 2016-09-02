@@ -33,7 +33,7 @@ class TitusInstanceSpec extends Specification {
     memory: 2000,
     disk: 5000,
     ports: [7150] as int[],
-    environment: [account: 'test', region: 'us-east-1'],
+    environment: [account: 'test', region: 'us-east-1']
   )
   Job.TaskSummary task = new Job.TaskSummary(
     id: '5678',
