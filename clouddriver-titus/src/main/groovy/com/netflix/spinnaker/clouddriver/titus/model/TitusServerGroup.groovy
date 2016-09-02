@@ -54,7 +54,6 @@ class TitusServerGroup implements ServerGroup, Serializable {
   TitusServerGroup(Job job, String account, String region) {
     id = job.id
     name = job.name
-    type = job.type
     image << [dockerImageName: job.applicationName]
     image << [dockerImageVersion: job.version]
     entryPoint = job.entryPoint
