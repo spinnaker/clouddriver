@@ -50,7 +50,8 @@ class TitusDeployAtomicOperationConverterSpec extends Specification {
       capacity: [desired: 3, min: 2, max: 5],
       resources: [cpu: 2, memory: 4, disk: 4000, ports: [7001], allocateIpAddress: true],
       env: ['netflix.environment': 'test'],
-      credentials: 'test'
+      credentials: 'test',
+      type: 'batch'
     ]
 
     when:
@@ -74,7 +75,8 @@ class TitusDeployAtomicOperationConverterSpec extends Specification {
       capacity: [desired: 3, min: 2, max: 5],
       resources: [cpu: 2, memory: 4, disk: 4000, ports: [7001], allocateIpAddress: true],
       env: ['netflix.environment': 'test'],
-      credentials: 'test'
+      credentials: 'test',
+      type: 'service'
     ]
 
     when:

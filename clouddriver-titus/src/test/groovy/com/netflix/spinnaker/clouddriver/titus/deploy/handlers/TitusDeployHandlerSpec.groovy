@@ -60,7 +60,8 @@ class TitusDeployHandlerSpec extends Specification {
       capacity: [desired: 1, min: 1, max: 2],
       resources: [cpu: 2, memory: 4, disk: 4000, ports: [7001], allocateIpAddress: true],
       env: ['netflix.environment': 'test'],
-      credentials: testCredentials
+      credentials: testCredentials,
+      type: 'batch'
     )
     titusClient.findJobsByApplication(_) >> []
 
@@ -85,7 +86,8 @@ class TitusDeployHandlerSpec extends Specification {
         it.ports == titusDeployDescription.resources.ports &&
         it.env == titusDeployDescription.env &&
         it.application == titusDeployDescription.application &&
-        it.allocateIpAddress ==  titusDeployDescription.resources.allocateIpAddress
+        it.allocateIpAddress ==  titusDeployDescription.resources.allocateIpAddress &&
+        it.type == titusDeployDescription.type
     } as SubmitJobRequest)
   }
 
