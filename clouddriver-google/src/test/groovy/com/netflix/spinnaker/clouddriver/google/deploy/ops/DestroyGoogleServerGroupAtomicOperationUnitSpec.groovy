@@ -281,7 +281,7 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
   }
 
   @Unroll
-  void "should retry http backend deletion on 400, 412, succeed on 404"() {
+  void "should retry http backend deletion on 400, 412, sock timeout, succeed on 404"() {
     // Note: Implicitly tests GCEUtil.safeRetry
     setup:
       def computeMock = Mock(Compute)
@@ -361,6 +361,8 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
           new HttpHeaders()).setMessage("404 Not Found")
       def notFoundException = new GoogleJsonResponseException(httpResponseExceptionBuilder, details)
 
+      def socketTimeoutException = new SocketTimeoutException("Read timed out")
+
       def bs = isRegional ?
           new BackendService(backends: lbNames.collect { new Backend(group: GCEUtil.buildZonalServerGroupUrl(PROJECT_NAME, ZONE, serverGroup.name)) }) :
           new BackendService(backends: lbNames.collect { new Backend(group: GCEUtil.buildRegionalServerGroupUrl(PROJECT_NAME, REGION, serverGroup.name)) })
@@ -380,6 +382,13 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
     then:
       1 * backendUpdateMock.execute() >> { throw fingerPrintException }
+      2 * computeMock.backendServices() >> backendServicesMock
+      1 * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
+      1 * backendSvcGetMock.execute() >> bs
+      1 * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
+
+    then:
+      1 * backendUpdateMock.execute() >> { throw socketTimeoutException }
       2 * computeMock.backendServices() >> backendServicesMock
       1 * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
       1 * backendSvcGetMock.execute() >> bs

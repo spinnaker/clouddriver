@@ -24,7 +24,6 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.http.HttpHeaders
 import com.google.api.client.http.HttpRequest
 import com.google.api.client.http.HttpRequestInitializer
-import com.google.api.client.http.HttpResponseException
 import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.*
 import com.google.common.annotations.VisibleForTesting
@@ -35,7 +34,6 @@ import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDe
 import com.netflix.spinnaker.clouddriver.google.deploy.description.UpsertGoogleLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.description.UpsertGoogleSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationException
-import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationTimedOutException
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.google.deploy.ops.loadbalancer.UpsertGoogleHttpLoadBalancerAtomicOperation
 import com.netflix.spinnaker.clouddriver.google.model.*
@@ -941,7 +939,7 @@ class GCEUtil {
     try {
       task.updateStatus phase, "Attempting $action of $resource..."
       operation()
-    } catch (GoogleJsonResponseException | GoogleOperationTimedOutException _) {
+    } catch (GoogleJsonResponseException | SocketTimeoutException _) {
       log.warn "Initial $action of $resource failed, retrying..."
 
       int tries = 1
@@ -964,7 +962,7 @@ class GCEUtil {
             throw jsonException
           }
           lastSeenException = jsonException
-        } catch (GoogleOperationTimedOutException toEx) {
+        } catch (SocketTimeoutException toEx) {
           log.warn "Retry $action timed out again, trying again..."
           lastSeenException = toEx
         }
@@ -980,7 +978,7 @@ class GCEUtil {
           throw new GoogleOperationException("Failed to $action $resource after #$tries."
             + " Last seen exception has status code ${lastSeenException.getStatusCode()} with message ${lastSeenException.getMessage()}.")
         }
-      } else if (lastSeenException && lastSeenException instanceof GoogleOperationTimedOutException) {
+      } else if (lastSeenException && lastSeenException instanceof SocketTimeoutException) {
         throw new GoogleOperationException("Failed to $action $resource after #$tries."
           + " Last operation timed out.")
       } else {
