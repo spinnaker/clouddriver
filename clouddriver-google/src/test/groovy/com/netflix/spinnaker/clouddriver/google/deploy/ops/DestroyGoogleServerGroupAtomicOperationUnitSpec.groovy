@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
+import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.DestroyGoogleServerGroupDescription
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
@@ -58,7 +59,7 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
     TaskRepository.threadLocalTask.set(Mock(Task))
 
     // Yes this can affect other tests; but only in a good way.
-    GCEUtil.SAFE_RETRY_INTERVAL_MILLIS = 1
+    SafeRetry.SAFE_RETRY_INTERVAL_MILLIS = 1
   }
 
   void "should delete managed instance group"() {
@@ -281,8 +282,8 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
   }
 
   @Unroll
-  void "should retry http backend deletion on 400, 412, sock timeout, succeed on 404"() {
-    // Note: Implicitly tests GCEUtil.safeRetry
+  void "should retry http backend deletion on 400, 412, socket timeout, succeed on 404"() {
+    // Note: Implicitly tests SafeRetry.doRetry
     setup:
       def computeMock = Mock(Compute)
       def backendServicesMock = Mock(Compute.BackendServices)
