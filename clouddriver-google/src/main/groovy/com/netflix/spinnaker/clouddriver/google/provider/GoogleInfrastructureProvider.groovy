@@ -62,17 +62,6 @@ class GoogleInfrastructureProvider extends AgentSchedulerAware implements Search
     return Keys.parse(key)
   }
 
-  private static class HttpHealthCheckResultHydrator implements SearchableProvider.SearchResultHydrator {
-
-    @Override
-    Map<String, String> hydrateResult(Cache cacheView, Map<String, String> result, String id) {
-      CacheData healthCheckCacheData = cacheView.get(HTTP_HEALTH_CHECKS.ns, id)
-      return result + [
-        httpHealthCheck: JsonOutput.toJson(healthCheckCacheData.attributes.httpHealthCheck)
-      ]
-    }
-  }
-
   private static class BackendServiceResultHydrator implements SearchableProvider.SearchResultHydrator {
 
     @Override
@@ -80,6 +69,17 @@ class GoogleInfrastructureProvider extends AgentSchedulerAware implements Search
       CacheData backendService  = cacheView.get(BACKEND_SERVICES.ns, id)
       return result + [
           healthCheckLink: backendService.attributes.healthCheckLink as String
+      ]
+    }
+  }
+
+  private static class HttpHealthCheckResultHydrator implements SearchableProvider.SearchResultHydrator {
+
+    @Override
+    Map<String, String> hydrateResult(Cache cacheView, Map<String, String> result, String id) {
+      CacheData healthCheckCacheData = cacheView.get(HTTP_HEALTH_CHECKS.ns, id)
+      return result + [
+        httpHealthCheck: JsonOutput.toJson(healthCheckCacheData.attributes.httpHealthCheck)
       ]
     }
   }
