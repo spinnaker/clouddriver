@@ -25,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RestController
 
-@PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ')")
 @RestController
 @RequestMapping("/applications/{application}/loadBalancers")
 class LoadBalancerController {
@@ -33,6 +32,7 @@ class LoadBalancerController {
   @Autowired
   List<LoadBalancerProvider> loadBalancerProviders
 
+  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ')")
   @RequestMapping(method = RequestMethod.GET)
   Set<LoadBalancer> list(@PathVariable String application) {
     ((List<LoadBalancer>) loadBalancerProviders.findResults {

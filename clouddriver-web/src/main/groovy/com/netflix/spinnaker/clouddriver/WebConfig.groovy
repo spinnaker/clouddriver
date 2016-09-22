@@ -82,11 +82,9 @@ public class WebConfig extends WebMvcConfigurerAdapter {
 
   @ControllerAdvice
   static class AccessDeniedExceptionHanlder {
-
     @ExceptionHandler(AccessDeniedException)
     public void handle(HttpServletResponse response, AccessDeniedException ex) {
       response.sendError(HttpServletResponse.SC_FORBIDDEN, ex.getMessage())
     }
   }
-
 }

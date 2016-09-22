@@ -28,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.MessageSource
 import org.springframework.context.i18n.LocaleContextHolder
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PostAuthorize
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 
@@ -44,9 +45,10 @@ class ClusterController {
   @Autowired
   MessageSource messageSource
 
-  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ')")
+  @PreAuthorize("@fiatPermissionEvaluator.storeWholePermission() and hasPermission(#application, 'APPLICATION', 'READ')")
+  @PostAuthorize("@authorizationSupport.filterForAccounts(returnObject)")
   @RequestMapping(method = RequestMethod.GET)
-  Map<String, Set<String>> list(@PathVariable String application) {
+  Map<String, Set<String>> listByAccount(@PathVariable String application) {
     def apps = ((List<Application>) applicationProviders.collectMany {
       [it.getApplication(application)] ?: []
     }).findAll().sort { a, b -> a.name.toLowerCase() <=> b.name.toLowerCase() }
