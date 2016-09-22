@@ -169,6 +169,7 @@ class OperationsController {
         )
         if (validator) {
           validator.validate(descriptions, description, errors)
+          validator.authorize(description, errors)
         }
 
         allowedAccountValidators.each {
