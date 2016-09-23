@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.security.resources
+package com.netflix.spinnaker.clouddriver.security.resources;
 
-import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 
 /**
- * Convenience trait for extracting application names from operation descriptions that have multiple
- * items conforming to the Frigga naming conventions. Examples include load balancers and instances.
+ * Convenience trait for extracting the account name from a credential, which all
+ * descriptions should have.
  */
-trait ResourcesNameable {
-  abstract Collection<String> getNames()
+public interface CredentialsNameable extends AccountNameable {
+  AccountCredentials getCredentials();
 
-  List<String> getApplications() {
-    return names.collect {
-      Names.parseName(it)?.app
-    }
+  @Override
+  default String getAccount() {
+    return getCredentials().getName();
   }
 }

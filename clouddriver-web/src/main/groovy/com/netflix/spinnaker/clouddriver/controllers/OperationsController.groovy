@@ -54,7 +54,7 @@ class OperationsController {
   @Autowired MessageSource messageSource
   @Autowired OrchestrationProcessor orchestrationProcessor
   @Autowired Registry registry
-  @Autowired Collection<AllowedAccountsValidator> allowedAccountValidators = []
+  @Autowired (required = false) Collection<AllowedAccountsValidator> allowedAccountValidators = []
   @Autowired (required = false) List<AtomicOperationDescriptionPreProcessor> atomicOperationDescriptionPreProcessors = []
   @Autowired AtomicOperationsRegistry atomicOperationsRegistry
 

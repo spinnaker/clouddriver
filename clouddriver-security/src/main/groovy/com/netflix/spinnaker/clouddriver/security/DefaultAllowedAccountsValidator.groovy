@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.discovery.converters.Auto
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
@@ -24,17 +25,11 @@ import org.springframework.stereotype.Component
 import org.springframework.validation.Errors
 
 @Slf4j
-@Component
-@ConditionalOnExpression('!${spinnaker.fiat.enabled:false}')
 class DefaultAllowedAccountsValidator implements AllowedAccountsValidator {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
 
-  private final AccountCredentialsProvider accountCredentialsProvider
-
   @Autowired
-  DefaultAllowedAccountsValidator(AccountCredentialsProvider accountCredentialsProvider) {
-    this.accountCredentialsProvider = accountCredentialsProvider
-  }
+  AccountCredentialsProvider accountCredentialsProvider
 
   @Override
   void validate(String user, Collection<String> allowedAccounts, Object description, Errors errors) {

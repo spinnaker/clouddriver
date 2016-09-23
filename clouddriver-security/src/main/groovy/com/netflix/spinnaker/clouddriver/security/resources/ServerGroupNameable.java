@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.security.resources
+package com.netflix.spinnaker.clouddriver.security.resources;
 
-import com.netflix.frigga.Names
+import com.netflix.frigga.Names;
 
 /**
  * Convenience trait for parsing the application name out of a description with a "serverGroupName"
  * property.
  */
-trait ServerGroupNameable implements ApplicationNameable {
-  abstract String getServerGroupName()
+public interface ServerGroupNameable extends ApplicationNameable {
+  String getServerGroupName();
 
   @Override
-  String getApplication() {
-    return Names.parseName(getServerGroupName()).app
+  default String getApplication() {
+    return Names.parseName(getServerGroupName()).getApp();
   }
 }
