@@ -22,6 +22,7 @@ import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.cache.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesCluster
@@ -40,6 +41,7 @@ import java.util.ArrayList
 
 @Component
 class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
+  private final KubernetesCloudProvider kubernetesCloudProvider
   private final Cache cacheView
   private final ObjectMapper objectMapper
 
@@ -47,7 +49,10 @@ class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
   KubernetesSecurityGroupProvider securityGroupProvider
 
   @Autowired
-  KubernetesClusterProvider(Cache cacheView, ObjectMapper objectMapper) {
+  KubernetesClusterProvider(KubernetesCloudProvider kubernetesCloudProvider,
+                            Cache cacheView,
+                            ObjectMapper objectMapper) {
+    this.kubernetesCloudProvider = kubernetesCloudProvider
     this.cacheView = cacheView
     this.objectMapper = objectMapper
   }
@@ -115,7 +120,7 @@ class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
       cluster.name = clusterKey.name
       if (includeDetails) {
         cluster.loadBalancers = clusterDataEntry.relationships[Keys.Namespace.LOAD_BALANCERS.ns]?.findResults { loadBalancers.get(it) }
-        cluster.serverGroups = serverGroups.get(cluster.name)
+        cluster.serverGroups = serverGroups[cluster.name]?.findAll { it.account == cluster.accountName } ?: []
       } else {
         cluster.loadBalancers = clusterDataEntry.relationships[Keys.Namespace.LOAD_BALANCERS.ns]?.collect { loadBalancerKey ->
           Map parts = Keys.parse(loadBalancerKey)
@@ -152,6 +157,7 @@ class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
       for (def container : serverGroup.deployDescription.containers) {
         imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
       }
+
       Map buildInfo = [images: imageList]
       serverGroup.buildInfo = buildInfo
       serverGroups[Names.parseName(serverGroup.name).cluster].add(serverGroup)
@@ -215,5 +221,10 @@ class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
     }
 
     return serverGroup
+  }
+
+  @Override
+  String getCloudProviderId() {
+    return kubernetesCloudProvider.id
   }
 }
