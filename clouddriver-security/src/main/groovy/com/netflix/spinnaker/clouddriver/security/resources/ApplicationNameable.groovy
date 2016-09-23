@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.security.resources
 
+/**
+ * Denotes an operation description operates on a specific application resource.
+ */
 interface ApplicationNameable {
   String getApplication()
 }

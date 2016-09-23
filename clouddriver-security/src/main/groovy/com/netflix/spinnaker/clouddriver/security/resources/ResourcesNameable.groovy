@@ -18,6 +18,10 @@ package com.netflix.spinnaker.clouddriver.security.resources
 
 import com.netflix.frigga.Names
 
+/**
+ * Convenience trait for extracting application names from operation descriptions that have multiple
+ * items conforming to the Frigga naming conventions. Examples include load balancers and instances.
+ */
 trait ResourcesNameable {
   abstract Collection<String> getNames()
 
