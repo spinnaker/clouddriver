@@ -64,7 +64,7 @@ class AmazonHealthIndicator implements HealthIndicator {
       } as Set<NetflixAmazonCredentials>
       for (NetflixAmazonCredentials credentials in amazonCredentials) {
         try {
-          def ec2 = amazonClientProvider.getAmazonEC2(credentials, "us-east-1")
+          def ec2 = amazonClientProvider.getAmazonEC2(credentials, credentials.getRegions().get(0).name)
           ec2.describeAccountAttributes()
         } catch (AmazonServiceException e) {
           throw new AmazonUnreachableException(e)
