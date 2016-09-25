@@ -18,6 +18,8 @@ package com.netflix.spinnaker.clouddriver.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.discovery.converters.Auto
+import com.netflix.spinnaker.clouddriver.security.resources.AccountNameable
+import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
@@ -32,7 +34,7 @@ class DefaultAllowedAccountsValidator implements AllowedAccountsValidator {
   AccountCredentialsProvider accountCredentialsProvider
 
   @Override
-  void validate(String user, Collection<String> allowedAccounts, Object description, Errors errors) {
+  void validate(String user, Collection<String> allowedAccounts, CredentialsNameable description, Errors errors) {
     if (!accountCredentialsProvider.all.find { it.requiredGroupMembership }) {
       // no accounts have group restrictions so no need to validate / log
       return
@@ -43,7 +45,7 @@ class DefaultAllowedAccountsValidator implements AllowedAccountsValidator {
      * - the account is not restricted (has no requiredGroupMembership)
      * - the user has been granted specific access (has the target account in its set of allowed accounts)
      */
-    if (description.hasProperty("credentials")) {
+    if (description) {
       if (description.credentials instanceof Collection) {
         description.credentials.each { AccountCredentials credentials ->
           validateTargetAccount(credentials, allowedAccounts, description, user, errors)
@@ -52,7 +54,7 @@ class DefaultAllowedAccountsValidator implements AllowedAccountsValidator {
         validateTargetAccount(description.credentials, allowedAccounts, description, user, errors)
       }
     } else {
-      errors.rejectValue("credentials", "missing", "no credentials found in description: ${description.class.simpleName})")
+      errors.rejectValue("credentials", "missing", "no credentials found in description: ${description?.class?.simpleName})")
     }
   }
 

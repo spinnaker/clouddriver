@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.security
 
+import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable
 import org.springframework.validation.Errors
 
 interface AllowedAccountsValidator {
@@ -24,5 +25,5 @@ interface AllowedAccountsValidator {
    *
    * If not authorized, an appropriate rejection should be added to <code>errors</code>.
    */
-  void validate(String user, Collection<String> allowedAccounts, Object description, Errors errors)
+  void validate(String user, Collection<String> allowedAccounts, CredentialsNameable description, Errors errors)
 }

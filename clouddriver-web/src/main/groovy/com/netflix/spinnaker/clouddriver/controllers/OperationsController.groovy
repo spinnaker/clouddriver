@@ -29,6 +29,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationsRegistry
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationDescriptionPreProcessor
 import com.netflix.spinnaker.clouddriver.orchestration.OrchestrationProcessor
 import com.netflix.spinnaker.clouddriver.security.AllowedAccountsValidator
+import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable
 import com.netflix.spinnaker.security.AuthenticatedRequest
 import groovy.transform.Canonical
 import org.springframework.beans.factory.annotation.Autowired
@@ -173,7 +174,7 @@ class OperationsController {
         }
 
         allowedAccountValidators.each {
-          it.validate(username, allowedAccounts, description, errors)
+          it.validate(username, allowedAccounts, description as CredentialsNameable, errors)
         }
 
         AtomicOperation atomicOperation = converter.convertOperation(v)
