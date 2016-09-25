@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.security
 
+import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable
 import org.springframework.validation.Errors
 import spock.lang.Shared
 import spock.lang.Specification
@@ -134,7 +135,7 @@ class DefaultAllowedAccountsValidatorSpec extends Specification {
     })
 
     when:
-    validator.validate("TestAccount", [], new InvalidDescription(), errors)
+    validator.validate("TestAccount", [], null, errors)
 
     then:
     1 * errors.rejectValue("credentials", "missing", _)
@@ -149,7 +150,7 @@ class DefaultAllowedAccountsValidatorSpec extends Specification {
     List<String> requiredGroupMembership
   }
 
-  static class TestDescription {
+  static class TestDescription implements CredentialsNameable {
     TestAccountCredentials credentials
   }
 
