@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.azure.resources.common
 
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
+import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable
 
 class AzureResourceOpsDescription {
   String name
