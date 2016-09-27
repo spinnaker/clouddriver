@@ -63,7 +63,12 @@ import static java.util.Objects.requireNonNull;
  */
 public class AmazonClientProvider {
 
-  public static final String DEFAULT_REGION = null;
+  public static final String DEFAULT_REGION;
+
+  static {
+    final Region currentRegion = Regions.getCurrentRegion();
+    DEFAULT_REGION = currentRegion == null ? null : currentRegion.getName();
+  }
 
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
