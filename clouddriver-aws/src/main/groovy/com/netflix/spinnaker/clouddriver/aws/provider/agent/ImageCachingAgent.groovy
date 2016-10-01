@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.agent
 
+import com.amazonaws.services.ec2.model.DescribeImagesRequest
+import com.amazonaws.services.ec2.model.Filter
 import com.amazonaws.services.ec2.model.Image
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -73,7 +75,7 @@ class ImageCachingAgent implements CachingAgent, AccountAware, DriftMetric {
 
   @Override
   String getAgentType() {
-    return "${account.name}/${region}/${ImageCachingAgent.simpleName}"
+    return "${account.name}/${region}/${ImageCachingAgent.simpleName}/${includePublicImages}"
   }
 
   @Override
@@ -91,7 +93,11 @@ class ImageCachingAgent implements CachingAgent, AccountAware, DriftMetric {
     log.info("Describing items in ${agentType}")
     def amazonEC2 = amazonClientProvider.getAmazonEC2(account, region)
 
-    List<Image> images = amazonEC2.describeImages().images
+    List<Image> images = amazonEC2.describeImages(
+      new DescribeImagesRequest().withFilters(
+        new Filter("is-public").withValues(String.valueOf(includePublicImages))
+      )
+    ).images
     Long start = null
     if (account.eddaEnabled) {
       start = amazonClientProvider.lastModified ?: 0
@@ -101,17 +107,15 @@ class ImageCachingAgent implements CachingAgent, AccountAware, DriftMetric {
     Collection<CacheData> namedImageCacheData = new ArrayList<>(images.size())
 
     for (Image image : images) {
-      if (includePublicImages || !image.public) {
-        Map<String, Object> attributes = objectMapper.convertValue(image, ATTRIBUTES)
-        def imageId = Keys.getImageKey(image.imageId, account.name, region)
-        def namedImageId = Keys.getNamedImageKey(account.name, image.name)
-        imageCacheData.add(new DefaultCacheData(imageId, attributes, [(NAMED_IMAGES.ns): [namedImageId]]))
-        namedImageCacheData.add(new DefaultCacheData(namedImageId, [
-          name              : image.name,
-          virtualizationType: image.virtualizationType,
-          creationDate      : image.creationDate
-        ], [(IMAGES.ns): [imageId]]))
-      }
+      Map<String, Object> attributes = objectMapper.convertValue(image, ATTRIBUTES)
+      def imageId = Keys.getImageKey(image.imageId, account.name, region)
+      def namedImageId = Keys.getNamedImageKey(account.name, image.name)
+      imageCacheData.add(new DefaultCacheData(imageId, attributes, [(NAMED_IMAGES.ns): [namedImageId]]))
+      namedImageCacheData.add(new DefaultCacheData(namedImageId, [
+        name              : image.name,
+        virtualizationType: image.virtualizationType,
+        creationDate      : image.creationDate
+      ], [(IMAGES.ns): [imageId]]))
     }
 
     recordDrift(start)
