@@ -107,6 +107,8 @@ aws:
         - name: us-east-1
 ````
 
+!!! If your `accountId`  starts with a `0` you have to add quotes to it like : `012345678901` !!! 
+
 In the AWS provider section of your spinnaker config update `providers.aws.primaryCredentials.name` to match the name of the managing account.
 
 Once the credentials are configured, they will show up at the `/credentials` endpoint.
