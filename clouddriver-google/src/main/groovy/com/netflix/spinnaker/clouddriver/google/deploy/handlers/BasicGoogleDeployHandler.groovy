@@ -234,12 +234,16 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     // Update the instance metadata for ILBs and queue up region backend service calls.
     List<BackendService> regionBackendServicesToUpdate = []
     if (internalLoadBalancers) {
+      List<String> existingRegionalLbs = instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
       def ilbServices = internalLoadBalancers.collect { it.backendService.name }
-      def ilbNames = internalLoadBalancers.collect { it.name }.join(",")
+      def ilbNames = internalLoadBalancers.collect { it.name }
 
-      instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES] = instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES] ?
-        instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES] + ",$ilbNames" :
-        ilbNames
+      ilbNames.each { String ilbName ->
+        if (!(ilbName in existingRegionalLbs))  {
+          existingRegionalLbs << ilbName
+        }
+      }
+      instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES] = existingRegionalLbs.join(",")
 
       ilbServices.each { String backendServiceName ->
         BackendService backendService = compute.regionBackendServices().get(project, region, backendServiceName).execute()
