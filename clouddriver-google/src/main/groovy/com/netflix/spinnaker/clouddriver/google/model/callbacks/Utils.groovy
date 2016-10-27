@@ -137,6 +137,54 @@ class Utils {
     }
   }
 
+  static String getZoneFromGroupUrl(String fullUrl) {
+    if (!fullUrl) {
+      return fullUrl
+    }
+
+    def urlParts = fullUrl.split("/")
+
+    if (urlParts.length < 4) {
+      throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+    }
+
+    String regionsOrZones = urlParts[urlParts.length - 4]
+    switch (regionsOrZones) {
+      case "regions":
+        throw new IllegalFormatException("Can't parse a zone from regional group url ${fullUrl}.")
+        break
+      case "zones":
+        return urlParts[urlParts.length - 3]
+        break
+      default:
+        throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+        break
+    }
+  }
+
+  /**
+   * Determine if a server group is regional or zonal from the fullUrl.
+   * @param fullUrl
+   * @return 'regions' if regional, 'zones' if zonal.
+   */
+  static String determineServerGroupType(String fullUrl) {
+    if (!fullUrl) {
+      return fullUrl
+    }
+
+    def urlParts = fullUrl.split("/")
+
+    if (urlParts.length < 4) {
+      throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+    }
+
+    String regionsOrZones = urlParts[urlParts.length - 4]
+    if (regionsOrZones != 'regions' && regionsOrZones != 'zones') {
+      throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+    }
+    return regionsOrZones
+  }
+
   // TODO(duftler): Consolidate this method with the same one from kato/GCEUtil and move to a common library.
   static List<String> deriveNetworkLoadBalancerNamesFromTargetPoolUrls(List<String> targetPoolUrls) {
     if (targetPoolUrls) {
