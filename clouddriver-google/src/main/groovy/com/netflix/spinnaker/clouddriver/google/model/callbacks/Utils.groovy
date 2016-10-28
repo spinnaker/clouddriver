@@ -145,7 +145,7 @@ class Utils {
     def urlParts = fullUrl.split("/")
 
     if (urlParts.length < 4) {
-      throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+      throw new IllegalFormatException("Server group url ${fullUrl} malformed.")
     }
 
     String regionsOrZones = urlParts[urlParts.length - 4]
@@ -157,7 +157,7 @@ class Utils {
         return urlParts[urlParts.length - 3]
         break
       default:
-        throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+        throw new IllegalFormatException("Server group url ${fullUrl} malformed.")
         break
     }
   }
@@ -165,9 +165,9 @@ class Utils {
   /**
    * Determine if a server group is regional or zonal from the fullUrl.
    * @param fullUrl
-   * @return 'regions' if regional, 'zones' if zonal.
+   * @return Type of server group.
    */
-  static String determineServerGroupType(String fullUrl) {
+  static GoogleServerGroup.ServerGroupType determineServerGroupType(String fullUrl) {
     if (!fullUrl) {
       return fullUrl
     }
@@ -179,8 +179,16 @@ class Utils {
     }
 
     String regionsOrZones = urlParts[urlParts.length - 4]
-    if (regionsOrZones != 'regions' && regionsOrZones != 'zones') {
-      throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+    switch (regionsOrZones) {
+      case 'regions':
+        return GoogleServerGroup.ServerGroupType.REGIONAL
+        break
+      case 'zones':
+        return GoogleServerGroup.ServerGroupType.ZONAL
+        break
+      default:
+        throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+        break
     }
     return regionsOrZones
   }

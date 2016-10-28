@@ -64,10 +64,10 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
 
   /**
    * minimal command:
-   * curl -v -X POST -H "Content-Type: application/json" -d '[{ "upsertLoadBalancer": {"credentials": "my-google-account", "loadBalancerType": "HTTP", "loadBalancerName": "http-create", "portRange": "80", "defaultService": {"name": "default-backend-service", "backends": [], "healthCheck": {"name": "basic-check", "requestPath": "/", "port": 80, "checkIntervalSec": 1, "timeoutSec": 1, "healthyThreshold": 1, "unhealthyThreshold": 1}}, "certificate": "", "hostRules": [] }}]' localhost:7002/gce/ops
+   * curl -v -X POST -H "Content-Type: application/json" -d '[{ "upsertLoadBalancer": {"credentials": "my-google-account", "loadBalancerType": "HTTP", "loadBalancerName": "http-create", "portRange": "80", "backendServiceDiff": [], "defaultService": {"name": "default-backend-service", "backends": [], "healthCheck": {"name": "basic-check", "requestPath": "/", "port": 80, "checkIntervalSec": 1, "timeoutSec": 1, "healthyThreshold": 1, "unhealthyThreshold": 1}}, "certificate": "", "hostRules": [] }}]' localhost:7002/gce/ops
    *
    * full command:
-   * curl -v -X POST -H "Content-Type: application/json" -d '[{ "upsertLoadBalancer": {"credentials": "my-google-account", "loadBalancerType": "HTTP", "loadBalancerName": "http-create", "portRange": "80", "defaultService": {"name": "default-backend-service", "backends": [], "healthCheck": {"name": "basic-check", "requestPath": "/", "port": 80, "checkIntervalSec": 1, "timeoutSec": 1, "healthyThreshold": 1, "unhealthyThreshold": 1}}, "certificate": "", "hostRules": [{"hostPatterns": ["host1.com", "host2.com"], "pathMatcher": {"pathRules": [{"paths": ["/path", "/path2/more"], "backendService": {"name": "backend-service", "backends": [], "healthCheck": {"name": "health-check", "requestPath": "/", "port": 80, "checkIntervalSec": 1, "timeoutSec": 1, "healthyThreshold": 1, "unhealthyThreshold": 1}}}], "defaultService": {"name": "pm-backend-service", "backends": [], "healthCheck": {"name": "derp-check", "requestPath": "/", "port": 80, "checkIntervalSec": 1, "timeoutSec": 1, "healthyThreshold": 1, "unhealthyThreshold": 1}}}}]}}]' localhost:7002/gce/ops
+   * curl -v -X POST -H "Content-Type: application/json" -d '[{ "upsertLoadBalancer": {"credentials": "my-google-account", "loadBalancerType": "HTTP", "loadBalancerName": "http-create", "portRange": "80", "backendServiceDiff": [], "defaultService": {"name": "default-backend-service", "backends": [], "healthCheck": {"name": "basic-check", "requestPath": "/", "port": 80, "checkIntervalSec": 1, "timeoutSec": 1, "healthyThreshold": 1, "unhealthyThreshold": 1}}, "certificate": "", "hostRules": [{"hostPatterns": ["host1.com", "host2.com"], "pathMatcher": {"pathRules": [{"paths": ["/path", "/path2/more"], "backendService": {"name": "backend-service", "backends": [], "healthCheck": {"name": "health-check", "requestPath": "/", "port": 80, "checkIntervalSec": 1, "timeoutSec": 1, "healthyThreshold": 1, "unhealthyThreshold": 1}}}], "defaultService": {"name": "pm-backend-service", "backends": [], "healthCheck": {"name": "derp-check", "requestPath": "/", "port": 80, "checkIntervalSec": 1, "timeoutSec": 1, "healthyThreshold": 1, "unhealthyThreshold": 1}}}}]}}]' localhost:7002/gce/ops
    *
    * @param description
    * @param priorOutputs
@@ -284,7 +284,6 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
         googleOperationPoller.waitForGlobalOperation(compute, project, insertBackendServiceOperation.getName(),
           null, task, "backend service " + backendServiceName, BASE_PHASE)
       } else if (serviceExistsSet.contains(backendService.name)) {
-
         // Update the actual backend service if necessary.
         if (serviceNeedsUpdatedSet.contains(backendService.name)) {
           task.updateStatus BASE_PHASE, "Updating backend service $backendServiceName..."
@@ -302,6 +301,10 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
 
         fixBackendMetadata(compute, description.credentials, project, atomicOperationsRegistry, orchestrationProcessor, description.loadBalancerName, backendService)
       }
+    }
+
+    description?.backendServiceDiff?.each { GoogleBackendService backendService ->
+      fixBackendMetadata(compute, description.credentials, project, atomicOperationsRegistry, orchestrationProcessor, description.loadBalancerName, backendService)
     }
 
     // UrlMap
@@ -483,17 +486,17 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
                                          AtomicOperationsRegistry atomicOperationsRegistry,
                                          OrchestrationProcessor orchestrationProcessor,
                                          String loadBalancerName,
-                                         GoogleBackendService backendService)  {
+                                         GoogleBackendService backendService) {
     backendService.backends.each { GoogleLoadBalancedBackend backend ->
       def groupName = Utils.getLocalName(backend.serverGroupUrl)
       def groupRegion = Utils.getRegionFromGroupUrl(backend.serverGroupUrl)
 
       String templateUrl = null
       switch (Utils.determineServerGroupType(backend.serverGroupUrl)) {
-        case 'regions':
+        case GoogleServerGroup.ServerGroupType.REGIONAL:
           templateUrl = compute.regionInstanceGroupManagers().get(project, groupRegion, groupName).execute().getInstanceTemplate()
           break
-        case 'zones':
+        case GoogleServerGroup.ServerGroupType.ZONAL:
           def groupZone = Utils.getZoneFromGroupUrl(backend.serverGroupUrl)
           templateUrl = compute.instanceGroupManagers().get(project, groupZone, groupName).execute().getInstanceTemplate()
           break
