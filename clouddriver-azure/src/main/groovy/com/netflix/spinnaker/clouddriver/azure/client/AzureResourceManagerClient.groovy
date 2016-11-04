@@ -246,10 +246,18 @@ class AzureResourceManagerClient extends AzureBaseClient {
     Deployment deployment = new Deployment()
     deployment.setProperties(deploymentProperties)
 
-    return resourceManagementClient?.
-      getDeploymentsOperations()?.
-      createOrUpdate(resourceGroupName, deploymentName, deployment)?.
-      body
+    try {
+      return resourceManagementClient?.
+        getDeploymentsOperations()?.
+        createOrUpdate(resourceGroupName, deploymentName, deployment)?.
+        body
+    } catch (CloudException ce) {
+      log.error("Azure Deployment Error: ${ce.body.message}")
+    } catch (Exception e) {
+      log.error("Exception occured during deployment ${e.message}")
+    } finally {
+      log.info("Template Deployed: ${template}")
+    }
   }
 
   static String convertParametersToTemplateJSON(ObjectMapper mapper, Map<String, Object> sourceParameters) {
