@@ -29,6 +29,8 @@ import com.netflix.spinnaker.clouddriver.aws.model.AutoScalingProcessType
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetData
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetTarget
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
+import com.netflix.spinnaker.clouddriver.helpers.OperationPoller
+
 /**
  * A worker class dedicated to the deployment of "applications", following many of Netflix's common AWS conventions.
  *
@@ -213,12 +215,16 @@ class AutoScalingWorker {
     }
 
     def autoScaling = regionScopedProvider.autoScaling
-    autoScaling.createAutoScalingGroup(request)
-    if (suspendedProcesses) {
-      autoScaling.suspendProcesses(new SuspendProcessesRequest(autoScalingGroupName: asgName, scalingProcesses: suspendedProcesses))
-    }
-    autoScaling.updateAutoScalingGroup(new UpdateAutoScalingGroupRequest(autoScalingGroupName: asgName,
-      minSize: minInstances, maxSize: maxInstances, desiredCapacity: desiredInstances))
+    OperationPoller.retryWithBackoff({ o -> autoScaling.createAutoScalingGroup(request) })
+    OperationPoller.retryWithBackoff({ o ->
+      if (suspendedProcesses) {
+        autoScaling.suspendProcesses(new SuspendProcessesRequest(autoScalingGroupName: asgName, scalingProcesses: suspendedProcesses))
+      }
+    })
+    OperationPoller.retryWithBackoff({ o ->
+      autoScaling.updateAutoScalingGroup(new UpdateAutoScalingGroupRequest(autoScalingGroupName: asgName,
+        minSize: minInstances, maxSize: maxInstances, desiredCapacity: desiredInstances))
+    })
 
     asgName
   }

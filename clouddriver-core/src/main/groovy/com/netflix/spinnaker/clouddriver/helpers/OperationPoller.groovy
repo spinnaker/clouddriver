@@ -62,6 +62,10 @@ class OperationPoller {
         pollOperation(operation, ifDone, getTimeout(timeoutSeconds)), task, resourceString, basePhase)
   }
 
+  static void retryWithBackoff(Function operation) {
+    retryWithBackoff(operation, 200, 5)
+  }
+
   static void retryWithBackoff(Function operation, long backOff, int maxRetries) {
     int retries = 0
     boolean succeeded = false
