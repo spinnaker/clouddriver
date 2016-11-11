@@ -42,7 +42,7 @@ class GoogleInstanceHealth {
         case STAGING:
           return HealthState.Starting
         case RUNNING:
-          return HealthState.Unknown
+          return HealthState.Up
         default:
           return HealthState.Down
       }
