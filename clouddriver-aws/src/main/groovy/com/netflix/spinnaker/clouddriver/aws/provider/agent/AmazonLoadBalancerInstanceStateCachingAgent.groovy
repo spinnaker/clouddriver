@@ -20,6 +20,7 @@ import com.amazonaws.services.elasticloadbalancing.model.DescribeInstanceHealthR
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerNotFoundException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.google.common.util.concurrent.RateLimiter
 import com.netflix.spinnaker.cats.agent.AccountAware
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
@@ -37,6 +38,8 @@ import com.netflix.spinnaker.clouddriver.aws.model.edda.LoadBalancerInstance
 import com.netflix.spinnaker.clouddriver.aws.model.edda.LoadBalancerInstanceState
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent
+import com.netflix.spinnaker.clouddriver.limits.ServiceLimitConfiguration
+import com.netflix.spinnaker.clouddriver.limits.ServiceLimitConfiguration.ServiceLimits
 import groovy.util.logging.Slf4j
 import org.springframework.context.ApplicationContext
 
@@ -51,7 +54,8 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent,Health
   final String region
   final ObjectMapper objectMapper
   final ApplicationContext ctx
-
+  final static serviceCall = "awsElbInstanceHealth"
+  final ServiceLimits serviceLimits
   private Cache cacheView
   final static String healthId = "aws-load-balancer-instance-health"
 
@@ -59,12 +63,15 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent,Health
   AmazonLoadBalancerInstanceStateCachingAgent(AmazonClientProvider amazonClientProvider,
                                               NetflixAmazonCredentials account, String region,
                                               ObjectMapper objectMapper,
-                                              ApplicationContext ctx) {
+                                              ApplicationContext ctx,
+                                              ServiceLimitConfiguration serviceLimitConfiguration
+                                              ) {
     this.amazonClientProvider = amazonClientProvider
     this.account = account
     this.region = region
     this.objectMapper = objectMapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     this.ctx = ctx
+    this.serviceLimits = serviceLimitConfiguration.serviceLimits?."${serviceCall}"
   }
 
   @Override
@@ -103,8 +110,11 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent,Health
 
     Collection<CacheData> lbHealths = []
     Collection<CacheData> instances = []
+    def apiRequestRateLimiter = serviceLimits?.rateLimit ? RateLimiter.create(serviceLimits.rateLimit) : null
+
     for (loadBalancerKey in loadBalancerKeys) {
       try {
+        apiRequestRateLimiter?.acquire()
         Map<String, String> idObj = Keys.parse(loadBalancerKey)
         def lbName = idObj.loadBalancer
         def result = loadBalancing.describeInstanceHealth(new DescribeInstanceHealthRequest(lbName))
