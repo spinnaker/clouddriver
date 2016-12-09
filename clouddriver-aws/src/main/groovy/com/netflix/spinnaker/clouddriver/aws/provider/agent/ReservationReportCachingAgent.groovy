@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.agent
 
+import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.ec2.model.DescribeAccountAttributesRequest
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest
 import com.fasterxml.jackson.annotation.JsonCreator
@@ -40,12 +41,12 @@ import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonReservationReport
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonReservationReport.OverallReservationDetail
+import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
-import com.netflix.spinnaker.clouddriver.aws.model.AmazonReservationReport
-import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
 import groovy.util.logging.Slf4j
 import org.springframework.context.ApplicationContext
@@ -268,7 +269,15 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
         def describeInstancesRequest = new DescribeInstancesRequest().withMaxResults(500)
         def allowedStates = ["pending", "running"] as Set<String>
         while (true) {
-          def result = amazonEC2.describeInstances(describeInstancesRequest)
+          def result
+          try {
+            result = amazonEC2.describeInstances(describeInstancesRequest)
+          } catch (AmazonServiceException e) {
+            // Don't bubble the error up or all accounts & regions will go uncached
+            log.error("Error while describing instances in ${credentials.name}:${region.name}", e)
+            break
+          }
+
           result.reservations.each {
             it.getInstances().each {
               if (!allowedStates.contains(it.state.name.toLowerCase())) {
