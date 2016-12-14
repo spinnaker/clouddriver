@@ -42,12 +42,12 @@ class EntityTags {
 
     @JsonAnyGetter
     Map<String,Object> attributes() {
-      return attributes;
+      return attributes
     }
 
     @JsonAnySetter
     void set(String name, Object value) {
-      attributes.put(name, value);
+      attributes.put(name, value)
     }
 
     String getEntityType() {
