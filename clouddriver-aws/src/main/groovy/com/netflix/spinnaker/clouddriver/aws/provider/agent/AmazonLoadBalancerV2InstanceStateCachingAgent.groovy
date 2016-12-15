@@ -36,6 +36,8 @@ import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent
+import com.netflix.spinnaker.clouddriver.limits.ServiceLimitConfiguration
+import com.netflix.spinnaker.clouddriver.limits.ServiceLimitConfiguration.ServiceLimits
 import groovy.util.logging.Slf4j
 
 import java.util.regex.Pattern
@@ -52,12 +54,16 @@ class AmazonLoadBalancerV2InstanceStateCachingAgent implements CachingAgent, Hea
   final String region
   final ObjectMapper objectMapper
   final static String healthId = "aws-load-balancer-v2-instance-health"
+  final static String serviceCall = "awsElbV2InstanceHealth"
+  final ServiceLimits serviceLimits
 
-  AmazonLoadBalancerV2InstanceStateCachingAgent(AmazonClientProvider amazonClientProvider, NetflixAmazonCredentials account, String region, ObjectMapper objectMapper) {
+
+  AmazonLoadBalancerV2InstanceStateCachingAgent(AmazonClientProvider amazonClientProvider, NetflixAmazonCredentials account, String region, ObjectMapper objectMapper, ServiceLimitConfiguration serviceLimitConfiguration) {
     this.amazonClientProvider = amazonClientProvider
     this.account = account
     this.region = region
     this.objectMapper = objectMapper
+    this.serviceLimits = serviceLimitConfiguration.serviceLimits?."$serviceCall"
   }
 
   @Override
@@ -81,7 +87,7 @@ class AmazonLoadBalancerV2InstanceStateCachingAgent implements CachingAgent, Hea
   }
 
   RateLimiter rateLimiter() {
-    return RateLimiter.create(2)
+    return RateLimiter.create(serviceLimits?.rateLimit ?: 2)
   }
 
   @Override

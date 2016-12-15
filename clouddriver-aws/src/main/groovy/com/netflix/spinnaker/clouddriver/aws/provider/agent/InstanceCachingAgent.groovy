@@ -23,6 +23,7 @@ import com.amazonaws.services.ec2.model.StateReason
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.google.common.util.concurrent.RateLimiter
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AccountAware
 import com.netflix.spinnaker.cats.agent.AgentDataType
@@ -33,6 +34,8 @@ import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
+import com.netflix.spinnaker.clouddriver.limits.ServiceLimitConfiguration
+import com.netflix.spinnaker.clouddriver.limits.ServiceLimitConfiguration.ServiceLimits
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
@@ -61,13 +64,16 @@ class InstanceCachingAgent implements CachingAgent, AccountAware, DriftMetric {
   final String region
   final ObjectMapper objectMapper
   final Registry registry
+  final static serviceCall = "awsEc2InstanceHealth"
+  final ServiceLimits serviceLimits
 
-  InstanceCachingAgent(AmazonClientProvider amazonClientProvider, NetflixAmazonCredentials account, String region, ObjectMapper objectMapper, Registry registry) {
+  InstanceCachingAgent(AmazonClientProvider amazonClientProvider, NetflixAmazonCredentials account, String region, ObjectMapper objectMapper, Registry registry, ServiceLimitConfiguration serviceLimitConfiguration) {
     this.amazonClientProvider = amazonClientProvider
     this.account = account
     this.region = region
     this.objectMapper = objectMapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     this.registry = registry
+    this.serviceLimits = serviceLimitConfiguration?.serviceLimits?."${serviceCall}"
   }
 
   @Override
@@ -103,13 +109,13 @@ class InstanceCachingAgent implements CachingAgent, AccountAware, DriftMetric {
   @Override
   CacheResult loadData(ProviderCache providerCache) {
     log.info("Describing items in ${agentType}")
-
     def amazonEC2 = amazonClientProvider.getAmazonEC2(account, region)
-
+    def apiRequestRateLimiter = serviceLimits?.rateLimit ?  RateLimiter.create(serviceLimits.rateLimit) : null
     Long start = null
     def request = new DescribeInstancesRequest().withMaxResults(500)
     List<Instance> awsInstances = []
     while (true) {
+      apiRequestRateLimiter?.acquire()
       def resp = amazonEC2.describeInstances(request)
       if (account.eddaEnabled) {
         start = amazonClientProvider.lastModified ?: 0

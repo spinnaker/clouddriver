@@ -21,6 +21,7 @@ import com.amazonaws.services.autoscaling.model.LaunchConfiguration
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.google.common.util.concurrent.RateLimiter
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AccountAware
 import com.netflix.spinnaker.cats.agent.AgentDataType
@@ -34,6 +35,8 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
+import com.netflix.spinnaker.clouddriver.limits.ServiceLimitConfiguration
+import com.netflix.spinnaker.clouddriver.limits.ServiceLimitConfiguration.ServiceLimits
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -54,13 +57,21 @@ class LaunchConfigCachingAgent implements CachingAgent, AccountAware, DriftMetri
   final String region
   final ObjectMapper objectMapper
   final Registry registry
+  final static serviceCall = "awsAsgDescribeLaunchConfigurations"
+  final ServiceLimits serviceLimits
 
-  LaunchConfigCachingAgent(AmazonClientProvider amazonClientProvider, NetflixAmazonCredentials account, String region, ObjectMapper objectMapper, Registry registry) {
+  LaunchConfigCachingAgent(AmazonClientProvider amazonClientProvider,
+                           NetflixAmazonCredentials account,
+                           String region,
+                           ObjectMapper objectMapper,
+                           Registry registry,
+                           ServiceLimitConfiguration serviceLimitConfiguration) {
     this.amazonClientProvider = amazonClientProvider
     this.account = account
     this.region = region
     this.objectMapper = objectMapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     this.registry = registry
+    this.serviceLimits = serviceLimitConfiguration.serviceLimits?."${serviceCall}"
   }
 
   @Override
@@ -87,11 +98,12 @@ class LaunchConfigCachingAgent implements CachingAgent, AccountAware, DriftMetri
   CacheResult loadData(ProviderCache providerCache) {
     log.info("Describing items in ${agentType}")
     def autoScaling = amazonClientProvider.getAutoScaling(account, region)
-
     Long start = null
     List<LaunchConfiguration> launchConfigs = []
     def request = new DescribeLaunchConfigurationsRequest()
+    def apiRequestRateLimiter = serviceLimits?.rateLimit ? RateLimiter.create(serviceLimits.rateLimit) : null
     while (true) {
+      apiRequestRateLimiter?.acquire()
       def resp = autoScaling.describeLaunchConfigurations(request)
       if (account.eddaEnabled) {
         start = amazonClientProvider.lastModified ?: 0

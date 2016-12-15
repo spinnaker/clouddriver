@@ -12,6 +12,16 @@ services:
   front50:
     baseUrl: http://localhost:8080
 
+#serviceLimits:
+#  awsAsgDescribeLaunchConfigurations:
+#    rateLimit: 2
+#  awsEc2InstanceHealth:
+#    rateLimit: 10
+#  awsElbInstanceHealth:
+#    rateLimit: 2
+#  awsElbV2InstanceHealth:
+#    rateLimit: 2
+
 swagger:
   enabled: true
   title: clouddriver
