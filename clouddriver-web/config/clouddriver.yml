@@ -283,10 +283,21 @@ openstack:
         pollInterval: ${OS_LBAAS_POLL_INTERVAL:5}
 
 kubernetes:
-  enabled: false
+  enabled: ${KUBERNETES_ENABLED:false}
+  accounts:
+    - name: my-kubernetes-account
+      dockerRegistries:
+        - accountName: ${providers.dockerRegistry.primaryCredentials.name}
 
 dockerRegistry:
-  enabled: ${DOCKER_REGISTRY_ENABLED:false}
+  enabled: ${KUBERNETES_ENABLED:false}
+  accounts:
+    - name: my-docker-registry-account
+      address: ${DOCKER_REGISTRY:https://index.docker.io/}
+      username: ${DOCKER_USERNAME:}
+      passwordFile: ${DOCKER_PASSWORD_FILE:}
+      repositories:
+        - ${DOCKER_REPOSITORY:library/nginx}
 
 titus:
   enabled: ${TITUS_ENABLED:false}
