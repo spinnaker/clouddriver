@@ -6,6 +6,8 @@ dependencies {
   compile spinnaker.dependency('frigga')
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootWeb')
+
+  testCompile("org.springframework.boot:spring-boot-starter-test")
 }
 
 // export tests for use in clouddriver-security

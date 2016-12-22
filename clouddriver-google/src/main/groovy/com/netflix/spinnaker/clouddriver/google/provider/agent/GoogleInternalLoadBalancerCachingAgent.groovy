@@ -91,10 +91,10 @@ class GoogleInternalLoadBalancerCachingAgent extends AbstractGoogleCachingAgent 
     )
     compute.forwardingRules().list(project, region).queue(forwardingRulesRequest, callback)
 
-    executeIfRequestsAreQueued(forwardingRulesRequest)
-    executeIfRequestsAreQueued(backendServiceRequest)
-    executeIfRequestsAreQueued(healthCheckRequest)
-    executeIfRequestsAreQueued(groupHealthRequest)
+    executeIfRequestsAreQueued(forwardingRulesRequest, "internalLoadBalancerCaching.forwardingRules")
+    executeIfRequestsAreQueued(backendServiceRequest, "internalLoadBalancerCaching.backendService")
+    executeIfRequestsAreQueued(healthCheckRequest, "internalLoadBalancerCaching.healthCheck")
+    executeIfRequestsAreQueued(groupHealthRequest, "internalLoadBalancerCaching.groupHealth")
 
     return loadBalancers
   }

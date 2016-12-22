@@ -148,9 +148,9 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
         compute.instanceGroupManagers().list(project, zone).queue(igmRequest, igmlCallback)
       }
     }
-    executeIfRequestsAreQueued(igmRequest)
-    executeIfRequestsAreQueued(instanceGroupsRequest)
-    executeIfRequestsAreQueued(autoscalerRequest)
+    executeIfRequestsAreQueued(igmRequest, "ZonalServerGroupCaching.igm")
+    executeIfRequestsAreQueued(instanceGroupsRequest, "ZonalServerGroupCaching.instanceGroups")
+    executeIfRequestsAreQueued(autoscalerRequest, "ZonalServerGroupCaching.autoscaler")
 
     serverGroups
   }

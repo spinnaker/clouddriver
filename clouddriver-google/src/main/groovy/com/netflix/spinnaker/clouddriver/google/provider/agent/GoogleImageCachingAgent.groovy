@@ -79,7 +79,7 @@ class GoogleImageCachingAgent extends AbstractGoogleCachingAgent {
     baseImageProjects.each {
       compute.images().list(it).queue(imageRequest, new AllImagesCallback<ImageList>(imageList: imageList))
     }
-    executeIfRequestsAreQueued(imageRequest)
+    executeIfRequestsAreQueued(imageRequest, "ImageCaching.image")
 
     imageList
   }

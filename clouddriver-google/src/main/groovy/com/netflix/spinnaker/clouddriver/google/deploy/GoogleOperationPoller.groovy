@@ -19,13 +19,18 @@ package com.netflix.spinnaker.clouddriver.google.deploy
 import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.Operation
 import com.google.common.annotations.VisibleForTesting
+import com.netflix.spectator.api.Id;
+import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationException
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationTimedOutException
 import org.springframework.beans.factory.annotation.Autowired
+import java.util.concurrent.TimeUnit;
 
 class GoogleOperationPoller {
+  static final String STARTED_METRIC_NAME = "google.operationPoller.started";
+  static final String METRIC_NAME = "google.operationPoller";
 
   // This only exists to facilitate testing.
   static class ThreadSleeper {
@@ -33,6 +38,9 @@ class GoogleOperationPoller {
       Thread.currentThread().sleep(seconds * 1000)
     }
   }
+
+  @Autowired
+  Registry registry
 
   @Autowired
   GoogleConfigurationProperties googleConfigurationProperties
@@ -48,23 +56,29 @@ class GoogleOperationPoller {
   // either state is DONE or |timeoutSeconds| is reached.
   Operation waitForZonalOperation(Compute compute, String projectName, String zone, String operationName,
                                   Long timeoutSeconds, Task task, String resourceString, String basePhase) {
+    registry.counter(STARTED_METRIC_NAME, "basePhase", basePhase, "scope", "zonal", "zone", zone).increment()
+    Id metricId = registry.createId(METRIC_NAME, "basePhase", basePhase, "scope", "zonal", "zone", zone)
     return handleFinishedAsyncOperation(
       waitForOperation({compute.zoneOperations().get(projectName, zone, operationName).execute()},
-        getTimeout(timeoutSeconds)), task, resourceString, basePhase)
+        metricId, getTimeout(timeoutSeconds)), task, resourceString, basePhase)
   }
 
   Operation waitForRegionalOperation(Compute compute, String projectName, String region, String operationName,
                                      Long timeoutSeconds, Task task, String resourceString, String basePhase) {
+    registry.counter(STARTED_METRIC_NAME, "basePhase", basePhase, "scope", "regional", "region", region).increment()
+    Id metricId = registry.createId(METRIC_NAME, "basePhase", basePhase, "scope", "regional", "region", region)
     return handleFinishedAsyncOperation(
         waitForOperation({compute.regionOperations().get(projectName, region, operationName).execute()},
-                         getTimeout(timeoutSeconds)), task, resourceString, basePhase)
+                         metricId, getTimeout(timeoutSeconds)), task, resourceString, basePhase)
   }
 
   Operation waitForGlobalOperation(Compute compute, String projectName, String operationName,
                                    Long timeoutSeconds, Task task, String resourceString, String basePhase) {
+    registry.counter(STARTED_METRIC_NAME, "basePhase", basePhase, "scope", "global").increment()
+    Id metricId = registry.createId(METRIC_NAME, "basePhase", basePhase, "scope", "global")
     return handleFinishedAsyncOperation(
         waitForOperation({compute.globalOperations().get(projectName, operationName).execute()},
-                         getTimeout(timeoutSeconds)), task, resourceString, basePhase)
+                         metricId, getTimeout(timeoutSeconds)), task, resourceString, basePhase)
   }
 
   private long getTimeout(Long timeoutSeconds) {
@@ -95,7 +109,8 @@ class GoogleOperationPoller {
     The timeoutSeconds parameter is really treated as a lower-bound. We will poll until the operation reaches a DONE
     state or until <em>at least</em> that many seconds have passed.
    */
-  private Operation waitForOperation(Closure<Operation> getOperation, long timeoutSeconds) {
+  private Operation waitForOperation(Closure<Operation> getOperation, Id metricId, long timeoutSeconds) {
+    long startNs = System.nanoTime();
     int totalTimePollingSeconds = 0
     boolean timeoutExceeded = false
 
@@ -111,10 +126,12 @@ class GoogleOperationPoller {
       Operation operation = safeRetry.doRetry(getOperation, "wait", "operation", null, null, [], []) as Operation
 
       if (operation.getStatus() == "DONE") {
+        registry.timer(metricId.withTag("status", "DONE")).record(System.nanoTime() - startNs, TimeUnit.NANOSECONDS);
         return operation
       }
 
       if (totalTimePollingSeconds > timeoutSeconds) {
+        registry.timer(metricId.withTag("status", "TIMEOUT")).record(System.nanoTime() - startNs, TimeUnit.NANOSECONDS);
         timeoutExceeded = true
       } else {
         // Update polling interval.

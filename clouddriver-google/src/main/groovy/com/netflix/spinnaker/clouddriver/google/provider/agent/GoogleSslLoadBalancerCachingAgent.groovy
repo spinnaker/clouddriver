@@ -94,11 +94,11 @@ class GoogleSslLoadBalancerCachingAgent extends AbstractGoogleCachingAgent imple
     )
     compute.globalForwardingRules().list(project).queue(forwardingRulesRequest, frCallback)
 
-    executeIfRequestsAreQueued(forwardingRulesRequest)
-    executeIfRequestsAreQueued(targetSslProxyRequest)
-    executeIfRequestsAreQueued(backendServiceRequest)
-    executeIfRequestsAreQueued(healthCheckRequest)
-    executeIfRequestsAreQueued(groupHealthRequest)
+    executeIfRequestsAreQueued(forwardingRulesRequest, "SslLoadBalancerCaching.forwardingRules")
+    executeIfRequestsAreQueued(targetSslProxyRequest, "SslLoadBalancerCaching.targetSslProxy")
+    executeIfRequestsAreQueued(backendServiceRequest, "SslLoadBalancerCaching.backendService")
+    executeIfRequestsAreQueued(healthCheckRequest, "SslLoadBalancerCaching.healthCheck")
+    executeIfRequestsAreQueued(groupHealthRequest, "SslLoadBalancerCaching.groupHealthCheck")
 
     loadBalancers
   }

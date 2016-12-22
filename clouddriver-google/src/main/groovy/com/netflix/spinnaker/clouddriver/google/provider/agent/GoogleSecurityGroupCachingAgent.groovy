@@ -25,6 +25,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
@@ -95,7 +96,9 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
   }
 
   List<Firewall> loadFirewalls() {
-    compute.firewalls().list(project).execute().items as List<Firewall>
+    GoogleExecutor.timeExecute(
+        compute.firewalls().list(project),
+        "compute.firewalls.list", TAG_SCOPE, SCOPE_GLOBAL).items as List<Firewall>
   }
 
   private CacheResult buildCacheResult(ProviderCache providerCache, List<Firewall> firewallList) {

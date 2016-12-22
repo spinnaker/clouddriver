@@ -21,6 +21,7 @@ import com.google.api.services.compute.model.HttpHealthCheck
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.provider.ProviderCache
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
@@ -53,7 +54,9 @@ class GoogleHttpHealthCheckCachingAgent extends AbstractGoogleCachingAgent {
   }
 
   List<HttpHealthCheck> loadHttpHealthChecks() {
-    compute.httpHealthChecks().list(project).execute().items as List
+    GoogleExecutor.timeExecute(
+        compute.httpHealthChecks().list(project),
+        "compute.httpHealthChecks.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
   }
 
   private CacheResult buildCacheResult(ProviderCache _, List<HttpHealthCheck> httpHealthCheckList) {

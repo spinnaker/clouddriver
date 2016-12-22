@@ -24,6 +24,7 @@ import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.consul.model.ConsulHealth
 import com.netflix.spinnaker.clouddriver.consul.provider.ConsulProviderUtils
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance
@@ -58,8 +59,9 @@ class GoogleInstanceCachingAgent extends AbstractGoogleCachingAgent {
     String pageToken = null
 
     while (true) {
-      InstanceAggregatedList instanceAggregatedList =
-        compute.instances().aggregatedList(project).setPageToken(pageToken).execute()
+      InstanceAggregatedList instanceAggregatedList = GoogleExecutor.timeExecute(
+          compute.instances().aggregatedList(project).setPageToken(pageToken),
+          "compute.instances.aggregatedList", TAG_SCOPE, SCOPE_GLOBAL)
 
       instances += transformInstances(instanceAggregatedList)
       pageToken = instanceAggregatedList.getNextPageToken()

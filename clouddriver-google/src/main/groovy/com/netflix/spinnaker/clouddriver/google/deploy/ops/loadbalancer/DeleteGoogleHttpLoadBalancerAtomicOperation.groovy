@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.google.deploy.ops.loadbalancer
 import com.google.api.services.compute.model.*
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
@@ -85,7 +86,9 @@ class DeleteGoogleHttpLoadBalancerAtomicOperation extends DeleteGoogleLoadBalanc
     // Start with the forwaring rule.
     task.updateStatus BASE_PHASE, "Retrieving global forwarding rule $forwardingRuleName..."
 
-    List<ForwardingRule> projectForwardingRules = compute.globalForwardingRules().list(project).execute().getItems()
+    List<ForwardingRule> projectForwardingRules = GoogleExecutor.timeExecute(
+        compute.globalForwardingRules().list(project),
+        "compute.globalForwardingRules.list", TAG_SCOPE, SCOPE_GLOBAL).getItems()
 
     ForwardingRule forwardingRule = projectForwardingRules.find { it.name == forwardingRuleName }
     if (!forwardingRule) {
@@ -117,7 +120,9 @@ class DeleteGoogleHttpLoadBalancerAtomicOperation extends DeleteGoogleLoadBalanc
     task.updateStatus BASE_PHASE, "Retrieving URL map $urlMapName..."
 
     // NOTE: This call is necessary because we cross-check backend services later.
-    UrlMapList mapList = compute.urlMaps().list(project).execute()
+    UrlMapList mapList = GoogleExecutor.timeExecute(
+        compute.urlMaps().list(project),
+        "compute.urlMaps.list", TAG_SCOPE, SCOPE_GLOBAL)
     List<UrlMap> projectUrlMaps = mapList.getItems()
 
     UrlMap urlMap = projectUrlMaps.find { it.name == urlMapName }
@@ -134,7 +139,9 @@ class DeleteGoogleHttpLoadBalancerAtomicOperation extends DeleteGoogleLoadBalanc
       def backendServiceName = GCEUtil.getLocalName(backendServiceUrl)
       task.updateStatus BASE_PHASE, "Retrieving backend service $backendServiceName..."
       BackendService backendService = safeRetry.doRetry(
-        { compute.backendServices().get(project, backendServiceName).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.backendServices().get(project, backendServiceName),
+              "compute.backendServices.get", TAG_SCOPE, SCOPE_GLOBAL) },
         'Get',
         "Backend service $backendServiceName",
         task,
@@ -162,7 +169,9 @@ class DeleteGoogleHttpLoadBalancerAtomicOperation extends DeleteGoogleLoadBalanc
 
     task.updateStatus BASE_PHASE, "Deleting URL map $urlMapName..."
     Operation deleteUrlMapOperation = safeRetry.doRetry(
-      { compute.urlMaps().delete(project, urlMapName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.urlMaps().delete(project, urlMapName),
+            "compute.urlMaps.delete", TAG_SCOPE, SCOPE_GLOBAL) },
       'Delete',
       "Url map $urlMapName",
       task,
@@ -180,7 +189,9 @@ class DeleteGoogleHttpLoadBalancerAtomicOperation extends DeleteGoogleLoadBalanc
     for (String backendServiceUrl : backendServiceUrls) {
       def backendServiceName = GCEUtil.getLocalName(backendServiceUrl)
       Operation deleteBackendServiceOp = GCEUtil.deleteIfNotInUse(
-        { compute.backendServices().delete(project, backendServiceName).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.backendServices().delete(project, backendServiceName),
+              "compute.backendServices.delete", TAG_SCOPE, SCOPE_GLOBAL) },
         "Backend service $backendServiceName",
         project,
         task,
@@ -207,7 +218,9 @@ class DeleteGoogleHttpLoadBalancerAtomicOperation extends DeleteGoogleLoadBalanc
       for (String healthCheckUrl : healthCheckUrls) {
         def healthCheckName = GCEUtil.getLocalName(healthCheckUrl)
         Operation deleteHealthCheckOp = GCEUtil.deleteIfNotInUse(
-          { compute.httpHealthChecks().delete(project, healthCheckName).execute() },
+          { GoogleExecutor.timeExecute(
+                compute.httpHealthChecks().delete(project, healthCheckName),
+                "compute.httpHealthChecks.delete", TAG_SCOPE, SCOPE_GLOBAL) },
           "Http health check $healthCheckName",
           project,
           task,

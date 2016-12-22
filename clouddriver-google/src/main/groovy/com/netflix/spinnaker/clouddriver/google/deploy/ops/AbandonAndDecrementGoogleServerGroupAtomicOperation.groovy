@@ -20,6 +20,7 @@ import com.google.api.services.compute.model.InstanceGroupManagersAbandonInstanc
 import com.google.api.services.compute.model.RegionInstanceGroupManagersAbandonInstancesRequest
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.description.AbandonAndDecrementGoogleServerGroupDescription
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
@@ -34,7 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired
  *
  * @see TerminateAndDecrementGoogleServerGroupAtomicOperation
  */
-class AbandonAndDecrementGoogleServerGroupAtomicOperation implements AtomicOperation<Void> {
+class AbandonAndDecrementGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Void> {
   private static final String BASE_PHASE = "ABANDON_AND_DEC_INSTANCES"
 
   private static Task getTask() {
@@ -77,12 +78,18 @@ class AbandonAndDecrementGoogleServerGroupAtomicOperation implements AtomicOpera
       def instanceGroupManagers = compute.regionInstanceGroupManagers()
       def abandonRequest = new RegionInstanceGroupManagersAbandonInstancesRequest().setInstances(instanceUrls)
 
-      instanceGroupManagers.abandonInstances(project, region, serverGroupName, abandonRequest).execute()
+      GoogleExecutor.timeExecute(
+          instanceGroupManagers.abandonInstances(project, region, serverGroupName, abandonRequest),
+          "compute.regionInstanceGroupManagers.abandonInstances",
+          TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
     } else {
       def instanceGroupManagers = compute.instanceGroupManagers()
       def abandonRequest = new InstanceGroupManagersAbandonInstancesRequest().setInstances(instanceUrls)
 
-      instanceGroupManagers.abandonInstances(project, zone, serverGroupName, abandonRequest).execute()
+      GoogleExecutor.timeExecute(
+          instanceGroupManagers.abandonInstances(project, zone, serverGroupName, abandonRequest),
+          "compute.instanceGroupManagers.abandonInstances",
+          TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
     }
 
     task.updateStatus BASE_PHASE, "Done abandoning and decrementing instances " +
