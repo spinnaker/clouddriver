@@ -41,6 +41,7 @@ swagger:
     - .*docker.*
     - .*job.*
     - .*process.*
+    - .*dcos.*
 
 default:
   # legacyServerPort is a non-ssl listener, if ssl is enabled. -1 to disable
@@ -268,6 +269,9 @@ cf:
 
 oraclebmcs:
   enabled: ${ORACLEBMCS_ENABLED:false}
+
+dcos:
+  enabled: false
 
 spring:
   jackson:
