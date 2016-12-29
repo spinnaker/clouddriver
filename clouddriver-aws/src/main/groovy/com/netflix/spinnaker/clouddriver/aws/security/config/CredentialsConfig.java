@@ -150,6 +150,7 @@ public class CredentialsConfig {
         private String assumeRole;
         private String sessionName;
         private List<LifecycleHook> lifecycleHooks;
+        private Integer maxSecurityGroupsPerInstance;
 
         public String getName() {
             return name;
@@ -301,6 +302,14 @@ public class CredentialsConfig {
 
         public void setLifecycleHooks(List<LifecycleHook> lifecycleHooks) {
           this.lifecycleHooks = lifecycleHooks;
+        }
+
+        public Integer getMaxSecurityGroupsPerInstance() {
+          return maxSecurityGroupsPerInstance;
+        }
+
+        public void setMaxSecurityGroupsPerInstance(Integer maxSecurityGroupsPerInstance) {
+          this.maxSecurityGroupsPerInstance = maxSecurityGroupsPerInstance;
         }
     }
 
