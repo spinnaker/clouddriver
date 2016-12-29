@@ -46,14 +46,6 @@ allprojects {
     }
   }
 
-  def localVersions = checkLocalVersions.findAll { it.value.endsWith('-SNAPSHOT') }
-  if (localVersions) {
-    logger.info("Enabling mavenLocal repo for $localVersions")
-    repositories {
-      mavenLocal()
-    }
-  }
-
   spinnaker {
     dependenciesVersion = spinnakerDependenciesVersion
   }
@@ -109,6 +101,8 @@ subprojects { project ->
           }
         }
       }
+
+      resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
     }
   }
 

@@ -1,0 +1,10 @@
+repositories {
+  maven { url "http://repo.aeon.cerner.corp/snapshot-repo" }
+}
+
+dependencies {
+  compile project(":clouddriver-core")
+  compile spinnaker.dependency('bootActuator')
+  compile spinnaker.dependency('bootWeb')
+  compile 'com.github.mohitsoni:marathon-client:0.4.3-SNAPSHOT'
+}
