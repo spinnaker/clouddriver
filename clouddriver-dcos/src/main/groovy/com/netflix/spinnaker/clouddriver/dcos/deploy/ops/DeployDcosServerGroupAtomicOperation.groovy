@@ -51,46 +51,42 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
 
   @Override
   DeploymentResult operate(List priorOutputs) {
-    HasMetadata serverGroup = deployDescription()
-    DeploymentResult deploymentResult = new DeploymentResult()
-    deploymentResult.serverGroupNames = Arrays.asList("${serverGroup.metadata.name}".toString())
-    return deploymentResult
-  }
-
-  HasMetadata deployDescription() {
-    task.updateStatus BASE_PHASE, "Initializing creation of replica set."
-    task.updateStatus BASE_PHASE, "Looking up provided namespace..."
+    task.updateStatus BASE_PHASE, "Initializing creation of application."
 
     def serverGroupNameResolver = new DcosServerGroupNameResolver(dcosClientProvider.getDcosClient(description.credentials), null)
 
     task.updateStatus BASE_PHASE, "Looking up next sequence index"
     def serverGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, "", "", false)
-    task.updateStatus BASE_PHASE, "Replica set name chosen to be ${serverGroupName}."
+    task.updateStatus BASE_PHASE, "Application name chosen to be ${serverGroupName}."
 
-    task.updateStatus BASE_PHASE, "Building replica set..."
-    def replicaSet = KubernetesApiConverter.toReplicaSet(new ReplicaSetBuilder(), description, serverGroupName)
-
-    if (KubernetesApiConverter.hasDeployment(description)) {
-      replicaSet.spec.replicas = 0
-    }
-
-    replicaSet = credentials.apiAdaptor.createReplicaSet(namespace, replicaSet)
+    task.updateStatus BASE_PHASE, "Building application..."
+//    def replicaSet = KubernetesApiConverter.toReplicaSet(new ReplicaSetBuilder(), description, serverGroupName)
+//
+//    if (KubernetesApiConverter.hasDeployment(description)) {
+//      replicaSet.spec.replicas = 0
+//    }
+//
+//    serverGroup = credentials.apiAdaptor.createReplicaSet(namespace, replicaSet)
 
     task.updateStatus BASE_PHASE, "Deployed service ${serverGroupName}"
 
-    if (KubernetesApiConverter.hasDeployment(description)) {
-      if (!credentials.apiAdaptor.getDeployment(namespace, clusterName)) {
-        task.updateStatus BASE_PHASE, "Building deployment..."
-        credentials.apiAdaptor.createDeployment(namespace, ((DeploymentBuilder) KubernetesApiConverter.toDeployment((DeploymentFluentImpl) new DeploymentBuilder(), description, replicaSetName)).build())
-      } else {
-        task.updateStatus BASE_PHASE, "Updating deployment..."
-        ((DoneableDeployment) KubernetesApiConverter.toDeployment((DeploymentFluentImpl) credentials.apiAdaptor.editDeployment(namespace, clusterName),
-          description,
-          replicaSetName)).done()
-      }
-      task.updateStatus BASE_PHASE, "Configured deployment"
-    }
+//    if (KubernetesApiConverter.hasDeployment(description)) {
+//      if (!credentials.apiAdaptor.getDeployment(namespace, clusterName)) {
+//        task.updateStatus BASE_PHASE, "Building deployment..."
+//        credentials.apiAdaptor.createDeployment(namespace, ((DeploymentBuilder) KubernetesApiConverter.toDeployment((DeploymentFluentImpl) new DeploymentBuilder(), description, replicaSetName)).build())
+//      } else {
+//        task.updateStatus BASE_PHASE, "Updating deployment..."
+//        ((DoneableDeployment) KubernetesApiConverter.toDeployment((DeploymentFluentImpl) credentials.apiAdaptor.editDeployment(namespace, clusterName),
+//          description,
+//          replicaSetName)).done()
+//      }
+//      task.updateStatus BASE_PHASE, "Configured deployment"
+//    }
 
-    return replicaSet
+    DeploymentResult deploymentResult = new DeploymentResult()
+
+    //deploymentResult.serverGroupNames = Arrays.asList("${serverGroup.metadata.name}".toString())
+
+    return deploymentResult
   }
 }

@@ -20,6 +20,7 @@ import java.text.SimpleDateFormat
 
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver
+import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver.TakenSlot
 
 import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
