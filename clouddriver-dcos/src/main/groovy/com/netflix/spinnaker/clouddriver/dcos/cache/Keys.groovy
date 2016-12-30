@@ -26,7 +26,6 @@ class Keys {
     IMAGES,
     SERVER_GROUPS,
     INSTANCES,
-    LOAD_BALANCERS,
     CLUSTERS,
     APPLICATIONS,
     HEALTH,
@@ -67,10 +66,6 @@ class Keys {
         break
       case Namespace.INSTANCES.ns:
         //TODO result << [id: parts[2]]
-        break
-      case Namespace.LOAD_BALANCERS.ns:
-        def names = Names.parseName(parts[4])
-        //TODO result << [application: parts[2].toLowerCase(), account: parts[3], cluster: parts[4], stack: names.stack, detail: names.detail]
         break
       case Namespace.CLUSTERS.ns:
         def names = Names.parseName(parts[4])
