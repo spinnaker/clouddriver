@@ -1,167 +1,131 @@
 # DC/OS Driver  Notes
 
-
 ## Atomic Operations
 
 We need to define what each of these means in terms of DC/OS constructs.  
-If we understand how Kubernetes implements these and how Kubernetes concepts map to
-DC/OS concepts that should get us started.  The assumption is that any of these that Kubernetes
+If we understand how Kubernetes/Titus implements these and how Kubernetes/Titus concepts map to
+DC/OS concepts that should get us started.  The assumption is that any of these that Kubernetes/Titus
 does not implement are unlikely to be needed by DC/OS as well.
-
 
 ### Server Group operations
 
 #### CLONE_SERVER_GROUP
-* Kubernetes: ?
-* DCOS: ?
+* Don't know that this is possible with DC/OS and Marathon.
 
 #### CREATE_SERVER_GROUP
-* Kubernetes: creates a ReplicaSet
-* DCOS: Create an application.
+* Create an application.
 
 #### DISABLE_SERVER_GROUP
-* Kubernetes: Disables a ReplicaSet
-* DCOS: Suspend an application.
+* Could potentially be a shortcut for suspending a service.
 
 #### ENABLE_SERVER_GROUP
-* Kubernetes: Enables a ReplicaSet
-* DCOS: ?
+* N/A
 
 #### DESTROY_SERVER_GROUP
-* Kubernetes: ?
-* DCOS: Destroy an application
+* Destroy an application
 
 #### RESIZE_SERVER_GROUP
-* Kubernetes: ?
-* DCOS: Scale up/down application
+* Scale up/down application
 
 #### UPSERT_SERVER_GROUP_TAGS
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 #### UPDATE_LAUNCH_CONFIG
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 #### UPSERT_SCALING_POLICY
-* Kubernetes: ?
-* DCOS: ?
+* If DCOS ever gets autoscaling support, this could be useful.
 
 #### DELETE_SCALING_POLICY
-* Kubernetes: ?
-* DCOS: ?
+* If DCOS ever gets autoscaling support, this could be useful.
 
 #### MIGRATE_SERVER_GROUP
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 #### MIGRATE_CLUSTER_CONFIGURATIONS
-* Kubernetes: ?
-* DCOS: ?
+* Given our plan for usage of DCOS, is this even worth looking into?
 
 
 ### Instance operations
 
 #### REBOOT_INSTANCES
-* Kubernetes: ?
-* DCOS: ?
+* Could be useful for OPS.
 
 #### TERMINATE_INSTANCES
-* Kubernetes: ?
-* DCOS: ?
+* Could be useful for OPS.
 
 #### TERMINATE_INSTANCE_AND_DECREMENT
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 #### ATTACH_CLASSIC_LINK_VPC
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 #### REGISTER_INSTANCES_WITH_LOAD_BALANCER
-* Kubernetes: ?
-* DCOS: ?
+* Since DC/OS does this for us using labels and such, not sure how useful this is.
 
 #### DEREGISTER_INSTANCES_FROM_LOAD_BALANCER
-* Kubernetes: ?
-* DCOS: ?
+* Since DC/OS does this for us using labels and such, not sure how useful this is.
 
 #### ENABLE_INSTANCES_IN_DISCOVERY
-* Kubernetes: ?
-* DCOS: ?
+* Could potentially be useful for Alva?
 
 #### DISABLE_INSTANCES_IN_DISCOVERY
-* Kubernetes: ?
-* DCOS: ?
+* Could potentially be useful for Alva?
 
 #### UPDATE_INSTANCES
-* Kubernetes: ?
-* DCOS: ?
+* Pretty sure we want deployments to be used to update anything.
 
 #### DETACH_INSTANCES
-* Kubernetes: ?
-* DCOS: ?
+* Could be useful for OPS.
 
 
 ### Load Balancer operations
 
 #### DELETE_LOAD_BALANCER
-* Kubernetes: ?
-* DCOS: ?
+* Since DC/OS does this for us using labels and such, not sure how useful this is.
 
 #### UPSERT_LOAD_BALANCER
-* Kubernetes: ?
-* DCOS: ?
+* Since DC/OS does this for us using labels and such, not sure how useful this is.
 
 #### MIGRATE_LOAD_BALANCER
-* Kubernetes: ?
-* DCOS: ?
+* Since DC/OS does this for us using labels and such, not sure how useful this is.
 
 
 ### Security Group operations
 
 #### DELETE_SECURITY_GROUP
-* Kubernetes: ?
-* DCOS: ?
+* Do we even care about security groups for DCOS?
 
 #### UPSERT_SECURITY_GROUP
-* Kubernetes: ?
-* DCOS: ?
+* Do we even care about security groups for DCOS?
 
 #### MIGRATE_SECURITY_GROUP
-* Kubernetes: ?
-* DCOS: ?
+* Do we even care about security groups for DCOS?
 
 
 ### JobStatus operations
 
 #### RUN_JOB
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 #### DESTROY_JOB
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 #### CLONE_JOB
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 
 ### Image operations
 
 #### UPSERT_IMAGE_TAGS
-* Kubernetes: ?
-* DCOS: ?
+* ?
 
 
 ### Snapshot operations
 
 #### SAVE_SNAPSHOT
-* Kubernetes: N/A
-* DCOS: N/A
+* N/A
 
 #### RESTORE_SNAPSHOT
-* Kubernetes: N/A
-* DCOS: N/A
+* N/A
 
