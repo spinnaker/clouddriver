@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.dcos.security
+package com.netflix.spinnaker.clouddriver.dcos
 
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
@@ -25,27 +25,24 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
   private static final String CLOUD_PROVIDER = Keys.PROVIDER
 
   final String name
-  final String group
   final String environment
   final String accountType
   final List<String> requiredGroupMembership = Collections.emptyList()
   final String registry
-  final String instance
+  final String dcosUrl
   final DCOSAuthCredentials dcosAuthCredentials
 
   DcosCredentials(String name,
-                  String group,
                   String environment,
                   String accountType,
-                  String instance,
+                  String dcosUrl,
                   String user,
                   String password) {
     this.name = name
-    this.group = group
     this.environment = environment
     this.accountType = accountType
     this.registry = registry
-    this.instance = instance
+    this.dcosUrl = dcosUrl
     this.dcosAuthCredentials = DCOSAuthCredentials.forUserAccount(user, password)
   }
 

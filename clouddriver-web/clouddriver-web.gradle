@@ -18,7 +18,9 @@ configurations.all {
 
 repositories {
   maven { url "http://adxsnapshots.azurewebsites.net" }
+  maven { url "http://repo.aeon.cerner.corp/snapshot-repo" }
 }
+
 
 dependencies {
   compile project(':clouddriver-titus')

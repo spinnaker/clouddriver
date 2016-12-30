@@ -17,7 +17,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.health
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import groovy.transform.InheritConstructors
 import org.springframework.boot.actuate.health.Health
@@ -61,7 +61,7 @@ class DcosHealthIndicator implements HealthIndicator {
       } as Set<DcosCredentials>
 
       for (DcosCredentials accountCredentials in dcosCredentialsSet) {
-        String pong = dcosClientProvider.getDcosClient(accountCredentials).ping()
+        String pong = dcosClientProvider.getDcosClient(accountCredentials).ping
 
         if ("pong" != pong) {
           throw new DcosIOException()
@@ -70,8 +70,6 @@ class DcosHealthIndicator implements HealthIndicator {
 
       lastException.set(null)
     } catch (Exception ex) {
-      LOG.warn "Unhealthy", ex
-
       lastException.set(ex)
     }
   }
