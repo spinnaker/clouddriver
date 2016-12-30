@@ -20,6 +20,7 @@ import com.netflix.frigga.Names
 
 class Keys {
   public static final PROVIDER = "dcos"
+  public static final DEFAULT_REGION = "default"
 
   static enum Namespace {
     IMAGES,
