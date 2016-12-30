@@ -62,6 +62,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
   @Override
   Set<Instance> getInstances() {
+    //TODO
     [] as Set
   }
 

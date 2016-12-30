@@ -62,9 +62,9 @@ class DcosInstance implements Instance {
     health
   }
 
-  boolean getIsHealthy() {
-    health ? health.any { it.state == 'Up' } && health.every { it.state == 'Up' || it.state == 'Unknown' } : false
-  }
+//  boolean getIsHealthy() {
+//    health ? health.any { it.state == 'Up' } && health.every { it.state == 'Up' || it.state == 'Unknown' } : false
+//  }
 
   private static boolean anyDown(List<Map<String, Object>> healthList) {
     healthList.any { it.state == HealthState.Down.toString() }

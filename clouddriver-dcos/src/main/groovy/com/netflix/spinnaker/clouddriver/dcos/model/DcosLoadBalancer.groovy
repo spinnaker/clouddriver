@@ -16,75 +16,49 @@
 
 package com.netflix.spinnaker.clouddriver.dcos.model
 
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
-import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiConverter
-import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.loadbalancer.KubernetesLoadBalancerDescription
+import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
-import groovy.transform.CompileStatic
-import groovy.transform.EqualsAndHashCode
-import io.fabric8.kubernetes.api.model.Service
-import io.fabric8.kubernetes.client.internal.SerializationUtils
 
-@CompileStatic
-@EqualsAndHashCode(includes = ["name", "namespace", "account"])
 class DcosLoadBalancer implements LoadBalancer, Serializable {
+  final String type = Keys.PROVIDER
+  final String cloudProvider = Keys.PROVIDER
   String name
-  final String type = KubernetesCloudProvider.ID
-  final String cloudProvider = KubernetesCloudProvider.ID
-  String region
-  String namespace
   String account
-  Long createdTime
-  Service service
-  String yaml
-  // Set of server groups represented as maps of strings -> objects.
   Set<LoadBalancerServerGroup> serverGroups = [] as Set
-  List<String> securityGroups = []
-  KubernetesLoadBalancerDescription description
 
-  DcosLoadBalancer(String name, String namespace, String accountName) {
+  DcosLoadBalancer(String name, String account) {
     this.name = name
-    this.namespace = namespace
-    this.region = namespace
-    this.account = accountName
+    this.account = account
   }
 
-  DcosLoadBalancer(Service service, List<KubernetesServerGroup> serverGroupList, String accountName, List<String> securityGroups) {
-    this.service = service
-    this.name = service.metadata.name
-    this.namespace = service.metadata.namespace
-    this.securityGroups = securityGroups
-    this.region = this.namespace
-    this.description = KubernetesApiConverter.fromService(service)
+  DcosLoadBalancer(List<DcosServerGroup> serverGroupList, String accountName) {
+    this.name = ""
     this.account = accountName
-    this.createdTime = KubernetesModelUtil.translateTime(service.metadata?.creationTimestamp)
-    this.yaml = SerializationUtils.dumpWithoutRuntimeStateAsYaml(service)
-    this.serverGroups = serverGroupList?.collect { serverGroup ->
-      new LoadBalancerServerGroup(
-        name: serverGroup?.name,
-        isDisabled: serverGroup?.isDisabled(),
-        instances: serverGroup?.instances?.findResults { instance ->
-          if (instance.isAttached(this.name)) {
-            return new LoadBalancerInstance(
-                id: instance.name,
-                zone: region,
-                health: [
-                    state: instance.healthState.toString()
-                ]
-            )
-          } else {
-            return (LoadBalancerInstance) null // Groovy generics need to be convinced all control flow paths return the same object type
-          }
-        } as Set,
-        detachedInstances: serverGroup?.instances?.findResults { instance ->
-          if (!instance.isAttached(this.name)) {
-            return instance.name
-          } else {
-            return (String) null
-          }
-        } as Set)
-    } as Set
+//    this.serverGroups = serverGroupList?.collect { serverGroup ->
+//      new LoadBalancerServerGroup(
+//        name: serverGroup?.name,
+//        isDisabled: serverGroup?.isDisabled(),
+//        instances: serverGroup?.instances?.findResults { instance ->
+//          if (instance.isAttached(this.name)) {
+//            return new LoadBalancerInstance(
+//                id: instance.name,
+//                zone: null,
+//                health: [
+//                    state: instance.healthState.toString()
+//                ]
+//            )
+//          } else {
+//            return (LoadBalancerInstance) null // Groovy generics need to be convinced all control flow paths return the same object type
+//          }
+//        } as Set,
+//        detachedInstances: serverGroup?.instances?.findResults { instance ->
+//          if (!instance.isAttached(this.name)) {
+//            return instance.name
+//          } else {
+//            return (String) null
+//          }
+//        } as Set)
+//    } as Set
   }
 }

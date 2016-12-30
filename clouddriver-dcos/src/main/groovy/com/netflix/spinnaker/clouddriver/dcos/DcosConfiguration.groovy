@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.dcos
 
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.dcos.health.DcosHealthIndicator
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import groovy.transform.ToString
@@ -41,11 +40,11 @@ class DcosConfiguration {
   }
 
   @Bean
-  List<DcosCredentials> dcosCredentials(DcosCredentialsConfig titusCredentialsConfig,
+  List<DcosCredentials> dcosCredentials(DcosCredentialsConfig dcosCredentialsConfig,
                                         AccountCredentialsRepository repository) {
     List<DcosCredentials> accounts = new ArrayList<>()
-    for (DcosCredentialsConfig.Account account in titusCredentialsConfig.accounts) {
-      DcosCredentials credentials = new DcosCredentials(account.name, account.group, account.environment, account.accountType, account.instance, account.user, account.password)
+    for (DcosCredentialsConfig.Account account in dcosCredentialsConfig.accounts) {
+      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, account.user, account.password)
       accounts.add(credentials)
       repository.save(account.name, credentials)
     }
@@ -68,10 +67,9 @@ class DcosConfiguration {
     @ToString(includeNames = true)
     static class Account {
       String name
-      String group
       String environment
       String accountType
-      String instance
+      String dcosUrl
       String user
       String password
     }

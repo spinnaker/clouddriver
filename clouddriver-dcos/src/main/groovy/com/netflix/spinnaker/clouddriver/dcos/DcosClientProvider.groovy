@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.dcos
 
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 
 import java.util.concurrent.ConcurrentHashMap
 
@@ -35,6 +34,6 @@ class DcosClientProvider {
 
   DCOS getDcosClient(DcosCredentials account) {
     String key = account.name
-    return dcosClients.computeIfAbsent(key, { k -> DCOSClient.getInstance(account.instance, account.dcosAuthCredentials) })
+    return dcosClients.computeIfAbsent(key, { k -> DCOSClient.getInstance(account.dcosUrl, account.dcosAuthCredentials) })
   }
 }
