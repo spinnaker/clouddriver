@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.dcos.deploy.ops
 
-import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
@@ -47,48 +46,40 @@ class DestroyDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Looking up provided namespace..."
 
     def credentials = description.credentials.credentials
-    def namespace = KubernetesUtil.validateNamespace(credentials, description.namespace)
 
-    if (credentials.apiAdaptor.getAutoscaler(namespace, description.serverGroupName)) {
-      task.updateStatus BASE_PHASE, "Destroying autoscaler..."
-      if (!credentials.apiAdaptor.deleteAutoscaler(namespace, description.serverGroupName)) {
-        throw new KubernetesOperationException("Failed to delete associated autoscaler $description.serverGroupName in $namespace.")
-      }
-    }
-
-    def parsedName = Names.parseName(description.serverGroupName)
-    def deploymentName = parsedName.cluster
-    def deployment = credentials.apiAdaptor.getDeployment(namespace, deploymentName)
-    def replicaSet = credentials.apiAdaptor.getReplicaSet(namespace, description.serverGroupName)
-
-    if (deployment && replicaSet) {
-      task.updateStatus BASE_PHASE, "Checking if deployment ${deploymentName} needs to be destroyed..."
-      // If we selected to delete the replica set in the currently active deployment, this will delete everything owned by the deployment.
-      if (credentials.apiAdaptor.getDeploymentRevision(deployment) == credentials.apiAdaptor.getDeploymentRevision(replicaSet)) {
-        task.updateStatus BASE_PHASE, "Destroying deployment ${deploymentName}..."
-        if (!credentials.apiAdaptor.deleteDeployment(namespace, deploymentName)) {
-          throw new KubernetesOperationException("Failed to delete deployment ${deploymentName} in $namespace")
-        } else {
-          // At this point we can safely return, since destroying the deployment destroys the constituent replica sets as well.
-          task.updateStatus BASE_PHASE, "Successfully destroyed deployment ${deploymentName}..."
-          return
-        }
-      }
-    }
+//    def parsedName = Names.parseName(description.serverGroupName)
+//    def deploymentName = parsedName.cluster
+//    def deployment = credentials.apiAdaptor.getDeployment(namespace, deploymentName)
+//    def replicaSet = credentials.apiAdaptor.getReplicaSet(namespace, description.serverGroupName)
+//
+//    if (deployment && replicaSet) {
+//      task.updateStatus BASE_PHASE, "Checking if deployment ${deploymentName} needs to be destroyed..."
+//      // If we selected to delete the replica set in the currently active deployment, this will delete everything owned by the deployment.
+//      if (credentials.apiAdaptor.getDeploymentRevision(deployment) == credentials.apiAdaptor.getDeploymentRevision(replicaSet)) {
+//        task.updateStatus BASE_PHASE, "Destroying deployment ${deploymentName}..."
+//        if (!credentials.apiAdaptor.deleteDeployment(namespace, deploymentName)) {
+//          throw new KubernetesOperationException("Failed to delete deployment ${deploymentName} in $namespace")
+//        } else {
+//          // At this point we can safely return, since destroying the deployment destroys the constituent replica sets as well.
+//          task.updateStatus BASE_PHASE, "Successfully destroyed deployment ${deploymentName}..."
+//          return
+//        }
+//      }
+//    }
 
     task.updateStatus BASE_PHASE, "Destroying server group..."
 
-    if (credentials.apiAdaptor.getReplicationController(namespace, description.serverGroupName)) {
-      if (!credentials.apiAdaptor.hardDestroyReplicationController(namespace, description.serverGroupName)) {
-        throw new KubernetesOperationException("Failed to delete $description.serverGroupName in $namespace.")
-      }
-    } else if (replicaSet) {
-      if (!credentials.apiAdaptor.hardDestroyReplicaSet(namespace, description.serverGroupName)) {
-        throw new KubernetesOperationException("Failed to delete $description.serverGroupName in $namespace.")
-      }
-    } else {
-      throw new KubernetesOperationException("Failed to find replication controller or replica set $description in $namespace.")
-    }
+//    if (credentials.apiAdaptor.getReplicationController(namespace, description.serverGroupName)) {
+//      if (!credentials.apiAdaptor.hardDestroyReplicationController(namespace, description.serverGroupName)) {
+//        throw new KubernetesOperationException("Failed to delete $description.serverGroupName in $namespace.")
+//      }
+//    } else if (replicaSet) {
+//      if (!credentials.apiAdaptor.hardDestroyReplicaSet(namespace, description.serverGroupName)) {
+//        throw new KubernetesOperationException("Failed to delete $description.serverGroupName in $namespace.")
+//      }
+//    } else {
+//      throw new KubernetesOperationException("Failed to find replication controller or replica set $description in $namespace.")
+//    }
 
     task.updateStatus BASE_PHASE, "Successfully destroyed server group $description.serverGroupName."
   }
