@@ -336,7 +336,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
           relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
 
-        pods.forEach { pod ->
+       if (pods != null) pods.forEach { pod ->
           def key = Keys.getInstanceKey(accountName, pod.metadata.namespace, pod.metadata.name)
           instanceKeys << key
           cachedInstances[key].with {
@@ -347,14 +347,14 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
           }
         }
 
-        loadBalancerKeys.forEach { loadBalancerKey ->
+        if (loadBalancerKeys != null) loadBalancerKeys.forEach { loadBalancerKey ->
           cachedLoadBalancers[loadBalancerKey].with {
             relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
             relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
           }
         }
 
-        cachedServerGroups[serverGroupKey].with {
+        if (cachedServerGroups != null) cachedServerGroups[serverGroupKey].with {
           def events = serverGroup.replicationController ? rcEvents[serverGroup.namespace][serverGroupName] : rsEvents[serverGroup.namespace][serverGroupName]
           def autoscaler = serverGroup.replicationController ? rcAutoscalers[serverGroup.namespace][serverGroupName] : rsAutoscalers[serverGroup.namespace][serverGroupName]
           attributes.name = serverGroupName
