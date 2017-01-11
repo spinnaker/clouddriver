@@ -2,9 +2,13 @@ package com.netflix.spinnaker.clouddriver.dcos
 
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.PollingDcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.health.DcosHealthIndicator
+import com.netflix.spinnaker.clouddriver.helpers.OperationPoller
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -17,17 +21,18 @@ import org.springframework.context.annotation.Configuration
 @EnableConfigurationProperties
 @ComponentScan(["com.netflix.spinnaker.clouddriver.dcos"])
 class DcosConfiguration {
+
   @Bean
   @ConfigurationProperties("dcos")
-  DcosCredentialsConfig dcosCredentialsConfig() {
-    new DcosCredentialsConfig()
+  DcosConfigurationProperties dcosConfigurationProperties() {
+    new DcosConfigurationProperties();
   }
 
   @Bean
-  List<DcosCredentials> dcosCredentials(DcosCredentialsConfig dcosCredentialsConfig,
+  List<DcosCredentials> dcosCredentials(DcosConfigurationProperties dcosConfigurationProperties,
                                         AccountCredentialsRepository repository) {
     List<DcosCredentials> accounts = new ArrayList<>()
-    for (DcosCredentialsConfig.Account account in dcosCredentialsConfig.accounts) {
+    for (DcosConfigurationProperties.Account account in dcosConfigurationProperties.accounts) {
       DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, account.user, account.password)
       accounts.add(credentials)
       repository.save(account.name, credentials)
@@ -50,17 +55,17 @@ class DcosConfiguration {
     new DeployDcosServerGroupDescriptionToAppMapper()
   }
 
-  static class DcosCredentialsConfig {
-    List<Account> accounts = []
+  @Bean
+  OperationPoller dcosOperationPoller(DcosConfigurationProperties properties) {
+    new OperationPoller(
+            properties.asyncOperationTimeoutSecondsDefault,
+            properties.asyncOperationMaxPollingIntervalSeconds
+    )
+  }
 
-    static class Account {
-      String name
-      String environment
-      String accountType
-      String dcosUrl
-      String user
-      String password
-    }
+  @Bean
+  DcosDeploymentMonitor dcosDeploymentMonitor(@Qualifier("dcosOperationPoller") OperationPoller operationPoller) {
+    new PollingDcosDeploymentMonitor(operationPoller)
   }
 }
 

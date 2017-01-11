@@ -1,4 +1,5 @@
 *.class
+cache/
 out/
 .gradle/
 build/
