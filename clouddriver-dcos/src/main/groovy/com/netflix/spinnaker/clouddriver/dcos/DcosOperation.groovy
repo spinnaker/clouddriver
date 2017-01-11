@@ -21,9 +21,6 @@ import java.lang.annotation.Retention
 import java.lang.annotation.RetentionPolicy
 import java.lang.annotation.Target
 
-/**
- * {@code DcosOperation}s specify implementation classes of Spinnaker AtomicOperations for Dcos.
- */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @interface DcosOperation {

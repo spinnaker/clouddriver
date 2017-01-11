@@ -24,14 +24,11 @@ import org.springframework.boot.actuate.health.Health
 import org.springframework.boot.actuate.health.HealthIndicator
 import org.springframework.http.HttpStatus
 import org.springframework.scheduling.annotation.Scheduled
-import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.ResponseStatus
 
 import java.util.concurrent.atomic.AtomicReference
 
-@Component
 class DcosHealthIndicator implements HealthIndicator {
-
   private final AccountCredentialsProvider accountCredentialsProvider
   private final DcosClientProvider dcosClientProvider
   private final AtomicReference<Exception> lastException = new AtomicReference<>(null)
@@ -47,7 +44,7 @@ class DcosHealthIndicator implements HealthIndicator {
     def ex = lastException.get()
 
     if (ex) {
-      throw ex
+      new Health.Builder().down().build()
     }
 
     new Health.Builder().up().build()

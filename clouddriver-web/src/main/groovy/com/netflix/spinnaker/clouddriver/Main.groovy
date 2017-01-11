@@ -66,8 +66,8 @@ import java.security.Security
   AzureConfiguration,
   SecurityConfig,
   EurekaProviderConfiguration,
-  LocalJobConfig,
-  DcosConfiguration
+  DcosConfiguration,
+  LocalJobConfig
 ])
 @ComponentScan([
   'com.netflix.spinnaker.config',

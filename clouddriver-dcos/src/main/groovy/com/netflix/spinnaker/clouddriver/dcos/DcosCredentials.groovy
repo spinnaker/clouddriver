@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.dcos
 
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
-
 import mesosphere.dcos.client.model.DCOSAuthCredentials
 
 class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
