@@ -251,6 +251,9 @@ kubernetes:
 dockerRegistry:
   enabled: ${DOCKER_REGISTRY_ENABLED:false}
 
+dcos:
+  enabled: false
+
 cf:
   enabled: ${providers.cf.enabled:false}
   accounts:
