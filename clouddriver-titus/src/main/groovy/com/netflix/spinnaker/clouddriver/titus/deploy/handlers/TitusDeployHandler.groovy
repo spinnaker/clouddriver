@@ -46,6 +46,8 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
 
   private static final String BASE_PHASE = "DEPLOY"
 
+  private static final String INTERESTING_HEALTH_PROVIDER_NAMES = "interestingHealthProviderNames"
+
   private final TitusClientProvider titusClientProvider
 
   TitusDeployHandler(TitusClientProvider titusClientProvider) {
@@ -76,6 +78,10 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
 
       if (!description.env) description.env = [:]
       if (!description.labels) description.labels = [:]
+
+      if (description.labels.containsKey(INTERESTING_HEALTH_PROVIDER_NAMES) && "Titus" in description.labels.get(INTERESTING_HEALTH_PROVIDER_NAMES)) {
+        description.labels.put(INTERESTING_HEALTH_PROVIDER_NAMES, "Titus" )
+      }
 
       SubmitJobRequest submitJobRequest = new SubmitJobRequest()
         .withJobName(nextServerGroupName)
