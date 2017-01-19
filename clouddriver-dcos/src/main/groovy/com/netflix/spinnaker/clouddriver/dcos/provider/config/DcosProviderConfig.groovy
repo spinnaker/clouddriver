@@ -1,0 +1,81 @@
+package com.netflix.spinnaker.clouddriver.dcos.provider.config
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.cats.agent.Agent
+import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
+import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
+import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
+import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
+import com.netflix.spinnaker.clouddriver.dcos.provider.agent.DcosServerGroupCachingAgent
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
+import com.netflix.spinnaker.clouddriver.security.ProviderUtils
+import mesosphere.dcos.client.DCOSClient
+import org.springframework.beans.factory.config.ConfigurableBeanFactory
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.DependsOn
+import org.springframework.context.annotation.Scope
+
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * @author Will Gorman
+ */
+@Configuration
+class DcosProviderConfig {
+  @Bean
+  @DependsOn('dcosCredentials')
+  DcosProvider dcosProvider(DcosCloudProvider dcosCloudProvider,
+    AccountCredentialsRepository accountCredentialsRepository,
+    ObjectMapper objectMapper,
+    Registry registry) {
+
+    def provider = new DcosProvider(dcosCloudProvider, Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()))
+    synchronizeDcosProvider(provider, accountCredentialsRepository, objectMapper, registry)
+    provider
+  }
+
+  @Bean
+  DcosProviderSynchronizerTypeWrapper dcosProviderSynchronizerTypeWrapper() {
+    new DcosProviderSynchronizerTypeWrapper()
+  }
+
+  // i'll be honest i don't know what this does but all the providers have one so...
+  class DcosProviderSynchronizerTypeWrapper implements ProviderSynchronizerTypeWrapper {
+
+    @Override
+    Class getSynchronizerType() {
+      return DcosProviderSynchronizer
+    }
+  }
+
+  class DcosProviderSynchronizer{}
+
+  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+  @Bean
+  DcosProviderSynchronizer synchronizeDcosProvider(DcosProvider dcosProvider,
+    AccountCredentialsRepository accountCredentialsRepository,
+    ObjectMapper objectMapper,
+    Registry registry
+    ) {
+    def accounts = ProviderUtils.getScheduledAccounts(dcosProvider)
+    def allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, DcosCredentials)
+    objectMapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+    def newlyAddedAgents = []
+    allAccounts.each { DcosCredentials credentials ->
+      if (!accounts.contains(credentials.name)) {
+        newlyAddedAgents << new DcosServerGroupCachingAgent(credentials.name,
+          credentials, new DcosClientProvider(registry), objectMapper, registry)
+      }
+    }
+
+    if (!newlyAddedAgents.isEmpty()) {
+      dcosProvider.agents.addAll(newlyAddedAgents)
+    }
+
+    new DcosProviderSynchronizer()
+  }
+}
