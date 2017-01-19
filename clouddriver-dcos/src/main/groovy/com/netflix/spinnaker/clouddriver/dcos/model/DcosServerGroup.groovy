@@ -15,6 +15,8 @@ class DcosServerGroup implements ServerGroup, Serializable {
   final String type = DcosCloudProvider.ID
   final String cloudProvider = DcosCloudProvider.ID
 
+  DcosServerGroup(){} //default constructor for deserialization
+
   DcosServerGroup(App app) {
     this.app = app
   }
@@ -36,7 +38,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
   @Override
   Long getCreatedTime() {
-    Long.getLong(app.versionInfo.lastConfigChangeAt)
+    Long.getLong(app.versionInfo?.lastConfigChangeAt)
   }
 
   @Override

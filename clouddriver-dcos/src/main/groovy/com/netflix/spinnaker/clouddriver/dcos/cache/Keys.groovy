@@ -68,4 +68,31 @@ class Keys {
 
     result
   }
+
+  static String getApplicationKey(String application) {
+    "${PROVIDER}:${Namespace.APPLICATIONS}:${application}"
+  }
+
+  static String getServerGroupKey(String account, String dcosAppId) {
+    // app ids may contain leading "/" which is a problem for the way that these keys
+    // are built from path parameters for queries
+    // TODO: better translation strategy
+    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${account}:${dcosAppId.replace("/", "_")}"
+  }
+
+  static String getClusterKey(String account, String application, String cluster) {
+    "${PROVIDER}:${Namespace.CLUSTERS}:${account}:${application}:${cluster}"
+  }
+
+  /**
+   *
+   * @param account
+   * @param dcosAppId - the app id, not including any groups
+   * @param name - the full task name
+   * @return
+   */
+  static String getInstanceKey(String account, String dcosAppId, String name) {
+    // TODO: better translation strategy
+    "${PROVIDER}:${Namespace.INSTANCES}:${account}:${dcosAppId.replace("/", "_")}:${name}"
+  }
 }
