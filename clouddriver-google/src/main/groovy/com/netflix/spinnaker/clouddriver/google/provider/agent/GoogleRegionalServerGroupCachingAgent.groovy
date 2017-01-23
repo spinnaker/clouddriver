@@ -146,9 +146,9 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
         instanceGroupManagerCallbacks.newInstanceGroupManagerListCallback()
       compute.regionInstanceGroupManagers().list(project, region).queue(igmRequest, igmlCallback)
     }
-    executeIfRequestsAreQueued(igmRequest, "RegionalSerfverGroupCaching.igm")
-    executeIfRequestsAreQueued(instanceGroupsRequest, "RegionalSerfverGroupCaching.instanceGroups")
-    executeIfRequestsAreQueued(autoscalerRequest, "RegionalSerfverGroupCaching.autoscaler")
+    executeIfRequestsAreQueued(igmRequest, "RegionalServerGroupCaching.igm")
+    executeIfRequestsAreQueued(instanceGroupsRequest, "RegionalServerGroupCaching.instanceGroups")
+    executeIfRequestsAreQueued(autoscalerRequest, "RegionalServerGroupCaching.autoscaler")
 
     serverGroups
   }

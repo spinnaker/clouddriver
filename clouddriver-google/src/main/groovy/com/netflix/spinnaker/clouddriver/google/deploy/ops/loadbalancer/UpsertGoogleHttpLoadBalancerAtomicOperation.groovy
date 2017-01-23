@@ -382,7 +382,7 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
       }
       def updateUrlMapOperation = GoogleExecutor.timeExecute(
               compute.urlMaps().update(project, urlMapName, existingUrlMap),
-              "copute.urlMaps.update", TAG_SCOPE, SCOPE_GLOBAL)
+              "compute.urlMaps.update", TAG_SCOPE, SCOPE_GLOBAL)
       googleOperationPoller.waitForGlobalOperation(compute, project, updateUrlMapOperation.getName(),
         null, task, "url map $urlMapName", BASE_PHASE)
       urlMapUrl = updateUrlMapOperation.getTargetLink()
