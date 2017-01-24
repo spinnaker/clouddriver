@@ -2,7 +2,9 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.loadbalancer
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosOperation
+import com.netflix.spinnaker.clouddriver.dcos.deploy.converters.DcosAtomicOperationConverterHelper
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.loadbalancer.DeleteDcosLoadBalancerAtomicOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -33,8 +35,6 @@ class DeleteDcosLoadBalancerAtomicOperationConverter extends AbstractAtomicOpera
 
   @Override
   DeleteDcosLoadBalancerAtomicOperationDescription convertDescription(Map input) {
-    def converted = objectMapper.convertValue(input, DeleteDcosLoadBalancerAtomicOperationDescription)
-    converted.credentials = getCredentialsObject(input.credentials as String)
-    converted
+    DcosAtomicOperationConverterHelper.convertDescription(input, this, DeleteDcosLoadBalancerAtomicOperationDescription)
   }
 }

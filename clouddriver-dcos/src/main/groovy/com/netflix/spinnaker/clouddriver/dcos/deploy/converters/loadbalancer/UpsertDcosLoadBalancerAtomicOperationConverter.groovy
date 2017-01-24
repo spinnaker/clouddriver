@@ -3,6 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.loadbalancer
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 import com.netflix.spinnaker.clouddriver.dcos.DcosOperation
+import com.netflix.spinnaker.clouddriver.dcos.deploy.converters.DcosAtomicOperationConverterHelper
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.loadbalancer.UpsertDcosLoadBalancerAtomicOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
@@ -36,9 +37,6 @@ class UpsertDcosLoadBalancerAtomicOperationConverter extends AbstractAtomicOpera
 
   @Override
   UpsertDcosLoadBalancerAtomicOperationDescription convertDescription(Map input) {
-    def converted = objectMapper.convertValue(input, UpsertDcosLoadBalancerAtomicOperationDescription)
-    converted.credentials = getCredentialsObject(input.credentials as String)
-    converted
+    DcosAtomicOperationConverterHelper.convertDescription(input, this, UpsertDcosLoadBalancerAtomicOperationDescription)
   }
-
 }

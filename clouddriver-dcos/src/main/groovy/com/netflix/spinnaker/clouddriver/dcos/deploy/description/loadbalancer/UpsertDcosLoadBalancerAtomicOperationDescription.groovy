@@ -6,8 +6,10 @@ import mesosphere.marathon.client.model.v2.PortDefinition
 
 class UpsertDcosLoadBalancerAtomicOperationDescription extends AbstractDcosCredentialsDescription {
 
-  String group
   String name
+  String app
+  String stack
+  String detail
   boolean bindHttpHttps
   double cpus
   int instances

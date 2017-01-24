@@ -46,8 +46,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     task.updateStatus BASE_PHASE, "Looking up existing load balancer..."
 
     def appId = DcosSpinnakerId.from(description.credentials.name,
-            description.group,
-            "load-balancer-$description.name");
+            description.name);
 
     def existingLb = dcosClient.maybeApp(appId.toString()).orElse(null)
 
@@ -93,7 +92,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
               "--health-check",
               "--haproxy-map",
               "--group",
-              description.name]
+              appId.name]
 
       // TODO Expose? these are defaults based on the current universe package
       env = ["HAPROXY_SSL_CERT"     : "",
