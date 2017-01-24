@@ -25,7 +25,8 @@ class DcosProvider extends AgentSchedulerAware implements SearchableProvider {
 
   @Override
   Set<String> getDefaultCaches() {
-    [Keys.Namespace.SERVER_GROUPS.ns].asImmutable()
+    [Keys.Namespace.SERVER_GROUPS.ns,
+     Keys.Namespace.LOAD_BALANCERS.ns].asImmutable()
   }
 
   @Override

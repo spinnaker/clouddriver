@@ -4,76 +4,135 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import mesosphere.marathon.client.model.v2.Task
+
+import java.time.Instant
+
 /**
  * Equivalent of a DCOS {@link mesosphere.marathon.client.model.v2.Task}
  */
-class DcosInstance implements Instance {
+class DcosInstance implements Instance, Serializable {
 
-  Task task
+  //Task task
   final String providerType = DcosCloudProvider.ID
   final String cloudProvider = DcosCloudProvider.ID
 
+  final String name
+  final Long launchTime
+  final String zone
+  final String json
+  final String host
+  final String state
+  final List<Map<String, Object>> health
+
+  DcosInstance() {}
+
   DcosInstance(Task task) {
-    this.task = task
+    //this.task = task
+    this.name = task.id
+    this.json = task.toString()
+    this.host = task.host
+    this.state = task.state
+
+    // What is this?
+    //this.zone
+
+    // TODO
+//    task.ports
+//    task.servicePorts
+//    task.ipAddresses
+
+    this.launchTime = Instant.parse(task.startedAt).toEpochMilli()
+    this.health = [getTaskHealth(task)]
   }
 
-  @Override
-  String getName() {
-    task.id
-  }
+  private Map<String, String> getTaskHealth(Task task) {
+    def health = [:]
 
-  @Override
-  Long getLaunchTime() {
-    Long.getLong(task.startedAt)
-  }
+    // TODO I'm not exactly sure how i need to structure this. If the task has multiple healthCheckResults, should I report those separately?
+    // I think going off of the task state first makes sense, though. Might be different for pods, as well.
 
-  @Override
-  String getZone() {
-    null
+    // TODO What's this
+    health["healthClass"] = "platform"
+    health["type"] = "MesosTask"
+
+    switch (task.state) {
+      case "TASK_RUNNING":
+        // TODO Not sure if there could be a race condition where healthCheckResults are not populated for a period after TASK_RUNNING is set for the task.
+        health["state"] = task.healthCheckResults && task.healthCheckResults.any {
+          !it.alive
+        } ? HealthState.Down : HealthState.Up
+        break;
+      case "TASK_STARTING":
+        health["state"] = HealthState.Starting;
+        break;
+      case "TASK_FINISHED":
+        health["state"] = HealthState.Succeeded
+        break
+      case "TASK_FAILED":
+      case "TASK_ERROR":
+      case "TASK_DROPPED":
+        health["state"] = HealthState.Failed
+        break
+      case "TASK_KILLED":
+      case "TASK_STAGING":        // TODO not sure what staging falls under, could be Starting
+      case "TASK_GONE":           // Not sure
+        health["state"] = HealthState.Down
+        break
+      case "TASK_KILLING":        // Not sure, kind of a transitioning state.
+      case "TASK_UNREACHABLE":
+      case "TASK_GONE_BY_OPERATOR":
+      case "TASK_UNKNOWN":
+      default:
+        health["state"] = HealthState.Unknown
+    }
+
+    health
   }
 
   @Override
   HealthState getHealthState() {
-    List<Map<String, Object>> healthList = getHealth()
-    someUpRemainingUnknown(healthList) ? HealthState.Up :
-      anyStarting(healthList) ? HealthState.Starting :
-        anyDown(healthList) ? HealthState.Down :
-          anyOutOfService(healthList) ? HealthState.OutOfService : HealthState.Unknown
+    someUpRemainingUnknown(health) ? HealthState.Up :
+            someSucceededRemainingUnknown(health) ? HealthState.Succeeded :
+                    anyStarting(health) ? HealthState.Starting :
+                            anyDown(health) ? HealthState.Down :
+                                    anyFailed(health) ? HealthState.Failed :
+                                            anyOutOfService(health) ? HealthState.OutOfService :
+                                                    HealthState.Unknown
   }
 
-  @Override
-  List<Map<String, Object>> getHealth() {
-    health
+  private static boolean anyDown(List<Map<String, String>> healthsList) {
+    healthsList.any { it.state == HealthState.Down.name() }
   }
 
-//  boolean getIsHealthy() {
-//    health ? health.any { it.state == 'Up' } && health.every { it.state == 'Up' || it.state == 'Unknown' } : false
-//  }
-
-  private static boolean anyDown(List<Map<String, Object>> healthList) {
-    healthList.any { it.state == HealthState.Down.toString() }
+  private static boolean someUpRemainingUnknown(List<Map<String, String>> healthsList) {
+    List<Map<String, String>> knownHealthList = healthsList.findAll { it.state != HealthState.Unknown.name() }
+    knownHealthList ? knownHealthList.every { it.state == HealthState.Up.name() } : false
   }
 
-  private static boolean someUpRemainingUnknown(List<Map<String, Object>> healthList) {
-    List<Map<String, Object>> knownHealthList = healthList.findAll { it.state != HealthState.Unknown.toString() }
-    knownHealthList ? knownHealthList.every { it.state == HealthState.Up.toString() } : false
+  private static boolean someSucceededRemainingUnknown(List<Map<String, String>> healthsList) {
+    List<Map<String, String>> knownHealthList = healthsList.findAll { it.state != HealthState.Unknown.name() }
+    knownHealthList ? knownHealthList.every { it.state == HealthState.Succeeded.name() } : false
   }
 
-  private static boolean anyStarting(List<Map<String, Object>> healthList) {
-    healthList.any { it.state == HealthState.Starting.toString() }
+  private static boolean anyStarting(List<Map<String, String>> healthsList) {
+    healthsList.any { it.state == HealthState.Starting.name() }
   }
 
-  private static boolean anyOutOfService(List<Map<String, Object>> healthList) {
-    healthList.any { it.state == HealthState.OutOfService.toString() }
+  private static boolean anyFailed(List<Map<String, String>> healthsList) {
+    healthsList.any { it.state == HealthState.Failed.name() }
+  }
+
+  private static boolean anyOutOfService(List<Map<String, String>> healthsList) {
+    healthsList.any { it.state == HealthState.OutOfService.name() }
   }
 
   @Override
   boolean equals(Object o) {
-    o instanceof DcosInstance ? o.task.id == task.id : false
+    o instanceof DcosInstance ? o.name.equals(name) : false
   }
 
   @Override
   int hashCode() {
-    return task.id.hashCode()
+    return name.hashCode()
   }
 }

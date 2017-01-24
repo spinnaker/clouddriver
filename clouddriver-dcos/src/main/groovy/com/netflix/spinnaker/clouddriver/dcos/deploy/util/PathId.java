@@ -67,6 +67,11 @@ public class PathId {
     }
 
     public PathId tail() {
+
+	    if (parts.isEmpty()) {
+	      return null;
+	    }
+
         LinkedList<String> copy = new LinkedList<>(parts);
         copy.removeFirst();
         return new PathId(absolute, copy);

@@ -15,7 +15,6 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
@@ -39,12 +38,12 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
   final OnDemandMetricsSupport metricsSupport
 
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
-                                                                        AUTHORITATIVE.forType(Keys.Namespace.SERVER_GROUPS.ns),
-                                                                        AUTHORITATIVE.forType(Keys.Namespace.APPLICATIONS.ns),
-                                                                        AUTHORITATIVE.forType(Keys.Namespace.CLUSTERS.ns),
-                                                                        INFORMATIVE.forType(Keys.Namespace.INSTANCES.ns),
+          AUTHORITATIVE.forType(Keys.Namespace.SERVER_GROUPS.ns),
+          AUTHORITATIVE.forType(Keys.Namespace.APPLICATIONS.ns),
+          AUTHORITATIVE.forType(Keys.Namespace.CLUSTERS.ns),
+          INFORMATIVE.forType(Keys.Namespace.INSTANCES.ns),
 //    INFORMATIVE.forType(Keys.Namespace.LOAD_BALANCERS.ns),
-                                                                      ] as Set)
+  ] as Set)
 
   DcosServerGroupCachingAgent(String accountName,
                               DcosCredentials credentials,
@@ -56,8 +55,8 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     this.objectMapper = objectMapper
     this.dcosClient = clientProvider.getDcosClient(credentials)
     this.metricsSupport = new OnDemandMetricsSupport(registry,
-                                                     this,
-                                                     "$dcosCloudProvider.id:$OnDemandAgent.OnDemandType.ServerGroup")
+            this,
+            "$dcosCloudProvider.id:$OnDemandAgent.OnDemandType.ServerGroup")
 
   }
 
@@ -91,10 +90,10 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     List<CacheData> keepInOnDemand = []
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
-                         serverGroups.collect { serverGroup ->
-                           Keys.getServerGroupKey(DcosSpinnakerId.from(PathId.parse(serverGroup.app.id)))
-                         })
-      .each { CacheData onDemandEntry ->
+            serverGroups.collect { serverGroup ->
+              Keys.getServerGroupKey(DcosSpinnakerId.parse(serverGroup.app.id))
+            })
+            .each { CacheData onDemandEntry ->
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
       // replication controllers. Furthermore, cache data that hasn't been processed needs to be updated in the ON_DEMAND
       // cache, so don't evict data without a processedCount > 0.
@@ -135,7 +134,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     def serverGroupName = data.serverGroupName.toString()
 
     def spinnakerId = data.region ? DcosSpinnakerId.from(accountName, data.region.toString(), serverGroupName) :
-      DcosSpinnakerId.from(accountName, serverGroupName)
+            DcosSpinnakerId.from(accountName, serverGroupName)
     DcosServerGroup serverGroup = metricsSupport.readData {
       loadServerGroup(spinnakerId.toMarathonAppId().toString())
     }
@@ -153,15 +152,15 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     } else {
       metricsSupport.onDemandStore {
         def cacheData = new DefaultCacheData(
-          Keys.getServerGroupKey(spinnakerId),
-          10 * 60, // ttl is 10 minutes
-          [
-            cacheTime     : System.currentTimeMillis(),
-            cacheResults  : jsonResult,
-            processedCount: 0,
-            processedTime : null
-          ],
-          [:]
+                Keys.getServerGroupKey(spinnakerId),
+                10 * 60, // ttl is 10 minutes
+                [
+                        cacheTime     : System.currentTimeMillis(),
+                        cacheResults  : jsonResult,
+                        processedCount: 0,
+                        processedTime : null
+                ],
+                [:]
         )
 
 
@@ -171,17 +170,17 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     // Evict this server group if it no longer exists.
     Map<String, Collection<String>> evictions = serverGroup ? [:] : [
-      (Keys.Namespace.SERVER_GROUPS.ns): [
-        Keys.getServerGroupKey(spinnakerId)
-      ]
+            (Keys.Namespace.SERVER_GROUPS.ns): [
+                    Keys.getServerGroupKey(spinnakerId)
+            ]
     ]
 
     log.info("On demand cache refresh (data: ${data}) succeeded.")
 
     return new OnDemandAgent.OnDemandResult(
-      sourceAgentType: getOnDemandAgentType(),
-      cacheResult: result,
-      evictions: evictions //TODO
+            sourceAgentType: getOnDemandAgentType(),
+            cacheResult: result,
+            evictions: evictions //TODO
     )
   }
 
@@ -199,10 +198,10 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns, keys).collect {
       [
-        details  : Keys.parse(it.id),
-        cacheTime: it.attributes.cacheTime,
-        processedCount: it.attributes.processedCount,
-        processedTime: it.attributes.processedTime
+              details       : Keys.parse(it.id),
+              cacheTime     : it.attributes.cacheTime,
+              processedCount: it.attributes.processedCount,
+              processedTime : it.attributes.processedTime
       ]
     }
   }
@@ -216,7 +215,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
   private List<DcosServerGroup> loadServerGroups() {
     final List<App> apps = dcosClient.getApps(accountName)?.apps
-    apps.collect { new DcosServerGroup(it) }
+    apps.findAll { app -> !app.labels.containsKey("SPINNAKER_LOAD_BALANCER") }.collect { new DcosServerGroup(it) }
   }
 
   private CacheResult buildCacheResult(List<DcosServerGroup> serverGroups,
@@ -228,7 +227,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     Map<String, MutableCacheData> cachedServerGroups = MutableCacheData.mutableCacheMap()
     Map<String, MutableCacheData> cachedClusters = MutableCacheData.mutableCacheMap()
     Map<String, MutableCacheData> cachedInstances = MutableCacheData.mutableCacheMap()
-
+    Map<String, MutableCacheData> cachedLoadBalancers = MutableCacheData.mutableCacheMap()
 
     serverGroups.each { serverGroup ->
       if (serverGroup == null) {
@@ -237,13 +236,13 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
       def app = serverGroup.app
       def onDemandData = onDemandKeep ?
-        onDemandKeep[Keys.getServerGroupKey(DcosSpinnakerId.from(PathId.parse(app.id)))] :
-        null
+              onDemandKeep[Keys.getServerGroupKey(DcosSpinnakerId.parse(app.id))] :
+              null
 
       if (onDemandData && onDemandData.attributes.cacheTime >= start) {
         Map<String, List<CacheData>> cacheResults = objectMapper.readValue(onDemandData.attributes.cacheResults as String,
-                                                                           new TypeReference<Map<String, List<MutableCacheData>>>() {
-                                                                           })
+                new TypeReference<Map<String, List<MutableCacheData>>>() {
+                })
         cache(cacheResults, Keys.Namespace.APPLICATIONS.ns, cachedApps)
         cache(cacheResults, Keys.Namespace.CLUSTERS.ns, cachedClusters)
         cache(cacheResults, Keys.Namespace.SERVER_GROUPS.ns, cachedServerGroups)
@@ -255,11 +254,16 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
         // the spinnaker naming convention as we have to parse it.  There's no storage that maps
         // an arbitrary app id to these fields
         def appId = app.id
-        DcosSpinnakerId spinnakerId = DcosSpinnakerId.from(PathId.parse(appId))
+        DcosSpinnakerId spinnakerId = DcosSpinnakerId.parse(appId)
         def names = Names.parseName(spinnakerId.name)
         def appName = names.app
         def clusterName = names.cluster
         def instanceKeys = []
+
+        // TODO gonna need better lb support
+        def loadBalancerKeys = serverGroup.loadBalancers.findResults({
+            Keys.getLoadBalancerKey(accountName, it)
+        })
 
         def applicationKey = Keys.getApplicationKey(appName)
         def serverGroupKey = Keys.getServerGroupKey(spinnakerId)
@@ -269,41 +273,40 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
           attributes.name = appName
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
-//        relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
+          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
 
         cachedClusters[clusterKey].with {
           attributes.name = clusterName
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
-//        relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
+          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
 
         app.tasks.forEach { task ->
-          String instanceKey = Keys.getInstanceKey(spinnakerId, task.id)
+          String instanceKey = Keys.getInstanceKey(spinnakerId.account, spinnakerId.group, task.id)
           instanceKeys << instanceKey
           cachedInstances[instanceKey].with {
             relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
             relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
             relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
-//          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
+            relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
           }
         }
 
-        // TODO: load balancers
-//      loadBalancerKeys.forEach { loadBalancerKey ->
-//        cachedLoadBalancers[loadBalancerKey].with {
-//          relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
-//          relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
-//        }
-//      }
+        loadBalancerKeys.forEach { loadBalancerKey ->
+          cachedLoadBalancers[loadBalancerKey].with {
+            relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
+            relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
+          }
+        }
 
         cachedServerGroups[serverGroupKey].with {
           attributes.name = appId
           attributes.serverGroup = serverGroup
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
-//        relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
+          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
           relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
         }
 
@@ -315,16 +318,15 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     log.info("Caching ${cachedServerGroups.size()} server groups in ${agentType}")
     log.info("Caching ${cachedInstances.size()} instances in ${agentType}")
 
-
     new DefaultCacheResult([
-                             (Keys.Namespace.SERVER_GROUPS.ns): cachedServerGroups.values(),
-//        (Keys.Namespace.LOAD_BALANCERS.ns): cachedLoadBalancers.values(),
-                             (Keys.Namespace.CLUSTERS.ns)     : cachedClusters.values(),
-                             (Keys.Namespace.SERVER_GROUPS.ns): cachedServerGroups.values(),
-                             (Keys.Namespace.INSTANCES.ns)    : cachedInstances.values(),
-                             (Keys.Namespace.APPLICATIONS.ns) : cachedApps.values(),
-                             (Keys.Namespace.ON_DEMAND.ns)    : onDemandKeep.values()],
-                           [(Keys.Namespace.ON_DEMAND.ns): onDemandEvict])
+            (Keys.Namespace.SERVER_GROUPS.ns) : cachedServerGroups.values(),
+            (Keys.Namespace.LOAD_BALANCERS.ns): cachedLoadBalancers.values(),
+            (Keys.Namespace.CLUSTERS.ns)      : cachedClusters.values(),
+            (Keys.Namespace.SERVER_GROUPS.ns) : cachedServerGroups.values(),
+            (Keys.Namespace.INSTANCES.ns)     : cachedInstances.values(),
+            (Keys.Namespace.APPLICATIONS.ns)  : cachedApps.values(),
+            (Keys.Namespace.ON_DEMAND.ns)     : onDemandKeep.values()],
+            [(Keys.Namespace.ON_DEMAND.ns): onDemandEvict])
   }
 
   private

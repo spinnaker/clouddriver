@@ -11,6 +11,7 @@ class Keys {
     IMAGES,
     SERVER_GROUPS,
     INSTANCES,
+    LOAD_BALANCERS,
     CLUSTERS,
     APPLICATIONS,
     HEALTH,
@@ -46,22 +47,53 @@ class Keys {
         //TODO result << [account: parts[2], region: parts[3], imageId: parts[4]]
         break
       case Namespace.SERVER_GROUPS.ns:
-        def names = Names.parseName(parts[5])
-        //TODO result << [application: names.app.toLowerCase(), cluster: parts[2], account: parts[3], region: parts[4], serverGroup: parts[5], stack: names.stack, detail: names.detail, sequence: names.sequence?.toString()]
+        def names = Names.parseName(parts[4])
+        result << [
+                account    : parts[2],
+                name       : parts[4],
+                region     : parts[3],
+                serverGroup: parts[4],
+                application: names.app,
+                stack      : names.stack,
+                cluster    : names.cluster,
+                detail     : names.detail,
+                sequence   : names.sequence?.toString()
+        ]
         break
       case Namespace.INSTANCES.ns:
         //TODO result << [id: parts[2]]
         break
       case Namespace.CLUSTERS.ns:
         def names = Names.parseName(parts[4])
+        result << [
+                account    : parts[2],
+                application: parts[3],
+                name       : parts[4],
+                cluster    : parts[4],
+                stack      : names.stack,
+                detail     : names.detail]
         //TODO result << [application: parts[2].toLowerCase(), account: parts[3], cluster: parts[4], stack: names.stack, detail: names.detail]
         break
       case Namespace.APPLICATIONS.ns:
-        //TODO result << [application: parts[2].toLowerCase()]
+        result << [
+                application: parts[2]
+        ]
         break
       case Namespace.HEALTH.ns:
         //TODO result << [id: parts[2], account: parts[3], region: parts[4], provider: parts[5]]
         break
+      case Namespace.LOAD_BALANCERS.ns:
+        def names = Names.parseName(parts[3])
+        result << [
+                account     : parts[2],
+                name        : parts[3],
+                loadBalancer: parts[3],
+                application : names.app,
+                stack       : names.stack,
+                detail      : names.detail
+        ]
+        break
+    // TODO wut
       default:
         return null
         break
@@ -92,8 +124,21 @@ class Keys {
    * @param taskName - the full task name
    * @return
    */
-  static String getInstanceKey(DcosSpinnakerId id, String taskName) {
+//  static String getInstanceKey(DcosSpinnakerId id, String taskName) {
+//    // TODO: better translation strategy
+//    "${PROVIDER}:${Namespace.INSTANCES}:${id.account}:${id.group.replace("/", "_")}:${id.name}:${taskName}"
+//  }
+
+  static String getInstanceKey(String account, String region, String taskName) {
     // TODO: better translation strategy
-    "${PROVIDER}:${Namespace.INSTANCES}:${id.account}:${id.group.replace("/", "_")}:${id.name}:${taskName}"
+    "${PROVIDER}:${Namespace.INSTANCES}:${account}:${region.replace("/", "_")}:${taskName}"
+  }
+
+  static String getLoadBalancerKey(String account, String loadBalancerName) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${loadBalancerName}"
+  }
+
+  static String getLoadBalancerKey(DcosSpinnakerId appId) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:${appId.name}"
   }
 }

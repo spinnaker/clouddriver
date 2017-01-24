@@ -14,7 +14,7 @@ public class DcosSpinnakerId {
     }
 
     private DcosSpinnakerId(PathId pathId) {
-      this.marathonAppId = pathId;
+    this.marathonAppId = pathId;
     }
 
     /**
@@ -39,7 +39,25 @@ public class DcosSpinnakerId {
     }
 
     public static DcosSpinnakerId from(PathId pathId) {
-    return new DcosSpinnakerId(pathId);
+        return new DcosSpinnakerId(pathId);
+    }
+
+    /**
+     * Creates a DcosSpinnakerId given a fully qualified marathon application id.
+     * @return Possibly null {@link DcosSpinnakerId} instance if the application id doesn't have at least an account and
+     *         name.
+     */
+    public static DcosSpinnakerId parse(String fullyQualifiedAppId) {
+
+        // TODO got a problem here for apps that don't fit the mold (i.e. /marathon-lb). No account! How do we want to
+        // handle Apps created in DC/OS that don't have a valid account as the first part of the group (or none, a.k.a
+        // root).
+        PathId marathonId = PathId.parse(fullyQualifiedAppId);
+        if (marathonId.parts().length < 2) {
+            return null;
+        }
+
+        return new DcosSpinnakerId(marathonId);
     }
 
     private static PathId createPathId(String account, String group, String appName) {
@@ -48,11 +66,18 @@ public class DcosSpinnakerId {
     }
 
     public String getAccount() {
+        // TODO We need to do earlier validation (probably in the constructor) to make sure the pathid was actually
+        // valid (i.e. includes an account).
         return marathonAppId.root();
     }
 
     public String getGroup() {
-        return marathonAppId.parent().tail().toString();
+        PathId groupId = marathonAppId.parent().tail();
+        return groupId != null ? groupId.relative().toString() : "";
+    }
+
+    public String getRegion() {
+        return marathonAppId.parent().toString();
     }
 
     public String getName() {
