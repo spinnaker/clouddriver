@@ -14,6 +14,8 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
@@ -90,7 +92,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
                          serverGroups.collect { serverGroup ->
-                           Keys.getServerGroupKey(accountName, serverGroup.app.id)
+                           Keys.getServerGroupKey(DcosSpinnakerId.from(PathId.parse(serverGroup.app.id)))
                          })
       .each { CacheData onDemandEntry ->
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
@@ -130,13 +132,15 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
       return null
     }
 
-    //TODO: Need to see whether this  will be sent as the full marathon app id, in which case this works
-    //       or if we'll need to build the full name from account + namespace + serverGroupName
-    def serverGroupName = metricsSupport.readData {
-      data.serverGroupName.toString()
+    def serverGroupName = data.serverGroupName.toString()
+
+    def spinnakerId = data.region ? DcosSpinnakerId.from(accountName, data.region.toString(), serverGroupName) :
+      DcosSpinnakerId.from(accountName, serverGroupName)
+    DcosServerGroup serverGroup = metricsSupport.readData {
+      loadServerGroup(spinnakerId.toMarathonAppId().toString())
     }
 
-    DcosServerGroup serverGroup = loadServerGroup(serverGroupName)
+
     CacheResult result = metricsSupport.transformData {
       buildCacheResult([serverGroup], [:], [], Long.MAX_VALUE)
     }
@@ -145,11 +149,11 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     if (result.cacheResults.values().flatten().isEmpty()) {
       // Avoid writing an empty onDemand cache record (instead delete any that may have previously existed).
-      providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getServerGroupKey(accountName, serverGroupName)])
+      providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getServerGroupKey(spinnakerId)])
     } else {
       metricsSupport.onDemandStore {
         def cacheData = new DefaultCacheData(
-          Keys.getServerGroupKey(accountName, serverGroupName),
+          Keys.getServerGroupKey(spinnakerId),
           10 * 60, // ttl is 10 minutes
           [
             cacheTime     : System.currentTimeMillis(),
@@ -168,7 +172,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     // Evict this server group if it no longer exists.
     Map<String, Collection<String>> evictions = serverGroup ? [:] : [
       (Keys.Namespace.SERVER_GROUPS.ns): [
-        Keys.getServerGroupKey(accountName, serverGroupName)
+        Keys.getServerGroupKey(spinnakerId)
       ]
     ]
 
@@ -232,7 +236,9 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
       }
 
       def app = serverGroup.app
-      def onDemandData = onDemandKeep ? onDemandKeep[Keys.getServerGroupKey(accountName, app.id)] : null
+      def onDemandData = onDemandKeep ?
+        onDemandKeep[Keys.getServerGroupKey(DcosSpinnakerId.from(PathId.parse(app.id)))] :
+        null
 
       if (onDemandData && onDemandData.attributes.cacheTime >= start) {
         Map<String, List<CacheData>> cacheResults = objectMapper.readValue(onDemandData.attributes.cacheResults as String,
@@ -249,14 +255,14 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
         // the spinnaker naming convention as we have to parse it.  There's no storage that maps
         // an arbitrary app id to these fields
         def appId = app.id
-        //TODO: strip the account + region from the app using the pathid parser instead
-        def names = Names.parseName(app.id.split("/").last())
+        DcosSpinnakerId spinnakerId = DcosSpinnakerId.from(PathId.parse(appId))
+        def names = Names.parseName(spinnakerId.name)
         def appName = names.app
         def clusterName = names.cluster
         def instanceKeys = []
 
         def applicationKey = Keys.getApplicationKey(appName)
-        def serverGroupKey = Keys.getServerGroupKey(accountName, appId)
+        def serverGroupKey = Keys.getServerGroupKey(spinnakerId)
         String clusterKey = Keys.getClusterKey(accountName, appName, clusterName)
 
         cachedApps[applicationKey].with {
@@ -274,7 +280,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
         }
 
         app.tasks.forEach { task ->
-          String instanceKey = Keys.getInstanceKey(accountName, appId, task.id)
+          String instanceKey = Keys.getInstanceKey(spinnakerId, task.id)
           instanceKeys << instanceKey
           cachedInstances[instanceKey].with {
             relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
