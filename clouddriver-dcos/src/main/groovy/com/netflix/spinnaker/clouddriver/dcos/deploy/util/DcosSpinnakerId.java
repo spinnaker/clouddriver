@@ -13,6 +13,10 @@ public class DcosSpinnakerId {
         this.marathonAppId = createPathId(account, group, appName);
     }
 
+    private DcosSpinnakerId(PathId pathId) {
+      this.marathonAppId = pathId;
+    }
+
     /**
      * Creates a DcosSpinnakerId given an account and name.
      * @param account the account (cannot be null)
@@ -34,6 +38,10 @@ public class DcosSpinnakerId {
         return new DcosSpinnakerId(account, group, name);
     }
 
+    public static DcosSpinnakerId from(PathId pathId) {
+    return new DcosSpinnakerId(pathId);
+    }
+
     private static PathId createPathId(String account, String group, String appName) {
         PathId parsedGroup = group == null ? PathId.from() : PathId.parse(group);
         return PathId.from(account).append(parsedGroup).append(appName);
@@ -44,7 +52,6 @@ public class DcosSpinnakerId {
     }
 
     public String getGroup() {
-        // TODO Should this be relative?
         return marathonAppId.parent().tail().toString();
     }
 

@@ -8,6 +8,8 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import mesosphere.dcos.client.DCOS
@@ -24,7 +26,8 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   static final private String ACCOUNT = "testAccount"
   static final private String APP = "testApp"
   static final private String CLUSTER = "${APP}-cluster"
-  static final private String MARATHON_APP = "/${ACCOUNT}/${CLUSTER}-v000"
+  static final private String SERVER_GROUP = "${CLUSTER}-v000"
+  static final private String MARATHON_APP = "/${ACCOUNT}/${SERVER_GROUP}"
   static final private String TASK = "${MARATHON_APP}-some-task-id"
   DcosCredentials credentials
   AccountCredentialsRepository accountCredentialsRepository
@@ -56,9 +59,9 @@ class DcosServerGroupCachingAgentSpec extends Specification{
     }
 
     appKey = Keys.getApplicationKey(APP)
-    serverGroupKey = Keys.getServerGroupKey(ACCOUNT, MARATHON_APP)
+    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerId.from(PathId.parse(MARATHON_APP)))
     clusterKey = Keys.getClusterKey(ACCOUNT, APP, CLUSTER)
-    instanceKey = Keys.getInstanceKey(ACCOUNT, MARATHON_APP, TASK)
+    instanceKey = Keys.getInstanceKey(DcosSpinnakerId.from(PathId.parse(MARATHON_APP)), TASK)
 
 
     subject = new DcosServerGroupCachingAgent(ACCOUNT, credentials, clientProvider, objectMapper, registryMock)
@@ -82,7 +85,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
       dcosClient.getApp(MARATHON_APP) >> appResponse
     when:
       //TODO: again, not sure yet if this can be the fully qualified name or just the leaf of the path tree
-      def result = subject.handle(providerCache, ["serverGroupName": MARATHON_APP, "account": ACCOUNT])
+      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "account": ACCOUNT])
     then:
       1 * providerCache.putCacheData(Keys.Namespace.ON_DEMAND.ns, { cacheData ->
         assert cacheData.id == serverGroupKey
@@ -114,7 +117,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   void "On-demand cache should evict a server group that no longer exists"() {
     when:
       //TODO: again, not sure yet if this can be the fully qualified name or just the leaf of the path tree
-      def result = subject.handle(providerCache, ["serverGroupName": MARATHON_APP, "account": ACCOUNT])
+      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "account": ACCOUNT])
     then:
       1 * providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [serverGroupKey])
       result.evictions == [(Keys.Namespace.SERVER_GROUPS.ns): [serverGroupKey]]

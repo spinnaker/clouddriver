@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.cache
 
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 
 class Keys {
   public static final PROVIDER = "dcos"
@@ -73,11 +74,11 @@ class Keys {
     "${PROVIDER}:${Namespace.APPLICATIONS}:${application}"
   }
 
-  static String getServerGroupKey(String account, String dcosAppId) {
+  static String getServerGroupKey(DcosSpinnakerId id) {
     // app ids may contain leading "/" which is a problem for the way that these keys
     // are built from path parameters for queries
-    // TODO: better translation strategy
-    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${account}:${dcosAppId.replace("/", "_")}"
+    // TODO: better translation strategy for '/'
+    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.group.replace("/", "_")}:${id.name}"
   }
 
   static String getClusterKey(String account, String application, String cluster) {
@@ -88,11 +89,11 @@ class Keys {
    *
    * @param account
    * @param dcosAppId - the app id, not including any groups
-   * @param name - the full task name
+   * @param taskName - the full task name
    * @return
    */
-  static String getInstanceKey(String account, String dcosAppId, String name) {
+  static String getInstanceKey(DcosSpinnakerId id, String taskName) {
     // TODO: better translation strategy
-    "${PROVIDER}:${Namespace.INSTANCES}:${account}:${dcosAppId.replace("/", "_")}:${name}"
+    "${PROVIDER}:${Namespace.INSTANCES}:${id.account}:${id.group.replace("/", "_")}:${id.name}:${taskName}"
   }
 }
