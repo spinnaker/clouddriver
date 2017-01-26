@@ -34,6 +34,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.*
 
 import java.util.concurrent.ConcurrentHashMap
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 
 @Configuration
 @Import(GoogleConfiguration)
@@ -47,6 +48,7 @@ class GoogleInfrastructureProviderConfig {
                                                             AccountCredentialsRepository accountCredentialsRepository,
                                                             ObjectMapper objectMapper,
                                                             Registry registry) {
+    GoogleExecutor.setGlobalRegistry(registry)
     def googleInfrastructureProvider =
         new GoogleInfrastructureProvider(Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()))
 

@@ -20,6 +20,7 @@ import com.google.api.client.json.GenericJson
 import com.google.api.services.compute.model.*
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
@@ -67,7 +68,8 @@ class DeleteGoogleSslLoadBalancerAtomicOperation extends DeleteGoogleLoadBalance
     // Start with the forwaring rule.
     task.updateStatus BASE_PHASE, "Retrieving global forwarding rule $forwardingRuleName..."
 
-    List<ForwardingRule> projectForwardingRules = compute.globalForwardingRules().list(project).execute().getItems()
+    List<ForwardingRule> projectForwardingRules = GoogleExecutor.timeExecute(
+        compute.globalForwardingRules().list(project), "compute.globalForwardingRules", TAG_SCOPE, SCOPE_GLOBAL).getItems()
 
     ForwardingRule forwardingRule = projectForwardingRules.find { it.name == forwardingRuleName }
     if (!forwardingRule) {
@@ -98,7 +100,9 @@ class DeleteGoogleSslLoadBalancerAtomicOperation extends DeleteGoogleLoadBalance
     // Backend service.
     task.updateStatus BASE_PHASE, "Retrieving backend service $backendServiceName..."
     BackendService retrievedBackendService = safeRetry.doRetry(
-      { compute.backendServices().get(project, backendServiceName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.backendServices().get(project, backendServiceName),
+            "compute.backendServices.get", TAG_SCOPE, SCOPE_GLOBAL) },
       'Get',
       "Backend service $backendServiceName",
       task,
@@ -117,7 +121,9 @@ class DeleteGoogleSslLoadBalancerAtomicOperation extends DeleteGoogleLoadBalance
 
     def healthCheckName = Utils.getLocalName(retrievedBackendService.getHealthChecks()[0])
     HealthCheck retrievedHealthCheck = safeRetry.doRetry(
-      { compute.healthChecks().get(project, healthCheckName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.healthChecks().get(project, healthCheckName),
+            "compute.healthChecks.get", TAG_SCOPE, SCOPE_GLOBAL) },
       'Get',
       "Health check $healthCheckName",
       task,
@@ -142,7 +148,9 @@ class DeleteGoogleSslLoadBalancerAtomicOperation extends DeleteGoogleLoadBalance
     }
 
     Operation deleteBackendServiceOp = GCEUtil.deleteIfNotInUse(
-      { compute.backendServices().delete(project, backendServiceName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.backendServices().delete(project, backendServiceName),
+            "compute.backendSerfvices.delete", TAG_SCOPE, SCOPE_GLOBAL) },
       "Backend service $backendServiceName",
       project,
       task,
@@ -154,7 +162,9 @@ class DeleteGoogleSslLoadBalancerAtomicOperation extends DeleteGoogleLoadBalance
 
     if (description.deleteHealthChecks) {
       Operation deleteHealthCheckOp = GCEUtil.deleteIfNotInUse(
-        { compute.healthChecks().delete(project, healthCheckName).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.healthChecks().delete(project, healthCheckName),
+              "compute.healthChecks.delete", TAG_SCOPE, SCOPE_GLOBAL) },
         "Health check $healthCheckName",
         project,
         task,

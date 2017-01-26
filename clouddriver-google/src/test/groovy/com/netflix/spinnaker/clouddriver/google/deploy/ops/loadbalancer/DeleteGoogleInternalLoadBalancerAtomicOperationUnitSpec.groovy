@@ -22,19 +22,14 @@ import com.google.api.client.http.HttpHeaders
 import com.google.api.client.http.HttpResponseException
 import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.*
-import com.netflix.spinnaker.clouddriver.data.task.Task
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
-import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
-import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.DeleteGoogleLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
+import com.netflix.spinnaker.clouddriver.google.deploy.ops.BaseOperationUnitSpec
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
 
-class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends Specification {
+class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends BaseOperationUnitSpec {
   private static final ACCOUNT_NAME = "auto"
   private static final PROJECT_NAME = "my_project"
   private static final REGION = "us-central1"
@@ -49,16 +44,6 @@ class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends Specificat
   private static final HTTPS_HC_URL = "/projects/$PROJECT_NAME/global/httpsHealthChecks/$HEALTH_CHECK_NAME"
   private static final HC_URL = "/projects/$PROJECT_NAME/global/healthChecks/$HEALTH_CHECK_NAME"
   private static final HEALTH_CHECK_DELETE_OP_NAME = "delete-health-check"
-
-  @Shared
-  def threadSleeperMock = Mock(GoogleOperationPoller.ThreadSleeper)
-  @Shared
-  SafeRetry safeRetry
-
-  def setupSpec() {
-    TaskRepository.threadLocalTask.set(Mock(Task))
-    safeRetry = new SafeRetry(maxRetries: 10, maxWaitInterval: 60000, retryIntervalBase: 0, jitterMultiplier: 0)
-  }
 
   void "should delete an Internal Load Balancer with http health check"() {
     setup:
@@ -104,12 +89,7 @@ class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends Specificat
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleInternalLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller = new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-      )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -188,12 +168,7 @@ class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends Specificat
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleInternalLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller = new GoogleOperationPoller(
-        googleConfigurationProperties: new GoogleConfigurationProperties(),
-        threadSleeper: threadSleeperMock,
-        safeRetry: safeRetry
-      )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -272,12 +247,7 @@ class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends Specificat
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleInternalLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller = new GoogleOperationPoller(
-        googleConfigurationProperties: new GoogleConfigurationProperties(),
-        threadSleeper: threadSleeperMock,
-        safeRetry: safeRetry
-      )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -367,12 +337,7 @@ class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends Specificat
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleInternalLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller = new GoogleOperationPoller(
-        googleConfigurationProperties: new GoogleConfigurationProperties(),
-        threadSleeper: threadSleeperMock,
-        safeRetry: safeRetry
-      )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -457,12 +422,7 @@ class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends Specificat
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleInternalLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller = new GoogleOperationPoller(
-        googleConfigurationProperties: new GoogleConfigurationProperties(),
-        threadSleeper: threadSleeperMock,
-        safeRetry: safeRetry
-      )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -506,12 +466,7 @@ class DeleteGoogleInternalLoadBalancerAtomicOperationUnitSpec extends Specificat
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleInternalLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller = new GoogleOperationPoller(
-        googleConfigurationProperties: new GoogleConfigurationProperties(),
-        threadSleeper: threadSleeperMock,
-        safeRetry: safeRetry
-      )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])

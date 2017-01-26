@@ -21,6 +21,7 @@ import com.google.api.services.compute.model.Subnetwork
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.provider.ProviderCache
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
@@ -57,7 +58,9 @@ class GoogleSubnetCachingAgent extends AbstractGoogleCachingAgent {
   }
 
   List<Subnetwork> loadSubnets() {
-    compute.subnetworks().list(project, region).execute().items as List
+    GoogleExecutor.timeExecute(
+        compute.subnetworks().list(project, region),
+        "compute.subnetworks.list", TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region).items as List
   }
 
   private CacheResult buildCacheResult(ProviderCache _, List<Subnetwork> subnetList) {

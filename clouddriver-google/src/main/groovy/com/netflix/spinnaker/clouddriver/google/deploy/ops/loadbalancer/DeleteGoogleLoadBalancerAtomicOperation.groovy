@@ -22,14 +22,15 @@ import com.google.api.services.compute.model.TargetPool
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.DeleteGoogleLoadBalancerDescription
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
+import com.netflix.spinnaker.clouddriver.google.deploy.ops.GoogleAtomicOperation
 import org.springframework.beans.factory.annotation.Autowired
 
-class DeleteGoogleLoadBalancerAtomicOperation implements AtomicOperation<Void> {
+class DeleteGoogleLoadBalancerAtomicOperation extends GoogleAtomicOperation<Void> {
   private static final String BASE_PHASE = "DELETE_LOAD_BALANCER"
 
   static class HealthCheckAsyncDeleteOperation {
@@ -78,7 +79,9 @@ class DeleteGoogleLoadBalancerAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Retrieving forwarding rule $forwardingRuleName in $region..."
 
     ForwardingRule forwardingRule = safeRetry.doRetry(
-      { compute.forwardingRules().get(project, region, forwardingRuleName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.forwardingRules().get(project, region, forwardingRuleName),
+            "compute.forwardingRules.get", TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region) },
       'Get',
       "Regional forwarding rule $forwardingRuleName",
       task,
@@ -95,7 +98,9 @@ class DeleteGoogleLoadBalancerAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Retrieving target pool $targetPoolName in $region..."
 
     TargetPool targetPool = safeRetry.doRetry(
-      { compute.targetPools().get(project, region, targetPoolName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.targetPools().get(project, region, targetPoolName),
+            "compute.targetPools.get", TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region) },
       'Get',
       "Target pool $targetPoolName",
       task,
@@ -120,7 +125,9 @@ class DeleteGoogleLoadBalancerAtomicOperation implements AtomicOperation<Void> {
     // delete its dependencies.
     task.updateStatus BASE_PHASE, "Deleting forwarding rule $forwardingRuleName in $region..."
     Operation deleteForwardingRuleOperation = safeRetry.doRetry(
-      { compute.forwardingRules().delete(project, region, forwardingRuleName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.forwardingRules().delete(project, region, forwardingRuleName),
+            "compute.forwardingRules.delete", TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region) },
       'Delete',
       "Regional forwarding rule $forwardingRuleName",
       task,
@@ -134,7 +141,9 @@ class DeleteGoogleLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
     task.updateStatus BASE_PHASE, "Deleting target pool $targetPoolName in $region..."
     Operation deleteTargetPoolOperation = safeRetry.doRetry(
-      { compute.targetPools().delete(project, region, targetPoolName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.targetPools().delete(project, region, targetPoolName),
+            "compute.targetPools.delete", TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region) },
       'Delete',
       "Target pool $targetPoolName",
       task,
@@ -153,7 +162,9 @@ class DeleteGoogleLoadBalancerAtomicOperation implements AtomicOperation<Void> {
       for (String healthCheckUrl : healthCheckUrls) {
         def healthCheckName = GCEUtil.getLocalName(healthCheckUrl)
         Operation deleteHealthCheckOp = GCEUtil.deleteIfNotInUse(
-          { compute.httpHealthChecks().delete(project, healthCheckName).execute() },
+          { GoogleExecutor.timeExecute(
+                compute.httpHealthChecks().delete(project, healthCheckName),
+                "compute.httpHealthChecks.delete", TAG_SCOPE, SCOPE_GLOBAL) },
           "Http health check $healthCheckName",
           project,
           task,

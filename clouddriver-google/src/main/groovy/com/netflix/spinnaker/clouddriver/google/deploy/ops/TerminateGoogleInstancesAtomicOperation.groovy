@@ -20,10 +20,10 @@ import com.google.api.services.compute.model.InstanceGroupManagersRecreateInstan
 import com.google.api.services.compute.model.RegionInstanceGroupManagersRecreateRequest
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.description.TerminateGoogleInstancesDescription
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import org.springframework.beans.factory.annotation.Autowired
 
 /**
@@ -38,7 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired
  * group to terminate and recreate the instances. More information:
  * {@link https://cloud.google.com/compute/docs/reference/latest/instanceGroupManagers/recreateInstances}
  */
-class TerminateGoogleInstancesAtomicOperation implements AtomicOperation<Void> {
+class TerminateGoogleInstancesAtomicOperation extends GoogleAtomicOperation<Void> {
   private static final String BASE_PHASE = "TERMINATE_INSTANCES"
 
   private static Task getTask() {
@@ -94,12 +94,16 @@ class TerminateGoogleInstancesAtomicOperation implements AtomicOperation<Void> {
         def instanceGroupManagers = compute.regionInstanceGroupManagers()
         def recreateRequest = new RegionInstanceGroupManagersRecreateRequest().setInstances(instanceUrls)
 
-        instanceGroupManagers.recreateInstances(project, region, serverGroupName, recreateRequest).execute()
+        GoogleExecutor.timeExecute(
+            instanceGroupManagers.recreateInstances(project, region, serverGroupName, recreateRequest),
+            "compute.regionInstanceGroupManagers.recreateInstances", TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
       } else {
         def instanceGroupManagers = compute.instanceGroupManagers()
         def recreateRequest = new InstanceGroupManagersRecreateInstancesRequest().setInstances(instanceUrls)
 
-        instanceGroupManagers.recreateInstances(project, zone, serverGroupName, recreateRequest).execute()
+        GoogleExecutor.timeExecute(
+            instanceGroupManagers.recreateInstances(project, zone, serverGroupName, recreateRequest),
+            "compute.instanceGroupManagers.recreateInstances", TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
       }
 
       task.updateStatus BASE_PHASE, "Done recreating instances (${instanceIds.join(", ")}) in $region."
@@ -113,7 +117,9 @@ class TerminateGoogleInstancesAtomicOperation implements AtomicOperation<Void> {
         task.updateStatus BASE_PHASE, "Terminating instance $instanceId in $zone..."
 
         try {
-          compute.instances().delete(project, zone, instanceId).execute()
+          GoogleExecutor.timeExecute(
+              compute.instances().delete(project, zone, instanceId),
+              "compute.instances.delete", TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
           okIds.add(instanceId)
         } catch (Exception e) {
           task.updateStatus BASE_PHASE, "Failed to terminate instance $instanceId in $zone: $e.message."

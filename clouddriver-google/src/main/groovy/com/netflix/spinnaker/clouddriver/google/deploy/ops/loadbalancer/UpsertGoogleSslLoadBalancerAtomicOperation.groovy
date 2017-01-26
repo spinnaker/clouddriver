@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.google.deploy.ops.loadbalancer
 import com.google.api.services.compute.model.*
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
@@ -83,7 +84,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
 
     // Check if there already exists a forwarding rule with the requested name.
     existingForwardingRule = safeRetry.doRetry(
-      { compute.globalForwardingRules().get(project, description.loadBalancerName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.globalForwardingRules().get(project, description.loadBalancerName),
+            "compute.globalForwardingRules", TAG_SCOPE, SCOPE_GLOBAL) },
       'Get',
       "Global forwarding rule ${description.loadBalancerName}",
       task,
@@ -96,7 +99,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
       // Fetch the target proxy.
       targetProxyName = GCEUtil.getLocalName(existingForwardingRule.target)
       existingTargetProxy = safeRetry.doRetry(
-        { compute.targetSslProxies().get(project, targetProxyName).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.targetSslProxies().get(project, targetProxyName),
+              "compute.targetSslProxies.get", TAG_SCOPE, SCOPE_GLOBAL)},
         'Get',
         "Target ssl proxy ${targetProxyName}",
         task,
@@ -112,7 +117,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
     }
 
     existingBackendService = safeRetry.doRetry(
-      { compute.backendServices().get(project, backendServiceName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.backendServices().get(project, backendServiceName),
+            "compute.backendServices.get", TAG_SCOPE, SCOPE_GLOBAL) },
       'Get',
       "Global backend service $backendServiceName",
       task,
@@ -130,7 +137,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
     // Note: SSL LBs only use HealthCheck objects, _not_ Http(s)HealthChecks. The actual check (i.e. Ssl, Tcp, Http(s))
     // is nested in a field inside the HealthCheck object.
     existingHealthCheck = safeRetry.doRetry(
-      { compute.healthChecks().get(project, healthCheckName).execute() },
+      { GoogleExecutor.timeExecute(
+            compute.healthChecks().get(project, healthCheckName),
+            "compute.healthChecks.get", TAG_SCOPE, SCOPE_GLOBAL) },
       'Get',
       "Health check $healthCheckName",
       task,
@@ -147,7 +156,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
       task.updateStatus BASE_PHASE, "Creating health check $healthCheckName..."
       def newHealthCheck = GCEUtil.createNewHealthCheck(descriptionHealthCheck)
       healthCheckOp = safeRetry.doRetry(
-        { compute.healthChecks().insert(project, newHealthCheck as HealthCheck).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.healthChecks().insert(project, newHealthCheck as HealthCheck),
+              "compute.healthChecks.insert", TAG_SCOPE, SCOPE_GLOBAL) },
         'Insert',
         "Health check $healthCheckName",
         task,
@@ -159,7 +170,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
       task.updateStatus BASE_PHASE, "Updating health check $healthCheckName..."
       GCEUtil.updateExistingHealthCheck(existingHealthCheck, descriptionHealthCheck)
       healthCheckOp = safeRetry.doRetry(
-        { compute.healthChecks().update(project, healthCheckName, existingHealthCheck as HealthCheck).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.healthChecks().update(project, healthCheckName, existingHealthCheck as HealthCheck),
+              "compute.healthChecks.update", TAG_SCOPE, SCOPE_GLOBAL) },
         'Update',
         "Health check $healthCheckName",
         task,
@@ -185,7 +198,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
         protocol: description.ipProtocol
       )
       backendServiceOp = safeRetry.doRetry(
-        { compute.backendServices().insert(project, bs).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.backendServices().insert(project, bs),
+              "compute.backendServices.insert", TAG_SCOPE, SCOPE_GLOBAL) },
         'Insert',
         "Backend service $description.backendService.name",
         task,
@@ -201,7 +216,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
       existingBackendService.loadBalancingScheme = 'EXTERNAL'
       existingBackendService.protocol = description.ipProtocol
       backendServiceOp = safeRetry.doRetry(
-        { compute.backendServices().update(project, existingBackendService.getName(), existingBackendService).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.backendServices().update(project, existingBackendService.getName(), existingBackendService),
+              "compute.backendSerfvices.update", TAG_SCOPE, SCOPE_GLOBAL) },
         'Update',
         "Backend service $description.backendService.name",
         task,
@@ -224,7 +241,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
         sslCertificates: [GCEUtil.buildCertificateUrl(project, description.certificate)]
       )
       Operation proxyOp = safeRetry.doRetry(
-        { compute.targetSslProxies().insert(project, targetProxy).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.targetSslProxies().insert(project, targetProxy),
+              "compute.targetSslProxies.insert", TAG_SCOPE, SCOPE_GLOBAL) },
         'Insert',
         "Target ssl proxy ${targetProxyName}",
         task,
@@ -240,11 +259,15 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
 
       TargetSslProxiesSetSslCertificatesRequest certReq = new TargetSslProxiesSetSslCertificatesRequest()
       certReq.setSslCertificates([GCEUtil.buildCertificateUrl(project, description.certificate)])
-      compute.targetSslProxies().setSslCertificates(project, existingTargetProxy.getName(), certReq).execute()
+      GoogleExecutor.timeExecute(
+          compute.targetSslProxies().setSslCertificates(project, existingTargetProxy.getName(), certReq),
+          "compute.targetSllProxies.setSslCertificates", TAG_SCOPE, SCOPE_GLOBAL)
 
       TargetSslProxiesSetBackendServiceRequest bsReq = new TargetSslProxiesSetBackendServiceRequest()
       bsReq.setService(GCEUtil.buildBackendServiceUrl(project, backendServiceName))
-      compute.targetSslProxies().setBackendService(project, existingTargetProxy.getName(), bsReq).execute()
+      GoogleExecutor.timeExecute(
+            compute.targetSslProxies().setBackendService(project, existingTargetProxy.getName(), bsReq),
+            "compute.targetSslProxies.setBackendService", TAG_SCOPE, SCOPE_GLOBAL)
     }
 
     if (!existingForwardingRule) {
@@ -258,7 +281,9 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
         target: targetProxyUrl,
       )
       Operation ruleOp = safeRetry.doRetry(
-        { compute.globalForwardingRules().insert(project, forwardingRule).execute() },
+        { GoogleExecutor.timeExecute(
+              compute.globalForwardingRules().insert(project, forwardingRule),
+              "compute.globalForwardingRules.insert", TAG_SCOPE, SCOPE_GLOBAL) },
         'Insert',
         "Global forwarding rule ${description.loadBalancerName}",
         task,

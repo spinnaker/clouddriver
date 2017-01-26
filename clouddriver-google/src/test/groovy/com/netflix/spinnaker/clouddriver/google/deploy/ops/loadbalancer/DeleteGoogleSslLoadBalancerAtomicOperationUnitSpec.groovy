@@ -18,21 +18,16 @@ package com.netflix.spinnaker.clouddriver.google.deploy.ops.loadbalancer
 
 import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.*
-import com.netflix.spinnaker.clouddriver.data.task.Task
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
-import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
-import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.DeleteGoogleLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationTimedOutException
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
+import com.netflix.spinnaker.clouddriver.google.deploy.ops.BaseOperationUnitSpec
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
 
-class DeleteGoogleSslLoadBalancerAtomicOperationUnitSpec extends Specification {
+class DeleteGoogleSslLoadBalancerAtomicOperationUnitSpec extends BaseOperationUnitSpec {
   private static final ACCOUNT_NAME = "auto"
   private static final PROJECT_NAME = "my_project"
   private static final SSL_LOAD_BALANCER_NAME = "default"
@@ -48,16 +43,6 @@ class DeleteGoogleSslLoadBalancerAtomicOperationUnitSpec extends Specification {
   private static final HEALTH_CHECK_DELETE_OP_NAME = "delete-health-check"
   private static final PENDING = "PENDING"
   private static final DONE = "DONE"
-
-  @Shared
-  def threadSleeperMock = Mock(GoogleOperationPoller.ThreadSleeper)
-  @Shared
-  SafeRetry safeRetry
-
-  def setupSpec() {
-    TaskRepository.threadLocalTask.set(Mock(Task))
-    safeRetry = new SafeRetry(maxRetries: 10, maxWaitInterval: 60000, retryIntervalBase: 0, jitterMultiplier: 0)
-  }
 
   void "should delete ssl load balancer"() {
     setup:
@@ -108,13 +93,7 @@ class DeleteGoogleSslLoadBalancerAtomicOperationUnitSpec extends Specification {
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleSslLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -175,13 +154,7 @@ class DeleteGoogleSslLoadBalancerAtomicOperationUnitSpec extends Specification {
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleSslLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -234,13 +207,7 @@ class DeleteGoogleSslLoadBalancerAtomicOperationUnitSpec extends Specification {
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleSslLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -299,13 +266,7 @@ class DeleteGoogleSslLoadBalancerAtomicOperationUnitSpec extends Specification {
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DeleteGoogleSslLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])

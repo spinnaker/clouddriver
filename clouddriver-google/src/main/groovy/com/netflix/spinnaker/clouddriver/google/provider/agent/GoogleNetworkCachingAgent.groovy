@@ -20,6 +20,7 @@ import com.google.api.services.compute.model.Network
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.provider.ProviderCache
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import groovy.transform.InheritConstructors
@@ -45,7 +46,8 @@ class GoogleNetworkCachingAgent extends AbstractGoogleCachingAgent {
   }
 
   List<Network> loadNetworks() {
-    compute.networks().list(project).execute().items as List
+    GoogleExecutor.timeExecute(
+        compute.networks().list(project), "compute.networks.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
   }
 
   private CacheResult buildCacheResult(ProviderCache _, List<Network> networkList) {

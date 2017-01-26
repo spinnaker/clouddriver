@@ -23,6 +23,7 @@ import com.google.api.services.compute.model.HttpsHealthCheck
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.provider.ProviderCache
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.model.GoogleHealthCheck
@@ -67,7 +68,9 @@ class GoogleHealthCheckCachingAgent extends AbstractGoogleCachingAgent {
    */
   List<GoogleHealthCheck> loadHealthChecks() {
     List<GoogleHealthCheck> ret = []
-    def httpHealthChecks = compute.httpHealthChecks().list(project).execute().items as List
+    def httpHealthChecks = GoogleExecutor.timeExecute(
+            compute.httpHealthChecks().list(project),
+            "compute.httpHealthChecks.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
     httpHealthChecks.each { HttpHealthCheck hc ->
       ret << new GoogleHealthCheck(
         name: hc.getName(),
@@ -82,7 +85,9 @@ class GoogleHealthCheckCachingAgent extends AbstractGoogleCachingAgent {
       )
     }
 
-    def httpsHealthChecks = compute.httpsHealthChecks().list(project).execute().items as List
+    def httpsHealthChecks = GoogleExecutor.timeExecute(
+            compute.httpsHealthChecks().list(project),
+            "compute.httpsHealthChecks.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
     httpsHealthChecks.each { HttpsHealthCheck hc ->
       ret << new GoogleHealthCheck(
         name: hc.getName(),
@@ -97,7 +102,9 @@ class GoogleHealthCheckCachingAgent extends AbstractGoogleCachingAgent {
       )
     }
 
-    def healthChecks = compute.healthChecks().list(project).execute().items as List
+    def healthChecks = GoogleExecutor.timeExecute(
+            compute.healthChecks().list(project),
+            "compute.healthChecks.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
     healthChecks.each { HealthCheck hc ->
       def newHC = new GoogleHealthCheck(
         name: hc.getName(),

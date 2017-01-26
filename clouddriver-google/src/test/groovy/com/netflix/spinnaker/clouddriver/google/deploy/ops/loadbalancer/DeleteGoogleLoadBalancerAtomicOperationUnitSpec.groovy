@@ -24,21 +24,16 @@ import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.ForwardingRule
 import com.google.api.services.compute.model.Operation
 import com.google.api.services.compute.model.TargetPool
-import com.netflix.spinnaker.clouddriver.data.task.Task
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
-import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
-import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.DeleteGoogleLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationException
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationTimedOutException
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
+import com.netflix.spinnaker.clouddriver.google.deploy.ops.BaseOperationUnitSpec
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
 
-class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
+class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends BaseOperationUnitSpec {
   private static final ACCOUNT_NAME = "auto"
   private static final PROJECT_NAME = "my_project"
   private static final LOAD_BALANCER_NAME = "default"
@@ -51,14 +46,8 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
   private static final HEALTH_CHECK_NAME = "health-check"
   private static final HEALTH_CHECK_DELETE_OP_NAME = "delete-health-check"
 
-  @Shared
-  def threadSleeperMock = Mock(GoogleOperationPoller.ThreadSleeper)
-  @Shared
-  SafeRetry safeRetry
-
-  def setupSpec() {
-    TaskRepository.threadLocalTask.set(Mock(Task))
-    safeRetry = new SafeRetry(maxRetries: 10, maxWaitInterval: 60000, retryIntervalBase: 0, jitterMultiplier: 0)
+  void setupSpec() {
+    super.doSetupSpec()
   }
 
   void "should delete a Network Load Balancer with health checks"() {
@@ -95,13 +84,7 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
           accountName: ACCOUNT_NAME,
           credentials: credentials)
       @Subject def operation = new DeleteGoogleLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -157,13 +140,7 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
           accountName: ACCOUNT_NAME,
           credentials: credentials)
       @Subject def operation = new DeleteGoogleLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -199,7 +176,7 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
           accountName: ACCOUNT_NAME,
           credentials: credentials)
       @Subject def operation = new DeleteGoogleLoadBalancerAtomicOperation(description)
-      operation.safeRetry = safeRetry
+//      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -237,13 +214,7 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
           accountName: ACCOUNT_NAME,
           credentials: credentials)
       @Subject def operation = new DeleteGoogleLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -286,13 +257,7 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
           accountName: ACCOUNT_NAME,
           credentials: credentials)
       @Subject def operation = new DeleteGoogleLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -342,13 +307,7 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
           accountName: ACCOUNT_NAME,
           credentials: credentials)
       @Subject def operation = new DeleteGoogleLoadBalancerAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -420,16 +379,8 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
           "Bad Request",
           new HttpHeaders()).setMessage("400 Bad Request")
       def googleJsonResponseException = new GoogleJsonResponseException(httpResponseExceptionBuilder, details)
-      def operationRetryThreadSleeperMock = Mock(GoogleOperationPoller.ThreadSleeper)
       @Subject def operation = new DeleteGoogleLoadBalancerAtomicOperation(description)
-      operation.threadSleeper = operationRetryThreadSleeperMock
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
@@ -507,16 +458,8 @@ class DeleteGoogleLoadBalancerAtomicOperationUnitSpec extends Specification {
           "Bad Request",
           new HttpHeaders()).setMessage("400 Bad Request")
       def googleJsonResponseException = new GoogleJsonResponseException(httpResponseExceptionBuilder, details)
-      def operationRetryThreadSleeperMock = Mock(GoogleOperationPoller.ThreadSleeper)
       @Subject def operation = new DeleteGoogleLoadBalancerAtomicOperation(description)
-      operation.threadSleeper = operationRetryThreadSleeperMock
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          safeRetry: safeRetry
-        )
-      operation.safeRetry = safeRetry
+      preparePollingOperation(operation)
 
     when:
       operation.operate([])
