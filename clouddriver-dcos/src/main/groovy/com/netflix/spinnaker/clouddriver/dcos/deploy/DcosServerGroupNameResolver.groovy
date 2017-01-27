@@ -1,24 +1,21 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy
 
-import java.text.SimpleDateFormat
-
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver
-import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver.TakenSlot
-
 import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
 
-class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
+import java.time.Instant
 
+class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
   private static final String DCOS_PHASE = "DCOS_DEPLOY"
 
   private final DCOS dcosClient
-  final String region
+  private String region
 
-  DcosServerGroupNameResolver(DCOS dcosClient, String region) {
+  DcosServerGroupNameResolver(DCOS dcosClient, String account, String region) {
     this.dcosClient = dcosClient
-    this.region = region
+    this.region = region ? "/${account}/${region}" : "/${account}"
   }
 
   @Override
@@ -27,19 +24,33 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
   }
 
   @Override
-  List<TakenSlot> getTakenSlots(String clusterName) {
-    List<App> apps = dcosClient.apps.apps
+  String getRegion() {
+    return region
+  }
 
-    return apps.collect { App app ->
-      return new TakenSlot(
-        serverGroupName: app.id,
-        sequence       : Names.parseName(app.id).sequence,
+  @Override
+  List<AbstractServerGroupNameResolver.TakenSlot> getTakenSlots(String clusterName) {
+    List<App> apps = dcosClient.getApps(region).apps
+
+    if (!apps) {
+      return Collections.emptyList()
+    }
+
+    def filteredApps = apps.findAll {
+      new DcosSpinnakerId(it.id).service.cluster == Names.parseName(clusterName).cluster
+    }
+
+    return filteredApps.collect { App app ->
+      final def names = new DcosSpinnakerId(app.id).service
+      return new AbstractServerGroupNameResolver.TakenSlot(
+        serverGroupName: names.cluster,
+        sequence       : names.sequence,
         createdTime    : new Date(translateTime(app.versionInfo.lastConfigChangeAt))
       )
     }
   }
 
   static long translateTime(String time) {
-    time ? (new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX").parse(time)).getTime() : 0
+    time ? Instant.parse(time).toEpochMilli() : 0
   }
 }
