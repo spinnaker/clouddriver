@@ -37,7 +37,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
                         maximumOverCapacity: 2))
 
         when:
-        App app = DeployDcosServerGroupDescriptionToAppMapper.map(APPLICATION_NAME.toString(), description)
+        App app = new DeployDcosServerGroupDescriptionToAppMapper().map(APPLICATION_NAME.toString(), description)
 
         then:
         noExceptionThrown()
@@ -131,7 +131,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
                         docker: new DeployDcosServerGroupDescription.Docker(image: "some/image:latest", network: "BRIDGED")))
 
         when:
-        App app = DeployDcosServerGroupDescriptionToAppMapper.map(APPLICATION_NAME.toString(), description)
+        App app = new DeployDcosServerGroupDescriptionToAppMapper().map(APPLICATION_NAME.toString(), description)
 
         then:
         noExceptionThrown()

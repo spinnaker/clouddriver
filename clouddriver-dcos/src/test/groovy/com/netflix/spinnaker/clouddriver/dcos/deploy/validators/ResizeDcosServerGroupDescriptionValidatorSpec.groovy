@@ -46,7 +46,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
     0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
     1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
     0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
-    0 * errorsMock.rejectValue("desired", "${DESCRIPTION}.desired.invalid")
+    1 * errorsMock.rejectValue("desired", "${DESCRIPTION}.desired.invalid")
     0 * errorsMock._
   }
 

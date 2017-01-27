@@ -37,11 +37,11 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
       errors.rejectValue "mem", "deployDcosServerGroupDescription.mem.invalid"
     }
 
-    if (!description.disk || description.disk <= 0) {
+    if (description.disk == null || description.disk < 0) {
       errors.rejectValue "disk", "deployDcosServerGroupDescription.disk.invalid"
     }
 
-    if (!description.gpus || description.gpus <= 0) {
+    if (description.gpus == null || description.gpus < 0) {
       errors.rejectValue "gpus", "deployDcosServerGroupDescription.gpus.invalid"
     }
 

@@ -3,9 +3,9 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.DeployDcosServerGroupAtomicOperation
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -16,6 +16,7 @@ import spock.lang.Subject
 class DeployDcosServerGroupAtomicOperationConverterSpec extends Specification {
 
   DCOS dcosClient = Mock(DCOS)
+  DeployDcosServerGroupDescriptionToAppMapper dcosServerGroupDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
   DcosCredentials testCredentials = new DcosCredentials(
     'test', 'test', 'test', 'https://test.url.com', 'user', 'pw'
@@ -30,7 +31,7 @@ class DeployDcosServerGroupAtomicOperationConverterSpec extends Specification {
   }
 
   @Subject
-  AbstractAtomicOperationsCredentialsSupport atomicOperationConverter = new DeployDcosServerGroupAtomicOperationConverter(dcosClientProvider)
+  AbstractAtomicOperationsCredentialsSupport atomicOperationConverter = new DeployDcosServerGroupAtomicOperationConverter(dcosClientProvider, dcosServerGroupDescriptionToAppMapper)
 
   void 'convertDescription should return a valid DeployDcosServerGroupDescription'() {
     given:
@@ -63,7 +64,7 @@ class DeployDcosServerGroupAtomicOperationConverterSpec extends Specification {
     ]
 
     when:
-    AbstractDcosCredentialsDescription description = atomicOperationConverter.convertDescription(input)
+    def description = atomicOperationConverter.convertDescription(input)
 
     then:
     noExceptionThrown()

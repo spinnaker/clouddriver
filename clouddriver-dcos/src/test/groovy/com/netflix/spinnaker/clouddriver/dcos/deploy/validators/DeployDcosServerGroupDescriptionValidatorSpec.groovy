@@ -38,17 +38,14 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
       1 * errorsMock.rejectValue("mem", "${DESCRIPTION}.mem.invalid")
       1 * errorsMock.rejectValue("disk", "${DESCRIPTION}.disk.invalid")
       1 * errorsMock.rejectValue("gpus", "${DESCRIPTION}.gpus.invalid")
-      1 * errorsMock.rejectValue("container", "${DESCRIPTION}.container.invalid")
-      0 * errorsMock.rejectValue("container.docker", "${DESCRIPTION}.container.docker.invalid")
-      0 * errorsMock.rejectValue("container.docker.image", "${DESCRIPTION}.container.docker.image.invalid")
-      0 * errorsMock.rejectValue("container.docker.network", "${DESCRIPTION}.container.docker.network.invalid")
+      1 * errorsMock.rejectValue("container", "${DESCRIPTION}.container.empty")
       0 * errorsMock._
   }
 
   void "validate should give errors when given an invalid DeployDcosServerGroupDescription"() {
     setup:
     def description = new DeployDcosServerGroupDescription(credentials: new DcosCredentials(null, null, null, null, null, null),
-            application: 'test', instances: 0, cpus: 0, mem: 0, disk: 0, gpus: 0,
+            application: 'test', instances: 1, cpus: 1, mem: 512, disk: 0, gpus: 0,
       container: new DeployDcosServerGroupDescription.Container(docker: null))
     def errorsMock = Mock(Errors)
     when:
@@ -62,40 +59,14 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
     0 * errorsMock.rejectValue("mem", "${DESCRIPTION}.mem.invalid")
     0 * errorsMock.rejectValue("disk", "${DESCRIPTION}.disk.invalid")
     0 * errorsMock.rejectValue("gpus", "${DESCRIPTION}.gpus.invalid")
-    0 * errorsMock.rejectValue("container", "${DESCRIPTION}.container.invalid")
-    1 * errorsMock.rejectValue("container.docker", "${DESCRIPTION}.container.docker.invalid")
-    0 * errorsMock.rejectValue("container.docker.image", "${DESCRIPTION}.container.docker.image.invalid")
-    0 * errorsMock.rejectValue("container.docker.network", "${DESCRIPTION}.container.docker.network.invalid")
-    0 * errorsMock._
-  }
-
-  void "validate should give errors when given a DeployDcosServerGroupDescription with an invalid docker container"() {
-    setup:
-    def description = new DeployDcosServerGroupDescription(credentials: testCredentials, application: 'test',
-      instances: 0, cpus: 0, mem: 0, disk: 0, gpus: 0, container: new DeployDcosServerGroupDescription.Container(docker: new DeployDcosServerGroupDescription.Docker(image: null, network: null)))
-    def errorsMock = Mock(Errors)
-    when:
-    validator.validate([], description, errorsMock)
-    then:
-    0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-    0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
-    0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.empty")
-    0 * errorsMock.rejectValue("instances", "${DESCRIPTION}.instances.invalid")
-    0 * errorsMock.rejectValue("cpus", "${DESCRIPTION}.cpus.invalid")
-    0 * errorsMock.rejectValue("mem", "${DESCRIPTION}.mem.invalid")
-    0 * errorsMock.rejectValue("disk", "${DESCRIPTION}.disk.invalid")
-    0 * errorsMock.rejectValue("gpus", "${DESCRIPTION}.gpus.invalid")
-    0 * errorsMock.rejectValue("container", "${DESCRIPTION}.container.invalid")
-    0 * errorsMock.rejectValue("container.docker", "${DESCRIPTION}.container.docker.invalid")
-    1 * errorsMock.rejectValue("container.docker.image", "${DESCRIPTION}.container.docker.image.invalid")
-    1 * errorsMock.rejectValue("container.docker.network", "${DESCRIPTION}.container.docker.network.invalid")
+    0 * errorsMock.rejectValue("container", "${DESCRIPTION}.container.empty")
     0 * errorsMock._
   }
 
   void "validate should give no errors when given an valid DeployDcosServerGroupDescription"() {
     setup:
     def description = new DeployDcosServerGroupDescription(credentials: testCredentials, application: 'test',
-      instances: 0, cpus: 0, mem: 0, disk: 0, gpus: 0, container: new DeployDcosServerGroupDescription.Container(docker: new DeployDcosServerGroupDescription.Docker(image: 'testImage', network: 'BRIDGE')))
+      instances: 1, cpus: 1, mem: 512, disk: 0, gpus: 0, container: new DeployDcosServerGroupDescription.Container(docker: null))
     def errorsMock = Mock(Errors)
     when:
     validator.validate([], description, errorsMock)
@@ -108,10 +79,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
       0 * errorsMock.rejectValue("mem", "${DESCRIPTION}.mem.invalid")
       0 * errorsMock.rejectValue("disk", "${DESCRIPTION}.disk.invalid")
       0 * errorsMock.rejectValue("gpus", "${DESCRIPTION}.gpus.invalid")
-      0 * errorsMock.rejectValue("container", "${DESCRIPTION}.container.invalid")
-      0 * errorsMock.rejectValue("container.docker", "${DESCRIPTION}.container.docker.invalid")
-      0 * errorsMock.rejectValue("container.docker.image", "${DESCRIPTION}.container.docker.image.invalid")
-      0 * errorsMock.rejectValue("container.docker.network", "${DESCRIPTION}.container.docker.network.invalid")
+      0 * errorsMock.rejectValue("container", "${DESCRIPTION}.container.empty")
       0 * errorsMock._
   }
 }
