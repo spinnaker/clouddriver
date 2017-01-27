@@ -25,21 +25,8 @@ class ResizeDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
       errors.rejectValue "serverGroupName", "resizeDcosServerGroupDescription.serverGroupName.empty"
     }
 
-    if (!valid(description.capacity.min)) {
-      errors.rejectValue "serverGroupName", "resizeDcosServerGroupDescription.min.empty"
-    }
-
-    if (!valid(description.capacity.max)) {
-      errors.rejectValue "serverGroupName", "resizeDcosServerGroupDescription.max.empty"
-    }
-
-    if (!valid(description.capacity.desired)) {
-      errors.rejectValue "serverGroupName", "resizeDcosServerGroupDescription.desired.empty"
+    if (!description.desired || description.desired <= 0) {
+      errors.rejectValue "desired", "resizeDcosServerGroupDescription.desired.invalid"
     }
   }
-
-  static def valid(Object value) {
-    value || value instanceof Number
-  }
-
 }
