@@ -4,7 +4,9 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosServerGroupNameResolver
+import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 
@@ -13,9 +15,11 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
 
   final DcosClientProvider dcosClientProvider
   final DeployDcosServerGroupDescription description
+  final DeployDcosServerGroupDescriptionToAppMapper descriptionToAppMapper
 
-  DeployDcosServerGroupAtomicOperation(DcosClientProvider dcosClientProvider, DeployDcosServerGroupDescription description) {
+  DeployDcosServerGroupAtomicOperation(DcosClientProvider dcosClientProvider, DeployDcosServerGroupDescriptionToAppMapper descriptionToAppMapper, DeployDcosServerGroupDescription description) {
     this.dcosClientProvider = dcosClientProvider
+    this.descriptionToAppMapper = descriptionToAppMapper
     this.description = description
   }
 
@@ -37,39 +41,29 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
   DeploymentResult operate(List priorOutputs) {
     task.updateStatus BASE_PHASE, "Initializing creation of application."
 
-    def serverGroupNameResolver = new DcosServerGroupNameResolver(dcosClientProvider.getDcosClient(description.credentials), null)
+    def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
+    def serverGroupNameResolver = new DcosServerGroupNameResolver(dcosClient, description.credentials.name, description.region)
 
     task.updateStatus BASE_PHASE, "Looking up next sequence index"
-    def serverGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, "", "", false)
-    task.updateStatus BASE_PHASE, "Application name chosen to be ${serverGroupName}."
 
+    def resolvedServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.detail, false)
+    def dcosPathId = new DcosSpinnakerId(description.credentials.name, description.region, resolvedServerGroupName)
+
+    task.updateStatus BASE_PHASE, "Spinnaker ID chosen to be ${resolvedServerGroupName}."
+    task.updateStatus BASE_PHASE, "Marathon ID chosen to be $dcosPathId."
     task.updateStatus BASE_PHASE, "Building application..."
-//    def replicaSet = KubernetesApiConverter.toReplicaSet(new ReplicaSetBuilder(), description, serverGroupName)
-//
-//    if (KubernetesApiConverter.hasDeployment(description)) {
-//      replicaSet.spec.replicas = 0
-//    }
-//
-//    serverGroup = credentials.apiAdaptor.createReplicaSet(namespace, replicaSet)
 
-    task.updateStatus BASE_PHASE, "Deployed service ${serverGroupName}"
+    def resolvedServerPath = "${dcosPathId.namespace}/${resolvedServerGroupName}"
 
-//    if (KubernetesApiConverter.hasDeployment(description)) {
-//      if (!credentials.apiAdaptor.getDeployment(namespace, clusterName)) {
-//        task.updateStatus BASE_PHASE, "Building deployment..."
-//        credentials.apiAdaptor.createDeployment(namespace, ((DeploymentBuilder) KubernetesApiConverter.toDeployment((DeploymentFluentImpl) new DeploymentBuilder(), description, replicaSetName)).build())
-//      } else {
-//        task.updateStatus BASE_PHASE, "Updating deployment..."
-//        ((DoneableDeployment) KubernetesApiConverter.toDeployment((DeploymentFluentImpl) credentials.apiAdaptor.editDeployment(namespace, clusterName),
-//          description,
-//          replicaSetName)).done()
-//      }
-//      task.updateStatus BASE_PHASE, "Configured deployment"
-//    }
+    task.updateStatus BASE_PHASE, "Marathon app name chosen to be ${resolvedServerPath}"
 
-    DeploymentResult deploymentResult = new DeploymentResult()
+    dcosClient.modifyApp(resolvedServerPath, descriptionToAppMapper.map(resolvedServerPath, description))
 
-    //deploymentResult.serverGroupNames = Arrays.asList("${serverGroup.metadata.name}".toString())
+    task.updateStatus BASE_PHASE, "Deployed service ${resolvedServerGroupName}"
+
+    def deploymentResult = new DeploymentResult()
+    deploymentResult.serverGroupNames.add(resolvedServerGroupName)
+    deploymentResult.serverGroupNameByRegion[dcosPathId.region] = resolvedServerGroupName
 
     return deploymentResult
   }

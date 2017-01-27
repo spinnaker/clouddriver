@@ -22,44 +22,31 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
     super.validate(priorDescriptions, description, errors)
 
     if (!description.application) {
-      errors.rejectValue "application", "titusDeployDescription.application.empty"
+      errors.rejectValue "application", "deployDcosServerGroupDescription.application.empty"
     }
 
-    if (!description.imageId) {
-      errors.rejectValue "imageId", "titusDeployDescription.imageId.empty"
+    if (!description.instances || description.instances <= 0) {
+      errors.rejectValue "instances", "deployDcosServerGroupDescription.instances.invalid"
     }
 
-    if (!description.capacity) {
-      errors.rejectValue "capacity", "titusDeployDescription.capacity.invalid"
-    } else {
-      if (description.capacity.min < 0) {
-        errors.rejectValue "capacity", "titusDeployDescription.capacity.min.invalid"
-      }
-
-      if (description.capacity.max < 0) {
-        errors.rejectValue "capacity", "titusDeployDescription.capacity.max.invalid"
-      }
-
-      if (description.capacity.desired < 0) {
-        errors.rejectValue "capacity", "titusDeployDescription.capacity.desired.invalid"
-      }
+    if (!description.cpus || description.cpus <= 0) {
+      errors.rejectValue "cpus", "deployDcosServerGroupDescription.cpus.invalid"
     }
 
-    if (description.resources) {
-      if (description.resources.cpu <= 0) {
-        errors.rejectValue "resources.cpu", "titusDeployDescription.resources.cpu.invalid"
-      }
+    if (!description.mem || description.mem <= 0) {
+      errors.rejectValue "mem", "deployDcosServerGroupDescription.mem.invalid"
+    }
 
-      if (description.resources.memory <= 0) {
-        errors.rejectValue "resources.memory", "titusDeployDescription.resources.memory.invalid"
-      }
+    if (!description.disk || description.disk <= 0) {
+      errors.rejectValue "disk", "deployDcosServerGroupDescription.disk.invalid"
+    }
 
-      if (description.resources.disk <= 0) {
-        errors.rejectValue "resources.disk", "titusDeployDescription.resources.disk.invalid"
-      }
+    if (!description.gpus || description.gpus <= 0) {
+      errors.rejectValue "gpus", "deployDcosServerGroupDescription.gpus.invalid"
+    }
 
-    } else {
-      errors.rejectValue "resources", "titusDeployDescription.resources.empty"
+    if (!description.container) {
+      errors.rejectValue "container", "deployDcosServerGroupDescription.container.empty"
     }
   }
 }
