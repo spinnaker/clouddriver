@@ -7,6 +7,7 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.dcos.client.DCOS
+import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.Result
 import spock.lang.Specification
 import spock.lang.Subject
@@ -25,7 +26,7 @@ class ResizeDcosServerGroupAtomicOperationSpec extends Specification {
   }
 
   ResizeDcosServerGroupDescription description = new ResizeDcosServerGroupDescription(
-    serverGroupName: APPLICATION_NAME, credentials: testCredentials, desired: 2
+    region: "", serverGroupName: APPLICATION_NAME, credentials: testCredentials, desired: 2
   )
 
   @Subject
@@ -42,6 +43,7 @@ class ResizeDcosServerGroupAtomicOperationSpec extends Specification {
 
     then:
     noExceptionThrown()
-    1 * dcosClient.modifyApp(APPLICATION_NAME, _) >> new Result()
+    1 * dcosClient.maybeApp(_) >> Optional.of(new App())
+    1 * dcosClient.modifyApp(_, _) >> new Result()
   }
 }

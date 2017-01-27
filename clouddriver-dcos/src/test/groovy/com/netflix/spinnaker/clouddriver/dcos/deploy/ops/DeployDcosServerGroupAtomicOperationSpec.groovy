@@ -6,6 +6,7 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.dcos.client.DCOS
@@ -17,6 +18,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
   private static final APPLICATION_NAME = new DcosSpinnakerId('/test/region/api-test-detail-v000')
 
   DCOS mockDcosClient = Mock(DCOS)
+  DeployDcosServerGroupDescriptionToAppMapper mockDcosDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
   DcosCredentials testCredentials = new DcosCredentials(
     'test', 'test', 'test', 'https://test.url.com', 'user', 'pw'
@@ -33,15 +35,13 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
                   new DeployDcosServerGroupDescription.Docker(image: "test", forcePullImage: false, privileged: false,
                           portMappings: [], network: "BRIDGE")))
 
-  App application = new App(id: APPLICATION_NAME.service.group, instances: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
+  App application = new App(id: APPLICATION_NAME.toString(), instances: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
     container: new Container(docker: new Docker(image: "test", forcePullImage: false, privileged: false, portMappings: [], network: "BRIDGE")),
     versionInfo: new VersionInfo(lastConfigChangeAt: null)
   )
 
-  Result result = new Result()
-
   @Subject
-  AtomicOperation atomicOperation = new DeployDcosServerGroupAtomicOperation(mockDcosClientProvider, description)
+  AtomicOperation atomicOperation = new DeployDcosServerGroupAtomicOperation(mockDcosClientProvider, mockDcosDescriptionToAppMapper, description)
 
   def setup() {
     Task task = Mock(Task)
@@ -50,7 +50,8 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
 
   void 'DeployDcosServerGroupAtomicOperation should deploy the DCOS service successfully'() {
     given:
-    mockDcosClient.getApps() >> new GetAppsResponse(apps: [application])
+    mockDcosClient.getApps(_) >> new GetAppNamespaceResponse(apps: [])
+    mockDcosDescriptionToAppMapper.map(_, _) >> application
 
     when:
     DeploymentResult deploymentResult = atomicOperation.operate([])
@@ -59,6 +60,6 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
     noExceptionThrown()
     deploymentResult != null
     deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(APPLICATION_NAME.service.group)
-    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get(APPLICATION_NAME.namespace) == APPLICATION_NAME.service.group
+    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get(APPLICATION_NAME.region) == APPLICATION_NAME.service.group
   }
 }
