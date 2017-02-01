@@ -52,10 +52,10 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster>{
 
   @Override
   DcosCluster getCluster(final String application, final String account, final String name) {
-    //TODO
     return new DcosCluster().with {
       it.name = name
       accountName = account
+      it
     }
   }
 
