@@ -4,6 +4,7 @@ import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver
 import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
+import mesosphere.marathon.client.model.v2.GetAppNamespaceResponse
 
 import java.time.Instant
 
@@ -30,7 +31,8 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
 
   @Override
   List<AbstractServerGroupNameResolver.TakenSlot> getTakenSlots(String clusterName) {
-    List<App> apps = dcosClient.getApps(region).apps
+    Optional<GetAppNamespaceResponse> appNamespaceResponse = dcosClient.maybeApps(region)
+    List<App> apps = appNamespaceResponse.isPresent() ? appNamespaceResponse.get().apps : []
 
     if (!apps) {
       return Collections.emptyList()

@@ -44,9 +44,5 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
     if (description.gpus == null || description.gpus < 0) {
       errors.rejectValue "gpus", "deployDcosServerGroupDescription.gpus.invalid"
     }
-
-    if (!description.container) {
-      errors.rejectValue "container", "deployDcosServerGroupDescription.container.empty"
-    }
   }
 }

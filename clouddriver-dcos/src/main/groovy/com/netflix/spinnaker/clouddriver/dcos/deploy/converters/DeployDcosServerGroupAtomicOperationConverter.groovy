@@ -2,6 +2,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosOperation
+import com.netflix.spinnaker.clouddriver.dcos.deploy.converters.DcosAtomicOperationConverterHelper
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.DeployDcosServerGroupAtomicOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
@@ -29,8 +30,6 @@ class DeployDcosServerGroupAtomicOperationConverter extends AbstractAtomicOperat
   }
 
   DeployDcosServerGroupDescription convertDescription(Map input) {
-    def converted = objectMapper.convertValue(input, DeployDcosServerGroupDescription)
-    converted.credentials = getCredentialsObject(input.credentials as String)
-    converted
+    DcosAtomicOperationConverterHelper.convertDescription(input, this, DeployDcosServerGroupDescription)
   }
 }
