@@ -25,7 +25,7 @@ class DcosConfiguration {
   @Bean
   @ConfigurationProperties("dcos")
   DcosConfigurationProperties dcosConfigurationProperties() {
-    new DcosConfigurationProperties();
+    new DcosConfigurationProperties()
   }
 
   @Bean

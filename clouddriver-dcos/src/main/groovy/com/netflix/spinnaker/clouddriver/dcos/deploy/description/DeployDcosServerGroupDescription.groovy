@@ -1,88 +1,80 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.description
 
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import groovy.transform.Canonical
 
 class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescription implements DeployDescription {
   String application
   String stack
-  String detail
+  String freeFormDetails
   String region
   String cmd
   List<String> args = new ArrayList<>()
-  String user
+  String dcosUser
   Map<String, Object> env = new HashMap<>()
   Integer instances
   Double cpus
   Double mem
   Double disk
   Double gpus
-  List<List<String>> constraints = new ArrayList<>()
+  String constraints
   List<String> fetch = new ArrayList<>()
   List<String> storeUrls = new ArrayList<>()
   Integer backoffSeconds
   Double backoffFactor
   Integer maxLaunchDelaySeconds
   Container container
+  Docker docker
   List<HealthCheck> healthChecks = new ArrayList<>()
   List<Object> readinessChecks = new ArrayList<>()
   List<String> dependencies = new ArrayList<>()
   UpgradeStrategy upgradeStrategy
   Map<String, String> labels = new HashMap<>()
   List<String> acceptedResourceRoles = null
-  String ipAddress
   String version
   String residency
   Integer taskKillGracePeriodSeconds
   Map<String, Object> secrets = new HashMap<>()
-  List<Integer> ports = new ArrayList<>()
-  List<PortDefinition> portDefinitions = new ArrayList<>()
+  NetworkType networkType
+  List<ServiceEndpoint> serviceEndpoints = new ArrayList<>()
+  List<PersistentVolume> persistentVolumes = new ArrayList<>()
+  List<DockerVolume> dockerVolumes = new ArrayList<>()
+  List<ExternalVolume> externalVolumes = new ArrayList<>()
   Boolean requirePorts
 
   @Canonical
   static class Container {
     String type
-    List<Volume> volumes = new ArrayList<>()
-    Docker docker
+  }
+
+  @Canonical
+  static class Image {
+    String registry
+    String repository
+    String tag
+    String imageId
+    String stageId
+    String cluster
+    String account
+    String pattern
+    String fromContext
+    String fromTrigger
   }
 
   @Canonical
   static class Docker {
-      String image
-      String network
-      List<PortMapping> portMappings = new ArrayList<>()
-      Boolean privileged
-      List<Parameter> parameters = new ArrayList<>()
-      Boolean forcePullImage
-  }
-
-  @Canonical
-  static class PortMapping {
-    Integer containerPort
-    Integer hostPort
-    Integer servicePort
-    String protocol
-    Map<String, String> labels = new HashMap<>()
+    Image image
+    String network
+    boolean privileged
+    List<Parameter> parameters = new ArrayList<>()
+    boolean forcePullImage
   }
 
   @Canonical
   static class Parameter {
     String key
     String value
-  }
-
-  @Canonical
-  static class Volume {
-    String containerPath
-    String hostPath
-    String mode
-  }
-
-  @Canonical
-  static class PortDefinition {
-    Integer port
-    String protocol
-    Map<String, String> labels = new HashMap<>()
   }
 
   @Canonical
@@ -93,14 +85,65 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
 
   @Canonical
   static class HealthCheck {
-    String path
     String protocol
+    String path
     String command
+    Integer port
     Integer portIndex
     Integer gracePeriodSeconds
     Integer intervalSeconds
     Integer timeoutSeconds
     Integer maxConsecutiveFailures
-    Boolean ignoreHttp1xx
+    boolean ignoreHttp1xx
+  }
+
+  @Canonical
+  static class NetworkType {
+    String type
+    String name
+  }
+
+  @Canonical
+  static class ServiceEndpoint {
+    NetworkType networkType
+    Integer port
+    String name
+    String protocol
+    boolean isLoadBalanced
+    boolean exposeToHost
+  }
+
+  @Canonical
+  static class PersistentVolume {
+    String containerPath
+    PersistentStorage persistent
+    String mode
+  }
+
+  @Canonical
+  static class PersistentStorage {
+    Integer size
+  }
+
+  @Canonical
+  static class DockerVolume {
+    String containerPath
+    String hostPath
+    String mode
+  }
+
+  @Canonical
+  static class ExternalStorage {
+    String name
+    String provider
+    Map<String, String> options
+    String mode
+  }
+
+  @Canonical
+  static class ExternalVolume {
+    String containerPath
+    ExternalStorage external
+    String mode
   }
 }

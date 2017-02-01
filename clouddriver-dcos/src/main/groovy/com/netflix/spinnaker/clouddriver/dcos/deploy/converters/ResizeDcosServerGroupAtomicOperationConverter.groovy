@@ -28,8 +28,6 @@ class ResizeDcosServerGroupAtomicOperationConverter extends AbstractAtomicOperat
 
   @Override
   ResizeDcosServerGroupDescription convertDescription(Map input) {
-    def converted = objectMapper.convertValue(input, ResizeDcosServerGroupDescription)
-    converted.credentials = getCredentialsObject(input.credentials as String)
-    converted
+    DcosAtomicOperationConverterHelper.convertDescription(input, this, ResizeDcosServerGroupDescription)
   }
 }

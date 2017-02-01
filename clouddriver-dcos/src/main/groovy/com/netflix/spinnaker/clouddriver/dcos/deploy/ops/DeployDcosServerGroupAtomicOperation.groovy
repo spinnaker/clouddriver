@@ -46,7 +46,7 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
 
     task.updateStatus BASE_PHASE, "Looking up next sequence index"
 
-    def resolvedServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.detail, false)
+    def resolvedServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.freeFormDetails, false)
     def dcosPathId = new DcosSpinnakerId(description.credentials.name, description.region, resolvedServerGroupName)
 
     task.updateStatus BASE_PHASE, "Spinnaker ID chosen to be ${resolvedServerGroupName}."
