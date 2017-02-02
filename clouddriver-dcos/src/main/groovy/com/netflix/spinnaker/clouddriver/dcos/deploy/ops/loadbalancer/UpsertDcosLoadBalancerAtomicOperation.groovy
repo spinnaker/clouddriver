@@ -92,7 +92,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
               "--health-check",
               "--haproxy-map",
               "--group",
-              appId.name]
+              "${appId.account}_${appId.name}".toString()]
 
       // TODO Expose? these are defaults based on the current universe package
       env = ["HAPROXY_SSL_CERT"     : "",
