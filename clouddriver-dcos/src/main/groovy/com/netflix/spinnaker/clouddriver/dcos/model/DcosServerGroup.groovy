@@ -27,7 +27,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
   String account
   String json
   String kind
-  Double cpu
+  Double cpus
   Double mem
   Double disk
   Map<String, String> labels = [:]
@@ -57,14 +57,13 @@ class DcosServerGroup implements ServerGroup, Serializable {
     this.kind = "Application"
     this.loadBalancers = getLoadBalancers(app)
 
-    this.cpu = app.cpus
+    this.cpus = app.cpus
     this.mem = app.mem
     this.disk = app.disk
     this.labels = app.labels
 
     // TODO WHAT IS HAPPENING. WHY THE FUCK IS THIS GETTING SET TO NULL. AM I AN IDIOT. IT NEVER RETURNS NULL.
     this.createdTime = Instant.parse(app.versionInfo?.lastConfigChangeAt).toEpochMilli()
-    this.createdTime = 1485648000021
 
     // TODO remove when I have instance caching? this seems better anyways
     this.instances = app.tasks.collect({ new DcosInstance(it) }) as Set
@@ -82,7 +81,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
       } else {
         return null
       }
-    }.flatten().toSet()
+    }.flatten().collect({it.split("_")[1]}).toSet()
   }
 
   @Override
