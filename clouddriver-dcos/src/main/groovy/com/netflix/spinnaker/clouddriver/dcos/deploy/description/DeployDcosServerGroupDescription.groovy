@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.description
 
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import groovy.transform.Canonical
 
@@ -13,7 +12,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   List<String> args = new ArrayList<>()
   String dcosUser
   Map<String, Object> env = new HashMap<>()
-  Integer instances
+  Integer capacity
   Double cpus
   Double mem
   Double disk
