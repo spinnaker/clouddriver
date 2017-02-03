@@ -123,7 +123,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
   @Override
   ServerGroup.Capacity getCapacity() {
-    return null
+    new ServerGroup.Capacity(min: app.instances, max: app.instances, desired: app.instances)
   }
 
   Map<String, Object> getBuildInfo() {
