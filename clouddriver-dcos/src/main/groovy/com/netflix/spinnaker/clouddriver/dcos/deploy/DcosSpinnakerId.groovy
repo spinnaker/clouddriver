@@ -5,6 +5,7 @@ import com.google.common.base.Strings
 import com.netflix.frigga.Names
 
 class DcosSpinnakerId {
+    private final static def REGION_SEPARATOR = "_"
     private final static def PATH_SEPARATOR = "/"
     final String account
     final String region
@@ -28,7 +29,7 @@ class DcosSpinnakerId {
         this.account = parts.first()
         this.service = Names.parseName(parts.last())
 
-        this.region = parts.tail().take(parts.size() - 2).stream().map({
+        this.region = Arrays.asList(parts.tail().take(parts.size() - 2).join(REGION_SEPARATOR).split(REGION_SEPARATOR)).stream().map({
             Preconditions.checkArgument(!it.trim().isEmpty(), "The region should not contain empty/blank parts")
             return it
         }).collect().join(PATH_SEPARATOR)
@@ -43,7 +44,7 @@ class DcosSpinnakerId {
         this.region = Strings.nullToEmpty(region)
 
         if (this.region) {
-            this.region.split(PATH_SEPARATOR).each { Preconditions.checkArgument(!it.trim().isEmpty(), "The region should not contain empty/blank parts") }
+            this.region.split(REGION_SEPARATOR).each { Preconditions.checkArgument(!it.trim().isEmpty(), "The region should not contain empty/blank parts") }
         }
     }
 
