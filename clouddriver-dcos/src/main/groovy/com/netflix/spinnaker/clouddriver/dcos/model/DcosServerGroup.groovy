@@ -52,7 +52,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
     def id = DcosSpinnakerId.parse(app.id)
     this.name = id.name
     this.group = id.group
-    this.region = id.group ?: "root"
+    this.region = (id.group ?: "root").replace("/", "_")
     this.account = id.account
     this.kind = "Application"
     this.loadBalancers = getLoadBalancers(app)
