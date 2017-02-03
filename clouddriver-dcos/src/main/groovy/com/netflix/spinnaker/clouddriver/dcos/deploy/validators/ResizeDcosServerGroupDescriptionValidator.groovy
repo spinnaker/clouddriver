@@ -25,8 +25,8 @@ class ResizeDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
       errors.rejectValue "serverGroupName", "resizeDcosServerGroupDescription.serverGroupName.empty"
     }
 
-    if (!description.desired || description.desired <= 0) {
-      errors.rejectValue "desired", "resizeDcosServerGroupDescription.desired.invalid"
+    if (!description.instances || description.instances <= 0) {
+      errors.rejectValue "instances", "resizeDcosServerGroupDescription.instances.invalid"
     }
   }
 }
