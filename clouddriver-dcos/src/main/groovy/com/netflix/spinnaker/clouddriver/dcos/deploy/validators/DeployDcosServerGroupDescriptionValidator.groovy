@@ -25,7 +25,7 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
       errors.rejectValue "application", "deployDcosServerGroupDescription.application.empty"
     }
 
-    if (!description.capacity || description.capacity <= 0) {
+    if (!description.instances || description.instances <= 0) {
       errors.rejectValue "instances", "deployDcosServerGroupDescription.instances.invalid"
     }
 
