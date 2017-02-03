@@ -104,9 +104,16 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
       }
     }
 
-    buildCacheResult(serverGroups, keepInOnDemand.collectEntries { CacheData onDemandEntry ->
+    def result = buildCacheResult(serverGroups, keepInOnDemand.collectEntries { CacheData onDemandEntry ->
       [(onDemandEntry.id): onDemandEntry]
     }, evictFromOnDemand*.id, start)
+
+    result.cacheResults[Keys.Namespace.ON_DEMAND.ns].each { CacheData onDemandEntry ->
+      onDemandEntry.attributes.processedTime = System.currentTimeMillis()
+      onDemandEntry.attributes.processedCount = (onDemandEntry.attributes.processedCount ?: 0) + 1
+    }
+
+    return result
   }
 
   // OnDemandAgent methods
