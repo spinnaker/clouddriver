@@ -1,5 +1,6 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.description
+package com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup
 
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import groovy.transform.Canonical
 

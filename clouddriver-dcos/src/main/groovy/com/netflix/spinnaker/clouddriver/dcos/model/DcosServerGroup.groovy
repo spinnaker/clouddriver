@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.model.HealthState
@@ -9,12 +10,14 @@ import groovy.transform.Canonical
 import mesosphere.marathon.client.model.v2.App
 
 import java.time.Instant
+import java.util.regex.Pattern
 
 /**
  * Equivalent of a Dcos {@link mesosphere.marathon.client.model.v2.App}
  */
-@Canonical
 class DcosServerGroup implements ServerGroup, Serializable {
+
+  private static final HAPROXY_GROUP_PATTERN = Pattern.compile(/^HAPROXY_(\d*_)*GROUP$/)
 
   // TODO don't store app?
   App app
@@ -34,54 +37,56 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
   Long createdTime
   Set<String> loadBalancers
+
+  @JsonIgnore
+  Set<DcosSpinnakerId> fullyQualifiedLoadBalancers
+
   Set<DcosInstance> instances = [] as Set
 
-  DcosServerGroup() {
-  }
+  DcosServerGroup() {}
 
-  DcosServerGroup(String name, String group, String account) {
+  DcosServerGroup(String name, String region, String account) {
     this.name = name
-    this.group = group
-    this.region = group ?: "root"
+    this.region = region
     this.account = account
   } //default constructor for deserialization
 
-  DcosServerGroup(App app) {
+  DcosServerGroup(String account, App app) {
     this.app = app
     this.json = app.toString()
-    def id = DcosSpinnakerId.parse(app.id)
+    def id = DcosSpinnakerId.parse(app.id, account)
     this.name = id.name
-    this.group = id.group
-    this.region = (id.group ?: "root").replace("/", "_")
+    this.region = id.safeRegion
     this.account = id.account
     this.kind = "Application"
-    this.loadBalancers = getLoadBalancers(app)
+
+    populateLoadBalancers(app)
 
     this.cpus = app.cpus
     this.mem = app.mem
     this.disk = app.disk
     this.labels = app.labels
 
-    // TODO WHAT IS HAPPENING. WHY THE FUCK IS THIS GETTING SET TO NULL. AM I AN IDIOT. IT NEVER RETURNS NULL.
-    this.createdTime = Instant.parse(app.versionInfo?.lastConfigChangeAt).toEpochMilli()
+    this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
 
-    // TODO remove when I have instance caching? this seems better anyways
-    this.instances = app.tasks.collect({ new DcosInstance(it) }) as Set
+    // TODO can't always assume the tasks are present in the App! Depends on API used to retrieve handle this better.
+    this.instances = app.tasks?.collect({ new DcosInstance(it, account) }) as Set ?: []
   }
 
-  static Set<String> getLoadBalancers(App app) {
-
-    // TODO Going to be problematic!
-    app.labels.findResults { key, val ->
-      // TODO pull this regex out.
-      def regexStr = /^HAPROXY_(\d*_)*GROUP$/
-
-      if (key.matches(regexStr)) {
+  void populateLoadBalancers(App app) {
+    fullyQualifiedLoadBalancers = app.labels.findResults { key, val ->
+      if (key.matches(HAPROXY_GROUP_PATTERN)) {
         return val.split(",")
       } else {
         return null
       }
-    }.flatten().collect({it.split("_")[1]}).toSet()
+    }.flatten().findResults({
+      // TODO should we be validating here?
+      def lbPath = it.replace('_', '/')
+      DcosSpinnakerId.validate(lbPath, account) ? DcosSpinnakerId.parse(lbPath, account) : null
+    }).toSet()
+
+    loadBalancers = fullyQualifiedLoadBalancers.collect { it.name }
   }
 
   @Override
@@ -126,6 +131,8 @@ class DcosServerGroup implements ServerGroup, Serializable {
     new ServerGroup.Capacity(min: app.instances, max: app.instances, desired: app.instances)
   }
 
+  // This isn't part of the ServerGroup interface, but I'm pretty sure if this is not here the build info doesn't return
+  // to deck correctly (need to test again)
   Map<String, Object> getBuildInfo() {
     def buildInfo = [:]
 
@@ -242,5 +249,4 @@ class DcosServerGroup implements ServerGroup, Serializable {
   static Set filterInstancesByHealthState(Set instances, HealthState healthState) {
     instances.findAll { Instance it -> it.getHealthState() == healthState }
   }
-
 }

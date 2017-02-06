@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.util;
 
+import java.util.Optional;
+
 /**
  * Specialized version of a {@link PathId} which has a specific structure based on Spinnaker concepts.
  * <p/>
@@ -9,12 +11,12 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.util;
 public class DcosSpinnakerId {
     private final PathId marathonAppId;
 
-    private DcosSpinnakerId(String account, String group, String appName) {
-        this.marathonAppId = createPathId(account, group, appName);
+    private DcosSpinnakerId(String account, String region, String appName) {
+        this.marathonAppId = createPathId(account, region, appName);
     }
 
     private DcosSpinnakerId(PathId pathId) {
-    this.marathonAppId = pathId;
+        this.marathonAppId = pathId;
     }
 
     /**
@@ -30,58 +32,81 @@ public class DcosSpinnakerId {
     /**
      * Creates a DcosSpinnakerId given an account, group, and name.
      * @param account the account (cannot be null)
-     * @param group the group (may be null)
+     * @param region the region (a.k.a account subgroup for dcos) (may be null)
      * @param name the name of the service (cannot be null)
      * @return Non-null {@link DcosSpinnakerId} instance.
      */
-    public static DcosSpinnakerId from(String account, String group, String name) {
-        return new DcosSpinnakerId(account, group, name);
+    public static DcosSpinnakerId from(String account, String region, String name) {
+        return new DcosSpinnakerId(account, region, name);
     }
 
     public static DcosSpinnakerId from(PathId pathId) {
         return new DcosSpinnakerId(pathId);
     }
 
-    /**
-     * Creates a DcosSpinnakerId given a fully qualified marathon application id.
-     * @return Possibly null {@link DcosSpinnakerId} instance if the application id doesn't have at least an account and
-     *         name.
-     */
-    public static DcosSpinnakerId parse(String fullyQualifiedAppId) {
-
-        // TODO got a problem here for apps that don't fit the mold (i.e. /marathon-lb). No account! How do we want to
-        // handle Apps created in DC/OS that don't have a valid account as the first part of the group (or none, a.k.a
-        // root).
-        PathId marathonId = PathId.parse(fullyQualifiedAppId);
-        if (marathonId.parts().length < 2) {
-            return null;
-        }
-
-        return new DcosSpinnakerId(marathonId);
+    public static boolean validate(String marathonAppId, final String accountName) {
+        PathId path = PathId.parse(marathonAppId);
+        return path.first().isPresent() && path.first().get().equals(accountName);
     }
 
-    private static PathId createPathId(String account, String group, String appName) {
-        PathId parsedGroup = group == null ? PathId.from() : PathId.parse(group);
+    /**
+     * Creates a DcosSpinnakerId given a fully qualified marathon application id. The Marathon ID must conform to
+     * certain Spinnaker conventions, otherwise an {@link IllegalArgumentException} will be thrown. Call
+     * {@link #validate(String, String)} first to ensure the id is parsable.
+     * @return Possibly null {@link DcosSpinnakerId} instance if the application id doesn't have at least an account and
+     *         name.
+     * @throws IllegalArgumentException if the supplied marathonAppId is not {@link ##validate(String, String) valid}.
+     */
+    public static DcosSpinnakerId parse(String marathonAppId, String accountName) {
+        if (!validate(marathonAppId, accountName)) {
+            throw new IllegalArgumentException();
+        }
+
+        return new DcosSpinnakerId(PathId.parse(marathonAppId));
+    }
+
+    private static PathId createPathId(String account, String region, String appName) {
+        // The region may be in the so-called "safe form" with underscores instead of backslashes which we use
+        // throughout due to cache issues and deck issues when using backslashes as part of the region.
+        PathId parsedGroup = (region == null || region.isEmpty()) ? PathId.from()
+                : PathId.parse(region.replace("_", "/"));
         return PathId.from(account).append(parsedGroup).append(appName);
     }
 
     public String getAccount() {
-        // TODO We need to do earlier validation (probably in the constructor) to make sure the pathid was actually
-        // valid (i.e. includes an account).
-        return marathonAppId.root();
+        return marathonAppId.first().orElseThrow(IllegalStateException::new);
     }
 
-    public String getGroup() {
-        PathId groupId = marathonAppId.parent().tail();
-        return groupId != null ? groupId.relative().toString() : "";
+    /**
+     * @return The canonical DC/OS "region" (a.k.a the full group path in which the marathon application lives)
+     *         including backslashes. This is returned as a relative path, meaning no preceeding backslash. Also note
+     *         that this includes the "account", or root node, in the path. Will never be null.
+     *         <p/>
+     *         Deemed unsafe because various Spinnaker components have trouble with a region with backslashes.
+     *         <p/>
+     *         Ex: {@code acct/foo/bar/}
+     * @see #getSafeRegion()
+     */
+    public String getUnsafeRegion() {
+        return marathonAppId.parent().relative().toString();
     }
 
-    public String getRegion() {
-        return marathonAppId.parent().toString();
+    /**
+     * @return The "safe" DC/OS region (a.k.a the group in which the marathon application lives). This is returned as a
+     *         relative path, meaning no preceeding underscore. Note that this includes the "account", or root node, in
+     *         the path. Will never be null.
+     *         <p/>
+     *         Deemed safe because backslashes are replaced with underscores.
+     *         <p/>
+     *         Ex: {@code acct_foo_bar}
+     * @see #getSafeRegion()
+     */
+    public String getSafeRegion() {
+         return getUnsafeRegion().replace("/", "_");
     }
 
     public String getName() {
-        return marathonAppId.last();
+        return marathonAppId.last().orElseThrow(IllegalStateException::new);
     }
 
     @Override

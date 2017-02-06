@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.description
+package com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 

@@ -29,6 +29,8 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   static final private String SERVER_GROUP = "${CLUSTER}-v000"
   static final private String MARATHON_APP = "/${ACCOUNT}/${SERVER_GROUP}"
   static final private String TASK = "${MARATHON_APP}-some-task-id"
+  static final private String LOAD_BALANCER = "/${ACCOUNT}/${APP}-frontend"
+
   DcosCredentials credentials
   AccountCredentialsRepository accountCredentialsRepository
 
@@ -39,6 +41,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   private String serverGroupKey
   private String clusterKey
   private String instanceKey
+  private String loadBalancerKey
   ProviderCache providerCache
   private ObjectMapper objectMapper
   private registryMock
@@ -62,7 +65,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
     serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerId.from(PathId.parse(MARATHON_APP)))
     clusterKey = Keys.getClusterKey(ACCOUNT, APP, CLUSTER)
     instanceKey = Keys.getInstanceKey(DcosSpinnakerId.from(PathId.parse(MARATHON_APP)), TASK)
-
+    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerId.parse(LOAD_BALANCER, ACCOUNT))
 
     subject = new DcosServerGroupCachingAgent(ACCOUNT, credentials, clientProvider, objectMapper, registryMock)
   }
@@ -200,8 +203,10 @@ class DcosServerGroupCachingAgentSpec extends Specification{
             getTasks() >> [
               Mock(Task) {
                 getId() >> TASK
+                getAppId() >> MARATHON_APP
               }
             ]
+            getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${APP}-frontend"]
           }
         ]
       }
@@ -215,19 +220,27 @@ class DcosServerGroupCachingAgentSpec extends Specification{
       result.cacheResults.applications.attributes.name == [APP]
       result.cacheResults.applications.relationships.clusters[0][0] == clusterKey
       result.cacheResults.applications.relationships.serverGroups[0][0] == serverGroupKey
+      result.cacheResults.applications.relationships.loadBalancers[0][0] == loadBalancerKey
 
       result.cacheResults.clusters.attributes.name == [CLUSTER]
       result.cacheResults.clusters.relationships.serverGroups[0][0] == serverGroupKey
       result.cacheResults.clusters.relationships.applications[0][0] == appKey
+      result.cacheResults.clusters.relationships.loadBalancers[0][0] == loadBalancerKey
+
 
       result.cacheResults.serverGroups.attributes.name == [MARATHON_APP]
       result.cacheResults.serverGroups.relationships.clusters[0][0] == clusterKey
       result.cacheResults.serverGroups.relationships.applications[0][0] == appKey
       result.cacheResults.serverGroups.relationships.instances[0][0] == instanceKey
+      result.cacheResults.serverGroups.relationships.loadBalancers[0][0] == loadBalancerKey
 
       result.cacheResults.instances.relationships.clusters[0][0] == clusterKey
       result.cacheResults.instances.relationships.applications[0][0] == appKey
       result.cacheResults.instances.relationships.serverGroups[0][0] == serverGroupKey
+      result.cacheResults.instances.relationships.loadBalancers[0][0] == loadBalancerKey
+
+      result.cacheResults.loadBalancers.relationships.serverGroups[0][0] == serverGroupKey
+      result.cacheResults.loadBalancers.relationships.instances[0][0] == instanceKey
   }
 
   def appJson(String task) {

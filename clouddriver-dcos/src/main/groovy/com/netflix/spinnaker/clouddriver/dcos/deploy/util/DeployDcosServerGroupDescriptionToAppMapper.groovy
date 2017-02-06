@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.util
 
 import com.google.common.collect.Lists
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import mesosphere.marathon.client.model.v2.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

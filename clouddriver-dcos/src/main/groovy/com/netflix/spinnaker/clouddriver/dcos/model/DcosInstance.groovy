@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.model
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import mesosphere.marathon.client.model.v2.Task
@@ -12,40 +13,45 @@ import java.time.Instant
  */
 class DcosInstance implements Instance, Serializable {
 
-  //Task task
+  Task task
   final String providerType = DcosCloudProvider.ID
   final String cloudProvider = DcosCloudProvider.ID
 
-  final String name
-  final Long launchTime
-  final String zone
-  final String json
-  final String host
-  final String state
-  final List<Map<String, Object>> health
+  String name
+  Long launchTime
+  String zone
+  String json
+  String host
+  String state
+  String account
+  List<Map<String, Object>> health
 
   DcosInstance() {}
 
-  DcosInstance(Task task) {
-    //this.task = task
+  DcosInstance(Task task, String account) {
+    this.task = task
     this.name = task.id
-    this.json = task.toString()
     this.host = task.host
     this.state = task.state
+    this.account = account
 
-    // What is this?
-    //this.zone
+    this.json = task.toString()
+
+    this.launchTime = task.startedAt ? Instant.parse(task.startedAt).toEpochMilli() : null
+    this.health = [getTaskHealth(task)]
+
+    // TODO Instance interfaces says this is the availability zone. Not sure we have this concept - we can only get the host.
+    // Should this be our concept of region? Kubernetes uses namespace here.
+    this.zone = DcosSpinnakerId.parse(task.appId, account).safeRegion
 
     // TODO
-//    task.ports
-//    task.servicePorts
-//    task.ipAddresses
-
-    this.launchTime = Instant.parse(task.startedAt).toEpochMilli()
-    this.health = [getTaskHealth(task)]
+    // task.ports
+    // task.servicePorts
+    // task.ipAddresses
   }
 
-  private Map<String, String> getTaskHealth(Task task) {
+  private static Map<String, String> getTaskHealth(Task task) {
+
     def health = [:]
 
     // TODO I'm not exactly sure how i need to structure this. If the task has multiple healthCheckResults, should I report those separately?

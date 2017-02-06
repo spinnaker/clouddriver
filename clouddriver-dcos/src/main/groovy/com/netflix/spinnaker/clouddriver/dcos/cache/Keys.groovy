@@ -3,6 +3,8 @@ package com.netflix.spinnaker.clouddriver.dcos.cache
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 
+import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.isGlobalLoadBalancer
+
 class Keys {
   public static final PROVIDER = "dcos"
   public static final DEFAULT_REGION = "default"
@@ -110,35 +112,27 @@ class Keys {
     // app ids may contain leading "/" which is a problem for the way that these keys
     // are built from path parameters for queries
     // TODO: better translation strategy for '/'
-    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.group.replace("/", "_")}:${id.name}"
+    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeRegion}:${id.name}"
   }
 
   static String getClusterKey(String account, String application, String cluster) {
     "${PROVIDER}:${Namespace.CLUSTERS}:${account}:${application}:${cluster}"
   }
 
-  /**
-   *
-   * @param account
-   * @param dcosAppId - the app id, not including any groups
-   * @param taskName - the full task name
-   * @return
-   */
-//  static String getInstanceKey(DcosSpinnakerId id, String taskName) {
-//    // TODO: better translation strategy
-//    "${PROVIDER}:${Namespace.INSTANCES}:${id.account}:${id.group.replace("/", "_")}:${id.name}:${taskName}"
-//  }
-
-  static String getInstanceKey(String account, String region, String taskName) {
-    // TODO: better translation strategy
-    "${PROVIDER}:${Namespace.INSTANCES}:${account}:${region.replace("/", "_")}:${taskName}"
+  static String getInstanceKey(DcosSpinnakerId appId, String taskName) {
+    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeRegion}:${taskName}"
   }
 
-  static String getLoadBalancerKey(String account, String loadBalancerName) {
-    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${loadBalancerName}"
+  static String getInstanceKey(String account, String safeRegion, String taskName) {
+    "${PROVIDER}:${Namespace.INSTANCES}:${account}:${safeRegion}:${taskName}"
+  }
+
+  static String getLoadBalancerKey(String account, String region, String loadBalancerName) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${region}:${loadBalancerName}"
   }
 
   static String getLoadBalancerKey(DcosSpinnakerId appId) {
-    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:${appId.name}"
+    isGlobalLoadBalancer(appId) ? "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:global:${appId.name}"
+            : "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:${appId.safeRegion}:${appId.name}"
   }
 }

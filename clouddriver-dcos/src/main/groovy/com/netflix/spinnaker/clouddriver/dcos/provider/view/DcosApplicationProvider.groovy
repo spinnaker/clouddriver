@@ -13,6 +13,8 @@ import com.netflix.spinnaker.clouddriver.model.ApplicationProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
+import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.getAllMatchingKeyPattern
+
 @Component
 class DcosApplicationProvider implements ApplicationProvider {
   private final DcosCloudProvider dcosCloudProvider
@@ -28,8 +30,8 @@ class DcosApplicationProvider implements ApplicationProvider {
 
   @Override
   Set<Application> getApplications(boolean expand) {
-    def relationships = expand ? RelationshipCacheFilter.include(Keys.Namespace.CLUSTERS.ns) : RelationshipCacheFilter.none()
-    Collection<CacheData> applications = cacheView.getAll(Keys.Namespace.APPLICATIONS.ns, cacheView.filterIdentifiers(Keys.Namespace.APPLICATIONS.ns, "${dcosCloudProvider.id}:*"), relationships)
+    def relationshipFilter = expand ? RelationshipCacheFilter.include(Keys.Namespace.CLUSTERS.ns) : RelationshipCacheFilter.none()
+    Collection<CacheData> applications = getAllMatchingKeyPattern(cacheView, Keys.Namespace.APPLICATIONS.ns, "${dcosCloudProvider.id}:*", relationshipFilter)
     applications.collect this.&translate
   }
 

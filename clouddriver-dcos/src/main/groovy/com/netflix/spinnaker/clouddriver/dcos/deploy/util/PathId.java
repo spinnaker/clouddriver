@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.Optional;
 
 import static java.util.stream.Collectors.joining;
 
@@ -44,45 +45,27 @@ public class PathId {
         this(absolute, other.parts);
     }
 
-    // PathId(final boolean absolute, final Seq<String> parts) {
-    // // TODO: could maybe split a part with "/" into multiple parts
-    // for (String part : parts) {
-    // Preconditions.checkArgument(!part.contains("/"));
-    // }
-    // this.parts = parts;
-    // this.absolute = absolute;
-    // }
-
     public PathId relative() {
         return absolute ? new PathId(false, this) : this;
     }
 
-    public String root() {
-        // TODO or null
-        return parts.isEmpty() ? "" : parts.getFirst();
-    }
-
-    public PathId rootPath() {
-        return new PathId(absolute, parts.stream().findFirst().orElse(null));
+    public Optional<String> first() {
+        return parts.isEmpty() ? Optional.empty() : Optional.of(parts.getFirst());
     }
 
     public PathId tail() {
 
-	    if (parts.isEmpty()) {
-	      return null;
-	    }
+        if (parts.isEmpty()) {
+            return this;
+        }
 
         LinkedList<String> copy = new LinkedList<>(parts);
         copy.removeFirst();
         return new PathId(absolute, copy);
     }
 
-    public String[] parts() {
-        return parts.toArray(new String[parts.size()]);
-    }
-
-    public String last() {
-        return parts.isEmpty() ? "" : parts.getLast();
+    public Optional<String> last() {
+        return parts.isEmpty() ? Optional.empty() : Optional.of(parts.getLast());
     }
 
     public PathId parent() {
@@ -95,7 +78,7 @@ public class PathId {
         return new PathId(absolute, copy);
     }
 
-    public int length() {
+    public int size() {
         return parts.size();
     }
 

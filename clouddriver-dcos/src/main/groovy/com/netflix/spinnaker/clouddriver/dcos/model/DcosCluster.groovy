@@ -9,5 +9,5 @@ class DcosCluster implements Cluster, Serializable {
   String type = Keys.PROVIDER
   String accountName
   Set<DcosServerGroup> serverGroups = Collections.synchronizedSet(new HashSet<DcosServerGroup>())
-  Set<LoadBalancer> loadBalancers = [] as Set
+  Set<LoadBalancer> loadBalancers = Collections.synchronizedSet(new HashSet<DcosLoadBalancer>())
 }
