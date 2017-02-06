@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference
 import com.netflix.spinnaker.clouddriver.model.Application
 import groovy.transform.Canonical
 
-@Canonical
 class DcosApplication implements Application, Serializable {
   public static final TypeReference<Map<String, String>> ATTRIBUTES = new TypeReference<Map<String, String>>() {}
 

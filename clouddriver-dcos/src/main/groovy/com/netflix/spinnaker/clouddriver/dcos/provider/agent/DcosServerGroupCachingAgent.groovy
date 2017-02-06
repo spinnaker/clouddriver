@@ -42,7 +42,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
           AUTHORITATIVE.forType(Keys.Namespace.APPLICATIONS.ns),
           AUTHORITATIVE.forType(Keys.Namespace.CLUSTERS.ns),
           INFORMATIVE.forType(Keys.Namespace.INSTANCES.ns),
-//    INFORMATIVE.forType(Keys.Namespace.LOAD_BALANCERS.ns),
+          INFORMATIVE.forType(Keys.Namespace.LOAD_BALANCERS.ns),
   ] as Set)
 
   DcosServerGroupCachingAgent(String accountName,
@@ -91,7 +91,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
             serverGroups.collect { serverGroup ->
-              Keys.getServerGroupKey(DcosSpinnakerId.parse(serverGroup.app.id))
+              Keys.getServerGroupKey(DcosSpinnakerId.parse(serverGroup.app.id, accountName))
             })
             .each { CacheData onDemandEntry ->
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
@@ -145,7 +145,6 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     DcosServerGroup serverGroup = metricsSupport.readData {
       loadServerGroup(spinnakerId.toMarathonAppId().toString())
     }
-
 
     CacheResult result = metricsSupport.transformData {
       buildCacheResult([serverGroup], [:], [], Long.MAX_VALUE)
@@ -217,19 +216,20 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
   private DcosServerGroup loadServerGroup(String dcosAppId) {
     App app = dcosClient.getApp(dcosAppId)?.app
-    app ? new DcosServerGroup(app) : null
+    app ? new DcosServerGroup(accountName, app) : null
   }
 
   private List<DcosServerGroup> loadServerGroups() {
     final List<App> apps = dcosClient.getApps(accountName)?.apps
-    apps.findAll { app -> !app.labels.containsKey("SPINNAKER_LOAD_BALANCER") }.collect { new DcosServerGroup(it) }
+    apps.findAll { app -> !app.labels.containsKey("SPINNAKER_LOAD_BALANCER") }.collect {
+      new DcosServerGroup(accountName, it)
+    }
   }
 
   private CacheResult buildCacheResult(List<DcosServerGroup> serverGroups,
                                        Map<String, CacheData> onDemandKeep,
                                        List<String> onDemandEvict,
                                        Long start) {
-    //TODO: load balancers
     Map<String, MutableCacheData> cachedApps = MutableCacheData.mutableCacheMap()
     Map<String, MutableCacheData> cachedServerGroups = MutableCacheData.mutableCacheMap()
     Map<String, MutableCacheData> cachedClusters = MutableCacheData.mutableCacheMap()
@@ -243,7 +243,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
       def app = serverGroup.app
       def onDemandData = onDemandKeep ?
-              onDemandKeep[Keys.getServerGroupKey(DcosSpinnakerId.parse(app.id))] :
+              onDemandKeep[Keys.getServerGroupKey(DcosSpinnakerId.parse(app.id, accountName))] :
               null
 
       if (onDemandData && onDemandData.attributes.cacheTime >= start) {
@@ -261,15 +261,14 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
         // the spinnaker naming convention as we have to parse it.  There's no storage that maps
         // an arbitrary app id to these fields
         def appId = app.id
-        DcosSpinnakerId spinnakerId = DcosSpinnakerId.parse(appId)
+        DcosSpinnakerId spinnakerId = DcosSpinnakerId.parse(appId, accountName)
         def names = Names.parseName(spinnakerId.name)
         def appName = names.app
         def clusterName = names.cluster
         def instanceKeys = []
 
-        // TODO gonna need better lb support
-        def loadBalancerKeys = serverGroup.loadBalancers.findResults({
-            Keys.getLoadBalancerKey(accountName, it)
+        def loadBalancerKeys = serverGroup.fullyQualifiedLoadBalancers.findResults({
+          Keys.getLoadBalancerKey(it)
         })
 
         def applicationKey = Keys.getApplicationKey(appName)
@@ -291,7 +290,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
         }
 
         app.tasks.forEach { task ->
-          String instanceKey = Keys.getInstanceKey(spinnakerId.account, spinnakerId.group, task.id)
+          String instanceKey = Keys.getInstanceKey(spinnakerId, task.id)
           instanceKeys << instanceKey
           cachedInstances[instanceKey].with {
             relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)

@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.util
 
 import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import mesosphere.marathon.client.model.v2.App
 import spock.lang.Specification
 

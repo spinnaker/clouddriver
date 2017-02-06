@@ -1,7 +1,8 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.validation.Errors
 import spock.lang.Specification

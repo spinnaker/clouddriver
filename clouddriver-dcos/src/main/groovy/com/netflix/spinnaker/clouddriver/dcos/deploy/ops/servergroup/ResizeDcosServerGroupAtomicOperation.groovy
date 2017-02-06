@@ -1,10 +1,10 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.ops
+package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.ResizeDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.marathon.client.model.v2.App
 
@@ -31,7 +31,7 @@ class ResizeDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Initializing resize of server group $description.serverGroupName..."
 
     def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
-    def appId = new DcosSpinnakerId(description.credentials.name, description.region, description.serverGroupName)
+    def appId = DcosSpinnakerId.from(description.credentials.name, description.region, description.serverGroupName)
     def size = description.instances
 
     task.updateStatus BASE_PHASE, "Checking to see if $appId already exists..."

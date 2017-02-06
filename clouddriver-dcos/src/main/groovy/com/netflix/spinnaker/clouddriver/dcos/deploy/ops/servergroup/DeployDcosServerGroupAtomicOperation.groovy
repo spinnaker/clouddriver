@@ -1,11 +1,11 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.ops
+package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosServerGroupNameResolver
-import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -47,23 +47,20 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
     task.updateStatus BASE_PHASE, "Looking up next sequence index"
 
     def resolvedServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.freeFormDetails, false)
-    def dcosPathId = new DcosSpinnakerId(description.credentials.name, description.region, resolvedServerGroupName)
+
+    def dcosPathId = DcosSpinnakerId.from(description.credentials.name, description.region, resolvedServerGroupName)
 
     task.updateStatus BASE_PHASE, "Spinnaker ID chosen to be ${resolvedServerGroupName}."
     task.updateStatus BASE_PHASE, "Marathon ID chosen to be $dcosPathId."
     task.updateStatus BASE_PHASE, "Building application..."
 
-    def resolvedServerPath = "${dcosPathId.namespace}/${resolvedServerGroupName}"
-
-    task.updateStatus BASE_PHASE, "Marathon app name chosen to be ${resolvedServerPath}"
-
-    dcosClient.modifyApp(resolvedServerPath, descriptionToAppMapper.map(resolvedServerPath, description))
+    dcosClient.modifyApp(dcosPathId.toString(), descriptionToAppMapper.map(dcosPathId.toString(), description))
 
     task.updateStatus BASE_PHASE, "Deployed service ${resolvedServerGroupName}"
 
     def deploymentResult = new DeploymentResult()
-    deploymentResult.serverGroupNames = Arrays.asList(String.format("%s:%s", dcosPathId.region, resolvedServerGroupName))
-    deploymentResult.serverGroupNameByRegion[dcosPathId.region] = resolvedServerGroupName
+    deploymentResult.serverGroupNames = Arrays.asList("${dcosPathId.safeRegion}:${resolvedServerGroupName}".toString())
+    deploymentResult.serverGroupNameByRegion[dcosPathId.safeRegion] = resolvedServerGroupName
 
     return deploymentResult
   }

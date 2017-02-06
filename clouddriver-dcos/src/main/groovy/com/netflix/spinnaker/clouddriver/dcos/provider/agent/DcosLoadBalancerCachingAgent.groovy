@@ -1,19 +1,3 @@
-/*
- * Copyright 2016 Google, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License")
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.netflix.spinnaker.clouddriver.dcos.provider.agent
 
 import com.fasterxml.jackson.core.type.TypeReference
@@ -84,7 +68,6 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
   @Override
   String getAgentType() {
-    //return "${accountName}/${getSimpleName()}[${agentIndex + 1}/$agentCount]"
     "${accountName}/${DcosLoadBalancerCachingAgent.simpleName}"
   }
 
@@ -103,13 +86,10 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
       return null
     }
 
-    //reloadNamespaces()
-    //String group = data.region
-    //if (this.namespaces.contains(namespace)) {
-    //  return null
-    //}
-
-    def dcosSpinnakerId = DcosSpinnakerId.parse(data.loadBalancerName.toString())
+    // Region may be (and currently is only) going to be 'global' for DCOS marathon-lb instances created through spinnaker.
+    def dcosSpinnakerId = DcosSpinnakerId.from(data.account.toString(),
+            data.region?.toString()?.toLowerCase() == 'global' ? null : data.region?.toString(),
+            data.loadBalancerName.toString())
 
     App loadBalancer = metricsSupport.readData {
       loadLoadBalancer(dcosSpinnakerId)
@@ -185,22 +165,6 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
     OnDemandAgent.OnDemandType.LoadBalancer == type && cloudProvider == dcosCloudProvider.id
   }
 
-  List<App> loadLoadBalancers() {
-
-    // TODO Additional query params for label selector filtering don't work! remove it from marathon-client/
-    // dcosClient.getApps(accountName, [:])
-
-    dcosClient.getApps(accountName).apps.findAll { it.labels.containsKey("SPINNAKER_LOAD_BALANCER") }
-  }
-
-  App loadLoadBalancer(DcosSpinnakerId id) {
-
-    // TODO could just use the SPINNAKER_LOAD_BALANCER label query?
-
-    // Easier to work with nulls in groovy
-    dcosClient.maybeApp(id.toString()).orElse(null);
-  }
-
   @Override
   CacheResult loadData(ProviderCache providerCache) {
     Long start = System.currentTimeMillis()
@@ -211,7 +175,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
             loadBalancers.collect {
-              def id = DcosSpinnakerId.parse(it.id)
+              def id = DcosSpinnakerId.parse(it.id, accountName)
               Keys.getLoadBalancerKey(id)
             }).each {
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
@@ -236,8 +200,15 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
     return result
   }
 
-  private
-  static void cache(Map<String, List<CacheData>> cacheResults, String namespace, Map<String, CacheData> cacheDataById) {
+  private List<App> loadLoadBalancers() {
+    dcosClient.getApps(accountName).apps.findAll { it.labels.containsKey("SPINNAKER_LOAD_BALANCER") }
+  }
+
+  private App loadLoadBalancer(DcosSpinnakerId id) {
+    dcosClient.maybeApp(id.toString()).orElse(null);
+  }
+
+  private static void cache(Map<String, List<CacheData>> cacheResults, String namespace, Map<String, CacheData> cacheDataById) {
     cacheResults[namespace].each {
       def existingCacheData = cacheDataById[it.id]
       if (!existingCacheData) {
@@ -261,11 +232,11 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
         continue
       }
 
-      DcosSpinnakerId dcosSpinnakerId = DcosSpinnakerId.parse(loadBalancer.id)
+      DcosSpinnakerId dcosSpinnakerId = DcosSpinnakerId.parse(loadBalancer.id, accountName)
 
       def onDemandData = onDemandKeep ? onDemandKeep[Keys.getLoadBalancerKey(dcosSpinnakerId)] : null
 
-      if (onDemandData && onDemandData.attributes.cachetime >= start) {
+      if (onDemandData && onDemandData.attributes.cacheTime >= start) {
         Map<String, List<CacheData>> cacheResults = objectMapper.readValue(onDemandData.attributes.cacheResults as String, new TypeReference<Map<String, List<MutableCacheData>>>() {
         })
         cache(cacheResults, Keys.Namespace.LOAD_BALANCERS.ns, cachedLoadBalancers)
