@@ -42,6 +42,11 @@ class GoogleBackendService {
   GoogleSessionAffinity sessionAffinity
   Integer affinityCookieTtlSec
   GoogleLoadBalancingScheme loadBalancingScheme
+  /**
+   * Named port this backend service will forward traffic to. Server groups that join
+   * this backend service are responsible for defining the port this name maps to.
+   */
+  String namedPort
 
   /**
    * Specifies whether edge caching is enabled or not. Only applicable for Https LBs.

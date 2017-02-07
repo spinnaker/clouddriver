@@ -376,19 +376,19 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           log.warn("Could not locate source server group ${sourceGroupName} to update named port.")
         }
         namedPort = new NamedPort(
-            name: GoogleHttpLoadBalancingPolicy.HTTP_PORT_NAME,
-            port: sourceServerGroup?.namedPorts[(GoogleHttpLoadBalancingPolicy.HTTP_PORT_NAME)] ?: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT,
+            name: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME,
+            port: sourceServerGroup?.namedPorts[(GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME)] ?: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT,
         )
       } else {
         namedPort = new NamedPort(
-            name: GoogleHttpLoadBalancingPolicy.HTTP_PORT_NAME,
+            name: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME,
             port: description?.loadBalancingPolicy?.listeningPort ?: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT
         )
       }
       if (!namedPort) {
         log.warn("Could not locate named port on either load balancing policy or source server group. Setting default named port.")
         namedPort = new NamedPort(
-            name: GoogleHttpLoadBalancingPolicy.HTTP_PORT_NAME,
+            name: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME,
             port: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT,
         )
       }
