@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.description
 
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import groovy.transform.Canonical
 
@@ -24,7 +23,6 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   Integer backoffSeconds
   Double backoffFactor
   Integer maxLaunchDelaySeconds
-  Container container
   Docker docker
   List<HealthCheck> healthChecks = new ArrayList<>()
   List<Object> readinessChecks = new ArrayList<>()
@@ -65,7 +63,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   @Canonical
   static class Docker {
     Image image
-    String network
+    NetworkType network
     boolean privileged
     List<Parameter> parameters = new ArrayList<>()
     boolean forcePullImage
@@ -114,10 +112,24 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   }
 
   @Canonical
-  static class PersistentVolume {
+  static class Volume {
     String containerPath
-    PersistentStorage persistent
     String mode
+  }
+
+  @Canonical
+  static class PersistentVolume extends Volume {
+    PersistentStorage persistent
+  }
+
+  @Canonical
+  static class DockerVolume extends Volume {
+    String hostPath
+  }
+
+  @Canonical
+  static class ExternalVolume extends Volume {
+    ExternalStorage external
   }
 
   @Canonical
@@ -126,24 +138,10 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   }
 
   @Canonical
-  static class DockerVolume {
-    String containerPath
-    String hostPath
-    String mode
-  }
-
-  @Canonical
   static class ExternalStorage {
     String name
     String provider
     Map<String, String> options
-    String mode
-  }
-
-  @Canonical
-  static class ExternalVolume {
-    String containerPath
-    ExternalStorage external
     String mode
   }
 }

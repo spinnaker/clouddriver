@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.util
 
-import com.google.common.base.Strings
 import com.google.common.collect.Lists
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.DeployDcosServerGroupDescription
 import mesosphere.marathon.client.model.v2.*
@@ -21,21 +20,23 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             disk = description.disk
             gpus = description.gpus
             container = new Container().with {
-                docker = new Docker().with {
-                    image = description.docker.image.imageId
-                    network = description.networkType.type
-                    portMappings = parsePortMappings(resolvedAppName, description.serviceEndpoints)
-                    privileged = description.docker.privileged
-                    parameters = description.docker.parameters.stream().map({ parameter ->
-                        new Parameter().with {
-                            key = parameter.key
-                            value = parameter.value
-                            it
-                        }
-                    }).collect(Collectors.toList())
-                    forcePullImage = description.docker.forcePullImage
+                if (description.docker) {
+                    docker = new Docker().with {
+                        image = description.docker.image.imageId
+                        network = description.networkType.type
+                        portMappings = parsePortMappings(resolvedAppName, description.serviceEndpoints)
+                        privileged = description.docker.privileged
+                        parameters = description.docker.parameters.stream().map({ parameter ->
+                            new Parameter().with {
+                                key = parameter.key
+                                value = parameter.value
+                                it
+                            }
+                        }).collect(Collectors.toList())
+                        forcePullImage = description.docker.forcePullImage
 
-                    it
+                        it
+                    }
                 }
                 //type = description.container.type
                 volumes = parseVolumes(description.persistentVolumes, description.dockerVolumes, description.externalVolumes)
@@ -81,7 +82,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             requirePorts = description.requirePorts
             acceptedResourceRoles = description.acceptedResourceRoles
 
-            if ("BRIDGE" == description.networkType.type) {
+            if (description.networkType != null && "BRIDGE" == description.networkType.type) {
                 portDefinitions = parsePortDefinitions(description.serviceEndpoints)
             }
 
@@ -100,7 +101,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
     public List<List<String>> parseConstraints(String constaints) {
         List<List<String>> parsedConstraints = new ArrayList<>()
 
-        if (Strings.isNullOrEmpty(constaints.trim())) {
+        if (constaints == null || constaints.trim().isEmpty()) {
             return parsedConstraints
         }
 

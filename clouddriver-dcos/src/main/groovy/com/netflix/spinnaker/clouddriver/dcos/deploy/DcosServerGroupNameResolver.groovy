@@ -32,7 +32,7 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
   @Override
   List<AbstractServerGroupNameResolver.TakenSlot> getTakenSlots(String clusterName) {
     Optional<GetAppNamespaceResponse> appNamespaceResponse = dcosClient.maybeApps(region)
-    List<App> apps = appNamespaceResponse.isPresent() ? appNamespaceResponse.get().apps : []
+    List<App> apps = appNamespaceResponse != null && appNamespaceResponse.isPresent() ? appNamespaceResponse.get().apps : []
 
     if (!apps) {
       return Collections.emptyList()

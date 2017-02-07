@@ -24,7 +24,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an empty ResizeDcosServerGroupDescription"() {
     setup:
-      def description = new ResizeDcosServerGroupDescription(credentials: null, serverGroupName: null, desired: -1)
+      def description = new ResizeDcosServerGroupDescription(credentials: null, serverGroupName: null, instances: -1)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
@@ -32,13 +32,13 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
       1 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
-      1 * errorsMock.rejectValue("desired", "${DESCRIPTION}.desired.invalid")
+      1 * errorsMock.rejectValue("instances", "${DESCRIPTION}.instances.invalid")
       0 * errorsMock._
   }
 
   void "validate should give errors when given an invalid DestroyDcosServerGroupDescription"() {
     setup:
-    def description = new ResizeDcosServerGroupDescription(credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test', desired: 0)
+    def description = new ResizeDcosServerGroupDescription(credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test', instances: 0)
     def errorsMock = Mock(Errors)
     when:
     validator.validate([], description, errorsMock)
@@ -46,13 +46,13 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
     0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
     1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
     0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
-    1 * errorsMock.rejectValue("desired", "${DESCRIPTION}.desired.invalid")
+    0 * errorsMock.rejectValue("instances", "${DESCRIPTION}.instances.invalid")
     0 * errorsMock._
   }
 
   void "validate should give no errors when given an valid DestroyDcosServerGroupDescription"() {
     setup:
-    def description = new ResizeDcosServerGroupDescription(credentials: testCredentials, serverGroupName: 'test', desired: 1)
+    def description = new ResizeDcosServerGroupDescription(credentials: testCredentials, serverGroupName: 'test', instances: 1)
     def errorsMock = Mock(Errors)
     when:
     validator.validate([], description, errorsMock)
@@ -60,7 +60,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
-      0 * errorsMock.rejectValue("desired", "${DESCRIPTION}.desired.invalid")
+      0 * errorsMock.rejectValue("instances", "${DESCRIPTION}.instances.invalid")
       0 * errorsMock._
   }
 }

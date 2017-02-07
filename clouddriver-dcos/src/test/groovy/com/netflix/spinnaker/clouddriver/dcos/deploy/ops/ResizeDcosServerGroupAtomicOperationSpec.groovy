@@ -26,7 +26,7 @@ class ResizeDcosServerGroupAtomicOperationSpec extends Specification {
   }
 
   ResizeDcosServerGroupDescription description = new ResizeDcosServerGroupDescription(
-    region: "", serverGroupName: APPLICATION_NAME, credentials: testCredentials, desired: 2
+    region: "", serverGroupName: APPLICATION_NAME, credentials: testCredentials, instances: 2
   )
 
   @Subject
