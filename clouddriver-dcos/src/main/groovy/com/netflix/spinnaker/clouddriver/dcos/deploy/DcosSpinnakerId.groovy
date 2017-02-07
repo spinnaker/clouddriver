@@ -29,10 +29,17 @@ class DcosSpinnakerId {
         this.account = parts.first()
         this.service = Names.parseName(parts.last())
 
-        this.region = Arrays.asList(parts.tail().take(parts.size() - 2).join(REGION_SEPARATOR).split(REGION_SEPARATOR)).stream().map({
-            Preconditions.checkArgument(!it.trim().isEmpty(), "The region should not contain empty/blank parts")
-            return it
-        }).collect().join(PATH_SEPARATOR)
+        def regionParts = parts.tail().take(parts.size() - 2).toList()
+
+        if (regionParts.size() > 0) {
+            regionParts.join(REGION_SEPARATOR).split(REGION_SEPARATOR).toList().forEach({
+                Preconditions.checkArgument(!it.trim().isEmpty(), "The region should not contain empty/blank parts")
+            })
+
+            this.region = regionParts.join(PATH_SEPARATOR)
+        } else {
+            this.region = ""
+        }
     }
 
     public DcosSpinnakerId(final String account, final String region, final String service) {

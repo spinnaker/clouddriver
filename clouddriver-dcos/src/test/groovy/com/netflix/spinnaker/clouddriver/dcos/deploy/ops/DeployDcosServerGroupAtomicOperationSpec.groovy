@@ -30,10 +30,10 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
 
   DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
     application: APPLICATION_NAME.service.app, region: APPLICATION_NAME.region, credentials: testCredentials, stack: APPLICATION_NAME.service.stack,
-    detail: APPLICATION_NAME.service.detail, instances: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
-          container: new DeployDcosServerGroupDescription.Container(docker:
-                  new DeployDcosServerGroupDescription.Docker(image: "test", forcePullImage: false, privileged: false,
-                          portMappings: [], network: "BRIDGE")))
+    freeFormDetails: APPLICATION_NAME.service.detail, instances: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
+          docker: new DeployDcosServerGroupDescription.Docker(forcePullImage: false, privileged: false,
+                  network: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "Bridge"),
+                  image: new DeployDcosServerGroupDescription.Image(imageId: "test")))
 
   App application = new App(id: APPLICATION_NAME.toString(), instances: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
     container: new Container(docker: new Docker(image: "test", forcePullImage: false, privileged: false, portMappings: [], network: "BRIDGE")),
@@ -59,7 +59,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
     then:
     noExceptionThrown()
     deploymentResult != null
-    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(APPLICATION_NAME.service.group)
+    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains("${APPLICATION_NAME.region}:${APPLICATION_NAME.service.group}")
     deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get(APPLICATION_NAME.region) == APPLICATION_NAME.service.group
   }
 }
