@@ -32,11 +32,13 @@ class DcosSpinnakerId {
         def regionParts = parts.tail().take(parts.size() - 2).toList()
 
         if (regionParts.size() > 0) {
-            regionParts.join(REGION_SEPARATOR).split(REGION_SEPARATOR).toList().forEach({
+            def tempRegion = regionParts.join(REGION_SEPARATOR).split(REGION_SEPARATOR).toList()
+
+            tempRegion.forEach({
                 Preconditions.checkArgument(!it.trim().isEmpty(), "The region should not contain empty/blank parts")
             })
 
-            this.region = regionParts.join(PATH_SEPARATOR)
+            this.region = tempRegion.join(PATH_SEPARATOR)
         } else {
             this.region = ""
         }
@@ -48,10 +50,10 @@ class DcosSpinnakerId {
 
         this.account = account
         this.service = Names.parseName(service)
-        this.region = Strings.nullToEmpty(region)
+        this.region = Strings.nullToEmpty(region).replaceAll(REGION_SEPARATOR, PATH_SEPARATOR)
 
         if (this.region) {
-            this.region.split(REGION_SEPARATOR).each { Preconditions.checkArgument(!it.trim().isEmpty(), "The region should not contain empty/blank parts") }
+            this.region.split(PATH_SEPARATOR).each { Preconditions.checkArgument(!it.trim().isEmpty(), "The region should not contain empty/blank parts") }
         }
     }
 

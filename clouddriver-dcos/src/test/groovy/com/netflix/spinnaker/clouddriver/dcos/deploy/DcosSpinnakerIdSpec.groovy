@@ -236,6 +236,17 @@ class DcosSpinnakerIdSpec extends Specification {
         thrown IllegalArgumentException
     }
 
+    void "constructor should throw an IllegalArgumentException if path has a blank part in the region specified and uses underscores as regional separators"() {
+        setup:
+        def path = "spinnaker/test_         /service-v000"
+
+        when:
+        new DcosSpinnakerId(path)
+
+        then:
+        thrown IllegalArgumentException
+    }
+
     void "constructor should throw an IllegalArgumentException if path has an empty region specified ignoring the root/absolute path"() {
         setup:
         def path = "/spinnaker//service-v000"
@@ -269,6 +280,17 @@ class DcosSpinnakerIdSpec extends Specification {
         thrown IllegalArgumentException
     }
 
+    void "constructor should throw an IllegalArgumentException if path has a blank part in the region specified ignoring the root/absolute path and uses underscores as regional separators"() {
+        setup:
+        def path = "/spinnaker/test_         /service-v000"
+
+        when:
+        new DcosSpinnakerId(path)
+
+        then:
+        thrown IllegalArgumentException
+    }
+
     void "the account, region, and service should be correctly parsed when given a valid marathon path"() {
         expect:
             def dcosPath = new DcosSpinnakerId(path)
@@ -281,6 +303,7 @@ class DcosSpinnakerIdSpec extends Specification {
             "spinnaker/service-v000" || "spinnaker" || "" || "service-v000"
             "spinnaker/test/service-v000" || "spinnaker" || "test" || "service-v000"
             "spinnaker/test/service/service-v000" || "spinnaker" || "test/service" || "service-v000"
+            "spinnaker/test_service/service-v000" || "spinnaker" || "test/service" || "service-v000"
     }
 
     void "the account, region, and service should be correctly parsed when given a valid marathon absolute path"() {
@@ -295,6 +318,7 @@ class DcosSpinnakerIdSpec extends Specification {
             "/spinnaker/service-v000" || "spinnaker" || "" || "service-v000"
             "/spinnaker/test/service-v000" || "spinnaker" || "test" || "service-v000"
             "/spinnaker/test/service/service-v000" || "spinnaker" || "test/service" || "service-v000"
+            "/spinnaker/test_service/service-v000" || "spinnaker" || "test/service" || "service-v000"
     }
 
     void "the namespace and full path should be correctly built when given a valid account, region, service"() {
@@ -309,6 +333,7 @@ class DcosSpinnakerIdSpec extends Specification {
         "spinnaker" | "" | "service-v000" || "/spinnaker" || "/spinnaker/service-v000"
         "spinnaker" | "test" | "service-v000" || "/spinnaker/test" || "/spinnaker/test/service-v000"
         "spinnaker" | "test/service" | "service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
+        "spinnaker" | "test_service" | "service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
     }
 
     void "the namespace and full path should be correctly built when given a valid marathon path"() {
@@ -322,6 +347,7 @@ class DcosSpinnakerIdSpec extends Specification {
             "spinnaker/service-v000" || "/spinnaker" || "/spinnaker/service-v000"
             "spinnaker/test/service-v000" || "/spinnaker/test" || "/spinnaker/test/service-v000"
             "spinnaker/test/service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
+            "spinnaker/test_service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
     }
 
     void "the namespace and full path should be correctly built when given a valid absolute marathon path"() {
@@ -335,5 +361,6 @@ class DcosSpinnakerIdSpec extends Specification {
             "/spinnaker/service-v000" || "/spinnaker" || "/spinnaker/service-v000"
             "/spinnaker/test/service-v000" || "/spinnaker/test" || "/spinnaker/test/service-v000"
             "/spinnaker/test/service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
+            "/spinnaker/test_service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
     }
 }
