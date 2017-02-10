@@ -12,7 +12,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   List<String> args = new ArrayList<>()
   String dcosUser
   Map<String, Object> env = new HashMap<>()
-  Integer instances
+  Integer desiredCapacity
   Double cpus
   Double mem
   Double disk
