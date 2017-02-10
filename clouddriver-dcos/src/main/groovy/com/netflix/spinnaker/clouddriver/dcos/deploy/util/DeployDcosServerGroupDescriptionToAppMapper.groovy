@@ -14,7 +14,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
     public App map(final String resolvedAppName, final DeployDcosServerGroupDescription description) {
         new App().with {
             id = resolvedAppName
-            instances = description.instances
+            instances = description.desiredCapacity
             cpus = description.cpus
             mem = description.mem
             disk = description.disk

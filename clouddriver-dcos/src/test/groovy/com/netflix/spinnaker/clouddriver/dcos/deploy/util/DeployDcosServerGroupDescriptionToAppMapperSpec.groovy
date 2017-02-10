@@ -12,7 +12,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         given:
         DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
                 application: APPLICATION_NAME.service.app, stack: APPLICATION_NAME.service.stack,
-                freeFormDetails: APPLICATION_NAME.service.detail, instances: 1, cpus: 1.0, mem: 1.0, gpus: 1.0,
+                freeFormDetails: APPLICATION_NAME.service.detail, desiredCapacity: 1, cpus: 1.0, mem: 1.0, gpus: 1.0,
                 disk: 0.0, env: ["var": "val"], dcosUser: 'spinnaker', cmd: 'ps', args: ["-A"],
                 constraints: "something:GROUP_BY:other,test:GROUP_BY:other", fetch: ["fetch"],
                 storeUrls: [ "someUrl" ], backoffSeconds: 1, backoffFactor: 1.15, maxLaunchDelaySeconds: 3600,
@@ -44,7 +44,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
 
         then:
         noExceptionThrown()
-        app.instances == description.instances
+        app.instances == description.desiredCapacity
         app.cpus == description.cpus
         app.mem == description.mem
         app.gpus == description.gpus
@@ -124,14 +124,14 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         given:
         DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
                 application: APPLICATION_NAME.service.app, stack: APPLICATION_NAME.service.stack,
-                freeFormDetails: APPLICATION_NAME.service.detail, instances: 1, cpus: 1.0, mem: 1.0, gpus: 1.0, disk: 0.0)
+                freeFormDetails: APPLICATION_NAME.service.detail, desiredCapacity: 1, cpus: 1.0, mem: 1.0, gpus: 1.0, disk: 0.0)
 
         when:
         App app = new DeployDcosServerGroupDescriptionToAppMapper().map(APPLICATION_NAME.toString(), description)
 
         then:
         noExceptionThrown()
-        app.instances == description.instances
+        app.instances == description.desiredCapacity
         app.cpus == description.cpus
         app.mem == description.mem
         app.gpus == description.gpus
