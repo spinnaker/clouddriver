@@ -67,7 +67,7 @@ abstract class GoogleCommonSafeRetry {
     all_tags.success = state.success ? "true" : "false"
     registry.timer(registry.createId("google.safeRetry", all_tags))
         .record(registry.clock().monotonicTime() - startTime, TimeUnit.NANOSECONDS)
-    
+
     return determineFinalResult(state, tags.action, resource)
   }
 
@@ -89,7 +89,12 @@ abstract class GoogleCommonSafeRetry {
       state.finalResult = operation()
       state.success = true
       return state
-    } catch (GoogleJsonResponseException | SocketTimeoutException | SocketException _) {
+    } catch (GoogleJsonResponseException | SocketTimeoutException | SocketException e) {
+      // Don't retry if we don't have to.
+      if (e instanceof GoogleJsonResponseException && e.statusCode in successfulErrorCodes) {
+        state.success = true
+        return state
+      }
       log.warn "Initial $action of $resource failed, retrying..."
 
       while (state.tries < maxRetries) {
@@ -104,11 +109,7 @@ abstract class GoogleCommonSafeRetry {
           state.success = true
           return state
         } catch (GoogleJsonResponseException jsonException) {
-          if (jsonException.statusCode in successfulErrorCodes) {
-            log.warn "Retry $action of $resource encountered ${jsonException.statusCode}, treating as success..."
-            state.success = true
-            return state
-          } else if (jsonException.statusCode in retryCodes) {
+          if (jsonException.statusCode in retryCodes) {
             log.warn "Retry $action of $resource encountered ${jsonException.statusCode} with error message: ${jsonException.message}. Trying again..."
           } else {
             throw jsonException
