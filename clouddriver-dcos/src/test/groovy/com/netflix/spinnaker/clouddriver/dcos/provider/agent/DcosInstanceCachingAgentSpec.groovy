@@ -90,6 +90,6 @@ class DcosInstanceCachingAgentSpec extends Specification {
     def cacheData2 = result.cacheResults.instances.find { it.id == validInstance2Key }
     cacheData2 != null
     cacheData2.attributes.name == validTaskId2
-    cacheData1.attributes.instance == new DcosInstance(validTask2, ACCOUNT)
+    cacheData2.attributes.instance == new DcosInstance(validTask2, ACCOUNT)
   }
 }

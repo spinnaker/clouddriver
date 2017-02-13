@@ -40,7 +40,7 @@ class DeleteDcosLoadBalancerAtomicOperationSpec extends Specification {
 
   void "DeleteDcosLoadBalancerAtomicOperation should delete the load balancer for the given name if it exists"() {
     setup:
-      appMock.id >> "/${ACCOUNT_NAME}/load-balancer-${LOAD_BALANCER_NAME}"
+      appMock.id >> "/${ACCOUNT_NAME}/${LOAD_BALANCER_NAME}"
 
       def description = new DeleteDcosLoadBalancerAtomicOperationDescription(
               credentials: credentials,
@@ -54,14 +54,14 @@ class DeleteDcosLoadBalancerAtomicOperationSpec extends Specification {
       operation.operate([])
 
     then:
-      1 * dcosClientMock.maybeApp("/${ACCOUNT_NAME}/load-balancer-${LOAD_BALANCER_NAME}") >> Optional.of(appMock)
+      1 * dcosClientMock.maybeApp("/${ACCOUNT_NAME}/${LOAD_BALANCER_NAME}") >> Optional.of(appMock)
       1 * dcosClientMock.deleteApp(appMock.id)
       1 * dcosDeploymentMonitorMock.waitForAppDestroy(dcosClientMock, appMock, null, taskMock, "DESTROY_LOAD_BALANCER")
   }
 
   void "DeleteDcosLoadBalancerAtomicOperation should throw an exception when the given load balancer does not exist"() {
     setup:
-      appMock.id >> "/${ACCOUNT_NAME}/load-balancer-${LOAD_BALANCER_NAME}"
+      appMock.id >> "/${ACCOUNT_NAME}/${LOAD_BALANCER_NAME}"
 
       def description = new DeleteDcosLoadBalancerAtomicOperationDescription(
               credentials: credentials,
@@ -75,7 +75,7 @@ class DeleteDcosLoadBalancerAtomicOperationSpec extends Specification {
       operation.operate([])
 
     then:
-      1 * dcosClientMock.maybeApp("/${ACCOUNT_NAME}/load-balancer-${LOAD_BALANCER_NAME}") >> Optional.empty()
+      1 * dcosClientMock.maybeApp("/${ACCOUNT_NAME}/${LOAD_BALANCER_NAME}") >> Optional.empty()
       thrown(DcosOperationException)
   }
 }

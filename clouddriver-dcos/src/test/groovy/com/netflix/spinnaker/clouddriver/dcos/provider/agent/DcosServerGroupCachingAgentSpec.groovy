@@ -79,6 +79,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
             getTasks() >> [
               Mock(Task) {
                 getId() >> TASK
+                getAppId() >> MARATHON_APP
               }
             ]
           }
@@ -136,6 +137,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
           getTasks() >> [
             Mock(Task) {
               getId() >> TASK
+              getAppId() >> MARATHON_APP
             }
           ]
         }
@@ -170,6 +172,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
             getTasks() >> [
               Mock(Task) {
                 getId() >> TASK
+                getAppId() >> MARATHON_APP
               }
             ]
           }

@@ -74,19 +74,19 @@ class DcosServerGroup implements ServerGroup, Serializable {
   }
 
   void populateLoadBalancers(App app) {
-    fullyQualifiedLoadBalancers = app.labels.findResults { key, val ->
+    fullyQualifiedLoadBalancers = app.labels?.findResults { key, val ->
       if (key.matches(HAPROXY_GROUP_PATTERN)) {
         return val.split(",")
       } else {
         return null
       }
-    }.flatten().findResults({
+    }?.flatten()?.findResults({
       // TODO should we be validating here?
       def lbPath = it.replace('_', '/')
       DcosSpinnakerId.validate(lbPath, account) ? DcosSpinnakerId.parse(lbPath, account) : null
-    }).toSet()
+    })?.toSet() ?: []
 
-    loadBalancers = fullyQualifiedLoadBalancers.collect { it.name }
+    loadBalancers = fullyQualifiedLoadBalancers?.collect { it.name } ?: []
   }
 
   @Override
@@ -140,7 +140,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
     def imageDesc = buildImageDescription(app.container?.docker?.image)
 
     buildInfo.imageDesc = imageDesc
-    buildInfo.images = ["$imageDesc.repository:$imageDesc.tag".toString()]
+    buildInfo.images = imageDesc ? ["$imageDesc.repository:$imageDesc.tag".toString()] : []
 
     //def parsedName = Names.parseName(name)
     //buildInfo.createdBy = this.deployDescription?.deployment?.enabled ? parsedName.cluster : null

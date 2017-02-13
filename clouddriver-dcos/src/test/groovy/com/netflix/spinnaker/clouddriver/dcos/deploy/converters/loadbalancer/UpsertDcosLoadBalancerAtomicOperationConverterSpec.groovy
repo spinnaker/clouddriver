@@ -36,8 +36,7 @@ class UpsertDcosLoadBalancerAtomicOperationConverterSpec extends Specification {
 
   void "upsertDcosLoadBalancerAtomicOperationConverter type returns UpsertDcosLoadBalancerAtomicOperationDescription and UpsertDcosLoadBalancerAtomicOperation"() {
     setup:
-    def input = [group                : "/dev",
-                 name     : LOAD_BALANCER_NAME,
+    def input = [name     : LOAD_BALANCER_NAME,
                  credentials          : ACCOUNT,
                  cpus                 : 0.5,
                  mem                  : 256,
@@ -55,7 +54,6 @@ class UpsertDcosLoadBalancerAtomicOperationConverterSpec extends Specification {
 
     then:
     description instanceof UpsertDcosLoadBalancerAtomicOperationDescription
-    description.group == "/dev"
     description.name == LOAD_BALANCER_NAME
     description.credentials == mockCredentials
     description.cpus == 0.5d

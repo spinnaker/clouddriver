@@ -36,7 +36,7 @@ class DeleteDcosLoadBalancerAtomicOperationConverterSpec extends Specification {
 
   void "deleteDcosLoadBalancerAtomicOperationConverter type returns DeleteDcosLoadBalancerAtomicOperationDescription and DeleteDcosLoadBalancerAtomicOperation"() {
     setup:
-    def input = [group           : "/dev",
+    def input = [region           : "dev",
                  loadBalancerName: LOAD_BALANCER_NAME,
                  credentials     : ACCOUNT]
     when:
@@ -44,7 +44,7 @@ class DeleteDcosLoadBalancerAtomicOperationConverterSpec extends Specification {
 
     then:
     description instanceof DeleteDcosLoadBalancerAtomicOperationDescription
-    description.group == "/dev"
+    description.region == "dev"
     description.loadBalancerName == LOAD_BALANCER_NAME
     description.credentials == mockCredentials
 
