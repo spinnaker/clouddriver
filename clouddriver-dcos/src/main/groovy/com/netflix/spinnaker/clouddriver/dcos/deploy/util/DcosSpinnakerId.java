@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.util;
 
-import java.util.Optional;
-
 /**
  * Specialized version of a {@link PathId} which has a specific structure based on Spinnaker concepts.
  * <p/>
@@ -68,9 +66,15 @@ public class DcosSpinnakerId {
     private static PathId createPathId(String account, String region, String appName) {
         // The region may be in the so-called "safe form" with underscores instead of backslashes which we use
         // throughout due to cache issues and deck issues when using backslashes as part of the region.
-        PathId parsedGroup = (region == null || region.isEmpty()) ? PathId.from()
+        PathId parsedRegion = (region == null || region.isEmpty()) ? PathId.from()
                 : PathId.parse(region.replace("_", "/"));
-        return PathId.from(account).append(parsedGroup).append(appName);
+
+        // If we're parsing a region supplied by the UI, the region will contain the account in it.
+        if (parsedRegion.first().isPresent() && parsedRegion.first().get().equals(account)) {
+            parsedRegion = parsedRegion.tail();
+        }
+
+        return PathId.from(account).append(parsedRegion).append(appName);
     }
 
     public String getAccount() {
@@ -102,7 +106,7 @@ public class DcosSpinnakerId {
      * @see #getSafeRegion()
      */
     public String getSafeRegion() {
-         return getUnsafeRegion().replace("/", "_");
+        return getUnsafeRegion().replace("/", "_");
     }
 
     public String getName() {
