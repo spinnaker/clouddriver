@@ -94,6 +94,8 @@ abstract class GoogleCommonSafeRetry {
       if (e instanceof GoogleJsonResponseException && e.statusCode in successfulErrorCodes) {
         state.success = true
         return state
+      } else if (e instanceof GoogleJsonResponseException && !(e.statusCode in retryCodes)) {
+        throw e
       }
       log.warn "Initial $action of $resource failed, retrying..."
 
