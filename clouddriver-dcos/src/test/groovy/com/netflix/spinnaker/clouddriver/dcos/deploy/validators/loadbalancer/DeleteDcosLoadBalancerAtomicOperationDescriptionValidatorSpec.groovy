@@ -32,7 +32,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "successfully validates when no fields are missing or invalid"() {
     setup:
     def description = new DeleteDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
+      region = "region"
       loadBalancerName = "lb"
       credentials = testCredentials
       it
@@ -50,7 +50,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports an error when no credentials are present"() {
     setup:
     def description = new DeleteDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
+      region = "region"
       loadBalancerName = "lb"
       it
     }
@@ -68,7 +68,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports an error when the loadBalancerName is not provided"() {
     setup:
     def description = new DeleteDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
+      region = "region"
       credentials = testCredentials
       it
     }

@@ -109,9 +109,6 @@ class Keys {
   }
 
   static String getServerGroupKey(DcosSpinnakerId id) {
-    // app ids may contain leading "/" which is a problem for the way that these keys
-    // are built from path parameters for queries
-    // TODO: better translation strategy for '/'
     "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeRegion}:${id.name}"
   }
 

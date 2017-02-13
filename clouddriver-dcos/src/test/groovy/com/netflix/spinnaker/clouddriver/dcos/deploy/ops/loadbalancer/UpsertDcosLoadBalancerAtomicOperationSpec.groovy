@@ -86,7 +86,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: true
     )
 
-    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, "load-balancer-$LOAD_BALANCER_NAME")
+    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
     dcosConfigurationProperties.loadBalancer.image >> expectedLbImage
 
@@ -111,7 +111,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
                           "--health-check",
                           "--haproxy-map",
                           "--group",
-                          description.name]
+                          "${expectedAppId.account}_${expectedAppId.name}"]
 
       assert app.instances == expectedInstances
       assert app.cpus == expectedCpus
@@ -182,7 +182,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, "load-balancer-$LOAD_BALANCER_NAME")
+    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -238,7 +238,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, "load-balancer-$LOAD_BALANCER_NAME")
+    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -278,11 +278,9 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     def expectedMaxPort = 20001
     def expectedProtocol = "tcp"
     def expectedResourceRoles = ["slave_public"]
-    def group = "/dev"
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription(
             credentials: credentials,
-            group: group,
             name: LOAD_BALANCER_NAME,
             cpus: expectedCpus,
             instances: expectedInstances,
@@ -293,7 +291,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     )
 
 
-    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, group, "load-balancer-$LOAD_BALANCER_NAME")
+    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -329,11 +327,9 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     def expectedMaxPort = 20001
     def expectedProtocol = "tcp"
     def expectedResourceRoles = ["slave_public"]
-    def group = "/dev"
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription(
             credentials: credentials,
-            group: group,
             name: LOAD_BALANCER_NAME,
             cpus: expectedCpus,
             instances: expectedInstances,
@@ -344,7 +340,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     )
 
 
-    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, group, "load-balancer-$LOAD_BALANCER_NAME")
+    def expectedAppId = DcosSpinnakerId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
 
     def failedDeploymentResult = Mock(DcosDeploymentResult)

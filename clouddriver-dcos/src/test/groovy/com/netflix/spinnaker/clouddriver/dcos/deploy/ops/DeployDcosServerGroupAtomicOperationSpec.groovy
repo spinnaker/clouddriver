@@ -60,7 +60,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
     then:
     noExceptionThrown()
     deploymentResult != null
-    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", APPLICATION_NAME.region, APPLICATION_NAME.service.group))
-    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get(APPLICATION_NAME.region) == APPLICATION_NAME.service.group
+    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.account}_${APPLICATION_NAME.region}", APPLICATION_NAME.service.group))
+    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.account}_${APPLICATION_NAME.region}".toString()) == APPLICATION_NAME.service.group
   }
 }

@@ -33,7 +33,6 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "successfully validates when no fields are missing or invalid"() {
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
       name = "lb"
       credentials = testCredentials
       cpus = 1
@@ -57,7 +56,6 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports an error when no credentials are present"() {
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
       name = "lb"
       cpus = 1
       mem = 256
@@ -81,7 +79,6 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports an error when the name is not provided"() {
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
       credentials = testCredentials
       cpus = 1
       mem = 256
@@ -105,7 +102,6 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports errors for invalid resource capacities"() {
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
       name = "lb"
       credentials = testCredentials
       cpus = -1
@@ -132,7 +128,6 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports an error when acceptedResourceRoles contains a null value"() {
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
       name = "lb"
       credentials = testCredentials
       cpus = 1
@@ -157,7 +152,6 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports an error if portRange is not provided"() {
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
       name = "lb"
       credentials = testCredentials
       cpus = 1
@@ -181,7 +175,6 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports an error if portRange has invalid port definitions"() {
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
-      group = "group"
       name = "lb"
       credentials = testCredentials
       cpus = 1
