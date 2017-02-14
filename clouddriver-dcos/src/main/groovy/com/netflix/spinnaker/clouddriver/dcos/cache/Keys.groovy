@@ -7,7 +7,6 @@ import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.
 
 class Keys {
   public static final PROVIDER = "dcos"
-  public static final DEFAULT_REGION = "default"
 
   static enum Namespace {
     IMAGES,
@@ -95,7 +94,6 @@ class Keys {
                 detail      : names.detail
         ]
         break
-    // TODO wut
       default:
         return null
         break

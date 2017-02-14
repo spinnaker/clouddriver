@@ -42,7 +42,6 @@ class DcosInstance implements Instance, Serializable {
 
     // TODO Instance interfaces says this is the availability zone. Not sure we have this concept - we can only get the host.
     // Should this be our concept of region? Kubernetes uses namespace here.
-    // TODO task name will contain this information as well - use that instead?
     this.zone = DcosSpinnakerId.parse(task.appId, account).safeRegion
 
     // TODO
@@ -55,13 +54,10 @@ class DcosInstance implements Instance, Serializable {
 
     def health = [:]
 
-    // TODO I'm not exactly sure how i need to structure this. If the task has multiple healthCheckResults, should I report those separately?
-    // I think going off of the task state first makes sense, though. Might be different for pods, as well.
-
-    // TODO What's this
     health["healthClass"] = "platform"
     health["type"] = "MesosTask"
 
+    // TODO investigate STAGING, GONE, and KILLING. In general validate these.
     switch (task.state) {
       case "TASK_RUNNING":
         // TODO Not sure if there could be a race condition where healthCheckResults are not populated for a period after TASK_RUNNING is set for the task.
@@ -81,11 +77,11 @@ class DcosInstance implements Instance, Serializable {
         health["state"] = HealthState.Failed
         break
       case "TASK_KILLED":
-      case "TASK_STAGING":        // TODO not sure what staging falls under, could be Starting
-      case "TASK_GONE":           // Not sure
+      case "TASK_STAGING":
+      case "TASK_GONE":
         health["state"] = HealthState.Down
         break
-      case "TASK_KILLING":        // Not sure, kind of a transitioning state.
+      case "TASK_KILLING":
       case "TASK_UNREACHABLE":
       case "TASK_GONE_BY_OPERATOR":
       case "TASK_UNKNOWN":

@@ -29,9 +29,7 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
   App app
   String json
 
-  // Set of server groups represented as maps of strings -> objects.
   Set<LoadBalancerServerGroup> serverGroups = [] as Set
-  // List<String> securityGroups = []
   UpsertDcosLoadBalancerAtomicOperationDescription description
 
   DcosLoadBalancer(String name, String region, String accountName) {
@@ -60,7 +58,7 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
               region: serverGroup?.region,
               isDisabled: serverGroup?.isDisabled(),
               instances: serverGroup?.instances?.findResults { instance ->
-                // TODO if we can do this
+                // TODO once we can do this
                 //if (instance.isAttached(this.name)) {
 
                 return new LoadBalancerInstance(
@@ -74,7 +72,7 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
                 //  return (LoadBalancerInstance) null // Groovy generics need to be convinced all control flow paths return the same object type
                 //}
               } as Set,
-              // TODO if we can do this
+              // TODO once we can do this
               detachedInstances: [])
     } as Set
   }
@@ -101,8 +99,7 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
 
     description.acceptedResourceRoles = app.acceptedResourceRoles
 
-    // TODO Hacking this up. Port range really won't work out in the general sense,
-    // this will have to change if we want to allow arbitrary non-sequential port reservations.
+    // TODO This won't work for non-sequential port ranges.
     sortedPorts = sortedPorts - [80, 443, 9090, 9091]
 
     if (!sortedPorts.isEmpty()) {
