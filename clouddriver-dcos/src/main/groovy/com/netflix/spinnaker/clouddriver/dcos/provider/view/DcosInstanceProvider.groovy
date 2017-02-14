@@ -25,8 +25,6 @@ class DcosInstanceProvider implements InstanceProvider<DcosInstance> {
 
   @Override
   DcosInstance getInstance(String account, String region, String name) {
-
-    // TODO there should only be a single instance, right? Kubernetes uses getAllMatchingKeyPattern for some reason.
     CacheData instanceData = cacheView.get(Keys.Namespace.INSTANCES.ns, Keys.getInstanceKey(account, region, name))
     if (!instanceData) {
       return null

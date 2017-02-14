@@ -19,7 +19,6 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
   private static final HAPROXY_GROUP_PATTERN = Pattern.compile(/^HAPROXY_(\d*_)*GROUP$/)
 
-  // TODO don't store app?
   App app
   final String type = DcosCloudProvider.ID
   final String cloudProvider = DcosCloudProvider.ID
@@ -69,7 +68,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
     this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
 
-    // TODO can't always assume the tasks are present in the App! Depends on API used to retrieve handle this better.
+    // TODO can't always assume the tasks are present in the App! Depends on API used to retrieve
     this.instances = app.tasks?.collect({ new DcosInstance(it, account) }) as Set ?: []
   }
 
@@ -81,7 +80,6 @@ class DcosServerGroup implements ServerGroup, Serializable {
         return null
       }
     }?.flatten()?.findResults({
-      // TODO should we be validating here?
       def lbPath = it.replace('_', '/')
       DcosSpinnakerId.validate(lbPath, account) ? DcosSpinnakerId.parse(lbPath, account) : null
     })?.toSet() ?: []
@@ -136,14 +134,10 @@ class DcosServerGroup implements ServerGroup, Serializable {
   Map<String, Object> getBuildInfo() {
     def buildInfo = [:]
 
-    // TODO handle when returned image description is null.
     def imageDesc = buildImageDescription(app.container?.docker?.image)
 
     buildInfo.imageDesc = imageDesc
     buildInfo.images = imageDesc ? ["$imageDesc.repository:$imageDesc.tag".toString()] : []
-
-    //def parsedName = Names.parseName(name)
-    //buildInfo.createdBy = this.deployDescription?.deployment?.enabled ? parsedName.cluster : null
 
     return buildInfo
   }
@@ -158,7 +152,6 @@ class DcosServerGroup implements ServerGroup, Serializable {
       @Override
       List<? extends ServerGroup.ImageSummary> getSummaries() {
         [new ServerGroup.ImageSummary() {
-          // TODO we don't have too much info here.
           String serverGroupName = name
           String imageName = "${parts[0]}-${parts[1]}".toString()
           String imageId = app.container?.docker?.image
@@ -170,7 +163,6 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
           @Override
           Map<String, Object> getImage() {
-            // TODO fill out
             return [
                     container : imageName,
                     registry  : bi.imageDesc.registry,
@@ -229,7 +221,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
   static Void normalizeImageDescription(ImageDescription image) {
     if (!image.registry) {
-      image.registry = "dockerhub.cerner.com" // TODO configure or pull from docker registry account?
+      image.registry = "hub.docker.com" // TODO configure or pull from docker registry account
     }
 
     if (!image.tag) {

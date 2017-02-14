@@ -1,14 +1,11 @@
 package com.netflix.spinnaker.clouddriver.dcos.provider
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.frigga.NameValidation
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.model.DcosInstance
-import com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup
 
 class DcosProviderUtils {
 

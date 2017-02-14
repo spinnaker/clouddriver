@@ -85,7 +85,6 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
 
       id = appId.toString()
 
-      // TODO configurable? master url?
       args = ["sse",
               "-m",
               "http://master.mesos:8080",
@@ -94,7 +93,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
               "--group",
               "${appId.account}_${appId.name}".toString()]
 
-      // TODO Expose? these are defaults based on the current universe package
+      // TODO Expose configuration? these are defaults based on the current universe package
       env = ["HAPROXY_SSL_CERT"     : "",
              "HAPROXY_SYSCTL_PARAMS": "net.ipv4.tcp_tw_reuse=1 net.ipv4.tcp_fin_timeout=30 net.ipv4.tcp_max_syn_backlog=10240 net.ipv4.tcp_max_tw_buckets=400000 net.ipv4.tcp_max_orphans=60000 net.core.somaxconn=10000"]
 

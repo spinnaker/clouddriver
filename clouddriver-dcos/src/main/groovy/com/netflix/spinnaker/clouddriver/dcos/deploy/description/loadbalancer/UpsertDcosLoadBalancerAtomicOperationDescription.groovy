@@ -1,11 +1,8 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer
 
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
-import groovy.transform.Canonical
-import mesosphere.marathon.client.model.v2.PortDefinition
 
 class UpsertDcosLoadBalancerAtomicOperationDescription extends AbstractDcosCredentialsDescription {
-
   String name
   String app
   String stack

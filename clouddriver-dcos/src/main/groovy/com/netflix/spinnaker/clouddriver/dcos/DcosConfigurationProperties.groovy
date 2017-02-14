@@ -1,8 +1,5 @@
 package com.netflix.spinnaker.clouddriver.dcos
 
-/**
- * Created by jt018805 on 1/12/17.
- */
 class DcosConfigurationProperties {
   public static final int ASYNC_OPERATION_TIMEOUT_SECONDS_DEFAULT = 300
   public static final int ASYNC_OPERATION_MAX_POLLING_INTERVAL_SECONDS = 8

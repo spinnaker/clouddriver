@@ -7,9 +7,6 @@ import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.Dis
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 
-/**
- * Created by jt018805 on 2/3/17.
- */
 class DisableDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
 
   private static final String BASE_PHASE = "DISABLE"
@@ -33,7 +30,6 @@ class DisableDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Setting number of instances to 0 for $description.serverGroupName..."
 
     // TODO Most providers just take the instances out of load. Probably what we'd rather do.
-
     // TODO pull this out into a common place instead and reuse it both places? pass in BASE_PHASE
     def resizeDesc = new ResizeDcosServerGroupDescription().with {
       region = description.region
