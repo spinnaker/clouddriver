@@ -560,9 +560,10 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
           registry: registry,
           safeRetry: safeRetry
         )
+      destroy.registry = registry
       destroy.safeRetry = safeRetry
       destroy.destroy(
-          DestroyGoogleServerGroupAtomicOperation.destroyHttpLoadBalancerBackends(computeMock, PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock),
+          destroy.destroyHttpLoadBalancerBackends(computeMock, PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock),
           "Http load balancer backends"
       )
 
@@ -596,17 +597,16 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
     when:
       destroy.destroy(
-        DestroyGoogleServerGroupAtomicOperation.destroyHttpLoadBalancerBackends(computeMock, PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock),
+        destroy.destroyHttpLoadBalancerBackends(computeMock, PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock),
         "Http load balancer backends"
       )
 
     then:
-      // Note: retry fails once and we retry once to verify
-      2 * backendUpdateMock.execute() >> { throw notFoundException }
-      4 * computeMock.backendServices() >> backendServicesMock
-      2 * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
-      2 * backendSvcGetMock.execute() >> bs
-      2 * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
+      1 * backendUpdateMock.execute() >> { throw notFoundException }
+      2 * computeMock.backendServices() >> backendServicesMock
+      1 * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
+      1 * backendSvcGetMock.execute() >> bs
+      1 * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
 
     where:
       isRegional | location | loadBalancerList                                                         | lbNames
