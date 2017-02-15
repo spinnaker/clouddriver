@@ -1,12 +1,11 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.converters
+package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup.DestroyDcosServerGroupAtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DestroyDcosServerGroupDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.DestroyDcosServerGroupAtomicOperation
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.ResizeDcosServerGroupAtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -14,7 +13,7 @@ import mesosphere.dcos.client.DCOS
 import spock.lang.Specification
 import spock.lang.Subject
 
-class DestroyDcosServerGroupAtomicOperationConverterSpec extends Specification {
+class ResizeDcosServerGroupAtomicOperationConverterSpec extends Specification {
 
   DCOS dcosClient = Mock(DCOS)
 
@@ -31,15 +30,16 @@ class DestroyDcosServerGroupAtomicOperationConverterSpec extends Specification {
   }
 
   @Subject
-  AbstractAtomicOperationsCredentialsSupport atomicOperationConverter = new DestroyDcosServerGroupAtomicOperationConverter(dcosClientProvider)
+  AbstractAtomicOperationsCredentialsSupport atomicOperationConverter = new ResizeDcosServerGroupAtomicOperationConverter(dcosClientProvider)
 
-  void 'convertDescription should return a valid DestroyDcosServerGroupDescription'() {
+  void 'convertDescription should return a valid ResizeDcosServerGroupDescription'() {
     given:
     atomicOperationConverter.accountCredentialsProvider = accountCredentialsProvider
     atomicOperationConverter.objectMapper = new ObjectMapper()
     Map input = [
       credentials: 'test',
-      serverGroupName: 'api'
+      serverGroupName: 'api',
+      targetSize: 1
     ]
 
     when:
@@ -48,16 +48,17 @@ class DestroyDcosServerGroupAtomicOperationConverterSpec extends Specification {
     then:
     noExceptionThrown()
     description != null
-    description instanceof DestroyDcosServerGroupDescription
+    description instanceof ResizeDcosServerGroupDescription
   }
 
-  void 'convertOperation should return a DestroyDcosServerGroupAtomicOperation with DestroyDcosServerGroupDescription'() {
+  void 'convertOperation should return a ResizeDcosServerGroupAtomicOperation with ResizeDcosServerGroupDescription'() {
     given:
     atomicOperationConverter.accountCredentialsProvider = accountCredentialsProvider
     atomicOperationConverter.objectMapper = new ObjectMapper()
     Map input = [
       credentials: 'test',
-      serverGroupName: 'api'
+      serverGroupName: 'api',
+      targetSize: 1
     ]
 
     when:
@@ -66,6 +67,6 @@ class DestroyDcosServerGroupAtomicOperationConverterSpec extends Specification {
     then:
     noExceptionThrown()
     atomicOperation != null
-    atomicOperation instanceof DestroyDcosServerGroupAtomicOperation
+    atomicOperation instanceof ResizeDcosServerGroupAtomicOperation
   }
 }

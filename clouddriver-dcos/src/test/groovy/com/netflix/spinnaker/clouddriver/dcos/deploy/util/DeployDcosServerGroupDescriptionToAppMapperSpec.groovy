@@ -156,7 +156,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         app.acceptedResourceRoles == description.acceptedResourceRoles
         app.container.docker == null && description.docker == null
         app.container.volumes.isEmpty() && description.dockerVolumes.isEmpty() && description.externalVolumes.isEmpty() && description.persistentVolumes.isEmpty()
-        app.healthChecks.isEmpty() && description.healthChecks.isEmpty()
+        app.healthChecks == null && description.healthChecks.isEmpty()
         app.portDefinitions == null && description.serviceEndpoints.isEmpty()
         app.upgradeStrategy == null && description.upgradeStrategy == null
     }

@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.converters
+package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider

@@ -5,5 +5,5 @@ import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCre
 class ResizeDcosServerGroupDescription extends AbstractDcosCredentialsDescription {
   String region
   String serverGroupName
-  Integer instances
+  Integer targetSize
 }

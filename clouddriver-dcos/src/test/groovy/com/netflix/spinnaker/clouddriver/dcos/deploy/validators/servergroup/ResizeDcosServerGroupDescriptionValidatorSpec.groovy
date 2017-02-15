@@ -1,7 +1,8 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.validators
+package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.validators.ResizeDcosServerGroupDescriptionValidator
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.validation.Errors
@@ -24,7 +25,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an empty ResizeDcosServerGroupDescription"() {
     setup:
-      def description = new ResizeDcosServerGroupDescription(credentials: null, serverGroupName: null, instances: -1)
+      def description = new ResizeDcosServerGroupDescription(credentials: null, serverGroupName: null, targetSize: null)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
@@ -32,35 +33,35 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
       1 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
-      1 * errorsMock.rejectValue("instances", "${DESCRIPTION}.instances.invalid")
+      1 * errorsMock.rejectValue("targetSize", "${DESCRIPTION}.targetSize.invalid")
       0 * errorsMock._
   }
 
   void "validate should give errors when given an invalid DestroyDcosServerGroupDescription"() {
     setup:
-    def description = new ResizeDcosServerGroupDescription(credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test', instances: 0)
-    def errorsMock = Mock(Errors)
+      def description = new ResizeDcosServerGroupDescription(credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test', targetSize: -1)
+      def errorsMock = Mock(Errors)
     when:
-    validator.validate([], description, errorsMock)
+      validator.validate([], description, errorsMock)
     then:
-    0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-    1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
-    0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
-    0 * errorsMock.rejectValue("instances", "${DESCRIPTION}.instances.invalid")
-    0 * errorsMock._
+      0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
+      1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
+      0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
+      1 * errorsMock.rejectValue("targetSize", "${DESCRIPTION}.targetSize.invalid")
+      0 * errorsMock._
   }
 
   void "validate should give no errors when given an valid DestroyDcosServerGroupDescription"() {
     setup:
-    def description = new ResizeDcosServerGroupDescription(credentials: testCredentials, serverGroupName: 'test', instances: 1)
-    def errorsMock = Mock(Errors)
+      def description = new ResizeDcosServerGroupDescription(credentials: testCredentials, serverGroupName: 'test', targetSize: 0)
+      def errorsMock = Mock(Errors)
     when:
-    validator.validate([], description, errorsMock)
+      validator.validate([], description, errorsMock)
     then:
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
-      0 * errorsMock.rejectValue("instances", "${DESCRIPTION}.instances.invalid")
+      0 * errorsMock.rejectValue("targetSize", "${DESCRIPTION}.targetSize.invalid")
       0 * errorsMock._
   }
 }

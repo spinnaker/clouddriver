@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.ops
+package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
