@@ -34,7 +34,7 @@ class DisableDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     def resizeDesc = new ResizeDcosServerGroupDescription().with {
       region = description.region
       serverGroupName = description.serverGroupName
-      instances = 0
+      targetSize = 0
       account = description.account
       credentials = description.credentials
       it
