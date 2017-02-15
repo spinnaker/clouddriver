@@ -138,9 +138,9 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         parsedMap
     }
 
-    public List<PortMapping> parsePortMappings(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
+    public List<Port> parsePortMappings(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
         serviceEndpoints.stream().map({
-            serviceEndpoint -> new PortMapping().with {
+            serviceEndpoint -> new Port().with {
                 protocol = serviceEndpoint.protocol
                 containerPort = serviceEndpoint.port
                 hostPort = null
@@ -168,7 +168,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         List<Volume> parsedVolumes = new ArrayList<>()
 
         persistentVolumes.forEach({
-            persistentVolume ->  parsedVolumes.add(new Volume().with {
+            persistentVolume ->  parsedVolumes.add(new PersistentLocalVolume().with {
                 hostPath = null
                 containerPath = persistentVolume.containerPath
                 mode = persistentVolume.mode
@@ -177,7 +177,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         })
 
         dockerVolumes.forEach({
-            dockerVolume ->  parsedVolumes.add(new Volume().with {
+            dockerVolume ->  parsedVolumes.add(new LocalVolume().with {
                 hostPath = dockerVolume.hostPath
                 containerPath = dockerVolume.containerPath
                 mode = dockerVolume.mode
@@ -186,7 +186,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         })
 
         externalVolumes.forEach({
-            externalVolume ->  parsedVolumes.add(new Volume().with {
+            externalVolume ->  parsedVolumes.add(new ExternalVolume().with {
                 hostPath = null
                 containerPath = externalVolume.containerPath
                 mode = externalVolume.mode
