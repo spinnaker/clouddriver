@@ -9,6 +9,8 @@ import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 
 class DcosProviderUtils {
 
+  public static final String GLOBAL_REGION = 'global'
+
   /**
    * Resolves a set of CacheData given a namespace and a key pattern. If a {@code relationshipFilter} is supplied, relationships for the returned data will be filtered using it.
    * @param cacheView The Cache from which CacheData for the relationships will be resolved.
