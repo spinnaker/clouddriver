@@ -15,12 +15,14 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
+import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
 import groovy.util.logging.Slf4j
 import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
+import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.GLOBAL_REGION
 
 @Slf4j
 class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDemandAgent {
@@ -88,7 +90,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
     // Region may be (and currently is only) going to be 'global' for DCOS marathon-lb instances created through spinnaker.
     def dcosSpinnakerId = DcosSpinnakerId.from(data.account.toString(),
-            data.region?.toString()?.toLowerCase() == 'global' ? null : data.region?.toString(),
+            data.region?.toString()?.toLowerCase() == GLOBAL_REGION ? null : data.region?.toString(),
             data.loadBalancerName.toString())
 
     App loadBalancer = metricsSupport.readData {

@@ -2,7 +2,9 @@ package com.netflix.spinnaker.clouddriver.dcos.cache
 
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 
+import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.GLOBAL_REGION
 import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.isGlobalLoadBalancer
 
 class Keys {
@@ -127,7 +129,7 @@ class Keys {
   }
 
   static String getLoadBalancerKey(DcosSpinnakerId appId) {
-    isGlobalLoadBalancer(appId) ? "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:global:${appId.name}"
+    isGlobalLoadBalancer(appId) ? "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:${GLOBAL_REGION}:${appId.name}"
             : "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:${appId.safeRegion}:${appId.name}"
   }
 }

@@ -5,6 +5,8 @@ import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
+import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
@@ -15,6 +17,7 @@ import mesosphere.marathon.client.model.v2.App
 import java.time.Instant
 
 import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription.PortRange
+import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.GLOBAL_REGION
 import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.isGlobalLoadBalancer
 
 @EqualsAndHashCode(includes = ["name", "region", "account"])
@@ -45,7 +48,7 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     def id = DcosSpinnakerId.parse(app.id, account)
     this.account = account
     this.name = id.name
-    this.region = isGlobalLoadBalancer(id) ? 'global' : id.safeRegion
+    this.region = isGlobalLoadBalancer(id) ? GLOBAL_REGION : id.safeRegion
     this.description = toDescription(id, app)
 
     this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
