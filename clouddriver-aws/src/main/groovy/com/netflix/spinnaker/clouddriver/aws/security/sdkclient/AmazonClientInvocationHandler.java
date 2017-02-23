@@ -274,6 +274,17 @@ public class AmazonClientInvocationHandler implements InvocationHandler {
         describe(request, "loadBalancerNames", "loadBalancers", LoadBalancerDescription.class));
   }
 
+  public com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult describeLoadBalancersV2() {
+    return describeLoadBalancersV2(null);
+  }
+
+  // TODO: Find all uses of non-v2 and create analogs.
+  public com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult describeLoadBalancersV2(com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest request) {
+    return new com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult()
+      .withLoadBalancers(
+        describe(request, "loadBalancerNames", "loadBalancers", com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancer.class));
+  }
+
   ////////////////////////////////////
   private <T> List<T> describe(AmazonWebServiceRequest request, String idKey, final String object, final Class<T> singleType) {
     lastModified.set(null);
