@@ -5,7 +5,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -45,7 +45,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     task.updateStatus BASE_PHASE, "Initializing upsert of load balancer $description.name..."
     task.updateStatus BASE_PHASE, "Looking up existing load balancer..."
 
-    def appId = DcosSpinnakerId.from(description.credentials.name,
+    def appId = PathId.from(description.credentials.name,
             description.name);
 
     def existingLb = dcosClient.maybeApp(appId.toString()).orElse(null)
@@ -79,7 +79,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     [loadBalancer: [name: deploymentResult.deployedApp.get().id]]
   }
 
-  private App createLoadBalancerDefinition(final DcosSpinnakerId appId) {
+  private App createLoadBalancerDefinition(final PathId appId) {
 
     new App().with {
 
@@ -91,7 +91,8 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
               "--health-check",
               "--haproxy-map",
               "--group",
-              "${appId.account}_${appId.name}".toString()]
+              // TODO Need a load balancer specific id type where I can do this type of stuff instead.
+              appId.relative().toString().replace('/', '_')]
 
       // TODO Expose configuration? these are defaults based on the current universe package
       env = ["HAPROXY_SSL_CERT"     : "",
@@ -122,8 +123,8 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
                 protocol = "HTTP"
                 path = "/_haproxy_health_check"
                 gracePeriodSeconds = 60
-                intervalSeconds = 2
-                timeoutSeconds = 2
+                intervalSeconds = 5
+                timeoutSeconds = 5
                 maxConsecutiveFailures = 2
                 portIndex = 0
                 ignoreHttp1xx = false

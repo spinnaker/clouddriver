@@ -6,6 +6,7 @@ import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 
 class DcosProviderUtils {
 
@@ -93,7 +94,11 @@ class DcosProviderUtils {
     return appName;
   }
 
-  static boolean isGlobalLoadBalancer(DcosSpinnakerId loadBalancerId) {
-    loadBalancerId.getSafeRegion() == loadBalancerId.getAccount()
+  static boolean validateLoadBalancerId(PathId loadBalancerId, String account) {
+    loadBalancerId.size() == 2 && loadBalancerId.first().get() == account
+  }
+
+  static boolean validateLoadBalancerId(String loadBalancerId, String account) {
+    validateLoadBalancerId(PathId.parse(loadBalancerId), account)
   }
 }

@@ -3,6 +3,8 @@ package com.netflix.spinnaker.clouddriver.dcos.model
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
+import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
@@ -38,7 +40,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
   Set<String> loadBalancers
 
   @JsonIgnore
-  Set<DcosSpinnakerId> fullyQualifiedLoadBalancers
+  Set<PathId> fullyQualifiedLoadBalancers
 
   Set<DcosInstance> instances = [] as Set
 
@@ -80,11 +82,11 @@ class DcosServerGroup implements ServerGroup, Serializable {
         return null
       }
     }?.flatten()?.findResults({
-      def lbPath = it.replace('_', '/')
-      DcosSpinnakerId.validate(lbPath, account) ? DcosSpinnakerId.parse(lbPath, account) : null
+      def appId = PathId.parse(it.replace('_', '/'))
+      DcosProviderUtils.validateLoadBalancerId(appId, account) ? appId : null
     })?.toSet() ?: []
 
-    loadBalancers = fullyQualifiedLoadBalancers?.collect { it.name } ?: []
+    loadBalancers = fullyQualifiedLoadBalancers?.collect { it.last().get() } ?: []
   }
 
   @Override

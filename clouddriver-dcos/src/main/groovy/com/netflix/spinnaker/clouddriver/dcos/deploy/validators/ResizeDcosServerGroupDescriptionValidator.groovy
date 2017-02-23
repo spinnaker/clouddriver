@@ -21,6 +21,10 @@ class ResizeDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
   void validate(List priorDescriptions, ResizeDcosServerGroupDescription description, Errors errors) {
     super.validate(priorDescriptions, description, errors)
 
+    if (!description.region || description.region.empty) {
+      errors.rejectValue "region", "resizeDcosServerGroupDescription.region.empty"
+    }
+
     if (!description.serverGroupName) {
       errors.rejectValue "serverGroupName", "resizeDcosServerGroupDescription.serverGroupName.empty"
     }

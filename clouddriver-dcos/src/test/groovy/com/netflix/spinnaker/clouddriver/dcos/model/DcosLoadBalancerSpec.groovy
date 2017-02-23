@@ -30,17 +30,6 @@ class DcosLoadBalancerSpec extends Specification {
     lb.region == 'global'
   }
 
-  void "region should be set normally if the load balancer exists in a subgroup under the account group"() {
-    setup:
-    def lbApp = createLbApp("/${ACCOUNT}/subgroup/${LB_NAME}")
-
-    when:
-    @Subject def lb = new DcosLoadBalancer(ACCOUNT, lbApp, [])
-
-    then:
-    lb.region == "${ACCOUNT}_subgroup".toString()
-  }
-
   void "created time is set if available"() {
     setup:
     def currentInstant = Instant.now()

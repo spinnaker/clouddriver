@@ -9,7 +9,8 @@ class DcosServerGroupSpec extends Specification {
   private static final String ACCOUNT = "testAccount"
   static final private String APP = "testApp"
   static final private String SERVER_GROUP_NAME = "${APP}-v000"
-  static final private String MARATHON_APP = "/${ACCOUNT}/${SERVER_GROUP_NAME}"
+  static final private String REGION = "region"
+  static final private String MARATHON_APP = "/${ACCOUNT}/${REGION}/${SERVER_GROUP_NAME}"
 
   def setup() {
   }

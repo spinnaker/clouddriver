@@ -140,8 +140,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     def serverGroupName = data.serverGroupName.toString()
 
-    def spinnakerId = data.region ? DcosSpinnakerId.from(accountName, data.region.toString(), serverGroupName) :
-            DcosSpinnakerId.from(accountName, serverGroupName)
+    def spinnakerId = DcosSpinnakerId.from(accountName, data.region.toString(), serverGroupName)
     DcosServerGroup serverGroup = metricsSupport.readData {
       loadServerGroup(spinnakerId.toMarathonAppId().toString())
     }
@@ -221,7 +220,9 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
   private List<DcosServerGroup> loadServerGroups() {
     final List<App> apps = dcosClient.getApps(accountName)?.apps
-    apps.findAll { app -> !app.labels?.containsKey("SPINNAKER_LOAD_BALANCER") }.collect {
+    apps.findAll {
+      !it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerId.validate(it.id, accountName)
+    }.collect {
       new DcosServerGroup(accountName, it)
     }
   }

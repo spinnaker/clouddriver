@@ -30,6 +30,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
     when:
       validator.validate([], description, errorsMock)
     then:
+      1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
       1 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
@@ -39,11 +40,12 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an invalid DestroyDcosServerGroupDescription"() {
     setup:
-      def description = new ResizeDcosServerGroupDescription(credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test', targetSize: -1)
+      def description = new ResizeDcosServerGroupDescription(region: "region", credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test', targetSize: -1)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
     then:
+      0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
@@ -53,11 +55,12 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give no errors when given an valid DestroyDcosServerGroupDescription"() {
     setup:
-      def description = new ResizeDcosServerGroupDescription(credentials: testCredentials, serverGroupName: 'test', targetSize: 0)
+      def description = new ResizeDcosServerGroupDescription(region: "region", credentials: testCredentials, serverGroupName: 'test', targetSize: 0)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
     then:
+      0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
