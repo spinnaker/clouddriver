@@ -2,6 +2,7 @@ package com.netflix.spinnaker.clouddriver.dcos.cache
 
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 
 import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.GLOBAL_REGION
@@ -124,12 +125,11 @@ class Keys {
     "${PROVIDER}:${Namespace.INSTANCES}:${account}:${safeRegion}:${taskName}"
   }
 
-  static String getLoadBalancerKey(String account, String region, String loadBalancerName) {
-    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${region}:${loadBalancerName}"
+  static String getLoadBalancerKey(String account, String loadBalancerName) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${loadBalancerName}"
   }
 
-  static String getLoadBalancerKey(DcosSpinnakerId appId) {
-    isGlobalLoadBalancer(appId) ? "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:${GLOBAL_REGION}:${appId.name}"
-            : "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.account}:${appId.safeRegion}:${appId.name}"
+  static String getLoadBalancerKey(PathId appId) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.first().get()}:${appId.last().get()}"
   }
 }

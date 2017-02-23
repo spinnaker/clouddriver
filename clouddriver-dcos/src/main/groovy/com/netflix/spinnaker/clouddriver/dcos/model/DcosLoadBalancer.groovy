@@ -5,6 +5,7 @@ import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer
@@ -45,10 +46,10 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     this.app = app
     this.json = app.toString()
 
-    def id = DcosSpinnakerId.parse(app.id, account)
+    def id = PathId.parse(app.id)
     this.account = account
-    this.name = id.name
-    this.region = isGlobalLoadBalancer(id) ? GLOBAL_REGION : id.safeRegion
+    this.name = id.last().get()
+    this.region = GLOBAL_REGION
     this.description = toDescription(id, app)
 
     this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
@@ -80,12 +81,12 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     } as Set
   }
 
-  static UpsertDcosLoadBalancerAtomicOperationDescription toDescription(DcosSpinnakerId id, App app) {
+  static UpsertDcosLoadBalancerAtomicOperationDescription toDescription(PathId id, App app) {
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription();
 
-    description.account = id.account
-    description.name = id.name
+    description.account = id.first().get()
+    description.name = id.last().get()
 
     def names = Names.parseName(description.name)
 

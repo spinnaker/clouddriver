@@ -9,6 +9,7 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import mesosphere.dcos.client.DCOS
@@ -44,7 +45,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
     providerCache = Mock(ProviderCache)
     objectMapper = new ObjectMapper()
 
-    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerId.parse(MARATHON_APP_ID, ACCOUNT))
+    loadBalancerKey = Keys.getLoadBalancerKey(PathId.parse(MARATHON_APP_ID))
 
     clientProvider = Mock(DcosClientProvider) {
       getDcosClient(credentials) >> dcosClient
@@ -179,7 +180,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
     final result = subject.loadData(providerCacheMock)
     then:
 
-    result.cacheResults.loadBalancers[0].attributes.name == DcosSpinnakerId.parse(MARATHON_APP_ID, ACCOUNT).toString()
+    result.cacheResults.loadBalancers[0].attributes.name == MARATHON_APP_ID
     result.cacheResults.loadBalancers[0].attributes.app == loadBalancer
   }
 

@@ -21,6 +21,10 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
   void validate(List priorDescriptions, DeployDcosServerGroupDescription description, Errors errors) {
     super.validate(priorDescriptions, description, errors)
 
+    if (!description.region || description.region.empty) {
+      errors.rejectValue "region", "deployDcosServerGroupDescription.region.empty"
+    }
+
     if (!description.application) {
       errors.rejectValue "application", "deployDcosServerGroupDescription.application.empty"
     }
@@ -37,11 +41,11 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
       errors.rejectValue "mem", "deployDcosServerGroupDescription.mem.invalid"
     }
 
-    if (description.disk == null || description.disk < 0) {
+    if (description.disk && description.disk < 0) {
       errors.rejectValue "disk", "deployDcosServerGroupDescription.disk.invalid"
     }
 
-    if (description.gpus == null || description.gpus < 0) {
+    if (description.gpus && description.gpus < 0) {
       errors.rejectValue "gpus", "deployDcosServerGroupDescription.gpus.invalid"
     }
   }

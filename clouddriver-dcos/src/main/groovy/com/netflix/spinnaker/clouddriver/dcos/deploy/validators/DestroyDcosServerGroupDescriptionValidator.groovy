@@ -21,6 +21,10 @@ class DestroyDcosServerGroupDescriptionValidator extends AbstractDcosDescription
   void validate(List priorDescriptions, DestroyDcosServerGroupDescription description, Errors errors) {
     super.validate(priorDescriptions, description, errors)
 
+    if (!description.region || description.region.empty) {
+      errors.rejectValue "region", "destroyDcosServerGroupDescription.region.empty"
+    }
+
     if (!description.serverGroupName) {
       errors.rejectValue "serverGroupName", "destroyDcosServerGroupDescription.serverGroupName.empty"
     }

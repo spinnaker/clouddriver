@@ -27,7 +27,8 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   static final private String APP = "testApp"
   static final private String CLUSTER = "${APP}-cluster"
   static final private String SERVER_GROUP = "${CLUSTER}-v000"
-  static final private String MARATHON_APP = "/${ACCOUNT}/${SERVER_GROUP}"
+  static final private String REGION = "default"
+  static final private String MARATHON_APP = "/${ACCOUNT}/${REGION}/${SERVER_GROUP}"
   static final private String TASK = "${MARATHON_APP}-some-task-id"
   static final private String LOAD_BALANCER = "/${ACCOUNT}/${APP}-frontend"
 
@@ -62,10 +63,10 @@ class DcosServerGroupCachingAgentSpec extends Specification{
     }
 
     appKey = Keys.getApplicationKey(APP)
-    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerId.from(PathId.parse(MARATHON_APP)))
+    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerId.parse(MARATHON_APP, ACCOUNT))
     clusterKey = Keys.getClusterKey(ACCOUNT, APP, CLUSTER)
-    instanceKey = Keys.getInstanceKey(DcosSpinnakerId.from(PathId.parse(MARATHON_APP)), TASK)
-    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerId.parse(LOAD_BALANCER, ACCOUNT))
+    instanceKey = Keys.getInstanceKey(DcosSpinnakerId.parse(MARATHON_APP, ACCOUNT), TASK)
+    loadBalancerKey = Keys.getLoadBalancerKey(PathId.parse(LOAD_BALANCER))
 
     subject = new DcosServerGroupCachingAgent(ACCOUNT, credentials, clientProvider, objectMapper, registryMock)
   }
@@ -89,7 +90,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
       dcosClient.getApp(MARATHON_APP) >> appResponse
     when:
       //TODO: again, not sure yet if this can be the fully qualified name or just the leaf of the path tree
-      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "account": ACCOUNT])
+      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "region": REGION, "account": ACCOUNT])
     then:
       1 * providerCache.putCacheData(Keys.Namespace.ON_DEMAND.ns, { cacheData ->
         assert cacheData.id == serverGroupKey
@@ -121,7 +122,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   void "On-demand cache should evict a server group that no longer exists"() {
     when:
       //TODO: again, not sure yet if this can be the fully qualified name or just the leaf of the path tree
-      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "account": ACCOUNT])
+      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "region": REGION, "account": ACCOUNT])
     then:
       1 * providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [serverGroupKey])
       result.evictions == [(Keys.Namespace.SERVER_GROUPS.ns): [serverGroupKey]]

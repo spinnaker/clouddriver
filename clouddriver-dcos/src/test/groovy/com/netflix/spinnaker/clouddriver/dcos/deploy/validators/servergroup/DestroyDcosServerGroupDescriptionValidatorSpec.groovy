@@ -30,6 +30,7 @@ class DestroyDcosServerGroupDescriptionValidatorSpec extends Specification {
     when:
       validator.validate([], description, errorsMock)
     then:
+      1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
       1 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
@@ -38,11 +39,12 @@ class DestroyDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an invalid DestroyDcosServerGroupDescription"() {
     setup:
-    def description = new DestroyDcosServerGroupDescription(credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test')
+    def description = new DestroyDcosServerGroupDescription(region: "region", credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test')
     def errorsMock = Mock(Errors)
     when:
     validator.validate([], description, errorsMock)
     then:
+    0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
     0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
     1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
     0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
@@ -51,11 +53,12 @@ class DestroyDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give no errors when given an valid DestroyDcosServerGroupDescription"() {
     setup:
-    def description = new DestroyDcosServerGroupDescription(credentials: testCredentials, serverGroupName: 'test')
+    def description = new DestroyDcosServerGroupDescription(region: "region", credentials: testCredentials, serverGroupName: 'test')
     def errorsMock = Mock(Errors)
     when:
     validator.validate([], description, errorsMock)
     then:
+      0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")

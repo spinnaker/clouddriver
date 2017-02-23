@@ -4,6 +4,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
@@ -35,8 +36,7 @@ class DeleteDcosLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
     DCOS dcosClient = dcosClientProvider.getDcosClient(description.credentials);
 
-    def realRegion = description.region == 'global' ? null : description.region
-    DcosSpinnakerId appId = DcosSpinnakerId.from(description.credentials.name, realRegion,
+    PathId appId = PathId.from(description.credentials.name,
             description.loadBalancerName);
 
     App existingLb = dcosClient.maybeApp(appId.toString())

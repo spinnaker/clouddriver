@@ -14,6 +14,7 @@ import spock.lang.Subject
 
 class DestroyDcosServerGroupAtomicOperationSpec extends Specification {
   private static final APPLICATION_NAME = 'api-test-v000'
+  private static final REGION = 'default'
 
   DCOS dcosClient = Mock(DCOS)
 
@@ -26,7 +27,7 @@ class DestroyDcosServerGroupAtomicOperationSpec extends Specification {
   }
 
   DestroyDcosServerGroupDescription description = new DestroyDcosServerGroupDescription(
-    serverGroupName: APPLICATION_NAME, credentials: testCredentials
+    serverGroupName: APPLICATION_NAME, credentials: testCredentials, region: REGION
   )
 
   @Subject

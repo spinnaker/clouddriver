@@ -80,9 +80,9 @@ class DcosLoadBalancerProvider implements LoadBalancerProvider<DcosLoadBalancer>
     }
 
     loadBalancerKeys.addAll(cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns,
-            Keys.getLoadBalancerKey("*", "*", combineAppStackDetail(applicationName, '*', null))))
+            Keys.getLoadBalancerKey("*", combineAppStackDetail(applicationName, '*', null))))
     loadBalancerKeys.addAll(cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns,
-            Keys.getLoadBalancerKey("*", "*", combineAppStackDetail(applicationName, null, null))))
+            Keys.getLoadBalancerKey("*", combineAppStackDetail(applicationName, null, null))))
 
     cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, loadBalancerKeys)
   }
