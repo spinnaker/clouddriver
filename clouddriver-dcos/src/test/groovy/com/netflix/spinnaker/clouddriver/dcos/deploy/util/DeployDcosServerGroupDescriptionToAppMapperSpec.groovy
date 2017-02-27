@@ -35,7 +35,16 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
                         ignoreHttp1xx: false)],
                 serviceEndpoints: [new DeployDcosServerGroupDescription.ServiceEndpoint(port: 8080, protocol: "tcp",
                         networkType: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "bridge"),
-                        name: "HTTP", isLoadBalanced: false, exposeToHost: false)],
+                        name: "HTTP", loadBalanced: false, exposeToHost: false),
+                                   new DeployDcosServerGroupDescription.ServiceEndpoint(port: 8081, protocol: "tcp",
+                        networkType: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "bridge"),
+                        name: "HTTP", loadBalanced: true, exposeToHost: false),
+                                   new DeployDcosServerGroupDescription.ServiceEndpoint(port: 8082, protocol: "tcp",
+                        networkType: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "bridge"),
+                        name: "HTTP", loadBalanced: false, exposeToHost: false, labels: ["VIP_1": "vip_override:8082", "label1": "non_vip_label"]),
+                                   new DeployDcosServerGroupDescription.ServiceEndpoint(port: 8083, protocol: "tcp",
+                        networkType: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "bridge"),
+                        name: "HTTP", loadBalanced: true, exposeToHost: false, labels: ["VIP_11": "vip_override:8083", "VIP_abc": "non_numeric_vip"])],
                 upgradeStrategy: new DeployDcosServerGroupDescription.UpgradeStrategy(minimumHealthCapacity: 1,
                         maximumOverCapacity: 2))
 
@@ -72,51 +81,56 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         app.container.docker.privileged == description.docker.privileged
         app.container.docker.forcePullImage == description.docker.forcePullImage
 
+        def labels = [[:],
+                      ["VIP_0":"/spinnaker/test/api-test-something-v000:8081"],
+                      ["label1": "non_vip_label", "VIP_1":"vip_override:8082"],
+                      ["VIP_abc": "non_numeric_vip", "VIP_2":"vip_override:8083"]]
         app.container.docker.portMappings.size() == description.serviceEndpoints.size()
-        [app.container.docker.portMappings, description.serviceEndpoints].transpose().forEach({ appPortMapping, descriptionPortMapping ->
-            appPortMapping.containerPort == descriptionPortMapping.port
-            appPortMapping.protocol == descriptionPortMapping.protocol
+        [app.container.docker.portMappings, description.serviceEndpoints, labels].transpose().forEach({ appPortMapping, descriptionPortMapping, label ->
+            assert appPortMapping.containerPort == descriptionPortMapping.port
+            assert appPortMapping.protocol == descriptionPortMapping.protocol
+            assert appPortMapping.labels == label
         })
 
         app.container.docker.parameters.size() == description.docker.parameters.size()
         [app.container.docker.parameters, description.docker.parameters].transpose().forEach({ appParameter, descriptionParameter ->
-            appParameter.key == descriptionParameter.key
-            appParameter.value == descriptionParameter.value
+            assert appParameter.key == descriptionParameter.key
+            assert appParameter.value == descriptionParameter.value
         })
 
         def combinedVolumes = []
+        combinedVolumes.addAll(description.persistentVolumes)
         combinedVolumes.addAll(description.dockerVolumes)
         combinedVolumes.addAll(description.externalVolumes)
-        combinedVolumes.addAll(description.persistentVolumes)
 
         app.container.volumes.size() == combinedVolumes.size()
         [app.container.volumes, combinedVolumes].transpose().forEach({ appVolume, descriptionVolume ->
-            appVolume.containerPath == descriptionVolume.containerPath
-            appVolume.mode == descriptionVolume.mode
+            assert appVolume.containerPath == descriptionVolume.containerPath
+            assert appVolume.mode == descriptionVolume.mode
         })
 
         app.healthChecks.size() == description.healthChecks.size()
         [app.healthChecks, description.healthChecks].transpose().forEach({ appHealthChecks, descriptionHealthChecks ->
-            appHealthChecks.command == descriptionHealthChecks.command
-            appHealthChecks.gracePeriodSeconds == descriptionHealthChecks.gracePeriodSeconds
-            appHealthChecks.ignoreHttp1xx == descriptionHealthChecks.ignoreHttp1xx
-            appHealthChecks.intervalSeconds == descriptionHealthChecks.intervalSeconds
-            appHealthChecks.maxConsecutiveFailures == descriptionHealthChecks.maxConsecutiveFailures
-            appHealthChecks.path == descriptionHealthChecks.path
-            appHealthChecks.portIndex == descriptionHealthChecks.portIndex
-            appHealthChecks.protocol == descriptionHealthChecks.protocol
-            appHealthChecks.timeoutSeconds == descriptionHealthChecks.timeoutSeconds
+            assert appHealthChecks.command == descriptionHealthChecks.command
+            assert appHealthChecks.gracePeriodSeconds == descriptionHealthChecks.gracePeriodSeconds
+            assert appHealthChecks.ignoreHttp1xx == descriptionHealthChecks.ignoreHttp1xx
+            assert appHealthChecks.intervalSeconds == descriptionHealthChecks.intervalSeconds
+            assert appHealthChecks.maxConsecutiveFailures == descriptionHealthChecks.maxConsecutiveFailures
+            assert appHealthChecks.path == descriptionHealthChecks.path
+            assert appHealthChecks.portIndex == descriptionHealthChecks.portIndex
+            assert appHealthChecks.protocol == descriptionHealthChecks.protocol
+            assert appHealthChecks.timeoutSeconds == descriptionHealthChecks.timeoutSeconds
         })
 
         app.portDefinitions.size() == description.serviceEndpoints.size()
         [app.portDefinitions, description.serviceEndpoints].transpose().forEach({ appPortDefinition, descriptionPortDefinition ->
-            appPortDefinition.protocol == descriptionPortDefinition.protocol
-            appPortDefinition.port == descriptionPortDefinition.port
+            assert appPortDefinition.protocol == descriptionPortDefinition.protocol
+            assert appPortDefinition.port == descriptionPortDefinition.port
         })
 
         if (app.upgradeStrategy && description.upgradeStrategy) {
-            app.upgradeStrategy.maximumOverCapacity == description.upgradeStrategy.maximumOverCapacity
-            app.upgradeStrategy.minimumHealthCapacity == description.upgradeStrategy.minimumHealthCapacity
+            assert app.upgradeStrategy.maximumOverCapacity == description.upgradeStrategy.maximumOverCapacity
+            assert app.upgradeStrategy.minimumHealthCapacity == description.upgradeStrategy.minimumHealthCapacity
         }
     }
 

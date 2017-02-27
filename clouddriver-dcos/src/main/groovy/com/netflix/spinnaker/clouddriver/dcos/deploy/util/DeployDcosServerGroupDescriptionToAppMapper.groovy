@@ -6,10 +6,12 @@ import mesosphere.marathon.client.model.v2.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.util.regex.Pattern
 import java.util.stream.Collectors
 
 class DeployDcosServerGroupDescriptionToAppMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(DeployDcosServerGroupDescriptionToAppMapper)
+    private static final VIP_PATTERN = Pattern.compile("VIP_\\d*")
 
     public App map(final String resolvedAppName, final DeployDcosServerGroupDescription description) {
         new App().with {
@@ -137,28 +139,37 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         parsedConstraints
     }
 
-    public Map<String, String> parsePortMappingLabels(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
-        Map<String, String> parsedMap = [:]
+    private Tuple parsePortMappingLabels(String appId, DeployDcosServerGroupDescription.ServiceEndpoint serviceEndpoint, int counter) {
+        Map<String, String> parsedLabels = serviceEndpoint.labels.clone()
 
-        int counter = 0
+        List<String> vipKeys = parsedLabels.keySet().stream().filter({ key -> key.matches(VIP_PATTERN) })
+                .collect(Collectors.toList())
 
-        serviceEndpoints.stream().filter({
-            serviceEndpoint -> serviceEndpoint.isLoadBalanced
-        }).forEach({
-            serviceEndpoint -> parsedMap.put("VIP_${counter++}", "${appId}:${serviceEndpoint.port}")
+        vipKeys.stream().forEach({
+            key ->
+                String vip = parsedLabels.remove(key)
+                parsedLabels.put("VIP_${counter++}".toString(), vip)
         })
 
-        parsedMap
+        if (serviceEndpoint.loadBalanced && vipKeys.isEmpty()) {
+            parsedLabels.put("VIP_${counter++}".toString(), "${appId}:${serviceEndpoint.port}".toString())
+        }
+
+        return [counter, parsedLabels]
     }
 
     public List<Port> parsePortMappings(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
+
+        int counter = 0
+
         serviceEndpoints.stream().map({
             serviceEndpoint -> new Port().with {
                 protocol = serviceEndpoint.protocol
                 containerPort = serviceEndpoint.port
                 hostPort = null
                 servicePort = null
-                labels = parsePortMappingLabels(appId, serviceEndpoints)
+                (counter, labels) = parsePortMappingLabels(appId, serviceEndpoint, counter)
+
                 it
             }
         }).collect(Collectors.toList())

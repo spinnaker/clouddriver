@@ -117,8 +117,9 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
     Integer port
     String name
     String protocol
-    boolean isLoadBalanced
+    boolean loadBalanced
     boolean exposeToHost
+    Map<String, String> labels = new HashMap<>()
   }
 
   @Canonical
