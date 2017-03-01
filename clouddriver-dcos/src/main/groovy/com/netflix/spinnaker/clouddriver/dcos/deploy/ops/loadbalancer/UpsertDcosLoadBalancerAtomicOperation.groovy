@@ -46,7 +46,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     task.updateStatus BASE_PHASE, "Looking up existing load balancer..."
 
     def appId = PathId.from(description.credentials.name,
-            description.name);
+            description.name)
 
     def existingLb = dcosClient.maybeApp(appId.toString()).orElse(null)
 
@@ -60,7 +60,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     def deploymentId
     def newLb
     if (existingLb) {
-      def result = dcosClient.modifyApp(lbDefinition.id, lbDefinition)
+      def result = dcosClient.updateApp(lbDefinition.id, lbDefinition, false)
       newLb = existingLb
       deploymentId = result.deploymentId
     } else {
