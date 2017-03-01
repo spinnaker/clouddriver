@@ -20,7 +20,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
 
   @Shared
   DcosCredentials testCredentials = new DcosCredentials(
-          ACCOUNT, 'test', 'test', 'url', 'user', 'pass'
+          ACCOUNT, 'test', 'test', 'url', null
   )
 
   def setupSpec() {

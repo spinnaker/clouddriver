@@ -6,7 +6,6 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.DeployDcosServerGroupAtomicOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -22,7 +21,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
   DeployDcosServerGroupDescriptionToAppMapper mockDcosDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', 'user', 'pw'
+    'test', 'test', 'test', 'https://test.url.com', null
   )
 
   DcosClientProvider mockDcosClientProvider = Stub(DcosClientProvider) {
@@ -33,12 +32,12 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
     application: APPLICATION_NAME.service.app, region: APPLICATION_NAME.region, credentials: testCredentials, stack: APPLICATION_NAME.service.stack,
     freeFormDetails: APPLICATION_NAME.service.detail, desiredCapacity: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
           docker: new DeployDcosServerGroupDescription.Docker(forcePullImage: false, privileged: false,
-                  network: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "Bridge"),
+                  network: "BRIDGE",
                   image: new DeployDcosServerGroupDescription.Image(imageId: "test")))
 
   App application = new App(id: APPLICATION_NAME.toString(), instances: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
     container: new Container(docker: new Docker(image: "test", forcePullImage: false, privileged: false, portMappings: [], network: "BRIDGE")),
-    versionInfo: new VersionInfo(lastConfigChangeAt: null)
+    versionInfo: new AppVersionInfo(lastConfigChangeAt: null)
   )
 
   @Subject

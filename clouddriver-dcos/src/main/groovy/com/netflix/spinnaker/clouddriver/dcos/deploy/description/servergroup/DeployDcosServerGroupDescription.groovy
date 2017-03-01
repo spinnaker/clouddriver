@@ -2,8 +2,10 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
+import groovy.transform.AutoClone
 import groovy.transform.Canonical
 
+@AutoClone
 class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescription implements DeployDescription {
   String application
   String stack
@@ -26,16 +28,19 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   Integer maxLaunchDelaySeconds
   Docker docker
   List<HealthCheck> healthChecks = new ArrayList<>()
-  List<Object> readinessChecks = new ArrayList<>()
+  List<ReadinessCheck> readinessChecks = new ArrayList<>()
   List<String> dependencies = new ArrayList<>()
   UpgradeStrategy upgradeStrategy
   Map<String, String> labels = new HashMap<>()
   List<String> acceptedResourceRoles = null
   String version
-  String residency
+  Residency residency
   Integer taskKillGracePeriodSeconds
   Map<String, Object> secrets = new HashMap<>()
-  NetworkType networkType
+
+  // TODO don't think this should be here - In dcos, only defined at the "docker" level
+  String networkType
+  String networkName
   List<ServiceEndpoint> serviceEndpoints = new ArrayList<>()
   List<PersistentVolume> persistentVolumes = new ArrayList<>()
   List<DockerVolume> dockerVolumes = new ArrayList<>()
@@ -47,6 +52,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
     String type
   }
 
+  // TODO don't think we need a lot of this stuff (fromContext, fromTrigger, cluster, account)
   @Canonical
   static class Image {
     String registry
@@ -73,16 +79,12 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   @Canonical
   static class Docker {
     Image image
-    NetworkType network
-    boolean privileged
-    List<Parameter> parameters = new ArrayList<>()
-    boolean forcePullImage
-  }
 
-  @Canonical
-  static class Parameter {
-    String key
-    String value
+    // TODO this isn't actually used
+    String network
+    boolean privileged
+    Map<String, String> parameters
+    boolean forcePullImage
   }
 
   @Canonical
@@ -106,14 +108,9 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   }
 
   @Canonical
-  static class NetworkType {
-    String type
-    String name
-  }
-
-  @Canonical
   static class ServiceEndpoint {
-    NetworkType networkType
+    // TODO don't think this should be here - In dcos, only defined at the "docker" level
+    String networkType
     Integer port
     String name
     String protocol
@@ -154,5 +151,23 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
     String provider
     Map<String, String> options
     String mode
+  }
+
+  @Canonical
+  static class Residency {
+    String taskLostBehaviour
+    Integer relaunchEscalationTimeoutSeconds
+  }
+
+  @Canonical
+  static class ReadinessCheck {
+    String name
+    String protocol
+    String path
+    String portName
+    Integer intervalSeconds
+    Integer timeoutSeconds
+    Collection<Integer> httpStatusCodesForReady
+    boolean preserveLastResponse
   }
 }

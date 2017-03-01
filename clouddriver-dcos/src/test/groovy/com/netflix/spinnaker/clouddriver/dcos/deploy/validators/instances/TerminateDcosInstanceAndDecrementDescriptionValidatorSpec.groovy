@@ -12,7 +12,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
     private static final DESCRIPTION = "terminateDcosInstancesAndDecrementDescription"
 
     DcosCredentials testCredentials = new DcosCredentials(
-            'test', 'test', 'test', 'https://test.url.com', 'user', 'pw'
+            'test', 'test', 'test', 'https://test.url.com', null
     )
 
     AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
@@ -40,7 +40,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
 
     void "validate should give errors when given a TerminateDcosInstancesAndDecrementDescription with only an appId"() {
         setup:
-            def description = new TerminateDcosInstancesAndDecrementDescription(credentials: new DcosCredentials(null, null, null, null, null, null),
+            def description = new TerminateDcosInstancesAndDecrementDescription(credentials: new DcosCredentials(null, null, null, null, null),
                     appId: "test/region/app-stack-detail-v000", hostId: null, taskIds: [], force: false)
             def errorsMock = Mock(Errors)
         when:

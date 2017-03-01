@@ -1,12 +1,16 @@
 package com.netflix.spinnaker.clouddriver.dcos.provider
 
+import com.fasterxml.jackson.databind.JsonDeserializer
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.netflix.frigga.NameValidation
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
+
+import static com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup.*
 
 class DcosProviderUtils {
 
@@ -100,5 +104,61 @@ class DcosProviderUtils {
 
   static boolean validateLoadBalancerId(String loadBalancerId, String account) {
     validateLoadBalancerId(PathId.parse(loadBalancerId), account)
+  }
+
+  static ImageDescription buildImageDescription(String image) {
+
+    if (!image || image.isEmpty()) {
+      return null
+    }
+
+    def sIndex = image.indexOf('/')
+    def result = new ImageDescription()
+
+    // No slash means we only provided a repository name & optional tag.
+    if (sIndex < 0) {
+      result.repository = image
+    } else {
+      def sPrefix = image.substring(0, sIndex)
+
+      // Check if the content before the slash is a registry (either localhost, or a URL)
+      if (sPrefix.startsWith('localhost') || sPrefix.contains('.')) {
+        result.registry = sPrefix
+
+        image = image.substring(sIndex + 1)
+      }
+    }
+
+    def cIndex = image.indexOf(':')
+
+    if (cIndex < 0) {
+      result.repository = image
+    } else {
+      result.tag = image.substring(cIndex + 1)
+      result.repository = image.subSequence(0, cIndex)
+    }
+
+    normalizeImageDescription(result)
+    result
+  }
+
+  static Void normalizeImageDescription(ImageDescription image) {
+    if (!image.registry) {
+      image.registry = "hub.docker.com" // TODO configure or pull from docker registry account
+    }
+
+    if (!image.tag) {
+      image.tag = "latest"
+    }
+
+    if (!image.repository) {
+      throw new IllegalArgumentException("Image descriptions must provide a repository.")
+    }
+  }
+
+  static <T> void registerDeserializer(ObjectMapper objectMapper, Class<T> clazz, JsonDeserializer<T> deserializer) {
+    SimpleModule module = new SimpleModule()
+    module.addDeserializer(clazz, deserializer)
+    objectMapper.registerModule(module)
   }
 }

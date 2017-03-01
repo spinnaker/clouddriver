@@ -8,11 +8,14 @@ import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.MarathonVolumeDeserializer
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosCluster
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosLoadBalancer
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup
+import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import mesosphere.marathon.client.model.v2.Volume
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
@@ -34,7 +37,10 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster> {
                       ObjectMapper objectMapper) {
     this.dcosCloudProvider = dcosCloudProvider
     this.cacheView = cacheView
-    this.objectMapper = objectMapper
+
+    // TODO should we be registering this at a higher level? Figured we wanted to isolate as much as possible.
+    this.objectMapper = objectMapper.copy()
+    DcosProviderUtils.registerDeserializer(this.objectMapper, Volume.class, new MarathonVolumeDeserializer())
   }
 
   @Override

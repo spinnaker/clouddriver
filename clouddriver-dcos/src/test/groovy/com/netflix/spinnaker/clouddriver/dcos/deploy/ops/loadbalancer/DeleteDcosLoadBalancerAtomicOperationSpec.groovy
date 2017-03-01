@@ -29,7 +29,7 @@ class DeleteDcosLoadBalancerAtomicOperationSpec extends Specification {
     TaskRepository.threadLocalTask.set(taskMock)
 
     appMock = Mock(App)
-    credentials = new DcosCredentials(ACCOUNT_NAME, "test", "test", "url", "user", "pw")
+    credentials = new DcosCredentials(ACCOUNT_NAME, "test", "test", "url", null)
     dcosDeploymentMonitorMock = Mock(DcosDeploymentMonitor)
 
     dcosClientMock = Mock(DCOS)

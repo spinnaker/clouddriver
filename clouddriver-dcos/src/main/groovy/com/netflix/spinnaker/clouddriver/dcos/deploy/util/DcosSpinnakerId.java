@@ -111,7 +111,7 @@ public class DcosSpinnakerId {
      * @see #getSafeRegion()
      */
     public String getUnsafeRegion() {
-        return marathonAppId.parent().tail().relative().toString();
+        return marathonAppId.parent().tail().relative().toString().replace("_", "/");
     }
 
     /**
