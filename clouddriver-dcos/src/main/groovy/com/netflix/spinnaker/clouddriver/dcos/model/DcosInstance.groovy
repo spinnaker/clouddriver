@@ -18,6 +18,7 @@ class DcosInstance implements Instance, Serializable {
   final String cloudProvider = DcosCloudProvider.ID
 
   String name
+  String taskId
   Long launchTime
   String zone
   String json
@@ -30,6 +31,7 @@ class DcosInstance implements Instance, Serializable {
 
   DcosInstance(Task task, String account) {
     this.task = task
+    this.taskId = task.id
     this.name = task.id
     this.host = task.host
     this.state = task.state

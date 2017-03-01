@@ -7,8 +7,8 @@ import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCreden
 
 class DcosAtomicOperationConverterHelper {
   static <T> T convertDescription(Map input,
-                                   AbstractAtomicOperationsCredentialsSupport credentialsSupport,
-                                   Class targetDescriptionType) {
+                                  AbstractAtomicOperationsCredentialsSupport credentialsSupport,
+                                  Class targetDescriptionType) {
     def account = input.account as String
     def removedAccount = input.remove('credentials')
     account = account ?: removedAccount

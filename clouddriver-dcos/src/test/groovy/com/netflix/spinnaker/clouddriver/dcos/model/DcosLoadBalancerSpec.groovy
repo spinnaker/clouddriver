@@ -2,6 +2,7 @@ package com.netflix.spinnaker.clouddriver.dcos.model
 
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import mesosphere.marathon.client.model.v2.App
+import mesosphere.marathon.client.model.v2.AppVersionInfo
 import mesosphere.marathon.client.model.v2.PortDefinition
 import mesosphere.marathon.client.model.v2.VersionInfo
 import spock.lang.Specification
@@ -34,7 +35,7 @@ class DcosLoadBalancerSpec extends Specification {
     setup:
     def currentInstant = Instant.now()
     def lbApp = createLbApp("/${ACCOUNT}/${LB_NAME}")
-    lbApp.getVersionInfo() >> new VersionInfo(lastConfigChangeAt: currentInstant)
+    lbApp.getVersionInfo() >> new AppVersionInfo(lastConfigChangeAt: currentInstant)
 
     when:
     @Subject def lb = new DcosLoadBalancer(ACCOUNT, lbApp, [])

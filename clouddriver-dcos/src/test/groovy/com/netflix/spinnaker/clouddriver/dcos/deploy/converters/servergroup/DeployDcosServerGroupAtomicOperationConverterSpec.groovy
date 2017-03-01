@@ -3,7 +3,6 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup.DeployDcosServerGroupAtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.DeployDcosServerGroupAtomicOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
@@ -20,7 +19,7 @@ class DeployDcosServerGroupAtomicOperationConverterSpec extends Specification {
   DeployDcosServerGroupDescriptionToAppMapper dcosServerGroupDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', 'user', 'pw'
+    'test', 'test', 'test', 'https://test.url.com', null
   )
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {

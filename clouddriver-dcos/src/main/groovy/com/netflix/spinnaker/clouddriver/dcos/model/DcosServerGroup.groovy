@@ -1,7 +1,10 @@
 package com.netflix.spinnaker.clouddriver.dcos.model
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.AppToDeployDcosServerGroupDescriptionMapper
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
@@ -10,9 +13,14 @@ import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import groovy.transform.Canonical
 import mesosphere.marathon.client.model.v2.App
+import mesosphere.marathon.client.model.v2.LocalVolume
+import mesosphere.marathon.client.model.v2.PersistentLocalVolume
 
 import java.time.Instant
 import java.util.regex.Pattern
+
+import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription.*
+import static java.util.stream.Collectors.joining
 
 /**
  * Equivalent of a Dcos {@link mesosphere.marathon.client.model.v2.App}
@@ -36,6 +44,8 @@ class DcosServerGroup implements ServerGroup, Serializable {
   Double disk
   Map<String, String> labels = [:]
 
+  DeployDcosServerGroupDescription deployDescription
+
   Long createdTime
   Set<String> loadBalancers
 
@@ -44,13 +54,13 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
   Set<DcosInstance> instances = [] as Set
 
-  DcosServerGroup() {}
+  DcosServerGroup() {} //default constructor for deserialization
 
   DcosServerGroup(String name, String region, String account) {
     this.name = name
     this.region = region
     this.account = account
-  } //default constructor for deserialization
+  }
 
   DcosServerGroup(String account, App app) {
     this.app = app
@@ -66,9 +76,10 @@ class DcosServerGroup implements ServerGroup, Serializable {
     this.cpus = app.cpus
     this.mem = app.mem
     this.disk = app.disk
-    this.labels = app.labels
 
     this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
+
+    this.deployDescription = AppToDeployDcosServerGroupDescriptionMapper.map(app, account)
 
     // TODO can't always assume the tasks are present in the App! Depends on API used to retrieve
     this.instances = app.tasks?.collect({ new DcosInstance(it, account) }) as Set ?: []
@@ -136,7 +147,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
   Map<String, Object> getBuildInfo() {
     def buildInfo = [:]
 
-    def imageDesc = buildImageDescription(app.container?.docker?.image)
+    def imageDesc = DcosProviderUtils.buildImageDescription(app.container?.docker?.image)
 
     buildInfo.imageDesc = imageDesc
     buildInfo.images = imageDesc ? ["$imageDesc.repository:$imageDesc.tag".toString()] : []
@@ -183,56 +194,6 @@ class DcosServerGroup implements ServerGroup, Serializable {
     String repository
     String tag
     String registry
-  }
-
-  static ImageDescription buildImageDescription(String image) {
-
-    if (!image || image.isEmpty()) {
-      return null
-    }
-
-    def sIndex = image.indexOf('/')
-    def result = new ImageDescription()
-
-    // No slash means we only provided a repository name & optional tag.
-    if (sIndex < 0) {
-      result.repository = image
-    } else {
-      def sPrefix = image.substring(0, sIndex)
-
-      // Check if the content before the slash is a registry (either localhost, or a URL)
-      if (sPrefix.startsWith('localhost') || sPrefix.contains('.')) {
-        result.registry = sPrefix
-
-        image = image.substring(sIndex + 1)
-      }
-    }
-
-    def cIndex = image.indexOf(':')
-
-    if (cIndex < 0) {
-      result.repository = image
-    } else {
-      result.tag = image.substring(cIndex + 1)
-      result.repository = image.subSequence(0, cIndex)
-    }
-
-    normalizeImageDescription(result)
-    result
-  }
-
-  static Void normalizeImageDescription(ImageDescription image) {
-    if (!image.registry) {
-      image.registry = "hub.docker.com" // TODO configure or pull from docker registry account
-    }
-
-    if (!image.tag) {
-      image.tag = "latest"
-    }
-
-    if (!image.repository) {
-      throw new IllegalArgumentException("Image descriptions must provide a repository.")
-    }
   }
 
   @Override

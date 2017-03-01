@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory
 
 import java.util.stream.Collectors
 
+import static com.google.common.base.Strings.emptyToNull
+
 class DeployDcosServerGroupDescriptionToAppMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(DeployDcosServerGroupDescriptionToAppMapper)
 
@@ -19,20 +21,29 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             mem = description.mem
             disk = description.disk
             gpus = description.gpus
+
+            if (description.networkType == "USER" && emptyToNull(description.networkName)) {
+              ipAddress = new AppIpAddress().with {
+                networkName = description.networkName
+                it
+              }
+            }
+
             container = new Container().with {
                 if (description.docker) {
                     docker = new Docker().with {
                         image = description.docker.image.imageId
-                        network = description.networkType.type
+                        network = description.networkType
+
                         portMappings = parsePortMappings(resolvedAppName, description.serviceEndpoints)
                         privileged = description.docker.privileged
-                        parameters = description.docker.parameters.stream().map({ parameter ->
+                        parameters = description.docker.parameters?.entrySet()?.stream()?.map({ entry ->
                             new Parameter().with {
-                                key = parameter.key
-                                value = parameter.value
+                                key = entry.key
+                                value = entry.value
                                 it
                             }
-                        }).collect(Collectors.toList())
+                        })?.collect(Collectors.toList())
                         forcePullImage = description.docker.forcePullImage
 
                         it
@@ -71,12 +82,15 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             if (description.healthChecks) {
                 healthChecks = description.healthChecks.stream().map({ healthCheck ->
                     new HealthCheck().with {
-                        command = healthCheck.command
+                        if (emptyToNull(healthCheck.command?.trim()) != null) {
+                          command = new Command(value: healthCheck.command)
+                        }
                         gracePeriodSeconds = healthCheck.gracePeriodSeconds
                         ignoreHttp1xx = healthCheck.ignoreHttp1xx
                         intervalSeconds = healthCheck.intervalSeconds
                         maxConsecutiveFailures = healthCheck.maxConsecutiveFailures
                         path = healthCheck.path
+                        port = healthCheck.port
                         portIndex = healthCheck.portIndex
                         protocol = healthCheck.protocol
                         timeoutSeconds = healthCheck.timeoutSeconds
@@ -85,17 +99,37 @@ class DeployDcosServerGroupDescriptionToAppMapper {
                 }).collect(Collectors.toList())
             }
 
-            readinessChecks = description.readinessChecks
+            readinessChecks = description.readinessChecks?.collect({ rc ->
+              new ReadinessCheck().with {
+                name = rc.name
+                protocol = rc.protocol
+                path = rc.path
+                portName = rc.portName
+                intervalSeconds = rc.intervalSeconds
+                timeoutSeconds = rc.timeoutSeconds
+                httpStatusCodesForReady = rc.httpStatusCodesForReady
+                preserveLastResponse = rc.preserveLastResponse
+                it
+              }
+            })
+
             dependencies = description.dependencies
             labels = description.labels
             version = description.version
-            residency = description.residency
+
+            residency = description.residency ? new Residency().with {
+              taskLostBehaviour = description.residency.taskLostBehaviour
+              relaunchEscalationTimeoutSeconds = description.residency.relaunchEscalationTimeoutSeconds
+              it
+            } : null
+
             taskKillGracePeriodSeconds = description.taskKillGracePeriodSeconds
             secrets = description.secrets
             requirePorts = description.requirePorts
             acceptedResourceRoles = description.acceptedResourceRoles
 
-            if (description.networkType != null && "BRIDGE" == description.networkType.type) {
+            // TODO I don't think this is correct
+            if (description.networkType == "BRIDGE") {
                 portDefinitions = parsePortDefinitions(description.serviceEndpoints)
             }
 
@@ -129,8 +163,8 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         })
 
         parsedConstraints.forEach({
-            constraintGroup -> if (constraintGroup.size() != 3) {
-                throw new RuntimeException("Given constraint [${constraintGroup.join(':')}] was invalid as it had ${constraintGroup.size()} parts instead of the expected 3.")
+            constraintGroup -> if (constraintGroup.size() < 2 || constraintGroup.size() > 3) {
+                throw new RuntimeException("Given constraint [${constraintGroup.join(':')}] was invalid as it had ${constraintGroup.size()} parts instead of the expected 2 or 3.")
             }
         })
 
@@ -147,10 +181,11 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         return parsedLabels
     }
 
-    public List<Port> parsePortMappings(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
+    public List<PortMapping> parsePortMappings(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
 
         serviceEndpoints.withIndex().collect({
-            serviceEndpoint, index -> new Port().with {
+            serviceEndpoint, index -> new PortMapping().with {
+                name = serviceEndpoint.name
                 protocol = serviceEndpoint.protocol
                 containerPort = serviceEndpoint.port
                 hostPort = null
@@ -165,6 +200,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
     public List<PortDefinition> parsePortDefinitions(List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
         def portDefinitions = serviceEndpoints.stream().map({
             serviceEndpoint -> new PortDefinition().with {
+                name = serviceEndpoint.name
                 protocol = serviceEndpoint.protocol
                 labels = [:]
                 port = serviceEndpoint.port

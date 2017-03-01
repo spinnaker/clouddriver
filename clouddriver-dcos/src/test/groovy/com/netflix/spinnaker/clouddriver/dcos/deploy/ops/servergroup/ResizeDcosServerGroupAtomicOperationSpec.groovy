@@ -18,7 +18,7 @@ class ResizeDcosServerGroupAtomicOperationSpec extends Specification {
   DCOS dcosClient = Mock(DCOS)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', 'user', 'pw'
+    'test', 'test', 'test', 'https://test.url.com', null
   )
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
@@ -44,6 +44,6 @@ class ResizeDcosServerGroupAtomicOperationSpec extends Specification {
     then:
     noExceptionThrown()
     1 * dcosClient.maybeApp(_) >> Optional.of(new App())
-    1 * dcosClient.modifyApp(_, _) >> new Result()
+    1 * dcosClient.updateApp(_, _, _) >> new Result()
   }
 }

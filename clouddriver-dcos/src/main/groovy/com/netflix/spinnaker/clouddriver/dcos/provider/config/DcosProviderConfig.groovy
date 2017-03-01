@@ -44,6 +44,7 @@ class DcosProviderConfig {
     new DcosProviderSynchronizerTypeWrapper()
   }
 
+  // TODO this doesnt appear to be getting used, since we're not running a scheduled synchronizer
   // i'll be honest i don't know what this does but all the providers have one so...
   class DcosProviderSynchronizerTypeWrapper implements ProviderSynchronizerTypeWrapper {
 
@@ -64,18 +65,20 @@ class DcosProviderConfig {
 
     def accounts = ProviderUtils.getScheduledAccounts(dcosProvider)
     def allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, DcosCredentials)
+
     objectMapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+
     def newlyAddedAgents = []
     allAccounts.each { DcosCredentials credentials ->
       if (!accounts.contains(credentials.name)) {
         newlyAddedAgents << new DcosServerGroupCachingAgent(credentials.name,
-                credentials, new DcosClientProvider(registry), objectMapper, registry)
+          credentials, new DcosClientProvider(registry), objectMapper, registry)
 
         newlyAddedAgents << new DcosLoadBalancerCachingAgent(credentials.name,
-                credentials, new DcosClientProvider(registry), objectMapper, registry)
+          credentials, new DcosClientProvider(registry), objectMapper, registry)
 
         newlyAddedAgents << new DcosInstanceCachingAgent(credentials.name,
-                credentials, new DcosClientProvider(registry), objectMapper)
+          credentials, new DcosClientProvider(registry), objectMapper)
       }
     }
 

@@ -45,7 +45,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     TaskRepository.threadLocalTask.set(taskMock)
 
     existingAppMock = Mock(App)
-    credentials = new DcosCredentials(ACCOUNT_NAME, "test", "test", "url", "user", "pw")
+    credentials = new DcosCredentials(ACCOUNT_NAME, "test", "test", "url", null)
     dcosDeploymentMonitorMock = Mock(DcosDeploymentMonitor)
 
     def loadBalancerConfig = Mock(LoadBalancerConfig)
@@ -310,10 +310,10 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
 
     then:
     1 * dcosClientMock.maybeApp(expectedAppId.toString()) >> Optional.of(resultAppMock)
-    1 * dcosClientMock.modifyApp(expectedAppId.toString(), { App app ->
+    1 * dcosClientMock.updateApp(expectedAppId.toString(), { App app ->
       assert app.id == expectedAppId.toString()
       true
-    }) >> modifyAppResultMock
+    }, false) >> modifyAppResultMock
     1 * dcosDeploymentMonitorMock.waitForAppDeployment(dcosClientMock, resultAppMock, DEPLOYMENT_ID, null, taskMock, "UPSERT_LOAD_BALANCER") >> successfulDeploymentResult
     result == [loadBalancer: [name: expectedAppId.toString()]]
   }

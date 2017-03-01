@@ -2,7 +2,6 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DestroyDcosServerGroupDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.validators.DestroyDcosServerGroupDescriptionValidator
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.validation.Errors
@@ -13,7 +12,7 @@ class DestroyDcosServerGroupDescriptionValidatorSpec extends Specification {
   private static final DESCRIPTION = "destroyDcosServerGroupDescription"
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', 'user', 'pw'
+    'test', 'test', 'test', 'https://test.url.com', null
   )
 
   AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
@@ -39,7 +38,7 @@ class DestroyDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an invalid DestroyDcosServerGroupDescription"() {
     setup:
-    def description = new DestroyDcosServerGroupDescription(region: "region", credentials: new DcosCredentials(null, null, null, null, null, null), serverGroupName: 'test')
+    def description = new DestroyDcosServerGroupDescription(region: "region", credentials: new DcosCredentials(null, null, null, null, null), serverGroupName: 'test')
     def errorsMock = Mock(Errors)
     when:
     validator.validate([], description, errorsMock)

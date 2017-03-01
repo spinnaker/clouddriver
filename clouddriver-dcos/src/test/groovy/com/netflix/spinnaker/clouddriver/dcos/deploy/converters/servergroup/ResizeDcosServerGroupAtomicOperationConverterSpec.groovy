@@ -18,7 +18,7 @@ class ResizeDcosServerGroupAtomicOperationConverterSpec extends Specification {
   DCOS dcosClient = Mock(DCOS)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', 'user', 'pw'
+    'test', 'test', 'test', 'https://test.url.com', null
   )
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
