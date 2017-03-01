@@ -10,6 +10,8 @@ import spock.lang.Subject
 
 class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
   private static final DESCRIPTION = "deployDcosServerGroupDescription"
+  private static final REGION = "default"
+
 
   def testCredentials = new DcosCredentials(
     "test", "test", "test", "https://test.url.com", "user", "pw"
@@ -44,7 +46,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an invalid DeployDcosServerGroupDescription"() {
     setup:
-      def description = new DeployDcosServerGroupDescription(region: "default", credentials: new DcosCredentials(null, null, null, null, null, null),
+      def description = new DeployDcosServerGroupDescription(region: REGION, credentials: new DcosCredentials(null, null, null, null, null, null),
               application: "test", desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
       def errorsMock = Mock(Errors)
     when:
@@ -64,7 +66,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give no errors when given an valid DeployDcosServerGroupDescription"() {
     setup:
-      def description = new DeployDcosServerGroupDescription(region: "region", credentials: testCredentials, application: "test",
+      def description = new DeployDcosServerGroupDescription(region: REGION, credentials: testCredentials, application: "test",
         desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
       def errorsMock = Mock(Errors)
     when:
