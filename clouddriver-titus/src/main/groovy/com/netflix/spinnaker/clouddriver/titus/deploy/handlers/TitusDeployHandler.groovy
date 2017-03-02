@@ -23,10 +23,15 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller
+import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent
+import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider
+import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient
 import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest
+import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.deploy.TitusServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription
 import com.netflix.spinnaker.clouddriver.titus.model.DockerImage
@@ -41,6 +46,9 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
 
   @Autowired
   AwsConfiguration.DeployDefaults deployDefaults
+
+  @Autowired
+  AccountCredentialsProvider accountCredentialsProvider
 
   private final Logger logger = LoggerFactory.getLogger(TitusDeployHandler)
 
@@ -177,6 +185,10 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
 
       deploymentResult.messages = task.history.collect { "${it.phase} : ${it.status}".toString() }
 
+      description.events << new CreateServerGroupEvent(
+        TitusCloudProvider.ID, getAccountId(account), region, nextServerGroupName
+      )
+
       return deploymentResult
     } catch (t) {
       task.updateStatus(BASE_PHASE, "Task failed $t.message")
@@ -184,6 +196,15 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
       logger.error("Deploy failed", t)
       throw t
     }
+  }
+
+  private String getAccountId(String credentials) {
+    AccountCredentials accountCredentials = accountCredentialsProvider.getCredentials(credentials)
+    if (accountCredentials instanceof NetflixTitusCredentials) {
+      return accountCredentialsProvider.getCredentials(accountCredentials.awsAccount).accountId
+    }
+
+    return accountCredentials.accountId
   }
 
   @Override

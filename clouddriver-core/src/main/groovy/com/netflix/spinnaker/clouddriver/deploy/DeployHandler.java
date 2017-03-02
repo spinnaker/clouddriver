@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.deploy
+package com.netflix.spinnaker.clouddriver.deploy;
+
+import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * A DeployHandler takes a parameterized description object and performs some deployment operation based off of its
  * detail. These objects may most often be derived from a {@link DeployHandlerRegistry} implementation.
  *
- * @param < T >      the type of the {@link DeployDescription}
+ * @param <T>      the type of the {@link DeployDescription}
  * @see DeployDescription
  *
  */
@@ -30,10 +34,10 @@ public interface DeployHandler<T> {
    * implementation of {@link DeploymentResult}
    *
    * @param description
-   * @param outputs from prior operations
+   * @param priorOutputs from prior operations
    * @return deployment result object
    */
-  DeploymentResult handle(T description, List priorOutputs)
+  DeploymentResult handle(T description, List priorOutputs);
 
   /**
    * Used to determine if this handler is suitable for processing the supplied description object.
@@ -41,5 +45,5 @@ public interface DeployHandler<T> {
    * @param description
    * @return true/false
    */
-  boolean handles(DeployDescription description)
+  boolean handles(DeployDescription description);
 }
