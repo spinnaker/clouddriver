@@ -19,6 +19,8 @@ class DcosConfigurationProperties {
     String dcosUrl
     String user
     String password
+    String serviceId
+    String serviceKey
   }
 
   static class LoadBalancerConfig {
