@@ -19,14 +19,13 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
                   String environment,
                   String accountType,
                   String dcosUrl,
-                  String user,
-                  String password) {
+                  DCOSAuthCredentials dcosAuthCredentials) {
     this.name = name
     this.environment = environment
     this.accountType = accountType
     this.registry = registry
     this.dcosUrl = dcosUrl
-    this.dcosAuthCredentials = DCOSAuthCredentials.forUserAccount(user, password)
+    this.dcosAuthCredentials = dcosAuthCredentials
   }
 
   @Override
