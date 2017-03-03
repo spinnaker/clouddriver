@@ -19,7 +19,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   Double disk
   Double gpus
   String constraints
-  List<String> fetch = new ArrayList<>()
+  List<Fetchable> fetch = new ArrayList<>()
   List<String> storeUrls = new ArrayList<>()
   Integer backoffSeconds
   Double backoffFactor
@@ -59,6 +59,15 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
     String pattern
     String fromContext
     String fromTrigger
+  }
+
+  @Canonical
+  static class Fetchable {
+    String uri
+    Boolean executable
+    Boolean extract
+    Boolean cache
+    String outputFile
   }
 
   @Canonical
