@@ -49,7 +49,20 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             cmd = description.cmd
             args = description.args
             constraints = parseConstraints(description.constraints)
-            fetch = description.fetch
+
+            if (description.fetch) {
+                fetch = description.fetch.stream().map({ fetchable ->
+                    new Fetchable().with {
+                        uri = fetchable.uri
+                        cache = fetchable.cache
+                        extract = fetchable.extract
+                        executable = fetchable.executable
+                        outputFile = fetchable.outputFile
+                        it
+                    }
+                }).collect(Collectors.toList())
+            }
+
             storeUrls = description.storeUrls
             backoffSeconds = description.backoffSeconds
             backoffFactor = description.backoffFactor
