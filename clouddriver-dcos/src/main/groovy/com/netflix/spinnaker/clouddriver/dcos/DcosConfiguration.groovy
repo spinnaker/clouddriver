@@ -37,7 +37,7 @@ class DcosConfiguration {
                                         AccountCredentialsRepository repository) {
     List<DcosCredentials> accounts = new ArrayList<>()
     for (DcosConfigurationProperties.Account account in dcosConfigurationProperties.accounts) {
-      Optional<DCOSAuthCredentials> dcosAuthCredentials = buildDCOSAuthCredentials(account.name, account.user, account.password, account.serviceId, account.serviceKey)
+      Optional<DCOSAuthCredentials> dcosAuthCredentials = buildDCOSAuthCredentials(account.name, account.uid, account.password, account.serviceKey)
 
       if (dcosAuthCredentials.present) {
         DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, dcosAuthCredentials.get())
@@ -76,19 +76,17 @@ class DcosConfiguration {
     new PollingDcosDeploymentMonitor(operationPoller)
   }
 
-  private static Optional<DCOSAuthCredentials> buildDCOSAuthCredentials(String accountName, String user, String password, String serviceId, String serviceKey) {
+  private static Optional<DCOSAuthCredentials> buildDCOSAuthCredentials(String accountName, String uid, String password, String serviceKey) {
     Optional<DCOSAuthCredentials> dcosAuthCredentials = Optional.empty()
 
-    if (user && password && (serviceId || serviceKey)) {
-      LOGGER.warn("Ignoring account [${accountName}]: A user and password was given for the account, as was a serviceid and/or servicekey.")
-    } else if (serviceId && serviceKey && (user || password)) {
-      LOGGER.warn("Ignoring account [${accountName}]: A serviceid and servicekey was given for the account, as was a user and/or password.")
-    } else if (user && password) {
-      dcosAuthCredentials = Optional.of(DCOSAuthCredentials.forUserAccount(user, password))
-    } else if (serviceId && serviceKey) {
-      dcosAuthCredentials = Optional.of(DCOSAuthCredentials.forServiceAccount(serviceId, serviceKey))
+    if (uid && serviceKey && password) {
+      LOGGER.warn("Ignoring account [${accountName}]: A password and serviceKey was given for the account making it invalid.")
+    } else if (uid && password) {
+      dcosAuthCredentials = Optional.of(DCOSAuthCredentials.forUserAccount(uid, password))
+    } else if (uid && serviceKey) {
+      dcosAuthCredentials = Optional.of(DCOSAuthCredentials.forServiceAccount(uid, serviceKey))
     } else {
-      LOGGER.warn("Ignoring account [${accountName}]: Neither a user/password or a serviceId/serviceKey combination was provided.")
+      LOGGER.warn("Ignoring account [${accountName}]: Neither a uid/password or a uid/serviceKey combination was provided.")
     }
 
     return dcosAuthCredentials
