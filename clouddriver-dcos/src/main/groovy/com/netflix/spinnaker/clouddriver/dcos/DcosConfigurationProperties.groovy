@@ -17,9 +17,8 @@ class DcosConfigurationProperties {
     String environment
     String accountType
     String dcosUrl
-    String user
+    String uid
     String password
-    String serviceId
     String serviceKey
   }
 
