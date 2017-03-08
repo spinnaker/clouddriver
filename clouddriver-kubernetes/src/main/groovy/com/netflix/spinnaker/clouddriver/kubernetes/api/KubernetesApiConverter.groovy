@@ -610,6 +610,8 @@ class KubernetesApiConverter {
       fromVolume(it)
     } ?: []
 
+    deployDescription.hostNetwork = replicaSet?.spec?.template?.spec?.hostNetwork
+
     deployDescription.containers = replicaSet?.spec?.template?.spec?.containers?.collect {
       fromContainer(it)
     } ?: []
@@ -640,6 +642,7 @@ class KubernetesApiConverter {
       .withNewScaleRef()
       .withKind(KubernetesUtil.SERVER_GROUP_KIND)
       .withName(description.serverGroupName)
+      .withHostName(description.hostName)
       .endScaleRef()
       .endSpec().build()
   }
@@ -895,6 +898,8 @@ class KubernetesApiConverter {
 
       podTemplateSpecBuilder = podTemplateSpecBuilder.withVolumes(volumeSources)
     }
+
+    podTemplateSpecBuilder = podTemplateSpecBuilder.withHostNetwork(description.hostNetwork)
 
     def containers = description.containers.collect { container ->
       toContainer(container)
