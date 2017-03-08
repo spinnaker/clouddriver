@@ -97,8 +97,7 @@ class CloneKubernetesAtomicOperationSpec extends Specification {
       targetSize: TARGET_SIZE,
       loadBalancers: LOAD_BALANCER_NAMES,
       containers: containers,
-      namespace: NAMESPACE1,
-      hostNetwork: false
+      namespace: NAMESPACE1
     )
 
     replicationController = new ReplicationController()
