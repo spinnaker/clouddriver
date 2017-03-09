@@ -642,7 +642,6 @@ class KubernetesApiConverter {
       .withNewScaleRef()
       .withKind(KubernetesUtil.SERVER_GROUP_KIND)
       .withName(description.serverGroupName)
-      .withHostName(description.hostName)
       .endScaleRef()
       .endSpec().build()
   }
