@@ -41,10 +41,13 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
                         name: "HTTP", loadBalanced: true, exposeToHost: false),
                                    new DeployDcosServerGroupDescription.ServiceEndpoint(port: 8082, protocol: "tcp",
                         networkType: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "bridge"),
-                        name: "HTTP", loadBalanced: false, exposeToHost: false, labels: ["VIP_1": "vip_override:8082", "label1": "non_vip_label"]),
+                        name: "HTTP", loadBalanced: true, exposeToHost: false, labels: ["VIP_2": "vip_override:8082"]),
                                    new DeployDcosServerGroupDescription.ServiceEndpoint(port: 8083, protocol: "tcp",
                         networkType: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "bridge"),
-                        name: "HTTP", loadBalanced: true, exposeToHost: false, labels: ["VIP_11": "vip_override:8083", "VIP_abc": "non_numeric_vip"])],
+                        name: "HTTP", loadBalanced: false, exposeToHost: false, labels: ["label": "non_vip_label"]),
+                                   new DeployDcosServerGroupDescription.ServiceEndpoint(port: 8084, protocol: "tcp",
+                        networkType: new DeployDcosServerGroupDescription.NetworkType(type: "BRIDGE", name: "bridge"),
+                        name: "HTTP", loadBalanced: true, exposeToHost: false, labels: ["VIP_10": "vip_override:8084"])],
                 upgradeStrategy: new DeployDcosServerGroupDescription.UpgradeStrategy(minimumHealthCapacity: 1,
                         maximumOverCapacity: 2))
 
@@ -82,9 +85,10 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         app.container.docker.forcePullImage == description.docker.forcePullImage
 
         def labels = [[:],
-                      ["VIP_0":"/spinnaker/test/api-test-something-v000:8081"],
-                      ["label1": "non_vip_label", "VIP_1":"vip_override:8082"],
-                      ["VIP_abc": "non_numeric_vip", "VIP_2":"vip_override:8083"]]
+                      ["VIP_1":"/spinnaker/test/api-test-something-v000:8081"],
+                      ["VIP_2":"vip_override:8082"],
+                      ["label":"non_vip_label"],
+                      ["VIP_4":"/spinnaker/test/api-test-something-v000:8084", "VIP_10":"vip_override:8084"]]
         app.container.docker.portMappings.size() == description.serviceEndpoints.size()
         [app.container.docker.portMappings, description.serviceEndpoints, labels].transpose().forEach({ appPortMapping, descriptionPortMapping, label ->
             assert appPortMapping.containerPort == descriptionPortMapping.port
