@@ -6,12 +6,10 @@ import mesosphere.marathon.client.model.v2.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import java.util.regex.Pattern
 import java.util.stream.Collectors
 
 class DeployDcosServerGroupDescriptionToAppMapper {
     private static final Logger LOGGER = LoggerFactory.getLogger(DeployDcosServerGroupDescriptionToAppMapper)
-    private static final VIP_PATTERN = Pattern.compile("VIP_\\d*")
 
     public App map(final String resolvedAppName, final DeployDcosServerGroupDescription description) {
         new App().with {
@@ -139,40 +137,29 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         parsedConstraints
     }
 
-    private Tuple parsePortMappingLabels(String appId, DeployDcosServerGroupDescription.ServiceEndpoint serviceEndpoint, int counter) {
+    private Map<String, String> parsePortMappingLabels(String appId, DeployDcosServerGroupDescription.ServiceEndpoint serviceEndpoint, int index) {
         Map<String, String> parsedLabels = serviceEndpoint.labels.clone()
 
-        List<String> vipKeys = parsedLabels.keySet().stream().filter({ key -> key.matches(VIP_PATTERN) })
-                .collect(Collectors.toList())
-
-        vipKeys.stream().forEach({
-            key ->
-                String vip = parsedLabels.remove(key)
-                parsedLabels.put("VIP_${counter++}".toString(), vip)
-        })
-
-        if (serviceEndpoint.loadBalanced && vipKeys.isEmpty()) {
-            parsedLabels.put("VIP_${counter++}".toString(), "${appId}:${serviceEndpoint.port}".toString())
+        if (serviceEndpoint.loadBalanced && !parsedLabels.containsKey("VIP_${index}".toString())) {
+            parsedLabels.put("VIP_${index}".toString(), "${appId}:${serviceEndpoint.port}".toString())
         }
 
-        return [counter, parsedLabels]
+        return parsedLabels
     }
 
     public List<Port> parsePortMappings(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
 
-        int counter = 0
-
-        serviceEndpoints.stream().map({
-            serviceEndpoint -> new Port().with {
+        serviceEndpoints.withIndex().collect({
+            serviceEndpoint, index -> new Port().with {
                 protocol = serviceEndpoint.protocol
                 containerPort = serviceEndpoint.port
                 hostPort = null
                 servicePort = null
-                (counter, labels) = parsePortMappingLabels(appId, serviceEndpoint, counter)
+                labels = parsePortMappingLabels(appId, serviceEndpoint, index)
 
                 it
             }
-        }).collect(Collectors.toList())
+        })
     }
 
     public List<PortDefinition> parsePortDefinitions(List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
