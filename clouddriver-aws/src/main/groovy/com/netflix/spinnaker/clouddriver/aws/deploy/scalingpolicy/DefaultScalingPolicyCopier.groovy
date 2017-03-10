@@ -38,7 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired
 
 class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
 
-  static final DIMENSION_NAME_FOR_ASG = 'AutoScalingGroupName'
+  public static final DIMENSION_NAME_FOR_ASG = 'AutoScalingGroupName'
 
   @Autowired
   AmazonClientProvider amazonClientProvider
@@ -106,7 +106,7 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
       }
       actions
     }
-    sourceAlarms.each { alarm ->
+    sourceAlarms.findAll{ shouldCopySourceAlarm(it) }.each { alarm ->
       List<Dimension> newDimensions = Lists.newArrayList(alarm.dimensions)
       Dimension asgDimension = newDimensions.find { it.name == DIMENSION_NAME_FOR_ASG }
       if (asgDimension) {
@@ -133,6 +133,10 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
       )
       targetCloudWatch.putMetricAlarm(request)
     }
+  }
+
+  protected boolean shouldCopySourceAlarm(MetricAlarm metricAlarm) {
+    return true
   }
 
   @Canonical
