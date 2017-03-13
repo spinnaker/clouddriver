@@ -38,7 +38,6 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   Integer taskKillGracePeriodSeconds
   Map<String, Object> secrets = new HashMap<>()
 
-  // TODO don't think this should be here - In dcos, only defined at the "docker" level
   String networkType
   String networkName
   List<ServiceEndpoint> serviceEndpoints = new ArrayList<>()
@@ -52,19 +51,12 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
     String type
   }
 
-  // TODO don't think we need a lot of this stuff (fromContext, fromTrigger, cluster, account)
   @Canonical
   static class Image {
     String registry
     String repository
     String tag
     String imageId
-    String stageId
-    String cluster
-    String account
-    String pattern
-    String fromContext
-    String fromTrigger
   }
 
   @Canonical
@@ -80,7 +72,6 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   static class Docker {
     Image image
 
-    // TODO this isn't actually used
     String network
     boolean privileged
     Map<String, String> parameters
@@ -109,7 +100,6 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
 
   @Canonical
   static class ServiceEndpoint {
-    // TODO don't think this should be here - In dcos, only defined at the "docker" level
     String networkType
     Integer port
     String name
