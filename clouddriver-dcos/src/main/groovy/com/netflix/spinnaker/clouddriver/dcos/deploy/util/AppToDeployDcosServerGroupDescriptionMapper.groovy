@@ -151,7 +151,6 @@ class AppToDeployDcosServerGroupDescriptionMapper {
 
     desc.labels = app.labels
     desc.acceptedResourceRoles = app.acceptedResourceRoles
-    desc.version = app.version
 
     if (app.residency) {
       desc.residency = new DeployDcosServerGroupDescription.Residency().with {
