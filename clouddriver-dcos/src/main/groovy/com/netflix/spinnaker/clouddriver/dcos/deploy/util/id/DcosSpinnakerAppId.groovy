@@ -87,15 +87,6 @@ class DcosSpinnakerAppId {
         Names.parseName(marathonPath.last().get())
     }
 
-    public String getNamespace() {
-        final def stringBuilder = new StringBuilder()
-
-        stringBuilder.append(MarathonPathId.PART_SEPARATOR).append(account)
-        stringBuilder.append(MarathonPathId.PART_SEPARATOR).append(getUnsafeRegion())
-
-        return stringBuilder.toString()
-    }
-
     public MarathonPathId toMarathonPathId() {
         marathonPath
     }
