@@ -3,7 +3,6 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup.DestroyDcosServerGroupAtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DestroyDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.DestroyDcosServerGroupAtomicOperation
@@ -11,6 +10,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import mesosphere.dcos.client.DCOS
+import mesosphere.dcos.client.model.DCOSAuthCredentials
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -19,7 +19,7 @@ class DestroyDcosServerGroupAtomicOperationConverterSpec extends Specification {
   DCOS dcosClient = Mock(DCOS)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', null
+    'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
   )
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {

@@ -13,8 +13,8 @@ import mesosphere.marathon.client.model.v2.Task
 import spock.lang.Specification
 
 class DcosInstanceCachingAgentSpec extends Specification {
-  static final private String ACCOUNT = "testAccount"
-  static final private String APP = "testApp"
+  static final private String ACCOUNT = "testaccount"
+  static final private String APP = "testapp"
   static final private String REGION = "default"
   static final private String CLUSTER = "${APP}-cluster"
   static final private String SERVER_GROUP = "${CLUSTER}-v000"

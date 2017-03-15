@@ -4,7 +4,6 @@ import com.netflix.spinnaker.clouddriver.model.HealthState
 import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.AppVersionInfo
 import mesosphere.marathon.client.model.v2.PortDefinition
-import mesosphere.marathon.client.model.v2.VersionInfo
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -12,8 +11,8 @@ import java.time.Instant
 
 class DcosLoadBalancerSpec extends Specification {
 
-  private static final String ACCOUNT = "testAccount"
-  static final private String APP = "testApp"
+  private static final String ACCOUNT = "testaccount"
+  static final private String APP = "testapp"
   private static final String LB_NAME = "${APP}-frontend"
 
   def setup() {

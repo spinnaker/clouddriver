@@ -7,6 +7,7 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.dcos.client.DCOS
+import mesosphere.dcos.client.model.DCOSAuthCredentials
 import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.Result
 import spock.lang.Specification
@@ -18,7 +19,7 @@ class ResizeDcosServerGroupAtomicOperationSpec extends Specification {
   DCOS dcosClient = Mock(DCOS)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', null
+    'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
   )
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {

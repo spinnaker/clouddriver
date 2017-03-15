@@ -18,8 +18,8 @@ import mesosphere.marathon.client.model.v2.GetAppNamespaceResponse
 import spock.lang.Specification
 
 class DcosLoadBalancerCachingAgentSpec extends Specification {
-  static final private String ACCOUNT = "testAccount"
-  static final private String APP = "testApp"
+  static final private String ACCOUNT = "testaccount"
+  static final private String APP = "testapp"
   static final private String CLUSTER = "${APP}-cluster"
   static final private String LOAD_BALANCER_NAME = "${CLUSTER}-v000"
   static final private String MARATHON_APP_ID = "/${ACCOUNT}/${LOAD_BALANCER_NAME}"

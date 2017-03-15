@@ -10,6 +10,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import mesosphere.dcos.client.DCOS
+import mesosphere.dcos.client.model.DCOSAuthCredentials
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -19,7 +20,7 @@ class DeployDcosServerGroupAtomicOperationConverterSpec extends Specification {
   DeployDcosServerGroupDescriptionToAppMapper dcosServerGroupDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', null
+    'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
   )
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
