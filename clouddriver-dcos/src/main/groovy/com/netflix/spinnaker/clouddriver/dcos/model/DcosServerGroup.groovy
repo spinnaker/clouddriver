@@ -76,6 +76,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
     this.cpus = app.cpus
     this.mem = app.mem
     this.disk = app.disk
+    this.labels = app.labels
 
     this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
 
