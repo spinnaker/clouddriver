@@ -5,9 +5,9 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DestroyDcosServerGroupDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.DestroyDcosServerGroupAtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.dcos.client.DCOS
+import mesosphere.dcos.client.model.DCOSAuthCredentials
 import mesosphere.marathon.client.model.v2.Result
 import spock.lang.Specification
 import spock.lang.Subject
@@ -19,7 +19,7 @@ class DestroyDcosServerGroupAtomicOperationSpec extends Specification {
   DCOS dcosClient = Mock(DCOS)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', null
+    'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
   )
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {

@@ -6,8 +6,8 @@ import spock.lang.Subject
 
 
 class DcosServerGroupSpec extends Specification {
-  private static final String ACCOUNT = "testAccount"
-  static final private String APP = "testApp"
+  private static final String ACCOUNT = "testaccount"
+  static final private String APP = "testapp"
   static final private String SERVER_GROUP_NAME = "${APP}-v000"
   static final private String REGION = "region"
   static final private String MARATHON_APP = "/${ACCOUNT}/${REGION}/${SERVER_GROUP_NAME}"
@@ -20,7 +20,7 @@ class DcosServerGroupSpec extends Specification {
     def lbApp = createApp(MARATHON_APP)
     def goodLb = "${APP}-goodlb"
     def badLb = "${APP}-badlb"
-    lbApp.getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${goodLb},wrongAccount_${badLb}"]
+    lbApp.getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${goodLb},wrongaccount_${badLb}"]
 
     when:
     @Subject def serverGroup = new DcosServerGroup(ACCOUNT, lbApp)

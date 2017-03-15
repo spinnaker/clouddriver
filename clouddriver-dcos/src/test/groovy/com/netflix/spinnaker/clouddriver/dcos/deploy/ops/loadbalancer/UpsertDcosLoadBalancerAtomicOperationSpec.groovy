@@ -10,8 +10,10 @@ import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.Up
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor.DcosDeploymentResult
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
 import mesosphere.dcos.client.DCOS
+import mesosphere.dcos.client.model.DCOSAuthCredentials
 import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.Deployment
 import mesosphere.marathon.client.model.v2.Result
@@ -20,10 +22,9 @@ import spock.lang.Subject
 
 import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.LoadBalancerConfig
 import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription.PortRange
-import static DcosDeploymentMonitor.DcosDeploymentResult
 
 class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
-  private static final ACCOUNT_NAME = "testAccount"
+  private static final ACCOUNT_NAME = "testaccount"
   private static final LOAD_BALANCER_NAME = "external"
   private static final DEPLOYMENT_ID = "deployment-id"
 
@@ -45,7 +46,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     TaskRepository.threadLocalTask.set(taskMock)
 
     existingAppMock = Mock(App)
-    credentials = new DcosCredentials(ACCOUNT_NAME, "test", "test", "url", null)
+    credentials = new DcosCredentials(ACCOUNT_NAME, "test", "test", "url", DCOSAuthCredentials.forUserAccount("user", "pw"))
     dcosDeploymentMonitorMock = Mock(DcosDeploymentMonitor)
 
     def loadBalancerConfig = Mock(LoadBalancerConfig)

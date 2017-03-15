@@ -3,6 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
+import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.springframework.validation.Errors
 import spock.lang.Specification
 import spock.lang.Subject
@@ -13,7 +14,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
 
 
   def testCredentials = new DcosCredentials(
-    "test", "test", "test", "https://test.url.com", null
+    "test", "test", "test", "https://test.url.com", DCOSAuthCredentials.forUserAccount('user', 'pw')
   )
 
   def accountCredentialsProvider = Stub(AccountCredentialsProvider) {
