@@ -1,19 +1,13 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.util
+package com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper
 
 import com.google.common.collect.Lists
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import mesosphere.marathon.client.model.v2.*
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-
-import java.util.stream.Collectors
 
 import static com.google.common.base.Strings.emptyToNull
 
 class DeployDcosServerGroupDescriptionToAppMapper {
-    private static final Logger LOGGER = LoggerFactory.getLogger(DeployDcosServerGroupDescriptionToAppMapper)
-
-    public App map(final String resolvedAppName, final DeployDcosServerGroupDescription description) {
+    App map(final String resolvedAppName, final DeployDcosServerGroupDescription description) {
         new App().with {
             id = resolvedAppName
             instances = description.desiredCapacity
@@ -30,27 +24,25 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             }
 
             container = new Container().with {
-                if (description.docker) {
-                    docker = new Docker().with {
-                        image = description.docker.image.imageId
-                        network = description.networkType
+                docker = description.docker ? new Docker().with {
+                    image = description.docker.image.imageId
+                    network = description.networkType
 
-                        portMappings = parsePortMappings(resolvedAppName, description.serviceEndpoints)
-                        privileged = description.docker.privileged
-                        parameters = description.docker.parameters?.entrySet()?.stream()?.map({ entry ->
-                            new Parameter().with {
-                                key = entry.key
-                                value = entry.value
-                                it
-                            }
-                        })?.collect(Collectors.toList())
-                        forcePullImage = description.docker.forcePullImage
+                    portMappings = parsePortMappings(resolvedAppName, description.serviceEndpoints)
+                    privileged = description.docker.privileged
+                    parameters = description.docker.parameters?.entrySet()?.collect({ entry ->
+                        new Parameter().with {
+                            key = entry.key
+                            value = entry.value
+                            it
+                        }
+                    }) as Collection<Parameter>
+                    forcePullImage = description.docker.forcePullImage
 
-                        it
-                    }
-                }
-                //type = description.container.type
+                    it
+                } : null
                 volumes = parseVolumes(description.persistentVolumes, description.dockerVolumes, description.externalVolumes)
+                type = volumes ? "DOCKER" : null
 
                 it
             }
@@ -61,61 +53,57 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             args = description.args
             constraints = parseConstraints(description.constraints)
 
-            if (description.fetch) {
-                fetch = description.fetch.stream().map({ fetchable ->
-                    new Fetchable().with {
-                        uri = fetchable.uri
-                        cache = fetchable.cache
-                        extract = fetchable.extract
-                        executable = fetchable.executable
-                        outputFile = fetchable.outputFile
-                        it
-                    }
-                }).collect(Collectors.toList())
-            }
+            fetch = description.fetch ? description.fetch.collect({ fetchable ->
+                new Fetchable().with {
+                    uri = fetchable.uri
+                    cache = fetchable.cache
+                    extract = fetchable.extract
+                    executable = fetchable.executable
+                    outputFile = fetchable.outputFile
+                    it
+                }
+            }) as List<Fetchable> : null
 
             storeUrls = description.storeUrls
             backoffSeconds = description.backoffSeconds
             backoffFactor = description.backoffFactor
             maxLaunchDelaySeconds = description.maxLaunchDelaySeconds
 
-            if (description.healthChecks) {
-                healthChecks = description.healthChecks.stream().map({ healthCheck ->
-                    new HealthCheck().with {
-                        if (emptyToNull(healthCheck.command?.trim()) != null) {
-                          command = new Command(value: healthCheck.command)
-                        }
-                        gracePeriodSeconds = healthCheck.gracePeriodSeconds
-                        ignoreHttp1xx = healthCheck.ignoreHttp1xx
-                        intervalSeconds = healthCheck.intervalSeconds
-                        maxConsecutiveFailures = healthCheck.maxConsecutiveFailures
-                        path = healthCheck.path
-                        port = healthCheck.port
-                        portIndex = healthCheck.portIndex
-                        protocol = healthCheck.protocol
-                        timeoutSeconds = healthCheck.timeoutSeconds
-                        it
+            healthChecks = description.healthChecks ? description.healthChecks.collect({ healthCheck ->
+                new HealthCheck().with {
+                    if (emptyToNull(healthCheck.command?.trim()) != null) {
+                      command = new Command(value: healthCheck.command)
                     }
-                }).collect(Collectors.toList())
-            }
 
-            readinessChecks = description.readinessChecks?.collect({ rc ->
-              new ReadinessCheck().with {
-                name = rc.name
-                protocol = rc.protocol
-                path = rc.path
-                portName = rc.portName
-                intervalSeconds = rc.intervalSeconds
-                timeoutSeconds = rc.timeoutSeconds
-                httpStatusCodesForReady = rc.httpStatusCodesForReady
-                preserveLastResponse = rc.preserveLastResponse
-                it
-              }
-            })
+                    gracePeriodSeconds = healthCheck.gracePeriodSeconds
+                    ignoreHttp1xx = healthCheck.ignoreHttp1xx
+                    intervalSeconds = healthCheck.intervalSeconds
+                    maxConsecutiveFailures = healthCheck.maxConsecutiveFailures
+                    path = healthCheck.path
+                    port = healthCheck.port
+                    portIndex = healthCheck.portIndex
+                    protocol = healthCheck.protocol
+                    timeoutSeconds = healthCheck.timeoutSeconds
+                    it
+                }
+            }) as List<HealthCheck> : null
 
-            dependencies = description.dependencies
-            labels = description.labels
-            version = description.version
+            readinessChecks = description.readinessChecks ? description.readinessChecks.collect({ readinessCheck ->
+                new ReadinessCheck().with {
+                    name = readinessCheck.name
+                    protocol = readinessCheck.protocol
+                    path = readinessCheck.path
+                    portName = readinessCheck.portName
+                    intervalSeconds = readinessCheck.intervalSeconds
+                    timeoutSeconds = readinessCheck.timeoutSeconds
+                    httpStatusCodesForReady = readinessCheck.httpStatusCodesForReady
+                    preserveLastResponse = readinessCheck.preserveLastResponse
+                    it
+                }
+            }) as List<ReadinessCheck> : null
+
+            dependencies = description.dependencies ? description.dependencies : null
+            labels = description.labels ? description.labels : null
 
             residency = description.residency ? new Residency().with {
               taskLostBehaviour = description.residency.taskLostBehaviour
@@ -128,8 +116,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             requirePorts = description.requirePorts
             acceptedResourceRoles = description.acceptedResourceRoles
 
-            // TODO I don't think this is correct
-            if (description.networkType == "BRIDGE") {
+            if ("USER" != description.networkType) {
                 portDefinitions = parsePortDefinitions(description.serviceEndpoints)
             }
 
@@ -145,8 +132,8 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         }
     }
 
-    public List<List<String>> parseConstraints(String constaints) {
-        List<List<String>> parsedConstraints = new ArrayList<>()
+    private static List<List<String>> parseConstraints(String constaints) {
+        def parsedConstraints = new ArrayList<List<String>>()
 
         if (constaints == null || constaints.trim().isEmpty()) {
             return parsedConstraints
@@ -168,37 +155,35 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             }
         })
 
-        parsedConstraints
+        parsedConstraints ? parsedConstraints : null
     }
 
-    private Map<String, String> parsePortMappingLabels(String appId, DeployDcosServerGroupDescription.ServiceEndpoint serviceEndpoint, int index) {
-        Map<String, String> parsedLabels = serviceEndpoint.labels.clone()
+    private static Map<String, String> parsePortMappingLabels(String appId, DeployDcosServerGroupDescription.ServiceEndpoint serviceEndpoint, int index) {
+        def parsedLabels = (Map<String, String>) serviceEndpoint.labels.clone()
 
         if (serviceEndpoint.loadBalanced && !parsedLabels.containsKey("VIP_${index}".toString())) {
             parsedLabels.put("VIP_${index}".toString(), "${appId}:${serviceEndpoint.port}".toString())
         }
 
-        return parsedLabels
+        parsedLabels ? parsedLabels : null
     }
 
-    public List<PortMapping> parsePortMappings(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
-
-        serviceEndpoints.withIndex().collect({
+    private static List<PortMapping> parsePortMappings(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
+        def portMapping = serviceEndpoints.withIndex().collect({
             serviceEndpoint, index -> new PortMapping().with {
                 name = serviceEndpoint.name
                 protocol = serviceEndpoint.protocol
                 containerPort = serviceEndpoint.port
-                hostPort = null
-                servicePort = null
                 labels = parsePortMappingLabels(appId, serviceEndpoint, index)
-
                 it
             }
-        })
+        }) as List<PortMapping>
+
+        portMapping ? portMapping : null
     }
 
-    public List<PortDefinition> parsePortDefinitions(List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
-        def portDefinitions = serviceEndpoints.stream().map({
+    private static List<PortDefinition> parsePortDefinitions(List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
+        def portDefinitions = serviceEndpoints.collect({
             serviceEndpoint -> new PortDefinition().with {
                 name = serviceEndpoint.name
                 protocol = serviceEndpoint.protocol
@@ -206,15 +191,15 @@ class DeployDcosServerGroupDescriptionToAppMapper {
                 port = serviceEndpoint.port
                 it
             }
-        }).collect(Collectors.toList())
+        })
 
-        portDefinitions.isEmpty() ? null : portDefinitions
+        portDefinitions ? portDefinitions : null
     }
 
-    public List<Volume> parseVolumes(List<DeployDcosServerGroupDescription.PersistentVolume> persistentVolumes,
+    private static List<Volume> parseVolumes(List<DeployDcosServerGroupDescription.PersistentVolume> persistentVolumes,
                                      List<DeployDcosServerGroupDescription.DockerVolume> dockerVolumes,
                                      List<DeployDcosServerGroupDescription.ExternalVolume> externalVolumes) {
-        List<Volume> parsedVolumes = new ArrayList<>()
+        def parsedVolumes = new ArrayList<Volume>()
 
         persistentVolumes.forEach({
             persistentVolume ->  parsedVolumes.add(new PersistentLocalVolume().with {
@@ -241,10 +226,26 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             externalVolume ->  parsedVolumes.add(new ExternalVolume().with {
                 containerPath = externalVolume.containerPath
                 mode = externalVolume.mode
+
+                if (externalVolume.external) {
+                    name = externalVolume.external.name
+                    provider = externalVolume.external.provider
+                    size = externalVolume.external.size
+
+                    if (externalVolume.external.options) {
+                        driver = externalVolume.external.options.driver
+                        optSize = externalVolume.external.options.size
+                        optIops = externalVolume.external.options.iops
+                        optVolumeType = externalVolume.external.options.volumeType
+                        optNewFsType = externalVolume.external.options.newFsType
+                        optOverwriteFs = externalVolume.external.options.overwriteFs
+                    }
+                }
+
                 it
             })
         })
 
-        parsedVolumes
+        parsedVolumes ? parsedVolumes : null
     }
 }

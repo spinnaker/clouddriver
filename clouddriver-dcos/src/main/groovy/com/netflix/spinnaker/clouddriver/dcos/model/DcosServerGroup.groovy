@@ -3,8 +3,8 @@ package com.netflix.spinnaker.clouddriver.dcos.model
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.AppToDeployDcosServerGroupDescriptionMapper
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper.AppToDeployDcosServerGroupDescriptionMapper
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import com.netflix.spinnaker.clouddriver.model.HealthState

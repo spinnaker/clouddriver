@@ -139,8 +139,19 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   static class ExternalStorage {
     String name
     String provider
-    Map<String, String> options
+    ExternalStorageOptions options
     String mode
+    Integer size
+  }
+
+  @Canonical
+  static class ExternalStorageOptions {
+    String driver
+    Integer size
+    Integer iops
+    String volumeType
+    String newFsType
+    Boolean overwriteFs
   }
 
   @Canonical

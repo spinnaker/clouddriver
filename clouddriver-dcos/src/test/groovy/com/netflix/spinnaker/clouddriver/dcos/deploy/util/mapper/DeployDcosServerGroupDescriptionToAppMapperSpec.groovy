@@ -1,29 +1,25 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.util
+package com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper
 
-import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import mesosphere.marathon.client.model.v2.App
-import mesosphere.marathon.client.model.v2.Command
-import mesosphere.marathon.client.model.v2.Fetchable
-import mesosphere.marathon.client.model.v2.ReadinessCheck
 import spock.lang.Specification
 
 class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
-    private static final APPLICATION_NAME = new DcosSpinnakerId("spinnaker", "test", "api-test-something-v000")
+    private static final APPLICATION_NAME = new DcosSpinnakerAppId("spinnaker", "test", "api-test-something-v000")
 
     void 'DeployDcosServerGroupAtomicOperation should deploy the DCOS service successfully'() {
 
         given:
         DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
-                application: APPLICATION_NAME.service.app, stack: APPLICATION_NAME.service.stack,
-                freeFormDetails: APPLICATION_NAME.service.detail, desiredCapacity: 1, cpus: 1.0, mem: 1.0, gpus: 1.0,
+                application: APPLICATION_NAME.serverGroupName.app, stack: APPLICATION_NAME.serverGroupName.stack,
+                freeFormDetails: APPLICATION_NAME.serverGroupName.detail, desiredCapacity: 1, cpus: 1.0, mem: 1.0, gpus: 1.0,
                 disk: 0.0, env: ["var": "val"], dcosUser: 'spinnaker', cmd: 'ps', args: ["-A"],
                 constraints: "something:GROUP_BY:other,test:GROUP_BY:other", fetch: [new DeployDcosServerGroupDescription.Fetchable(uri: "uri", executable: true, extract: true, cache: true, outputFile: "file")],
                 storeUrls: [ "someUrl" ], backoffSeconds: 1, backoffFactor: 1.15, maxLaunchDelaySeconds: 3600,
-                readinessChecks: [new DeployDcosServerGroupDescription.ReadinessCheck(name: 'avail', protocol: 'tcp', path: '/path', portName: 'name', intervalSeconds: 10, timeoutSeconds: 60, httpStatusCodesForReady: [200], preserveLastResponse: true)],
                 dependencies: ["some-other-service-v000"], labels: ["key": "value"],
-                version: "0000-00-00'T'00:00:00.000", residency: new DeployDcosServerGroupDescription.Residency(taskLostBehaviour: "default", relaunchEscalationTimeoutSeconds: 5), taskKillGracePeriodSeconds: 1,
-                secrets: [ "secret": "this is super secret"], requirePorts: false,
+                version: "0000-00-00'T'00:00:00.000",residency: new DeployDcosServerGroupDescription.Residency(taskLostBehaviour: "idk", relaunchEscalationTimeoutSeconds: 0),
+                taskKillGracePeriodSeconds: 1, secrets: [ "secret": "this is super secret"], requirePorts: false,
                 acceptedResourceRoles: ["slave_public"],
                 dockerVolumes: [new DeployDcosServerGroupDescription.DockerVolume(containerPath: "path/to/container",
                     hostPath: "host/path/to/container", mode: "someMode")],
@@ -35,6 +31,9 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
                         network: "BRIDGE",
                         image: new DeployDcosServerGroupDescription.Image(imageId: "some/image:latest"),
                         parameters: ["param": "value"]),
+                readinessChecks: [new DeployDcosServerGroupDescription.ReadinessCheck(name: 'check', protocol: 'tcp',
+                        portName: 'checkPort', path: '/meta/health', intervalSeconds: 30, timeoutSeconds: 270,
+                        httpStatusCodesForReady: [200, 201], preserveLastResponse: false)],
                 healthChecks: [new DeployDcosServerGroupDescription.HealthCheck(path: "/meta/health", protocol: "tcp",
                         portIndex: 8080, gracePeriodSeconds: 5, intervalSeconds: 30, maxConsecutiveFailures: 1,
                         ignoreHttp1xx: false)],
@@ -70,30 +69,42 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         app.cmd == description.cmd
         app.args == description.args
         app.user == description.dcosUser
-        app.fetch.size() == 1
-        app.fetch.get(0).uri == 'uri'
-        app.fetch.get(0).executable == true
-        app.fetch.get(0).extract == true
-        app.fetch.get(0).cache == true
-        app.fetch.get(0).outputFile == 'file'
+
+        app.fetch.size() == description.fetch.size()
+        [app.fetch, description.fetch].transpose().forEach({ appFetch, descriptionFetch ->
+            assert appFetch.uri == descriptionFetch.uri
+            assert appFetch.cache == descriptionFetch.cache
+            assert appFetch.extract == descriptionFetch.extract
+            assert appFetch.executable == descriptionFetch.executable
+            assert appFetch.outputFile == descriptionFetch.outputFile
+        })
+
         app.storeUrls == description.storeUrls
         app.backoffSeconds == description.backoffSeconds
         app.backoffFactor == description.backoffFactor
         app.maxLaunchDelaySeconds == description.maxLaunchDelaySeconds
 
-        app.readinessChecks.get(0).name == 'avail'
-        app.readinessChecks.get(0).protocol == 'tcp'
-        app.readinessChecks.get(0).path == '/path'
-        app.readinessChecks.get(0).portName == 'name'
-        app.readinessChecks.get(0).intervalSeconds == 10
-        app.readinessChecks.get(0).timeoutSeconds == 60
-        app.readinessChecks.get(0).httpStatusCodesForReady == [200]
-        app.readinessChecks.get(0).preserveLastResponse == true
+        app.readinessChecks.size() == description.readinessChecks.size()
+        [app.readinessChecks, description.readinessChecks].transpose().forEach({ appReadinessCheck, descriptionReadinessCheck ->
+            assert appReadinessCheck.name == descriptionReadinessCheck.name
+            assert appReadinessCheck.protocol == descriptionReadinessCheck.protocol
+            assert appReadinessCheck.path == descriptionReadinessCheck.path
+            assert appReadinessCheck.portName == descriptionReadinessCheck.portName
+            assert appReadinessCheck.intervalSeconds == descriptionReadinessCheck.intervalSeconds
+            assert appReadinessCheck.timeoutSeconds == descriptionReadinessCheck.timeoutSeconds
+            assert appReadinessCheck.httpStatusCodesForReady == descriptionReadinessCheck.httpStatusCodesForReady
+            assert appReadinessCheck.preserveLastResponse == descriptionReadinessCheck.preserveLastResponse
+        })
+
         app.dependencies == description.dependencies
         app.labels == description.labels
         app.version == description.version
-        app.residency.taskLostBehaviour == "default"
-        app.residency.relaunchEscalationTimeoutSeconds == 5
+
+        if (app.residency && description.residency) {
+            assert app.residency.taskLostBehaviour == description.residency.taskLostBehaviour
+            assert app.residency.relaunchEscalationTimeoutSeconds == description.residency.relaunchEscalationTimeoutSeconds
+        }
+
         app.taskKillGracePeriodSeconds == description.taskKillGracePeriodSeconds
         app.secrets == description.secrets
         app.requirePorts == description.requirePorts
@@ -160,8 +171,8 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
     void 'DeployDcosServerGroupAtomicOperation should deploy the DCOS service successfully with many fields left empty'() {
         given:
         DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
-                application: APPLICATION_NAME.service.app, stack: APPLICATION_NAME.service.stack,
-                freeFormDetails: APPLICATION_NAME.service.detail, desiredCapacity: 1, cpus: 1.0, mem: 1.0, gpus: 1.0, disk: 0.0)
+                application: APPLICATION_NAME.serverGroupName.app, stack: APPLICATION_NAME.serverGroupName.stack,
+                freeFormDetails: APPLICATION_NAME.serverGroupName.detail, desiredCapacity: 1, cpus: 1.0, mem: 1.0, gpus: 1.0, disk: 0.0)
 
         when:
         App app = new DeployDcosServerGroupDescriptionToAppMapper().map(APPLICATION_NAME.toString(), description)
@@ -177,16 +188,16 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         app.cmd == description.cmd
         app.args == description.args
         app.user == description.dcosUser
-        app.fetch == null
+        app.fetch == null && description.fetch.empty
         app.storeUrls == description.storeUrls
         app.backoffSeconds == description.backoffSeconds
         app.backoffFactor == description.backoffFactor
         app.maxLaunchDelaySeconds == description.maxLaunchDelaySeconds
-        app.readinessChecks == []
+        app.readinessChecks == null && description.readinessChecks.empty
         app.dependencies == description.dependencies
         app.labels == description.labels
         app.version == description.version
-        app.residency == null
+        app.residency == null && description.residency == null
         app.taskKillGracePeriodSeconds == description.taskKillGracePeriodSeconds
         app.secrets == description.secrets
         app.requirePorts == description.requirePorts
