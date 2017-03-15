@@ -24,11 +24,17 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             }
 
             container = new Container().with {
+                // We are using a ternary instead of a safe navigation to avoid setting these fields with empty
+                // collections because of the potential issue they may cause with being read by marathon.
+                // This is done throughout this mapper regardless of whether that field is known to cause issues
+                // just to play it safe and to be consistent as much as possible.
                 docker = description.docker ? new Docker().with {
                     image = description.docker.image.imageId
                     network = description.networkType
 
-                    portMappings = parsePortMappings(resolvedAppName, description.serviceEndpoints)
+                    if ("HOST" != description.networkType) {
+                        portMappings = parsePortMappings(resolvedAppName, description.serviceEndpoints)
+                    }
                     privileged = description.docker.privileged
                     parameters = description.docker.parameters?.entrySet()?.collect({ entry ->
                         new Parameter().with {
@@ -116,8 +122,8 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             requirePorts = description.requirePorts
             acceptedResourceRoles = description.acceptedResourceRoles
 
-            if ("USER" != description.networkType) {
-                portDefinitions = parsePortDefinitions(description.serviceEndpoints)
+            if ("HOST" == description.networkType) {
+                portDefinitions = parsePortDefinitions(resolvedAppName, description.serviceEndpoints)
             }
 
             if (description.upgradeStrategy) {
@@ -182,12 +188,12 @@ class DeployDcosServerGroupDescriptionToAppMapper {
         portMapping ? portMapping : null
     }
 
-    private static List<PortDefinition> parsePortDefinitions(List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
-        def portDefinitions = serviceEndpoints.collect({
-            serviceEndpoint -> new PortDefinition().with {
+    private static List<PortDefinition> parsePortDefinitions(String appId, List<DeployDcosServerGroupDescription.ServiceEndpoint> serviceEndpoints) {
+        def portDefinitions = serviceEndpoints.withIndex().collect({
+            serviceEndpoint, index -> new PortDefinition().with {
                 name = serviceEndpoint.name
                 protocol = serviceEndpoint.protocol
-                labels = [:]
+                labels = parsePortMappingLabels(appId, serviceEndpoint, index)
                 port = serviceEndpoint.port
                 it
             }
