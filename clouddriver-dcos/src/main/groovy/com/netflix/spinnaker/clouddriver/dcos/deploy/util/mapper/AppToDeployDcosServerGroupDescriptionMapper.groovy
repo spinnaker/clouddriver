@@ -1,7 +1,7 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.util
+package com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper
 
-import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.ExternalVolume
@@ -13,8 +13,8 @@ import static java.util.stream.Collectors.joining
 class AppToDeployDcosServerGroupDescriptionMapper {
   static DeployDcosServerGroupDescription map(final App app, final String account) {
 
-    def spinId = DcosSpinnakerId.parse(app.id, account)
-    def names = Names.parseName(spinId.name)
+    def spinId = DcosSpinnakerAppId.from(app.id, account).get()
+    def names = spinId.getServerGroupName()
 
     def desc = new DeployDcosServerGroupDescription()
     desc.application = names.app
@@ -33,7 +33,7 @@ class AppToDeployDcosServerGroupDescriptionMapper {
     desc.mem = app.mem
     desc.disk = app.disk
     desc.gpus = app.gpus
-    desc.constraints = app.constraints?.stream()?.map({ constraintParts -> constraintParts.join(':') })?.collect(joining(','))
+    desc.constraints = app.constraints?.stream()?.map({ constraintParts -> constraintParts.join(':') })?.collect(joining(','));
 
     desc.fetch = app.fetch?.collect({ f ->
       new DeployDcosServerGroupDescription.Fetchable().with {
@@ -83,9 +83,9 @@ class AppToDeployDcosServerGroupDescriptionMapper {
             name = pm.name
             port = pm.containerPort
             protocol = pm.protocol
-            labels = pm.labels
+            //labels = pm.labels
             loadBalanced = pm.labels?.keySet()?.any { it.startsWith('VIP') } ?: false
-            exposeToHost = networkType == 'USER' && pm.hostPort != null && pm.hostPort == 0
+            exposeToHost = pm.hostPort != null
             it
           }
         })
@@ -101,9 +101,11 @@ class AppToDeployDcosServerGroupDescriptionMapper {
           name = pd.name
           port = pd.port
           protocol = pd.protocol
-          labels = pd.labels
+          //labels = pd.labels
           loadBalanced = pd.labels?.keySet()?.any { it.startsWith('VIP') } ?: false
-          exposeToHost = false
+
+          // TODO exposeToHost not used by DeployDcosServerGroupDescriptionToAppMapper
+          // exposeToHost -> require ports?
           it
         }
       })

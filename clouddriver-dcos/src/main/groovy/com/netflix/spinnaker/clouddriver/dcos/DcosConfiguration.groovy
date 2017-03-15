@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos
 
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.PollingDcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.health.DcosHealthIndicator

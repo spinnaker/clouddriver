@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.util
+package com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper
 
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import mesosphere.marathon.client.model.v2.App
@@ -185,8 +185,8 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
       tag: 'latest',
       imageId: 'example.hub.com/user/image:latest')
 
-    desc.docker.privileged == true
-    desc.docker.forcePullImage == true
+    desc.docker.privileged
+    desc.docker.forcePullImage
     desc.docker.network == 'HOST'
     desc.docker.parameters == [key1: 'value1', key2: 'value2']
 
