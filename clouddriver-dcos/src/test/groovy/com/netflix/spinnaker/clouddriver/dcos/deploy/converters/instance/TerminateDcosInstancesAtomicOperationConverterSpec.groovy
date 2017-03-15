@@ -1,22 +1,24 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.instances
+package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.instance
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instances.TerminateDcosInstancesAndDecrementDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instances.TerminateDcosInstancesAndDecrementAtomicOperation
+import com.netflix.spinnaker.clouddriver.dcos.deploy.converters.instances.TerminateDcosInstancesAtomicOperationConverter
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instance.TerminateDcosInstancesAtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import mesosphere.dcos.client.DCOS
+import mesosphere.dcos.client.model.DCOSAuthCredentials
 import spock.lang.Specification
 import spock.lang.Subject
 
-class TerminateDcosInstancesAndDecrementAtomicOperationConverterSpec extends Specification {
+class TerminateDcosInstancesAtomicOperationConverterSpec extends Specification {
 
     DCOS dcosClient = Mock(DCOS)
 
     DcosCredentials testCredentials = new DcosCredentials(
-            'test', 'test', 'test', 'https://test.url.com', null
+            'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
     )
 
     DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
@@ -28,9 +30,9 @@ class TerminateDcosInstancesAndDecrementAtomicOperationConverterSpec extends Spe
     }
 
     @Subject
-    AbstractAtomicOperationsCredentialsSupport atomicOperationConverter = new TerminateDcosInstancesAndDecrementAtomicOperationConverter(dcosClientProvider)
+    AbstractAtomicOperationsCredentialsSupport atomicOperationConverter = new TerminateDcosInstancesAtomicOperationConverter(dcosClientProvider)
 
-    void 'convertDescription should return a valid TerminateDcosInstancesAndDecrementDescription'() {
+    void 'convertDescription should return a valid TerminateDcosInstancesDescription'() {
         given:
         atomicOperationConverter.accountCredentialsProvider = accountCredentialsProvider
         atomicOperationConverter.objectMapper = new ObjectMapper()
@@ -40,7 +42,8 @@ class TerminateDcosInstancesAndDecrementAtomicOperationConverterSpec extends Spe
                 appId: "test/dev/app-stack-detail-v000",
                 hostId: "192.168.0.0",
                 taskIds: ["TASK ONE"],
-                force: false
+                force: false,
+                wipe: false
         ]
 
         when:
@@ -49,10 +52,10 @@ class TerminateDcosInstancesAndDecrementAtomicOperationConverterSpec extends Spe
         then:
         noExceptionThrown()
         description != null
-        description instanceof TerminateDcosInstancesAndDecrementDescription
+        description instanceof TerminateDcosInstancesDescription
     }
 
-    void 'convertOperation should return a TerminateDcosInstancesAndDecrementAtomicOperation with TerminateDcosInstancesAndDecrementDescription'() {
+    void 'convertOperation should return a TerminateDcosInstancesAtomicOperation with TerminateDcosInstancesDescription'() {
         given:
         atomicOperationConverter.accountCredentialsProvider = accountCredentialsProvider
         atomicOperationConverter.objectMapper = new ObjectMapper()
@@ -62,7 +65,8 @@ class TerminateDcosInstancesAndDecrementAtomicOperationConverterSpec extends Spe
                 appId: "test/dev/app-stack-detail-v000",
                 hostId: "192.168.0.0",
                 taskIds: ["TASK ONE"],
-                force: false
+                force: false,
+                wipe: false
         ]
 
         when:
@@ -71,6 +75,6 @@ class TerminateDcosInstancesAndDecrementAtomicOperationConverterSpec extends Spe
         then:
         noExceptionThrown()
         atomicOperation != null
-        atomicOperation instanceof TerminateDcosInstancesAndDecrementAtomicOperation
+        atomicOperation instanceof TerminateDcosInstancesAtomicOperation
     }
 }

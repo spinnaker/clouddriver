@@ -1,7 +1,8 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.instances
+package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.instance
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosOperation
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instances.TerminateDcosInstancesDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.validators.AbstractDcosDescriptionValidatorSupport
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -24,19 +25,23 @@ class TerminateDcosInstanceDescriptionValidator extends AbstractDcosDescriptionV
 
     if (description.appId) {
       if (!description.hostId && !description.taskIds) {
-        errors.rejectValue "hostId|taskIds", "terminateDcosInstancesDescription.hostId|taskIds.empty"
+        errors.rejectValue "hostId|taskIds", "${descriptionName}.hostId|taskIds.empty"
       }
 
       if (description.hostId && description.taskIds) {
-        errors.rejectValue "hostId|taskIds", "terminateDcosInstancesDescription.hostId|taskIds.invalid"
+        errors.rejectValue "hostId|taskIds", "${descriptionName}.hostId|taskIds.invalid"
       }
 
       if (description.taskIds && description.taskIds.size() != 1) {
-        errors.rejectValue "taskIds", "terminateDcosInstancesDescription.taskIds.invalid"
+        errors.rejectValue "taskIds", "${descriptionName}.taskIds.invalid"
+      }
+
+      if (DcosSpinnakerAppId.from(description.appId, description.credentials.name).isPresent()) {
+        errors.rejectValue "appId", "${descriptionName}.appId.invalid"
       }
     } else {
       if (!description.taskIds) {
-        errors.rejectValue "taskIds", "terminateDcosInstancesDescription.taskIds.empty"
+        errors.rejectValue "taskIds", "${descriptionName}.taskIds.empty"
       }
     }
   }

@@ -1,9 +1,9 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instances
+package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instance
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instances.TerminateDcosInstancesAndDecrementDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesAndDecrementDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.marathon.client.model.v2.DeleteTaskCriteria
 
@@ -38,12 +38,12 @@ class TerminateDcosInstancesAndDecrementAtomicOperation implements AtomicOperati
 
     if (description.appId) {
       if (description.hostId) {
-        dcosClient.deleteAppTasksAndScaleFromHost(description.appId, description.hostId, description.force)
+        dcosClient.deleteAppTasksAndScaleWithHost(description.appId, description.hostId, description.force)
       } else if (description.taskIds) {
         dcosClient.deleteAppTasksAndScaleWithTaskId(description.appId, description.taskIds.first(), description.force)
       }
     } else {
-      dcosClient.deleteTaskAndScale(new DeleteTaskCriteria(ids: description.taskIds), description.force)
+      dcosClient.deleteTaskAndScale(description.force, new DeleteTaskCriteria(ids: description.taskIds))
     }
 
     task.updateStatus BASE_PHASE, "Completed termination operation."

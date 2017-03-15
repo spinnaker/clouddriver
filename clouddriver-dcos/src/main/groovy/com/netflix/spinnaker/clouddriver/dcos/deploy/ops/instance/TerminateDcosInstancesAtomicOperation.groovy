@@ -1,9 +1,9 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instances
+package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instance
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instances.TerminateDcosInstancesDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.marathon.client.model.v2.DeleteTaskCriteria
 
@@ -45,9 +45,9 @@ class TerminateDcosInstancesAtomicOperation implements AtomicOperation<Void> {
     if (description.appId) {
       if (description.hostId) {
         if (description.wipe) {
-          dcosClient.deleteAppTasksAndWipeFromHost(description.appId, description.hostId, description.force)
+          dcosClient.deleteAppTasksAndWipeWithHost(description.appId, description.hostId, description.force)
         } else {
-          dcosClient.deleteAppTasksFromHost(description.appId, description.hostId, description.force)
+          dcosClient.deleteAppTasksWithHost(description.appId, description.hostId, description.force)
         }
       } else if (description.taskIds) {
         if (description.wipe) {
@@ -63,9 +63,9 @@ class TerminateDcosInstancesAtomicOperation implements AtomicOperation<Void> {
       }
 
       if (description.wipe) {
-        dcosClient.deleteTaskAndWipe(deleteTaskCriteria, description.force)
+        dcosClient.deleteTaskAndWipe(description.force, deleteTaskCriteria)
       } else {
-        dcosClient.deleteTask(deleteTaskCriteria, description.force)
+        dcosClient.deleteTask(description.force, deleteTaskCriteria)
       }
     }
 
