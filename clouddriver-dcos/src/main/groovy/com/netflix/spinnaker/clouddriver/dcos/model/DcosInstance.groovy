@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.model
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import mesosphere.marathon.client.model.v2.Task
@@ -44,7 +44,7 @@ class DcosInstance implements Instance, Serializable {
 
     // TODO Instance interfaces says this is the availability zone. Not sure we have this concept - we can only get the host.
     // Should this be our concept of region? Kubernetes uses namespace here.
-    this.zone = DcosSpinnakerId.parse(task.appId, account).safeRegion
+    this.zone = new DcosSpinnakerAppId(task.appId, account).safeRegion
 
     // TODO
     // task.ports
@@ -68,7 +68,7 @@ class DcosInstance implements Instance, Serializable {
         } ? HealthState.Down : HealthState.Up
         break;
       case "TASK_STARTING":
-        health["state"] = HealthState.Starting;
+        health["state"] = HealthState.Starting
         break;
       case "TASK_FINISHED":
         health["state"] = HealthState.Succeeded
@@ -133,7 +133,7 @@ class DcosInstance implements Instance, Serializable {
 
   @Override
   boolean equals(Object o) {
-    o instanceof DcosInstance ? o.name.equals(name) : false
+    o instanceof DcosInstance ? o.name == name : false
   }
 
   @Override

@@ -2,6 +2,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.loadbalancer
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.validators.AbstractDcosDescriptionValidatorSupport
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -26,6 +27,8 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidator extends Abstract
     // Will need to apply to group as well.
     if (!description.loadBalancerName || description.loadBalancerName.empty) {
       errors.rejectValue("loadBalancerName", "${descriptionName}.loadBalancerName.empty");
+    } else if (MarathonPathId.validatePart(description.loadBalancerName)) {
+      errors.rejectValue "loadBalancerName", "${descriptionName}.loadBalancerName.invalid"
     }
   }
 }

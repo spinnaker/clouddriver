@@ -2,7 +2,6 @@ package com.netflix.spinnaker.clouddriver.dcos.provider.agent
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.frigga.Names
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.*
 import com.netflix.spinnaker.cats.cache.CacheData
@@ -14,7 +13,7 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
@@ -31,7 +30,6 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 @Slf4j
 class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDemandAgent {
   private final String accountName
-  private final DcosCredentials credentials
   private final DCOS dcosClient
   private final DcosCloudProvider dcosCloudProvider = new DcosCloudProvider()
   private final ObjectMapper objectMapper
@@ -50,7 +48,6 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
                               DcosClientProvider clientProvider,
                               ObjectMapper objectMapper,
                               Registry registry) {
-    this.credentials = credentials
     this.accountName = accountName
     this.objectMapper = objectMapper
     this.dcosClient = clientProvider.getDcosClient(credentials)
@@ -91,7 +88,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
             serverGroups.collect { serverGroup ->
-              Keys.getServerGroupKey(DcosSpinnakerId.parse(serverGroup.app.id, accountName))
+              Keys.getServerGroupKey(new DcosSpinnakerAppId(serverGroup.app.id, accountName))
             })
             .each { CacheData onDemandEntry ->
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
@@ -140,9 +137,9 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     def serverGroupName = data.serverGroupName.toString()
 
-    def spinnakerId = DcosSpinnakerId.from(accountName, data.region.toString(), serverGroupName)
+    def spinnakerId = new DcosSpinnakerAppId(accountName, data.region.toString(), serverGroupName)
     DcosServerGroup serverGroup = metricsSupport.readData {
-      loadServerGroup(spinnakerId.toMarathonAppId().toString())
+      loadServerGroup(spinnakerId.toMarathonPathId().toString())
     }
 
     CacheResult result = metricsSupport.transformData {
@@ -221,7 +218,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
   private List<DcosServerGroup> loadServerGroups() {
     final List<App> apps = dcosClient.getApps(accountName)?.apps
     apps.findAll {
-      !it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerId.validate(it.id, accountName)
+      !it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerAppId.from(it.id, accountName).isPresent()
     }.collect {
       new DcosServerGroup(accountName, it)
     }
@@ -244,7 +241,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
       def app = serverGroup.app
       def onDemandData = onDemandKeep ?
-              onDemandKeep[Keys.getServerGroupKey(DcosSpinnakerId.parse(app.id, accountName))] :
+              onDemandKeep[Keys.getServerGroupKey(new DcosSpinnakerAppId(app.id, accountName))] :
               null
 
       if (onDemandData && onDemandData.attributes.cacheTime >= start) {
@@ -262,8 +259,8 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
         // the spinnaker naming convention as we have to parse it.  There's no storage that maps
         // an arbitrary app id to these fields
         def appId = app.id
-        DcosSpinnakerId spinnakerId = DcosSpinnakerId.parse(appId, accountName)
-        def names = Names.parseName(spinnakerId.name)
+        def spinnakerId = new DcosSpinnakerAppId(appId, accountName)
+        def names = spinnakerId.getServerGroupName()
         def appName = names.app
         def clusterName = names.cluster
         def instanceKeys = []

@@ -7,7 +7,7 @@ import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.MarathonVolumeDeserializer
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosCluster
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosLoadBalancer
@@ -91,7 +91,7 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster> {
 
   @Override
   ServerGroup getServerGroup(final String account, final String region, final String name) {
-    String serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerId.from(account, region, name))
+    String serverGroupKey = Keys.getServerGroupKey(new DcosSpinnakerAppId(account, region, name))
     CacheData serverGroupData = cacheView.get(Keys.Namespace.SERVER_GROUPS.ns, serverGroupKey)
     if (!serverGroupData) {
       return null

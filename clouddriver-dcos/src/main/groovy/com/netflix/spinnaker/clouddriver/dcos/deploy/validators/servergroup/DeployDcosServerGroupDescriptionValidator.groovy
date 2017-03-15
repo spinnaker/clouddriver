@@ -2,6 +2,8 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.validators.AbstractDcosDescriptionValidatorSupport
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -23,31 +25,43 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
     super.validate(priorDescriptions, description, errors)
 
     if (!description.region || description.region.empty) {
-      errors.rejectValue "region", "deployDcosServerGroupDescription.region.empty"
+      errors.rejectValue "region", "${descriptionName}.region.empty"
+    } else if (MarathonPathId.validatePart(description.region.replaceAll(DcosSpinnakerAppId.SAFE_REGION_SEPARATOR, MarathonPathId.PART_SEPARATOR))) {
+      errors.rejectValue "region", "${descriptionName}.region.invalid"
     }
 
     if (!description.application) {
-      errors.rejectValue "application", "deployDcosServerGroupDescription.application.empty"
+      errors.rejectValue "application", "${descriptionName}.application.empty"
+    } else if (MarathonPathId.validatePart(description.application)) {
+      errors.rejectValue "application", "${descriptionName}.application.invalid"
+    }
+
+    if (description.stack && MarathonPathId.validatePart(description.stack)) {
+      errors.rejectValue "stack", "${descriptionName}.stack.invalid"
+    }
+
+    if (description.freeFormDetails && MarathonPathId.validatePart(description.freeFormDetails)) {
+      errors.rejectValue "freeFormDetails", "${descriptionName}.freeFormDetails.invalid"
     }
 
     if (!description.desiredCapacity || description.desiredCapacity <= 0) {
-      errors.rejectValue "desiredCapacity", "deployDcosServerGroupDescription.desiredCapacity.invalid"
+      errors.rejectValue "desiredCapacity", "${descriptionName}.desiredCapacity.invalid"
     }
 
     if (!description.cpus || description.cpus <= 0) {
-      errors.rejectValue "cpus", "deployDcosServerGroupDescription.cpus.invalid"
+      errors.rejectValue "cpus", "${descriptionName}.cpus.invalid"
     }
 
     if (!description.mem || description.mem <= 0) {
-      errors.rejectValue "mem", "deployDcosServerGroupDescription.mem.invalid"
+      errors.rejectValue "mem", "${descriptionName}.mem.invalid"
     }
 
     if (description.disk && description.disk < 0) {
-      errors.rejectValue "disk", "deployDcosServerGroupDescription.disk.invalid"
+      errors.rejectValue "disk", "${descriptionName}.disk.invalid"
     }
 
     if (description.gpus && description.gpus < 0) {
-      errors.rejectValue "gpus", "deployDcosServerGroupDescription.gpus.invalid"
+      errors.rejectValue "gpus", "${descriptionName}.gpus.invalid"
     }
   }
 }

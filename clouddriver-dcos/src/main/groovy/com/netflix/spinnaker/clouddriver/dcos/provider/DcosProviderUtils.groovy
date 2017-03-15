@@ -8,7 +8,7 @@ import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 
 import static com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup.*
 
@@ -82,28 +82,28 @@ class DcosProviderUtils {
   }
 
   static String combineAppStackDetail(String appName, String stack, String detail) {
-    NameValidation.notEmpty(appName, "appName");
+    NameValidation.notEmpty(appName, "appName")
 
     // Use empty strings, not null references that output "null"
-    stack = stack != null ? stack : "";
+    stack = stack != null ? stack : ""
 
     if (detail != null && !detail.isEmpty()) {
-      return appName + "-" + stack + "-" + detail;
+      return appName + "-" + stack + "-" + detail
     }
 
     if (!stack.isEmpty()) {
-      return appName + "-" + stack;
+      return appName + "-" + stack
     }
 
-    return appName;
+    return appName
   }
 
-  static boolean validateLoadBalancerId(PathId loadBalancerId, String account) {
-    loadBalancerId.size() == 2 && loadBalancerId.first().get() == account
+  static boolean isLoadBalancerIdValid(Optional<DcosSpinnakerLbId> loadBalancerId, String account) {
+    loadBalancerId.isPresent() && loadBalancerId.get().account == account
   }
 
-  static boolean validateLoadBalancerId(String loadBalancerId, String account) {
-    validateLoadBalancerId(PathId.parse(loadBalancerId), account)
+  static boolean isLoadBalancerIdValid(String loadBalancerId, String account) {
+    isLoadBalancerIdValid(DcosSpinnakerLbId.from(loadBalancerId), account)
   }
 
   static ImageDescription buildImageDescription(String image) {

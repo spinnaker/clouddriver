@@ -8,8 +8,8 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import mesosphere.dcos.client.DCOS
@@ -63,10 +63,10 @@ class DcosServerGroupCachingAgentSpec extends Specification{
     }
 
     appKey = Keys.getApplicationKey(APP)
-    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerId.parse(MARATHON_APP, ACCOUNT))
+    serverGroupKey = Keys.getServerGroupKey(new DcosSpinnakerAppId(MARATHON_APP, ACCOUNT))
     clusterKey = Keys.getClusterKey(ACCOUNT, APP, CLUSTER)
-    instanceKey = Keys.getInstanceKey(DcosSpinnakerId.parse(MARATHON_APP, ACCOUNT), TASK)
-    loadBalancerKey = Keys.getLoadBalancerKey(PathId.parse(LOAD_BALANCER))
+    instanceKey = Keys.getInstanceKey(new DcosSpinnakerAppId(MARATHON_APP, ACCOUNT), TASK)
+    loadBalancerKey = Keys.getLoadBalancerKey(MarathonPathId.parse(LOAD_BALANCER))
 
     subject = new DcosServerGroupCachingAgent(ACCOUNT, credentials, clientProvider, objectMapper, registryMock)
   }

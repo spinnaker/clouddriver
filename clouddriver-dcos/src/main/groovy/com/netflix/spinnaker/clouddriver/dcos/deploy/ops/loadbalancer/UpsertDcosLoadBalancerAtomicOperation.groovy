@@ -5,7 +5,8 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -45,7 +46,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     task.updateStatus BASE_PHASE, "Initializing upsert of load balancer $description.name..."
     task.updateStatus BASE_PHASE, "Looking up existing load balancer..."
 
-    def appId = PathId.from(description.credentials.name,
+    def appId = new DcosSpinnakerLbId(description.credentials.name,
             description.name)
 
     def existingLb = dcosClient.maybeApp(appId.toString()).orElse(null)
@@ -55,7 +56,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     else
       task.updateStatus BASE_PHASE, "No existing load balancer with name $description.name found - creating it."
 
-    def lbDefinition = createLoadBalancerDefinition(appId);
+    def lbDefinition = createLoadBalancerDefinition(appId)
 
     def deploymentId
     def newLb
@@ -79,7 +80,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     [loadBalancer: [name: deploymentResult.deployedApp.get().id]]
   }
 
-  private App createLoadBalancerDefinition(final PathId appId) {
+  private App createLoadBalancerDefinition(final DcosSpinnakerLbId appId) {
 
     new App().with {
 
@@ -92,7 +93,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
               "--haproxy-map",
               "--group",
               // TODO Need a load balancer specific id type where I can do this type of stuff instead.
-              appId.relative().toString().replace('/', '_')]
+              appId.safeLoadBalancerGroup]
 
       // TODO Expose configuration? these are defaults based on the current universe package
       env = ["HAPROXY_SSL_CERT"     : "",

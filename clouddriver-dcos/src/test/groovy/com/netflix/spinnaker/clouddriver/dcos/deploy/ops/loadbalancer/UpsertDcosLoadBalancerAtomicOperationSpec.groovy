@@ -7,8 +7,7 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor.DcosDeploymentResult
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
@@ -88,7 +87,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: true
     )
 
-    def expectedAppId = PathId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
+    def expectedAppId = new DcosSpinnakerLbId(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
     dcosConfigurationProperties.loadBalancer.image >> expectedLbImage
 
@@ -113,7 +112,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
                           "--health-check",
                           "--haproxy-map",
                           "--group",
-                          "${expectedAppId.first().get()}_${expectedAppId.last().get()}"]
+                          "${expectedAppId.account}_${expectedAppId.loadBalancerName}"]
 
       assert app.instances == expectedInstances
       assert app.cpus == expectedCpus
@@ -184,7 +183,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = PathId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
+    def expectedAppId = new DcosSpinnakerLbId(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -240,7 +239,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = PathId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
+    def expectedAppId = new DcosSpinnakerLbId(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -293,7 +292,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     )
 
 
-    def expectedAppId = PathId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
+    def expectedAppId = new DcosSpinnakerLbId(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -342,7 +341,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     )
 
 
-    def expectedAppId = PathId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME)
+    def expectedAppId = new DcosSpinnakerLbId(ACCOUNT_NAME, LOAD_BALANCER_NAME)
     resultAppMock.id >> expectedAppId.toString()
 
     def failedDeploymentResult = Mock(DcosDeploymentResult)

@@ -5,8 +5,8 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 
@@ -48,7 +48,7 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
 
     def resolvedServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.freeFormDetails, false)
 
-    def dcosPathId = DcosSpinnakerId.from(description.credentials.name, description.region, resolvedServerGroupName)
+    def dcosPathId = new DcosSpinnakerAppId(description.credentials.name, description.region, resolvedServerGroupName)
 
     task.updateStatus BASE_PHASE, "Spinnaker ID chosen to be ${resolvedServerGroupName}."
     task.updateStatus BASE_PHASE, "Marathon ID chosen to be $dcosPathId."

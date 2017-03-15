@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy
 
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver
 import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
@@ -39,11 +40,11 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
     }
 
     def filteredApps = apps.findAll {
-      new DcosSpinnakerId(it.id).service.cluster == Names.parseName(clusterName).cluster
+      new DcosSpinnakerAppId(it.id).serverGroupName.cluster == Names.parseName(clusterName).cluster
     }
 
     return filteredApps.collect { App app ->
-      final def names = new DcosSpinnakerId(app.id).service
+      final def names = new DcosSpinnakerAppId(app.id).serverGroupName
       return new AbstractServerGroupNameResolver.TakenSlot(
         serverGroupName: names.cluster,
         sequence       : names.sequence,

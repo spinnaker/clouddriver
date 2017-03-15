@@ -6,7 +6,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosInstance
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
@@ -20,7 +20,6 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
 
   private final String accountName
-  private final DcosCredentials credentials
   private final DCOS dcosClient
   private final ObjectMapper objectMapper
 
@@ -32,7 +31,6 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
                            DcosCredentials credentials,
                            DcosClientProvider clientProvider,
                            ObjectMapper objectMapper) {
-    this.credentials = credentials
     this.accountName = accountName
     this.objectMapper = objectMapper
     this.dcosClient = clientProvider.getDcosClient(credentials)
@@ -63,7 +61,7 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
     log.info("Loading tasks in $agentType")
 
     // The tasks API returns all tasks, but we want to ensure we only cache ones valid for the current account.
-    def tasks = dcosClient.getTasks().tasks.findAll { DcosSpinnakerId.validate(it.appId, accountName) }
+    def tasks = dcosClient.getTasks().tasks.findAll { DcosSpinnakerAppId.from(it.appId, accountName).isPresent() }
 
     buildCacheResult(tasks)
   }
@@ -78,7 +76,7 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
         continue
       }
 
-      def key = Keys.getInstanceKey(DcosSpinnakerId.parse(task.appId, accountName), task.id)
+      def key = Keys.getInstanceKey(new DcosSpinnakerAppId(task.appId, accountName), task.id)
       cachedInstances[key].with {
         attributes.name = task.id
         attributes.instance = new DcosInstance(task, accountName)

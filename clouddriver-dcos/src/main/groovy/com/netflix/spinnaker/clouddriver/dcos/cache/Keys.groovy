@@ -1,12 +1,9 @@
 package com.netflix.spinnaker.clouddriver.dcos.cache
 
 import com.netflix.frigga.Names
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
-import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
-
-import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.GLOBAL_REGION
-import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.isGlobalLoadBalancer
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 
 class Keys {
   public static final PROVIDER = "dcos"
@@ -109,15 +106,15 @@ class Keys {
     "${PROVIDER}:${Namespace.APPLICATIONS}:${application}"
   }
 
-  static String getServerGroupKey(DcosSpinnakerId id) {
-    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeRegion}:${id.name}"
+  static String getServerGroupKey(DcosSpinnakerAppId id) {
+    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeRegion}:${id.serverGroupName.group}"
   }
 
   static String getClusterKey(String account, String application, String cluster) {
     "${PROVIDER}:${Namespace.CLUSTERS}:${account}:${application}:${cluster}"
   }
 
-  static String getInstanceKey(DcosSpinnakerId appId, String taskName) {
+  static String getInstanceKey(DcosSpinnakerAppId appId, String taskName) {
     "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeRegion}:${taskName}"
   }
 
@@ -125,11 +122,7 @@ class Keys {
     "${PROVIDER}:${Namespace.INSTANCES}:${account}:${safeRegion}:${taskName}"
   }
 
-  static String getLoadBalancerKey(String account, String loadBalancerName) {
-    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${loadBalancerName}"
-  }
-
-  static String getLoadBalancerKey(PathId appId) {
-    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${appId.first().get()}:${appId.last().get()}"
+  static String getLoadBalancerKey(DcosSpinnakerLbId id) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${id.account}:${id.loadBalancerName}"
   }
 }
