@@ -385,7 +385,6 @@ class DcosSpinnakerAppIdSpec extends Specification {
     void "the namespace and full path should be correctly built when given a valid account, region, service"() {
         expect:
         def dcosPath = new DcosSpinnakerAppId(account, region, service)
-        dcosPath.namespace == expectedNamespace
         dcosPath.toString() == expectedFullPath
 
         where:
@@ -398,24 +397,22 @@ class DcosSpinnakerAppIdSpec extends Specification {
     void "the namespace and full path should be correctly built when given a valid marathon path"() {
         expect:
             def dcosPath = new DcosSpinnakerAppId(path, ACCOUNT)
-            dcosPath.namespace == expectedNamespace
             dcosPath.toString() == expectedFullPath
 
         where:
-            path || expectedNamespace || expectedFullPath
-            "spinnaker/test/service-v000" || "/spinnaker/test" || "/spinnaker/test/service-v000"
-            "spinnaker/test/service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
+            path || expectedFullPath
+            "spinnaker/test/service-v000" || "/spinnaker/test/service-v000"
+            "spinnaker/test/service/service-v000" || "/spinnaker/test/service/service-v000"
     }
 
     void "the namespace and full path should be correctly built when given a valid absolute marathon path"() {
         expect:
             def dcosPath = new DcosSpinnakerAppId(path, ACCOUNT)
-            dcosPath.namespace == expectedNamespace
             dcosPath.toString() == expectedFullPath
 
         where:
-            path || expectedNamespace || expectedFullPath
-            "/spinnaker/test/service-v000" || "/spinnaker/test" || "/spinnaker/test/service-v000"
-            "/spinnaker/test/service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
+            path || expectedFullPath
+            "/spinnaker/test/service-v000" || "/spinnaker/test/service-v000"
+            "/spinnaker/test/service/service-v000" || "/spinnaker/test/service/service-v000"
     }
 }
