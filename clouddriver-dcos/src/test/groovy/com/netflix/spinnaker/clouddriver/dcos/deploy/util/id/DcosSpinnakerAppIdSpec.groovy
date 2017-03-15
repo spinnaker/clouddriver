@@ -1,9 +1,11 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy
+package com.netflix.spinnaker.clouddriver.dcos.deploy.util.id
 
 import com.netflix.frigga.Names
 import spock.lang.Specification
 
-class DcosSpinnakerIdSpec extends Specification {
+class DcosSpinnakerAppIdSpec extends Specification {
+    static final def ACCOUNT = "spinnaker"
+    
     void "constructor should throw an IllegalArgumentException if account is null"() {
         setup:
         def account = null
@@ -11,7 +13,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def service = "service-v000"
 
         when:
-        new DcosSpinnakerId(account, region, service)
+        new DcosSpinnakerAppId(account, region, service)
 
         then:
         thrown IllegalArgumentException
@@ -24,7 +26,7 @@ class DcosSpinnakerIdSpec extends Specification {
             def service = "service-v000"
 
         when:
-            new DcosSpinnakerId(account, region, service)
+            new DcosSpinnakerAppId(account, region, service)
 
         then:
             thrown IllegalArgumentException
@@ -37,7 +39,46 @@ class DcosSpinnakerIdSpec extends Specification {
         def service = "service-v000"
 
         when:
-        new DcosSpinnakerId(account, region, service)
+        new DcosSpinnakerAppId(account, region, service)
+
+        then:
+        thrown IllegalArgumentException
+    }
+
+    void "constructor should throw an IllegalArgumentException if region is null"() {
+        setup:
+        def account = ACCOUNT
+        def region = null
+        def service = "service-v000"
+
+        when:
+        new DcosSpinnakerAppId(account, region, service)
+
+        then:
+        thrown IllegalArgumentException
+    }
+
+    void "constructor should throw an IllegalArgumentException if region is an empty string"() {
+        setup:
+        def account = ACCOUNT
+        def region = ""
+        def service = "service-v000"
+
+        when:
+        new DcosSpinnakerAppId(account, region, service)
+
+        then:
+        thrown IllegalArgumentException
+    }
+
+    void "constructor should throw an IllegalArgumentException if region is an blank string"() {
+        setup:
+        def account = ACCOUNT
+        def region = "    "
+        def service = "service-v000"
+
+        when:
+        new DcosSpinnakerAppId(account, region, service)
 
         then:
         thrown IllegalArgumentException
@@ -45,12 +86,12 @@ class DcosSpinnakerIdSpec extends Specification {
 
     void "constructor should throw an IllegalArgumentException if service is null"() {
         setup:
-        def account = "spinnaker"
+        def account = ACCOUNT
         def region = "test/service"
         def service = null
 
         when:
-        new DcosSpinnakerId(account, region, service)
+        new DcosSpinnakerAppId(account, region, service)
 
         then:
         thrown IllegalArgumentException
@@ -58,12 +99,12 @@ class DcosSpinnakerIdSpec extends Specification {
 
     void "constructor should throw an IllegalArgumentException if service is an empty string"() {
         setup:
-            def account = "spinnaker"
+            def account = ACCOUNT
             def region = "test/service"
             def service = ""
 
         when:
-            new DcosSpinnakerId(account, region, service)
+            new DcosSpinnakerAppId(account, region, service)
 
         then:
             thrown IllegalArgumentException
@@ -71,12 +112,12 @@ class DcosSpinnakerIdSpec extends Specification {
 
     void "constructor should throw an IllegalArgumentException if service is an blank string"() {
         setup:
-        def account = "spinnaker"
+        def account = ACCOUNT
         def region = "test/service"
         def service = "         "
 
         when:
-        new DcosSpinnakerId(account, region, service)
+        new DcosSpinnakerAppId(account, region, service)
 
         then:
         thrown IllegalArgumentException
@@ -87,7 +128,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = null
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -98,7 +139,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = ""
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -109,7 +150,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "      "
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -120,7 +161,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -131,7 +172,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/       "
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -142,7 +183,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "spinnaker"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -153,7 +194,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "spinnaker/"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -164,7 +205,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "spinnaker/         "
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -175,7 +216,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/spinnaker"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -186,7 +227,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/spinnaker/"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -197,7 +238,18 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/spinnaker/         "
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
+
+        then:
+        thrown IllegalArgumentException
+    }
+
+    void "constructor should throw an IllegalArgumentException if path has an no region specified"() {
+        setup:
+        def path = "spinnaker/service-v000"
+
+        when:
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -208,7 +260,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "spinnaker//service-v000"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -219,7 +271,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "spinnaker/         /service-v000"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -230,7 +282,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "spinnaker/test/         /service-v000"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -241,7 +293,18 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "spinnaker/test_         /service-v000"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
+
+        then:
+        thrown IllegalArgumentException
+    }
+
+    void "constructor should throw an IllegalArgumentException if path has no region specified ignoring the root/absolute path"() {
+        setup:
+        def path = "/spinnaker/service-v000"
+
+        when:
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -252,7 +315,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/spinnaker//service-v000"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -263,7 +326,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/spinnaker/         /service-v000"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -274,7 +337,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/spinnaker/test/         /service-v000"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -285,7 +348,7 @@ class DcosSpinnakerIdSpec extends Specification {
         def path = "/spinnaker/test_         /service-v000"
 
         when:
-        new DcosSpinnakerId(path)
+        new DcosSpinnakerAppId(path, ACCOUNT)
 
         then:
         thrown IllegalArgumentException
@@ -293,44 +356,40 @@ class DcosSpinnakerIdSpec extends Specification {
 
     void "the account, region, and service should be correctly parsed when given a valid marathon path"() {
         expect:
-            def dcosPath = new DcosSpinnakerId(path)
+            def dcosPath = new DcosSpinnakerAppId(path, ACCOUNT)
             dcosPath.account == expectedAccount
-            dcosPath.region == expectedRegion
-            dcosPath.service == Names.parseName(expectedService)
+            dcosPath.unsafeRegion == expectedUnsafeRegion
+            dcosPath.safeRegion == expectedSafeRegion
+            dcosPath.serverGroupName == Names.parseName(expectedService)
 
         where:
-            path || expectedAccount || expectedRegion || expectedService
-            "spinnaker/service-v000" || "spinnaker" || "" || "service-v000"
-            "spinnaker/test/service-v000" || "spinnaker" || "test" || "service-v000"
-            "spinnaker/test/service/service-v000" || "spinnaker" || "test/service" || "service-v000"
-            "spinnaker/test_service/service-v000" || "spinnaker" || "test/service" || "service-v000"
+            path || expectedAccount || expectedUnsafeRegion || expectedSafeRegion || expectedService
+            "spinnaker/test/service-v000" || "spinnaker" || "test" || "test" || "service-v000"
+            "spinnaker/test/service/service-v000" || "spinnaker" || "test/service" || "test_service" || "service-v000"
     }
 
     void "the account, region, and service should be correctly parsed when given a valid marathon absolute path"() {
         expect:
-            def dcosPath = new DcosSpinnakerId(path)
+            def dcosPath = new DcosSpinnakerAppId(path, ACCOUNT)
             dcosPath.account == expectedAccount
-            dcosPath.region == expectedRegion
-            dcosPath.service == Names.parseName(expectedService)
+            dcosPath.unsafeRegion == expectedUnsafeRegion
+            dcosPath.safeRegion == expectedSafeRegion
+            dcosPath.serverGroupName == Names.parseName(expectedService)
 
         where:
-            path || expectedAccount || expectedRegion || expectedService
-            "/spinnaker/service-v000" || "spinnaker" || "" || "service-v000"
-            "/spinnaker/test/service-v000" || "spinnaker" || "test" || "service-v000"
-            "/spinnaker/test/service/service-v000" || "spinnaker" || "test/service" || "service-v000"
-            "/spinnaker/test_service/service-v000" || "spinnaker" || "test/service" || "service-v000"
+            path || expectedAccount || expectedUnsafeRegion || expectedSafeRegion || expectedService
+            "/spinnaker/test/service-v000" || "spinnaker" || "test" || "test" || "service-v000"
+            "/spinnaker/test/service/service-v000" || "spinnaker" || "test/service" || "test_service" || "service-v000"
     }
 
     void "the namespace and full path should be correctly built when given a valid account, region, service"() {
         expect:
-        def dcosPath = new DcosSpinnakerId(account, region, service)
+        def dcosPath = new DcosSpinnakerAppId(account, region, service)
         dcosPath.namespace == expectedNamespace
         dcosPath.toString() == expectedFullPath
 
         where:
         account | region | service || expectedNamespace || expectedFullPath
-        "spinnaker" | null | "service-v000" || "/spinnaker" || "/spinnaker/service-v000"
-        "spinnaker" | "" | "service-v000" || "/spinnaker" || "/spinnaker/service-v000"
         "spinnaker" | "test" | "service-v000" || "/spinnaker/test" || "/spinnaker/test/service-v000"
         "spinnaker" | "test/service" | "service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
         "spinnaker" | "test_service" | "service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
@@ -338,29 +397,25 @@ class DcosSpinnakerIdSpec extends Specification {
 
     void "the namespace and full path should be correctly built when given a valid marathon path"() {
         expect:
-            def dcosPath = new DcosSpinnakerId(path)
+            def dcosPath = new DcosSpinnakerAppId(path, ACCOUNT)
             dcosPath.namespace == expectedNamespace
             dcosPath.toString() == expectedFullPath
 
         where:
             path || expectedNamespace || expectedFullPath
-            "spinnaker/service-v000" || "/spinnaker" || "/spinnaker/service-v000"
             "spinnaker/test/service-v000" || "/spinnaker/test" || "/spinnaker/test/service-v000"
             "spinnaker/test/service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
-            "spinnaker/test_service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
     }
 
     void "the namespace and full path should be correctly built when given a valid absolute marathon path"() {
         expect:
-            def dcosPath = new DcosSpinnakerId(path)
+            def dcosPath = new DcosSpinnakerAppId(path, ACCOUNT)
             dcosPath.namespace == expectedNamespace
             dcosPath.toString() == expectedFullPath
 
         where:
             path || expectedNamespace || expectedFullPath
-            "/spinnaker/service-v000" || "/spinnaker" || "/spinnaker/service-v000"
             "/spinnaker/test/service-v000" || "/spinnaker/test" || "/spinnaker/test/service-v000"
             "/spinnaker/test/service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
-            "/spinnaker/test_service/service-v000" || "/spinnaker/test/service" || "/spinnaker/test/service/service-v000"
     }
 }

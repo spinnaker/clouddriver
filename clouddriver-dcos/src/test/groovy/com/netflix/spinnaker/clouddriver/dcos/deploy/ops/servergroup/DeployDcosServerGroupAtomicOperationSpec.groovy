@@ -4,7 +4,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
@@ -16,7 +16,7 @@ import spock.lang.Specification
 import spock.lang.Subject
 
 class DeployDcosServerGroupAtomicOperationSpec extends Specification {
-  private static final APPLICATION_NAME = new DcosSpinnakerId('/test/region/api-test-detail-v000')
+  private static final APPLICATION_NAME = new DcosSpinnakerAppId('/test/region/api-test-detail-v000')
 
   DCOS mockDcosClient = Mock(DCOS)
   DeployDcosServerGroupDescriptionToAppMapper mockDcosDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
@@ -30,8 +30,8 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
   }
 
   DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
-    application: APPLICATION_NAME.service.app, region: APPLICATION_NAME.region, credentials: testCredentials, stack: APPLICATION_NAME.service.stack,
-    freeFormDetails: APPLICATION_NAME.service.detail, desiredCapacity: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
+    application: APPLICATION_NAME.serverGroupName.app, region: APPLICATION_NAME.region, credentials: testCredentials, stack: APPLICATION_NAME.serverGroupName.stack,
+    freeFormDetails: APPLICATION_NAME.serverGroupName.detail, desiredCapacity: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
           docker: new DeployDcosServerGroupDescription.Docker(forcePullImage: false, privileged: false,
                   network: "BRIDGE",
                   image: new DeployDcosServerGroupDescription.Image(imageId: "test")))
@@ -60,7 +60,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
     then:
     noExceptionThrown()
     deploymentResult != null
-    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.region}", APPLICATION_NAME.service.group))
-    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.region}".toString()) == APPLICATION_NAME.service.group
+    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.region}", APPLICATION_NAME.serverGroupName.group))
+    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.region}".toString()) == APPLICATION_NAME.serverGroupName.group
   }
 }

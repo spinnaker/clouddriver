@@ -4,9 +4,9 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.dcos.client.DCOS
@@ -36,8 +36,8 @@ class DeleteDcosLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
     DCOS dcosClient = dcosClientProvider.getDcosClient(description.credentials);
 
-    PathId appId = PathId.from(description.credentials.name,
-            description.loadBalancerName);
+    def appId = new DcosSpinnakerLbId(description.credentials.name,
+            description.loadBalancerName)
 
     App existingLb = dcosClient.maybeApp(appId.toString())
             .orElseThrow({
@@ -45,7 +45,7 @@ class DeleteDcosLoadBalancerAtomicOperation implements AtomicOperation<Void> {
     })
 
     dcosClient.deleteApp(existingLb.id)
-    deploymentMonitor.waitForAppDestroy(dcosClient, existingLb, null, task, BASE_PHASE);
+    deploymentMonitor.waitForAppDestroy(dcosClient, existingLb, null, task, BASE_PHASE)
 
     task.updateStatus BASE_PHASE, "Successfully deleted load balancer $description.loadBalancerName."
   }

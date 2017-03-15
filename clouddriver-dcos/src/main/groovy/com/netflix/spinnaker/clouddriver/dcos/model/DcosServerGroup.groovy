@@ -1,26 +1,20 @@
 package com.netflix.spinnaker.clouddriver.dcos.model
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.AppToDeployDcosServerGroupDescriptionMapper
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import groovy.transform.Canonical
 import mesosphere.marathon.client.model.v2.App
-import mesosphere.marathon.client.model.v2.LocalVolume
-import mesosphere.marathon.client.model.v2.PersistentLocalVolume
 
 import java.time.Instant
 import java.util.regex.Pattern
-
-import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription.*
-import static java.util.stream.Collectors.joining
 
 /**
  * Equivalent of a Dcos {@link mesosphere.marathon.client.model.v2.App}
@@ -50,7 +44,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
   Set<String> loadBalancers
 
   @JsonIgnore
-  Set<PathId> fullyQualifiedLoadBalancers
+  Set<DcosSpinnakerLbId> fullyQualifiedLoadBalancers
 
   Set<DcosInstance> instances = [] as Set
 
@@ -65,8 +59,8 @@ class DcosServerGroup implements ServerGroup, Serializable {
   DcosServerGroup(String account, App app) {
     this.app = app
     this.json = app.toString()
-    def id = DcosSpinnakerId.parse(app.id, account)
-    this.name = id.name
+    def id = new DcosSpinnakerAppId(app.id, account)
+    this.name = id.serverGroupName.group
     this.region = id.safeRegion
     this.account = id.account
     this.kind = "Application"
@@ -94,11 +88,11 @@ class DcosServerGroup implements ServerGroup, Serializable {
         return null
       }
     }?.flatten()?.findResults({
-      def appId = PathId.parse(it.replace('_', '/'))
-      DcosProviderUtils.validateLoadBalancerId(appId, account) ? appId : null
+      def appId = DcosSpinnakerLbId.from(it.replace('_', '/'))
+      DcosProviderUtils.isLoadBalancerIdValid(appId, account) ? appId : null
     })?.toSet() ?: []
 
-    loadBalancers = fullyQualifiedLoadBalancers?.collect { it.last().get() } ?: []
+    loadBalancers = fullyQualifiedLoadBalancers?.collect { it.loadBalancerName } ?: []
   }
 
   @Override

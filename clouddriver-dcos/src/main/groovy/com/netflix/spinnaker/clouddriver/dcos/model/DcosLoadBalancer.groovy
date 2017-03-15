@@ -4,10 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.PathId
-import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
-import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
@@ -19,7 +16,6 @@ import java.time.Instant
 
 import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription.PortRange
 import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.GLOBAL_REGION
-import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.isGlobalLoadBalancer
 
 @EqualsAndHashCode(includes = ["name", "region", "account"])
 class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvider.Item {
@@ -46,9 +42,9 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     this.app = app
     this.json = app.toString()
 
-    def id = PathId.parse(app.id)
+    def id = new DcosSpinnakerLbId(app.id)
     this.account = account
-    this.name = id.last().get()
+    this.name = id.loadBalancerName
     this.region = GLOBAL_REGION
     this.description = toDescription(id, app)
 
@@ -81,12 +77,12 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     } as Set
   }
 
-  static UpsertDcosLoadBalancerAtomicOperationDescription toDescription(PathId id, App app) {
+  static UpsertDcosLoadBalancerAtomicOperationDescription toDescription(DcosSpinnakerLbId id, App app) {
 
-    def description = new UpsertDcosLoadBalancerAtomicOperationDescription();
+    def description = new UpsertDcosLoadBalancerAtomicOperationDescription()
 
-    description.account = id.first().get()
-    description.name = id.last().get()
+    description.account = id.account
+    description.name = id.loadBalancerName
 
     def names = Names.parseName(description.name)
 

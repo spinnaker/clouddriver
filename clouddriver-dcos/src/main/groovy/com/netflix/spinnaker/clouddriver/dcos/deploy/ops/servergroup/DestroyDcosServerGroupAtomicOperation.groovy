@@ -4,7 +4,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DestroyDcosServerGroupDescription
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.DcosSpinnakerId
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.marathon.client.model.v2.Result
 
@@ -31,7 +31,7 @@ class DestroyDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Destroying marathon application: ${description.serverGroupName}..."
 
     def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
-    def appId = DcosSpinnakerId.from(description.credentials.name, description.region, description.serverGroupName)
+    def appId = new DcosSpinnakerAppId(description.credentials.name, description.region, description.serverGroupName)
 
     Result deleteResult = dcosClient.deleteApp(appId.toString())
 
