@@ -33,16 +33,8 @@ class DcosSpinnakerLbId {
         marathonPath.last().get()
     }
 
-    public String getUnsafeLoadBalancerGroup() {
-        marathonPath.relative().toString()
-    }
-
-    public String getSafeLoadBalancerGroup() {
-        unsafeLoadBalancerGroup.replaceAll(MarathonPathId.PART_SEPARATOR, SAFE_NAME_SEPARATOR)
-    }
-
-    public MarathonPathId toMarathonPathId() {
-        marathonPath
+    public String getLoadBalancerHaproxyGroup() {
+        marathonPath.relative().toString().replaceAll(MarathonPathId.PART_SEPARATOR, SAFE_NAME_SEPARATOR)
     }
 
     @Override

@@ -52,22 +52,8 @@ class DcosSpinnakerAppId {
      *         Ex: {@code foo/bar}
      * @see #getSafeRegion()
      */
-    public String getRegion() {
-        marathonPath.tail().parent().relative()
-    }
-
-    /**
-     * @return The canonical DC/OS "region" (a.k.a the full group path in which the marathon application lives)
-     *         including backslashes. This is returned as a relative path, meaning no preceeding backslash. Will never
-     *         be null.
-     *         <p/>
-     *         Deemed unsafe because various Spinnaker components have trouble with a region with backslashes.
-     *         <p/>
-     *         Ex: {@code foo/bar}
-     * @see #getSafeRegion()
-     */
     public String getUnsafeRegion() {
-        region
+        marathonPath.tail().parent().relative().toString()
     }
 
     /**
@@ -85,10 +71,6 @@ class DcosSpinnakerAppId {
 
     public Names getServerGroupName() {
         Names.parseName(marathonPath.last().get())
-    }
-
-    public MarathonPathId toMarathonPathId() {
-        marathonPath
     }
 
     @Override

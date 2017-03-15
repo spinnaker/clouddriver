@@ -82,7 +82,7 @@ class DcosSpinnakerLbIdSpec extends Specification {
         expect:
             def dcosPath = new DcosSpinnakerLbId(ACCOUNT, LOAD_BALANCER)
             dcosPath.account == expectedAccount
-            dcosPath.unsafeLoadBalancerGroup == expectedUnsafeGroup
+            dcosPath.loadBalancerHaproxyGroup == expectedUnsafeGroup
             dcosPath.safeLoadBalancerGroup == expectedSafeGroup
             dcosPath.loadBalancerName == expectedLoadBalancerName
 
@@ -95,7 +95,7 @@ class DcosSpinnakerLbIdSpec extends Specification {
         expect:
             def dcosPath = new DcosSpinnakerLbId(ACCOUNT, LOAD_BALANCER)
             dcosPath.account == expectedAccount
-            dcosPath.unsafeLoadBalancerGroup == expectedUnsafeGroup
+            dcosPath.loadBalancerHaproxyGroup == expectedUnsafeGroup
             dcosPath.safeLoadBalancerGroup == expectedSafeGroup
             dcosPath.loadBalancerName == expectedLoadBalancerName
 
