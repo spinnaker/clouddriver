@@ -1,11 +1,12 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instances
+package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instance
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instances.TerminateDcosInstancesAndDecrementDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesAndDecrementDescription
 import mesosphere.dcos.client.DCOS
+import mesosphere.dcos.client.model.DCOSAuthCredentials
 import mesosphere.marathon.client.model.v2.GetTasksResponse
 import mesosphere.marathon.client.model.v2.Result
 import spock.lang.Specification
@@ -14,7 +15,7 @@ class TerminateDcosInstancesAndDecrementAtomicOperationSpec extends Specificatio
     DCOS dcosClient = Mock(DCOS)
 
     DcosCredentials testCredentials = new DcosCredentials(
-            'test', 'test', 'test', 'https://test.url.com', null
+            'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
     )
 
     DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
@@ -36,7 +37,7 @@ class TerminateDcosInstancesAndDecrementAtomicOperationSpec extends Specificatio
 
         then:
             noExceptionThrown()
-            1 * dcosClient.deleteAppTasksAndScaleFromHost(_, _, _) >> new Result()
+            1 * dcosClient.deleteAppTasksAndScaleWithHost(_, _, _) >> new Result()
     }
 
     void 'TerminateDcosInstancesAndDecrementAtomicOperation should terminate the tasks and scale the DCOS service successfully when given an appId and taskId.'() {

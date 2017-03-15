@@ -1,12 +1,13 @@
-package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instances
+package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.instance
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instances.TerminateDcosInstancesDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesDescription
 import mesosphere.dcos.client.DCOS
-import mesosphere.marathon.client.model.v2.GetAppTasksResponse
+import mesosphere.dcos.client.model.DCOSAuthCredentials
+import mesosphere.marathon.client.model.v2.DeleteAppTasksResponse
 import mesosphere.marathon.client.model.v2.GetTasksResponse
 import spock.lang.Specification
 
@@ -14,7 +15,7 @@ class TerminateDcosInstancesAtomicOperationSpec extends Specification {
     DCOS dcosClient = Mock(DCOS)
 
     DcosCredentials testCredentials = new DcosCredentials(
-            'test', 'test', 'test', 'https://test.url.com', null
+            'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
     )
 
     DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
@@ -36,7 +37,7 @@ class TerminateDcosInstancesAtomicOperationSpec extends Specification {
 
         then:
         noExceptionThrown()
-        1 * dcosClient.deleteAppTasksFromHost(_, _, _) >> new GetAppTasksResponse()
+        1 * dcosClient.deleteAppTasksWithHost(_, _, _) >> new DeleteAppTasksResponse()
     }
 
     void 'TerminateDcosInstancesAtomicOperation should terminate the tasks and scale the DCOS service successfully when given an appId, hostId, and true for wipe.'() {
@@ -49,7 +50,7 @@ class TerminateDcosInstancesAtomicOperationSpec extends Specification {
 
         then:
         noExceptionThrown()
-        1 * dcosClient.deleteAppTasksAndWipeFromHost(_, _, _) >> new GetAppTasksResponse()
+        1 * dcosClient.deleteAppTasksAndWipeWithHost(_, _, _) >> new DeleteAppTasksResponse()
     }
 
     void 'TerminateDcosInstancesAtomicOperation should terminate the tasks and scale the DCOS service successfully when given an appId, taskId, and false for wipe.'() {
@@ -62,7 +63,7 @@ class TerminateDcosInstancesAtomicOperationSpec extends Specification {
 
         then:
         noExceptionThrown()
-        1 * dcosClient.deleteAppTasksWithTaskId(_, _, _) >> new GetAppTasksResponse()
+        1 * dcosClient.deleteAppTasksWithTaskId(_, _, _) >> new DeleteAppTasksResponse()
     }
 
     void 'TerminateDcosInstancesAtomicOperation should terminate the tasks and scale the DCOS service successfully when given an appId, taskId, and true for wipe.'() {
@@ -75,7 +76,7 @@ class TerminateDcosInstancesAtomicOperationSpec extends Specification {
 
         then:
         noExceptionThrown()
-        1 * dcosClient.deleteAppTasksAndWipeWithTaskId(_, _, _) >> new GetAppTasksResponse()
+        1 * dcosClient.deleteAppTasksAndWipeWithTaskId(_, _, _) >> new DeleteAppTasksResponse()
     }
 
     void 'TerminateDcosInstancesAtomicOperation should terminate the tasks and scale the DCOS service successfully when given taskIds and false for wipe.'() {
