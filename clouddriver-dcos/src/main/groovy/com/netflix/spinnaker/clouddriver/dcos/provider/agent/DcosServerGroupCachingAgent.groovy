@@ -139,7 +139,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     def spinnakerId = new DcosSpinnakerAppId(accountName, data.region.toString(), serverGroupName)
     DcosServerGroup serverGroup = metricsSupport.readData {
-      loadServerGroup(spinnakerId.toMarathonPathId().toString())
+      loadServerGroup(spinnakerId.toString())
     }
 
     CacheResult result = metricsSupport.transformData {
