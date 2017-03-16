@@ -16,7 +16,7 @@ import spock.lang.Specification
 import spock.lang.Subject
 
 class DeployDcosServerGroupAtomicOperationSpec extends Specification {
-  private static final APPLICATION_NAME = new DcosSpinnakerAppId('/test/region/api-test-detail-v000')
+  private static final APPLICATION_NAME = DcosSpinnakerAppId.parse('/test/region/api-test-detail-v000').get()
 
   DCOS mockDcosClient = Mock(DCOS)
   DeployDcosServerGroupDescriptionToAppMapper mockDcosDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
@@ -30,7 +30,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
   }
 
   DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
-    application: APPLICATION_NAME.serverGroupName.app, region: APPLICATION_NAME.region, credentials: testCredentials, stack: APPLICATION_NAME.serverGroupName.stack,
+    application: APPLICATION_NAME.serverGroupName.app, region: APPLICATION_NAME.unsafeRegion, credentials: testCredentials, stack: APPLICATION_NAME.serverGroupName.stack,
     freeFormDetails: APPLICATION_NAME.serverGroupName.detail, desiredCapacity: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
           docker: new DeployDcosServerGroupDescription.Docker(forcePullImage: false, privileged: false,
                   network: "BRIDGE",
@@ -60,7 +60,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
     then:
     noExceptionThrown()
     deploymentResult != null
-    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.region}", APPLICATION_NAME.serverGroupName.group))
-    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.region}".toString()) == APPLICATION_NAME.serverGroupName.group
+    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.unsafeRegion}", APPLICATION_NAME.serverGroupName.group))
+    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.unsafeRegion}".toString()) == APPLICATION_NAME.serverGroupName.group
   }
 }

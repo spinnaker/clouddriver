@@ -59,7 +59,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
   DcosServerGroup(String account, App app) {
     this.app = app
     this.json = app.toString()
-    def id = new DcosSpinnakerAppId(app.id, account)
+    def id = DcosSpinnakerAppId.parse(app.id, account).get()
     this.name = id.serverGroupName.group
     this.region = id.safeRegion
     this.account = id.account
