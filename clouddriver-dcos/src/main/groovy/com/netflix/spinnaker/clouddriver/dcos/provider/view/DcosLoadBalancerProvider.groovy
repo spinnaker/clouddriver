@@ -5,6 +5,7 @@ import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosLoadBalancer
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
@@ -80,9 +81,9 @@ class DcosLoadBalancerProvider implements LoadBalancerProvider<DcosLoadBalancer>
     }
 
     loadBalancerKeys.addAll(cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns,
-            Keys.getLoadBalancerKey("*", combineAppStackDetail(applicationName, '*', null))))
+            Keys.getLoadBalancerKey(DcosSpinnakerLbId.from("*", combineAppStackDetail(applicationName, '*', null)).get())))
     loadBalancerKeys.addAll(cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns,
-            Keys.getLoadBalancerKey("*", combineAppStackDetail(applicationName, null, null))))
+            Keys.getLoadBalancerKey(DcosSpinnakerLbId.from("*", combineAppStackDetail(applicationName, null, null)).get())))
 
     cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, loadBalancerKeys)
   }

@@ -23,7 +23,11 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
                 acceptedResourceRoles: ["slave_public"],
                 dockerVolumes: [new DeployDcosServerGroupDescription.DockerVolume(containerPath: "path/to/container",
                     hostPath: "host/path/to/container", mode: "someMode")],
-                externalVolumes: [new DeployDcosServerGroupDescription.ExternalVolume(external: new DeployDcosServerGroupDescription.ExternalStorage(name: "lkjlj", provider: "dvdi", options: ["dvdi/driver": "rexray"]), mode: "someMode")],
+                externalVolumes: [new DeployDcosServerGroupDescription.ExternalVolume(
+                        external: new DeployDcosServerGroupDescription.ExternalStorage(name: "lkjlj", provider: "dvdi",
+                                options: new DeployDcosServerGroupDescription.ExternalStorageOptions(driver: "rexray",
+                                        size: 1, iops: 1, volumeType: "something", newFsType: "other", overwriteFs: true)),
+                        mode: "someMode")],
                 persistentVolumes: [new DeployDcosServerGroupDescription.PersistentVolume(containerPath: "path/to/container",
                         persistent: new DeployDcosServerGroupDescription.PersistentStorage(size: 512), mode: "someMode")],
                 networkType: "BRIDGE",
@@ -98,7 +102,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
 
         app.dependencies == description.dependencies
         app.labels == description.labels
-        app.version == description.version
+        app.version == null
 
         if (app.residency && description.residency) {
             assert app.residency.taskLostBehaviour == description.residency.taskLostBehaviour
@@ -114,7 +118,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         app.container.docker.privileged == description.docker.privileged
         app.container.docker.forcePullImage == description.docker.forcePullImage
 
-        def labels = [[:],
+        def labels = [null,
                       ["VIP_1":"/spinnaker/test/api-test-something-v000:8081"],
                       ["VIP_2":"vip_override:8082"],
                       ["label":"non_vip_label"],
@@ -156,11 +160,12 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
             assert appHealthChecks.timeoutSeconds == descriptionHealthChecks.timeoutSeconds
         })
 
-        app.portDefinitions.size() == description.serviceEndpoints.size()
-        [app.portDefinitions, description.serviceEndpoints].transpose().forEach({ appPortDefinition, descriptionPortDefinition ->
-            assert appPortDefinition.protocol == descriptionPortDefinition.protocol
-            assert appPortDefinition.port == descriptionPortDefinition.port
-        })
+        app.portDefinitions == null
+//        app.portDefinitions.size() == description.serviceEndpoints.size()
+//        [app.portDefinitions, description.serviceEndpoints].transpose().forEach({ appPortDefinition, descriptionPortDefinition ->
+//            assert appPortDefinition.protocol == descriptionPortDefinition.protocol
+//            assert appPortDefinition.port == descriptionPortDefinition.port
+//        })
 
         if (app.upgradeStrategy && description.upgradeStrategy) {
             assert app.upgradeStrategy.maximumOverCapacity == description.upgradeStrategy.maximumOverCapacity
@@ -194,16 +199,16 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         app.backoffFactor == description.backoffFactor
         app.maxLaunchDelaySeconds == description.maxLaunchDelaySeconds
         app.readinessChecks == null && description.readinessChecks.empty
-        app.dependencies == description.dependencies
-        app.labels == description.labels
-        app.version == description.version
+        app.dependencies == null && description.dependencies.empty
+        app.labels == null && description.labels.isEmpty()
+        app.version == null
         app.residency == null && description.residency == null
         app.taskKillGracePeriodSeconds == description.taskKillGracePeriodSeconds
         app.secrets == description.secrets
         app.requirePorts == description.requirePorts
         app.acceptedResourceRoles == description.acceptedResourceRoles
         app.container.docker == null && description.docker == null
-        app.container.volumes.isEmpty() && description.dockerVolumes.isEmpty() && description.externalVolumes.isEmpty() && description.persistentVolumes.isEmpty()
+        app.container.volumes == null && description.dockerVolumes.isEmpty() && description.externalVolumes.isEmpty() && description.persistentVolumes.isEmpty()
         app.healthChecks == null && description.healthChecks.isEmpty()
         app.portDefinitions == null && description.serviceEndpoints.isEmpty()
         app.upgradeStrategy == null && description.upgradeStrategy == null
