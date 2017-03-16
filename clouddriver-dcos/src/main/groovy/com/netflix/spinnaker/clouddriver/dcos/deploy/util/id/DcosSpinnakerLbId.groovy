@@ -113,8 +113,6 @@ class DcosSpinnakerLbId {
             return Optional.empty()
         }
 
-        def dcosSpinnakerLbId = new DcosSpinnakerLbId(marathonPath)
-
-        Optional.of(dcosSpinnakerLbId)
+        Optional.of(new DcosSpinnakerLbId(marathonPath))
     }
 }

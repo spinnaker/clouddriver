@@ -178,7 +178,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
             loadBalancers.collect {
-              Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(it.id).get())
+              Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(it.id, accountName).get())
             }).each {
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
       // replication controllers. Furthermore, cache data that hasn't been processed needs to be updated in the ON_DEMAND
