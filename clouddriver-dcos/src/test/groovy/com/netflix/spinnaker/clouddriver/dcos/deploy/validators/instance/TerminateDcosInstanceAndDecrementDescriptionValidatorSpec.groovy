@@ -36,6 +36,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
             0 * errorsMock.rejectValue("hostId|taskIds", "${DESCRIPTION}.hostId|taskIds.invalid")
             1 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.empty")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.invalid")
+            0 * errorsMock.rejectValue("appId", "${DESCRIPTION}.appId.invalid")
             0 * errorsMock._
     }
 
@@ -53,6 +54,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
             0 * errorsMock.rejectValue("hostId|taskIds", "${DESCRIPTION}.hostId|taskIds.invalid")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.empty")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.invalid")
+            1 * errorsMock.rejectValue("appId", "${DESCRIPTION}.appId.invalid")
             0 * errorsMock._
     }
 
@@ -70,6 +72,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
             1 * errorsMock.rejectValue("hostId|taskIds", "${DESCRIPTION}.hostId|taskIds.invalid")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.empty")
             1 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.invalid")
+            0 * errorsMock.rejectValue("appId", "${DESCRIPTION}.appId.invalid")
             0 * errorsMock._
     }
 
@@ -87,6 +90,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
             0 * errorsMock.rejectValue("hostId|taskIds", "${DESCRIPTION}.hostId|taskIds.invalid")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.empty")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.invalid")
+            0 * errorsMock.rejectValue("appId", "${DESCRIPTION}.appId.invalid")
             0 * errorsMock._
     }
 
@@ -104,6 +108,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
             0 * errorsMock.rejectValue("hostId|taskIds", "${DESCRIPTION}.hostId|taskIds.invalid")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.empty")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.invalid")
+            0 * errorsMock.rejectValue("appId", "${DESCRIPTION}.appId.invalid")
             0 * errorsMock._
     }
 
@@ -121,6 +126,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
             0 * errorsMock.rejectValue("hostId|taskIds", "${DESCRIPTION}.hostId|taskIds.invalid")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.empty")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.invalid")
+            0 * errorsMock.rejectValue("appId", "${DESCRIPTION}.appId.invalid")
             0 * errorsMock._
     }
 }
