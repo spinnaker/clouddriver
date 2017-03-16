@@ -44,7 +44,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
     providerCache = Mock(ProviderCache)
     objectMapper = new ObjectMapper()
 
-    loadBalancerKey = Keys.getLoadBalancerKey(new DcosSpinnakerLbId(MARATHON_APP_ID))
+    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(MARATHON_APP_ID).get())
 
     clientProvider = Mock(DcosClientProvider) {
       getDcosClient(credentials) >> dcosClient
