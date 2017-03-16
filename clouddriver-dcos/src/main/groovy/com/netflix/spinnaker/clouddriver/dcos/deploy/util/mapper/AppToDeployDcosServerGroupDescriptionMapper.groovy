@@ -83,9 +83,9 @@ class AppToDeployDcosServerGroupDescriptionMapper {
             name = pm.name
             port = pm.containerPort
             protocol = pm.protocol
-            //labels = pm.labels
+            labels = pm.labels
             loadBalanced = pm.labels?.keySet()?.any { it.startsWith('VIP') } ?: false
-            exposeToHost = pm.hostPort != null
+            exposeToHost = networkType == 'USER' && pm.hostPort != null && pm.hostPort == 0
             it
           }
         })
@@ -101,11 +101,9 @@ class AppToDeployDcosServerGroupDescriptionMapper {
           name = pd.name
           port = pd.port
           protocol = pd.protocol
-          //labels = pd.labels
+          labels = pd.labels
           loadBalanced = pd.labels?.keySet()?.any { it.startsWith('VIP') } ?: false
-
-          // TODO exposeToHost not used by DeployDcosServerGroupDescriptionToAppMapper
-          // exposeToHost -> require ports?
+          exposeToHost = false
           it
         }
       })
