@@ -88,7 +88,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
         return null
       }
     }?.flatten()?.findResults({
-      def appId = DcosSpinnakerLbId.from(it.replace('_', '/'))
+      def appId = DcosSpinnakerLbId.parse(it.replace('_', '/'))
       DcosProviderUtils.isLoadBalancerIdValid(appId, account) ? appId : null
     })?.toSet() ?: []
 

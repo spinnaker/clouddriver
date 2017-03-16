@@ -5,102 +5,72 @@ import spock.lang.Specification
 class DcosSpinnakerLbIdSpec extends Specification {
     static final def ACCOUNT = "spinnaker"
     static final def LOAD_BALANCER = "loadbalancer"
-    
-    void "constructor should throw an IllegalArgumentException if account is null"() {
-        setup:
-        def account = null
-        def loadBalancer = LOAD_BALANCER
+    static final def INVALID_ACCOUNT = "invalid-account"
+    static final def INVALID_MARATHON_PART = "-iNv.aLiD-"
 
-        when:
-        new DcosSpinnakerLbId(account, loadBalancer)
+    void "static factory method should return an empty optional if the marathon app id is invalid"() {
+        expect:
+        def dcosPath = DcosSpinnakerLbId.parse(appId, account)
+        dcosPath == Optional.empty()
 
-        then:
-        thrown IllegalArgumentException
+        where:
+        appId | account
+        "/${ACCOUNT}" | ACCOUNT
+        "${ACCOUNT}" | ACCOUNT
+        "${INVALID_ACCOUNT}/${LOAD_BALANCER}" | ACCOUNT
+        "${INVALID_ACCOUNT}/${LOAD_BALANCER}" | ACCOUNT
+        "//${LOAD_BALANCER}" | ACCOUNT
+        "/       /${LOAD_BALANCER}" | ACCOUNT
+        "/${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT
+        "${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT
+        "/${ACCOUNT}/${INVALID_MARATHON_PART}" | ACCOUNT
+        "${ACCOUNT}/${INVALID_MARATHON_PART}" | ACCOUNT
+        "/${ACCOUNT}/" | ACCOUNT
+        "${ACCOUNT}/" | ACCOUNT
+        "/${ACCOUNT}/      " | ACCOUNT
+        "${ACCOUNT}/      " | ACCOUNT
     }
 
-    void "constructor should throw an IllegalArgumentException if account is an empty string"() {
-        setup:
-            def account = ""
-            def loadBalancer = LOAD_BALANCER
+    void "static factory method should return an empty optional if either account/loadBalancerName are invalid"() {
+        expect:
+        def dcosPath = DcosSpinnakerLbId.from(account, loadBalancerName)
+        dcosPath == Optional.empty()
 
-        when:
-            new DcosSpinnakerLbId(account, loadBalancer)
-
-        then:
-            thrown IllegalArgumentException
-    }
-
-    void "constructor should throw an IllegalArgumentException if account is an blank string"() {
-        setup:
-        def account = "     "
-        def loadBalancer = LOAD_BALANCER
-
-        when:
-        new DcosSpinnakerLbId(account, loadBalancer)
-
-        then:
-        thrown IllegalArgumentException
-    }
-
-    void "constructor should throw an IllegalArgumentException if loadBalancer is null"() {
-        setup:
-        def account = ACCOUNT
-        def loadBalancer = null
-
-        when:
-        new DcosSpinnakerLbId(account, loadBalancer)
-
-        then:
-        thrown IllegalArgumentException
-    }
-
-    void "constructor should throw an IllegalArgumentException if loadBalancer is an empty string"() {
-        setup:
-            def account = ACCOUNT
-            def loadBalancer = ""
-
-        when:
-            new DcosSpinnakerLbId(account, loadBalancer)
-
-        then:
-            thrown IllegalArgumentException
-    }
-
-    void "constructor should throw an IllegalArgumentException if loadBalancer is an blank string"() {
-        setup:
-        def account = ACCOUNT
-        def loadBalancer = "         "
-
-        when:
-        new DcosSpinnakerLbId(account, loadBalancer)
-
-        then:
-        thrown IllegalArgumentException
+        where:
+        account | loadBalancerName
+        null | LOAD_BALANCER
+        "" | LOAD_BALANCER
+        "         " | LOAD_BALANCER
+        INVALID_MARATHON_PART | LOAD_BALANCER
+        ACCOUNT | null
+        ACCOUNT | ""
+        ACCOUNT | "         "
+        ACCOUNT | INVALID_MARATHON_PART
     }
 
     void "the account, and service should be correctly parsed when given a valid marathon path"() {
         expect:
-            def dcosPath = new DcosSpinnakerLbId(ACCOUNT, LOAD_BALANCER)
+            def dcosPath = DcosSpinnakerLbId.parse(path, ACCOUNT).get()
             dcosPath.account == expectedAccount
-            dcosPath.loadBalancerHaproxyGroup == expectedUnsafeGroup
-            dcosPath.safeLoadBalancerGroup == expectedSafeGroup
             dcosPath.loadBalancerName == expectedLoadBalancerName
+            dcosPath.loadBalancerHaproxyGroup == expectedHaproxyGroup
 
         where:
-            path || expectedAccount || expectedLoadBalancerName || expectedUnsafeGroup || expectedSafeGroup
-            "${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}/${LOAD_BALANCER}" || "${ACCOUNT}_${LOAD_BALANCER}"
+            path || expectedAccount || expectedLoadBalancerName || expectedHaproxyGroup
+            "${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}"
+            "/${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}"
     }
 
-    void "the account, and service should be correctly parsed when given a valid marathon absolute path"() {
+    void "the account, and service should be correctly parsed when given a valid account and loadBalancerName"() {
         expect:
-            def dcosPath = new DcosSpinnakerLbId(ACCOUNT, LOAD_BALANCER)
+            def dcosPath = DcosSpinnakerLbId.from(ACCOUNT, LOAD_BALANCER).get()
             dcosPath.account == expectedAccount
-            dcosPath.loadBalancerHaproxyGroup == expectedUnsafeGroup
-            dcosPath.safeLoadBalancerGroup == expectedSafeGroup
             dcosPath.loadBalancerName == expectedLoadBalancerName
+            dcosPath.loadBalancerHaproxyGroup == expectedHaproxyGroup
 
         where:
-        path || expectedAccount || expectedLoadBalancerName || expectedUnsafeGroup || expectedSafeGroup
-        "/${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}/${LOAD_BALANCER}" || "${ACCOUNT}_${LOAD_BALANCER}"
+        expectedAccount || expectedLoadBalancerName || expectedHaproxyGroup
+        ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}"
+        ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}"
     }
 }
