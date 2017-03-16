@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.util.id
 
-import com.google.common.base.Strings
-
 import static com.google.common.base.Preconditions.checkArgument
 import static com.google.common.base.Strings.nullToEmpty
 import static java.util.stream.Collectors.joining
@@ -16,9 +14,12 @@ class MarathonPathId {
     private final LinkedList<String> parts
     private final boolean absolute
 
-    public static boolean validatePart(String part) {
-        checkArgument(!nullToEmpty(part?.trim()).empty, "Marathon path parts cannot be empty or null")
-        checkArgument(part.matches(PART_PATTERN), "Marathon path part [${part}] does not follow the correct naming pattern.")
+    public static boolean isPartValid(String part) {
+        if (nullToEmpty(part?.trim()).empty || !part.matches(PART_PATTERN)) {
+            return false
+        }
+
+        true
     }
 
     public static MarathonPathId from(String... parts) {
@@ -32,6 +33,7 @@ class MarathonPathId {
 
         boolean absolute = appId.startsWith(PART_SEPARATOR)
         final String[] parts = appId.split(PART_SEPARATOR)
+
         if (absolute) {
             return new MarathonPathId(true, Arrays.copyOfRange(parts, 1, parts.length))
         } else {
@@ -43,7 +45,9 @@ class MarathonPathId {
         this.parts = new LinkedList<String>(Arrays.asList(parts))
 
         this.parts.forEach({part ->
-            validatePart(part)
+            if (!isPartValid(part)) {
+                throw new IllegalArgumentException("Part [${part}] is an invalid part for a marathon path.")
+            }
         })
 
         this.absolute = absolute

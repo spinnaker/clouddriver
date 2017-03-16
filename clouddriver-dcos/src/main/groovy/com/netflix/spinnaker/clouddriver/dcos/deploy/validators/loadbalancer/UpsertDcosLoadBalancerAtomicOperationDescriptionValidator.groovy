@@ -27,7 +27,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidator extends Abstract
     // Will need to apply to group as well.
     if (!description.name || description.name.empty) {
       errors.rejectValue("name", "${descriptionName}.name.empty");
-    } else if (MarathonPathId.validatePart(description.name)) {
+    } else if (!MarathonPathId.isPartValid(description.name)) {
       errors.rejectValue "name", "${descriptionName}.name.invalid"
     }
 

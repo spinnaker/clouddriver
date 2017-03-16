@@ -54,6 +54,30 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
     0 * errorsMock._
   }
 
+  void "reports an error when the load balance name is invalid"() {
+    setup:
+    def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
+      name = "-iNv.aLid-"
+      credentials = testCredentials
+      cpus = 1
+      mem = 256
+      instances = 1
+      bindHttpHttps = true
+      acceptedResourceRoles = ["resource"]
+      portRange = new PortRange(protocol: "tcp", minPort: 10000, maxPort: 10100)
+      it
+    }
+
+    def errorsMock = Mock(Errors)
+
+    when:
+    validator.validate([], description, errorsMock)
+
+    then:
+    1 * errorsMock.rejectValue("name", "${DESCRIPTION}.name.invalid")
+    0 * errorsMock._
+  }
+
   void "reports an error when no credentials are present"() {
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {

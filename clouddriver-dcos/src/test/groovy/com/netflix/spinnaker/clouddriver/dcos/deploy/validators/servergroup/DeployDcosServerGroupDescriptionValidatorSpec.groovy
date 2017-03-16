@@ -33,9 +33,11 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
       validator.validate([], description, errorsMock)
     then:
       1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
+      0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
       1 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.empty")
+      0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.invalid")
       1 * errorsMock.rejectValue("desiredCapacity", "${DESCRIPTION}.desiredCapacity.invalid")
       1 * errorsMock.rejectValue("cpus", "${DESCRIPTION}.cpus.invalid")
       1 * errorsMock.rejectValue("mem", "${DESCRIPTION}.mem.invalid")
@@ -46,16 +48,18 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an invalid DeployDcosServerGroupDescription"() {
     setup:
-      def description = new DeployDcosServerGroupDescription(region: REGION, credentials: new DcosCredentials(null, null, null, null, null),
-              application: "test", desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
+      def description = new DeployDcosServerGroupDescription(region: '-iNv.aLiD-', credentials: new DcosCredentials(null, null, null, null, null),
+              application: '-iNv.aLiD-', desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
     then:
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
+      1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
       0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.empty")
+      1 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.invalid")
       0 * errorsMock.rejectValue("desiredCapacity", "${DESCRIPTION}.desiredCapacity.invalid")
       0 * errorsMock.rejectValue("cpus", "${DESCRIPTION}.cpus.invalid")
       0 * errorsMock.rejectValue("mem", "${DESCRIPTION}.mem.invalid")
@@ -73,9 +77,11 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
       validator.validate([], description, errorsMock)
     then:
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
+      0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
       0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.empty")
+      0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.invalid")
       0 * errorsMock.rejectValue("desiredCapacity", "${DESCRIPTION}.desiredCapacity.invalid")
       0 * errorsMock.rejectValue("cpus", "${DESCRIPTION}.cpus.invalid")
       0 * errorsMock.rejectValue("mem", "${DESCRIPTION}.mem.invalid")

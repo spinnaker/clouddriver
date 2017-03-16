@@ -33,7 +33,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "successfully validates when no fields are missing or invalid"() {
     setup:
     def description = new DeleteDcosLoadBalancerAtomicOperationDescription().with {
-      loadBalancerName = "lb"
+      loadBalancerName = "lbname"
       credentials = testCredentials
       it
     }
@@ -50,7 +50,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   void "reports an error when no credentials are present"() {
     setup:
     def description = new DeleteDcosLoadBalancerAtomicOperationDescription().with {
-      loadBalancerName = "lb"
+      loadBalancerName = "-iNv.aLid-"
       it
     }
 
@@ -61,6 +61,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
 
     then:
     1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
+    1 * errorsMock.rejectValue("loadBalancerName", "${DESCRIPTION}.loadBalancerName.invalid")
     0 * errorsMock._
   }
 
