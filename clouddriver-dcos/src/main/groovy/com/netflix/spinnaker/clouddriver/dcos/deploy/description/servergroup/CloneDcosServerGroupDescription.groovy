@@ -7,8 +7,6 @@ class CloneDcosServerGroupDescription extends DeployDcosServerGroupDescription{
 }
 
 @Canonical
-class DcosCloneServerGroupSource {
-  String serverGroupName
-  String region
+class DcosCloneServerGroupSource extends AbstractDcosServerGroupDescription {
   String account
 }

@@ -27,7 +27,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidator extends Abstract
     // Will need to apply to group as well.
     if (!description.loadBalancerName || description.loadBalancerName.empty) {
       errors.rejectValue("loadBalancerName", "${descriptionName}.loadBalancerName.empty");
-    } else if (MarathonPathId.validatePart(description.loadBalancerName)) {
+    } else if (!MarathonPathId.isPartValid(description.loadBalancerName)) {
       errors.rejectValue "loadBalancerName", "${descriptionName}.loadBalancerName.invalid"
     }
   }

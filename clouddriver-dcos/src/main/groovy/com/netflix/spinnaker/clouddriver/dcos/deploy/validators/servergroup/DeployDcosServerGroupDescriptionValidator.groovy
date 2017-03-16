@@ -26,21 +26,21 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
 
     if (!description.region || description.region.empty) {
       errors.rejectValue "region", "${descriptionName}.region.empty"
-    } else if (MarathonPathId.validatePart(description.region.replaceAll(DcosSpinnakerAppId.SAFE_REGION_SEPARATOR, MarathonPathId.PART_SEPARATOR))) {
+    } else if (!isRegionValid(description.region)) {
       errors.rejectValue "region", "${descriptionName}.region.invalid"
     }
 
     if (!description.application) {
       errors.rejectValue "application", "${descriptionName}.application.empty"
-    } else if (MarathonPathId.validatePart(description.application)) {
+    } else if (!MarathonPathId.isPartValid(description.application)) {
       errors.rejectValue "application", "${descriptionName}.application.invalid"
     }
 
-    if (description.stack && MarathonPathId.validatePart(description.stack)) {
+    if (description.stack && !MarathonPathId.isPartValid(description.stack)) {
       errors.rejectValue "stack", "${descriptionName}.stack.invalid"
     }
 
-    if (description.freeFormDetails && MarathonPathId.validatePart(description.freeFormDetails)) {
+    if (description.freeFormDetails && !MarathonPathId.isPartValid(description.freeFormDetails)) {
       errors.rejectValue "freeFormDetails", "${descriptionName}.freeFormDetails.invalid"
     }
 
@@ -63,5 +63,18 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
     if (description.gpus && description.gpus < 0) {
       errors.rejectValue "gpus", "${descriptionName}.gpus.invalid"
     }
+  }
+
+  private static boolean isRegionValid(final String region) {
+    def regionParts = region.replaceAll(DcosSpinnakerAppId.SAFE_REGION_SEPARATOR, MarathonPathId.PART_SEPARATOR)
+            .split(MarathonPathId.PART_SEPARATOR).toList()
+
+    for (part in regionParts) {
+      if (!MarathonPathId.isPartValid(part)) {
+        return false
+      }
+    }
+
+    true
   }
 }
