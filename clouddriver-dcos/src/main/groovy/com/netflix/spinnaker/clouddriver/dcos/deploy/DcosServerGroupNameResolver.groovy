@@ -40,11 +40,11 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
     }
 
     def filteredApps = apps.findAll {
-      new DcosSpinnakerAppId(it.id).serverGroupName.cluster == Names.parseName(clusterName).cluster
+      DcosSpinnakerAppId.parse(it.id).get().serverGroupName.cluster == Names.parseName(clusterName).cluster
     }
 
     return filteredApps.collect { App app ->
-      final def names = new DcosSpinnakerAppId(app.id).serverGroupName
+      final def names = DcosSpinnakerAppId.parse(app.id).get().serverGroupName
       return new AbstractServerGroupNameResolver.TakenSlot(
         serverGroupName: names.cluster,
         sequence       : names.sequence,

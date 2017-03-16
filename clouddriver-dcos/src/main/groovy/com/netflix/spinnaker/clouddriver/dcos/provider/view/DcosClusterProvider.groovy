@@ -91,7 +91,7 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster> {
 
   @Override
   ServerGroup getServerGroup(final String account, final String region, final String name) {
-    String serverGroupKey = Keys.getServerGroupKey(new DcosSpinnakerAppId(account, region, name))
+    String serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.from(account, region, name).get())
     CacheData serverGroupData = cacheView.get(Keys.Namespace.SERVER_GROUPS.ns, serverGroupKey)
     if (!serverGroupData) {
       return null

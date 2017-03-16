@@ -13,8 +13,8 @@ import static java.util.stream.Collectors.joining
 class AppToDeployDcosServerGroupDescriptionMapper {
   static DeployDcosServerGroupDescription map(final App app, final String account) {
 
-    def spinId = DcosSpinnakerAppId.from(app.id, account).get()
-    def names = spinId.getServerGroupName()
+    def spinId = DcosSpinnakerAppId.parse(app.id, account).get()
+    def names = spinId.serverGroupName
 
     def desc = new DeployDcosServerGroupDescription()
     desc.application = names.app

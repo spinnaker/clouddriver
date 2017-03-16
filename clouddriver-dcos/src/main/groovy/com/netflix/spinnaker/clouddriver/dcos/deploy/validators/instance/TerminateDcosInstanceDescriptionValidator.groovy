@@ -36,7 +36,7 @@ class TerminateDcosInstanceDescriptionValidator extends AbstractDcosDescriptionV
         errors.rejectValue "taskIds", "${descriptionName}.taskIds.invalid"
       }
 
-      if (DcosSpinnakerAppId.from(description.appId, description.credentials.name).isPresent()) {
+      if (!DcosSpinnakerAppId.parse(description.appId, description.credentials.name).isPresent()) {
         errors.rejectValue "appId", "${descriptionName}.appId.invalid"
       }
     } else {

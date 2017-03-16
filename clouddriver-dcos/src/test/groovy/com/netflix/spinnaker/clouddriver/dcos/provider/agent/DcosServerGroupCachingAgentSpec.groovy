@@ -64,9 +64,9 @@ class DcosServerGroupCachingAgentSpec extends Specification{
     }
 
     appKey = Keys.getApplicationKey(APP)
-    serverGroupKey = Keys.getServerGroupKey(new DcosSpinnakerAppId(MARATHON_APP, ACCOUNT))
+    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.parse(MARATHON_APP, ACCOUNT).get())
     clusterKey = Keys.getClusterKey(ACCOUNT, APP, CLUSTER)
-    instanceKey = Keys.getInstanceKey(new DcosSpinnakerAppId(MARATHON_APP, ACCOUNT), TASK)
+    instanceKey = Keys.getInstanceKey(DcosSpinnakerAppId.parse(MARATHON_APP, ACCOUNT).get(), TASK)
     loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(LOAD_BALANCER).get())
 
     subject = new DcosServerGroupCachingAgent(ACCOUNT, credentials, clientProvider, objectMapper, registryMock)
