@@ -122,6 +122,10 @@ class Keys {
     "${PROVIDER}:${Namespace.INSTANCES}:${account}:${safeRegion}:${taskName}"
   }
 
+  static String getLoadBalancerKey(String account, String loadBalancerName) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${loadBalancerName}"
+  }
+
   static String getLoadBalancerKey(DcosSpinnakerLbId id) {
     "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${id.account}:${id.loadBalancerName}"
   }
