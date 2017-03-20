@@ -3,6 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.model.DCOSAuthCredentials
 
 class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
@@ -18,28 +19,26 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
   final String registry
   final String dcosUrl
 
-  // TODO Ignoring this so credentials aren't exposed. Better way to handle credentials so we don't need to store
-  // them here in the first place?
   @JsonIgnore
-  final DCOSAuthCredentials dcosAuthCredentials
+  final Config dcosClientConfig
 
   DcosCredentials(String name,
                   String environment,
                   String accountType,
                   String dcosUrl,
-                  DCOSAuthCredentials dcosAuthCredentials) {
+                  Config dcosClientConfig) {
     this.name = name
     this.environment = environment
     this.accountType = accountType
     this.registry = registry
     this.dcosUrl = dcosUrl
-    this.dcosAuthCredentials = dcosAuthCredentials
+    this.dcosClientConfig = dcosClientConfig
   }
 
   @JsonIgnore
   @Override
   DCOSAuthCredentials getCredentials() {
-    dcosAuthCredentials
+   dcosClientConfig.getCredentials()
   }
 
   @Override

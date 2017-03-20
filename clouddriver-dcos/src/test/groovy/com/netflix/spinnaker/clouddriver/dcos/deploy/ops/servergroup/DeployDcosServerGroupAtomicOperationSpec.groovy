@@ -9,6 +9,7 @@ import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.Dep
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
+import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.DCOS
 import mesosphere.dcos.client.model.DCOSAuthCredentials
 import mesosphere.marathon.client.model.v2.*
@@ -22,7 +23,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends Specification {
   DeployDcosServerGroupDescriptionToAppMapper mockDcosDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
   DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
+    'test', 'test', 'test', 'https://test.url.com', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
   )
 
   DcosClientProvider mockDcosClientProvider = Stub(DcosClientProvider) {

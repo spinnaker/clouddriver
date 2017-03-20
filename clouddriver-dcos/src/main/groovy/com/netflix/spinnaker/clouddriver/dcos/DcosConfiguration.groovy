@@ -8,6 +8,7 @@ import com.netflix.spinnaker.clouddriver.dcos.health.DcosHealthIndicator
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
+import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -18,6 +19,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
+
+import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.*
 
 @Configuration
 @ConditionalOnProperty('dcos.enabled')
@@ -36,14 +39,10 @@ class DcosConfiguration {
   List<DcosCredentials> dcosCredentials(DcosConfigurationProperties dcosConfigurationProperties,
                                         AccountCredentialsRepository repository) {
     List<DcosCredentials> accounts = new ArrayList<>()
-    for (DcosConfigurationProperties.Account account in dcosConfigurationProperties.accounts) {
-      Optional<DCOSAuthCredentials> dcosAuthCredentials = buildDCOSAuthCredentials(account.name, account.uid, account.password, account.serviceKey)
-
-      if (dcosAuthCredentials.present) {
-        DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, dcosAuthCredentials.get())
-        accounts.add(credentials)
-        repository.save(account.name, credentials)
-      }
+    for (Account account in dcosConfigurationProperties.accounts) {
+      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, buildConfig(account))
+      accounts.add(credentials)
+      repository.save(account.name, credentials)
     }
     return accounts
   }
@@ -66,8 +65,8 @@ class DcosConfiguration {
   @Bean
   OperationPoller dcosOperationPoller(DcosConfigurationProperties properties) {
     new OperationPoller(
-            properties.asyncOperationTimeoutSecondsDefault,
-            properties.asyncOperationMaxPollingIntervalSeconds
+      properties.asyncOperationTimeoutSecondsDefault,
+      properties.asyncOperationMaxPollingIntervalSeconds
     )
   }
 
@@ -76,20 +75,24 @@ class DcosConfiguration {
     new PollingDcosDeploymentMonitor(operationPoller)
   }
 
-  private static Optional<DCOSAuthCredentials> buildDCOSAuthCredentials(String accountName, String uid, String password, String serviceKey) {
-    Optional<DCOSAuthCredentials> dcosAuthCredentials = Optional.empty()
+  private static Config buildConfig(final Account account) {
+    Config.builder().withCredentials(buildDCOSAuthCredentials(account))
+      .withInsecureSkipTlsVerify(account.insecureSkipTlsVerify)
+      .withCaCertData(account.caCertData)
+      .withCaCertFile(account.caCertFile).build()
+  }
 
-    if (uid && serviceKey && password) {
-      LOGGER.warn("Ignoring account [${accountName}]: A password and serviceKey was given for the account making it invalid.")
-    } else if (uid && password) {
-      dcosAuthCredentials = Optional.of(DCOSAuthCredentials.forUserAccount(uid, password))
-    } else if (uid && serviceKey) {
-      dcosAuthCredentials = Optional.of(DCOSAuthCredentials.forServiceAccount(uid, serviceKey))
-    } else {
-      LOGGER.warn("Ignoring account [${accountName}]: Neither a uid/password or a uid/serviceKey combination was provided.")
+  private static DCOSAuthCredentials buildDCOSAuthCredentials(Account account) {
+    DCOSAuthCredentials dcosAuthCredentials = null
+
+    // If they've specified both for whatever reason, might as well go with one of them.
+    if (account.uid && account.password) {
+      dcosAuthCredentials = DCOSAuthCredentials.forUserAccount(account.uid, account.password)
+    } else if (account.uid && account.serviceKey) {
+      dcosAuthCredentials = DCOSAuthCredentials.forServiceAccount(account.uid, account.serviceKey)
     }
 
-    return dcosAuthCredentials
+    dcosAuthCredentials
   }
 }
 
