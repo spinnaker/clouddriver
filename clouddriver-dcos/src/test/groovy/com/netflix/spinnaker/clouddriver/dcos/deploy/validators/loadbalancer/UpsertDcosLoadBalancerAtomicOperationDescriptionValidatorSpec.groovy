@@ -3,6 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.loadbalancer
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
+import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.springframework.validation.Errors
 import spock.lang.Shared
@@ -21,7 +22,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
 
   @Shared
   DcosCredentials testCredentials = new DcosCredentials(
-          ACCOUNT, 'test', 'test', 'url', DCOSAuthCredentials.forUserAccount('user', 'pw')
+          ACCOUNT, 'test', 'test', 'url', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
   )
 
   def setupSpec() {

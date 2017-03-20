@@ -18,7 +18,7 @@ class DcosClientProvider {
 
   DCOS getDcosClient(DcosCredentials account) {
     String key = account.name
-    return dcosClients.computeIfAbsent(key, { k -> DCOSClient.getInstance(account.dcosUrl, account.dcosAuthCredentials) })
+    return dcosClients.computeIfAbsent(key, { k -> DCOSClient.getInstance(account.dcosUrl, account.dcosClientConfig) })
   }
 
   DCOS getDcosClient(String accountName) {

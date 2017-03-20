@@ -20,6 +20,9 @@ class DcosConfigurationProperties {
     String uid
     String password
     String serviceKey
+    String caCertFile
+    String caCertData
+    boolean insecureSkipTlsVerify
   }
 
   static class LoadBalancerConfig {
