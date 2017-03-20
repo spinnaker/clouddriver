@@ -131,7 +131,7 @@ abstract class AbstractEurekaSupport {
           if(discoveryStatus == DiscoveryStatus.Disable) {
             resp = eureka.updateInstanceStatus(applicationName, instanceId, discoveryStatus.value)
           } else {
-            resp = eureka.resetInstanceStatus(applicationName, instanceId, DiscoveryStatus.Disable.value)
+            resp = eureka.resetInstanceStatus(applicationName, instanceId, discoveryStatus.value)
           }
 
           if (resp.status != 200) {
