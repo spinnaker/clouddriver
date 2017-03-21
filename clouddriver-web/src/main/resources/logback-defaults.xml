@@ -25,4 +25,7 @@
   <root level="INFO">
     <appender-ref ref="STDOUT" />
   </root>
+
+  <logger name="com.amazonaws.latency" level="WARN" />
+  <logger name="com.netflix.spinnaker.fiat.shared" level="WARN" />
 </configuration>
