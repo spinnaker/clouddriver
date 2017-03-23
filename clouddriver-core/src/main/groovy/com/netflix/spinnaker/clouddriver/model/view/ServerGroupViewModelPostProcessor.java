@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Google, Inc.
+ * Copyright 2017 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.clouddriver.model.view;
 
-package com.netflix.spinnaker.clouddriver.google.deploy.description
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 
-class DeleteGoogleAutoscalingPolicyDescription extends AbstractGoogleCredentialsDescription {
-  String serverGroupName
-  String accountName
-  String region
-  boolean deleteAutoHealingPolicy
+/**
+ * (Optionally) used in clouddriver-web by the ServerGroupController to mutate server group API data.
+ */
+public interface ServerGroupViewModelPostProcessor<T extends ServerGroup> {
+
+  boolean supports(ServerGroup serverGroup);
+
+  void process(T serverGroup);
 }
