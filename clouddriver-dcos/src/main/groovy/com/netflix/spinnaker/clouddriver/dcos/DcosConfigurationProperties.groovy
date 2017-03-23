@@ -25,6 +25,7 @@ class DcosConfigurationProperties {
     String caCertFile
     String caCertData
     List<LinkedDockerRegistryConfiguration> dockerRegistries
+    List<String> requiredGroupMembership
     boolean insecureSkipTlsVerify
   }
 

@@ -17,8 +17,8 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
   final String name
   final String environment
   final String accountType
-  final List<String> requiredGroupMembership = Collections.emptyList()
   final List<LinkedDockerRegistryConfiguration> dockerRegistries
+  final List<String> requiredGroupMembership
   final String dcosUrl
 
   @JsonIgnore
@@ -29,12 +29,14 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
                   String accountType,
                   String dcosUrl,
                   List<LinkedDockerRegistryConfiguration> dockerRegistries,
+                  List<String> requiredGroupMembership,
                   Config dcosClientConfig) {
     this.name = name
     this.environment = environment
     this.accountType = accountType
     this.dcosUrl = dcosUrl
     this.dockerRegistries = dockerRegistries != null ? dockerRegistries : new ArrayList<>()
+    this.requiredGroupMembership = requiredGroupMembership;
     this.dcosClientConfig = dcosClientConfig
   }
 
