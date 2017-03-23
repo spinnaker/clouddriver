@@ -40,7 +40,7 @@ class DcosConfiguration {
                                         AccountCredentialsRepository repository) {
     List<DcosCredentials> accounts = new ArrayList<>()
     for (Account account in dcosConfigurationProperties.accounts) {
-      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, account.dockerRegistries, buildConfig(account))
+      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, account.dockerRegistries, account.requiredGroupMembership, buildConfig(account))
       accounts.add(credentials)
       repository.save(account.name, credentials)
     }
