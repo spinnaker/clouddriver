@@ -89,6 +89,10 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
         description.labels.put("interestingHealthProviderNames", description.interestingHealthProviderNames.join(",") )
       }
 
+      if (description.addSecureSignature == false) {
+        description.labels.put("addSecureSignature", description.addSecureSignature)
+      }
+
       SubmitJobRequest submitJobRequest = new SubmitJobRequest()
         .withJobName(nextServerGroupName)
         .withApplication(description.application)
