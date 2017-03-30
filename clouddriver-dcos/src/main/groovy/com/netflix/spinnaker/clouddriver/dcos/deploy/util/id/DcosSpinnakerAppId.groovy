@@ -1,9 +1,8 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.util.id
 
-import org.slf4j.LoggerFactory
-
-import static com.google.common.base.Preconditions.checkArgument
 import static com.google.common.base.Strings.nullToEmpty
+
+import org.slf4j.LoggerFactory
 
 import com.netflix.frigga.Names
 
@@ -76,69 +75,69 @@ class DcosSpinnakerAppId {
         return toString().hashCode()
     }
 
-    public static Optional<DcosSpinnakerAppId> parse(String marathonAppId) {
+    public static Optional<DcosSpinnakerAppId> parse(String marathonAppId, boolean log) {
         def marathonPath
 
         try {
             marathonPath = MarathonPathId.parse(nullToEmpty(marathonAppId)).absolute()
         } catch (IllegalArgumentException e) {
-            LOGGER.error(e.message)
+            logError(log, e.message)
             return Optional.empty()
         }
 
         if (marathonPath.size() < 3) {
-            LOGGER.error("A part of the DCOS Spinnaker App ID was missing.")
+            logError(log, "A part of the DCOS Spinnaker App ID was missing [${marathonPath.toString()}].")
             return Optional.empty()
         }
 
         def service = Names.parseName(marathonPath.last().get())
 
         if (nullToEmpty(service.app).trim().empty) {
-            LOGGER.error("The server group app should not be null, empty, or blank.")
+            logError(log, "The server group app should not be null, empty, or blank.")
             return Optional.empty()
         }
         if (service.sequence < 0) {
-            LOGGER.error("The server group sequence should not be negative or null.")
+            logError(log, "The server group sequence should not be negative or null.")
             return Optional.empty()
         }
 
         Optional.of(new DcosSpinnakerAppId(marathonPath))
     }
 
-    public static Optional<DcosSpinnakerAppId> parse(String marathonAppId, final String account) {
-        def dcosSpinnakerAppId = parse(marathonAppId)
+    public static Optional<DcosSpinnakerAppId> parse(String marathonAppId, final String account, boolean log) {
+        def dcosSpinnakerAppId = parse(marathonAppId, log)
 
         if (!dcosSpinnakerAppId.isPresent()) {
             return Optional.empty()
         }
 
         if (dcosSpinnakerAppId.get().account != account) {
-            LOGGER.error("The account given does not match the account within the app id.")
+            logError(log, "The account [${account}] given does not match the account within the app id [${dcosSpinnakerAppId.get().account}].")
             return Optional.empty()
         }
 
         dcosSpinnakerAppId
     }
 
-    public static Optional<DcosSpinnakerAppId> from(final String account, final String region, final String serverGroupName) {
+    public static Optional<DcosSpinnakerAppId> from(final String account, final String region, final String serverGroupName, boolean log) {
         if (nullToEmpty(account).trim().empty) {
-            LOGGER.error("The account should not be null, empty, or blank.")
+            logError(log, "The account should not be null, empty, or blank.")
             return Optional.empty()
         }
         if (nullToEmpty(region).trim().empty) {
-            LOGGER.error("The region should not be null, empty, or blank.")
+            logError(log, "The region should not be null, empty, or blank.")
             return Optional.empty()
         }
         if (nullToEmpty(serverGroupName).trim().empty) {
-            LOGGER.error("The serverGroupName should not be null, empty, or blank.")
+            logError(log, "The serverGroupName should not be null, empty, or blank.")
             return Optional.empty()
         }
         if (account.contains(MarathonPathId.PART_SEPARATOR)) {
-            LOGGER.error("The account should not contain any '/' characters.")
+            logError(log, "The account [${account}] should not contain any '/' characters.")
             return Optional.empty()
         }
         if (serverGroupName.contains(MarathonPathId.PART_SEPARATOR)) {
-            LOGGER.error("The serverGroupName should not contain any '/' characters.")
+            logError(log, "The serverGroupName [${serverGroupName}] should not contain any '/' characters.")
             return Optional.empty()
         }
 
@@ -147,21 +146,27 @@ class DcosSpinnakerAppId {
         try {
             marathonPath = MarathonPathId.parse("/${account}/${region.replaceAll(SAFE_REGION_SEPARATOR, MarathonPathId.PART_SEPARATOR)}/${serverGroupName}")
         } catch (IllegalArgumentException e) {
-            LOGGER.error(e.message)
+            logError(log, e.message)
             return Optional.empty()
         }
 
         def service = Names.parseName(serverGroupName)
 
         if (nullToEmpty(service.app).trim().empty) {
-            LOGGER.error("The server group app should not be null, empty, or blank.")
+            logError(log, "The server group app should not be null, empty, or blank.")
             return Optional.empty()
         }
         if (service.sequence < 0) {
-            LOGGER.error("The server group sequence should not be negative or null.")
+            logError(log, "The server group sequence should not be negative or null.")
             return Optional.empty()
         }
 
         Optional.of(new DcosSpinnakerAppId(marathonPath))
+    }
+
+    static void logError(boolean log, String message) {
+        if (log) {
+            LOGGER.error(message)
+        }
     }
 }

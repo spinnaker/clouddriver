@@ -48,7 +48,7 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
 
     def resolvedServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.freeFormDetails, false)
 
-    def dcosPathId = DcosSpinnakerAppId.from(description.credentials.name, description.region, resolvedServerGroupName).get()
+    def dcosPathId = DcosSpinnakerAppId.from(description.credentials.name, description.region, resolvedServerGroupName, true).get()
 
     task.updateStatus BASE_PHASE, "Spinnaker ID chosen to be ${resolvedServerGroupName}."
     task.updateStatus BASE_PHASE, "Marathon ID chosen to be $dcosPathId."

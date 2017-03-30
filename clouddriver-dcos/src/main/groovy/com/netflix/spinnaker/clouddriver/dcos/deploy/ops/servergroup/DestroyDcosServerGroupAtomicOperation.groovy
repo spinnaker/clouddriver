@@ -31,7 +31,7 @@ class DestroyDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Destroying marathon application: ${description.serverGroupName}..."
 
     def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
-    def appId = DcosSpinnakerAppId.from(description.credentials.name, description.region, description.serverGroupName).get()
+    def appId = DcosSpinnakerAppId.from(description.credentials.name, description.region, description.serverGroupName, true).get()
 
     Result deleteResult = dcosClient.deleteApp(appId.toString())
 

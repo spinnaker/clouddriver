@@ -7,10 +7,11 @@ class DcosSpinnakerLbIdSpec extends Specification {
     static final def LOAD_BALANCER = "loadbalancer"
     static final def INVALID_ACCOUNT = "invalid-account"
     static final def INVALID_MARATHON_PART = "-iNv.aLiD-"
+    static final IS_LOGGING_ENABLED = true
 
     void "static factory method should return an empty optional if the marathon app id is invalid"() {
         expect:
-        def dcosPath = DcosSpinnakerLbId.parse(appId, account)
+        def dcosPath = DcosSpinnakerLbId.parse(appId, account, IS_LOGGING_ENABLED)
         dcosPath == Optional.empty()
 
         where:
@@ -33,7 +34,7 @@ class DcosSpinnakerLbIdSpec extends Specification {
 
     void "static factory method should return an empty optional if either account/loadBalancerName are invalid"() {
         expect:
-        def dcosPath = DcosSpinnakerLbId.from(account, loadBalancerName)
+        def dcosPath = DcosSpinnakerLbId.from(account, loadBalancerName, IS_LOGGING_ENABLED)
         dcosPath == Optional.empty()
 
         where:
@@ -50,27 +51,27 @@ class DcosSpinnakerLbIdSpec extends Specification {
 
     void "the account, and service should be correctly parsed when given a valid marathon path"() {
         expect:
-            def dcosPath = DcosSpinnakerLbId.parse(path, ACCOUNT).get()
+            def dcosPath = DcosSpinnakerLbId.parse(path, ACCOUNT, IS_LOGGING_ENABLED).get()
             dcosPath.account == expectedAccount
             dcosPath.loadBalancerName == expectedLoadBalancerName
             dcosPath.loadBalancerHaproxyGroup == expectedHaproxyGroup
 
         where:
             path || expectedAccount || expectedLoadBalancerName || expectedHaproxyGroup
-            "${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}"
-            "/${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}"
+            "${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}".toString()
+            "/${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}".toString()
     }
 
     void "the account, and service should be correctly parsed when given a valid account and loadBalancerName"() {
         expect:
-            def dcosPath = DcosSpinnakerLbId.from(ACCOUNT, LOAD_BALANCER).get()
+            def dcosPath = DcosSpinnakerLbId.from(ACCOUNT, LOAD_BALANCER, IS_LOGGING_ENABLED).get()
             dcosPath.account == expectedAccount
             dcosPath.loadBalancerName == expectedLoadBalancerName
             dcosPath.loadBalancerHaproxyGroup == expectedHaproxyGroup
 
         where:
         expectedAccount || expectedLoadBalancerName || expectedHaproxyGroup
-        ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}"
-        ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}"
+        ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}".toString()
+        ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}".toString()
     }
 }

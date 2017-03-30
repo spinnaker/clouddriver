@@ -13,7 +13,7 @@ import static java.util.stream.Collectors.joining
 class AppToDeployDcosServerGroupDescriptionMapper {
   static DeployDcosServerGroupDescription map(final App app, final String account) {
 
-    def spinId = DcosSpinnakerAppId.parse(app.id, account).get()
+    def spinId = DcosSpinnakerAppId.parse(app.id, account, true).get()
     def names = spinId.serverGroupName
 
     def desc = new DeployDcosServerGroupDescription()
@@ -33,7 +33,7 @@ class AppToDeployDcosServerGroupDescriptionMapper {
     desc.mem = app.mem
     desc.disk = app.disk
     desc.gpus = app.gpus
-    desc.constraints = app.constraints?.stream()?.map({ constraintParts -> constraintParts.join(':') })?.collect(joining(','));
+    desc.constraints = app.constraints?.stream()?.map({ constraintParts -> constraintParts.join(':') })?.collect(joining(','))
 
     desc.fetch = app.fetch?.collect({ f ->
       new DeployDcosServerGroupDescription.Fetchable().with {

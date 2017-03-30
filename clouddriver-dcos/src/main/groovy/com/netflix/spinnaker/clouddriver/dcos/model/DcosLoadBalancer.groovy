@@ -42,7 +42,7 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     this.app = app
     this.json = app.toString()
 
-    def id = DcosSpinnakerLbId.parse(app.id).get()
+    def id = DcosSpinnakerLbId.parse(app.id, false).get()
     this.account = account
     this.name = id.loadBalancerName
     this.region = GLOBAL_REGION

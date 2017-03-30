@@ -59,7 +59,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
   DcosServerGroup(String account, App app) {
     this.app = app
     this.json = app.toString()
-    def id = DcosSpinnakerAppId.parse(app.id, account).get()
+    def id = DcosSpinnakerAppId.parse(app.id, account, false).get()
     this.name = id.serverGroupName.group
     this.region = id.safeRegion
     this.account = id.account
@@ -88,7 +88,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
         return null
       }
     }?.flatten()?.findResults({
-      def appId = DcosSpinnakerLbId.parse(it.replace('_', '/'))
+      def appId = DcosSpinnakerLbId.parse(it.replace('_', '/'), false)
       DcosProviderUtils.isLoadBalancerIdValid(appId, account) ? appId.get() : null
     })?.toSet() ?: []
 
