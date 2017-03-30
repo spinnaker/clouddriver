@@ -6,10 +6,11 @@ import spock.lang.Specification
 class DcosSpinnakerAppIdSpec extends Specification {
     static final def ACCOUNT = "spinnaker"
     static final def INVALID_MARATHON_PART = "-iNv.aLiD-"
+    static final IS_LOGGING_ENABLED = true
 
     void "static factory method should return an empty optional if the given path was invalid"() {
         expect:
-        def dcosPath = DcosSpinnakerAppId.parse(path)
+        def dcosPath = DcosSpinnakerAppId.parse(path, IS_LOGGING_ENABLED)
         dcosPath.present == present
 
         where:
@@ -53,7 +54,7 @@ class DcosSpinnakerAppIdSpec extends Specification {
 
     void "static factory method should return an empty optional if the given account, region, and/or serverGroupName was invalid"() {
         expect:
-        def dcosPath = DcosSpinnakerAppId.from(account, region, serverGroupName)
+        def dcosPath = DcosSpinnakerAppId.from(account, region, serverGroupName, IS_LOGGING_ENABLED)
         dcosPath.present == present
 
         where:
@@ -74,7 +75,7 @@ class DcosSpinnakerAppIdSpec extends Specification {
 
     void "the account, region, and service should be correctly parsed when given a valid marathon path"() {
         expect:
-            def dcosPath = DcosSpinnakerAppId.parse(path, ACCOUNT).get()
+            def dcosPath = DcosSpinnakerAppId.parse(path, ACCOUNT, IS_LOGGING_ENABLED).get()
             dcosPath.account == expectedAccount
             dcosPath.unsafeRegion == expectedUnsafeRegion
             dcosPath.safeRegion == expectedSafeRegion
@@ -88,7 +89,7 @@ class DcosSpinnakerAppIdSpec extends Specification {
 
     void "the account, region, and service should be correctly parsed when given a valid marathon absolute path"() {
         expect:
-            def dcosPath = DcosSpinnakerAppId.parse(path, ACCOUNT).get()
+            def dcosPath = DcosSpinnakerAppId.parse(path, ACCOUNT, IS_LOGGING_ENABLED).get()
             dcosPath.account == expectedAccount
             dcosPath.unsafeRegion == expectedUnsafeRegion
             dcosPath.safeRegion == expectedSafeRegion
@@ -102,7 +103,7 @@ class DcosSpinnakerAppIdSpec extends Specification {
 
     void "the namespace and full path should be correctly built when given a valid account, region, service"() {
         expect:
-        def dcosPath = DcosSpinnakerAppId.from(account, region, serverGroupName).get()
+        def dcosPath = DcosSpinnakerAppId.from(account, region, serverGroupName, IS_LOGGING_ENABLED).get()
         dcosPath.toString() == expectedFullPath
 
         where:
@@ -114,7 +115,7 @@ class DcosSpinnakerAppIdSpec extends Specification {
 
     void "the namespace and full path should be correctly built when given a valid marathon path"() {
         expect:
-            def dcosPath = DcosSpinnakerAppId.parse(path, ACCOUNT).get()
+            def dcosPath = DcosSpinnakerAppId.parse(path, ACCOUNT, IS_LOGGING_ENABLED).get()
             dcosPath.toString() == expectedFullPath
 
         where:
@@ -125,7 +126,7 @@ class DcosSpinnakerAppIdSpec extends Specification {
 
     void "the namespace and full path should be correctly built when given a valid absolute marathon path"() {
         expect:
-            def dcosPath = DcosSpinnakerAppId.parse(path, ACCOUNT).get()
+            def dcosPath = DcosSpinnakerAppId.parse(path, ACCOUNT, IS_LOGGING_ENABLED).get()
             dcosPath.toString() == expectedFullPath
 
         where:

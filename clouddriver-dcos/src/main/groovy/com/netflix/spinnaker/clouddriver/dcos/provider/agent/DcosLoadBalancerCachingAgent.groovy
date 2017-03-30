@@ -32,6 +32,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
   private final ObjectMapper objectMapper
   final OnDemandMetricsSupport metricsSupport
 
+  private static final ID_LOGGING_ENABLED = false
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
           AUTHORITATIVE.forType(Keys.Namespace.LOAD_BALANCERS.ns),
           //INFORMATIVE.forType(Keys.Namespace.INSTANCES.ns)
@@ -86,7 +87,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
     }
 
     // Region may be (and currently is only) going to be 'global' for DCOS marathon-lb instances created through spinnaker.
-    def dcosSpinnakerLbId = DcosSpinnakerLbId.from(data.account.toString(), data.loadBalancerName.toString())
+    def dcosSpinnakerLbId = DcosSpinnakerLbId.from(data.account.toString(), data.loadBalancerName.toString(), ID_LOGGING_ENABLED)
 
     if (!dcosSpinnakerLbId.present) {
       return null
@@ -178,7 +179,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
             loadBalancers.collect {
-              Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(it.id, accountName).get())
+              Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(it.id, accountName, ID_LOGGING_ENABLED).get())
             }).each {
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
       // replication controllers. Furthermore, cache data that hasn't been processed needs to be updated in the ON_DEMAND
@@ -238,7 +239,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
         continue
       }
 
-      Optional<DcosSpinnakerLbId> dcosSpinnakerLbId = DcosSpinnakerLbId.parse(loadBalancer.id)
+      Optional<DcosSpinnakerLbId> dcosSpinnakerLbId = DcosSpinnakerLbId.parse(loadBalancer.id, ID_LOGGING_ENABLED)
 
       if (!dcosSpinnakerLbId.present) {
         continue

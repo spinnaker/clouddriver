@@ -103,7 +103,7 @@ class DcosProviderUtils {
   }
 
   static boolean isLoadBalancerIdValid(String loadBalancerId, String account) {
-    isLoadBalancerIdValid(DcosSpinnakerLbId.parse(loadBalancerId), account)
+    isLoadBalancerIdValid(DcosSpinnakerLbId.parse(loadBalancerId, false), account)
   }
 
   static ImageDescription buildImageDescription(String image) {

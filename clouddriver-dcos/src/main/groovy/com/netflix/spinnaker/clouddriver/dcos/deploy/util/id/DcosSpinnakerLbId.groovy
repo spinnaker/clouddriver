@@ -1,8 +1,8 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.util.id
 
-import org.slf4j.LoggerFactory
-
 import static com.google.common.base.Strings.nullToEmpty
+
+import org.slf4j.LoggerFactory
 
 /**
  * Represents a hierarchical Spinnaker specific load balancer identifier for DCOS.
@@ -50,18 +50,18 @@ class DcosSpinnakerLbId {
         return toString().hashCode()
     }
 
-    public static Optional<DcosSpinnakerLbId> parse(final String id) {
+    public static Optional<DcosSpinnakerLbId> parse(final String id, final boolean log) {
         def marathonPath
 
         try {
             marathonPath = MarathonPathId.parse(id)
         } catch (IllegalArgumentException e) {
-            LOGGER.error(e.message)
+            logError(log, e.message)
             return Optional.empty()
         }
 
         if (marathonPath.size() != 2) {
-            LOGGER.error("A DCOS Spinnaker LB ID should only contain 2 parts.")
+            logError(log, "A DCOS Spinnaker LB ID should only contain 2 parts [${marathonPath.toString()}].")
             return Optional.empty()
         }
 
@@ -70,37 +70,37 @@ class DcosSpinnakerLbId {
         Optional.of(dcosSpinnakerLbId)
     }
 
-    public static Optional<DcosSpinnakerLbId> parse(final String id, final String account) {
-        def dcosSpinnakerLbId = parse(id)
+    public static Optional<DcosSpinnakerLbId> parse(final String id, final String account, final boolean log) {
+        def dcosSpinnakerLbId = parse(id, log)
 
         if (!dcosSpinnakerLbId.isPresent()) {
             return Optional.empty()
         }
 
         if (dcosSpinnakerLbId.get().account != account) {
-            LOGGER.error("The account given does not match the account within the load balancer id.")
+            logError(log, "The account [${account}] given does not match the account within the load balancer id [${dcosSpinnakerLbId.get().account}].")
             return Optional.empty()
         }
 
         dcosSpinnakerLbId
     }
 
-    public static Optional<DcosSpinnakerLbId> from(final String account, final String loadBalancerName) {
+    public static Optional<DcosSpinnakerLbId> from(final String account, final String loadBalancerName, final boolean log) {
         if (nullToEmpty(account).trim().empty) {
-            LOGGER.error("The account should not be null, empty, or blank.")
+            logError(log, "The account should not be null, empty, or blank.")
             return Optional.empty()
         }
         if (nullToEmpty(loadBalancerName).trim().empty) {
-            LOGGER.error("The loadBalancerName should not be null, empty, or blank.")
+            logError(log, "The loadBalancerName should not be null, empty, or blank.")
             return Optional.empty()
         }
 
         if (account.contains(MarathonPathId.PART_SEPARATOR)) {
-            LOGGER.error("The account should not contain any '/' characters.")
+            logError(log, "The account [${account}] should not contain any '/' characters.")
             return Optional.empty()
         }
         if (loadBalancerName.contains(MarathonPathId.PART_SEPARATOR)) {
-            LOGGER.error("The loadBalancerName should not contain any '/' characters.")
+            logError(log, "The loadBalancerName [${loadBalancerName}] should not contain any '/' characters.")
             return Optional.empty()
         }
 
@@ -109,10 +109,16 @@ class DcosSpinnakerLbId {
         try {
             marathonPath = MarathonPathId.parse("/${account}/${loadBalancerName}")
         } catch (IllegalArgumentException e) {
-            LOGGER.error(e.message)
+            logError(log, e.message)
             return Optional.empty()
         }
 
         Optional.of(new DcosSpinnakerLbId(marathonPath))
+    }
+
+    static void logError(boolean log, String message) {
+        if (log) {
+            LOGGER.error(message)
+        }
     }
 }

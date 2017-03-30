@@ -46,7 +46,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     task.updateStatus BASE_PHASE, "Initializing upsert of load balancer $description.name..."
     task.updateStatus BASE_PHASE, "Looking up existing load balancer..."
 
-    def appId = DcosSpinnakerLbId.from(description.credentials.name, description.name).get()
+    def appId = DcosSpinnakerLbId.from(description.credentials.name, description.name, true).get()
 
     def existingLb = dcosClient.maybeApp(appId.toString()).orElse(null)
 

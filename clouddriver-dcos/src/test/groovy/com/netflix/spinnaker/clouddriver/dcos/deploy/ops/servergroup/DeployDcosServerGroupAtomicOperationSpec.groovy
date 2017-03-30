@@ -16,7 +16,7 @@ import spock.lang.Specification
 import spock.lang.Subject
 
 class DeployDcosServerGroupAtomicOperationSpec extends Specification {
-  private static final APPLICATION_NAME = DcosSpinnakerAppId.parse('/test/region/api-test-detail-v000').get()
+  private static final APPLICATION_NAME = DcosSpinnakerAppId.parse('/test/region/api-test-detail-v000', true).get()
 
   DCOS mockDcosClient = Mock(DCOS)
   DeployDcosServerGroupDescriptionToAppMapper mockDcosDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)

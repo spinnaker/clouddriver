@@ -3,7 +3,6 @@ package com.netflix.spinnaker.clouddriver.dcos.cache
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 
 class Keys {
   public static final PROVIDER = "dcos"

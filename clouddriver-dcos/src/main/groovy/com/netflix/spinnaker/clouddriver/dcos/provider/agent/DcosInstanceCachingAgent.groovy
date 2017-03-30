@@ -23,6 +23,7 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
   private final DCOS dcosClient
   private final ObjectMapper objectMapper
 
+  private static final ID_LOGGING_ENABLED = false
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
           AUTHORITATIVE.forType(Keys.Namespace.INSTANCES.ns),
   ] as Set)
@@ -61,7 +62,7 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
     log.info("Loading tasks in $agentType")
 
     // The tasks API returns all tasks, but we want to ensure we only cache ones valid for the current account.
-    def tasks = dcosClient.getTasks().tasks.findAll { DcosSpinnakerAppId.parse(it.appId, accountName).isPresent() }
+    def tasks = dcosClient.getTasks().tasks.findAll { DcosSpinnakerAppId.parse(it.appId, accountName, ID_LOGGING_ENABLED).isPresent() }
 
     buildCacheResult(tasks)
   }
@@ -76,7 +77,7 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
         continue
       }
 
-      def key = Keys.getInstanceKey(DcosSpinnakerAppId.parse(task.appId, accountName).get(), task.id)
+      def key = Keys.getInstanceKey(DcosSpinnakerAppId.parse(task.appId, accountName, ID_LOGGING_ENABLED).get(), task.id)
       cachedInstances[key].with {
         attributes.name = task.id
         attributes.instance = new DcosInstance(task, accountName)

@@ -26,6 +26,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
   private static final ACCOUNT_NAME = "testaccount"
   private static final LOAD_BALANCER_NAME = "external"
   private static final DEPLOYMENT_ID = "deployment-id"
+  private static final IS_LOGGING_ENABLED = true
 
 
   def credentials
@@ -87,7 +88,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: true
     )
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
     resultAppMock.id >> expectedAppId.toString()
     dcosConfigurationProperties.loadBalancer.image >> expectedLbImage
 
@@ -183,7 +184,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -239,7 +240,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -292,7 +293,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     )
 
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -341,7 +342,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     )
 
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def failedDeploymentResult = Mock(DcosDeploymentResult)

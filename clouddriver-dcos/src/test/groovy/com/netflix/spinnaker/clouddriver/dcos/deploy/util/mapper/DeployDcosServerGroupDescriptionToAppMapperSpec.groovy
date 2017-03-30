@@ -6,7 +6,7 @@ import mesosphere.marathon.client.model.v2.App
 import spock.lang.Specification
 
 class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
-    private static final APPLICATION_NAME = DcosSpinnakerAppId.from("spinnaker", "test", "api-test-something-v000").get()
+    private static final APPLICATION_NAME = DcosSpinnakerAppId.from("spinnaker", "test", "api-test-something-v000", true).get()
 
     void 'DeployDcosServerGroupAtomicOperation should deploy the DCOS service successfully'() {
 
