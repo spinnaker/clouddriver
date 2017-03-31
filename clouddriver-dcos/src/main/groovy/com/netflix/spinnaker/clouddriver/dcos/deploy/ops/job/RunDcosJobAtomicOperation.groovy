@@ -22,7 +22,7 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
   final DcosClientProvider dcosClientProvider
   final RunDcosJobDescription description
 
-    RunDcosJobAtomicOperation(DcosClientProvider dcosClientProvider, RunDcosJobDescription description) {
+  RunDcosJobAtomicOperation(DcosClientProvider dcosClientProvider, RunDcosJobDescription description) {
     this.dcosClientProvider = dcosClientProvider
     this.description = description
   }
