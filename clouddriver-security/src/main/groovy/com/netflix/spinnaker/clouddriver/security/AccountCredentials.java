@@ -87,7 +87,15 @@ public interface AccountCredentials<T> {
     /**
      * A user in ANY required group should be allowed access to this account.
      *
+     * @deprecated Use {@link Permissions} instead.
      * @return the group names that govern access to this account, empty indicates a public account accessible by all.
      */
+    @Deprecated
     List<String> getRequiredGroupMembership();
+
+  /**
+   * The set of permissions associated with this account.
+   * @return
+   */
+  Permissions getPermissions();
 }

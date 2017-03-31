@@ -164,6 +164,7 @@ class DefaultAllowedAccountsValidatorSpec extends Specification {
     TestCredentials credentials
     String cloudProvider
     List<String> requiredGroupMembership
+    Permissions permissions
   }
 
   static class TestDescription {
