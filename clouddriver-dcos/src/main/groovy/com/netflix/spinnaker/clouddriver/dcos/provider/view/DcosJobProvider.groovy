@@ -61,9 +61,7 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
       def file = dcosClient.getAgentSandboxFile(jobTask.getSlave_id(), filePath)
 
       if (filePath.contains(".json")) {
-        def type = new TypeToken<Map<String, Object>>(){}.getType()
-
-        return new Gson().fromJson(file, type)
+        return new Gson().fromJson(file, new TypeToken<Map<String, Object>>(){}.getType())
       }
 
       def properties = new Properties()
