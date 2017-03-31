@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryClient
 import com.netflix.spinnaker.clouddriver.docker.registry.exception.DockerRegistryConfigException
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.Permissions
 import retrofit.RetrofitError
 
 import java.util.concurrent.TimeUnit
@@ -178,6 +179,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
          clientTimeoutMillis,
          paginateSize,
          trackDigests,
+         null,
          null)
   }
 
@@ -196,7 +198,8 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                         long clientTimeoutMillis,
                                         int paginateSize,
                                         boolean trackDigests,
-                                        List<String> requiredGroupMembership) {
+                                        List<String> requiredGroupMembership,
+                                        Permissions permissions) {
     if (!accountName) {
       throw new IllegalArgumentException("Docker Registry account must be provided with a name.")
     }
@@ -236,6 +239,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     this.trackDigests = trackDigests
     this.skip = skip ?: []
     this.requiredGroupMembership = requiredGroupMembership == null ? Collections.emptyList() : Collections.unmodifiableList(requiredGroupMembership)
+    this.permissions = permissions ?: new Permissions()
     this.credentials = buildCredentials(repositories)
   }
 
@@ -304,5 +308,6 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
   @JsonIgnore
   final DockerRegistryCredentials credentials
   final List<String> requiredGroupMembership
+  final Permissions permissions
   final List<String> skip
 }

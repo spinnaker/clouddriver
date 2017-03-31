@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.consul.config.ConsulConfig
 import com.netflix.spinnaker.clouddriver.openstack.config.OpenstackConfigurationProperties.LbaasConfig
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.Permissions
 import groovy.transform.ToString
 
 @ToString(includeNames = true, excludes = "password")
@@ -35,6 +36,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
   final String domainName
   final String authUrl
   final List<String> requiredGroupMembership
+  final Permissions permissions
   final OpenstackCredentials credentials
   List<String> regions
   final Boolean insecure
@@ -58,7 +60,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
                                    LbaasConfig lbaasConfig,
                                    ConsulConfig consulConfig,
                                    String userDataFile) {
-    this(accountName, environment, accountType, username, password, null, projectName, domainName, authUrl, regions, insecure, heatTemplateLocation, lbaasConfig, consulConfig, userDataFile)
+    this(accountName, environment, accountType, username, password, null, null, projectName, domainName, authUrl, regions, insecure, heatTemplateLocation, lbaasConfig, consulConfig, userDataFile)
   }
 
   OpenstackNamedAccountCredentials(String accountName,
@@ -67,6 +69,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
                                    String username,
                                    String password,
                                    List<String> requiredGroupMembership,
+                                   Permissions permissions,
                                    String projectName,
                                    String domainName,
                                    String authUrl,
@@ -85,6 +88,7 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
     this.domainName = domainName
     this.authUrl = authUrl
     this.requiredGroupMembership = requiredGroupMembership
+    this.permissions = permissions
     this.regions = regions
     this.insecure = insecure
     this.heatTemplateLocation = heatTemplateLocation
