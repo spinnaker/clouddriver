@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.provider.view
 
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosJobStatus
@@ -57,6 +59,13 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
 
     try {
       def file = dcosClient.getAgentSandboxFile(jobTask.getSlave_id(), filePath)
+
+      if (filePath.contains(".json")) {
+        def type = new TypeToken<Map<String, Object>>(){}.getType()
+
+        return new Gson().fromJson(file, type)
+      }
+
       def properties = new Properties()
 
       properties.load(new ByteArrayInputStream(file.getBytes()))
