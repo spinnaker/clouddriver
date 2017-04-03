@@ -59,6 +59,7 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
 
     task.updateStatus BASE_PHASE, "Job ${jobName} has been started."
 
+    // TODO We will want to change location to use regions like apps once that is supported.
     return new DeploymentResult().with {
       deployedNames = [jobRun.id]
       deployedNamesByLocation[jobRun.jobId] = [jobRun.id]
