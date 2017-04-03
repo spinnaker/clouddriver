@@ -1,27 +1,29 @@
 package com.netflix.spinnaker.clouddriver.dcos.provider.view
 
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosJobStatus
 import com.netflix.spinnaker.clouddriver.model.JobProvider
 import mesosphere.dcos.client.DCOSException
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
 @Component
 class DcosJobProvider implements JobProvider<DcosJobStatus> {
-  static final JOB_FRAMEWORK = "metronome"
   private static final LOGGER = LoggerFactory.getLogger(DcosJobProvider)
+  private static final JOB_FRAMEWORK = "metronome"
 
   final String platform = DcosCloudProvider.ID
 
   private final DcosClientProvider dcosClientProvider
+  private final ObjectMapper objectMapper
 
   @Autowired
-  DcosJobProvider(DcosClientProvider dcosClientProvider) {
+  DcosJobProvider(DcosClientProvider dcosClientProvider, ObjectMapper objectMapper) {
     this.dcosClientProvider = dcosClientProvider
+    this.objectMapper = objectMapper
   }
 
   @Override
@@ -61,10 +63,10 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
     def filePath = "/var/lib/mesos/slave/slaves/${jobTask.getSlave_id()}/frameworks/${jobTask.getFramework_id()}/executors/${jobExecutor.getId()}/runs/${jobExecutor.getContainer()}/${fileName}".toString()
 
     try {
-      def file = dcosClient.getAgentSandboxFile(jobTask.getSlave_id(), filePath)
+      def file = dcosClient.getAgentSandboxFileAsString(jobTask.getSlave_id(), filePath)
 
       if (filePath.contains(".json")) {
-        return new Gson().fromJson(file, new TypeToken<Map<String, Object>>(){}.getType())
+        return objectMapper.readValue(file, Map)
       }
 
       def properties = new Properties()
