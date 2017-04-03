@@ -54,8 +54,8 @@ class DcosJobStatus implements JobStatus, Serializable {
   Map<String, String> getCompletionDetails() {
     [
       successful  : successful.toString(),
-      jobId     : id,
-      taskId    : name
+      jobId     : name,
+      taskId    : id
     ]
   }
 
