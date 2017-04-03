@@ -84,9 +84,10 @@ class DcosConfiguration {
 
   private static DCOSAuthCredentials buildDCOSAuthCredentials(Account account) {
     DCOSAuthCredentials dcosAuthCredentials = null
-
-    // If they've specified both for whatever reason, might as well go with one of them.
-    if (account.uid && account.password) {
+    
+    if (account.uid && account.password && account.serviceKey) {
+      throw new IllegalStateException("Both a password and serviceKey were supplied for the account with name [${account.name}]. Only one should be configured.")
+    } else if (account.uid && account.password) {
       dcosAuthCredentials = DCOSAuthCredentials.forUserAccount(account.uid, account.password)
     } else if (account.uid && account.serviceKey) {
       dcosAuthCredentials = DCOSAuthCredentials.forServiceAccount(account.uid, account.serviceKey)
