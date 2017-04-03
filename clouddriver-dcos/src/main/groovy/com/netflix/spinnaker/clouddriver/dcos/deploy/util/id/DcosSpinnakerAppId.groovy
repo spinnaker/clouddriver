@@ -75,6 +75,8 @@ class DcosSpinnakerAppId {
         return toString().hashCode()
     }
 
+    // TODO refactor all these static factory methods to not use a boolean param and instead separate them into
+    // parseVerbose and fromVerbose functions to better describe the differences.
     public static Optional<DcosSpinnakerAppId> parse(String marathonAppId, boolean log) {
         def marathonPath
 
