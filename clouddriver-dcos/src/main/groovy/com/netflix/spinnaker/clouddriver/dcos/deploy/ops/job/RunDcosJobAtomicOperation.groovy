@@ -77,13 +77,12 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
       }
 
       run = new JobRunConfiguration().with {
-        if (jobDescription.general) {
-          cpus = jobDescription.general.cpus
-          //gpus = description.general.gpus
-          mem = jobDescription.general.mem
-          disk = jobDescription.general.disk
-          cmd = jobDescription.general.cmd
-        }
+        cpus = jobDescription.general.cpus
+        // TODO - Add GPU back in once it is supported.
+        //gpus = description.general.gpus
+        mem = jobDescription.general.mem
+        disk = jobDescription.general.disk
+        cmd = jobDescription.general.cmd
 
         maxLaunchDelay = jobDescription.maxLaunchDelay
         user = jobDescription.user
