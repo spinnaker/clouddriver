@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component
 @Component
 class DcosJobProvider implements JobProvider<DcosJobStatus> {
   static final JOB_FRAMEWORK = "metronome"
+  private static final LOGGER = LoggerFactory.getLogger(DcosJobProvider)
 
   final String platform = DcosCloudProvider.ID
 
@@ -71,6 +72,7 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
       return properties as Map<String, Object>
     } catch (DCOSException e) {
       if (e.status == 404) {
+        LOGGER.warn("File [${fileName}] does not exist for job [${location}.${id}].")
         return [:]
       } else {
         throw e
