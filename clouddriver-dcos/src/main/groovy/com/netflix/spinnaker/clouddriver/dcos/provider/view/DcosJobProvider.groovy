@@ -34,6 +34,8 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
 
   @Override
   Map<String, Object> getFileContents(String account, String location, String id, String fileName) {
+    // Note - location is secretly the Job ID within DC/OS, this is so we don't have to do any parsing of the id field
+    // give to this function but still have all the information we need to get a file if need be.
     def dcosClient = dcosClientProvider.getDcosClient(account)
     def taskName = "${id}.${location}".toString()
     def masterState = dcosClient.getMasterState()
