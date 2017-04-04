@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos
 
+import groovy.transform.ToString
+
 class DcosConfigurationProperties {
   public static final int ASYNC_OPERATION_TIMEOUT_SECONDS_DEFAULT = 300
   public static final int ASYNC_OPERATION_MAX_POLLING_INTERVAL_SECONDS = 8
@@ -22,11 +24,18 @@ class DcosConfigurationProperties {
     String serviceKey
     String caCertFile
     String caCertData
+    List<LinkedDockerRegistryConfiguration> dockerRegistries
     boolean insecureSkipTlsVerify
   }
 
   static class LoadBalancerConfig {
     String image
     String serviceAccountSecret
+  }
+
+  // In case we want to add any additional information here.
+  @ToString(includeNames = true)
+  static class LinkedDockerRegistryConfiguration {
+    String accountName
   }
 }
