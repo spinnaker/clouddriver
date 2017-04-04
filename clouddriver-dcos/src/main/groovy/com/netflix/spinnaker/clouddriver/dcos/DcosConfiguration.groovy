@@ -40,7 +40,7 @@ class DcosConfiguration {
                                         AccountCredentialsRepository repository) {
     List<DcosCredentials> accounts = new ArrayList<>()
     for (Account account in dcosConfigurationProperties.accounts) {
-      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, buildConfig(account))
+      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, account.dockerRegistries, buildConfig(account))
       accounts.add(credentials)
       repository.save(account.name, credentials)
     }
@@ -84,7 +84,7 @@ class DcosConfiguration {
 
   private static DCOSAuthCredentials buildDCOSAuthCredentials(Account account) {
     DCOSAuthCredentials dcosAuthCredentials = null
-    
+
     if (account.uid && account.password && account.serviceKey) {
       throw new IllegalStateException("Both a password and serviceKey were supplied for the account with name [${account.name}]. Only one should be configured.")
     } else if (account.uid && account.password) {

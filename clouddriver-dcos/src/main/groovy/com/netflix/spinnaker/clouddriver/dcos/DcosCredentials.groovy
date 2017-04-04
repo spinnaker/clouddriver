@@ -6,6 +6,8 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.model.DCOSAuthCredentials
 
+import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.*
+
 class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
   private static final String CLOUD_PROVIDER = Keys.PROVIDER
 
@@ -16,7 +18,7 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
   final String environment
   final String accountType
   final List<String> requiredGroupMembership = Collections.emptyList()
-  final String registry
+  final List<LinkedDockerRegistryConfiguration> dockerRegistries
   final String dcosUrl
 
   @JsonIgnore
@@ -26,12 +28,13 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
                   String environment,
                   String accountType,
                   String dcosUrl,
+                  List<LinkedDockerRegistryConfiguration> dockerRegistries,
                   Config dcosClientConfig) {
     this.name = name
     this.environment = environment
     this.accountType = accountType
-    this.registry = registry
     this.dcosUrl = dcosUrl
+    this.dockerRegistries = dockerRegistries != null ? dockerRegistries : new ArrayList<>()
     this.dcosClientConfig = dcosClientConfig
   }
 
