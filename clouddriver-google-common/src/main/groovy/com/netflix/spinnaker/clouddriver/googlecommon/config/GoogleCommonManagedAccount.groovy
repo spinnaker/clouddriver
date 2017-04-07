@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.googlecommon.config
 
+import com.netflix.spinnaker.clouddriver.security.Permissions
+
 class GoogleCommonManagedAccount {
   String name
   String environment
@@ -23,6 +25,7 @@ class GoogleCommonManagedAccount {
   String project
   String jsonPath
   List<String> requiredGroupMembership
+  Permissions permissions
 
   public InputStream getInputStream() {
     if (jsonPath) {

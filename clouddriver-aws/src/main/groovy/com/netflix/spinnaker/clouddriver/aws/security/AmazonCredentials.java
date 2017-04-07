@@ -21,6 +21,7 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
+import com.netflix.spinnaker.clouddriver.security.Permissions;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,6 +47,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
     private final String accountId;
     private final String defaultKeyPair;
     private final List<String> requiredGroupMembership;
+    private final Permissions permissions;
     private final List<AWSRegion> regions;
     private final List<String> defaultSecurityGroups;
     private final List<LifecycleHook> lifecycleHooks;
@@ -59,7 +61,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
         AWSAccountInfoLookup lookup = new DefaultAWSAccountInfoLookup(credentialsProvider, amazonClientProvider);
         final String accountId = lookup.findAccountId();
         final List<AWSRegion> regions = lookup.listRegions();
-        return new AmazonCredentials(name, environment, accountType, accountId, defaultKeyPair, regions, null, null, null, credentialsProvider);
+        return new AmazonCredentials(name, environment, accountType, accountId, defaultKeyPair, regions, null, null, null, null, credentialsProvider);
     }
 
     public AmazonCredentials(@JsonProperty("name") String name,
@@ -70,8 +72,9 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
                              @JsonProperty("regions") List<AWSRegion> regions,
                              @JsonProperty("defaultSecurityGroups") List<String> defaultSecurityGroups,
                              @JsonProperty("requiredGroupMembership") List<String> requiredGroupMembership,
+                             @JsonProperty("permissions") Permissions permissions,
                              @JsonProperty("lifecycleHooks") List<LifecycleHook> lifecycleHooks) {
-        this(name, environment, accountType, accountId, defaultKeyPair, regions, defaultSecurityGroups, requiredGroupMembership, lifecycleHooks, null);
+        this(name, environment, accountType, accountId, defaultKeyPair, regions, defaultSecurityGroups, requiredGroupMembership, permissions, lifecycleHooks, null);
     }
 
     public AmazonCredentials(AmazonCredentials source, AWSCredentialsProvider credentialsProvider) {
@@ -84,6 +87,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
             source.getRegions(),
             source.getDefaultSecurityGroups(),
             source.getRequiredGroupMembership(),
+            source.getPermissions(),
             source.getLifecycleHooks(),
             credentialsProvider
         );
@@ -97,6 +101,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
                       List<AWSRegion> regions,
                       List<String> defaultSecurityGroups,
                       List<String> requiredGroupMembership,
+                      Permissions permissions,
                       List<LifecycleHook> lifecycleHooks,
                       AWSCredentialsProvider credentialsProvider) {
         this.name = requireNonNull(name, "name");
@@ -107,6 +112,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
         this.regions = regions == null ? Collections.<AWSRegion>emptyList() : Collections.unmodifiableList(regions);
         this.defaultSecurityGroups = defaultSecurityGroups == null ? null : Collections.unmodifiableList(defaultSecurityGroups);
         this.requiredGroupMembership = requiredGroupMembership == null ? Collections.<String>emptyList() : Collections.unmodifiableList(requiredGroupMembership);
+        this.permissions = permissions == null ? new Permissions() : permissions;
         this.lifecycleHooks = lifecycleHooks == null ? Collections.<LifecycleHook>emptyList() : Collections.unmodifiableList(lifecycleHooks);
         this.credentialsProvider = credentialsProvider;
     }
@@ -166,6 +172,10 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
     @Override
     public List<String> getRequiredGroupMembership() {
       return requiredGroupMembership;
+    }
+
+    public Permissions getPermissions() {
+      return permissions;
     }
 
     public static class AWSRegion {

@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.configuration.CredentialsConfiguration
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
+import com.netflix.spinnaker.clouddriver.security.Permissions
 import groovy.json.JsonSlurper
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
@@ -53,7 +54,7 @@ class CredentialsControllerSpec extends Specification {
 
     List<Map> parsedResponse = new JsonSlurper().parseText(result.response.contentAsString) as List
 
-    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: ["test"], challengeDestructiveActions: false, primaryAccount: false]]
+    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: ["test"], permissions: [:], challengeDestructiveActions: false, primaryAccount: false]]
   }
 
   static class TestNamedAccountCredentials implements AccountCredentials<Map> {
@@ -61,6 +62,7 @@ class CredentialsControllerSpec extends Specification {
     String name = "test"
     String environment = "env"
     String accountType = "acctType"
+    Permissions permissions = new Permissions()
 
     @Override
     Map getCredentials() {

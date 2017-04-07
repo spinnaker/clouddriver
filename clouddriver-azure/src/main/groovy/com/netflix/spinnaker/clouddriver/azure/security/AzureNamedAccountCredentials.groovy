@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.azure.security
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureCustomImageStorage
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureVMImage
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.Permissions
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -36,6 +37,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
   final List<AzureCustomImageStorage> vmCustomImages
   final String applicationName
   final List<String> requiredGroupMembership
+  final Permissions permissions
   final AzureCredentials credentials
   final String defaultKeyVault
   final String defaultResourceGroup
@@ -54,7 +56,8 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
                                String defaultResourceGroup,
                                String defaultKeyVault,
                                String applicationName,
-                               List<String> requiredGroupMembership = null) {
+                               List<String> requiredGroupMembership = null,
+                               Permissions permissions = null) {
     this.accountName = accountName
     this.environment = environment
     this.accountType = accountType
@@ -69,6 +72,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
     this.defaultKeyVault = defaultKeyVault
     this.defaultResourceGroup = defaultResourceGroup
     this.requiredGroupMembership = requiredGroupMembership ?: [] as List<String>
+    this.permissions = permissions ?: new Permissions()
     this.credentials = appKey.isEmpty() ? null : buildCredentials()
   }
 

@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.titus.credentials
 
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.Permissions
 import com.netflix.spinnaker.clouddriver.titus.caching.Keys
 import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.security.TitusCredentials
@@ -28,6 +29,7 @@ class NetflixTitusCredentials implements AccountCredentials<TitusCredentials> {
   final String environment
   final String accountType
   final List<String> requiredGroupMembership = Collections.emptyList()
+  final Permissions permissions = new Permissions()
   final String bastionHost
   final String registry
   final String discovery

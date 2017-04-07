@@ -10,6 +10,7 @@ package com.netflix.spinnaker.clouddriver.oraclebmcs.security
 
 import com.netflix.spinnaker.clouddriver.oraclebmcs.OracleBMCSCloudProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.Permissions
 import com.oracle.bmc.Region
 import com.oracle.bmc.auth.AuthenticationDetailsProvider
 import com.oracle.bmc.auth.ConfigFileAuthenticationDetailsProvider
@@ -27,6 +28,7 @@ class OracleBMCSNamedAccountCredentials implements AccountCredentials<Object> {
   String accountType
   String compartmentId
   List<String> requiredGroupMembership = []
+  Permissions permissions
   Object credentials
   String region
   List<OracleBMCSRegion> regions
@@ -35,11 +37,17 @@ class OracleBMCSNamedAccountCredentials implements AccountCredentials<Object> {
   ObjectStorageClient objectStorageClient
   IdentityClient identityClient
 
-  OracleBMCSNamedAccountCredentials(String name, String environment, String accountType, List<String> requiredGroupMembership, String compartmentId) {
+  OracleBMCSNamedAccountCredentials(String name,
+                                    String environment,
+                                    String accountType,
+                                    List<String> requiredGroupMembership,
+                                    Permissions permissions,
+                                    String compartmentId) {
     this.name = name
     this.environment = environment
     this.accountType = accountType
     this.requiredGroupMembership = requiredGroupMembership
+    this.permissions = permissions
     this.compartmentId = compartmentId
 
     AuthenticationDetailsProvider provider = new ConfigFileAuthenticationDetailsProvider(this.name)
@@ -63,6 +71,7 @@ class OracleBMCSNamedAccountCredentials implements AccountCredentials<Object> {
     String environment
     String accountType
     List<String> requiredGroupMembership = []
+    Permissions permissions = new Permissions()
     String compartmentId
 
     Builder name(String name) {
@@ -85,13 +94,23 @@ class OracleBMCSNamedAccountCredentials implements AccountCredentials<Object> {
       return this
     }
 
+    Builder permissions(Permissions permissions) {
+      this.permissions = permissions
+      return this
+    }
+
     Builder compartmentID(String compartmentID) {
       this.compartmentId = compartmentID
       return this
     }
 
     OracleBMCSNamedAccountCredentials build() {
-      return new OracleBMCSNamedAccountCredentials(this.name, this.environment, this.accountType, this.requiredGroupMembership, this.compartmentId)
+      return new OracleBMCSNamedAccountCredentials(this.name,
+                                                   this.environment,
+                                                   this.accountType,
+                                                   this.requiredGroupMembership,
+                                                   this.permissions,
+                                                   this.compartmentId)
     }
   }
 
