@@ -273,9 +273,6 @@ cf:
 oraclebmcs:
   enabled: ${ORACLEBMCS_ENABLED:false}
 
-dcos:
-  enabled: false
-
 spring:
   jackson:
     mapper:
