@@ -27,6 +27,7 @@ class DcosConfigurationProperties {
     List<LinkedDockerRegistryConfiguration> dockerRegistries
     List<String> requiredGroupMembership
     boolean insecureSkipTlsVerify
+    String secretStore
   }
 
   static class LoadBalancerConfig {

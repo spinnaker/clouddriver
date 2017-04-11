@@ -20,6 +20,7 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
   final List<LinkedDockerRegistryConfiguration> dockerRegistries
   final List<String> requiredGroupMembership
   final String dcosUrl
+  final String secretStore
 
   @JsonIgnore
   final Config dcosClientConfig
@@ -30,13 +31,15 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
                   String dcosUrl,
                   List<LinkedDockerRegistryConfiguration> dockerRegistries,
                   List<String> requiredGroupMembership,
+                  String secretStore,
                   Config dcosClientConfig) {
     this.name = name
     this.environment = environment
     this.accountType = accountType
     this.dcosUrl = dcosUrl
     this.dockerRegistries = dockerRegistries != null ? dockerRegistries : new ArrayList<>()
-    this.requiredGroupMembership = requiredGroupMembership;
+    this.requiredGroupMembership = requiredGroupMembership
+    this.secretStore = secretStore != null ? secretStore : "default"
     this.dcosClientConfig = dcosClientConfig
   }
 
