@@ -40,7 +40,7 @@ class DcosConfiguration {
                                         AccountCredentialsRepository repository) {
     List<DcosCredentials> accounts = new ArrayList<>()
     for (Account account in dcosConfigurationProperties.accounts) {
-      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, account.dockerRegistries, account.requiredGroupMembership, buildConfig(account))
+      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, account.dockerRegistries, account.requiredGroupMembership, account.secretStore, buildConfig(account))
       accounts.add(credentials)
       repository.save(account.name, credentials)
     }
@@ -48,8 +48,8 @@ class DcosConfiguration {
   }
 
   @Bean
-  DcosClientProvider dcosClientProvider(Registry registry) {
-    new DcosClientProvider(registry)
+  DcosClientProvider dcosClientProvider(AccountCredentialsProvider credentialsProvider) {
+    new DcosClientProvider(credentialsProvider)
   }
 
   @Bean

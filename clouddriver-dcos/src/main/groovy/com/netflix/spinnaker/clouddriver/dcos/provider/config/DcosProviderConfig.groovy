@@ -11,9 +11,12 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.agent.DcosInstanceCachingAgent
 import com.netflix.spinnaker.clouddriver.dcos.provider.agent.DcosLoadBalancerCachingAgent
+import com.netflix.spinnaker.clouddriver.dcos.provider.agent.DcosSecretsCachingAgent
 import com.netflix.spinnaker.clouddriver.dcos.provider.agent.DcosServerGroupCachingAgent
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
+import com.netflix.spinnaker.fiat.model.resources.Account
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -30,12 +33,13 @@ class DcosProviderConfig {
   @Bean
   @DependsOn('dcosCredentials')
   DcosProvider dcosProvider(DcosCloudProvider dcosCloudProvider,
+                            AccountCredentialsProvider accountCredentialsProvider,
                             AccountCredentialsRepository accountCredentialsRepository,
                             ObjectMapper objectMapper,
                             Registry registry) {
 
     def provider = new DcosProvider(dcosCloudProvider, Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()))
-    synchronizeDcosProvider(provider, accountCredentialsRepository, objectMapper, registry)
+    synchronizeDcosProvider(provider, accountCredentialsProvider, accountCredentialsRepository, objectMapper, registry)
     provider
   }
 
@@ -59,6 +63,7 @@ class DcosProviderConfig {
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
   DcosProviderSynchronizer synchronizeDcosProvider(DcosProvider dcosProvider,
+                                                   AccountCredentialsProvider accountCredentialsProvider,
                                                    AccountCredentialsRepository accountCredentialsRepository,
                                                    ObjectMapper objectMapper,
                                                    Registry registry) {
@@ -68,17 +73,22 @@ class DcosProviderConfig {
 
     objectMapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
+
     def newlyAddedAgents = []
     allAccounts.each { DcosCredentials credentials ->
       if (!accounts.contains(credentials.name)) {
+
+        newlyAddedAgents << new DcosSecretsCachingAgent(credentials.name,
+          credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper)
+
         newlyAddedAgents << new DcosServerGroupCachingAgent(credentials.name,
-          credentials, new DcosClientProvider(registry), objectMapper, registry)
+          credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper, registry)
 
         newlyAddedAgents << new DcosLoadBalancerCachingAgent(credentials.name,
-          credentials, new DcosClientProvider(registry), objectMapper, registry)
+          credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper, registry)
 
         newlyAddedAgents << new DcosInstanceCachingAgent(credentials.name,
-          credentials, new DcosClientProvider(registry), objectMapper)
+          credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper)
       }
     }
 

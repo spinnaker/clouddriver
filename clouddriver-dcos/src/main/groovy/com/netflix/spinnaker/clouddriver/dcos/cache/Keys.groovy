@@ -15,6 +15,7 @@ class Keys {
     CLUSTERS,
     APPLICATIONS,
     HEALTH,
+    SECRETS,
     ON_DEMAND
 
     final String ns
@@ -43,6 +44,13 @@ class Keys {
     def result = [provider: parts[0], type: parts[1]]
 
     switch (result.type) {
+
+      case Namespace.SECRETS.ns:
+        result << [
+          account: parts[2],
+          secretPath: parts[3]
+        ]
+        break
       case Namespace.IMAGES.ns:
         //TODO result << [account: parts[2], region: parts[3], imageId: parts[4]]
         break
@@ -99,6 +107,10 @@ class Keys {
     }
 
     result
+  }
+
+  static String getSecretKey(String account, String secretPath) {
+    "${PROVIDER}:${Namespace.SECRETS}:${account}:${secretPath.replaceAll('/', '_')}"
   }
 
   static String getApplicationKey(String application) {
