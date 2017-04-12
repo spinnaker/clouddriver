@@ -630,10 +630,12 @@ class KubernetesApiConverter {
     description.scalingPolicy = new KubernetesScalingPolicy(cpuUtilization: cpuUtilization)
   }
 
-  static HorizontalPodAutoscaler toAutoscaler(KubernetesAutoscalerDescription description) {
+  static HorizontalPodAutoscaler toAutoscaler(KubernetesAutoscalerDescription description,
+                                              String resourceName,
+                                              String resourceKind) {
     def autoscalerBuilder = new HorizontalPodAutoscalerBuilder()
     autoscalerBuilder.withNewMetadata()
-      .withName(description.serverGroupName)
+      .withName(resourceName)
       .withNamespace(description.namespace)
       .endMetadata()
       .withNewSpec()
@@ -643,8 +645,8 @@ class KubernetesApiConverter {
       .withTargetPercentage(description.scalingPolicy.cpuUtilization.target)
       .endCpuUtilization()
       .withNewScaleRef()
-      .withKind(KubernetesUtil.SERVER_GROUP_KIND)
-      .withName(description.serverGroupName)
+      .withKind(resourceKind)
+      .withName(resourceName)
       .endScaleRef()
       .endSpec().build()
   }
