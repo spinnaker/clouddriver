@@ -4,24 +4,20 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.DCOS
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.Result
-import spock.lang.Specification
 import spock.lang.Subject
 
-class ResizeDcosServerGroupAtomicOperationSpec extends Specification {
+class ResizeDcosServerGroupAtomicOperationSpec extends BaseSpecification {
   private static final APPLICATION_NAME = 'api-test-v000'
 
   DCOS dcosClient = Mock(DCOS)
 
-  DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
-  )
+  DcosCredentials testCredentials = defaultCredentialsBuilder().build()
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
     getDcosClient(testCredentials) >> dcosClient

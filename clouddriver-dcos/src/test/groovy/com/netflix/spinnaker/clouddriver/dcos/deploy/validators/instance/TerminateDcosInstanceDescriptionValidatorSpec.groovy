@@ -1,21 +1,17 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.instance
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesDescription
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import mesosphere.dcos.client.Config
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.springframework.validation.Errors
-import spock.lang.Specification
 import spock.lang.Subject
 
-class TerminateDcosInstanceDescriptionValidatorSpec extends Specification {
+class TerminateDcosInstanceDescriptionValidatorSpec extends BaseSpecification {
     private static final DESCRIPTION = "terminateDcosInstancesDescription"
 
-    DcosCredentials testCredentials = new DcosCredentials(
-            'test', 'test', 'test', 'https://test.url.com', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
-    )
+    DcosCredentials testCredentials = defaultCredentialsBuilder().build()
 
     AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
         getCredentials('test') >> testCredentials
@@ -43,7 +39,7 @@ class TerminateDcosInstanceDescriptionValidatorSpec extends Specification {
 
     void "validate should give errors when given a TerminateDcosInstancesDescription with only an appId"() {
         setup:
-            def description = new TerminateDcosInstancesDescription(credentials: new DcosCredentials(null, null, null, null, null),
+            def description = new TerminateDcosInstancesDescription(credentials: defaultCredentialsBuilder().name(null).build(),
                     appId: "test/region/app-stack-detail-v000", hostId: null, taskIds: [], force: false, wipe: false)
             def errorsMock = Mock(Errors)
         when:

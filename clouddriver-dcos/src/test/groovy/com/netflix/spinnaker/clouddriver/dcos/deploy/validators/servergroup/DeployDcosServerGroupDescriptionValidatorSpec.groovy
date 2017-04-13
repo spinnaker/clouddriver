@@ -1,22 +1,18 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import mesosphere.dcos.client.Config
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.springframework.validation.Errors
-import spock.lang.Specification
 import spock.lang.Subject
 
-class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
+class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
   private static final DESCRIPTION = "deployDcosServerGroupDescription"
   private static final REGION = "default"
 
 
-  def testCredentials = new DcosCredentials(
-    "test", "test", "test", "https://test.url.com", Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
-  )
+  def testCredentials = defaultCredentialsBuilder().build()
 
   def accountCredentialsProvider = Stub(AccountCredentialsProvider) {
     getCredentials("test") >> testCredentials
@@ -49,7 +45,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an invalid DeployDcosServerGroupDescription"() {
     setup:
-      def description = new DeployDcosServerGroupDescription(region: '-iNv.aLiD-', credentials: new DcosCredentials(null, null, null, null, null),
+      def description = new DeployDcosServerGroupDescription(region: '-iNv.aLiD-', credentials: defaultCredentialsBuilder().name(null).build(),
               application: '-iNv.aLiD-', desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
       def errorsMock = Mock(Errors)
     when:
