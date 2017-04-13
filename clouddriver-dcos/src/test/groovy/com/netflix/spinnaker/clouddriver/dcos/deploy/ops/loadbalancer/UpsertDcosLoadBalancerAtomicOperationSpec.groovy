@@ -6,6 +6,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
@@ -23,7 +24,7 @@ import spock.lang.Subject
 import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.LoadBalancerConfig
 import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription.PortRange
 
-class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
+class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
   private static final ACCOUNT_NAME = "testaccount"
   private static final LOAD_BALANCER_NAME = "external"
   private static final DEPLOYMENT_ID = "deployment-id"
@@ -47,7 +48,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends Specification {
     TaskRepository.threadLocalTask.set(taskMock)
 
     existingAppMock = Mock(App)
-    credentials = new DcosCredentials(ACCOUNT_NAME, "test", "test", "url", Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build())
+    credentials = defaultCredentialsBuilder().name(ACCOUNT_NAME).build()
     dcosDeploymentMonitorMock = Mock(DcosDeploymentMonitor)
 
     def loadBalancerConfig = Mock(LoadBalancerConfig)

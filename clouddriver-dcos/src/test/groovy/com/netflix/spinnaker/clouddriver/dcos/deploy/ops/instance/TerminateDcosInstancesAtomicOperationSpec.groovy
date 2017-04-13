@@ -4,20 +4,16 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesDescription
-import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.DCOS
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import mesosphere.marathon.client.model.v2.DeleteAppTasksResponse
 import mesosphere.marathon.client.model.v2.GetTasksResponse
-import spock.lang.Specification
 
-class TerminateDcosInstancesAtomicOperationSpec extends Specification {
+class TerminateDcosInstancesAtomicOperationSpec extends BaseSpecification {
     DCOS dcosClient = Mock(DCOS)
 
-    DcosCredentials testCredentials = new DcosCredentials(
-            'test', 'test', 'test', 'https://test.url.com', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
-    )
+    DcosCredentials testCredentials = defaultCredentialsBuilder().build()
 
     DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
         getDcosClient(testCredentials) >> dcosClient

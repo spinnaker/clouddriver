@@ -1,22 +1,18 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import mesosphere.dcos.client.Config
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.springframework.validation.Errors
-import spock.lang.Specification
 import spock.lang.Subject
 
-class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
+class ResizeDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
   private static final def DESCRIPTION = "resizeDcosServerGroupDescription"
   private static final def INVALID_MARATHON_PART = "-iNv.aLid-"
 
-  DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
-  )
+  DcosCredentials testCredentials = defaultCredentialsBuilder().build()
 
   AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
     getCredentials('test') >> testCredentials
@@ -44,7 +40,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends Specification {
 
   void "validate should give errors when given an invalid DestroyDcosServerGroupDescription"() {
     setup:
-      def description = new ResizeDcosServerGroupDescription(region: INVALID_MARATHON_PART, credentials: new DcosCredentials(null, null, null, null, null), serverGroupName: INVALID_MARATHON_PART, targetSize: -1)
+      def description = new ResizeDcosServerGroupDescription(region: INVALID_MARATHON_PART, credentials: defaultCredentialsBuilder().name(null).build(), serverGroupName: INVALID_MARATHON_PART, targetSize: -1)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
