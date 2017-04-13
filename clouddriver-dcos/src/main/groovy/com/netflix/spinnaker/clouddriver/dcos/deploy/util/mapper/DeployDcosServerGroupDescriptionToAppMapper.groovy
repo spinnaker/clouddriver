@@ -180,6 +180,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
                 name = serviceEndpoint.name
                 protocol = serviceEndpoint.protocol
                 containerPort = serviceEndpoint.port
+                servicePort = serviceEndpoint.servicePort
                 labels = parsePortMappingLabels(appId, serviceEndpoint, index)
                 it
             }

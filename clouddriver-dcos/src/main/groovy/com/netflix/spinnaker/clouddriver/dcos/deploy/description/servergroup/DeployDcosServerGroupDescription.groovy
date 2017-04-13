@@ -102,6 +102,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   static class ServiceEndpoint {
     String networkType
     Integer port
+    Integer servicePort
     String name
     String protocol
     boolean loadBalanced
