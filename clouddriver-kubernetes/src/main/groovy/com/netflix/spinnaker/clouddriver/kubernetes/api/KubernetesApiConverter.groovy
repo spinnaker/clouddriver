@@ -617,6 +617,8 @@ class KubernetesApiConverter {
       fromContainer(it)
     } ?: []
 
+    deployDescription.nodeSelector = replicaSet?.spec?.template?.spec?.nodeSelector
+
     return deployDescription
   }
 
@@ -668,6 +670,8 @@ class KubernetesApiConverter {
     deployDescription.containers = replicationController?.spec?.template?.spec?.containers?.collect {
       fromContainer(it)
     } ?: []
+
+    deployDescription.nodeSelector = replicationController?.spec?.template?.spec?.nodeSelector
 
     return deployDescription
   }
