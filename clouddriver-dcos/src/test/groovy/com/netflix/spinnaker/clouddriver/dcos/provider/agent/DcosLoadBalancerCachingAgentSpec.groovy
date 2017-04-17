@@ -6,7 +6,7 @@ import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
@@ -112,7 +112,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
               "processedCount": 0]
     }
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns, [loadBalancerKey]) >> [cacheData]
-    dcosClient.getApps(ACCOUNT) >> appsInAccount
+    dcosClient.maybeApps(ACCOUNT) >> Optional.of(appsInAccount)
 
     when:
     final result = subject.loadData(providerCache)
@@ -150,7 +150,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
               "processedCount": 1]
     }
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns, [loadBalancerKey]) >> [cacheData]
-    dcosClient.getApps(ACCOUNT) >> appsInAccount
+    dcosClient.maybeApps(ACCOUNT) >> Optional.of(appsInAccount)
 
     when:
     final result = subject.loadData(providerCache)
@@ -172,7 +172,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
       getApps() >> [loadBalancer]
     }
 
-    dcosClient.getApps(ACCOUNT) >> appsInAccount
+    dcosClient.maybeApps(ACCOUNT) >> Optional.of(appsInAccount)
     def providerCacheMock = Mock(ProviderCache)
     providerCacheMock.getAll(_, _) >> []
     when:

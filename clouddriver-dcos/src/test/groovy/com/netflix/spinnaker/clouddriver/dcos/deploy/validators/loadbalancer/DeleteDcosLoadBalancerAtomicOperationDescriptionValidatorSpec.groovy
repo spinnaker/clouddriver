@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.loadbalancer
 
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider

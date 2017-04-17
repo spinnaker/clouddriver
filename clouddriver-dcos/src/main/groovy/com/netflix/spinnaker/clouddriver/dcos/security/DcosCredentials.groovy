@@ -1,7 +1,8 @@
-package com.netflix.spinnaker.clouddriver.dcos
+package com.netflix.spinnaker.clouddriver.dcos.security
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.model.DCOSAuthCredentials
@@ -25,14 +26,14 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
   @JsonIgnore
   final Config dcosClientConfig
 
-  DcosCredentials(String name,
-                  String environment,
-                  String accountType,
-                  String dcosUrl,
-                  List<LinkedDockerRegistryConfiguration> dockerRegistries,
-                  List<String> requiredGroupMembership,
-                  String secretStore,
-                  Config dcosClientConfig) {
+  private DcosCredentials(String name,
+                          String environment,
+                          String accountType,
+                          String dcosUrl,
+                          List<LinkedDockerRegistryConfiguration> dockerRegistries,
+                          List<String> requiredGroupMembership,
+                          String secretStore,
+                          Config dcosClientConfig) {
     this.name = name
     this.environment = environment
     this.accountType = accountType
@@ -70,45 +71,59 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
 
     Builder name(String name) {
       this.name = name
-      return this
+      this
     }
 
     Builder environment(String environment) {
       this.environment = environment
-      return this
+      this
     }
 
     Builder accountType(String accountType) {
       this.accountType = accountType
-      return this
+      this
     }
 
     Builder dockerRegistries(List<LinkedDockerRegistryConfiguration> dockerRegistries) {
       this.dockerRegistries = dockerRegistries
-      return this
+      this
     }
 
     Builder requiredGroupMembership(List<String> requiredGroupMembership) {
       this.requiredGroupMembership = requiredGroupMembership
-      return this
+      this
     }
 
     Builder dcosUrl(String dcosUrl) {
       this.dcosUrl = dcosUrl
-      return this
+      this
     }
 
     Builder secretStore(String secretStore) {
       this.secretStore = secretStore
-      return this
+      this
     }
 
     Builder dcosClientConfig(Config dcosClientConfig) {
       this.dcosClientConfig = dcosClientConfig
-      return this
+      this
     }
 
     DcosCredentials build() {
+      if (!name) {
+        throw new IllegalArgumentException("Account name for DC/OS provider is missing.")
+      }
+
+      if (!MarathonPathId.isPartValid(name)) {
+        throw new IllegalArgumentException("Account name [${name}] is not valid for the DC/OS provider. Only lowercase letters, numbers, and dashes(-) are allowed.")
+      }
+
+      if (!dockerRegistries || dockerRegistries.size() == 0) {
+        throw new IllegalArgumentException("Docker registries for DC/OS account [${name}] missing.")
+      }
+
+      requiredGroupMembership = requiredGroupMembership ? Collections.unmodifiableList(requiredGroupMembership) : []
+
       new DcosCredentials(name, environment, accountType, dcosUrl, dockerRegistries, requiredGroupMembership, secretStore, dcosClientConfig)
     }
   }

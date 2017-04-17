@@ -5,6 +5,7 @@ import com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper.DeployDcosServe
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.PollingDcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.health.DcosHealthIndicator
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentialsInitializer
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -19,32 +20,23 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
+import org.springframework.scheduling.annotation.EnableScheduling
 
 import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.*
 
 @Configuration
 @ConditionalOnProperty('dcos.enabled')
 @EnableConfigurationProperties
+@EnableScheduling
 @ComponentScan(["com.netflix.spinnaker.clouddriver.dcos"])
+@Import([ DcosCredentialsInitializer ])
 class DcosConfiguration {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DcosConfiguration)
 
   @Bean
   @ConfigurationProperties("dcos")
   DcosConfigurationProperties dcosConfigurationProperties() {
     new DcosConfigurationProperties()
-  }
-
-  @Bean
-  List<DcosCredentials> dcosCredentials(DcosConfigurationProperties dcosConfigurationProperties,
-                                        AccountCredentialsRepository repository) {
-    List<DcosCredentials> accounts = new ArrayList<>()
-    for (Account account in dcosConfigurationProperties.accounts) {
-      DcosCredentials credentials = new DcosCredentials(account.name, account.environment, account.accountType, account.dcosUrl, account.dockerRegistries, account.requiredGroupMembership, account.secretStore, buildConfig(account))
-      accounts.add(credentials)
-      repository.save(account.name, credentials)
-    }
-    return accounts
   }
 
   @Bean
@@ -73,27 +65,6 @@ class DcosConfiguration {
   @Bean
   DcosDeploymentMonitor dcosDeploymentMonitor(@Qualifier("dcosOperationPoller") OperationPoller operationPoller) {
     new PollingDcosDeploymentMonitor(operationPoller)
-  }
-
-  private static Config buildConfig(final Account account) {
-    Config.builder().withCredentials(buildDCOSAuthCredentials(account))
-      .withInsecureSkipTlsVerify(account.insecureSkipTlsVerify)
-      .withCaCertData(account.caCertData)
-      .withCaCertFile(account.caCertFile).build()
-  }
-
-  private static DCOSAuthCredentials buildDCOSAuthCredentials(Account account) {
-    DCOSAuthCredentials dcosAuthCredentials = null
-
-    if (account.uid && account.password && account.serviceKey) {
-      throw new IllegalStateException("Both a password and serviceKey were supplied for the account with name [${account.name}]. Only one should be configured.")
-    } else if (account.uid && account.password) {
-      dcosAuthCredentials = DCOSAuthCredentials.forUserAccount(account.uid, account.password)
-    } else if (account.uid && account.serviceKey) {
-      dcosAuthCredentials = DCOSAuthCredentials.forServiceAccount(account.uid, account.serviceKey)
-    }
-
-    dcosAuthCredentials
   }
 }
 

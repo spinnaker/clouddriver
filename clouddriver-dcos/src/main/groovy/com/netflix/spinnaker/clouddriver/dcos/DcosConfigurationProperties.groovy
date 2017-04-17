@@ -11,7 +11,7 @@ class DcosConfigurationProperties {
   int asyncOperationTimeoutSecondsDefault = ASYNC_OPERATION_TIMEOUT_SECONDS_DEFAULT
   int asyncOperationMaxPollingIntervalSeconds = ASYNC_OPERATION_MAX_POLLING_INTERVAL_SECONDS
 
-  // TODO where best to enforce this as required, besides just failing during LB creation.
+  // TODO consider moving load balancer config to account.
   LoadBalancerConfig loadBalancer
 
   static class Account {

@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.job
 
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.job.RunDcosJobDescription
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
@@ -36,7 +36,7 @@ class RunDcosJobValidatorSpec extends BaseSpecification {
 
     void "validate should give errors when given a RunDcosJobDescription with invalid credentials and an invalid id"() {
         setup:
-            def description = new RunDcosJobDescription(credentials: defaultCredentialsBuilder().name(null).build(),
+            def description = new RunDcosJobDescription(credentials: defaultCredentialsBuilder().build(),
                     general: new RunDcosJobDescription.GeneralSettings().with {
                         id = '/iNv.aLiD-'
                         it
@@ -46,7 +46,7 @@ class RunDcosJobValidatorSpec extends BaseSpecification {
             validator.validate([], description, errorsMock)
         then:
             0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-            1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
+            0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
             0 * errorsMock.rejectValue("general.id", "${DESCRIPTION}.general.id.empty")
             1 * errorsMock.rejectValue("general.id", "${DESCRIPTION}.general.id.invalid")
             0 * errorsMock._

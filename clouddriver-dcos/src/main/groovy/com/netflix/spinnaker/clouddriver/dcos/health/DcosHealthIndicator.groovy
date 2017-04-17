@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.health
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import groovy.transform.InheritConstructors
 import org.springframework.boot.actuate.health.Health

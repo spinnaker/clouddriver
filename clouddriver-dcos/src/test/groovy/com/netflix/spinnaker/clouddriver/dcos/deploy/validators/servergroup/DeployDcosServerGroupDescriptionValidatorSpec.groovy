@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -45,7 +45,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
 
   void "validate should give errors when given an invalid DeployDcosServerGroupDescription"() {
     setup:
-      def description = new DeployDcosServerGroupDescription(region: '-iNv.aLiD-', credentials: defaultCredentialsBuilder().name(null).build(),
+      def description = new DeployDcosServerGroupDescription(region: '-iNv.aLiD-', credentials: defaultCredentialsBuilder().build(),
               application: '-iNv.aLiD-', desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
       def errorsMock = Mock(Errors)
     when:
@@ -54,7 +54,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-      1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
+      0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
       0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.empty")
       1 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.invalid")
       0 * errorsMock.rejectValue("desiredCapacity", "${DESCRIPTION}.desiredCapacity.invalid")

@@ -2,7 +2,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.DeployDcosServerGroupAtomicOperation

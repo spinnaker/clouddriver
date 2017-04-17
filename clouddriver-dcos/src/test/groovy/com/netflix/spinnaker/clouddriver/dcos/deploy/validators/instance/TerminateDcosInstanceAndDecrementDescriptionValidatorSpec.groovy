@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.instance
 
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesAndDecrementDescription
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
@@ -39,14 +39,14 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends BaseSpec
 
     void "validate should give errors when given a TerminateDcosInstancesAndDecrementDescription with only an appId"() {
         setup:
-            def description = new TerminateDcosInstancesAndDecrementDescription(credentials: defaultCredentialsBuilder().name(null).build(),
-                    appId: "test/region/app-stack-detail-v000", hostId: null, taskIds: [], force: false)
+            def description = new TerminateDcosInstancesAndDecrementDescription(credentials: defaultCredentialsBuilder().build(),
+                    appId: "test-badacct/region/app-stack-detail-v000", hostId: null, taskIds: [], force: false)
             def errorsMock = Mock(Errors)
         when:
             validator.validate([], description, errorsMock)
         then:
             0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-            1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
+            0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
             1 * errorsMock.rejectValue("hostId|taskIds", "${DESCRIPTION}.hostId|taskIds.empty")
             0 * errorsMock.rejectValue("hostId|taskIds", "${DESCRIPTION}.hostId|taskIds.invalid")
             0 * errorsMock.rejectValue("taskIds", "${DESCRIPTION}.taskIds.empty")

@@ -3,16 +3,15 @@ package com.netflix.spinnaker.clouddriver.dcos.provider.agent
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
-import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.DCOS
 import mesosphere.dcos.client.DCOSException
 import mesosphere.dcos.client.model.ListSecretsResponse
-import spock.lang.Specification
 
-class DcosSecretsCachingAgentSpec extends Specification {
+class DcosSecretsCachingAgentSpec extends BaseSpecification {
   static final private String ACCOUNT = "testaccount"
   DcosCredentials credentials
   AccountCredentialsRepository accountCredentialsRepository
@@ -25,7 +24,7 @@ class DcosSecretsCachingAgentSpec extends Specification {
 
   def setup() {
     accountCredentialsRepository = Mock(AccountCredentialsRepository)
-    credentials = new DcosCredentials("creds", "test", "dcos", "http://a-url", [], [], "default", Config.builder().build())
+    credentials = defaultCredentialsBuilder().build();
     dcosClient = Mock(DCOS)
     providerCache = Mock(ProviderCache)
     objectMapper = new ObjectMapper()

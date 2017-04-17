@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos
 
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import mesosphere.dcos.client.DCOS
 import mesosphere.dcos.client.DCOSClient

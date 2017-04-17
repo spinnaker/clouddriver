@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.converters
 
 import com.fasterxml.jackson.databind.DeserializationFeature
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 

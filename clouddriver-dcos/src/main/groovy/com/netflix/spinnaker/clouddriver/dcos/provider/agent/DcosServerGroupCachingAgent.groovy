@@ -11,7 +11,7 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
-import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup
@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
 import groovy.util.logging.Slf4j
 import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
+import mesosphere.marathon.client.model.v2.GetAppNamespaceResponse
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
@@ -224,8 +225,14 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
   }
 
   private List<DcosServerGroup> loadServerGroups() {
-    final List<App> apps = dcosClient.maybeApps(accountName, ['app.tasks', 'app.deployments']).orElse(null)?.apps
-    apps.findAll {
+
+    final Optional<GetAppNamespaceResponse> response = dcosClient.maybeApps(accountName, ['app.tasks', 'app.deployments'])
+    if (!response.isPresent()) {
+      log.info("The account namespace [${accountName}] does not exist in DC/OS. No server groups will be cached.")
+      return []
+    }
+
+    response.get().apps.findAll {
       !it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerAppId.parse(it.id, accountName, ID_LOGGING_ENABLED).isPresent()
     }.collect {
       new DcosServerGroup(accountName, it)
