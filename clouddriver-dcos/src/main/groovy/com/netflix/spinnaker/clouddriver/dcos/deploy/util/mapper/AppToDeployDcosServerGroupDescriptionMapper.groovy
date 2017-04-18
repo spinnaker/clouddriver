@@ -82,6 +82,7 @@ class AppToDeployDcosServerGroupDescriptionMapper {
             networkType = appDocker.network
             name = pm.name
             port = pm.containerPort
+            servicePort = pm.servicePort
             protocol = pm.protocol
             labels = pm.labels
             loadBalanced = pm.labels?.keySet()?.any { it.startsWith('VIP') } ?: false
