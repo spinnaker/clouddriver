@@ -32,28 +32,40 @@ class DcosApplicationProvider implements ApplicationProvider {
   Set<Application> getApplications(boolean expand) {
     def relationshipFilter = expand ? RelationshipCacheFilter.include(Keys.Namespace.CLUSTERS.ns) : RelationshipCacheFilter.none()
     Collection<CacheData> applications = getAllMatchingKeyPattern(cacheView, Keys.Namespace.APPLICATIONS.ns, "${dcosCloudProvider.id}:*", relationshipFilter)
-    applications.collect this.&translate
+    def secrets = getSecrets()
+    applications.collect {translate(it, secrets)}
   }
 
   @Override
   Application getApplication(String name) {
-    translate(cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(name)))
+    translate(cacheView.get(Keys.Namespace.APPLICATIONS.ns, Keys.getApplicationKey(name)), getSecrets())
   }
 
-  Application translate(CacheData cacheData) {
-    if (cacheData == null) {
+  private Map<String, Collection<String>> getSecrets() {
+    Collection<CacheData> secretData = getAllMatchingKeyPattern(cacheView, Keys.Namespace.SECRETS.ns, "${dcosCloudProvider.id}:*")
+    Map<String, Collection<String>> secretsByAccount = [:].withDefault { key -> return [] }
+    secretData.each {
+      secretsByAccount[Keys.parse(it.id).account].add(objectMapper.convertValue(it.attributes.secretPath, String.class))
+    }
+    secretsByAccount
+  }
+
+  Application translate(CacheData appCacheData, Map<String, Collection<String>> secretsByAccount) {
+    if (appCacheData == null) {
       return null
     }
 
-    String name = Keys.parse(cacheData.id).application
-    Map<String, String> attributes = objectMapper.convertValue(cacheData.attributes, DcosApplication.ATTRIBUTES)
+    String name = Keys.parse(appCacheData.id).application
+    Map<String, String> attributes = objectMapper.convertValue(appCacheData.attributes, DcosApplication.ATTRIBUTES)
     Map<String, Set<String>> clusterNames = [:].withDefault { new HashSet<String>() }
-    for (String clusterId : cacheData.relationships[Keys.Namespace.CLUSTERS.ns]) {
+    for (String clusterId : appCacheData.relationships[Keys.Namespace.CLUSTERS.ns]) {
       Map<String, String> cluster = Keys.parse(clusterId)
       if (cluster.account && cluster.name) {
         clusterNames[cluster.account].add(cluster.name)
       }
     }
+
+    attributes.put("secrets", objectMapper.writeValueAsString(secretsByAccount))
 
     new DcosApplication(name, attributes, clusterNames)
   }
