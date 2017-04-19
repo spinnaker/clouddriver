@@ -69,13 +69,14 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
         return [:]
       }
 
+      final contents = file.get()
       if (filePath.contains(".json")) {
-        return objectMapper.readValue(file.get(), Map)
+        return objectMapper.readValue(contents, Map)
       }
 
       def properties = new Properties()
 
-      properties.load(new ByteArrayInputStream(file.getBytes()))
+      properties.load(new ByteArrayInputStream(contents.getBytes()))
 
       return properties as Map<String, Object>
     } catch (DCOSException e) {
