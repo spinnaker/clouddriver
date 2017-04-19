@@ -58,10 +58,13 @@ class OpenstackHealthIndicator implements HealthIndicator {
       } as Set<OpenstackNamedAccountCredentials>
 
       for (OpenstackNamedAccountCredentials accountCredentials in openstackCredentialsSet) {
-        OpenstackCredentials openstackCredentials = accountCredentials.credentials
-        openstackCredentials.provider.tokenId
+        try {
+          OpenstackCredentials openstackCredentials = accountCredentials.credentials
+          openstackCredentials.provider.tokenId
+        } catch (IOException e) {
+          throw new OpenstackIOException(e)
+        }
       }
-
       lastException.set(null)
     } catch (Exception ex) {
       LOG.warn "Unhealthy", ex
