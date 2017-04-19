@@ -224,7 +224,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
   }
 
   private List<DcosServerGroup> loadServerGroups() {
-    final List<App> apps = dcosClient.getApps(accountName)?.apps
+    final List<App> apps = dcosClient.maybeApps(accountName, ['app.tasks', 'app.deployments']).orElse(null)?.apps
     apps.findAll {
       !it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerAppId.parse(it.id, accountName, ID_LOGGING_ENABLED).isPresent()
     }.collect {

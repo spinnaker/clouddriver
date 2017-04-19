@@ -12,6 +12,7 @@ import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
 import groovy.util.logging.Slf4j
 import mesosphere.dcos.client.DCOS
+import mesosphere.marathon.client.model.v2.Deployment
 import mesosphere.marathon.client.model.v2.Task
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
@@ -63,11 +64,12 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
 
     // The tasks API returns all tasks, but we want to ensure we only cache ones valid for the current account.
     def tasks = dcosClient.getTasks().tasks.findAll { DcosSpinnakerAppId.parse(it.appId, accountName, ID_LOGGING_ENABLED).isPresent() }
+    def deployments = dcosClient.getDeployments()
 
-    buildCacheResult(tasks)
+    buildCacheResult(tasks, deployments)
   }
 
-  private CacheResult buildCacheResult(List<Task> tasks) {
+  private CacheResult buildCacheResult(List<Task> tasks, List<Deployment> deployments) {
     log.info("Describing items in ${agentType}")
 
     Map<String, MutableCacheData> cachedInstances = MutableCacheData.mutableCacheMap()
@@ -77,10 +79,12 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
         continue
       }
 
+      def deploymentsActive = deployments.stream().filter({ it.affectedApps.contains(task.appId) }).count() > 0
+
       def key = Keys.getInstanceKey(DcosSpinnakerAppId.parse(task.appId, accountName, ID_LOGGING_ENABLED).get(), task.id)
       cachedInstances[key].with {
         attributes.name = task.id
-        attributes.instance = new DcosInstance(task, accountName)
+        attributes.instance = new DcosInstance(task, accountName, deploymentsActive)
       }
     }
 

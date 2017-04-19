@@ -77,7 +77,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
     this.deployDescription = AppToDeployDcosServerGroupDescriptionMapper.map(app, account)
 
     // TODO can't always assume the tasks are present in the App! Depends on API used to retrieve
-    this.instances = app.tasks?.collect({ new DcosInstance(it, account) }) as Set ?: []
+    this.instances = app.tasks?.collect({ new DcosInstance(it, account, app.deployments?.size() > 0) }) as Set ?: []
   }
 
   void populateLoadBalancers(App app) {
