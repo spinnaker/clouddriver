@@ -1,21 +1,17 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.instance
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.instance.TerminateDcosInstancesAndDecrementDescription
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import mesosphere.dcos.client.Config
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.springframework.validation.Errors
-import spock.lang.Specification
 import spock.lang.Subject
 
-class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specification {
+class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends BaseSpecification {
     private static final DESCRIPTION = "terminateDcosInstancesAndDecrementDescription"
 
-    DcosCredentials testCredentials = new DcosCredentials(
-            'test', 'test', 'test', 'https://test.url.com', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
-    )
+    DcosCredentials testCredentials = defaultCredentialsBuilder().build()
 
     AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
         getCredentials('test') >> testCredentials
@@ -43,7 +39,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends Specific
 
     void "validate should give errors when given a TerminateDcosInstancesAndDecrementDescription with only an appId"() {
         setup:
-            def description = new TerminateDcosInstancesAndDecrementDescription(credentials: new DcosCredentials(null, null, null, null, null),
+            def description = new TerminateDcosInstancesAndDecrementDescription(credentials: defaultCredentialsBuilder().name(null).build(),
                     appId: "test/region/app-stack-detail-v000", hostId: null, taskIds: [], force: false)
             def errorsMock = Mock(Errors)
         when:

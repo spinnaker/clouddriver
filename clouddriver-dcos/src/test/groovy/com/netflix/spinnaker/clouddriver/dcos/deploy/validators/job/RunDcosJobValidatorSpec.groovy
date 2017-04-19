@@ -1,20 +1,17 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.job
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.job.RunDcosJobDescription
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.springframework.validation.Errors
-import spock.lang.Specification
 import spock.lang.Subject
 
-class RunDcosJobValidatorSpec extends Specification {
+class RunDcosJobValidatorSpec extends BaseSpecification {
     private static final DESCRIPTION = "runDcosJobDescription"
 
-    DcosCredentials testCredentials = new DcosCredentials(
-            'test', 'test', 'test', 'https://test.url.com', DCOSAuthCredentials.forUserAccount('user', 'pw')
-    )
+    DcosCredentials testCredentials = defaultCredentialsBuilder().build()
 
     AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
         getCredentials('test') >> testCredentials
@@ -39,7 +36,7 @@ class RunDcosJobValidatorSpec extends Specification {
 
     void "validate should give errors when given a RunDcosJobDescription with invalid credentials and an invalid id"() {
         setup:
-            def description = new RunDcosJobDescription(credentials: new DcosCredentials(null, null, null, null, null),
+            def description = new RunDcosJobDescription(credentials: defaultCredentialsBuilder().name(null).build(),
                     general: new RunDcosJobDescription.GeneralSettings().with {
                         id = '/iNv.aLiD-'
                         it

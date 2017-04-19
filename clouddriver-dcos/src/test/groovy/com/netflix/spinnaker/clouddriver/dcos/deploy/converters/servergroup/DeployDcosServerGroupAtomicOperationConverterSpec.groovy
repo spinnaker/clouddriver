@@ -3,26 +3,22 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.DeployDcosServerGroupAtomicOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.mapper.DeployDcosServerGroupDescriptionToAppMapper
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.DCOS
-import mesosphere.dcos.client.model.DCOSAuthCredentials
-import spock.lang.Specification
 import spock.lang.Subject
 
-class DeployDcosServerGroupAtomicOperationConverterSpec extends Specification {
+class DeployDcosServerGroupAtomicOperationConverterSpec extends BaseSpecification {
 
   DCOS dcosClient = Mock(DCOS)
   DeployDcosServerGroupDescriptionToAppMapper dcosServerGroupDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
-  DcosCredentials testCredentials = new DcosCredentials(
-    'test', 'test', 'test', 'https://test.url.com', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
-  )
+  DcosCredentials testCredentials = defaultCredentialsBuilder().build()
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
     getDcosClient(testCredentials) >> dcosClient

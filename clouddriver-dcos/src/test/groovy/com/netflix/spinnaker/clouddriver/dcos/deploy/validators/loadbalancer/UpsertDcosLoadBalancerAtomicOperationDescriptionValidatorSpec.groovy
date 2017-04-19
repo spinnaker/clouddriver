@@ -1,18 +1,16 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.loadbalancer
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import mesosphere.dcos.client.Config
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import org.springframework.validation.Errors
 import spock.lang.Shared
-import spock.lang.Specification
 import spock.lang.Subject
 
 import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription.PortRange
 
-class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Specification {
+class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends BaseSpecification {
   private static final DESCRIPTION = "upsertDcosLoadBalancerAtomicOperationDescription"
   private static final ACCOUNT = "my-test-account"
 
@@ -21,9 +19,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Spec
   UpsertDcosLoadBalancerAtomicOperationDescriptionValidator validator
 
   @Shared
-  DcosCredentials testCredentials = new DcosCredentials(
-          ACCOUNT, 'test', 'test', 'url', Config.builder().withCredentials(DCOSAuthCredentials.forUserAccount('user', 'pw')).build()
-  )
+  DcosCredentials testCredentials = defaultCredentialsBuilder().name(ACCOUNT).build()
 
   def setupSpec() {
     def accountCredentialsProvider = Stub(AccountCredentialsProvider) {

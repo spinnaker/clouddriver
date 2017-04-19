@@ -6,7 +6,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.model.DCOSAuthCredentials
 
-import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.*
+import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.LinkedDockerRegistryConfiguration
 
 class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
   private static final String CLOUD_PROVIDER = Keys.PROVIDER
@@ -40,14 +40,73 @@ class DcosCredentials implements AccountCredentials<DCOSAuthCredentials> {
     this.dcosClientConfig = dcosClientConfig
   }
 
+  static Builder builder() {
+    return new Builder()
+  }
+
   @JsonIgnore
   @Override
   DCOSAuthCredentials getCredentials() {
-   dcosClientConfig.getCredentials()
+    dcosClientConfig.getCredentials()
   }
 
   @Override
   String getCloudProvider() {
     CLOUD_PROVIDER
+  }
+
+  static class Builder {
+    private String name
+    private String environment
+    private String accountType
+    private List<LinkedDockerRegistryConfiguration> dockerRegistries
+    private List<String> requiredGroupMembership
+    private String dcosUrl
+    private String secretStore
+    private Config dcosClientConfig
+
+    Builder name(String name) {
+      this.name = name
+      return this
+    }
+
+    Builder environment(String environment) {
+      this.environment = environment
+      return this
+    }
+
+    Builder accountType(String accountType) {
+      this.accountType = accountType
+      return this
+    }
+
+    Builder dockerRegistries(List<LinkedDockerRegistryConfiguration> dockerRegistries) {
+      this.dockerRegistries = dockerRegistries
+      return this
+    }
+
+    Builder requiredGroupMembership(List<String> requiredGroupMembership) {
+      this.requiredGroupMembership = requiredGroupMembership
+      return this
+    }
+
+    Builder dcosUrl(String dcosUrl) {
+      this.dcosUrl = dcosUrl
+      return this
+    }
+
+    Builder secretStore(String secretStore) {
+      this.secretStore = secretStore
+      return this
+    }
+
+    Builder dcosClientConfig(Config dcosClientConfig) {
+      this.dcosClientConfig = dcosClientConfig
+      return this
+    }
+
+    DcosCredentials build() {
+      new DcosCredentials(name, environment, accountType, dcosUrl, dockerRegistries, requiredGroupMembership, secretStore, dcosClientConfig)
+    }
   }
 }

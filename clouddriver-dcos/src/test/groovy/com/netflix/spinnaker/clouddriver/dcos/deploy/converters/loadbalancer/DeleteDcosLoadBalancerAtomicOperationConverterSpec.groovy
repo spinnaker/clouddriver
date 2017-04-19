@@ -3,15 +3,15 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.loadbalancer
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.loadbalancer.DeleteDcosLoadBalancerAtomicOperation
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Shared
-import spock.lang.Specification
 import spock.lang.Subject
 
-class DeleteDcosLoadBalancerAtomicOperationConverterSpec extends Specification {
+class DeleteDcosLoadBalancerAtomicOperationConverterSpec extends BaseSpecification {
 
   private static final ACCOUNT = "my-test-account"
   private static final LOAD_BALANCER_NAME = "external"
