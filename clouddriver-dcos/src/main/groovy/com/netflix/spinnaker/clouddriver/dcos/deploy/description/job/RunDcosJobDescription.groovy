@@ -9,7 +9,7 @@ import groovy.transform.Canonical
 class RunDcosJobDescription extends AbstractDcosCredentialsDescription implements DeployDescription {
   GeneralSettings general
   Schedule schedule
-  Image image
+  Docker docker
   Map<String, String> labels
   Map<String, String> env
   String user
@@ -31,11 +31,15 @@ class RunDcosJobDescription extends AbstractDcosCredentialsDescription implement
   }
 
   @Canonical
+  static class Docker {
+    Image image
+  }
+
+  @Canonical
   static class Image {
     String registry
     String repository
     String tag
-    String imageId
   }
 
   @Canonical

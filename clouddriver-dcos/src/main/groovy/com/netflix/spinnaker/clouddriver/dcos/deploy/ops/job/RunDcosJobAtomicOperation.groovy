@@ -38,11 +38,10 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
     task.updateStatus BASE_PHASE, "Initializing creation of job ${jobName}."
 
     def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
+    def job = mapDescriptionToJob(description)
 
     if (!dcosClient.maybeJob(description.general.id).isPresent()) {
       task.updateStatus BASE_PHASE, "Job with id of ${jobName} does not exist, creating job."
-
-      def job = mapDescriptionToJob(description)
 
       if (job.schedules) {
         dcosClient.createJobWithSchedules(job)
@@ -51,6 +50,16 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
       }
 
       task.updateStatus BASE_PHASE, "Job ${jobName} was successfully created."
+    } else {
+      task.updateStatus BASE_PHASE, "Job with id of ${jobName} already exists, updating job."
+
+      if (job.schedules) {
+        dcosClient.updateJobWithSchedules(jobName, job)
+      } else {
+        dcosClient.updateJob(jobName, job)
+      }
+
+      task.updateStatus BASE_PHASE, "Job ${jobName} was successfully updated."
     }
 
     task.updateStatus BASE_PHASE, "Triggering job ${jobName}..."
@@ -132,9 +141,9 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
           }
         }
 
-        if (jobDescription.image) {
+        if (jobDescription.docker?.image) {
           docker = new Docker().with {
-            image = jobDescription.image.imageId
+            image = "${jobDescription.docker.image.registry}/${jobDescription.docker.image.repository}:${jobDescription.docker.image.tag}".toString()
             it
           }
         }
