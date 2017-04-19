@@ -29,7 +29,7 @@ class DcosInstance implements Instance, Serializable {
 
   DcosInstance() {}
 
-  DcosInstance(Task task, String account) {
+  DcosInstance(Task task, String account, boolean deploymentsActive) {
     this.task = task
     this.taskId = task.id
     this.name = task.id
@@ -40,7 +40,7 @@ class DcosInstance implements Instance, Serializable {
     this.json = task.toString()
 
     this.launchTime = task.startedAt ? Instant.parse(task.startedAt).toEpochMilli() : null
-    this.health = [getTaskHealth(task)]
+    this.health = [getTaskHealth(task, deploymentsActive)]
 
     // TODO Instance interfaces says this is the availability zone. Not sure we have this concept - we can only get the host.
     // Should this be our concept of region? Kubernetes uses namespace here.
@@ -52,7 +52,7 @@ class DcosInstance implements Instance, Serializable {
     // task.ipAddresses
   }
 
-  private static Map<String, String> getTaskHealth(Task task) {
+  private static Map<String, String> getTaskHealth(Task task, boolean deploymentsActive) {
 
     def health = [:]
 
@@ -63,9 +63,9 @@ class DcosInstance implements Instance, Serializable {
     switch (task.state) {
       case "TASK_RUNNING":
         // TODO Not sure if there could be a race condition where healthCheckResults are not populated for a period after TASK_RUNNING is set for the task.
-        health["state"] = task.healthCheckResults && task.healthCheckResults.any {
+        health["state"] = deploymentsActive || (task.healthCheckResults && task.healthCheckResults.any {
           !it.alive
-        } ? HealthState.Down : HealthState.Up
+        }) ? HealthState.Down : HealthState.Up
         break;
       case "TASK_STARTING":
         health["state"] = HealthState.Starting

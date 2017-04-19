@@ -205,7 +205,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
   private List<App> loadLoadBalancers() {
     // Currently not supporting anything but account global load balancers - no associated region.
-    dcosClient.getApps(accountName).apps.findAll {
+    dcosClient.getAppsForNamespace(accountName).apps.findAll {
       it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosProviderUtils.isLoadBalancerIdValid(it.id, accountName)
     }
   }
