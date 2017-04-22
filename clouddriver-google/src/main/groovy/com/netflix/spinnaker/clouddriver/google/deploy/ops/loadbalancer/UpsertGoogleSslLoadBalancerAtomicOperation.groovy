@@ -24,6 +24,7 @@ import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.UpsertGoogleLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.google.model.GoogleHealthCheck
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleSessionAffinity
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
@@ -133,7 +134,8 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
       Boolean differentHealthChecks = existingBackendService.getHealthChecks().collect { GCEUtil.getLocalName(it) } != [healthCheckName]
       Boolean differentSessionAffinity = GoogleSessionAffinity.valueOf(existingBackendService.getSessionAffinity()) != description.backendService.sessionAffinity ||
         existingBackendService.getAffinityCookieTtlSec() != description.backendService.affinityCookieTtlSec
-      needToUpdateBackendService = differentHealthChecks || differentSessionAffinity
+      Boolean differentNamedPort = existingBackendService.getPortName() != description.backendService.namedPort
+      needToUpdateBackendService = differentHealthChecks || differentSessionAffinity || differentNamedPort
     }
 
     // Note: SSL LBs only use HealthCheck objects, _not_ Http(s)HealthChecks. The actual check (i.e. Ssl, Tcp, Http(s))
@@ -196,6 +198,7 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
       task.updateStatus BASE_PHASE, "Creating backend service ${description.backendService.name}..."
       BackendService bs = new BackendService(
         name: backendServiceName,
+        portName: description.backendService.namedPort ?: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME,
         healthChecks: [GCEUtil.buildHealthCheckUrl(project, healthCheckName)],
         sessionAffinity: description.backendService.sessionAffinity ?: 'NONE',
         affinityCookieTtlSec: description.backendService.affinityCookieTtlSec,
@@ -217,6 +220,7 @@ class UpsertGoogleSslLoadBalancerAtomicOperation extends UpsertGoogleLoadBalance
     } else if (existingBackendService && needToUpdateBackendService) {
       task.updateStatus BASE_PHASE, "Upating backend service ${description.backendService.name}..."
       existingBackendService.healthChecks = [GCEUtil.buildHealthCheckUrl(project, healthCheckName)]
+      existingBackendService.portName = description.backendService?.namedPort ?: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME
       existingBackendService.sessionAffinity = description.backendService.sessionAffinity ?: 'NONE'
       existingBackendService.affinityCookieTtlSec = description.backendService.affinityCookieTtlSec
       existingBackendService.loadBalancingScheme = 'EXTERNAL'

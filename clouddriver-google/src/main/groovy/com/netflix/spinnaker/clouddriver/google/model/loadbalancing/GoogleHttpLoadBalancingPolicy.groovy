@@ -27,7 +27,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
  */
 class GoogleHttpLoadBalancingPolicy extends GoogleLoadBalancingPolicy {
   @JsonIgnore
-  static final String HTTP_PORT_NAME = 'http'
+  static final String HTTP_DEFAULT_PORT_NAME = 'http'
 
   @JsonIgnore
   static final Integer HTTP_DEFAULT_PORT = 80

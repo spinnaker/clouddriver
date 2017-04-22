@@ -406,6 +406,7 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleCachingAgent impl
       List<GoogleBackendService> backendServicesInMap = Utils.getBackendServicesFromHttpLoadBalancerView(googleLoadBalancer.view)
       def backendServicesToUpdate = backendServicesInMap.findAll { it && it.name == backendService.name }
       backendServicesToUpdate.each { GoogleBackendService service ->
+        service.namedPort = backendService.portName
         service.sessionAffinity = GoogleSessionAffinity.valueOf(backendService.sessionAffinity)
         service.affinityCookieTtlSec = backendService.affinityCookieTtlSec
         service.enableCDN = backendService.enableCDN

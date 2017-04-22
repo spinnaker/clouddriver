@@ -95,6 +95,7 @@ class GoogleBackendServiceCachingAgent extends AbstractGoogleCachingAgent {
         attributes.name = backendService.name
         attributes.kind = backendService.kind
         attributes.healthCheckLink = backendService.healthCheckLink
+        attributes.namedPort = backendService.namedPort
         attributes.sessionAffinity = backendService.sessionAffinity
         attributes.affinityCookieTtlSec = backendService.affinityCookieTtlSec
         attributes.region = backendService.region
@@ -113,6 +114,7 @@ class GoogleBackendServiceCachingAgent extends AbstractGoogleCachingAgent {
       kind: kind,
       healthCheckLink: bs.healthChecks[0],
       sessionAffinity: bs.sessionAffinity,
+      namedPort: bs.namedPort,
       affinityCookieTtlSec: bs.affinityCookieTtlSec,
       enableCDN: bs.enableCDN,
       region: bs.region ?: 'global'

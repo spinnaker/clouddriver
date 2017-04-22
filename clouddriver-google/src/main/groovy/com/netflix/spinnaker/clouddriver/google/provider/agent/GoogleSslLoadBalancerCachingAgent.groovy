@@ -248,6 +248,7 @@ class GoogleSslLoadBalancerCachingAgent extends AbstractGoogleCachingAgent imple
 
       GoogleBackendService newService = new GoogleBackendService(
         name: backendService.name,
+        namedPort: backendService.portName,
         loadBalancingScheme: backendService.loadBalancingScheme,
         sessionAffinity: backendService.sessionAffinity,
         affinityCookieTtlSec: backendService.affinityCookieTtlSec,
