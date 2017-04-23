@@ -79,10 +79,9 @@ public class KubernetesCredentials {
 
       List<String> resultNamespaces = new ArrayList<>(addedNamespaces);
 
-      // Find the namespaces that were added, and add docker secrets to them. No need to track deleted
+      // Find the namespaces that were added. No need to track deleted
       // namespaces since they delete their secrets automatically.
       addedNamespaces.removeAll(oldNamespaces);
-      reconfigureRegistries(addedNamespaces, resultNamespaces);
       oldNamespaces = resultNamespaces;
 
       return resultNamespaces;
