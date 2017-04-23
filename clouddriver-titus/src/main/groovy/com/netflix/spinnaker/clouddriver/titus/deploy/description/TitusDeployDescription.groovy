@@ -45,6 +45,7 @@ class TitusDeployDescription extends AbstractTitusCredentialsDescription impleme
   int retries
   int runtimeLimitSecs
   Boolean useApplicationDefaultSecurityGroup = true
+  Boolean addSecureSignature = true
   List<String> interestingHealthProviderNames
 
   Collection<OperationEvent> events = []
