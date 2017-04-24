@@ -16,10 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.description
 
-import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancerType
-
 class DeleteAmazonLoadBalancerDescription extends AbstractAmazonCredentialsDescription {
-  AmazonLoadBalancerType loadBalancerType
   String loadBalancerName
   Set<String> regions
 }
