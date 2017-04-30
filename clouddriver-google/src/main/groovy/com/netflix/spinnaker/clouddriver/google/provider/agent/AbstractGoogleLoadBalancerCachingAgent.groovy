@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Google, Inc.
+ * Copyright 2017 Google, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,11 +18,10 @@ package com.netflix.spinnaker.clouddriver.google.provider.agent
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.api.services.compute.model.Firewall
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AgentDataType
-import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.agent.CacheResult
+import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
@@ -30,7 +29,8 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
-import com.netflix.spinnaker.clouddriver.google.model.GoogleSecurityGroup
+import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import groovy.transform.Canonical
 import groovy.util.logging.Slf4j
@@ -38,73 +38,81 @@ import groovy.util.logging.Slf4j
 import java.util.concurrent.TimeUnit
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
+import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.INSTANCES
+import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.LOAD_BALANCERS
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.ON_DEMAND
-import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.SECURITY_GROUPS
 
 @Slf4j
-class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent {
+abstract class AbstractGoogleLoadBalancerCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent {
 
-  String agentType = "${accountName}/global/${GoogleSecurityGroupCachingAgent.simpleName}"
+  String agentType = "${accountName}/${region}/${this.class.simpleName}"
   String onDemandAgentType = "${agentType}-OnDemand"
 
+  final String region
   final OnDemandMetricsSupport metricsSupport
 
   final Set<AgentDataType> providedDataTypes = [
-    AUTHORITATIVE.forType(SECURITY_GROUPS.ns)
+    AUTHORITATIVE.forType(LOAD_BALANCERS.ns),
+    INFORMATIVE.forType(INSTANCES.ns),
   ] as Set
 
-  GoogleSecurityGroupCachingAgent(String clouddriverUserAgentApplicationName,
-                                  GoogleNamedAccountCredentials credentials,
-                                  ObjectMapper objectMapper,
-                                  Registry registry) {
+  AbstractGoogleLoadBalancerCachingAgent(String clouddriverUserAgentApplicationName,
+                                         GoogleNamedAccountCredentials credentials,
+                                         ObjectMapper objectMapper,
+                                         Registry registry,
+                                         String region) {
     super(clouddriverUserAgentApplicationName,
           credentials,
           objectMapper,
           registry)
+    this.region = region
     this.metricsSupport = new OnDemandMetricsSupport(
       registry,
       this,
-      "${GoogleCloudProvider.ID}:${OnDemandAgent.OnDemandType.SecurityGroup}")
+      "${GoogleCloudProvider.ID}:${OnDemandAgent.OnDemandType.LoadBalancer}")
   }
 
   @Override
   boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    type == OnDemandAgent.OnDemandType.SecurityGroup && cloudProvider == GoogleCloudProvider.ID
+    type == OnDemandAgent.OnDemandType.LoadBalancer && cloudProvider == GoogleCloudProvider.ID
   }
 
   @Override
   OnDemandAgent.OnDemandResult handle(ProviderCache providerCache, Map<String, ? extends Object> data) {
-    if (!data.containsKey("securityGroupName") || data.account != accountName || data.region != "global") {
+    if (!data.containsKey("loadBalancerName") || data.account != accountName || data.region != region) {
       return null
     }
 
-    Firewall firewall = metricsSupport.readData {
-      getFirewall(data.securityGroupName as String)
+    GoogleLoadBalancer loadBalancer
+
+    try {
+      loadBalancer = metricsSupport.readData {
+        getLoadBalancer(data.loadBalancerName as String)
+      }
+    } catch (IllegalArgumentException e) {
+      // If after retrieving the root of the load balancer resource tree, the caching agent determines that it is not
+      // responsible for caching the type of load balancer retrieved, it will throw this exception. We then return
+      // null to avoid evicting the load balancer from the on demand namespace (since the correct caching agent will
+      // have added it there).
+      return null
     }
 
-    def securityGroupKey
+    def loadBalancerKey
     Collection<String> identifiers = []
 
-    if (firewall) {
-      securityGroupKey = Keys.getSecurityGroupKey(
-        firewall.name,
-        firewall.name,
-        "global",
-        accountName)
+    if (loadBalancer) {
+      loadBalancerKey = Keys.getLoadBalancerKey(loadBalancer.region, accountName, loadBalancer.name)
     } else {
-      securityGroupKey = Keys.getSecurityGroupKey(
-        data.securityGroupName,
-        data.securityGroupName,
-        "global",
-        accountName)
+      loadBalancerKey = Keys.getLoadBalancerKey(region, accountName, data.loadBalancerName as String)
 
-      // No firewall was found, so need to find identifiers for all firewalls in the region.
-      identifiers = providerCache.filterIdentifiers(SECURITY_GROUPS.ns, securityGroupKey)
+      // No load balancer was found, so need to find identifiers for all load balancers in the region.
+      identifiers = providerCache.filterIdentifiers(LOAD_BALANCERS.ns, loadBalancerKey)
     }
 
     def cacheResultBuilder = new CacheResultBuilder(startTime: Long.MAX_VALUE)
     CacheResult result = metricsSupport.transformData {
-      buildCacheResult(cacheResultBuilder, firewall ? [firewall] : [])
+      buildCacheResult(cacheResultBuilder, loadBalancer ? [loadBalancer] : [])
     }
 
     if (result.cacheResults.values().flatten().empty) {
@@ -113,7 +121,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
     } else {
       metricsSupport.onDemandStore {
         def cacheData = new DefaultCacheData(
-          securityGroupKey,
+          loadBalancerKey,
           TimeUnit.MINUTES.toSeconds(10) as Integer, // ttl
           [
             cacheTime     : System.currentTimeMillis(),
@@ -129,11 +137,11 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
     }
 
     Map<String, Collection<String>> evictions = [:].withDefault {_ -> []}
-    if (!firewall) {
-      evictions[SECURITY_GROUPS.ns].addAll(identifiers)
+    if (!loadBalancer) {
+      evictions[LOAD_BALANCERS.ns].addAll(identifiers)
     }
 
-    log.info("On demand cache refresh succeeded. Data: ${data}. Added ${firewall ? 1 : 0} items to the cache.")
+    log.info("On demand cache refresh succeeded. Data: ${data}. Added ${loadBalancer ? 1 : 0} items to the cache.")
 
     return new OnDemandAgent.OnDemandResult(
       sourceAgentType: getOnDemandAgentType(),
@@ -146,7 +154,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
   @Override
   Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
     def keyOwnedByThisAgent = { Map<String, String> parsedKey ->
-      parsedKey && parsedKey.account == accountName && parsedKey.region == "global"
+      parsedKey && parsedKey.account == accountName && parsedKey.region == region
     }
 
     def keys = providerCache.getIdentifiers(ON_DEMAND.ns).findAll { String key ->
@@ -167,12 +175,12 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
   CacheResult loadData(ProviderCache providerCache) {
     def cacheResultBuilder = new CacheResultBuilder(startTime: System.currentTimeMillis())
 
-    List<Firewall> firewalls = getFirewalls()
-    def firewallKeys = firewalls.collect { Keys.getSecurityGroupKey(it.getName(), it.getName(), "global", accountName) }
+    List<GoogleLoadBalancer> loadBalancers = getLoadBalancers()
+    def loadBalancerKeys = loadBalancers.collect { Keys.getLoadBalancerKey(it.region, it.account, it.name) }
 
-    providerCache.getAll(ON_DEMAND.ns, firewallKeys).each { CacheData cacheData ->
+    providerCache.getAll(ON_DEMAND.ns, loadBalancerKeys).each { CacheData cacheData ->
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
-      // firewalls. Furthermore, cache data that hasn't been moved to the proper namespace needs to be
+      // load balancers. Furthermore, cache data that hasn't been moved to the proper namespace needs to be
       // updated in the ON_DEMAND cache, so don't evict data without a processedCount > 0.
       if (cacheData.attributes.cacheTime < cacheResultBuilder.startTime && cacheData.attributes.processedCount > 0) {
         cacheResultBuilder.onDemand.toEvict << cacheData.id
@@ -181,7 +189,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
       }
     }
 
-    CacheResult cacheResults = buildCacheResult(cacheResultBuilder, firewalls)
+    CacheResult cacheResults = buildCacheResult(cacheResultBuilder, loadBalancers)
 
     cacheResults.cacheResults[ON_DEMAND.ns].each { CacheData cacheData ->
       cacheData.attributes.processedTime = System.currentTimeMillis()
@@ -191,63 +199,65 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
     return cacheResults
   }
 
-  List<Firewall> getFirewalls(String onDemandSecurityGroupName = null) {
-    if (onDemandSecurityGroupName) {
-      return [timeExecute(compute.firewalls().get(project, onDemandSecurityGroupName),
-                          "compute.firewalls.get", TAG_SCOPE, SCOPE_GLOBAL
-      )] as List<Firewall>
-    } else {
-      return timeExecute(compute.firewalls().list(project),
-                         "compute.firewalls.list", TAG_SCOPE, SCOPE_GLOBAL
-      ).items as List<Firewall>
-    }
+  List<GoogleLoadBalancer> getLoadBalancers() {
+    constructLoadBalancers()
   }
 
-  Firewall getFirewall(String onDemandSecurityGroupName) {
-    def firewalls = getFirewalls(onDemandSecurityGroupName)
+  GoogleLoadBalancer getLoadBalancer(String onDemandLoadBalancerName) {
+    def loadBalancers = constructLoadBalancers(onDemandLoadBalancerName)
 
-    return firewalls ? firewalls.first() : null
+    return loadBalancers ? loadBalancers.first() : null
   }
 
-  private CacheResult buildCacheResult(CacheResultBuilder cacheResultBuilder, List<Firewall> firewalls) {
-    log.info("Describing items in ${agentType}")
+  abstract List<GoogleLoadBalancer> constructLoadBalancers(String onDemandLoadBalancerName = null)
 
-    firewalls.each { Firewall firewall ->
-      def securityGroupKey = Keys.getSecurityGroupKey(firewall.getName(),
-                                                      firewall.getName(),
-                                                      "global",
-                                                      accountName)
+  CacheResult buildCacheResult(CacheResultBuilder cacheResultBuilder, List<GoogleLoadBalancer> googleLoadBalancers) {
+    log.info "Describing items in ${agentType}"
 
-      if (shouldUseOnDemandData(cacheResultBuilder, securityGroupKey)) {
-        moveOnDemandDataToNamespace(cacheResultBuilder, firewall)
+    googleLoadBalancers.each { GoogleLoadBalancer loadBalancer ->
+      // TODO(duftler): Pull out getLoadBalancerKey() like getServerGroupKey()?
+      def loadBalancerKey = Keys.getLoadBalancerKey(loadBalancer.region, loadBalancer.account, loadBalancer.name)
+      def instanceKeys = loadBalancer.healths.collect { GoogleLoadBalancerHealth health ->
+        determineInstanceKey(loadBalancer, health)
+      }
+
+      instanceKeys.each { String instanceKey ->
+        cacheResultBuilder.namespace(INSTANCES.ns).keep(instanceKey).with {
+          relationships[LOAD_BALANCERS.ns].add(loadBalancerKey)
+        }
+      }
+
+      if (shouldUseOnDemandData(cacheResultBuilder, loadBalancerKey)) {
+        moveOnDemandDataToNamespace(cacheResultBuilder, loadBalancer)
       } else {
-        cacheResultBuilder.namespace(SECURITY_GROUPS.ns).keep(securityGroupKey).with {
-          attributes = objectMapper.convertValue([firewall: firewall], ATTRIBUTES)
+        cacheResultBuilder.namespace(LOAD_BALANCERS.ns).keep(loadBalancerKey).with {
+          attributes = objectMapper.convertValue(loadBalancer, ATTRIBUTES)
         }
       }
     }
 
-    log.info("Caching ${cacheResultBuilder.namespace(SECURITY_GROUPS.ns).keepSize()} security groups in ${agentType}")
+    log.info "Caching ${cacheResultBuilder.namespace(LOAD_BALANCERS.ns).keepSize()} load balancers in ${agentType}"
+    log.info "Caching ${cacheResultBuilder.namespace(INSTANCES.ns).keepSize()} instance relationships in ${agentType}"
     log.info "Caching ${cacheResultBuilder.onDemand.toKeep.size()} onDemand entries in ${agentType}"
     log.info "Evicting ${cacheResultBuilder.onDemand.toEvict.size()} onDemand entries in ${agentType}"
 
     return cacheResultBuilder.build()
   }
 
-  static boolean shouldUseOnDemandData(CacheResultBuilder cacheResultBuilder, String securityGroupKey) {
-    CacheData cacheData = cacheResultBuilder.onDemand.toKeep[securityGroupKey]
+  String determineInstanceKey(GoogleLoadBalancer loadBalancer, GoogleLoadBalancerHealth health) {
+    return Keys.getInstanceKey(accountName, loadBalancer.region, health.instanceName)
+  }
+
+  static boolean shouldUseOnDemandData(CacheResultBuilder cacheResultBuilder, String loadBalancerKey) {
+    CacheData cacheData = cacheResultBuilder.onDemand.toKeep[loadBalancerKey]
 
     return cacheData ? cacheData.attributes.cacheTime >= cacheResultBuilder.startTime : false
   }
 
-  void moveOnDemandDataToNamespace(CacheResultBuilder cacheResultBuilder, GoogleSecurityGroup googleSecurityGroup) {
-    def securityGroupKey = Keys.getSecurityGroupKey(
-      googleSecurityGroup.getName(),
-      googleSecurityGroup.getName(),
-      "global",
-      accountName)
+  void moveOnDemandDataToNamespace(CacheResultBuilder cacheResultBuilder, GoogleLoadBalancer googleLoadBalancer) {
+    def loadBalancerKey = Keys.getLoadBalancerKey(region, accountName, googleLoadBalancer.name)
     Map<String, List<MutableCacheData>> onDemandData = objectMapper.readValue(
-      cacheResultBuilder.onDemand.toKeep[securityGroupKey].attributes.cacheResults as String,
+      cacheResultBuilder.onDemand.toKeep[loadBalancerKey].attributes.cacheResults as String,
       new TypeReference<Map<String, List<MutableCacheData>>>() {})
 
     onDemandData.each { String namespace, List<MutableCacheData> cacheDatas ->
