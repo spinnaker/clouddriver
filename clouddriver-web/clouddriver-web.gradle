@@ -18,7 +18,9 @@ configurations.all {
 
 repositories {
   maven { url "http://adxsnapshots.azurewebsites.net" }
+  maven { url "http://repo.aeon.cerner.corp/snapshot-repo" }
 }
+
 
 dependencies {
   compile project(':clouddriver-titus')
@@ -33,6 +35,7 @@ dependencies {
   compile project(':clouddriver-eureka')
   compile project(':clouddriver-elasticsearch')
   compile project(':clouddriver-oracle-bmcs')
+  compile project(':clouddriver-dcos')
 
 //  Replace below with this line when fiat becomes stable.
 //  spinnaker.group "fiat"
