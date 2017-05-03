@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.loadbalancer
 
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -19,11 +19,11 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
   UpsertDcosLoadBalancerAtomicOperationDescriptionValidator validator
 
   @Shared
-  DcosCredentials testCredentials = defaultCredentialsBuilder().name(ACCOUNT).build()
+  DcosAccountCredentials testCredentials = defaultCredentialsBuilder().account(ACCOUNT).build()
 
   def setupSpec() {
     def accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-      getCredentials(ACCOUNT) >> testCredentials
+      getCredentials(testCredentials.name) >> testCredentials
     }
     validator = new UpsertDcosLoadBalancerAtomicOperationDescriptionValidator(accountCredentialsProvider)
   }
@@ -33,6 +33,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
       name = "lb"
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       cpus = 1
       mem = 256
       instances = 1
@@ -56,6 +57,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
       name = "-iNv.aLid-"
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       cpus = 1
       mem = 256
       instances = 1
@@ -95,6 +97,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
 
     then:
     1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
+    1 * errorsMock.rejectValue("dcosCluster", "${DESCRIPTION}.dcosCluster.empty")
     0 * errorsMock._
   }
 
@@ -102,6 +105,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     setup:
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       cpus = 1
       mem = 256
       instances = 1
@@ -126,6 +130,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
       name = "lb"
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       cpus = -1
       mem = -1
       instances = -1
@@ -152,6 +157,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
       name = "lb"
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       cpus = 1
       mem = 256
       instances = 1
@@ -176,6 +182,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
       name = "lb"
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       cpus = 1
       mem = 256
       instances = 1
@@ -199,6 +206,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription().with {
       name = "lb"
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       cpus = 1
       mem = 256
       instances = 1
@@ -218,7 +226,6 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     1 * errorsMock.rejectValue("portRange", "${DESCRIPTION}.portRange.protocol.invalid")
     1 * errorsMock.rejectValue("portRange", "${DESCRIPTION}.portRange.minPort.invalid (minPort < 10000)")
     1 * errorsMock.rejectValue("portRange", "${DESCRIPTION}.portRange.invalid (maxPort < minPort)")
-
     0 * errorsMock._
   }
 }

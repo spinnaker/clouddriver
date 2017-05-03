@@ -31,6 +31,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
   String group
   String region
   String account
+  String dcosCluster
   String json
   String kind
   Double cpus
@@ -56,12 +57,13 @@ class DcosServerGroup implements ServerGroup, Serializable {
     this.account = account
   }
 
-  DcosServerGroup(String account, App app) {
+  DcosServerGroup(String account, String cluster, App app) {
     this.app = app
     this.json = app.toString()
-    def id = DcosSpinnakerAppId.parse(app.id, account, false).get()
+    def id = DcosSpinnakerAppId.parse(app.id, account, cluster).get()
     this.name = id.serverGroupName.group
-    this.region = id.safeRegion
+    this.dcosCluster = cluster
+    this.region = id.safeCombinedGroup
     this.account = id.account
     this.kind = "Application"
 
@@ -74,10 +76,10 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
     this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
 
-    this.deployDescription = AppToDeployDcosServerGroupDescriptionMapper.map(app, account)
+    this.deployDescription = AppToDeployDcosServerGroupDescriptionMapper.map(app, account, cluster)
 
     // TODO can't always assume the tasks are present in the App! Depends on API used to retrieve
-    this.instances = app.tasks?.collect({ new DcosInstance(it, account, app.deployments?.size() > 0) }) as Set ?: []
+    this.instances = app.tasks?.collect({ new DcosInstance(it, account, cluster, app.deployments?.size() > 0) }) as Set ?: []
   }
 
   void populateLoadBalancers(App app) {
@@ -88,8 +90,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
         return null
       }
     }?.flatten()?.findResults({
-      def appId = DcosSpinnakerLbId.parse(it.replace('_', '/'), false)
-      DcosProviderUtils.isLoadBalancerIdValid(appId, account) ? appId.get() : null
+      DcosSpinnakerLbId.parse(it.replace('_', '/'), account, dcosCluster).orElse(null)
     })?.toSet() ?: []
 
     loadBalancers = fullyQualifiedLoadBalancers?.collect { it.loadBalancerName } ?: []

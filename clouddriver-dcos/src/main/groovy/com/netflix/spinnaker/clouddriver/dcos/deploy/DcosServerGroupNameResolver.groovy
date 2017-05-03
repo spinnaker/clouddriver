@@ -15,9 +15,9 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
   private final DCOS dcosClient
   private String region
 
-  DcosServerGroupNameResolver(DCOS dcosClient, String account, String region) {
+  DcosServerGroupNameResolver(DCOS dcosClient, String account, String region, String group) {
     this.dcosClient = dcosClient
-    this.region = region ? "/${account}/${region}" : "/${account}"
+    this.region = group ? "/${account}/${region}/${group}" : "/${account}/${region}"
   }
 
   @Override
@@ -36,19 +36,20 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
     List<App> apps = appNamespaceResponse != null && appNamespaceResponse.isPresent() ? appNamespaceResponse.get().apps : []
 
     if (!apps) {
-      return Collections.emptyList()
+      return []
     }
 
     def filteredApps = apps.findAll {
-      DcosSpinnakerAppId.parse(it.id, true).get().serverGroupName.cluster == Names.parseName(clusterName).cluster
+      def appId = DcosSpinnakerAppId.parseVerbose(it.id)
+      appId.isPresent() && appId.get().namespace == region && appId.get().serverGroupName.cluster == Names.parseName(clusterName).cluster
     }
 
     return filteredApps.collect { App app ->
-      final def names = DcosSpinnakerAppId.parse(app.id, true).get().serverGroupName
+      final def names = DcosSpinnakerAppId.parseVerbose(app.id).get().serverGroupName
       return new AbstractServerGroupNameResolver.TakenSlot(
         serverGroupName: names.cluster,
         sequence       : names.sequence,
-        createdTime    : new Date(translateTime(app.versionInfo.lastConfigChangeAt))
+        createdTime    : new Date(translateTime(app.version))
       )
     }
   }

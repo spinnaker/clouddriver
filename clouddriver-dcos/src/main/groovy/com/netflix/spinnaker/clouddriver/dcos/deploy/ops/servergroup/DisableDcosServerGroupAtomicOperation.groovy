@@ -36,6 +36,7 @@ class DisableDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
       serverGroupName = description.serverGroupName
       targetSize = 0
       account = description.account
+      dcosCluster = description.dcosCluster
       credentials = description.credentials
       it
     }

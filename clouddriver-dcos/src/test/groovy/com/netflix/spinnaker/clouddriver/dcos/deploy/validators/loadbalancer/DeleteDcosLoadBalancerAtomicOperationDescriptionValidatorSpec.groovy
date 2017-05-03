@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.loadbalancer
 
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -11,18 +11,17 @@ import spock.lang.Subject
 class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends BaseSpecification {
 
   private static final DESCRIPTION = "deleteDcosLoadBalancerAtomicOperationDescription"
-  private static final ACCOUNT = "my-test-account"
 
   @Shared
   @Subject
   DeleteDcosLoadBalancerAtomicOperationDescriptionValidator validator
 
   @Shared
-  DcosCredentials testCredentials = defaultCredentialsBuilder().name(ACCOUNT).build()
+  DcosAccountCredentials testCredentials = defaultCredentialsBuilder().build()
 
   def setupSpec() {
     def accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-      getCredentials(ACCOUNT) >> testCredentials
+      getCredentials(testCredentials.name) >> testCredentials
     }
     validator = new DeleteDcosLoadBalancerAtomicOperationDescriptionValidator(accountCredentialsProvider)
   }
@@ -32,6 +31,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     def description = new DeleteDcosLoadBalancerAtomicOperationDescription().with {
       loadBalancerName = "lbname"
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       it
     }
 
@@ -58,6 +58,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
 
     then:
     1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
+    1 * errorsMock.rejectValue("dcosCluster", "${DESCRIPTION}.dcosCluster.empty")
     1 * errorsMock.rejectValue("loadBalancerName", "${DESCRIPTION}.loadBalancerName.invalid")
     0 * errorsMock._
   }
@@ -66,6 +67,7 @@ class DeleteDcosLoadBalancerAtomicOperationDescriptionValidatorSpec extends Base
     setup:
     def description = new DeleteDcosLoadBalancerAtomicOperationDescription().with {
       credentials = testCredentials
+      dcosCluster = DEFAULT_REGION
       it
     }
 

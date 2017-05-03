@@ -1,7 +1,8 @@
 package com.netflix.spinnaker.clouddriver.dcos.health
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosClusterCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import groovy.transform.InheritConstructors
 import org.springframework.boot.actuate.health.Health
@@ -37,15 +38,17 @@ class DcosHealthIndicator implements HealthIndicator {
   @Scheduled(fixedDelay = 300000L)
   void checkHealth() {
     try {
-      Set<DcosCredentials> dcosCredentialsSet = accountCredentialsProvider.all.findAll {
-        it instanceof DcosCredentials
-      } as Set<DcosCredentials>
+      Set<DcosAccountCredentials> dcosCredentialsSet = accountCredentialsProvider.all.findAll {
+        it instanceof DcosAccountCredentials
+      } as Set<DcosAccountCredentials>
 
-      for (DcosCredentials accountCredentials in dcosCredentialsSet) {
-        String pong = dcosClientProvider.getDcosClient(accountCredentials).ping
+      for (DcosAccountCredentials accountCredentials in dcosCredentialsSet) {
+        for (DcosClusterCredentials dcosClusterCredentials in accountCredentials.credentials.credentials) {
+          String pong = dcosClientProvider.getDcosClient(dcosClusterCredentials).ping
 
-        if ("pong" != pong) {
-          throw new DcosIOException()
+          if ("pong" != pong) {
+            throw new DcosIOException()
+          }
         }
       }
 

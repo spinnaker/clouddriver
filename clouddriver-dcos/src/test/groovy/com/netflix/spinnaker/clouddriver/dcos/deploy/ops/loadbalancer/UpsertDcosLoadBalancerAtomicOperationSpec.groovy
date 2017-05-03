@@ -5,40 +5,35 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor.DcosDeploymentResult
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
-import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.DCOS
-import mesosphere.dcos.client.model.DCOSAuthCredentials
 import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.Deployment
 import mesosphere.marathon.client.model.v2.Result
-import spock.lang.Specification
 import spock.lang.Subject
 
 import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.LoadBalancerConfig
 import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription.PortRange
 
 class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
-  private static final ACCOUNT_NAME = "testaccount"
   private static final LOAD_BALANCER_NAME = "external"
   private static final DEPLOYMENT_ID = "deployment-id"
-  private static final IS_LOGGING_ENABLED = true
 
 
-  def credentials
+  DcosAccountCredentials credentials
   def dcosClientProviderMock
   def dcosClientMock
   def dcosDeploymentMonitorMock
   def dcosConfigurationProperties
   def resultAppMock
   def deployment
-
+  def loadBalancerConfig
 
   def existingAppMock
   def taskMock
@@ -48,16 +43,16 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
     TaskRepository.threadLocalTask.set(taskMock)
 
     existingAppMock = Mock(App)
-    credentials = defaultCredentialsBuilder().name(ACCOUNT_NAME).build()
+    credentials = defaultCredentialsBuilder().build()
     dcosDeploymentMonitorMock = Mock(DcosDeploymentMonitor)
 
-    def loadBalancerConfig = Mock(LoadBalancerConfig)
+    loadBalancerConfig = Mock(LoadBalancerConfig)
     dcosConfigurationProperties = Mock(DcosConfigurationProperties)
-    dcosConfigurationProperties.loadBalancer >> loadBalancerConfig
+    dcosConfigurationProperties.clusters >> [new DcosConfigurationProperties.Cluster(name: DEFAULT_REGION, loadBalancer: loadBalancerConfig)]
 
     dcosClientMock = Mock(DCOS)
     dcosClientProviderMock = Stub(DcosClientProvider) {
-      getDcosClient(credentials) >> dcosClientMock
+      getDcosClient(credentials, DEFAULT_REGION) >> dcosClientMock
     }
 
     resultAppMock = Mock(App)
@@ -81,6 +76,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription(
             credentials: credentials,
+            dcosCluster: DEFAULT_REGION,
             name: LOAD_BALANCER_NAME,
             cpus: expectedCpus,
             instances: expectedInstances,
@@ -90,9 +86,9 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
             bindHttpHttps: true
     )
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
-    dcosConfigurationProperties.loadBalancer.image >> expectedLbImage
+    loadBalancerConfig.image >> expectedLbImage
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
     successfulDeploymentResult.success >> true
@@ -115,7 +111,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
                           "--health-check",
                           "--haproxy-map",
                           "--group",
-                          "${expectedAppId.account}_${expectedAppId.loadBalancerName}"]
+                          "${expectedAppId.account}_${expectedAppId.region}_${expectedAppId.loadBalancerName}"]
 
       assert app.instances == expectedInstances
       assert app.cpus == expectedCpus
@@ -177,6 +173,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription(
             credentials: credentials,
+            dcosCluster: DEFAULT_REGION,
             name: LOAD_BALANCER_NAME,
             cpus: expectedCpus,
             instances: expectedInstances,
@@ -186,7 +183,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -233,6 +230,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription(
             credentials: credentials,
+            dcosCluster: DEFAULT_REGION,
             name: LOAD_BALANCER_NAME,
             cpus: expectedCpus,
             instances: expectedInstances,
@@ -242,14 +240,14 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
     successfulDeploymentResult.success >> true
     successfulDeploymentResult.deployedApp >> Optional.of(resultAppMock)
 
-    dcosConfigurationProperties.loadBalancer.serviceAccountSecret >> "marathon_lb"
+    loadBalancerConfig.serviceAccountSecret >> "marathon_lb"
 
     @Subject def operation = new UpsertDcosLoadBalancerAtomicOperation(dcosClientProviderMock,
             dcosDeploymentMonitorMock, dcosConfigurationProperties, description)
@@ -285,6 +283,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription(
             credentials: credentials,
+            dcosCluster: DEFAULT_REGION,
             name: LOAD_BALANCER_NAME,
             cpus: expectedCpus,
             instances: expectedInstances,
@@ -295,7 +294,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
     )
 
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -334,6 +333,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription(
             credentials: credentials,
+            dcosCluster: DEFAULT_REGION,
             name: LOAD_BALANCER_NAME,
             cpus: expectedCpus,
             instances: expectedInstances,
@@ -344,7 +344,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
     )
 
 
-    def expectedAppId = DcosSpinnakerLbId.from(ACCOUNT_NAME, LOAD_BALANCER_NAME, IS_LOGGING_ENABLED).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def failedDeploymentResult = Mock(DcosDeploymentResult)

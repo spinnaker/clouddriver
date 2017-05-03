@@ -48,7 +48,8 @@ class Keys {
       case Namespace.SECRETS.ns:
         result << [
           account: parts[2],
-          secretPath: parts[3]
+          region: parts[3],
+          secretPath: parts[4]
         ]
         break
       case Namespace.IMAGES.ns:
@@ -91,11 +92,12 @@ class Keys {
         //TODO result << [id: parts[2], account: parts[3], region: parts[4], provider: parts[5]]
         break
       case Namespace.LOAD_BALANCERS.ns:
-        def names = Names.parseName(parts[3])
+        def names = Names.parseName(parts[4])
         result << [
                 account     : parts[2],
-                name        : parts[3],
-                loadBalancer: parts[3],
+                region      : parts[3],
+                name        : parts[4],
+                loadBalancer: parts[4],
                 application : names.app,
                 stack       : names.stack,
                 detail      : names.detail
@@ -109,8 +111,8 @@ class Keys {
     result
   }
 
-  static String getSecretKey(String account, String secretPath) {
-    "${PROVIDER}:${Namespace.SECRETS}:${account}:${secretPath.replaceAll('/', '_')}"
+  static String getSecretKey(String region, String secretPath) {
+    "${PROVIDER}:${Namespace.SECRETS}::${region}:${secretPath.replaceAll('/', '_')}"
   }
 
   static String getApplicationKey(String application) {
@@ -118,7 +120,7 @@ class Keys {
   }
 
   static String getServerGroupKey(DcosSpinnakerAppId id) {
-    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeRegion}:${id.serverGroupName.group}"
+    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeCombinedGroup}:${id.serverGroupName.group}"
   }
 
   static String getClusterKey(String account, String application, String cluster) {
@@ -126,18 +128,18 @@ class Keys {
   }
 
   static String getInstanceKey(DcosSpinnakerAppId appId, String taskName) {
-    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeRegion}:${taskName}"
+    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeCombinedGroup}:${taskName}"
   }
 
-  static String getInstanceKey(String account, String safeRegion, String taskName) {
-    "${PROVIDER}:${Namespace.INSTANCES}:${account}:${safeRegion}:${taskName}"
+  static String getInstanceKey(String account, String safeCombinedGroup, String taskName) {
+    "${PROVIDER}:${Namespace.INSTANCES}:${account}:${safeCombinedGroup}:${taskName}"
   }
 
-  static String getLoadBalancerKey(String account, String loadBalancerName) {
-    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${loadBalancerName}"
+  static String getLoadBalancerKey(String account, String region, String loadBalancerName) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${region}:${loadBalancerName}"
   }
 
   static String getLoadBalancerKey(DcosSpinnakerLbId id) {
-    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${id.account}:${id.loadBalancerName}"
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${id.account}:${id.region}:${id.loadBalancerName}"
   }
 }

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.agent.*
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosInstance
@@ -21,21 +21,23 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
 
   private final String accountName
+  private final String clusterName
   private final DCOS dcosClient
   private final ObjectMapper objectMapper
 
-  private static final ID_LOGGING_ENABLED = false
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
           AUTHORITATIVE.forType(Keys.Namespace.INSTANCES.ns),
   ] as Set)
 
   DcosInstanceCachingAgent(String accountName,
-                           DcosCredentials credentials,
+                           String clusterName,
+                           DcosAccountCredentials credentials,
                            DcosClientProvider clientProvider,
                            ObjectMapper objectMapper) {
     this.accountName = accountName
+    this.clusterName = clusterName
     this.objectMapper = objectMapper
-    this.dcosClient = clientProvider.getDcosClient(credentials)
+    this.dcosClient = clientProvider.getDcosClient(credentials, clusterName)
   }
 
   @Override
@@ -55,7 +57,7 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
 
   @Override
   String getAgentType() {
-    "${accountName}/${DcosInstanceCachingAgent.simpleName}"
+    "${accountName}/${clusterName}/${DcosInstanceCachingAgent.simpleName}"
   }
 
   @Override
@@ -63,7 +65,9 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
     log.info("Loading tasks in $agentType")
 
     // The tasks API returns all tasks, but we want to ensure we only cache ones valid for the current account.
-    def tasks = dcosClient.getTasks().tasks.findAll { DcosSpinnakerAppId.parse(it.appId, accountName, ID_LOGGING_ENABLED).isPresent() }
+    def tasks = dcosClient.getTasks().tasks.findAll {
+      DcosSpinnakerAppId.parse(it.appId, accountName, clusterName).isPresent()
+    }
     def deployments = dcosClient.getDeployments()
 
     buildCacheResult(tasks, deployments)
@@ -80,11 +84,11 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
       }
 
       def deploymentsActive = deployments.stream().filter({ it.affectedApps.contains(task.appId) }).count() > 0
+      def key = Keys.getInstanceKey(DcosSpinnakerAppId.parse(task.appId, accountName, clusterName).get(), task.id)
 
-      def key = Keys.getInstanceKey(DcosSpinnakerAppId.parse(task.appId, accountName, ID_LOGGING_ENABLED).get(), task.id)
       cachedInstances[key].with {
         attributes.name = task.id
-        attributes.instance = new DcosInstance(task, accountName, deploymentsActive)
+        attributes.instance = new DcosInstance(task, accountName, clusterName, deploymentsActive)
       }
     }
 

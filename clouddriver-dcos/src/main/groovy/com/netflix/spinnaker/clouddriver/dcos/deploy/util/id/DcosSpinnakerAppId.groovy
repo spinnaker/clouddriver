@@ -24,6 +24,10 @@ class DcosSpinnakerAppId {
         marathonPath.first().get()
     }
 
+    public String getRegion() {
+        marathonPath.tail().first().get()
+    }
+
     /**
      * @return The canonical DC/OS "region" (a.k.a the full group path in which the marathon application lives)
      *         including backslashes. This is returned as a relative path, meaning no preceeding backslash. Will never
@@ -32,9 +36,9 @@ class DcosSpinnakerAppId {
      *         Deemed unsafe because various Spinnaker components have trouble with a region with backslashes.
      *         <p/>
      *         Ex: {@code foo/bar}
-     * @see #getSafeRegion()
+     * @see #getSafeGroup()
      */
-    public String getUnsafeRegion() {
+    public String getUnsafeCombinedGroup() {
         marathonPath.tail().parent().relative().toString()
     }
 
@@ -45,10 +49,41 @@ class DcosSpinnakerAppId {
      *         Deemed safe because backslashes are replaced with underscores.
      *         <p/>
      *         Ex: {@code acct_foo_bar}
-     * @see #getSafeRegion()
+     * @see #getSafeGroup()
      */
-    public String getSafeRegion() {
-        unsafeRegion.replaceAll(MarathonPathId.PART_SEPARATOR, SAFE_REGION_SEPARATOR)
+    public String getSafeCombinedGroup() {
+        unsafeCombinedGroup.replaceAll(MarathonPathId.PART_SEPARATOR, SAFE_REGION_SEPARATOR)
+    }
+
+    /**
+     * @return The canonical DC/OS "region" (a.k.a the full group path in which the marathon application lives)
+     *         including backslashes. This is returned as a relative path, meaning no preceeding backslash. Will never
+     *         be null.
+     *         <p/>
+     *         Deemed unsafe because various Spinnaker components have trouble with a region with backslashes.
+     *         <p/>
+     *         Ex: {@code foo/bar}
+     * @see #getSafeGroup()
+     */
+    public String getUnsafeGroup() {
+        marathonPath.tail().tail().parent().relative().toString()
+    }
+
+    /**
+     * @return The "safe" DC/OS region (a.k.a the group in which the marathon application lives). This is returned as a
+     *         relative path, meaning no preceeding underscore. Will never be null.
+     *         <p/>
+     *         Deemed safe because backslashes are replaced with underscores.
+     *         <p/>
+     *         Ex: {@code acct_foo_bar}
+     * @see #getSafeGroup()
+     */
+    public String getSafeGroup() {
+        unsafeGroup.replaceAll(MarathonPathId.PART_SEPARATOR, SAFE_REGION_SEPARATOR)
+    }
+
+    public String getNamespace() {
+        marathonPath.parent().toString()
     }
 
     public Names getServerGroupName() {
@@ -75,9 +110,39 @@ class DcosSpinnakerAppId {
         return toString().hashCode()
     }
 
-    // TODO refactor all these static factory methods to not use a boolean param and instead separate them into
-    // parseVerbose and fromVerbose functions to better describe the differences.
-    public static Optional<DcosSpinnakerAppId> parse(String marathonAppId, boolean log) {
+    public static Optional<DcosSpinnakerAppId> parse(String marathonAppId) {
+        parseFrom(marathonAppId, false)
+    }
+
+    public static Optional<DcosSpinnakerAppId> parse(String marathonAppId, String account, String region) {
+        parseFrom(marathonAppId, account, region, false)
+    }
+
+    public static Optional<DcosSpinnakerAppId> from(String account, String region, String group, String serverGroupName) {
+        buildFrom(account, region, group, serverGroupName, false)
+    }
+
+    public static Optional<DcosSpinnakerAppId> from(String account, String combinedRegion, String serverGroupName) {
+        buildFrom(account, combinedRegion, serverGroupName, false)
+    }
+
+    public static Optional<DcosSpinnakerAppId> parseVerbose(String marathonAppId) {
+        parseFrom(marathonAppId, true)
+    }
+
+    public static Optional<DcosSpinnakerAppId> parseVerbose(String marathonAppId, String account, String region) {
+        parseFrom(marathonAppId, account, region, true)
+    }
+
+    public static Optional<DcosSpinnakerAppId> fromVerbose(String account, String region, String group, String serverGroupName) {
+        buildFrom(account, region, group, serverGroupName, true)
+    }
+
+    public static Optional<DcosSpinnakerAppId> fromVerbose(String account, String combinedRegion, String serverGroupName) {
+        buildFrom(account, combinedRegion, serverGroupName, true)
+    }
+
+    private static Optional<DcosSpinnakerAppId> parseFrom(String marathonAppId, boolean log) {
         def marathonPath
 
         try {
@@ -106,8 +171,8 @@ class DcosSpinnakerAppId {
         Optional.of(new DcosSpinnakerAppId(marathonPath))
     }
 
-    public static Optional<DcosSpinnakerAppId> parse(String marathonAppId, final String account, boolean log) {
-        def dcosSpinnakerAppId = parse(marathonAppId, log)
+    private static Optional<DcosSpinnakerAppId> parseFrom(String marathonAppId, String account, String region, boolean log) {
+        def dcosSpinnakerAppId = parseFrom(marathonAppId, log)
 
         if (!dcosSpinnakerAppId.isPresent()) {
             return Optional.empty()
@@ -118,15 +183,73 @@ class DcosSpinnakerAppId {
             return Optional.empty()
         }
 
+        if (dcosSpinnakerAppId.get().region != region) {
+            logError(log, "The region [${region}] given does not match the region within the app id [${dcosSpinnakerAppId.get().region}].")
+            return Optional.empty()
+        }
+
         dcosSpinnakerAppId
     }
 
-    public static Optional<DcosSpinnakerAppId> from(final String account, final String region, final String serverGroupName, boolean log) {
+    private static Optional<DcosSpinnakerAppId> buildFrom(final String account, final String region, final String group, final String serverGroupName, boolean log) {
         if (nullToEmpty(account).trim().empty) {
             logError(log, "The account should not be null, empty, or blank.")
             return Optional.empty()
         }
         if (nullToEmpty(region).trim().empty) {
+            logError(log, "The region should not be null, empty, or blank.")
+            return Optional.empty()
+        }
+        if (nullToEmpty(group).trim().empty) {
+            logError(log, "The group should not be null, empty, or blank.")
+            return Optional.empty()
+        }
+        if (nullToEmpty(serverGroupName).trim().empty) {
+            logError(log, "The serverGroupName should not be null, empty, or blank.")
+            return Optional.empty()
+        }
+        if (account.contains(MarathonPathId.PART_SEPARATOR)) {
+            logError(log, "The account [${account}] should not contain any '/' characters.")
+            return Optional.empty()
+        }
+        if (region.contains(MarathonPathId.PART_SEPARATOR)) {
+            logError(log, "The serverGroupName [${region}] should not contain any '/' characters.")
+            return Optional.empty()
+        }
+        if (serverGroupName.contains(MarathonPathId.PART_SEPARATOR)) {
+            logError(log, "The serverGroupName [${serverGroupName}] should not contain any '/' characters.")
+            return Optional.empty()
+        }
+
+        def marathonPath
+
+        try {
+            marathonPath = MarathonPathId.parse("/${account}/${group.replaceAll(SAFE_REGION_SEPARATOR, MarathonPathId.PART_SEPARATOR)}/${serverGroupName}")
+        } catch (IllegalArgumentException e) {
+            logError(log, e.message)
+            return Optional.empty()
+        }
+
+        def service = Names.parseName(serverGroupName)
+
+        if (nullToEmpty(service.app).trim().empty) {
+            logError(log, "The server group app should not be null, empty, or blank.")
+            return Optional.empty()
+        }
+        if (service.sequence < 0) {
+            logError(log, "The server group sequence should not be negative or null.")
+            return Optional.empty()
+        }
+
+        Optional.of(new DcosSpinnakerAppId(marathonPath))
+    }
+
+    private static Optional<DcosSpinnakerAppId> buildFrom(final String account, final String combinedRegion, final String serverGroupName, boolean log) {
+        if (nullToEmpty(account).trim().empty) {
+            logError(log, "The account should not be null, empty, or blank.")
+            return Optional.empty()
+        }
+        if (nullToEmpty(combinedRegion).trim().empty) {
             logError(log, "The region should not be null, empty, or blank.")
             return Optional.empty()
         }
@@ -146,7 +269,7 @@ class DcosSpinnakerAppId {
         def marathonPath
 
         try {
-            marathonPath = MarathonPathId.parse("/${account}/${region.replaceAll(SAFE_REGION_SEPARATOR, MarathonPathId.PART_SEPARATOR)}/${serverGroupName}")
+            marathonPath = MarathonPathId.parse("/${account}/${combinedRegion.replaceAll(SAFE_REGION_SEPARATOR, MarathonPathId.PART_SEPARATOR)}/${serverGroupName}")
         } catch (IllegalArgumentException e) {
             logError(log, e.message)
             return Optional.empty()

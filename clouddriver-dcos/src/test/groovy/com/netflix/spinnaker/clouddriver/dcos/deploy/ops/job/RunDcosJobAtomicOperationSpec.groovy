@@ -3,7 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.job
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.job.RunDcosJobDescription
 import mesosphere.dcos.client.DCOS
@@ -13,10 +13,10 @@ import mesosphere.metronome.client.model.v1.JobRun
 class RunDcosJobAtomicOperationSpec extends BaseSpecification {
     DCOS dcosClient = Mock(DCOS)
 
-    DcosCredentials testCredentials = defaultCredentialsBuilder().build()
+    DcosAccountCredentials testCredentials = defaultCredentialsBuilder().build()
 
     DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
-        getDcosClient(testCredentials) >> dcosClient
+        getDcosClient(testCredentials, DEFAULT_REGION) >> dcosClient
     }
 
     def setup() {
@@ -26,7 +26,7 @@ class RunDcosJobAtomicOperationSpec extends BaseSpecification {
 
     void 'RunDcosJobAtomicOperation should trigger a new job run if the job already exists within DCOS.'() {
         setup:
-        def description = new RunDcosJobDescription(credentials: testCredentials,
+        def description = new RunDcosJobDescription(credentials: testCredentials, dcosCluster: DEFAULT_REGION,
                 general: new RunDcosJobDescription.GeneralSettings(id: 'testjob'))
         def atomicOperation = new RunDcosJobAtomicOperation(dcosClientProvider, description)
         when:
@@ -42,7 +42,7 @@ class RunDcosJobAtomicOperationSpec extends BaseSpecification {
 
     void 'RunDcosJobAtomicOperation should create and trigger a job without a schedule if no schedule is given.'() {
         setup:
-        def description = new RunDcosJobDescription(credentials: testCredentials,
+        def description = new RunDcosJobDescription(credentials: testCredentials, dcosCluster: DEFAULT_REGION,
                 general: new RunDcosJobDescription.GeneralSettings(id: 'testjob'))
         def atomicOperation = new RunDcosJobAtomicOperation(dcosClientProvider, description)
         when:
@@ -58,7 +58,7 @@ class RunDcosJobAtomicOperationSpec extends BaseSpecification {
 
     void 'RunDcosJobAtomicOperation should create and trigger a job with a schedule if a schedule is given.'() {
         setup:
-        def description = new RunDcosJobDescription(credentials: testCredentials,
+        def description = new RunDcosJobDescription(credentials: testCredentials, dcosCluster: DEFAULT_REGION,
                 general: new RunDcosJobDescription.GeneralSettings(id: 'testjob'),
                 schedule: new RunDcosJobDescription.Schedule())
         def atomicOperation = new RunDcosJobAtomicOperation(dcosClientProvider, description)

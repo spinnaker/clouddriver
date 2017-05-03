@@ -22,7 +22,7 @@ class ResizeDcosServerGroupDescriptionValidator extends AbstractDcosServerGroupV
     super.validate(priorDescriptions, description, errors)
 
     if (description.targetSize == null || description.targetSize < 0) {
-      errors.rejectValue "targetSize", "resizeDcosServerGroupDescription.targetSize.invalid"
+      errors.rejectValue "targetSize", "${descriptionName}.targetSize.invalid"
     }
   }
 }

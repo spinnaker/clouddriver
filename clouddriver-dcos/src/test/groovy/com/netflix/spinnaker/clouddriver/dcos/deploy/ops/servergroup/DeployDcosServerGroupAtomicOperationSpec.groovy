@@ -3,7 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
@@ -15,19 +15,20 @@ import mesosphere.marathon.client.model.v2.*
 import spock.lang.Subject
 
 class DeployDcosServerGroupAtomicOperationSpec extends BaseSpecification {
-  private static final APPLICATION_NAME = DcosSpinnakerAppId.parse('/test/region/api-test-detail-v000', true).get()
+  private static final APPLICATION_NAME = DcosSpinnakerAppId.parseVerbose("${DEFAULT_ACCOUNT}/${DEFAULT_REGION}/api-test-detail-v000".toString()).get()
 
   DCOS mockDcosClient = Mock(DCOS)
   DeployDcosServerGroupDescriptionToAppMapper mockDcosDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
-  DcosCredentials testCredentials = defaultCredentialsBuilder().build()
+  DcosAccountCredentials testCredentials = defaultCredentialsBuilder().build()
 
   DcosClientProvider mockDcosClientProvider = Stub(DcosClientProvider) {
-    getDcosClient(testCredentials) >> mockDcosClient
+    getDcosClient(testCredentials, DEFAULT_REGION) >> mockDcosClient
   }
 
   DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
-    application: APPLICATION_NAME.serverGroupName.app, region: APPLICATION_NAME.unsafeRegion, credentials: testCredentials, stack: APPLICATION_NAME.serverGroupName.stack,
+    application: APPLICATION_NAME.serverGroupName.app, region: APPLICATION_NAME.safeCombinedGroup,
+    credentials: testCredentials, dcosCluster: DEFAULT_REGION, stack: APPLICATION_NAME.serverGroupName.stack,
     freeFormDetails: APPLICATION_NAME.serverGroupName.detail, desiredCapacity: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
           docker: new DeployDcosServerGroupDescription.Docker(forcePullImage: false, privileged: false,
                   network: "BRIDGE",
@@ -48,7 +49,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends BaseSpecification {
 
   void 'DeployDcosServerGroupAtomicOperation should deploy the DCOS service successfully'() {
     given:
-    mockDcosClient.getApps(_) >> new GetAppNamespaceResponse(apps: [])
+    mockDcosClient.maybeApps(_) >> Optional.of(new GetAppNamespaceResponse(apps: []))
     mockDcosDescriptionToAppMapper.map(_, _) >> application
 
     when:
@@ -57,7 +58,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends BaseSpecification {
     then:
     noExceptionThrown()
     deploymentResult != null
-    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.unsafeRegion}", APPLICATION_NAME.serverGroupName.group))
-    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.unsafeRegion}".toString()) == APPLICATION_NAME.serverGroupName.group
+    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.unsafeCombinedGroup}", APPLICATION_NAME.serverGroupName.group))
+    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.unsafeCombinedGroup}".toString()) == APPLICATION_NAME.serverGroupName.group
   }
 }

@@ -43,7 +43,7 @@ class UpsertDcosLoadBalancerAtomicOperationDescriptionValidator extends Abstract
       errors.rejectValue "mem", "${descriptionName}.mem.invalid"
     }
 
-    if (description.acceptedResourceRoles.stream().anyMatch({ r -> r == null || r.empty })) {
+    if (description.acceptedResourceRoles && description.acceptedResourceRoles.stream().anyMatch({ r -> r == null || r.empty })) {
       errors.rejectValue("acceptedResourceRoles", "${descriptionName}.acceptedResourceRoles.invalid (Must not contain null or empty values)");
     }
 

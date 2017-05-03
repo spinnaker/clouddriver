@@ -11,9 +11,9 @@ import mesosphere.marathon.client.model.v2.PersistentLocalVolume
 import static java.util.stream.Collectors.joining
 
 class AppToDeployDcosServerGroupDescriptionMapper {
-  static DeployDcosServerGroupDescription map(final App app, final String account) {
+  static DeployDcosServerGroupDescription map(final App app, final String account, final String cluster) {
 
-    def spinId = DcosSpinnakerAppId.parse(app.id, account, true).get()
+    def spinId = DcosSpinnakerAppId.parseVerbose(app.id, account, cluster).get()
     def names = spinId.serverGroupName
 
     def desc = new DeployDcosServerGroupDescription()
@@ -21,7 +21,9 @@ class AppToDeployDcosServerGroupDescriptionMapper {
     desc.stack = names.stack
     desc.freeFormDetails = names.detail
 
-    desc.region = spinId.unsafeRegion
+    desc.dcosCluster = cluster
+    desc.group = spinId.unsafeGroup
+    desc.region = spinId.unsafeCombinedGroup
     desc.cmd = app.cmd
     desc.args = app.args
     desc.dcosUser = app.user

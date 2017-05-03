@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
@@ -9,13 +9,13 @@ import org.springframework.validation.Errors
 import spock.lang.Subject
 
 class ResizeDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
-  private static final def DESCRIPTION = "resizeDcosServerGroupDescription"
-  private static final def INVALID_MARATHON_PART = "-iNv.aLid-"
+  private static final DESCRIPTION = "resizeDcosServerGroupDescription"
+  private static final INVALID_MARATHON_PART = "-iNv.aLid-"
 
-  DcosCredentials testCredentials = defaultCredentialsBuilder().build()
+  DcosAccountCredentials testCredentials = defaultCredentialsBuilder().build()
 
   AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-    getCredentials('test') >> testCredentials
+    getCredentials(testCredentials.name) >> testCredentials
   }
 
   @Subject
@@ -23,7 +23,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
 
   void "validate should give errors when given an empty ResizeDcosServerGroupDescription"() {
     setup:
-      def description = new ResizeDcosServerGroupDescription(region: null, credentials: null, serverGroupName: null, targetSize: null)
+      def description = new ResizeDcosServerGroupDescription(region: null, dcosCluster: null, credentials: null, serverGroupName: null, targetSize: null)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
@@ -31,7 +31,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
       1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-      0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
+      1 * errorsMock.rejectValue("dcosCluster", "${DESCRIPTION}.dcosCluster.empty")
       1 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.invalid")
       1 * errorsMock.rejectValue("targetSize", "${DESCRIPTION}.targetSize.invalid")
@@ -40,7 +40,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
 
   void "validate should give errors when given an invalid DestroyDcosServerGroupDescription"() {
     setup:
-      def description = new ResizeDcosServerGroupDescription(region: INVALID_MARATHON_PART, credentials: defaultCredentialsBuilder().build(), serverGroupName: INVALID_MARATHON_PART, targetSize: -1)
+      def description = new ResizeDcosServerGroupDescription(region: INVALID_MARATHON_PART, dcosCluster: "", credentials: defaultCredentialsBuilder().account(BAD_ACCOUNT).build(), serverGroupName: INVALID_MARATHON_PART, targetSize: -1)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
@@ -48,7 +48,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-      0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
+      1 * errorsMock.rejectValue("dcosCluster", "${DESCRIPTION}.dcosCluster.empty")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
       1 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.invalid")
       1 * errorsMock.rejectValue("targetSize", "${DESCRIPTION}.targetSize.invalid")
@@ -57,7 +57,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
 
   void "validate should give no errors when given an valid DestroyDcosServerGroupDescription"() {
     setup:
-      def description = new ResizeDcosServerGroupDescription(region: "region", credentials: testCredentials, serverGroupName: 'test', targetSize: 0)
+      def description = new ResizeDcosServerGroupDescription(region: DEFAULT_REGION, dcosCluster: DEFAULT_REGION, credentials: testCredentials, serverGroupName: 'test', targetSize: 0)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
@@ -65,7 +65,7 @@ class ResizeDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-      0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
+      0 * errorsMock.rejectValue("dcosCluster", "${DESCRIPTION}.dcosCluster.empty")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.empty")
       0 * errorsMock.rejectValue("serverGroupName", "${DESCRIPTION}.serverGroupName.invalid")
       0 * errorsMock.rejectValue("targetSize", "${DESCRIPTION}.targetSize.invalid")

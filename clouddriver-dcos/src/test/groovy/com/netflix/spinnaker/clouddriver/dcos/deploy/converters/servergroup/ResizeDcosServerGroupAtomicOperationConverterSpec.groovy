@@ -2,9 +2,8 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
-import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.ResizeDcosServerGroupAtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -17,14 +16,14 @@ class ResizeDcosServerGroupAtomicOperationConverterSpec extends BaseSpecificatio
 
   DCOS dcosClient = Mock(DCOS)
 
-  DcosCredentials testCredentials = defaultCredentialsBuilder().build()
+  DcosAccountCredentials testCredentials = defaultCredentialsBuilder().build()
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
-    getDcosClient(testCredentials) >> dcosClient
+    getDcosClient(testCredentials, DEFAULT_REGION) >> dcosClient
   }
 
   AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-    getCredentials('test') >> testCredentials
+    getCredentials(testCredentials.account) >> testCredentials
   }
 
   @Subject
@@ -35,13 +34,14 @@ class ResizeDcosServerGroupAtomicOperationConverterSpec extends BaseSpecificatio
     atomicOperationConverter.accountCredentialsProvider = accountCredentialsProvider
     atomicOperationConverter.objectMapper = new ObjectMapper()
     Map input = [
-      credentials: 'test',
+      account: DEFAULT_ACCOUNT,
+      cluster: DEFAULT_REGION,
       serverGroupName: 'api',
       targetSize: 1
     ]
 
     when:
-    AbstractDcosCredentialsDescription description = atomicOperationConverter.convertDescription(input)
+    def description = atomicOperationConverter.convertDescription(input)
 
     then:
     noExceptionThrown()
@@ -54,7 +54,8 @@ class ResizeDcosServerGroupAtomicOperationConverterSpec extends BaseSpecificatio
     atomicOperationConverter.accountCredentialsProvider = accountCredentialsProvider
     atomicOperationConverter.objectMapper = new ObjectMapper()
     Map input = [
-      credentials: 'test',
+      account: DEFAULT_ACCOUNT,
+      cluster: DEFAULT_REGION,
       serverGroupName: 'api',
       targetSize: 1
     ]

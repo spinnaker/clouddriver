@@ -3,7 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.loadbalancer
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.loadbalancer.UpsertDcosLoadBalancerAtomicOperation
@@ -13,7 +13,6 @@ import spock.lang.Shared
 import spock.lang.Subject
 
 class UpsertDcosLoadBalancerAtomicOperationConverterSpec extends BaseSpecification {
-  private static final ACCOUNT = "my-test-account"
   private static final LOAD_BALANCER_NAME = "external"
 
   @Shared
@@ -24,20 +23,21 @@ class UpsertDcosLoadBalancerAtomicOperationConverterSpec extends BaseSpecificati
   UpsertDcosLoadBalancerAtomicOperationConverter converter
 
   @Shared
-  DcosCredentials mockCredentials = Mock()
+  DcosAccountCredentials mockCredentials = Mock()
 
   def setupSpec() {
     converter = new UpsertDcosLoadBalancerAtomicOperationConverter(Mock(DcosClientProvider), Mock(DcosDeploymentMonitor), Mock(DcosConfigurationProperties))
     converter.setObjectMapper(mapper)
     converter.accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-      getCredentials(ACCOUNT) >> mockCredentials
+      getCredentials(DEFAULT_ACCOUNT) >> mockCredentials
     }
   }
 
   void "upsertDcosLoadBalancerAtomicOperationConverter type returns UpsertDcosLoadBalancerAtomicOperationDescription and UpsertDcosLoadBalancerAtomicOperation"() {
     setup:
-    def input = [name     : LOAD_BALANCER_NAME,
-                 credentials          : ACCOUNT,
+    def input = [name                 : LOAD_BALANCER_NAME,
+                 account              : DEFAULT_ACCOUNT,
+                 dcosCluster          : DEFAULT_REGION,
                  cpus                 : 0.5,
                  mem                  : 256,
                  instances            : 2,

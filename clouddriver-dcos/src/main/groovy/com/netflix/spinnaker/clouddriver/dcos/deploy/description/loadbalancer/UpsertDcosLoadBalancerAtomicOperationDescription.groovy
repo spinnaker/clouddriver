@@ -4,6 +4,7 @@ import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCre
 
 class UpsertDcosLoadBalancerAtomicOperationDescription extends AbstractDcosCredentialsDescription {
   String name
+  String region
   String app
   String stack
   String detail

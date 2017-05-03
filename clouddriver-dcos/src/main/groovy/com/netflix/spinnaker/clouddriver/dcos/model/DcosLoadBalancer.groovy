@@ -15,7 +15,6 @@ import mesosphere.marathon.client.model.v2.App
 import java.time.Instant
 
 import static com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription.PortRange
-import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.GLOBAL_REGION
 
 @EqualsAndHashCode(includes = ["name", "region", "account"])
 class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvider.Item {
@@ -38,15 +37,15 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     this.account = accountName
   }
 
-  DcosLoadBalancer(String account, App app, List<DcosServerGroup> serverGroupList) {
+  DcosLoadBalancer(String account, String cluster, App app, List<DcosServerGroup> serverGroupList) {
     this.app = app
     this.json = app.toString()
 
-    def id = DcosSpinnakerLbId.parse(app.id, false).get()
-    this.account = account
+    def id = DcosSpinnakerLbId.parse(app.id, account, cluster).get()
+    this.account = id.account
     this.name = id.loadBalancerName
-    this.region = GLOBAL_REGION
-    this.description = toDescription(id, app)
+    this.region = id.region
+    this.description = toDescription(cluster, id, app)
 
     this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
 
@@ -55,6 +54,7 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
               // TODO account not part of this model, but it appears the deck UI uses it when diffing servergroups for a loadbalancer.
               // Causes a display bug in deck that affects at least kubernetes as well.
               name: serverGroup?.name,
+              account: serverGroup?.account,
               region: serverGroup?.region,
               isDisabled: serverGroup?.isDisabled(),
               instances: serverGroup?.instances?.findResults { instance ->
@@ -77,12 +77,14 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     } as Set
   }
 
-  static UpsertDcosLoadBalancerAtomicOperationDescription toDescription(DcosSpinnakerLbId id, App app) {
+  static UpsertDcosLoadBalancerAtomicOperationDescription toDescription(String cluster, DcosSpinnakerLbId id, App app) {
 
     def description = new UpsertDcosLoadBalancerAtomicOperationDescription()
 
     description.account = id.account
     description.name = id.loadBalancerName
+    description.region = id.region
+    description.dcosCluster = cluster
 
     def names = Names.parseName(description.name)
 

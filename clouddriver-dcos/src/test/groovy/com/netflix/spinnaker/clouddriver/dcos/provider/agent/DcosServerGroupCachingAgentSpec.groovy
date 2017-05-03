@@ -6,7 +6,7 @@ import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerAppId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
@@ -30,9 +30,9 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   static final private String REGION = "default"
   static final private String MARATHON_APP = "/${ACCOUNT}/${REGION}/${SERVER_GROUP}"
   static final private String TASK = "${MARATHON_APP}-some-task-id"
-  static final private String LOAD_BALANCER = "/${ACCOUNT}/${APP}-frontend"
+  static final private String LOAD_BALANCER = "/${ACCOUNT}/${REGION}/${APP}-frontend"
 
-  DcosCredentials credentials
+  DcosAccountCredentials credentials
   AccountCredentialsRepository accountCredentialsRepository
 
   DcosServerGroupCachingAgent subject
@@ -53,22 +53,22 @@ class DcosServerGroupCachingAgentSpec extends Specification{
     registryMock.get('id') >>  'id'
     registryMock.timer(_, _) >> Mock(com.netflix.spectator.api.Timer)
     accountCredentialsRepository = Mock(AccountCredentialsRepository)
-    credentials = Stub(DcosCredentials)
+    credentials = Stub(DcosAccountCredentials)
     dcosClient = Mock(DCOS)
     providerCache = Mock(ProviderCache)
     objectMapper = new ObjectMapper()
 
     clientProvider = Mock(DcosClientProvider) {
-      getDcosClient(credentials) >> dcosClient
+      getDcosClient(credentials, REGION) >> dcosClient
     }
 
     appKey = Keys.getApplicationKey(APP)
-    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.parse(MARATHON_APP, ACCOUNT, true).get())
+    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.parseVerbose(MARATHON_APP, ACCOUNT, REGION).get())
     clusterKey = Keys.getClusterKey(ACCOUNT, APP, CLUSTER)
-    instanceKey = Keys.getInstanceKey(DcosSpinnakerAppId.parse(MARATHON_APP, ACCOUNT, true).get(), TASK)
-    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(LOAD_BALANCER, true).get())
+    instanceKey = Keys.getInstanceKey(DcosSpinnakerAppId.parseVerbose(MARATHON_APP, ACCOUNT, REGION).get(), TASK)
+    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parseVerbose(LOAD_BALANCER).get())
 
-    subject = new DcosServerGroupCachingAgent(ACCOUNT, credentials, clientProvider, objectMapper, registryMock)
+    subject = new DcosServerGroupCachingAgent(ACCOUNT, REGION, credentials, clientProvider, objectMapper, registryMock)
   }
 
   void "On-demand cache should cache a single server group"() {
@@ -210,7 +210,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
                 getAppId() >> MARATHON_APP
               }
             ]
-            getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${APP}-frontend"]
+            getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${REGION}_${APP}-frontend"]
           }
         ]
       }

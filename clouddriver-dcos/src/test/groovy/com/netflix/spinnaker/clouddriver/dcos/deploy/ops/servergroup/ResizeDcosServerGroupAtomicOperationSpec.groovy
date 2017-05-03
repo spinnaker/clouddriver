@@ -3,7 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -17,14 +17,14 @@ class ResizeDcosServerGroupAtomicOperationSpec extends BaseSpecification {
 
   DCOS dcosClient = Mock(DCOS)
 
-  DcosCredentials testCredentials = defaultCredentialsBuilder().build()
+  DcosAccountCredentials testCredentials = defaultCredentialsBuilder().build()
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
-    getDcosClient(testCredentials) >> dcosClient
+    getDcosClient(testCredentials, DEFAULT_REGION) >> dcosClient
   }
 
   ResizeDcosServerGroupDescription description = new ResizeDcosServerGroupDescription(
-    region: "default", serverGroupName: APPLICATION_NAME, credentials: testCredentials, targetSize: 2
+    region: DEFAULT_REGION, serverGroupName: APPLICATION_NAME, credentials: testCredentials, dcosCluster: DEFAULT_REGION, targetSize: 2
   )
 
   @Subject

@@ -42,6 +42,6 @@ abstract class AbstractDcosServerGroupValidator<T extends AbstractDcosServerGrou
             }
         }
 
-        true
+        regionParts.size() > 0
     }
 }

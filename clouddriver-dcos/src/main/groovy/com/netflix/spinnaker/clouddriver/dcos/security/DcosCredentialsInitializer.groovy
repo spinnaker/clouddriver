@@ -1,30 +1,15 @@
-/*
- * Copyright 2015 Google, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.netflix.spinnaker.clouddriver.dcos.security
 
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
+import com.netflix.spinnaker.clouddriver.dcos.DcosClientCompositeKey
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import groovy.util.logging.Slf4j
 import mesosphere.dcos.client.Config
-import mesosphere.dcos.client.model.DCOSAuthCredentials
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -35,9 +20,10 @@ import org.springframework.context.annotation.Scope
 @Slf4j
 @Configuration
 class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable {
+  private final static LOGGER = LoggerFactory.getLogger(DcosCredentialsInitializer)
 
   @Bean
-  List<? extends DcosCredentials> dcosCredentials(String clouddriverUserAgentApplicationName,
+  List<? extends DcosAccountCredentials> dcosCredentials(String clouddriverUserAgentApplicationName,
                                                   DcosConfigurationProperties dcosConfigurationProperties,
                                                   ApplicationContext applicationContext,
                                                   AccountCredentialsRepository accountCredentialsRepository,
@@ -54,7 +40,7 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
   @DependsOn("dockerRegistryNamedAccountCredentials")
-  List<? extends DcosCredentials> synchronizeDcosAccounts(String clouddriverUserAgentApplicationName,
+  List<? extends DcosAccountCredentials> synchronizeDcosAccounts(String clouddriverUserAgentApplicationName,
                                                           DcosConfigurationProperties dcosConfigurationProperties,
                                                           CatsModule catsModule,
                                                           ApplicationContext applicationContext,
@@ -62,25 +48,46 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
                                                           List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
 
     // TODO what to do with clouddriverUserAgentApplicationName?
+    Map<String, DcosConfigurationProperties.Cluster> clusterMap = new HashMap<>()
+
+    for (DcosConfigurationProperties.Cluster cluster in dcosConfigurationProperties.clusters) {
+      clusterMap.put(cluster.name, cluster)
+    }
 
     def (ArrayList<DcosConfigurationProperties.Account> accountsToAdd, List<String> namesOfDeletedAccounts) =
     ProviderUtils.calculateAccountDeltas(accountCredentialsRepository,
-      DcosCredentials,
+      DcosAccountCredentials,
       dcosConfigurationProperties.accounts)
 
     accountsToAdd.each { DcosConfigurationProperties.Account account ->
       try {
+        List<DcosClusterCredentials> clusterCredentials = new ArrayList<>()
 
-        def dcosCredentials = DcosCredentials.builder().name(account.name)
-          .environment(account.environment)
-          .accountType(account.accountType)
-          .dcosUrl(account.dcosUrl)
-          .dockerRegistries(account.dockerRegistries)
-          .requiredGroupMembership(account.requiredGroupMembership)
-          .secretStore(account.secretStore)
-          .dcosClientConfig(DcosCredentialsInitializer.buildConfig(account))
-          .build()
+        for (DcosConfigurationProperties.ClusterConfig clusterConfig in account.clusters) {
+          DcosConfigurationProperties.Cluster cluster = clusterMap.get(clusterConfig.name)
 
+          if (cluster == null) {
+            LOGGER.warn("Cluster [${cluster.name}] could not be found in the list of configured clusters for account [${account}]")
+            continue
+          }
+
+          def key = DcosClientCompositeKey.buildFromVerbose(account.name, cluster.name)
+
+          if (!key.isPresent()) {
+            LOGGER.warn("Something went wrong with the composite key creation for account [${account.name}] and cluster [${cluster.name}]")
+            continue
+          }
+
+          def dockerRegistries = cluster.dockerRegistries ? cluster.dockerRegistries : account.dockerRegistries
+
+          clusterCredentials.add(DcosClusterCredentials.builder().key(key.get()).dcosUrl(cluster.dcosUrl)
+                  .secretStore(cluster.secretStore).dockerRegistries(dockerRegistries)
+                  .dcosConfig(DcosConfigurationProperties.buildConfig(account, cluster, clusterConfig)).build())
+        }
+
+        def dcosCredentials = new DcosAccountCredentials(account.name, account.environment, account.accountType, account.dockerRegistries, account.requiredGroupMembership, clusterCredentials)
+
+        // Note: The MapBackedAccountCredentialsRepository doesn't actually use the key for anything currently.
         accountCredentialsRepository.save(dcosCredentials.name, dcosCredentials)
       } catch (e) {
         log.info "Could not load account ${account.name} for DC/OS.", e
@@ -94,28 +101,7 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
     }
 
     accountCredentialsRepository.all.findAll {
-      it instanceof DcosCredentials
-    } as List<DcosCredentials>
-  }
-
-  private static Config buildConfig(final DcosConfigurationProperties.Account account) {
-    Config.builder().withCredentials(buildDCOSAuthCredentials(account))
-      .withInsecureSkipTlsVerify(account.insecureSkipTlsVerify)
-      .withCaCertData(account.caCertData)
-      .withCaCertFile(account.caCertFile).build()
-  }
-
-  private static DCOSAuthCredentials buildDCOSAuthCredentials(DcosConfigurationProperties.Account account) {
-    DCOSAuthCredentials dcosAuthCredentials = null
-
-    if (account.uid && account.password && account.serviceKey) {
-      throw new IllegalStateException("Both a password and serviceKey were supplied for the account with name [${account.name}]. Only one should be configured.")
-    } else if (account.uid && account.password) {
-      dcosAuthCredentials = DCOSAuthCredentials.forUserAccount(account.uid, account.password)
-    } else if (account.uid && account.serviceKey) {
-      dcosAuthCredentials = DCOSAuthCredentials.forServiceAccount(account.uid, account.serviceKey)
-    }
-
-    dcosAuthCredentials
+      it instanceof DcosAccountCredentials
+    } as List<DcosAccountCredentials>
   }
 }

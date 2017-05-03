@@ -3,7 +3,7 @@ package com.netflix.spinnaker.clouddriver.dcos.provider.agent
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosInstance
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -18,7 +18,7 @@ class DcosInstanceCachingAgentSpec extends Specification {
   static final private String REGION = "default"
   static final private String CLUSTER = "${APP}-cluster"
   static final private String SERVER_GROUP = "${CLUSTER}-v000"
-  DcosCredentials credentials
+  DcosAccountCredentials credentials
   AccountCredentialsRepository accountCredentialsRepository
 
   DcosInstanceCachingAgent subject
@@ -29,16 +29,16 @@ class DcosInstanceCachingAgentSpec extends Specification {
 
   def setup() {
     accountCredentialsRepository = Mock(AccountCredentialsRepository)
-    credentials = Stub(DcosCredentials)
+    credentials = Stub(DcosAccountCredentials)
     dcosClient = Mock(DCOS)
     providerCache = Mock(ProviderCache)
     objectMapper = new ObjectMapper()
 
     clientProvider = Mock(DcosClientProvider) {
-      getDcosClient(credentials) >> dcosClient
+      getDcosClient(credentials, REGION) >> dcosClient
     }
 
-    subject = new DcosInstanceCachingAgent(ACCOUNT, credentials, clientProvider, objectMapper)
+    subject = new DcosInstanceCachingAgent(ACCOUNT, REGION, credentials, clientProvider, objectMapper)
   }
 
   void "Should only cache marathon tasks that are owned by marathon apps under the supplied account"() {
@@ -74,6 +74,7 @@ class DcosInstanceCachingAgentSpec extends Specification {
     }
 
     dcosClient.getTasks() >> allTasks
+    dcosClient.getDeployments() >> []
     def providerCacheMock = Mock(ProviderCache)
 
     when:
@@ -86,11 +87,11 @@ class DcosInstanceCachingAgentSpec extends Specification {
     def cacheData1 = result.cacheResults.instances.find { it.id == validInstance1Key }
     cacheData1 != null
     cacheData1.attributes.name == validTaskId1
-    cacheData1.attributes.instance == new DcosInstance(validTask1, ACCOUNT)
+    cacheData1.attributes.instance == new DcosInstance(validTask1, ACCOUNT, REGION, false)
 
     def cacheData2 = result.cacheResults.instances.find { it.id == validInstance2Key }
     cacheData2 != null
     cacheData2.attributes.name == validTaskId2
-    cacheData2.attributes.instance == new DcosInstance(validTask2, ACCOUNT)
+    cacheData2.attributes.instance == new DcosInstance(validTask2, ACCOUNT, REGION, false)
   }
 }

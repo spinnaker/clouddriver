@@ -11,11 +11,10 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
-import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
 import groovy.util.logging.Slf4j
 import mesosphere.dcos.client.DCOS
@@ -28,25 +27,27 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDemandAgent {
 
   private final String accountName
+  private final String clusterName
   private final DCOS dcosClient
   private final DcosCloudProvider dcosCloudProvider = new DcosCloudProvider()
   private final ObjectMapper objectMapper
   final OnDemandMetricsSupport metricsSupport
 
-  private static final ID_LOGGING_ENABLED = false
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
           AUTHORITATIVE.forType(Keys.Namespace.LOAD_BALANCERS.ns),
           //INFORMATIVE.forType(Keys.Namespace.INSTANCES.ns)
   ] as Set)
 
   DcosLoadBalancerCachingAgent(String accountName,
-                               DcosCredentials credentials,
+                               String clusterName,
+                               DcosAccountCredentials credentials,
                                DcosClientProvider clientProvider,
                                ObjectMapper objectMapper,
                                Registry registry) {
     this.accountName = accountName
+    this.clusterName = clusterName
     this.objectMapper = objectMapper
-    this.dcosClient = clientProvider.getDcosClient(credentials)
+    this.dcosClient = clientProvider.getDcosClient(credentials, clusterName)
     this.metricsSupport = new OnDemandMetricsSupport(registry,
             this,
             "$dcosCloudProvider.id:$OnDemandAgent.OnDemandType.LoadBalancer")
@@ -69,7 +70,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
   @Override
   String getAgentType() {
-    "${accountName}/${DcosLoadBalancerCachingAgent.simpleName}"
+    "${accountName}/${clusterName}/${DcosLoadBalancerCachingAgent.simpleName}"
   }
 
   @Override
@@ -88,7 +89,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
     }
 
     // Region may be (and currently is only) going to be 'global' for DCOS marathon-lb instances created through spinnaker.
-    def dcosSpinnakerLbId = DcosSpinnakerLbId.from(data.account.toString(), data.loadBalancerName.toString(), ID_LOGGING_ENABLED)
+    def dcosSpinnakerLbId = DcosSpinnakerLbId.from(data.account.toString(), data.region.toString(), data.loadBalancerName.toString())
 
     if (!dcosSpinnakerLbId.present) {
       return null
@@ -180,7 +181,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
             loadBalancers.collect {
-              Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(it.id, accountName, ID_LOGGING_ENABLED).get())
+              Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(it.id, accountName, clusterName).get())
             }).each {
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
       // replication controllers. Furthermore, cache data that hasn't been processed needs to be updated in the ON_DEMAND
@@ -213,7 +214,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
     }
 
     response.get().apps.findAll {
-      it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosProviderUtils.isLoadBalancerIdValid(it.id, accountName)
+      it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerLbId.parse(it.id, accountName, clusterName).isPresent()
     }
   }
 
@@ -246,7 +247,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
         continue
       }
 
-      Optional<DcosSpinnakerLbId> dcosSpinnakerLbId = DcosSpinnakerLbId.parse(loadBalancer.id, ID_LOGGING_ENABLED)
+      Optional<DcosSpinnakerLbId> dcosSpinnakerLbId = DcosSpinnakerLbId.parse(loadBalancer.id)
 
       if (!dcosSpinnakerLbId.present) {
         continue

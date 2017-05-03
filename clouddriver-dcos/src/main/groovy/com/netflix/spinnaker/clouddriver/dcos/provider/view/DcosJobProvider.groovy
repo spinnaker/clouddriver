@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.dcos.provider.view
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
 import com.netflix.spinnaker.clouddriver.dcos.model.DcosJobStatus
@@ -28,18 +29,20 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
 
   @Override
   DcosJobStatus collectJob(String account, String location, String id) {
-    def dcosClient = dcosClientProvider.getDcosClient(account)
-    def jobResponse = dcosClient.getJob(location, ['activeRuns','history'])
+    def dcosClient = dcosClientProvider.getDcosClient(account, location)
+    def friggaJobName = Names.parseName(id)
+    def jobResponse = dcosClient.getJob(friggaJobName.stack, ['activeRuns','history'])
 
-    return new DcosJobStatus(jobResponse, id, account)
+    return new DcosJobStatus(jobResponse, friggaJobName.detail, account, location)
   }
 
   @Override
   Map<String, Object> getFileContents(String account, String location, String id, String fileName) {
     // Note - location is secretly the Job ID within DC/OS, this is so we don't have to do any parsing of the id field
     // give to this function but still have all the information we need to get a file if need be.
-    def dcosClient = dcosClientProvider.getDcosClient(account)
-    def taskName = "${id}.${location}".toString()
+    def dcosClient = dcosClientProvider.getDcosClient(account, location)
+    def friggaJobName = Names.parseName(id)
+    def taskName = "${friggaJobName.detail}.${friggaJobName.stack}".toString()
     def masterState = dcosClient.getMasterState()
 
     def metronomeFramework = masterState.getFrameworks().find {

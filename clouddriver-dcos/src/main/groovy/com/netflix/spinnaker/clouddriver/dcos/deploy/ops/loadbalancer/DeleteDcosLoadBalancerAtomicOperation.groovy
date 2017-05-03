@@ -5,11 +5,9 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
 
 class DeleteDcosLoadBalancerAtomicOperation implements AtomicOperation<Void> {
@@ -34,10 +32,10 @@ class DeleteDcosLoadBalancerAtomicOperation implements AtomicOperation<Void> {
   Void operate(List priorOutputs) {
     task.updateStatus BASE_PHASE, "Initializing delete of load balancer $description.loadBalancerName..."
 
-    DCOS dcosClient = dcosClientProvider.getDcosClient(description.credentials);
+    def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
 
-    def appId = DcosSpinnakerLbId.from(description.credentials.name,
-            description.loadBalancerName, true).get()
+    def appId = DcosSpinnakerLbId.from(description.credentials.account, description.dcosCluster,
+            description.loadBalancerName).get()
 
     App existingLb = dcosClient.maybeApp(appId.toString())
             .orElseThrow({

@@ -2,7 +2,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.DeployDcosServerGroupAtomicOperation
@@ -18,14 +18,14 @@ class DeployDcosServerGroupAtomicOperationConverterSpec extends BaseSpecificatio
   DCOS dcosClient = Mock(DCOS)
   DeployDcosServerGroupDescriptionToAppMapper dcosServerGroupDescriptionToAppMapper = Mock(DeployDcosServerGroupDescriptionToAppMapper)
 
-  DcosCredentials testCredentials = defaultCredentialsBuilder().build()
+  DcosAccountCredentials testCredentials = defaultCredentialsBuilder().build()
 
   DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
-    getDcosClient(testCredentials) >> dcosClient
+    getDcosClient(testCredentials, DEFAULT_REGION) >> dcosClient
   }
 
   AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-    getCredentials('test') >> testCredentials
+    getCredentials(testCredentials.name) >> testCredentials
   }
 
   @Subject
@@ -36,7 +36,8 @@ class DeployDcosServerGroupAtomicOperationConverterSpec extends BaseSpecificatio
     atomicOperationConverter.accountCredentialsProvider = accountCredentialsProvider
     atomicOperationConverter.objectMapper = new ObjectMapper()
     Map input = [
-      credentials: 'test',
+      account: 'test',
+      cluster: "us-test-1",
       serverGroupName: 'test',
       stack: "dev",
       detail: "",
@@ -75,7 +76,8 @@ class DeployDcosServerGroupAtomicOperationConverterSpec extends BaseSpecificatio
     atomicOperationConverter.accountCredentialsProvider = accountCredentialsProvider
     atomicOperationConverter.objectMapper = new ObjectMapper()
     Map input = [
-      credentials: 'test',
+      account: 'test',
+      cluster: "us-test-1",
       serverGroupName: 'test',
       stack: "dev",
       detail: "",

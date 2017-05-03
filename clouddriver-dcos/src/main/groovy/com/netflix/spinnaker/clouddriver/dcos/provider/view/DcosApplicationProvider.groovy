@@ -32,8 +32,8 @@ class DcosApplicationProvider implements ApplicationProvider {
   Set<Application> getApplications(boolean expand) {
     def relationshipFilter = expand ? RelationshipCacheFilter.include(Keys.Namespace.CLUSTERS.ns) : RelationshipCacheFilter.none()
     Collection<CacheData> applications = getAllMatchingKeyPattern(cacheView, Keys.Namespace.APPLICATIONS.ns, "${dcosCloudProvider.id}:*", relationshipFilter)
-    def secrets = getSecrets()
-    applications.collect {translate(it, secrets)}
+    //def secrets = getSecrets()
+    applications.collect {translate(it, null)}
   }
 
   @Override
@@ -43,14 +43,14 @@ class DcosApplicationProvider implements ApplicationProvider {
 
   private Map<String, Collection<String>> getSecrets() {
     Collection<CacheData> secretData = getAllMatchingKeyPattern(cacheView, Keys.Namespace.SECRETS.ns, "${dcosCloudProvider.id}:*")
-    Map<String, Collection<String>> secretsByAccount = [:].withDefault { key -> return [] }
+    Map<String, Collection<String>> secretsByCluster = [:].withDefault { key -> return [] }
     secretData.each {
-      secretsByAccount[Keys.parse(it.id).account].add(objectMapper.convertValue(it.attributes.secretPath, String.class))
+      secretsByCluster[Keys.parse(it.id).region].add(objectMapper.convertValue(it.attributes.secretPath, String.class))
     }
-    secretsByAccount
+    secretsByCluster
   }
 
-  Application translate(CacheData appCacheData, Map<String, Collection<String>> secretsByAccount) {
+  Application translate(CacheData appCacheData, Map<String, Collection<String>> secretsByCluster) {
     if (appCacheData == null) {
       return null
     }
@@ -65,7 +65,9 @@ class DcosApplicationProvider implements ApplicationProvider {
       }
     }
 
-    attributes.put("secrets", objectMapper.writeValueAsString(secretsByAccount))
+    if (secretsByCluster) {
+      attributes.put("secrets", objectMapper.writeValueAsString(secretsByCluster))
+    }
 
     new DcosApplication(name, attributes, clusterNames)
   }

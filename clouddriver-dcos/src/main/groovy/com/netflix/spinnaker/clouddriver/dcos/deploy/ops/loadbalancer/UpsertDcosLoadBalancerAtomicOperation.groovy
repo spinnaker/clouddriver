@@ -6,7 +6,6 @@ import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.UpsertDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.monitor.DcosDeploymentMonitor
 import com.netflix.spinnaker.clouddriver.dcos.exception.DcosOperationException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -41,12 +40,12 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     // logic to update/patch given an existing load balancer as a base, but it appears that all the existing configuration gets passed down by deck anyway (meaning it always overrides everything).
     // I'm assuming we'll do it the same way.
 
-    def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
+    def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
 
     task.updateStatus BASE_PHASE, "Initializing upsert of load balancer $description.name..."
     task.updateStatus BASE_PHASE, "Looking up existing load balancer..."
 
-    def appId = DcosSpinnakerLbId.from(description.credentials.name, description.name, true).get()
+    def appId = DcosSpinnakerLbId.fromVerbose(description.credentials.account, description.dcosCluster, description.name).get()
 
     def existingLb = dcosClient.maybeApp(appId.toString()).orElse(null)
 
@@ -98,7 +97,10 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
       env = ["HAPROXY_SSL_CERT"     : "",
              "HAPROXY_SYSCTL_PARAMS": "net.ipv4.tcp_tw_reuse=1 net.ipv4.tcp_fin_timeout=30 net.ipv4.tcp_max_syn_backlog=10240 net.ipv4.tcp_max_tw_buckets=400000 net.ipv4.tcp_max_orphans=60000 net.core.somaxconn=10000"]
 
-      if (dcosConfigurationProperties.loadBalancer.serviceAccountSecret) {
+      def cluster = dcosConfigurationProperties.clusters.find {it.name == appId.region}
+      def loadBalancerConfig = cluster?.loadBalancer
+
+      if (loadBalancerConfig?.serviceAccountSecret) {
         env.put("DCOS_SERVICE_ACCOUNT_CREDENTIAL", ["secret": "serviceCredential"])
       }
 
@@ -109,7 +111,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
       container = new Container().with {
         type = "DOCKER"
         docker = new Docker().with {
-          image = dcosConfigurationProperties.loadBalancer.image
+          image = loadBalancerConfig?.image
           network = "HOST"
           privileged = true
           forcePullImage = false
@@ -136,8 +138,8 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
 
       acceptedResourceRoles = description.acceptedResourceRoles?.empty ? null : description.acceptedResourceRoles
 
-      if (dcosConfigurationProperties.loadBalancer.serviceAccountSecret) {
-        secrets = [serviceCredential: [source: dcosConfigurationProperties.loadBalancer.serviceAccountSecret]]
+      if (loadBalancerConfig?.serviceAccountSecret) {
+        secrets = [serviceCredential: [source: loadBalancerConfig?.serviceAccountSecret]]
       }
 
       portDefinitions = []

@@ -2,7 +2,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.loadbalancer
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.loadbalancer.DeleteDcosLoadBalancerAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.loadbalancer.DeleteDcosLoadBalancerAtomicOperation
@@ -12,8 +12,6 @@ import spock.lang.Shared
 import spock.lang.Subject
 
 class DeleteDcosLoadBalancerAtomicOperationConverterSpec extends BaseSpecification {
-
-  private static final ACCOUNT = "my-test-account"
   private static final LOAD_BALANCER_NAME = "external"
 
   @Shared
@@ -24,20 +22,21 @@ class DeleteDcosLoadBalancerAtomicOperationConverterSpec extends BaseSpecificati
   DeleteDcosLoadBalancerAtomicOperationConverter converter
 
   @Shared
-  DcosCredentials mockCredentials = Mock()
+  DcosAccountCredentials mockCredentials = Mock()
 
   def setupSpec() {
     converter = new DeleteDcosLoadBalancerAtomicOperationConverter(Mock(DcosClientProvider), Mock(DcosDeploymentMonitor))
     converter.setObjectMapper(mapper)
     converter.accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-      getCredentials(ACCOUNT) >> mockCredentials
+      getCredentials(DEFAULT_ACCOUNT) >> mockCredentials
     }
   }
 
   void "deleteDcosLoadBalancerAtomicOperationConverter type returns DeleteDcosLoadBalancerAtomicOperationDescription and DeleteDcosLoadBalancerAtomicOperation"() {
     setup:
     def input = [loadBalancerName: LOAD_BALANCER_NAME,
-                 credentials     : ACCOUNT]
+                 dcosCluster     : DEFAULT_REGION,
+                 account         : DEFAULT_ACCOUNT]
     when:
     def description = converter.convertDescription(input)
 

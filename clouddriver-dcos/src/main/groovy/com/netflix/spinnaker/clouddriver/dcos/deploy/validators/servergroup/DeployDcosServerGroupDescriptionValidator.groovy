@@ -75,6 +75,6 @@ class DeployDcosServerGroupDescriptionValidator extends AbstractDcosDescriptionV
       }
     }
 
-    true
+    regionParts.size() > 0
   }
 }

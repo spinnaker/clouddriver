@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.agent.*
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosClusterCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
@@ -18,7 +19,9 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 class DcosSecretsCachingAgent implements CachingAgent, AccountAware {
 
   private final String accountName
-  private final DcosCredentials credentials
+  private final String clusterName
+  private final DcosClusterCredentials clusterCredentials
+  private final DcosAccountCredentials credentials
   private final DCOS dcosClient
   private final ObjectMapper objectMapper
 
@@ -27,19 +30,22 @@ class DcosSecretsCachingAgent implements CachingAgent, AccountAware {
   ] as Set)
 
   DcosSecretsCachingAgent(String accountName,
-                          DcosCredentials credentials,
+                          String clusterName,
+                          DcosAccountCredentials credentials,
                           DcosClientProvider clientProvider,
                           ObjectMapper objectMapper) {
     this.accountName = accountName
+    this.clusterName = clusterName
+    this.clusterCredentials = credentials.getCredentialsByCluster(clusterName)
     this.credentials = credentials
-    this.dcosClient = clientProvider.getDcosClient(credentials)
+    this.dcosClient = clientProvider.getDcosClient(credentials, clusterName)
     this.objectMapper = objectMapper
   }
 
 
   @Override
   String getAgentType() {
-    "${accountName}/${DcosSecretsCachingAgent.simpleName}"
+    "${accountName}/${clusterName}/${DcosSecretsCachingAgent.simpleName}"
   }
 
   @Override
@@ -63,9 +69,9 @@ class DcosSecretsCachingAgent implements CachingAgent, AccountAware {
 
     def secrets = []
     try {
-      secrets = dcosClient.listSecrets(credentials.secretStore, "/").secrets
+      secrets = dcosClient.listSecrets(clusterCredentials.secretStore, "").secrets
     } catch (DCOSException e) {
-      log.error("Unable to cache secrets for account [${accountName}].", e)
+      log.error("Unable to cache secrets for account [${accountName}] and cluster [${clusterName}].", e)
     }
 
     buildCacheResult(secrets)
@@ -83,7 +89,7 @@ class DcosSecretsCachingAgent implements CachingAgent, AccountAware {
         continue
       }
 
-      def key = Keys.getSecretKey(accountName, secretPath)
+      def key = Keys.getSecretKey(clusterName, secretPath)
       cachedSecrets[key].with {
         attributes.secretPath = secretPath
       }

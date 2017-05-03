@@ -6,7 +6,7 @@ import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 import com.netflix.spinnaker.clouddriver.dcos.provider.MutableCacheData
@@ -19,10 +19,11 @@ import spock.lang.Specification
 class DcosLoadBalancerCachingAgentSpec extends Specification {
   static final private String ACCOUNT = "testaccount"
   static final private String APP = "testapp"
+  static final private String REGION = "us-test-1"
   static final private String CLUSTER = "${APP}-cluster"
   static final private String LOAD_BALANCER_NAME = "${CLUSTER}-v000"
-  static final private String MARATHON_APP_ID = "/${ACCOUNT}/${LOAD_BALANCER_NAME}"
-  DcosCredentials credentials
+  static final private String MARATHON_APP_ID = "/${ACCOUNT}/${REGION}/${LOAD_BALANCER_NAME}"
+  DcosAccountCredentials credentials
   AccountCredentialsRepository accountCredentialsRepository
 
   DcosLoadBalancerCachingAgent subject
@@ -39,19 +40,19 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
     registryMock.get('id') >> 'id'
     registryMock.timer(_, _) >> Mock(com.netflix.spectator.api.Timer)
     accountCredentialsRepository = Mock(AccountCredentialsRepository)
-    credentials = Stub(DcosCredentials)
+    credentials = Stub(DcosAccountCredentials)
     dcosClient = Mock(DCOS)
     providerCache = Mock(ProviderCache)
     objectMapper = new ObjectMapper()
 
-    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(MARATHON_APP_ID, true).get())
+    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parseVerbose(MARATHON_APP_ID).get())
 
     clientProvider = Mock(DcosClientProvider) {
-      getDcosClient(credentials) >> dcosClient
+      getDcosClient(credentials, REGION) >> dcosClient
     }
 
 
-    subject = new DcosLoadBalancerCachingAgent(ACCOUNT, credentials, clientProvider, objectMapper, registryMock)
+    subject = new DcosLoadBalancerCachingAgent(ACCOUNT, REGION, credentials, clientProvider, objectMapper, registryMock)
   }
 
   void "On-demand cache should cache a single load balancer"() {
@@ -59,7 +60,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
     dcosClient.maybeApp(MARATHON_APP_ID) >> Optional.of(Mock(App) { getId() >> MARATHON_APP_ID })
 
     when:
-    def result = subject.handle(providerCache, ["loadBalancerName": LOAD_BALANCER_NAME, "account": ACCOUNT, "region": "global"])
+    def result = subject.handle(providerCache, ["loadBalancerName": LOAD_BALANCER_NAME, "account": ACCOUNT, "region": REGION])
 
     then:
     1 * providerCache.putCacheData(Keys.Namespace.ON_DEMAND.ns, { cacheData ->
@@ -77,7 +78,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
     dcosClient.maybeApp(MARATHON_APP_ID) >> Optional.empty()
 
     when:
-    def result = subject.handle(providerCache, ["loadBalancerName": LOAD_BALANCER_NAME, "account": ACCOUNT, "region": "global"])
+    def result = subject.handle(providerCache, ["loadBalancerName": LOAD_BALANCER_NAME, "account": ACCOUNT, "region": REGION])
 
     then:
     1 * providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [loadBalancerKey])

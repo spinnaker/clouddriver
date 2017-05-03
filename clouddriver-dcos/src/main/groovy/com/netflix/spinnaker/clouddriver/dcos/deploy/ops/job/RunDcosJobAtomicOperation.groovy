@@ -37,13 +37,13 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
 
     task.updateStatus BASE_PHASE, "Initializing creation of job ${jobName}."
 
-    def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
+    def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
     def job = mapDescriptionToJob(description)
 
     if (!dcosClient.maybeJob(description.general.id).isPresent()) {
       task.updateStatus BASE_PHASE, "Job with id of ${jobName} does not exist, creating job."
 
-      if (job.schedules) {
+      if (job.schedules != null) {
         dcosClient.createJobWithSchedules(job)
       } else {
         dcosClient.createJob(job)
@@ -53,7 +53,7 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
     } else {
       task.updateStatus BASE_PHASE, "Job with id of ${jobName} already exists, updating job."
 
-      if (job.schedules) {
+      if (job.schedules != null) {
         dcosClient.updateJobWithSchedules(jobName, job)
       } else {
         dcosClient.updateJob(jobName, job)
@@ -68,10 +68,15 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
 
     task.updateStatus BASE_PHASE, "Job ${jobName} has been started."
 
-    // TODO We will want to change location to use regions like apps once that is supported.
+    // We are kinda hacking our own name together here since applications cannot be "batch" jobs in DC/OS land currently.
+    // Stack = Metronome job name
+    // Detail = Job mesos task id
+    def friggaJobName = "${description.application}-${jobRun.jobId}-${jobRun.id}-v000".toString()
+
+    // TODO We will want to change location to use groups like apps once that is supported.
     return new DeploymentResult().with {
-      deployedNames = [jobRun.id]
-      deployedNamesByLocation[jobRun.jobId] = [jobRun.id]
+      deployedNames = [friggaJobName]
+      deployedNamesByLocation[description.dcosCluster] = [friggaJobName]
       it
     }
   }

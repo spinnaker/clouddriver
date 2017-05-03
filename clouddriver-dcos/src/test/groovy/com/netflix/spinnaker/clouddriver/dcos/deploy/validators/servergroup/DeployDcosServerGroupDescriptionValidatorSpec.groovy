@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators.servergroup
 
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DeployDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -9,13 +8,11 @@ import spock.lang.Subject
 
 class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
   private static final DESCRIPTION = "deployDcosServerGroupDescription"
-  private static final REGION = "default"
-
 
   def testCredentials = defaultCredentialsBuilder().build()
 
   def accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-    getCredentials("test") >> testCredentials
+    getCredentials(testCredentials.name) >> testCredentials
   }
 
   @Subject
@@ -23,7 +20,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
 
   void "validate should give errors when given an empty DeployDcosServerGroupDescription"() {
     setup:
-      def description = new DeployDcosServerGroupDescription(account: null, credentials: null, application: null, desiredCapacity: -1,
+      def description = new DeployDcosServerGroupDescription(account: null, dcosCluster: null, credentials: null, application: null, desiredCapacity: -1,
         cpus: -1, mem: -1, disk: -1, gpus: -1)
       def errorsMock = Mock(Errors)
     when:
@@ -32,7 +29,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
       1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       1 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-      0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
+      1 * errorsMock.rejectValue("dcosCluster", "${DESCRIPTION}.dcosCluster.empty")
       1 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.empty")
       0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.invalid")
       1 * errorsMock.rejectValue("desiredCapacity", "${DESCRIPTION}.desiredCapacity.invalid")
@@ -45,8 +42,8 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
 
   void "validate should give errors when given an invalid DeployDcosServerGroupDescription"() {
     setup:
-      def description = new DeployDcosServerGroupDescription(region: '-iNv.aLiD-', credentials: defaultCredentialsBuilder().build(),
-              application: '-iNv.aLiD-', desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
+      def description = new DeployDcosServerGroupDescription(region: '-iNv.aLiD-', credentials: defaultCredentialsBuilder().account(BAD_ACCOUNT).build(),
+              application: '-iNv.aLiD-', dcosCluster: "", desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
@@ -54,7 +51,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       1 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-      0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.invalid")
+      1 * errorsMock.rejectValue("dcosCluster", "${DESCRIPTION}.dcosCluster.empty")
       0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.empty")
       1 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.invalid")
       0 * errorsMock.rejectValue("desiredCapacity", "${DESCRIPTION}.desiredCapacity.invalid")
@@ -67,7 +64,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
 
   void "validate should give no errors when given an valid DeployDcosServerGroupDescription"() {
     setup:
-      def description = new DeployDcosServerGroupDescription(region: REGION, credentials: testCredentials, application: "test",
+      def description = new DeployDcosServerGroupDescription(region: DEFAULT_REGION, dcosCluster: DEFAULT_REGION, credentials: testCredentials, application: "test",
         desiredCapacity: 1, cpus: 1, mem: 512, disk: 0, gpus: 0)
       def errorsMock = Mock(Errors)
     when:
@@ -76,7 +73,7 @@ class DeployDcosServerGroupDescriptionValidatorSpec extends BaseSpecification {
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.empty")
       0 * errorsMock.rejectValue("region", "${DESCRIPTION}.region.invalid")
       0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
-      0 * errorsMock.rejectValue("credentials", "${DESCRIPTION}.credentials.empty")
+      0 * errorsMock.rejectValue("dcosCluster", "${DESCRIPTION}.dcosCluster.empty")
       0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.empty")
       0 * errorsMock.rejectValue("application", "${DESCRIPTION}.application.invalid")
       0 * errorsMock.rejectValue("desiredCapacity", "${DESCRIPTION}.desiredCapacity.invalid")

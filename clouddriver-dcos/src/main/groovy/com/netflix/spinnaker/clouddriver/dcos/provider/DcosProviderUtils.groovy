@@ -8,14 +8,10 @@ import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
-import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerLbId
 
 import static com.netflix.spinnaker.clouddriver.dcos.model.DcosServerGroup.*
 
 class DcosProviderUtils {
-
-  public static final String GLOBAL_REGION = 'global'
-
   /**
    * Resolves a set of CacheData given a namespace and a key pattern. If a {@code relationshipFilter} is supplied, relationships for the returned data will be filtered using it.
    * @param cacheView The Cache from which CacheData for the relationships will be resolved.
@@ -96,14 +92,6 @@ class DcosProviderUtils {
     }
 
     return appName
-  }
-
-  static boolean isLoadBalancerIdValid(Optional<DcosSpinnakerLbId> loadBalancerId, String account) {
-    loadBalancerId.isPresent() && loadBalancerId.get().account == account
-  }
-
-  static boolean isLoadBalancerIdValid(String loadBalancerId, String account) {
-    isLoadBalancerIdValid(DcosSpinnakerLbId.parse(loadBalancerId, false), account)
   }
 
   static ImageDescription buildImageDescription(String image) {

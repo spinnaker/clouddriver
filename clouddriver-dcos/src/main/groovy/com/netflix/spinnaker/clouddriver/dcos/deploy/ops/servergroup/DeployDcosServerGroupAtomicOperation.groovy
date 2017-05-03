@@ -41,14 +41,13 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
   DeploymentResult operate(List priorOutputs) {
     task.updateStatus BASE_PHASE, "Initializing creation of application."
 
-    def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
-    def serverGroupNameResolver = new DcosServerGroupNameResolver(dcosClient, description.credentials.name, description.region)
+    def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
+    def serverGroupNameResolver = new DcosServerGroupNameResolver(dcosClient, description.credentials.account, description.region, description.group)
 
     task.updateStatus BASE_PHASE, "Looking up next sequence index"
 
     def resolvedServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.freeFormDetails, false)
-
-    def dcosPathId = DcosSpinnakerAppId.from(description.credentials.name, description.region, resolvedServerGroupName, true).get()
+    def dcosPathId = DcosSpinnakerAppId.fromVerbose(description.credentials.account, description.region, resolvedServerGroupName).get()
 
     task.updateStatus BASE_PHASE, "Spinnaker ID chosen to be ${resolvedServerGroupName}."
     task.updateStatus BASE_PHASE, "Marathon ID chosen to be $dcosPathId."
@@ -59,8 +58,8 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
     task.updateStatus BASE_PHASE, "Deployed service ${resolvedServerGroupName}"
 
     def deploymentResult = new DeploymentResult()
-    deploymentResult.serverGroupNames = Arrays.asList("${dcosPathId.safeRegion}:${resolvedServerGroupName}".toString())
-    deploymentResult.serverGroupNameByRegion[dcosPathId.safeRegion] = resolvedServerGroupName
+    deploymentResult.serverGroupNames = Arrays.asList("${dcosPathId.safeCombinedGroup}:${resolvedServerGroupName}".toString())
+    deploymentResult.serverGroupNameByRegion[dcosPathId.safeCombinedGroup] = resolvedServerGroupName
 
     return deploymentResult
   }

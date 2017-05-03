@@ -20,10 +20,10 @@ class DcosServerGroupSpec extends Specification {
     def lbApp = createApp(MARATHON_APP)
     def goodLb = "${APP}-goodlb"
     def badLb = "${APP}-badlb"
-    lbApp.getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${goodLb},wrongaccount_${badLb}"]
+    lbApp.getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${REGION}_${goodLb},wrongaccount_wrongregion_${badLb}"]
 
     when:
-    @Subject def serverGroup = new DcosServerGroup(ACCOUNT, lbApp)
+    @Subject def serverGroup = new DcosServerGroup(ACCOUNT, REGION, lbApp)
 
     then:
     serverGroup.loadBalancers.size() == 1

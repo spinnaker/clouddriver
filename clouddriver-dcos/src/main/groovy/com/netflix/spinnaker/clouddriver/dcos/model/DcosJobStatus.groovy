@@ -22,15 +22,15 @@ class DcosJobStatus implements JobStatus, Serializable {
   Long completedTime
   boolean successful
 
-  DcosJobStatus(GetJobResponse job, String id, String account) {
+  DcosJobStatus(GetJobResponse job, String jobRunId, String account, String cluster) {
     this.name = job.id
-    this.id = id
-    this.location = job.id
+    this.id = "${jobRunId}.${job.id}".toString()
+    this.location = cluster
     this.account = account
     this.job = job
 
     this.jobRun = job.activeRuns.find {
-      jobRun -> jobRun.id == id
+      jobRun -> jobRun.id == jobRunId
     }
 
     if (jobRun) {
@@ -39,7 +39,7 @@ class DcosJobStatus implements JobStatus, Serializable {
       this.successful = false
     } else {
       this.jobRunSummary = (job.history.successfulFinishedRuns + job.history.failedFinishedRuns).find {
-        jobSummary -> jobSummary.id == id
+        jobSummary -> jobSummary.id == jobRunId
       }
     }
 
@@ -54,8 +54,9 @@ class DcosJobStatus implements JobStatus, Serializable {
   Map<String, String> getCompletionDetails() {
     [
       successful  : successful.toString(),
-      jobId     : name,
-      taskId    : id
+      location    : location,
+      jobId       : name,
+      taskId      : id
     ]
   }
 

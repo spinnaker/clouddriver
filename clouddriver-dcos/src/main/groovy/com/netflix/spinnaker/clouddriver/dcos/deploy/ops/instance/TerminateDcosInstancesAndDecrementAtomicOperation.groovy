@@ -34,7 +34,7 @@ class TerminateDcosInstancesAndDecrementAtomicOperation implements AtomicOperati
   Void operate(List priorOutputs) {
     task.updateStatus BASE_PHASE, "Initializing termination of instances..."
 
-    def dcosClient = dcosClientProvider.getDcosClient(description.credentials)
+    def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
 
     if (description.appId) {
       if (description.hostId) {

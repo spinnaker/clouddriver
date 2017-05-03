@@ -2,6 +2,8 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosOperation
+import com.netflix.spinnaker.clouddriver.dcos.deploy.converters.DcosAtomicOperationConverterHelper
+import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.DisableDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup.ResizeDcosServerGroupDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.servergroup.ResizeDcosServerGroupAtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -28,12 +30,8 @@ class ResizeDcosServerGroupAtomicOperationConverter extends AbstractAtomicOperat
 
   @Override
   ResizeDcosServerGroupDescription convertDescription(Map input) {
-    new ResizeDcosServerGroupDescription(
-            serverGroupName : input.serverGroupName,
-            region          : input.region,
-            targetSize      : input?.targetSize ?: input.capacity.desired,
-            credentials     : getCredentialsObject(input.credentials as String),
-            account         : input.account
-    )
+    ResizeDcosServerGroupDescription desc = DcosAtomicOperationConverterHelper.convertDescription(input, this, ResizeDcosServerGroupDescription)
+    desc.targetSize = input?.targetSize ?: input.capacity.desired
+    desc
   }
 }

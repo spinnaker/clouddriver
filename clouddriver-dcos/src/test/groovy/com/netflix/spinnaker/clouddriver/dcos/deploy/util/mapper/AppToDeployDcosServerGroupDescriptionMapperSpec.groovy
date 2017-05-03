@@ -20,7 +20,8 @@ import spock.lang.Specification
 
 class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
   private static final ACCOUNT = 'account'
-  private static final REGION = 'default/sub'
+  private static final CLUSTER = 'default'
+  private static final REGION = "${CLUSTER}/sub".toString()
 
   private static final APP_NAME = 'app-dev-feat1-v000'
 
@@ -55,7 +56,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     app.requirePorts = true
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -97,7 +98,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     app.id = "$ACCOUNT/$REGION/$APP_NAME"
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -142,7 +143,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     app.container = null
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -157,7 +158,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     app.container = new Container()
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -176,7 +177,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
       parameters: [new Parameter(key: 'key1', value: 'value1'), new Parameter(key: 'key2', value: 'value2')]))
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -203,7 +204,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
       parameters: null))
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -224,7 +225,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     ))
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -252,7 +253,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     ))
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -280,7 +281,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     ))
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -304,7 +305,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
       labels: [VIP_0: 'vip'])]
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -325,7 +326,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     app.portDefinitions = null
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -343,7 +344,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
       labels: null)]
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -373,7 +374,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
       ignoreHttp1xx: true)]
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -407,7 +408,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
       ignoreHttp1xx: true)]
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -440,7 +441,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
       preserveLastResponse: true)]
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()
@@ -484,7 +485,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     ])
 
     when:
-    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT)
+    def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
 
     then:
     noExceptionThrown()

@@ -7,7 +7,8 @@ import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosCloudProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosClusterCredentials
 import com.netflix.spinnaker.clouddriver.dcos.provider.DcosProvider
 import com.netflix.spinnaker.clouddriver.dcos.provider.agent.DcosInstanceCachingAgent
 import com.netflix.spinnaker.clouddriver.dcos.provider.agent.DcosLoadBalancerCachingAgent
@@ -16,7 +17,6 @@ import com.netflix.spinnaker.clouddriver.dcos.provider.agent.DcosServerGroupCach
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
-import com.netflix.spinnaker.fiat.model.resources.Account
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -69,26 +69,32 @@ class DcosProviderConfig {
                                                    Registry registry) {
 
     def accounts = ProviderUtils.getScheduledAccounts(dcosProvider)
-    def allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, DcosCredentials)
+    def allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, DcosAccountCredentials)
 
     objectMapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
-
     def newlyAddedAgents = []
-    allAccounts.each { DcosCredentials credentials ->
-      if (!accounts.contains(credentials.name)) {
+    allAccounts.each { DcosAccountCredentials credentials ->
+      if (!accounts.contains(credentials.account)) {
 
-        newlyAddedAgents << new DcosSecretsCachingAgent(credentials.name,
-          credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper)
+        def allClusterCredentials = credentials.getCredentials().credentials
 
-        newlyAddedAgents << new DcosServerGroupCachingAgent(credentials.name,
-          credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper, registry)
+        allClusterCredentials.each { DcosClusterCredentials clusterCredentials ->
+          // TODO We should try and enhance this at some point if DC/OS doesn't ever finer grained access controls on
+          // secrets so that we aren't unnecessarily duplicating these agents since they are essentially storing the
+          // exact same secrets for a single cluster
+          newlyAddedAgents << new DcosSecretsCachingAgent(credentials.account, clusterCredentials.cluster,
+                  credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper)
 
-        newlyAddedAgents << new DcosLoadBalancerCachingAgent(credentials.name,
-          credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper, registry)
+          newlyAddedAgents << new DcosServerGroupCachingAgent(credentials.account, clusterCredentials.cluster,
+                  credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper, registry)
 
-        newlyAddedAgents << new DcosInstanceCachingAgent(credentials.name,
-          credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper)
+          newlyAddedAgents << new DcosLoadBalancerCachingAgent(credentials.account, clusterCredentials.cluster,
+                  credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper, registry)
+
+          newlyAddedAgents << new DcosInstanceCachingAgent(credentials.account, clusterCredentials.cluster,
+                  credentials, new DcosClientProvider(accountCredentialsProvider), objectMapper)
+        }
       }
     }
 

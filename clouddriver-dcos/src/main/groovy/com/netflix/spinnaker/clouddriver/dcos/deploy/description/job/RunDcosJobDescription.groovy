@@ -7,6 +7,7 @@ import groovy.transform.Canonical
 
 @AutoClone
 class RunDcosJobDescription extends AbstractDcosCredentialsDescription implements DeployDescription {
+  String application
   GeneralSettings general
   Schedule schedule
   Docker docker

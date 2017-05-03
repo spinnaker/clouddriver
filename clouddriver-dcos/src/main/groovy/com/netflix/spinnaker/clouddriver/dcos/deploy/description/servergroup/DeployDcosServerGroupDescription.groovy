@@ -11,6 +11,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   String stack
   String freeFormDetails
   String region
+  String group
   String cmd
   List<String> args = new ArrayList<>()
   String dcosUser

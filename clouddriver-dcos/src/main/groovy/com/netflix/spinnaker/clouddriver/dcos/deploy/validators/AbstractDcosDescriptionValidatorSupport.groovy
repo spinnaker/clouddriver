@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.dcos.deploy.validators
 
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
@@ -19,12 +19,20 @@ abstract class AbstractDcosDescriptionValidatorSupport<T extends AbstractDcosCre
 
   @Override
   void validate(List priorDescriptions, T description, Errors errors) {
+    if (!description.dcosCluster || description.dcosCluster.trim().empty) {
+      errors.rejectValue "dcosCluster", "${descriptionName}.dcosCluster.empty"
+    }
+
     if (!description.credentials) {
       errors.rejectValue "credentials", "${descriptionName}.credentials.empty"
     } else {
-      def credentials = getAccountCredentials(description?.credentials?.name)
-      if (!(credentials instanceof DcosCredentials)) {
+      if (!(description.credentials instanceof DcosAccountCredentials)) {
         errors.rejectValue("credentials", "${descriptionName}.credentials.invalid")
+      } else {
+        // TODO Really need to simplify this logic somehow if at all possible, really don't like the depth of these if/else statements
+        if (description.dcosCluster && !description.dcosCluster.trim().empty && !description.credentials.getCredentials().getCredentialsByCluster(description.dcosCluster)) {
+          errors.rejectValue("dcosCluster", "${descriptionName}.dcosCluster.invalid")
+        }
       }
     }
   }

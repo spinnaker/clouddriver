@@ -2,7 +2,7 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.converters.job
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
-import com.netflix.spinnaker.clouddriver.dcos.security.DcosCredentials
+import com.netflix.spinnaker.clouddriver.dcos.security.DcosAccountCredentials
 import com.netflix.spinnaker.clouddriver.dcos.deploy.BaseSpecification
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.job.RunDcosJobDescription
 import com.netflix.spinnaker.clouddriver.dcos.deploy.ops.job.RunDcosJobAtomicOperation
@@ -15,14 +15,14 @@ class RunDcosJobAtomicOperationConverterSpec extends BaseSpecification {
 
     DCOS dcosClient = Mock(DCOS)
 
-    DcosCredentials testCredentials = defaultCredentialsBuilder().build()
+    DcosAccountCredentials testCredentials = defaultCredentialsBuilder().build()
 
     DcosClientProvider dcosClientProvider = Stub(DcosClientProvider) {
-        getDcosClient(testCredentials) >> dcosClient
+        getDcosClient(testCredentials, DEFAULT_REGION) >> dcosClient
     }
 
     AccountCredentialsProvider accountCredentialsProvider = Stub(AccountCredentialsProvider) {
-        getCredentials('test') >> testCredentials
+        getCredentials(testCredentials.name) >> testCredentials
     }
 
     @Subject
@@ -34,7 +34,7 @@ class RunDcosJobAtomicOperationConverterSpec extends BaseSpecification {
         atomicOperationConverter.objectMapper = new ObjectMapper()
         def input = [
                 account: "test",
-                credentials: "test",
+                cluster: "us-test-1",
                 general: [id: "testjob"]
         ]
 
@@ -53,7 +53,7 @@ class RunDcosJobAtomicOperationConverterSpec extends BaseSpecification {
         atomicOperationConverter.objectMapper = new ObjectMapper()
         def input = [
                 account: "test",
-                credentials: "test",
+                cluster: "us-test-1",
                 general: [id: "testjob"]
         ]
 

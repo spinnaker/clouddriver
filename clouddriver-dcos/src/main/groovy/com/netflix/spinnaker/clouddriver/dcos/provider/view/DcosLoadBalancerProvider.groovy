@@ -55,7 +55,7 @@ class DcosLoadBalancerProvider implements LoadBalancerProvider<DcosLoadBalancer>
     Collection<String> loadBalancers = cacheView.getIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns)
     loadBalancers.findResults {
       def parse = Keys.parse(it)
-      parse ? new DcosLoadBalancer(parse.name, 'global', parse.account) : null
+      parse ? new DcosLoadBalancer(parse.name, parse.region, parse.account) : null
     }
   }
 
@@ -81,9 +81,9 @@ class DcosLoadBalancerProvider implements LoadBalancerProvider<DcosLoadBalancer>
     }
 
     loadBalancerKeys.addAll(cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns,
-            Keys.getLoadBalancerKey("*", combineAppStackDetail(applicationName, '*', null))))
+            Keys.getLoadBalancerKey("*", '*', combineAppStackDetail(applicationName, '*', null))))
     loadBalancerKeys.addAll(cacheView.filterIdentifiers(Keys.Namespace.LOAD_BALANCERS.ns,
-            Keys.getLoadBalancerKey("*", combineAppStackDetail(applicationName, null, null))))
+            Keys.getLoadBalancerKey("*", '*', combineAppStackDetail(applicationName, null, null))))
 
     cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, loadBalancerKeys)
   }
@@ -103,6 +103,6 @@ class DcosLoadBalancerProvider implements LoadBalancerProvider<DcosLoadBalancer>
       }
     }
 
-    return new DcosLoadBalancer(parts.account, app, serverGroups)
+    return new DcosLoadBalancer(parts.account, parts.region, app, serverGroups)
   }
 }
