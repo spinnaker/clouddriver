@@ -49,7 +49,7 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
       return new AbstractServerGroupNameResolver.TakenSlot(
         serverGroupName: names.cluster,
         sequence       : names.sequence,
-        createdTime    : new Date(translateTime(app.version))
+        createdTime    : new Date(translateTime(app.versionInfo.lastConfigChangeAt))
       )
     }
   }
