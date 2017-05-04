@@ -8,7 +8,6 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import groovy.util.logging.Slf4j
-import mesosphere.dcos.client.Config
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.ApplicationContext
@@ -63,7 +62,7 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
       try {
         List<DcosClusterCredentials> clusterCredentials = new ArrayList<>()
 
-        for (DcosConfigurationProperties.ClusterConfig clusterConfig in account.clusters) {
+        for (DcosConfigurationProperties.ClusterCredentials clusterConfig in account.clusters) {
           DcosConfigurationProperties.Cluster cluster = clusterMap.get(clusterConfig.name)
 
           if (cluster == null) {
