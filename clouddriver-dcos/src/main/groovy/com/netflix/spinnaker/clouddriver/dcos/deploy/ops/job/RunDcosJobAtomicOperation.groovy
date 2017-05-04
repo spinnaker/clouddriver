@@ -4,6 +4,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.job.RunDcosJobDescription
+import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.DcosSpinnakerJobId
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import mesosphere.marathon.client.model.v2.LocalVolume
@@ -71,12 +72,12 @@ class RunDcosJobAtomicOperation implements AtomicOperation<DeploymentResult> {
     // We are kinda hacking our own name together here since applications cannot be "batch" jobs in DC/OS land currently.
     // Stack = Metronome job name
     // Detail = Job mesos task id
-    def friggaJobName = "${description.application}-${jobRun.jobId}-${jobRun.id}-v000".toString()
+    def jobId = new DcosSpinnakerJobId(description.application, jobRun.jobId, jobRun.id)
 
     // TODO We will want to change location to use groups like apps once that is supported.
     return new DeploymentResult().with {
-      deployedNames = [friggaJobName]
-      deployedNamesByLocation[description.dcosCluster] = [friggaJobName]
+      deployedNames = [jobId.toString()]
+      deployedNamesByLocation[description.dcosCluster] = [jobId.toString()]
       it
     }
   }
