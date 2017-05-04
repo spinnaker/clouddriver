@@ -7,16 +7,16 @@ public class DcosClientCompositeKey {
     private final static def LOGGER = LoggerFactory.getLogger(DcosClientCompositeKey)
     private final static def KEY_SEPARATOR = '|'
 
-    private String credentialName
+    private String accountName
     private String clusterName
 
-    private DcosClientCompositeKey(String credentialName, String clusterName) {
-        this.credentialName = credentialName
+    private DcosClientCompositeKey(String accountName, String clusterName) {
+        this.accountName = accountName
         this.clusterName = clusterName
     }
 
     public String getAccount() {
-        credentialName
+        accountName
     }
 
     public String getCluster() {
@@ -25,7 +25,7 @@ public class DcosClientCompositeKey {
 
     @Override
     public String toString() {
-        return "${credentialName}${KEY_SEPARATOR}${clusterName}"
+        return "${accountName}${KEY_SEPARATOR}${clusterName}"
     }
 
     public static Optional<DcosClientCompositeKey> parseFrom(String key) {
