@@ -1,19 +1,19 @@
 package com.netflix.spinnaker.clouddriver.dcos.security
 
 class DcosCredentialMap {
-    final List<DcosClusterCredentials> dcosClusterCredentials
+    final Map<String, DcosClusterCredentials> dcosClusterCredentials
 
     public DcosCredentialMap(List<DcosClusterCredentials> clusterCredentials) {
-        dcosClusterCredentials = new ArrayList<>()
+        dcosClusterCredentials = new HashMap<>()
 
-        clusterCredentials?.forEach({ dcosClusterCredentials.add(it)})
+        clusterCredentials?.forEach({ dcosClusterCredentials.putIfAbsent(it.name, it)})
     }
 
     public DcosClusterCredentials getCredentialsByCluster(String cluster) {
-        dcosClusterCredentials.stream().find {it.name == cluster} as DcosClusterCredentials
+        dcosClusterCredentials.get(cluster)
     }
 
     public List<DcosClusterCredentials> getCredentials() {
-        dcosClusterCredentials
+        dcosClusterCredentials.values()
     }
 }
