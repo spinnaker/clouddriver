@@ -10,9 +10,6 @@ import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
   private static final String CLOUD_PROVIDER = Keys.PROVIDER
 
-  // TODO This clobbers the Instance#name after a change in gate to merge this credential information directly into
-  // instance information. Can't change it, otherwise accounts won't return correctly. We probably want to change how
-  // this is structured a bit (look at the NamedAccountCredential stuff that other providers do).
   final String name
   final String account
   final String environment
