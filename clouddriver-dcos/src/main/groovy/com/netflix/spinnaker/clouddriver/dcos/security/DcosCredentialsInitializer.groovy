@@ -62,7 +62,7 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
       try {
         List<DcosClusterCredentials> clusterCredentials = new ArrayList<>()
 
-        for (DcosConfigurationProperties.ClusterCredentials clusterConfig in account.clusters) {
+        for (DcosConfigurationProperties.ClusterCredential clusterConfig in account.clusters) {
           DcosConfigurationProperties.Cluster cluster = clusterMap.get(clusterConfig.name)
 
           if (cluster == null) {

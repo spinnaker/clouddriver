@@ -25,7 +25,7 @@ class DcosConfigurationProperties {
     String secretStore
   }
 
-  static class ClusterCredentials {
+  static class ClusterCredential {
     String name
     String uid
     String password
@@ -36,7 +36,7 @@ class DcosConfigurationProperties {
     String name
     String environment
     String accountType
-    List<ClusterCredentials> clusters
+    List<ClusterCredential> clusters
     List<LinkedDockerRegistryConfiguration> dockerRegistries
     List<String> requiredGroupMembership
   }
@@ -52,14 +52,14 @@ class DcosConfigurationProperties {
     String accountName
   }
 
-  public static Config buildConfig(final Account account, final Cluster cluster, final ClusterCredentials clusterConfig) {
+  public static Config buildConfig(final Account account, final Cluster cluster, final ClusterCredential clusterConfig) {
     Config.builder().withCredentials(buildDCOSAuthCredentials(account, clusterConfig))
             .withInsecureSkipTlsVerify(cluster.insecureSkipTlsVerify)
             .withCaCertData(cluster.caCertData)
             .withCaCertFile(cluster.caCertFile).build()
   }
 
-  private static DCOSAuthCredentials buildDCOSAuthCredentials(Account account, ClusterCredentials clusterConfig) {
+  private static DCOSAuthCredentials buildDCOSAuthCredentials(Account account, ClusterCredential clusterConfig) {
     DCOSAuthCredentials dcosAuthCredentials = null
 
     if (clusterConfig.uid && clusterConfig.password && clusterConfig.serviceKey) {
