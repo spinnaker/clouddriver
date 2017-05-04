@@ -47,9 +47,8 @@ class Keys {
 
       case Namespace.SECRETS.ns:
         result << [
-          account: parts[2],
-          region: parts[3],
-          secretPath: parts[4]
+          dcosCluster: parts[2],
+          secretPath: parts[3]
         ]
         break
       case Namespace.IMAGES.ns:
@@ -112,7 +111,7 @@ class Keys {
   }
 
   static String getSecretKey(String region, String secretPath) {
-    "${PROVIDER}:${Namespace.SECRETS}::${region}:${secretPath.replaceAll('/', '_')}"
+    "${PROVIDER}:${Namespace.SECRETS}:${region}:${secretPath.replaceAll('/', '_')}"
   }
 
   static String getApplicationKey(String application) {
@@ -120,7 +119,7 @@ class Keys {
   }
 
   static String getServerGroupKey(DcosSpinnakerAppId id) {
-    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeCombinedGroup}:${id.serverGroupName.group}"
+    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeCombinedRegion}:${id.serverGroupName.group}"
   }
 
   static String getClusterKey(String account, String application, String cluster) {
@@ -128,7 +127,7 @@ class Keys {
   }
 
   static String getInstanceKey(DcosSpinnakerAppId appId, String taskName) {
-    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeCombinedGroup}:${taskName}"
+    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeCombinedRegion}:${taskName}"
   }
 
   static String getInstanceKey(String account, String safeCombinedGroup, String taskName) {
