@@ -14,7 +14,7 @@ class DcosClusterCredentials {
     final List<DcosConfigurationProperties.LinkedDockerRegistryConfiguration> dockerRegistries
     final Config dcosConfig
 
-    public DcosClusterCredentials(Builder builder) {
+    private DcosClusterCredentials(Builder builder) {
         name = builder.key.cluster
         account = builder.key.account
         cluster = builder.key.cluster

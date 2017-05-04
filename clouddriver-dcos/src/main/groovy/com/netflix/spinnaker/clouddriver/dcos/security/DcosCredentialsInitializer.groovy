@@ -84,7 +84,9 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
                   .dcosConfig(DcosConfigurationProperties.buildConfig(account, cluster, clusterConfig)).build())
         }
 
-        def dcosCredentials = new DcosAccountCredentials(account.name, account.environment, account.accountType, account.dockerRegistries, account.requiredGroupMembership, clusterCredentials)
+        def dcosCredentials = DcosAccountCredentials.builder().account(account.name).environment(account.environment)
+                .accountType(account.accountType).dockerRegistries(account.dockerRegistries)
+                .requiredGroupMembership(account.requiredGroupMembership).clusters(clusterCredentials).build()
 
         // Note: The MapBackedAccountCredentialsRepository doesn't actually use the key for anything currently.
         accountCredentialsRepository.save(dcosCredentials.name, dcosCredentials)
