@@ -27,7 +27,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends BaseSpecification {
   }
 
   DeployDcosServerGroupDescription description = new DeployDcosServerGroupDescription(
-    application: APPLICATION_NAME.serverGroupName.app, region: APPLICATION_NAME.safeCombinedGroup,
+    application: APPLICATION_NAME.serverGroupName.app, region: APPLICATION_NAME.safeRegion,
     credentials: testCredentials, dcosCluster: DEFAULT_REGION, stack: APPLICATION_NAME.serverGroupName.stack,
     freeFormDetails: APPLICATION_NAME.serverGroupName.detail, desiredCapacity: 1, cpus: 0.25, mem: 128, disk: 0, gpus: 0,
           docker: new DeployDcosServerGroupDescription.Docker(forcePullImage: false, privileged: false,
@@ -58,7 +58,7 @@ class DeployDcosServerGroupAtomicOperationSpec extends BaseSpecification {
     then:
     noExceptionThrown()
     deploymentResult != null
-    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.unsafeCombinedGroup}", APPLICATION_NAME.serverGroupName.group))
-    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.unsafeCombinedGroup}".toString()) == APPLICATION_NAME.serverGroupName.group
+    deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains(String.format("%s:%s", "${APPLICATION_NAME.unsafeRegion}", APPLICATION_NAME.serverGroupName.group))
+    deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion.get("${APPLICATION_NAME.unsafeRegion}".toString()) == APPLICATION_NAME.serverGroupName.group
   }
 }

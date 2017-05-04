@@ -24,7 +24,7 @@ class DcosSpinnakerAppId {
         marathonPath.first().get()
     }
 
-    public String getRegion() {
+    public String getDcosCluster() {
         marathonPath.tail().first().get()
     }
 
@@ -38,7 +38,7 @@ class DcosSpinnakerAppId {
      *         Ex: {@code foo/bar}
      * @see #getSafeGroup()
      */
-    public String getUnsafeCombinedGroup() {
+    public String getUnsafeRegion() {
         marathonPath.tail().parent().relative().toString()
     }
 
@@ -51,33 +51,14 @@ class DcosSpinnakerAppId {
      *         Ex: {@code acct_foo_bar}
      * @see #getSafeGroup()
      */
-    public String getSafeCombinedGroup() {
-        unsafeCombinedGroup.replaceAll(MarathonPathId.PART_SEPARATOR, SAFE_REGION_SEPARATOR)
+    public String getSafeRegion() {
+        unsafeRegion.replaceAll(MarathonPathId.PART_SEPARATOR, SAFE_REGION_SEPARATOR)
     }
 
-    /**
-     * @return The canonical DC/OS "region" (a.k.a the full group path in which the marathon application lives)
-     *         including backslashes. This is returned as a relative path, meaning no preceeding backslash. Will never
-     *         be null.
-     *         <p/>
-     *         Deemed unsafe because various Spinnaker components have trouble with a region with backslashes.
-     *         <p/>
-     *         Ex: {@code foo/bar}
-     * @see #getSafeGroup()
-     */
     public String getUnsafeGroup() {
         marathonPath.tail().tail().parent().relative().toString()
     }
 
-    /**
-     * @return The "safe" DC/OS region (a.k.a the group in which the marathon application lives). This is returned as a
-     *         relative path, meaning no preceeding underscore. Will never be null.
-     *         <p/>
-     *         Deemed safe because backslashes are replaced with underscores.
-     *         <p/>
-     *         Ex: {@code acct_foo_bar}
-     * @see #getSafeGroup()
-     */
     public String getSafeGroup() {
         unsafeGroup.replaceAll(MarathonPathId.PART_SEPARATOR, SAFE_REGION_SEPARATOR)
     }
@@ -183,8 +164,8 @@ class DcosSpinnakerAppId {
             return Optional.empty()
         }
 
-        if (dcosSpinnakerAppId.get().region != region) {
-            logError(log, "The region [${region}] given does not match the region within the app id [${dcosSpinnakerAppId.get().region}].")
+        if (dcosSpinnakerAppId.get().dcosCluster != region) {
+            logError(log, "The region [${region}] given does not match the region within the app id [${dcosSpinnakerAppId.get().dcosCluster}].")
             return Optional.empty()
         }
 

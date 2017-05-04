@@ -76,15 +76,15 @@ class DcosSpinnakerAppIdSpec extends Specification {
         expect:
             def dcosPath = DcosSpinnakerAppId.parseVerbose(path).get()
             dcosPath.account == expectedAccount
-            dcosPath.region == expectedRegion
-            dcosPath.unsafeCombinedGroup == expectedUnsafeCombinedGroup
-            dcosPath.safeCombinedGroup == expectedSafeCombinedGroup
+            dcosPath.dcosCluster == expectedDcosCluster
+            dcosPath.unsafeRegion == expectedUnsafeRegion
+            dcosPath.safeRegion == expectedSafeRegion
             dcosPath.safeGroup == expectedSafeGroup
             dcosPath.unsafeGroup == expectedUnsafeGroup
             dcosPath.serverGroupName == Names.parseName(expectedService)
 
         where:
-            path || expectedAccount || expectedRegion || expectedUnsafeCombinedGroup || expectedSafeCombinedGroup || expectedSafeGroup || expectedUnsafeGroup || expectedService
+            path || expectedAccount || expectedDcosCluster || expectedUnsafeRegion || expectedSafeRegion || expectedSafeGroup || expectedUnsafeGroup || expectedService
             "spinnaker/test/service-v000" || "spinnaker" || "test" || "test" || "test" || "" || "" || "service-v000"
             "spinnaker/test/service/service-v000" || "spinnaker" || "test" || "test/service" || "test_service" || "service" || "service" || "service-v000"
     }
@@ -93,15 +93,15 @@ class DcosSpinnakerAppIdSpec extends Specification {
         expect:
             def dcosPath = DcosSpinnakerAppId.parseVerbose(path).get()
             dcosPath.account == expectedAccount
-            dcosPath.region == expectedRegion
-            dcosPath.unsafeCombinedGroup == expectedUnsafeCombinedGroup
-            dcosPath.safeCombinedGroup == expectedSafeCombinedGroup
+            dcosPath.dcosCluster == expectedDcosCluster
+            dcosPath.unsafeRegion == expectedUnsafeRegion
+            dcosPath.safeRegion == expectedSafeRegion
             dcosPath.safeGroup == expectedSafeGroup
             dcosPath.unsafeGroup == expectedUnsafeGroup
             dcosPath.serverGroupName == Names.parseName(expectedService)
 
         where:
-            path || expectedAccount || expectedRegion || expectedUnsafeCombinedGroup || expectedSafeCombinedGroup || expectedSafeGroup || expectedUnsafeGroup || expectedService
+            path || expectedAccount || expectedDcosCluster || expectedUnsafeRegion || expectedSafeRegion || expectedSafeGroup || expectedUnsafeGroup || expectedService
             "/spinnaker/test/service-v000" || "spinnaker" || "test" || "test" || "test" || "" || "" || "service-v000"
             "/spinnaker/test/service/service-v000" || "spinnaker" || "test" || "test/service" || "test_service" || "service" || "service" || "service-v000"
     }

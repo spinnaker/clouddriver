@@ -119,7 +119,7 @@ class Keys {
   }
 
   static String getServerGroupKey(DcosSpinnakerAppId id) {
-    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeCombinedRegion}:${id.serverGroupName.group}"
+    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeRegion}:${id.serverGroupName.group}"
   }
 
   static String getClusterKey(String account, String application, String cluster) {
@@ -127,7 +127,7 @@ class Keys {
   }
 
   static String getInstanceKey(DcosSpinnakerAppId appId, String taskName) {
-    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeCombinedRegion}:${taskName}"
+    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeRegion}:${taskName}"
   }
 
   static String getInstanceKey(String account, String safeCombinedGroup, String taskName) {

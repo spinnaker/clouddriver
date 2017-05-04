@@ -58,8 +58,8 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
     task.updateStatus BASE_PHASE, "Deployed service ${resolvedServerGroupName}"
 
     def deploymentResult = new DeploymentResult()
-    deploymentResult.serverGroupNames = Arrays.asList("${dcosPathId.safeCombinedGroup}:${resolvedServerGroupName}".toString())
-    deploymentResult.serverGroupNameByRegion[dcosPathId.safeCombinedGroup] = resolvedServerGroupName
+    deploymentResult.serverGroupNames = Arrays.asList("${dcosPathId.safeRegion}:${resolvedServerGroupName}".toString())
+    deploymentResult.serverGroupNameByRegion[dcosPathId.safeRegion] = resolvedServerGroupName
 
     return deploymentResult
   }

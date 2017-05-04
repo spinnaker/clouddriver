@@ -63,7 +63,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
     def id = DcosSpinnakerAppId.parse(app.id, account, cluster).get()
     this.name = id.serverGroupName.group
     this.dcosCluster = cluster
-    this.region = id.safeCombinedGroup
+    this.region = id.safeRegion
     this.account = id.account
     this.kind = "Application"
 

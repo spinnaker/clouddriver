@@ -23,7 +23,7 @@ class AppToDeployDcosServerGroupDescriptionMapper {
 
     desc.dcosCluster = cluster
     desc.group = spinId.unsafeGroup
-    desc.region = spinId.unsafeCombinedGroup
+    desc.region = spinId.unsafeRegion
     desc.cmd = app.cmd
     desc.args = app.args
     desc.dcosUser = app.user

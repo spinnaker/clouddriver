@@ -46,7 +46,7 @@ class DcosInstance implements Instance, Serializable {
 
     // TODO Instance interfaces says this is the availability zone. Not sure we have this concept - we can only get the host.
     // Should this be our concept of region? Kubernetes uses namespace here.
-    this.zone = DcosSpinnakerAppId.parse(task.appId, account, cluster).get().safeCombinedGroup
+    this.zone = DcosSpinnakerAppId.parse(task.appId, account, cluster).get().safeRegion
 
     // TODO
     // task.ports
