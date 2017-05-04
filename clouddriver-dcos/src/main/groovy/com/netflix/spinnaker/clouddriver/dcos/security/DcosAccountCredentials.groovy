@@ -4,10 +4,13 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import static com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties.LinkedDockerRegistryConfiguration
 
 class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DcosAccountCredentials)
   private static final String CLOUD_PROVIDER = Keys.PROVIDER
 
   final String name
@@ -103,6 +106,13 @@ class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
 
       if (!MarathonPathId.isPartValid(account)) {
         throw new IllegalArgumentException("Account name [${name}] is not valid for the DC/OS provider. Only lowercase letters, numbers, and dashes(-) are allowed.")
+      }
+
+      clusters.each {
+        if (!MarathonPathId.isPartValid(it.name)) {
+          clusters.remove(it)
+          LOGGER.warn("Cluster name [${name}] is not valid for the DC/OS cluster. Only lowercase letters, numbers, and dashes(-) are allowed.")
+        }
       }
 
       if (!dockerRegistries || dockerRegistries.size() <= 0) {
