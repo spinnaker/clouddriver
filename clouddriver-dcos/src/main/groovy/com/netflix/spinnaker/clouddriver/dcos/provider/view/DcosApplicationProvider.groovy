@@ -32,7 +32,6 @@ class DcosApplicationProvider implements ApplicationProvider {
   Set<Application> getApplications(boolean expand) {
     def relationshipFilter = expand ? RelationshipCacheFilter.include(Keys.Namespace.CLUSTERS.ns) : RelationshipCacheFilter.none()
     Collection<CacheData> applications = getAllMatchingKeyPattern(cacheView, Keys.Namespace.APPLICATIONS.ns, "${dcosCloudProvider.id}:*", relationshipFilter)
-    //def secrets = getSecrets()
     applications.collect {translate(it, null)}
   }
 
