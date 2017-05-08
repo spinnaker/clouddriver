@@ -23,10 +23,13 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.EnableDisableKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesServerGroupDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesOperationException
+import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesCluster
+import com.netflix.spinnaker.clouddriver.kubernetes.provider.view.KubernetesClusterProvider
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import io.fabric8.kubernetes.api.model.Pod
 import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
+import org.springframework.beans.factory.annotation.Autowired
 
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -44,6 +47,9 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
   protected static Task getTask() {
     TaskRepository.threadLocalTask.get()
   }
+
+  @Autowired
+  KubernetesClusterProvider clusterProviders
 
   @Override
   Void operate(List priorOutputs) {
@@ -99,14 +105,23 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
         throw new KubernetesOperationException("Server group failed to reach a consistent state. This is likely a bug with Kubernetes itself.")
       }
     }
-    
+    def application
+    def clusterName
     if (replicationController) {
-      pods = credentials.apiAdaptor.getReplicationControllerPods(namespace, description.serverGroupName)
+      application = replicationController.metadata.labels.get("app")
+      clusterName = replicationController.metadata.labels.get("cluster")
     } else if (replicaSet) {
-      pods = credentials.apiAdaptor.getReplicaSetPods(namespace, description.serverGroupName)
+      application = replicaSet.metadata.labels.get("app")
+      clusterName = replicaSet.metadata.labels.get("cluster")
     } else {
       throw new KubernetesOperationException("No replication controller or replica set $description.serverGroupName in $namespace.")
     }
+
+    KubernetesCluster cluster = clusterProviders.getCluster(application, description.account, clusterName)
+    cluster.serverGroups.forEach( { serverGroup ->
+      if (serverGroup.name == description.serverGroupName )
+        serverGroup.instances.forEach( { instance -> pods.add(instance.getPod())})
+    })
 
     if (!pods) {
       task.updateStatus basePhase, "No pods to ${basePhase.toLowerCase()}. Operation finshed successfully."
