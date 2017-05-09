@@ -5,6 +5,8 @@ import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable
 
 abstract class AbstractDcosCredentialsDescription implements CredentialsNameable {
   String account
+  String region
   String dcosCluster
+  String group
   DcosAccountCredentials credentials
 }

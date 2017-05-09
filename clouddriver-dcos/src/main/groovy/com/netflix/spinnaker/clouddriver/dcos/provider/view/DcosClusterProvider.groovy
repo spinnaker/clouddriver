@@ -90,8 +90,10 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster> {
   }
 
   @Override
-  ServerGroup getServerGroup(final String account, final String region, final String name) {
-    String serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.from(account, region, name).get())
+  ServerGroup getServerGroup(final String account, final String combinedRegion, final String name) {
+    String region = combinedRegion.split(DcosSpinnakerAppId.SAFE_REGION_SEPARATOR).first()
+    String group = combinedRegion.split(DcosSpinnakerAppId.SAFE_REGION_SEPARATOR).tail().join("/")
+    String serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.from(account, group, name).get(), region)
     CacheData serverGroupData = cacheView.get(Keys.Namespace.SERVER_GROUPS.ns, serverGroupKey)
     if (!serverGroupData) {
       return null
@@ -149,7 +151,7 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster> {
 
       cluster.serverGroups = clusterDataEntry.relationships[Keys.Namespace.SERVER_GROUPS.ns]?.collect { serverGroupKey ->
         Map parts = Keys.parse(serverGroupKey)
-        new DcosServerGroup(parts.name, parts.region, parts.account)
+        new DcosServerGroup(parts.name, parts.region, parts.group, parts.account)
       }
     }
     cluster

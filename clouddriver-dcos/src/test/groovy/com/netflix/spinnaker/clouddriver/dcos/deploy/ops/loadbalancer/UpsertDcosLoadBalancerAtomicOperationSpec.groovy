@@ -86,7 +86,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
             bindHttpHttps: true
     )
 
-    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
     loadBalancerConfig.image >> expectedLbImage
 
@@ -111,7 +111,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
                           "--health-check",
                           "--haproxy-map",
                           "--group",
-                          "${expectedAppId.account}_${expectedAppId.region}_${expectedAppId.loadBalancerName}"]
+                          "${expectedAppId.account}_${expectedAppId.loadBalancerName}"]
 
       assert app.instances == expectedInstances
       assert app.cpus == expectedCpus
@@ -183,7 +183,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -240,7 +240,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
             bindHttpHttps: false
     )
 
-    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -294,7 +294,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
     )
 
 
-    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def successfulDeploymentResult = Mock(DcosDeploymentResult)
@@ -344,7 +344,7 @@ class UpsertDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
     )
 
 
-    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION, LOAD_BALANCER_NAME).get()
+    def expectedAppId = DcosSpinnakerLbId.fromVerbose(DEFAULT_ACCOUNT, LOAD_BALANCER_NAME).get()
     resultAppMock.id >> expectedAppId.toString()
 
     def failedDeploymentResult = Mock(DcosDeploymentResult)

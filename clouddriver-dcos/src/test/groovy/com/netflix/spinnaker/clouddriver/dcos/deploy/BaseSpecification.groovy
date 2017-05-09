@@ -10,6 +10,7 @@ import spock.lang.Specification
 class BaseSpecification extends Specification {
   public static final DEFAULT_ACCOUNT = 'test'
   public static final DEFAULT_REGION = 'us-test-1'
+  public static final DEFAULT_GROUP = 'default'
   public static final DEFAULT_SECRET_STORE = 'default'
   public static final DEFAULT_COMPOSITE_KEY = DcosClientCompositeKey.buildFromVerbose(DEFAULT_ACCOUNT, DEFAULT_REGION).get()
   public static final BAD_ACCOUNT = 'bad-acct'

@@ -8,5 +8,4 @@ class CloneDcosServerGroupDescription extends DeployDcosServerGroupDescription{
 
 @Canonical
 class DcosCloneServerGroupSource extends AbstractDcosServerGroupDescription {
-  String account
 }

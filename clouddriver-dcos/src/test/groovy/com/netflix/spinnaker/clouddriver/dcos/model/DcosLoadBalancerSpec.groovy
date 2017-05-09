@@ -22,7 +22,7 @@ class DcosLoadBalancerSpec extends Specification {
 
   void "region should be set to 'global' if the load balancer exists directly under the account group"() {
     setup:
-    def lbApp =createLbApp("/${ACCOUNT}/${REGION}/${LB_NAME}")
+    def lbApp = createLbApp("/${ACCOUNT}/${LB_NAME}")
 
     when:
     @Subject def lb = new DcosLoadBalancer(ACCOUNT, REGION, lbApp, [])
@@ -34,7 +34,7 @@ class DcosLoadBalancerSpec extends Specification {
   void "created time is set if available"() {
     setup:
     def currentInstant = Instant.now()
-    def lbApp = createLbApp("/${ACCOUNT}/${REGION}/${LB_NAME}")
+    def lbApp = createLbApp("/${ACCOUNT}/${LB_NAME}")
     lbApp.getVersionInfo() >> new AppVersionInfo(lastConfigChangeAt: currentInstant)
 
     when:
@@ -46,7 +46,7 @@ class DcosLoadBalancerSpec extends Specification {
 
   void "server group and instance information is populated if provided"() {
     setup:
-    def lbApp = createLbApp("/${ACCOUNT}/${REGION}/${LB_NAME}")
+    def lbApp = createLbApp("/${ACCOUNT}/${LB_NAME}")
 
     def instance = Stub(DcosInstance) {
       getName() >> "taskName"
@@ -80,7 +80,7 @@ class DcosLoadBalancerSpec extends Specification {
 
   void "bindHttpHttps is set to true on the description when ports 80 and 443 exist in the port definitions"() {
     setup:
-    def lbApp = createLbApp("/${ACCOUNT}/${REGION}/${LB_NAME}")
+    def lbApp = createLbApp("/${ACCOUNT}/${LB_NAME}")
     lbApp.getPortDefinitions() >> [new PortDefinition(port:80, protocol: 'tcp'),
                                    new PortDefinition(port:443, protocol: 'tcp')]
 
@@ -93,7 +93,7 @@ class DcosLoadBalancerSpec extends Specification {
 
   void "port range is created correctly from the port definitions"() {
     setup:
-    def lbApp = createLbApp("/${ACCOUNT}/${REGION}/${LB_NAME}")
+    def lbApp = createLbApp("/${ACCOUNT}/${LB_NAME}")
     lbApp.getPortDefinitions() >> [new PortDefinition(port:100, protocol: 'tcp'),
                                    new PortDefinition(port:101, protocol: 'tcp'),
                                    new PortDefinition(port:102, protocol: 'tcp')]

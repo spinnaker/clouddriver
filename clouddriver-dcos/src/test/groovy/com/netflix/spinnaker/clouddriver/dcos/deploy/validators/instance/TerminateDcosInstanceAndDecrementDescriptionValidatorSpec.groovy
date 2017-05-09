@@ -40,7 +40,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends BaseSpec
     void "validate should give errors when given a TerminateDcosInstancesAndDecrementDescription with only an appId"() {
         setup:
             def description = new TerminateDcosInstancesAndDecrementDescription(credentials: defaultCredentialsBuilder().account(BAD_ACCOUNT).build(),
-                    appId: "${DEFAULT_ACCOUNT}/${DEFAULT_REGION}/app-stack-detail-v000", dcosCluster: "", hostId: null, taskIds: [], force: false)
+                    appId: "${DEFAULT_ACCOUNT}/in_Va-lId/app-stack-detail-v000", dcosCluster: "", hostId: null, taskIds: [], force: false)
             def errorsMock = Mock(Errors)
         when:
             validator.validate([], description, errorsMock)
@@ -58,7 +58,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends BaseSpec
     void "validate should give errors when given an invalid TerminateDcosInstancesAndDecrementDescription"() {
         setup:
             def description = new TerminateDcosInstancesAndDecrementDescription(credentials: testCredentials,
-                    appId: "${DEFAULT_ACCOUNT}/${DEFAULT_REGION}/app-stack-detail-v000", dcosCluster: "     ", hostId: "192.168.0.0", taskIds: ["TASK ONE", "TASK TWO"], force: false)
+                    appId: "${DEFAULT_ACCOUNT}/in_Va-lId/app-stack-detail-v000", dcosCluster: "     ", hostId: "192.168.0.0", taskIds: ["TASK ONE", "TASK TWO"], force: false)
             def errorsMock = Mock(Errors)
         when:
             validator.validate([], description, errorsMock)
@@ -76,7 +76,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends BaseSpec
     void "validate should give no errors when given a TerminateDcosInstancesAndDecrementDescription with an appId, hostId, and no taskIds"() {
         setup:
             def description = new TerminateDcosInstancesAndDecrementDescription(credentials: testCredentials,
-                    appId: "${DEFAULT_ACCOUNT}/${DEFAULT_REGION}/app-stack-detail-v000", dcosCluster: DEFAULT_REGION, hostId: "192.168.0.0", taskIds: [], force: false)
+                    appId: "${DEFAULT_ACCOUNT}/${DEFAULT_GROUP}/app-stack-detail-v000", dcosCluster: DEFAULT_REGION, hostId: "192.168.0.0", taskIds: [], force: false)
             def errorsMock = Mock(Errors)
         when:
             validator.validate([], description, errorsMock)
@@ -94,7 +94,7 @@ class TerminateDcosInstanceAndDecrementDescriptionValidatorSpec extends BaseSpec
     void "validate should give no errors when given a TerminateDcosInstancesAndDecrementDescription with an appId, taskId, and no hostId"() {
         setup:
             def description = new TerminateDcosInstancesAndDecrementDescription(credentials: testCredentials,
-                    appId: "${DEFAULT_ACCOUNT}/${DEFAULT_REGION}/app-stack-detail-v000", dcosCluster: DEFAULT_REGION, hostId: null, taskIds: ["TASK ONE"], force: false)
+                    appId: "${DEFAULT_ACCOUNT}/${DEFAULT_GROUP}/app-stack-detail-v000", dcosCluster: DEFAULT_REGION, hostId: null, taskIds: ["TASK ONE"], force: false)
             def errorsMock = Mock(Errors)
         when:
             validator.validate([], description, errorsMock)

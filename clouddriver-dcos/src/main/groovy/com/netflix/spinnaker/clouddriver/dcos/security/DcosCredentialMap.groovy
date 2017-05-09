@@ -14,6 +14,6 @@ class DcosCredentialMap {
     }
 
     public List<DcosClusterCredentials> getCredentials() {
-        dcosClusterCredentials.values()
+        dcosClusterCredentials.values().asList()
     }
 }

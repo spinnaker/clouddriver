@@ -11,83 +11,75 @@ class DcosSpinnakerLbIdSpec extends Specification {
 
     void "static factory method should return an empty optional if the marathon app id is invalid"() {
         expect:
-            def dcosPath = DcosSpinnakerLbId.parseVerbose(appId, account, region)
+            def dcosPath = DcosSpinnakerLbId.parseVerbose(appId, account)
             dcosPath == Optional.empty()
 
         where:
-            appId | account | region
-            "/" | ACCOUNT | REGION
-            "" | ACCOUNT | REGION
-            "/${ACCOUNT}" | ACCOUNT | REGION
-            "${ACCOUNT}" | ACCOUNT | REGION
-            "//${LOAD_BALANCER}" | ACCOUNT | REGION
-            "/       /${LOAD_BALANCER}" | ACCOUNT | REGION
-            "/${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT | REGION
-            "${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT | REGION
-            "/${ACCOUNT}/${INVALID_MARATHON_PART}" | ACCOUNT | REGION
-            "${ACCOUNT}/${INVALID_MARATHON_PART}" | ACCOUNT | REGION
-            "/${ACCOUNT}/" | ACCOUNT | REGION
-            "${ACCOUNT}/" | ACCOUNT | REGION
-            "/${ACCOUNT}/      " | ACCOUNT | REGION
-            "${ACCOUNT}/      " | ACCOUNT | REGION
-            "/${ACCOUNT}/${LOAD_BALANCER}" | ACCOUNT | REGION
-            "${ACCOUNT}/${LOAD_BALANCER}" | ACCOUNT | REGION
-            "/${ACCOUNT}//${LOAD_BALANCER}" | ACCOUNT | REGION
-            "${ACCOUNT}//${LOAD_BALANCER}" | ACCOUNT | REGION
-            "/${ACCOUNT}/      /${LOAD_BALANCER}" | ACCOUNT | REGION
-            "${ACCOUNT}/      /${LOAD_BALANCER}" | ACCOUNT | REGION
-            "/${ACCOUNT}/${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT | REGION
-            "${ACCOUNT}/${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT | REGION
-            "${INVALID_ACCOUNT}/${REGION}/${LOAD_BALANCER}" | ACCOUNT | REGION
-            "${INVALID_ACCOUNT}/${REGION}/${LOAD_BALANCER}" | ACCOUNT | REGION
+            appId | account
+            "/" | ACCOUNT
+            "" | ACCOUNT
+            "/${ACCOUNT}" | ACCOUNT
+            "${ACCOUNT}" | ACCOUNT
+            "//${LOAD_BALANCER}" | ACCOUNT
+            "/       /${LOAD_BALANCER}" | ACCOUNT
+            "/${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT
+            "${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT
+            "/${ACCOUNT}/${INVALID_MARATHON_PART}" | ACCOUNT
+            "${ACCOUNT}/${INVALID_MARATHON_PART}" | ACCOUNT
+            "/${ACCOUNT}/" | ACCOUNT
+            "${ACCOUNT}/" | ACCOUNT
+            "/${ACCOUNT}/      " | ACCOUNT
+            "${ACCOUNT}/      " | ACCOUNT
+            "/${ACCOUNT}//${LOAD_BALANCER}" | ACCOUNT
+            "${ACCOUNT}//${LOAD_BALANCER}" | ACCOUNT
+            "/${ACCOUNT}/      /${LOAD_BALANCER}" | ACCOUNT
+            "${ACCOUNT}/      /${LOAD_BALANCER}" | ACCOUNT
+            "/${ACCOUNT}/${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT
+            "${ACCOUNT}/${INVALID_MARATHON_PART}/${LOAD_BALANCER}" | ACCOUNT
+            "${INVALID_ACCOUNT}/${REGION}/${LOAD_BALANCER}" | ACCOUNT
+            "${INVALID_ACCOUNT}/${REGION}/${LOAD_BALANCER}" | ACCOUNT
     }
 
     void "static factory method should return an empty optional if either account/loadBalancerName are invalid"() {
         expect:
-            def dcosPath = DcosSpinnakerLbId.fromVerbose(account, region, loadBalancerName)
+            def dcosPath = DcosSpinnakerLbId.fromVerbose(account, loadBalancerName)
             dcosPath == Optional.empty()
 
         where:
-            account | region | loadBalancerName
-            null | REGION | LOAD_BALANCER
-            "" | REGION | LOAD_BALANCER
-            "         " | REGION | LOAD_BALANCER
-            INVALID_MARATHON_PART | REGION | LOAD_BALANCER
-            ACCOUNT | null | LOAD_BALANCER
-            ACCOUNT | "" | LOAD_BALANCER
-            ACCOUNT | "         " | LOAD_BALANCER
-            ACCOUNT | INVALID_MARATHON_PART | LOAD_BALANCER
-            ACCOUNT | REGION | null
-            ACCOUNT | REGION | ""
-            ACCOUNT | REGION | "         "
-            ACCOUNT | REGION | INVALID_MARATHON_PART
+            account | loadBalancerName
+            null | LOAD_BALANCER
+            "" | LOAD_BALANCER
+            "         " | LOAD_BALANCER
+            INVALID_MARATHON_PART | LOAD_BALANCER
+            ACCOUNT | null
+            ACCOUNT | ""
+            ACCOUNT | "         "
+            ACCOUNT | INVALID_MARATHON_PART
     }
 
     void "the account, and service should be correctly parsed when given a valid marathon path"() {
         expect:
-            def dcosPath = DcosSpinnakerLbId.parseVerbose(path, ACCOUNT, REGION).get()
+            def dcosPath = DcosSpinnakerLbId.parseVerbose(path, ACCOUNT).get()
             dcosPath.account == expectedAccount
-            dcosPath.region == expectedRegion
             dcosPath.loadBalancerName == expectedLoadBalancerName
             dcosPath.loadBalancerHaproxyGroup == expectedHaproxyGroup
 
         where:
-            path || expectedAccount || expectedRegion || expectedLoadBalancerName || expectedHaproxyGroup
-            "${ACCOUNT}/${REGION}/${LOAD_BALANCER}" || ACCOUNT || REGION || LOAD_BALANCER || "${ACCOUNT}_${REGION}_${LOAD_BALANCER}".toString()
-            "/${ACCOUNT}/${REGION}/${LOAD_BALANCER}" || ACCOUNT || REGION || LOAD_BALANCER || "${ACCOUNT}_${REGION}_${LOAD_BALANCER}".toString()
+            path || expectedAccount || expectedLoadBalancerName || expectedHaproxyGroup
+            "${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}".toString()
+            "/${ACCOUNT}/${LOAD_BALANCER}" || ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}".toString()
     }
 
     void "the account, and service should be correctly parsed when given a valid account and loadBalancerName"() {
         expect:
-            def dcosPath = DcosSpinnakerLbId.fromVerbose(ACCOUNT, REGION, LOAD_BALANCER).get()
+            def dcosPath = DcosSpinnakerLbId.fromVerbose(ACCOUNT, LOAD_BALANCER).get()
             dcosPath.account == expectedAccount
-            dcosPath.region == expectedRegion
             dcosPath.loadBalancerName == expectedLoadBalancerName
             dcosPath.loadBalancerHaproxyGroup == expectedHaproxyGroup
 
         where:
-            expectedAccount || expectedRegion || expectedLoadBalancerName || expectedHaproxyGroup
-            ACCOUNT || REGION || LOAD_BALANCER || "${ACCOUNT}_${REGION}_${LOAD_BALANCER}".toString()
-            ACCOUNT || REGION || LOAD_BALANCER || "${ACCOUNT}_${REGION}_${LOAD_BALANCER}".toString()
+            expectedAccount || expectedLoadBalancerName || expectedHaproxyGroup
+            ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}".toString()
+            ACCOUNT || LOAD_BALANCER || "${ACCOUNT}_${LOAD_BALANCER}".toString()
     }
 }

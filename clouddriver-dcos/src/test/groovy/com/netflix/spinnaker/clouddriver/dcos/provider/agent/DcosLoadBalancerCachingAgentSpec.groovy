@@ -22,7 +22,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
   static final private String REGION = "us-test-1"
   static final private String CLUSTER = "${APP}-cluster"
   static final private String LOAD_BALANCER_NAME = "${CLUSTER}-v000"
-  static final private String MARATHON_APP_ID = "/${ACCOUNT}/${REGION}/${LOAD_BALANCER_NAME}"
+  static final private String MARATHON_APP_ID = "/${ACCOUNT}/${LOAD_BALANCER_NAME}"
   DcosAccountCredentials credentials
   AccountCredentialsRepository accountCredentialsRepository
 
@@ -45,7 +45,7 @@ class DcosLoadBalancerCachingAgentSpec extends Specification {
     providerCache = Mock(ProviderCache)
     objectMapper = new ObjectMapper()
 
-    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parseVerbose(MARATHON_APP_ID).get())
+    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parseVerbose(MARATHON_APP_ID).get(), REGION)
 
     clientProvider = Mock(DcosClientProvider) {
       getDcosClient(credentials, REGION) >> dcosClient

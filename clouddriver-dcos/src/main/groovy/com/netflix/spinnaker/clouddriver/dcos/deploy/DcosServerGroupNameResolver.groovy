@@ -15,9 +15,9 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
   private final DCOS dcosClient
   private String region
 
-  DcosServerGroupNameResolver(DCOS dcosClient, String account, String region, String group) {
+  DcosServerGroupNameResolver(DCOS dcosClient, String account, String group) {
     this.dcosClient = dcosClient
-    this.region = group ? "/${account}/${region}/${group}" : "/${account}/${region}"
+    this.region = group ? "/${account}/${group}" : "/${account}"
   }
 
   @Override

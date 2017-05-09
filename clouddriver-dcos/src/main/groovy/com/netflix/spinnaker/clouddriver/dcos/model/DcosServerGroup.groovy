@@ -51,19 +51,22 @@ class DcosServerGroup implements ServerGroup, Serializable {
 
   DcosServerGroup() {} //default constructor for deserialization
 
-  DcosServerGroup(String name, String region, String account) {
+  DcosServerGroup(String name, String cluster, String group, String account) {
     this.name = name
-    this.region = region
+    this.dcosCluster = cluster
+    this.group = group
+    this.region = this.group ? "${this.dcosCluster}_${this.group}".toString() : this.dcosCluster
     this.account = account
   }
 
   DcosServerGroup(String account, String cluster, App app) {
     this.app = app
     this.json = app.toString()
-    def id = DcosSpinnakerAppId.parse(app.id, account, cluster).get()
+    def id = DcosSpinnakerAppId.parse(app.id, account).get()
     this.name = id.serverGroupName.group
     this.dcosCluster = cluster
-    this.region = id.safeRegion
+    this.group = id.safeGroup
+    this.region = this.group ? "${this.dcosCluster}_${this.group}".toString() : this.dcosCluster
     this.account = id.account
     this.kind = "Application"
 
@@ -90,7 +93,7 @@ class DcosServerGroup implements ServerGroup, Serializable {
         return null
       }
     }?.flatten()?.findResults({
-      DcosSpinnakerLbId.parse(it.replace('_', '/'), account, dcosCluster).orElse(null)
+      DcosSpinnakerLbId.parse(it.replace('_', '/'), account).orElse(null)
     })?.toSet() ?: []
 
     loadBalancers = fullyQualifiedLoadBalancers?.collect { it.loadBalancerName } ?: []

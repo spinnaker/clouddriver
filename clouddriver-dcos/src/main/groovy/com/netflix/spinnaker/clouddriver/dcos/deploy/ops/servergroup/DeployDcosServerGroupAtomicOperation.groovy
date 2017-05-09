@@ -42,12 +42,12 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
     task.updateStatus BASE_PHASE, "Initializing creation of application."
 
     def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
-    def serverGroupNameResolver = new DcosServerGroupNameResolver(dcosClient, description.credentials.account, description.region, description.group)
+    def serverGroupNameResolver = new DcosServerGroupNameResolver(dcosClient, description.credentials.account, description.group)
 
     task.updateStatus BASE_PHASE, "Looking up next sequence index"
 
     def resolvedServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.freeFormDetails, false)
-    def dcosPathId = DcosSpinnakerAppId.fromVerbose(description.credentials.account, description.region, resolvedServerGroupName).get()
+    def dcosPathId = DcosSpinnakerAppId.fromVerbose(description.credentials.account, description.group, resolvedServerGroupName).get()
 
     task.updateStatus BASE_PHASE, "Spinnaker ID chosen to be ${resolvedServerGroupName}."
     task.updateStatus BASE_PHASE, "Marathon ID chosen to be $dcosPathId."
@@ -58,8 +58,8 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
     task.updateStatus BASE_PHASE, "Deployed service ${resolvedServerGroupName}"
 
     def deploymentResult = new DeploymentResult()
-    deploymentResult.serverGroupNames = Arrays.asList("${dcosPathId.safeRegion}:${resolvedServerGroupName}".toString())
-    deploymentResult.serverGroupNameByRegion[dcosPathId.safeRegion] = resolvedServerGroupName
+    deploymentResult.serverGroupNames = Arrays.asList("${description.region.replaceAll("/", DcosSpinnakerAppId.SAFE_REGION_SEPARATOR)}:${resolvedServerGroupName}".toString())
+    deploymentResult.serverGroupNameByRegion[description.region.replaceAll("/", DcosSpinnakerAppId.SAFE_REGION_SEPARATOR)] = resolvedServerGroupName
 
     return deploymentResult
   }

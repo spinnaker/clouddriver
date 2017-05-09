@@ -30,7 +30,10 @@ abstract class AbstractDcosDescriptionValidatorSupport<T extends AbstractDcosCre
         errors.rejectValue("credentials", "${descriptionName}.credentials.invalid")
       } else {
         // TODO Really need to simplify this logic somehow if at all possible, really don't like the depth of these if/else statements
-        if (description.dcosCluster && !description.dcosCluster.trim().empty && !description.credentials.getCredentials().getCredentialsByCluster(description.dcosCluster)) {
+        if (!description.dcosCluster?.trim()) {
+          errors.rejectValue("dcosCluster", "${descriptionName}.dcosCluster.empty")
+        }
+        else if (!description.credentials.getCredentials().getCredentialsByCluster(description.dcosCluster)) {
           errors.rejectValue("dcosCluster", "${descriptionName}.dcosCluster.invalid")
         }
       }

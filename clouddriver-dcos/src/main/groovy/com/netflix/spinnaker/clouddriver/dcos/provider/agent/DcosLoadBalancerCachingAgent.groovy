@@ -89,7 +89,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
     }
 
     // Region may be (and currently is only) going to be 'global' for DCOS marathon-lb instances created through spinnaker.
-    def dcosSpinnakerLbId = DcosSpinnakerLbId.from(data.account.toString(), data.region.toString(), data.loadBalancerName.toString())
+    def dcosSpinnakerLbId = DcosSpinnakerLbId.from(data.account.toString(), data.loadBalancerName.toString())
 
     if (!dcosSpinnakerLbId.present) {
       return null
@@ -109,11 +109,11 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
     if (result.cacheResults.values().flatten().isEmpty()) {
       // Avoid writing an empty onDemand cache record (instead delete any that may have previously existed).
-      providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getLoadBalancerKey(appId)])
+      providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getLoadBalancerKey(appId, clusterName)])
     } else {
       metricsSupport.onDemandStore {
         def cacheData = new DefaultCacheData(
-                Keys.getLoadBalancerKey(appId),
+                Keys.getLoadBalancerKey(appId, clusterName),
                 10 * 60, // ttl is 10 minutes
                 [
                         cacheTime     : System.currentTimeMillis(),
@@ -131,7 +131,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
     // Evict this load balancer if it no longer exists.
     Map<String, Collection<String>> evictions = loadBalancer ? [:] : [
             (Keys.Namespace.LOAD_BALANCERS.ns): [
-                    Keys.getLoadBalancerKey(appId)
+                    Keys.getLoadBalancerKey(appId, clusterName)
             ]
     ]
 
@@ -181,7 +181,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
             loadBalancers.collect {
-              Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(it.id, accountName, clusterName).get())
+              Keys.getLoadBalancerKey(DcosSpinnakerLbId.parse(it.id, accountName).get(), clusterName)
             }).each {
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
       // replication controllers. Furthermore, cache data that hasn't been processed needs to be updated in the ON_DEMAND
@@ -214,7 +214,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
     }
 
     response.get().apps.findAll {
-      it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerLbId.parse(it.id, accountName, clusterName).isPresent()
+      it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerLbId.parse(it.id, accountName).isPresent()
     }
   }
 
@@ -255,14 +255,14 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, AccountAware, OnDema
 
       def appId = dcosSpinnakerLbId.get()
 
-      def onDemandData = onDemandKeep ? onDemandKeep[Keys.getLoadBalancerKey(appId)] : null
+      def onDemandData = onDemandKeep ? onDemandKeep[Keys.getLoadBalancerKey(appId, clusterName)] : null
 
       if (onDemandData && onDemandData.attributes.cacheTime >= start) {
         Map<String, List<CacheData>> cacheResults = objectMapper.readValue(onDemandData.attributes.cacheResults as String, new TypeReference<Map<String, List<MutableCacheData>>>() {
         })
         cache(cacheResults, Keys.Namespace.LOAD_BALANCERS.ns, cachedLoadBalancers)
       } else {
-        def loadBalancerKey = Keys.getLoadBalancerKey(appId)
+        def loadBalancerKey = Keys.getLoadBalancerKey(appId, clusterName)
 
         cachedLoadBalancers[loadBalancerKey].with {
           attributes.name = appId.toString()

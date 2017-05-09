@@ -41,10 +41,10 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
     this.app = app
     this.json = app.toString()
 
-    def id = DcosSpinnakerLbId.parse(app.id, account, cluster).get()
+    def id = DcosSpinnakerLbId.parse(app.id, account).get()
     this.account = id.account
     this.name = id.loadBalancerName
-    this.region = id.region
+    this.region = cluster
     this.description = toDescription(cluster, id, app)
 
     this.createdTime = app.versionInfo?.lastConfigChangeAt ? Instant.parse(app.versionInfo.lastConfigChangeAt).toEpochMilli() : null
@@ -83,7 +83,7 @@ class DcosLoadBalancer implements LoadBalancer, Serializable, LoadBalancerProvid
 
     description.account = id.account
     description.name = id.loadBalancerName
-    description.region = id.region
+    description.region = cluster
     description.dcosCluster = cluster
 
     def names = Names.parseName(description.name)

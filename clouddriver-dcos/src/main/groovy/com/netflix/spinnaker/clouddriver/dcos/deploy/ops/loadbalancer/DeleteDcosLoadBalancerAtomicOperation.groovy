@@ -34,8 +34,7 @@ class DeleteDcosLoadBalancerAtomicOperation implements AtomicOperation<Void> {
 
     def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
 
-    def appId = DcosSpinnakerLbId.from(description.credentials.account, description.dcosCluster,
-            description.loadBalancerName).get()
+    def appId = DcosSpinnakerLbId.from(description.credentials.account, description.loadBalancerName).get()
 
     App existingLb = dcosClient.maybeApp(appId.toString())
             .orElseThrow({

@@ -21,7 +21,8 @@ import spock.lang.Specification
 class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
   private static final ACCOUNT = 'account'
   private static final CLUSTER = 'default'
-  private static final REGION = "${CLUSTER}/sub".toString()
+  private static final GROUP = 'sub'
+  private static final REGION = "${CLUSTER}/${GROUP}".toString()
 
   private static final APP_NAME = 'app-dev-feat1-v000'
 
@@ -29,7 +30,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
 
     app.cmd = 'command'
     app.args = ['arg1', 'arg2']
@@ -65,6 +66,8 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     desc.stack == 'dev'
     desc.freeFormDetails == 'feat1'
     desc.region == REGION
+    desc.group == GROUP
+    desc.dcosCluster == CLUSTER
 
     desc.cmd == 'command'
     desc.args == ['arg1', 'arg2']
@@ -95,7 +98,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
 
     when:
     def desc = AppToDeployDcosServerGroupDescriptionMapper.map(app, ACCOUNT, CLUSTER)
@@ -107,6 +110,8 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     desc.stack == 'dev'
     desc.freeFormDetails == 'feat1'
     desc.region == REGION
+    desc.group == GROUP
+    desc.dcosCluster == CLUSTER
 
     !desc.cmd
     !desc.args
@@ -139,7 +144,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.container = null
 
     when:
@@ -154,7 +159,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.container = new Container()
 
     when:
@@ -169,7 +174,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.container = new Container(docker: new Docker(image: 'example.hub.com/user/image:latest',
       network: 'HOST',
       forcePullImage: true,
@@ -198,7 +203,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.container = new Container(docker: new Docker(image: 'example.hub.com/user/image:latest',
       network: "HOST",
       parameters: null))
@@ -215,7 +220,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.container = new Container(docker: new Docker(image: 'example.hub.com/user/image:latest',
       network: 'BRIDGE',
       portMappings: [new PortMapping(containerPort: 1234,
@@ -242,7 +247,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.container = new Container(docker: new Docker(image: 'example.hub.com/user/image:latest',
       network: 'USER',
       portMappings: [new PortMapping(containerPort: 1234,
@@ -271,7 +276,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.container = new Container(docker: new Docker(image: 'example.hub.com/user/image:latest',
       network: 'BRIDGE',
       portMappings: [new PortMapping(containerPort: 1234,
@@ -297,7 +302,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
 
     app.portDefinitions = [new PortDefinition(port: 1234,
       protocol: 'tcp',
@@ -322,7 +327,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.portDefinitions = null
 
     when:
@@ -337,7 +342,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.portDefinitions = [new PortDefinition(port: 1234,
       protocol: 'tcp',
       name: 'aPort',
@@ -361,7 +366,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.healthChecks = [new HealthCheck(protocol: 'tcp',
       path: '/health',
       command: new Command(value: 'nonsense'),
@@ -395,7 +400,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.healthChecks = [new HealthCheck(protocol: 'tcp',
       path: '/health',
       command: null,
@@ -429,7 +434,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
     app.readinessChecks = [new ReadinessCheck(
       name: 'avail',
       protocol: 'tcp',
@@ -460,7 +465,7 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     given:
     App app = new App()
 
-    app.id = "$ACCOUNT/$REGION/$APP_NAME"
+    app.id = "$ACCOUNT/$GROUP/$APP_NAME"
 
     def info = new PersistentLocalVolume.PersistentLocalVolumeInfo()
     info.size = 100

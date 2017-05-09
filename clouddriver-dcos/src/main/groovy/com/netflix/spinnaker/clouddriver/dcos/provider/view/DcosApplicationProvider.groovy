@@ -44,7 +44,7 @@ class DcosApplicationProvider implements ApplicationProvider {
     Collection<CacheData> secretData = getAllMatchingKeyPattern(cacheView, Keys.Namespace.SECRETS.ns, "${dcosCloudProvider.id}:*")
     Map<String, Collection<String>> secretsByCluster = [:].withDefault { key -> return [] }
     secretData.each {
-      secretsByCluster[Keys.parse(it.id).region].add(objectMapper.convertValue(it.attributes.secretPath, String.class))
+      secretsByCluster[Keys.parse(it.id).dcosCluster].add(objectMapper.convertValue(it.attributes.secretPath, String.class))
     }
     secretsByCluster
   }

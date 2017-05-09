@@ -13,17 +13,16 @@ import static java.util.stream.Collectors.joining
 class AppToDeployDcosServerGroupDescriptionMapper {
   static DeployDcosServerGroupDescription map(final App app, final String account, final String cluster) {
 
-    def spinId = DcosSpinnakerAppId.parseVerbose(app.id, account, cluster).get()
+    def spinId = DcosSpinnakerAppId.parseVerbose(app.id, account).get()
     def names = spinId.serverGroupName
 
     def desc = new DeployDcosServerGroupDescription()
     desc.application = names.app
     desc.stack = names.stack
     desc.freeFormDetails = names.detail
-
     desc.dcosCluster = cluster
+    desc.region = "${cluster}/${spinId.unsafeGroup}".toString()
     desc.group = spinId.unsafeGroup
-    desc.region = spinId.unsafeRegion
     desc.cmd = app.cmd
     desc.args = app.args
     desc.dcosUser = app.user

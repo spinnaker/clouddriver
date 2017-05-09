@@ -53,7 +53,7 @@ class DeleteDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
     operation.operate([])
 
     then:
-    1 * dcosClientMock.maybeApp("/${DEFAULT_ACCOUNT}/${DEFAULT_REGION}/${LOAD_BALANCER_NAME}") >> Optional.of(appMock)
+    1 * dcosClientMock.maybeApp("/${DEFAULT_ACCOUNT}/${LOAD_BALANCER_NAME}") >> Optional.of(appMock)
     1 * dcosClientMock.deleteApp(appMock.id)
     1 * dcosDeploymentMonitorMock.waitForAppDestroy(dcosClientMock, appMock, null, taskMock, "DESTROY_LOAD_BALANCER")
   }
@@ -75,7 +75,7 @@ class DeleteDcosLoadBalancerAtomicOperationSpec extends BaseSpecification {
     operation.operate([])
 
     then:
-    1 * dcosClientMock.maybeApp("/${DEFAULT_ACCOUNT}/${DEFAULT_REGION}/${LOAD_BALANCER_NAME}") >> Optional.empty()
+    1 * dcosClientMock.maybeApp("/${DEFAULT_ACCOUNT}/${LOAD_BALANCER_NAME}") >> Optional.empty()
     thrown(DcosOperationException)
   }
 }

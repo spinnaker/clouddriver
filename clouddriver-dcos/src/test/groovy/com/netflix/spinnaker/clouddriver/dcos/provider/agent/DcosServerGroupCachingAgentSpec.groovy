@@ -27,10 +27,11 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   static final private String APP = "testapp"
   static final private String CLUSTER = "${APP}-cluster"
   static final private String SERVER_GROUP = "${CLUSTER}-v000"
-  static final private String REGION = "default"
-  static final private String MARATHON_APP = "/${ACCOUNT}/${REGION}/${SERVER_GROUP}"
+  static final private String GROUP = "default"
+  static final private String REGION = "us-west-1"
+  static final private String MARATHON_APP = "/${ACCOUNT}/${GROUP}/${SERVER_GROUP}"
   static final private String TASK = "${MARATHON_APP}-some-task-id"
-  static final private String LOAD_BALANCER = "/${ACCOUNT}/${REGION}/${APP}-frontend"
+  static final private String LOAD_BALANCER = "/${ACCOUNT}/${APP}-frontend"
 
   DcosAccountCredentials credentials
   AccountCredentialsRepository accountCredentialsRepository
@@ -63,10 +64,10 @@ class DcosServerGroupCachingAgentSpec extends Specification{
     }
 
     appKey = Keys.getApplicationKey(APP)
-    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.parseVerbose(MARATHON_APP, ACCOUNT, REGION).get())
+    serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.parseVerbose(MARATHON_APP, ACCOUNT).get(), REGION)
     clusterKey = Keys.getClusterKey(ACCOUNT, APP, CLUSTER)
-    instanceKey = Keys.getInstanceKey(DcosSpinnakerAppId.parseVerbose(MARATHON_APP, ACCOUNT, REGION).get(), TASK)
-    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parseVerbose(LOAD_BALANCER).get())
+    instanceKey = Keys.getInstanceKey(DcosSpinnakerAppId.parseVerbose(MARATHON_APP, ACCOUNT).get(), TASK)
+    loadBalancerKey = Keys.getLoadBalancerKey(DcosSpinnakerLbId.parseVerbose(LOAD_BALANCER).get(), REGION)
 
     subject = new DcosServerGroupCachingAgent(ACCOUNT, REGION, credentials, clientProvider, objectMapper, registryMock)
   }
@@ -90,7 +91,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
       dcosClient.getApp(MARATHON_APP) >> appResponse
     when:
       //TODO: again, not sure yet if this can be the fully qualified name or just the leaf of the path tree
-      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "region": REGION, "account": ACCOUNT])
+      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "dcosCluster": REGION, "region": "${REGION}/${GROUP}", "group": GROUP, "account": ACCOUNT])
     then:
       1 * providerCache.putCacheData(Keys.Namespace.ON_DEMAND.ns, { cacheData ->
         assert cacheData.id == serverGroupKey
@@ -122,7 +123,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
   void "On-demand cache should evict a server group that no longer exists"() {
     when:
       //TODO: again, not sure yet if this can be the fully qualified name or just the leaf of the path tree
-      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "region": REGION, "account": ACCOUNT])
+      def result = subject.handle(providerCache, ["serverGroupName": SERVER_GROUP, "dcosCluster": REGION, "region": "${REGION}/${GROUP}", "group": GROUP, "account": ACCOUNT])
     then:
       1 * providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [serverGroupKey])
       result.evictions == [(Keys.Namespace.SERVER_GROUPS.ns): [serverGroupKey]]
@@ -210,7 +211,7 @@ class DcosServerGroupCachingAgentSpec extends Specification{
                 getAppId() >> MARATHON_APP
               }
             ]
-            getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${REGION}_${APP}-frontend"]
+            getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${APP}-frontend"]
           }
         ]
       }

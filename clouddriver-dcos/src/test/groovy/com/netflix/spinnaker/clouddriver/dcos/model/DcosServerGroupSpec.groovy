@@ -10,7 +10,8 @@ class DcosServerGroupSpec extends Specification {
   static final private String APP = "testapp"
   static final private String SERVER_GROUP_NAME = "${APP}-v000"
   static final private String REGION = "region"
-  static final private String MARATHON_APP = "/${ACCOUNT}/${REGION}/${SERVER_GROUP_NAME}"
+  static final private String GROUP = "group"
+  static final private String MARATHON_APP = "/${ACCOUNT}/${GROUP}/${SERVER_GROUP_NAME}"
 
   def setup() {
   }
@@ -20,7 +21,7 @@ class DcosServerGroupSpec extends Specification {
     def lbApp = createApp(MARATHON_APP)
     def goodLb = "${APP}-goodlb"
     def badLb = "${APP}-badlb"
-    lbApp.getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${REGION}_${goodLb},wrongaccount_wrongregion_${badLb}"]
+    lbApp.getLabels() >> ["HAPROXY_GROUP": "${ACCOUNT}_${goodLb},wrongaccount_${badLb}"]
 
     when:
     @Subject def serverGroup = new DcosServerGroup(ACCOUNT, REGION, lbApp)

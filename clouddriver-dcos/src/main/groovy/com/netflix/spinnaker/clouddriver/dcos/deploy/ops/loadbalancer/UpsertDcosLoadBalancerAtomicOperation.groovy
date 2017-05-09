@@ -45,7 +45,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
     task.updateStatus BASE_PHASE, "Initializing upsert of load balancer $description.name..."
     task.updateStatus BASE_PHASE, "Looking up existing load balancer..."
 
-    def appId = DcosSpinnakerLbId.fromVerbose(description.credentials.account, description.dcosCluster, description.name).get()
+    def appId = DcosSpinnakerLbId.fromVerbose(description.credentials.account, description.name).get()
 
     def existingLb = dcosClient.maybeApp(appId.toString()).orElse(null)
 
@@ -97,7 +97,7 @@ class UpsertDcosLoadBalancerAtomicOperation implements AtomicOperation<Map> {
       env = ["HAPROXY_SSL_CERT"     : "",
              "HAPROXY_SYSCTL_PARAMS": "net.ipv4.tcp_tw_reuse=1 net.ipv4.tcp_fin_timeout=30 net.ipv4.tcp_max_syn_backlog=10240 net.ipv4.tcp_max_tw_buckets=400000 net.ipv4.tcp_max_orphans=60000 net.core.somaxconn=10000"]
 
-      def cluster = dcosConfigurationProperties.clusters.find {it.name == appId.region}
+      def cluster = dcosConfigurationProperties.clusters.find {it.name == description.dcosCluster}
       def loadBalancerConfig = cluster?.loadBalancer
 
       if (loadBalancerConfig?.serviceAccountSecret) {

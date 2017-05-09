@@ -32,18 +32,17 @@ class DisableDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     // TODO Most providers just take the instances out of load. Probably what we'd rather do.
     // TODO pull this out into a common place instead and reuse it both places? pass in BASE_PHASE
     def resizeDesc = new ResizeDcosServerGroupDescription().with {
+      account = description.account
+      credentials = description.credentials
       region = description.region
+      dcosCluster = description.dcosCluster
+      group = description.group
       serverGroupName = description.serverGroupName
       targetSize = 0
-      account = description.account
-      dcosCluster = description.dcosCluster
-      credentials = description.credentials
       it
     }
 
     def resizeOp = new ResizeDcosServerGroupAtomicOperation(dcosClientProvider, resizeDesc)
     resizeOp.operate([])
-
-    return null
   }
 }

@@ -31,7 +31,7 @@ class ResizeDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Initializing resize of server group $description.serverGroupName..."
 
     def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
-    def appId = DcosSpinnakerAppId.fromVerbose(description.credentials.account, description.region, description.serverGroupName).get()
+    def appId = DcosSpinnakerAppId.fromVerbose(description.credentials.account, description.group, description.serverGroupName).get()
     def size = description.targetSize
 
     task.updateStatus BASE_PHASE, "Checking to see if $appId already exists..."

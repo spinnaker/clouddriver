@@ -58,9 +58,10 @@ class Keys {
         def names = Names.parseName(parts[4])
         result << [
                 account    : parts[2],
-                name       : parts[4],
+                name       : parts[5],
                 region     : parts[3],
-                serverGroup: parts[4],
+                group      : parts[4],
+                serverGroup: parts[5],
                 application: names.app,
                 stack      : names.stack,
                 cluster    : names.cluster,
@@ -118,8 +119,8 @@ class Keys {
     "${PROVIDER}:${Namespace.APPLICATIONS}:${application}"
   }
 
-  static String getServerGroupKey(DcosSpinnakerAppId id) {
-    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${id.safeRegion}:${id.serverGroupName.group}"
+  static String getServerGroupKey(DcosSpinnakerAppId id, String region) {
+    "${PROVIDER}:${Namespace.SERVER_GROUPS}:${id.account}:${region}:${id.safeGroup}:${id.serverGroupName.group}"
   }
 
   static String getClusterKey(String account, String application, String cluster) {
@@ -127,7 +128,7 @@ class Keys {
   }
 
   static String getInstanceKey(DcosSpinnakerAppId appId, String taskName) {
-    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeRegion}:${taskName}"
+    "${PROVIDER}:${Namespace.INSTANCES}:${appId.account}:${appId.safeGroup}:${taskName}"
   }
 
   static String getInstanceKey(String account, String safeCombinedGroup, String taskName) {
@@ -138,7 +139,7 @@ class Keys {
     "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${account}:${region}:${loadBalancerName}"
   }
 
-  static String getLoadBalancerKey(DcosSpinnakerLbId id) {
-    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${id.account}:${id.region}:${id.loadBalancerName}"
+  static String getLoadBalancerKey(DcosSpinnakerLbId id, String region) {
+    "${PROVIDER}:${Namespace.LOAD_BALANCERS}:${id.account}:${region}:${id.loadBalancerName}"
   }
 }

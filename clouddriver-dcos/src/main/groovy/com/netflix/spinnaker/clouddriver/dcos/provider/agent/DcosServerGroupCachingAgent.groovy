@@ -92,7 +92,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     providerCache.getAll(Keys.Namespace.ON_DEMAND.ns,
             serverGroups.collect { serverGroup ->
-              Keys.getServerGroupKey(DcosSpinnakerAppId.parse(serverGroup.app.id, accountName, clusterName).get())
+              Keys.getServerGroupKey(DcosSpinnakerAppId.parse(serverGroup.app.id, accountName).get(), clusterName)
             })
             .each { CacheData onDemandEntry ->
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
@@ -139,9 +139,13 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
       return null
     }
 
+    if (data.dcosCluster != clusterName) {
+      return null
+    }
+
     def serverGroupName = data.serverGroupName.toString()
 
-    def appId = DcosSpinnakerAppId.from(accountName, data.region.toString(), serverGroupName)
+    def appId = DcosSpinnakerAppId.from(accountName, data.group.toString(), serverGroupName)
 
     if (!appId.isPresent()) {
       return null
@@ -161,11 +165,11 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
     if (result.cacheResults.values().flatten().isEmpty()) {
       // Avoid writing an empty onDemand cache record (instead delete any that may have previously existed).
-      providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getServerGroupKey(spinnakerId)])
+      providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getServerGroupKey(spinnakerId, clusterName)])
     } else {
       metricsSupport.onDemandStore {
         def cacheData = new DefaultCacheData(
-                Keys.getServerGroupKey(spinnakerId),
+                Keys.getServerGroupKey(spinnakerId, clusterName),
                 10 * 60, // ttl is 10 minutes
                 [
                         cacheTime     : System.currentTimeMillis(),
@@ -184,7 +188,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
     // Evict this server group if it no longer exists.
     Map<String, Collection<String>> evictions = serverGroup ? [:] : [
             (Keys.Namespace.SERVER_GROUPS.ns): [
-                    Keys.getServerGroupKey(spinnakerId)
+                    Keys.getServerGroupKey(spinnakerId, clusterName)
             ]
     ]
 
@@ -235,7 +239,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
 
     response.get().apps.findAll {
-      !it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerAppId.parse(it.id, accountName, clusterName).isPresent()
+      !it.labels?.containsKey("SPINNAKER_LOAD_BALANCER") && DcosSpinnakerAppId.parse(it.id, accountName).isPresent()
     }.collect {
       new DcosServerGroup(accountName, clusterName, it)
     }
@@ -258,7 +262,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
 
       def app = serverGroup.app
       def onDemandData = onDemandKeep ?
-              onDemandKeep[Keys.getServerGroupKey(DcosSpinnakerAppId.parse(app.id, accountName, clusterName).get())] :
+              onDemandKeep[Keys.getServerGroupKey(DcosSpinnakerAppId.parse(app.id, accountName).get(), clusterName)] :
               null
 
       if (onDemandData && onDemandData.attributes.cacheTime >= start) {
@@ -276,19 +280,19 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
         // the spinnaker naming convention as we have to parse it.  There's no storage that maps
         // an arbitrary app id to these fields
         def appId = app.id
-        def spinnakerId = DcosSpinnakerAppId.parse(appId, accountName, clusterName).get()
+        def spinnakerId = DcosSpinnakerAppId.parse(appId, accountName).get()
         def names = spinnakerId.getServerGroupName()
         def appName = names.app
-        def clusterName = names.cluster
+        def cluster = names.cluster
         def instanceKeys = []
 
         def loadBalancerKeys = serverGroup.fullyQualifiedLoadBalancers.findResults({
-          Keys.getLoadBalancerKey(it)
+          Keys.getLoadBalancerKey(it, clusterName)
         })
 
         def applicationKey = Keys.getApplicationKey(appName)
-        def serverGroupKey = Keys.getServerGroupKey(spinnakerId)
-        String clusterKey = Keys.getClusterKey(accountName, appName, clusterName)
+        def serverGroupKey = Keys.getServerGroupKey(spinnakerId, clusterName)
+        String clusterKey = Keys.getClusterKey(accountName, appName, cluster)
 
         cachedApps[applicationKey].with {
           attributes.name = appName
@@ -298,7 +302,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDeman
         }
 
         cachedClusters[clusterKey].with {
-          attributes.name = clusterName
+          attributes.name = cluster
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
           relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
