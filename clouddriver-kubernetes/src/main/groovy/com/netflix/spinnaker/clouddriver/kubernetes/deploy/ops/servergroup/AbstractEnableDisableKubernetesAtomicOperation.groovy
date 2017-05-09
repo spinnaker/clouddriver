@@ -23,7 +23,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.EnableDisableKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesServerGroupDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesOperationException
-import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesCluster
+import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesServerGroup
 import com.netflix.spinnaker.clouddriver.kubernetes.provider.view.KubernetesClusterProvider
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import io.fabric8.kubernetes.api.model.Pod
@@ -105,23 +105,12 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
         throw new KubernetesOperationException("Server group failed to reach a consistent state. This is likely a bug with Kubernetes itself.")
       }
     }
-    def application
-    def clusterName
-    if (replicationController) {
-      application = replicationController.metadata.labels.get("app")
-      clusterName = replicationController.metadata.labels.get("cluster")
-    } else if (replicaSet) {
-      application = replicaSet.metadata.labels.get("app")
-      clusterName = replicaSet.metadata.labels.get("cluster")
-    } else {
-      throw new KubernetesOperationException("No replication controller or replica set $description.serverGroupName in $namespace.")
-    }
 
-    KubernetesCluster cluster = clusterProviders.getCluster(application, description.account, clusterName)
-    cluster.serverGroups.forEach( { serverGroup ->
-      if (serverGroup.name == description.serverGroupName )
-        serverGroup.instances.forEach( { instance -> pods.add(instance.getPod())})
-    })
+    if (!replicationController && !replicaSet )
+      throw new KubernetesOperationException("No replication controller or replica set $description.serverGroupName in $namespace.")
+
+    KubernetesServerGroup serverGroup = clusterProviders.getServerGroup(description.account, description.namespace, description.serverGroupName)
+    serverGroup.instances.forEach( { instance -> pods.add(instance.getPod())})
 
     if (!pods) {
       task.updateStatus basePhase, "No pods to ${basePhase.toLowerCase()}. Operation finshed successfully."
