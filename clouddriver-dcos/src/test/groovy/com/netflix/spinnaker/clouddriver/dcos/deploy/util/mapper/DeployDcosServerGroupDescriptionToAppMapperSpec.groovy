@@ -18,7 +18,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
                 constraints: "something:GROUP_BY:other,test:GROUP_BY:other", fetch: [new DeployDcosServerGroupDescription.Fetchable(uri: "uri", executable: true, extract: true, cache: true, outputFile: "file")],
                 storeUrls: [ "someUrl" ], backoffSeconds: 1, backoffFactor: 1.15, maxLaunchDelaySeconds: 3600,
                 dependencies: ["some-other-service-v000"], labels: ["key": "value"],
-                version: "0000-00-00'T'00:00:00.000",residency: new DeployDcosServerGroupDescription.Residency(taskLostBehaviour: "idk", relaunchEscalationTimeoutSeconds: 0),
+                residency: new DeployDcosServerGroupDescription.Residency(taskLostBehaviour: "idk", relaunchEscalationTimeoutSeconds: 0),
                 taskKillGracePeriodSeconds: 1, secrets: [ "secret": "this is super secret"], requirePorts: false,
                 acceptedResourceRoles: ["slave_public"],
                 dockerVolumes: [new DeployDcosServerGroupDescription.DockerVolume(containerPath: "path/to/container",

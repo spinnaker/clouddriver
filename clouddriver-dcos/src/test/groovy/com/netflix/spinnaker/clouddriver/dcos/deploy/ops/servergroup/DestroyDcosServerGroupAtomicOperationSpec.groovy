@@ -40,6 +40,6 @@ class DestroyDcosServerGroupAtomicOperationSpec extends BaseSpecification {
 
     then:
     noExceptionThrown()
-    1 * dcosClient.deleteApp(_) >> new Result()
+    1 * dcosClient.deleteApp(_, _) >> new Result()
   }
 }

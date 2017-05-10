@@ -133,7 +133,6 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     !desc.upgradeStrategy
     !desc.labels
     !desc.acceptedResourceRoles
-    !desc.version
     !desc.residency
     !desc.taskKillGracePeriodSeconds
     !desc.secrets
