@@ -47,7 +47,7 @@ class DcosServerGroupNameResolver extends AbstractServerGroupNameResolver {
     return filteredApps.collect { App app ->
       final def names = DcosSpinnakerAppId.parseVerbose(app.id).get().serverGroupName
       return new AbstractServerGroupNameResolver.TakenSlot(
-        serverGroupName: names.cluster,
+        serverGroupName: names.group,
         sequence       : names.sequence,
         createdTime    : new Date(translateTime(app.versionInfo.lastConfigChangeAt))
       )
