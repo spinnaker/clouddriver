@@ -48,7 +48,7 @@ class ResizeDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
 
     app.instances = description.targetSize
 
-    dcosClient.updateApp(appId.toString(), app, false)
+    dcosClient.updateApp(appId.toString(), app, description.forceDeployment)
 
     task.updateStatus BASE_PHASE, "Completed resize operation."
   }

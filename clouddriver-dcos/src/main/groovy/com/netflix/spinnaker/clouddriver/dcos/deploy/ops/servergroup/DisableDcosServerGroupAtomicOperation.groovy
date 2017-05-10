@@ -38,6 +38,7 @@ class DisableDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
       dcosCluster = description.dcosCluster
       group = description.group
       serverGroupName = description.serverGroupName
+      forceDeployment = description.forceDeployment
       targetSize = 0
       it
     }

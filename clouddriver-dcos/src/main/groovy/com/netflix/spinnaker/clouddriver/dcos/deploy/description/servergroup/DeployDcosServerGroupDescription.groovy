@@ -10,8 +10,6 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   String application
   String stack
   String freeFormDetails
-  String region
-  String group
   String cmd
   List<String> args = new ArrayList<>()
   String dcosUser
@@ -34,7 +32,6 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   UpgradeStrategy upgradeStrategy
   Map<String, String> labels = new HashMap<>()
   List<String> acceptedResourceRoles = null
-  String version
   Residency residency
   Integer taskKillGracePeriodSeconds
   Map<String, Object> secrets = new HashMap<>()
@@ -46,6 +43,8 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   List<DockerVolume> dockerVolumes = new ArrayList<>()
   List<ExternalVolume> externalVolumes = new ArrayList<>()
   Boolean requirePorts
+
+  boolean forceDeployment
 
   @Canonical
   static class Container {

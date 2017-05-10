@@ -4,4 +4,5 @@ import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCre
 
 abstract class AbstractDcosServerGroupDescription extends AbstractDcosCredentialsDescription {
     String serverGroupName
+    boolean forceDeployment
 }

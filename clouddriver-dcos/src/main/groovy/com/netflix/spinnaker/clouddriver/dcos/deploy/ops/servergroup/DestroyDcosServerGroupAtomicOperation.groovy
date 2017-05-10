@@ -33,7 +33,7 @@ class DestroyDcosServerGroupAtomicOperation implements AtomicOperation<Void> {
     def dcosClient = dcosClientProvider.getDcosClient(description.credentials, description.dcosCluster)
     def appId = DcosSpinnakerAppId.fromVerbose(description.credentials.account, description.group, description.serverGroupName).get()
 
-    Result deleteResult = dcosClient.deleteApp(appId.toString())
+    Result deleteResult = dcosClient.deleteApp(appId.toString(), description.forceDeployment)
 
     task.updateStatus BASE_PHASE, "Successfully issued delete request for application id '$appId'. " +
             "Corresponding marathon deployment id=$deleteResult.deploymentId"

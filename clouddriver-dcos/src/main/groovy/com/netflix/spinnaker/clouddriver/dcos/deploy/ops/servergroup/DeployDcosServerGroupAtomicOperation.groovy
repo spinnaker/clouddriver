@@ -53,7 +53,7 @@ class DeployDcosServerGroupAtomicOperation implements AtomicOperation<Deployment
     task.updateStatus BASE_PHASE, "Marathon ID chosen to be $dcosPathId."
     task.updateStatus BASE_PHASE, "Building application..."
 
-    dcosClient.updateApp(dcosPathId.toString(), descriptionToAppMapper.map(dcosPathId.toString(), description), false)
+    dcosClient.updateApp(dcosPathId.toString(), descriptionToAppMapper.map(dcosPathId.toString(), description), description.forceDeployment)
 
     task.updateStatus BASE_PHASE, "Deployed service ${resolvedServerGroupName}"
 
