@@ -141,7 +141,7 @@ abstract class AbstractGoogleLoadBalancerCachingAgent extends AbstractGoogleCach
       evictions[LOAD_BALANCERS.ns].addAll(identifiers)
     }
 
-    log.info("On demand cache refresh succeeded. Data: ${data}. Added ${loadBalancer ? 1 : 0} items to the cache.")
+    log.info("On demand cache refresh succeeded. The data are: ${data}. Added ${loadBalancer ? 1 : 0} items to the cache.")
 
     return new OnDemandAgent.OnDemandResult(
       sourceAgentType: getOnDemandAgentType(),
