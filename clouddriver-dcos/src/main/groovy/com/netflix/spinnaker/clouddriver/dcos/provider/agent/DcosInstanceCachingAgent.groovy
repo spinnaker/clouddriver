@@ -84,7 +84,13 @@ class DcosInstanceCachingAgent implements CachingAgent, AccountAware {
       }
 
       def deploymentsActive = deployments.stream().filter({ it.affectedApps.contains(task.appId) }).count() > 0
-      def key = Keys.getInstanceKey(DcosSpinnakerAppId.parse(task.appId, accountName).get(), task.id)
+      String safeGroup = DcosSpinnakerAppId.parse(task.getAppId()).get().getSafeGroup()
+      def groupName = clusterName
+      if (!safeGroup.isEmpty()) {
+        groupName = "${clusterName}_${safeGroup}"
+      }
+
+      def key = Keys.getInstanceKey(accountName, groupName, task.id)
 
       cachedInstances[key].with {
         attributes.name = task.id
