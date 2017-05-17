@@ -22,9 +22,6 @@ import org.springframework.stereotype.Component
 import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.resolveRelationshipData
 import static com.netflix.spinnaker.clouddriver.dcos.provider.DcosProviderUtils.resolveRelationshipDataForCollection
 
-/**
- * @author Will Gorman
- */
 @Component
 class DcosClusterProvider implements ClusterProvider<DcosCluster> {
   private final DcosCloudProvider dcosCloudProvider

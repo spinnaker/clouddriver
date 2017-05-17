@@ -25,9 +25,6 @@ import org.springframework.context.annotation.Scope
 
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * @author Will Gorman
- */
 @Configuration
 class DcosProviderConfig {
   @Bean

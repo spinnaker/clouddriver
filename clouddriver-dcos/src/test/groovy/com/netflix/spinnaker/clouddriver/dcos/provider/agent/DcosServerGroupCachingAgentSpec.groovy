@@ -19,9 +19,6 @@ import mesosphere.marathon.client.model.v2.GetAppResponse
 import mesosphere.marathon.client.model.v2.Task
 import spock.lang.Specification
 
-/**
- * @author Will Gorman
- */
 class DcosServerGroupCachingAgentSpec extends Specification{
   static final private String ACCOUNT = "testaccount"
   static final private String APP = "testapp"

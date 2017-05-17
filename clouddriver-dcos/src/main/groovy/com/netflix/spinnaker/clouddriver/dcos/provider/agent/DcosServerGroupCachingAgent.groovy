@@ -25,9 +25,6 @@ import mesosphere.marathon.client.model.v2.GetAppNamespaceResponse
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 
-/**
- * @author Will Gorman
- */
 @Slf4j
 class DcosServerGroupCachingAgent implements CachingAgent, AccountAware, OnDemandAgent {
   private final String accountName
