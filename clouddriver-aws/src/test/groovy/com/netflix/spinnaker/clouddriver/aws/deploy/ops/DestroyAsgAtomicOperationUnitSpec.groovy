@@ -21,6 +21,8 @@ import com.amazonaws.services.autoscaling.model.DeleteAutoScalingGroupRequest
 import com.amazonaws.services.autoscaling.model.DeleteLaunchConfigurationRequest
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
 import com.amazonaws.services.autoscaling.model.Instance
+import com.amazonaws.services.autoscaling.model.TerminateInstanceInAutoScalingGroupRequest
+import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
@@ -145,6 +147,42 @@ class DestroyAsgAtomicOperationUnitSpec extends Specification {
     }
 
     remaining.isEmpty()
+    0 * mockAutoScaling._
+  }
+
+  void "should trigger instance terminations before autoscaling group delete with force disabled"() {
+    setup:
+    def op = new DestroyAsgAtomicOperation(
+      new DestroyAsgDescription(
+        asgs: [[
+                 serverGroupName: "my-stack-v000",
+                 region         : "us-east-1"
+               ]],
+        credentials: TestCredential.named('baz'),
+        force: false
+      ))
+    op.amazonClientProvider = provider
+
+    when:
+    op.operate([])
+
+    then:
+    1 * mockAutoScaling.describeAutoScalingGroups(_) >> new DescribeAutoScalingGroupsResult(autoScalingGroups: [
+      new AutoScalingGroup(
+        instances: [new Instance(instanceId: "i-123456")],
+        launchConfigurationName: "launchConfig-v000"
+      )
+    ])
+    1 * mockAutoScaling.updateAutoScalingGroup(
+      new UpdateAutoScalingGroupRequest(autoScalingGroupName: 'my-stack-v000', minSize: 0, maxSize: 0, desiredCapacity: 0)
+    )
+    1 * mockAutoScaling.terminateInstanceInAutoScalingGroup(
+      new TerminateInstanceInAutoScalingGroupRequest(instanceId: 'i-123456', shouldDecrementDesiredCapacity: true)
+    )
+    1 * mockAutoScaling.deleteAutoScalingGroup(
+      new DeleteAutoScalingGroupRequest(autoScalingGroupName: "my-stack-v000", forceDelete: true))
+    1 * mockAutoScaling.deleteLaunchConfiguration(
+      new DeleteLaunchConfigurationRequest(launchConfigurationName: "launchConfig-v000"))
     0 * mockAutoScaling._
   }
 }

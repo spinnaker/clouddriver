@@ -21,6 +21,8 @@ import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.DeleteAutoScalingGroupRequest
 import com.amazonaws.services.autoscaling.model.DeleteLaunchConfigurationRequest
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
+import com.amazonaws.services.autoscaling.model.TerminateInstanceInAutoScalingGroupRequest
+import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.DestroyAsgDescription
@@ -55,7 +57,11 @@ class DestroyAsgAtomicOperation implements AtomicOperation<Void> {
     String descriptor = description.asgs.collect { it.toString() }
     task.updateStatus BASE_PHASE, "Initializing ASG Destroy operation for $descriptor..."
     for (asg in description.asgs) {
-      deleteAsg(asg.serverGroupName, asg.region)
+      if (description.force) {
+        forceDeleteAsg(asg.serverGroupName, asg.region)
+      } else {
+        deleteAsg(asg.serverGroupName, asg.region)
+      }
       events << new DeleteServerGroupEvent(
         AmazonCloudProvider.ID, description.credentials.accountId, asg.region, asg.serverGroupName
       )
@@ -71,6 +77,48 @@ class DestroyAsgAtomicOperation implements AtomicOperation<Void> {
   }
 
   private void deleteAsg(String asgName, String region) {
+    def credentials = description.credentials
+    def autoScaling = amazonClientProvider.getAutoScaling(credentials, region, true)
+    task.updateStatus BASE_PHASE, "Looking up $asgName in $region..."
+
+    def result = autoScaling.describeAutoScalingGroups(
+      new DescribeAutoScalingGroupsRequest(autoScalingGroupNames: [asgName])
+    )
+    if (!result.autoScalingGroups) {
+      // Idempotent
+      return
+    }
+    if (result.autoScalingGroups.size() > 1) {
+      throw new IllegalStateException("There should only be one ASG in $credentials:$region named $asgName")
+    }
+
+    AutoScalingGroup autoScalingGroup = result.autoScalingGroups[0]
+    task.updateStatus BASE_PHASE, "Deleting $asgName in $region"
+
+    autoScaling.updateAutoScalingGroup(
+      new UpdateAutoScalingGroupRequest()
+        .withAutoScalingGroupName(asgName)
+        .withMinSize(0)
+        .withMaxSize(0)
+        .withDesiredCapacity(0)
+    )
+    for (instanceId in autoScalingGroup.instances*.instanceId) {
+      task.updateStatus BASE_PHASE, "Destroying instance $instanceId"
+      autoScaling.terminateInstanceInAutoScalingGroup(
+        new TerminateInstanceInAutoScalingGroupRequest()
+          .withInstanceId(instanceId)
+          .withShouldDecrementDesiredCapacity(true)
+      )
+    }
+
+    autoScaling.deleteAutoScalingGroup(new DeleteAutoScalingGroupRequest().withAutoScalingGroupName(asgName).withForceDelete(true))
+    if (autoScalingGroup.launchConfigurationName) {
+      task.updateStatus BASE_PHASE, "Deleting launch config ${autoScalingGroup.launchConfigurationName} in $region"
+      autoScaling.deleteLaunchConfiguration(new DeleteLaunchConfigurationRequest().withLaunchConfigurationName(autoScalingGroup.launchConfigurationName))
+    }
+  }
+
+  private void forceDeleteAsg(String asgName, String region) {
     def credentials = description.credentials
     def autoScaling = amazonClientProvider.getAutoScaling(credentials, region, true)
     task.updateStatus BASE_PHASE, "Looking up instance ids for $asgName in $region..."

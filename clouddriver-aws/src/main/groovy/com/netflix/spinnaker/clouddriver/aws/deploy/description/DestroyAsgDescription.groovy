@@ -23,6 +23,13 @@ class DestroyAsgDescription extends AbstractAmazonCredentialsDescription {
 
   List<AsgDescription> asgs = []
 
+  /**
+   * If force is true, instances will be immediately terminated without lifecycle hooks, rather than letting the
+   * AutoScaling service schedule terminations. This is the default behavior, but disabling it can be useful if
+   * running lifecycle hooks is a requirement.
+   */
+  boolean force = true
+
   @Deprecated
   String asgName
 
