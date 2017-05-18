@@ -44,12 +44,12 @@ class DcosInstanceCachingAgentSpec extends Specification {
   void "Should only cache marathon tasks that are owned by marathon apps under the supplied account"() {
     setup:
 
-    def validAppId = "/${ACCOUNT}/${REGION}/${SERVER_GROUP}"
-    def invalidAppId = "/invalidAccount/${REGION}/${SERVER_GROUP}"
+    def validAppId = "/${ACCOUNT}/${SERVER_GROUP}"
+    def invalidAppId = "/invalidAccount/${SERVER_GROUP}"
 
-    def validTaskId1 = "${ACCOUNT}_${REGION}_${SERVER_GROUP}_validtask1"
-    def validTaskId2 = "${ACCOUNT}_${REGION}_${SERVER_GROUP}_validtask2"
-    def invalidTaskId1 = "invalidAccount_${SERVER_GROUP}_${REGION}_invalidtask1"
+    def validTaskId1 = "${ACCOUNT}_${SERVER_GROUP}_validtask1"
+    def validTaskId2 = "${ACCOUNT}_${SERVER_GROUP}_validtask2"
+    def invalidTaskId1 = "invalidAccount_${SERVER_GROUP}_invalidtask1"
 
     def validInstance1Key = Keys.getInstanceKey(ACCOUNT, REGION, validTaskId1)
     def validInstance2Key = Keys.getInstanceKey(ACCOUNT, REGION, validTaskId2)
