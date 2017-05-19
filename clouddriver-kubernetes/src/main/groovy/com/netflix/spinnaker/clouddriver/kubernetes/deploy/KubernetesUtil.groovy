@@ -24,7 +24,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentia
 import io.fabric8.kubernetes.api.model.Pod
 import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.Job
+import io.fabric8.kubernetes.api.model.extensions.DaemonSet
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
+import io.fabric8.kubernetes.api.model.extensions.StatefulSet
 import org.springframework.beans.factory.annotation.Value
 
 class KubernetesUtil {
@@ -156,6 +158,14 @@ class KubernetesUtil {
 
   static List<String> getLoadBalancers(Pod pod) {
     return getLoadBalancers(pod.metadata?.labels ?: [:])
+  }
+
+  static List<String> getLoadBalancers(DaemonSet ds) {
+    return getLoadBalancers(ds.spec?.template?.metadata?.labels ?: [:])
+  }
+
+  static List<String> getLoadBalancers(StatefulSet ss) {
+    return getLoadBalancers(ss.spec?.template?.metadata?.labels ?: [:])
   }
 
   static List<String> getLoadBalancers(ReplicaSet rs) {

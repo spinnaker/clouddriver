@@ -599,6 +599,68 @@ class KubernetesApiConverter {
     return res
   }
 
+  static DeployKubernetesAtomicOperationDescription fromDaemonSet(DaemonSet daemonSet) {
+    def deployDescription = new DeployKubernetesAtomicOperationDescription()
+    def parsedName = Names.parseName(daemonSet?.metadata?.name)
+
+    deployDescription.application = parsedName?.app
+    deployDescription.stack = parsedName?.stack
+    deployDescription.freeFormDetails = parsedName?.detail
+    deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(daemonSet)
+    deployDescription.namespace = daemonSet?.metadata?.namespace
+    // FIXME(dsimonto) not available for daemonSet: deployDescription.targetSize = daemonSet?.spec?.replicas
+    deployDescription.securityGroups = []
+    deployDescription.controllerAnnotations = daemonSet?.metadata?.annotations
+    deployDescription.podAnnotations = daemonSet?.spec?.template?.metadata?.annotations
+
+    deployDescription.volumeSources = daemonSet?.spec?.template?.spec?.volumes?.collect {
+      fromVolume(it)
+    } ?: []
+
+    deployDescription.hostNetwork = daemonSet?.spec?.template?.spec?.hostNetwork
+
+    deployDescription.containers = daemonSet?.spec?.template?.spec?.containers?.collect {
+      fromContainer(it)
+    } ?: []
+
+    deployDescription.terminationGracePeriodSeconds = daemonSet?.spec?.template?.spec?.terminationGracePeriodSeconds
+
+    deployDescription.nodeSelector = daemonSet?.spec?.template?.spec?.nodeSelector
+
+    return deployDescription
+  }
+
+  static DeployKubernetesAtomicOperationDescription fromStatefulSet(StatefulSet statefulSet) {
+    def deployDescription = new DeployKubernetesAtomicOperationDescription()
+    def parsedName = Names.parseName(statefulSet?.metadata?.name)
+
+    deployDescription.application = parsedName?.app
+    deployDescription.stack = parsedName?.stack
+    deployDescription.freeFormDetails = parsedName?.detail
+    deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(statefulSet)
+    deployDescription.namespace = statefulSet?.metadata?.namespace
+    deployDescription.targetSize = statefulSet?.spec?.replicas
+    deployDescription.securityGroups = []
+    deployDescription.controllerAnnotations = statefulSet?.metadata?.annotations
+    deployDescription.podAnnotations = statefulSet?.spec?.template?.metadata?.annotations
+
+    deployDescription.volumeSources = statefulSet?.spec?.template?.spec?.volumes?.collect {
+      fromVolume(it)
+    } ?: []
+
+    deployDescription.hostNetwork = statefulSet?.spec?.template?.spec?.hostNetwork
+
+    deployDescription.containers = statefulSet?.spec?.template?.spec?.containers?.collect {
+      fromContainer(it)
+    } ?: []
+
+    deployDescription.terminationGracePeriodSeconds = statefulSet?.spec?.template?.spec?.terminationGracePeriodSeconds
+
+    deployDescription.nodeSelector = statefulSet?.spec?.template?.spec?.nodeSelector
+
+    return deployDescription
+  }
+
   static DeployKubernetesAtomicOperationDescription fromReplicaSet(ReplicaSet replicaSet) {
     def deployDescription = new DeployKubernetesAtomicOperationDescription()
     def parsedName = Names.parseName(replicaSet?.metadata?.name)
@@ -610,7 +672,7 @@ class KubernetesApiConverter {
     deployDescription.namespace = replicaSet?.metadata?.namespace
     deployDescription.targetSize = replicaSet?.spec?.replicas
     deployDescription.securityGroups = []
-    deployDescription.replicaSetAnnotations = replicaSet?.metadata?.annotations
+    deployDescription.controllerAnnotations = replicaSet?.metadata?.annotations
     deployDescription.podAnnotations = replicaSet?.spec?.template?.metadata?.annotations
 
     deployDescription.volumeSources = replicaSet?.spec?.template?.spec?.volumes?.collect {
@@ -781,7 +843,7 @@ class KubernetesApiConverter {
 
     return serverGroupBuilder.withNewMetadata()
       .withName(replicaSetName)
-      .withAnnotations(description.replicaSetAnnotations)
+      .withAnnotations(description.controllerAnnotations)
       .endMetadata()
       .withNewSpec()
       .withNewSelector()
@@ -802,7 +864,7 @@ class KubernetesApiConverter {
 
     def builder = serverGroupBuilder.withNewMetadata()
       .withName(parsedName.cluster)
-      .withAnnotations(description.replicaSetAnnotations)
+      .withAnnotations(description.controllerAnnotations)
       .endMetadata()
       .withNewSpec()
       .withNewSelector()

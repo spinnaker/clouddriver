@@ -37,8 +37,10 @@ import groovy.util.logging.Slf4j
 import io.fabric8.kubernetes.api.model.Event
 import io.fabric8.kubernetes.api.model.Pod
 import io.fabric8.kubernetes.api.model.ReplicationController
+import io.fabric8.kubernetes.api.model.extensions.DaemonSet
 import io.fabric8.kubernetes.api.model.extensions.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
+import io.fabric8.kubernetes.api.model.extensions.StatefulSet
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
@@ -110,8 +112,16 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
       loadReplicaSet(namespace, serverGroupName)
     }
 
+    DaemonSet daemonSet = metricsSupport.readData {
+      loadDaemonSet(namespace, serverGroupName)
+    }
+
+    StatefulSet statefulSEt = metricsSupport.readData {
+      loadStatefulSet(namespace, serverGroupName)
+    }
+
     CacheResult result = metricsSupport.transformData {
-      buildCacheResult([new ReplicaSetOrController(replicationController: replicationController, replicaSet: replicaSet)], [:], [], Long.MAX_VALUE)
+      buildCacheResult([new KubernetesController(replicationController: replicationController, replicaSet: replicaSet)], [:], [], Long.MAX_VALUE)
     }
 
     def jsonResult = objectMapper.writeValueAsString(result.cacheResults)
@@ -197,6 +207,18 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
     }.flatten()
   }
 
+  List<DaemonSet> loadDaemonSets() {
+    namespaces.collect { String namespace ->
+      credentials.apiAdaptor.getDaemonSets(namespace)
+    }.flatten()
+  }
+
+  List<StatefulSet> loadStatefulSets() {
+    namespaces.collect { String namespace ->
+      credentials.apiAdaptor.getStatefulSets(namespace)
+    }.flatten()
+  }
+
   ReplicaSet loadReplicaSet(String namespace, String name) {
     credentials.apiAdaptor.getReplicaSet(namespace, name)
   }
@@ -205,7 +227,15 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
     credentials.apiAdaptor.getReplicationController(namespace, name)
   }
 
-  List<Pod> loadPods(ReplicaSetOrController serverGroup) {
+  DaemonSet loadDaemonSet(String namespace, String name) {
+    credentials.apiAdaptor.getDaemonSet(namespace, name)
+  }
+
+  StatefulSet loadStatefulSet(String namespace, String name) {
+    credentials.apiAdaptor.getStatefulSet(namespace, name)
+  }
+
+  List<Pod> loadPods(KubernetesController serverGroup) {
     credentials.apiAdaptor.getPods(serverGroup.namespace, serverGroup.selector)
   }
 
@@ -215,10 +245,16 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
     Long start = System.currentTimeMillis()
     List<ReplicationController> replicationControllerList = loadReplicationControllers()
     List<ReplicaSet> replicaSetList = loadReplicaSets()
-    List<ReplicaSetOrController> serverGroups = (replicationControllerList.collect {
-      it ? new ReplicaSetOrController(replicationController: it) : null
+    List<DaemonSet> daemonSetList = loadDaemonSets()
+    List<StatefulSet> statefulSetList = loadStatefulSets()
+    List<KubernetesController> serverGroups = (replicationControllerList.collect {
+      it ? new KubernetesController(replicationController: it) : null
     } + replicaSetList.collect {
-      it ? new ReplicaSetOrController(replicaSet: it) : null
+      it ? new KubernetesController(replicaSet: it) : null
+    } + daemonSetList.collect {
+      it ? new KubernetesController(daemonSet: it) : null
+    } + statefulSetList.collect {
+      it ? new KubernetesController(statefulSet: it) : null
     }) - null
 
     List<CacheData> evictFromOnDemand = []
@@ -265,7 +301,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
     }
   }
 
-  private CacheResult buildCacheResult(List<ReplicaSetOrController> serverGroups, Map<String, CacheData> onDemandKeep, List<String> onDemandEvict, Long start) {
+  private CacheResult buildCacheResult(List<KubernetesController> serverGroups, Map<String, CacheData> onDemandKeep, List<String> onDemandEvict, Long start) {
     log.info("Describing items in ${agentType}")
 
     Map<String, MutableCacheData> cachedApplications = MutableCacheData.mutableCacheMap()
@@ -300,7 +336,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
       log.warn "Failure fetching autoscalers for all server groups in $namespaces", e
     }
 
-    for (ReplicaSetOrController serverGroup: serverGroups) {
+    for (KubernetesController serverGroup: serverGroups) {
       if (!serverGroup.exists()) {
         continue
       }
@@ -378,7 +414,16 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
             events = rcEvents[serverGroup.namespace][serverGroupName]
           }
 
-          attributes.serverGroup = new KubernetesServerGroup(serverGroup.replicaSet ?: serverGroup.replicationController, accountName, events, autoscaler)
+          if (serverGroup.replicaSet) {
+            attributes.serverGroup = new KubernetesServerGroup(serverGroup.replicaSet, accountName, events, autoscaler)
+          } else if (serverGroup.replicationController) {
+            attributes.serverGroup = new KubernetesServerGroup(serverGroup.replicationController, accountName, events, autoscaler)
+          } else if (serverGroup.daemonSet) {
+            attributes.serverGroup = new KubernetesServerGroup(serverGroup.daemonSet, accountName, events)
+          } else { // statefulSet
+            attributes.serverGroup = new KubernetesServerGroup(serverGroup.statefulSet, accountName, events)
+          }
+
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
@@ -405,28 +450,42 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
 
   }
 
-  class ReplicaSetOrController {
+  class KubernetesController {
     ReplicationController replicationController
     ReplicaSet replicaSet
+    DaemonSet daemonSet
+    StatefulSet statefulSet
 
     String getName() {
-      replicaSet ? replicaSet.metadata.name : replicationController.metadata.name
+      replicaSet ? replicaSet.metadata.name :
+        replicationController ? replicationController.metadata.name :
+          daemonSet ? daemonSet.metadata.name :
+            statefulSet.metadata.name
     }
 
     String getNamespace() {
-      replicaSet ? replicaSet.metadata.namespace : replicationController.metadata.namespace
+      replicaSet ? replicaSet.metadata.namespace :
+        replicationController ? replicationController.metadata.namespace :
+          daemonSet ? daemonSet.metadata.namespace :
+            statefulSet.metadata.namespace
     }
 
     Map<String, String> getSelector() {
-      replicaSet ? replicaSet.spec.selector.matchLabels : replicationController.spec.selector
+      replicaSet ? replicaSet.spec.selector.matchLabels :
+        replicationController ? replicationController.spec.selector :
+          daemonSet ? daemonSet.spec.selector.matchLabels :
+            statefulSet.spec.selector.matchLabels
     }
 
     boolean exists() {
-      replicaSet || replicationController
+      replicaSet || replicationController || daemonSet || statefulSet
     }
 
     List<String> getLoadBalancers() {
-      replicaSet ? KubernetesUtil.getLoadBalancers(replicaSet) : KubernetesUtil.getLoadBalancers(replicationController)
+      replicaSet ? KubernetesUtil.getLoadBalancers(replicaSet) :
+        replicationController ? KubernetesUtil.getLoadBalancers(replicationController) :
+          daemonSet ? KubernetesUtil.getLoadBalancers(daemonSet) :
+            KubernetesUtil.getLoadBalancers(statefulSet)
     }
   }
 }
