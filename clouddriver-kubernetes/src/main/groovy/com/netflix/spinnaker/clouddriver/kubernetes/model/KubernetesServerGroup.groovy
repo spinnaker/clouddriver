@@ -79,6 +79,9 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   }
 
   Boolean isDisabled() {
+    if (kind == "DaemonSet")
+      return false;
+
     if (replicas == 0) { // FIXME(dsimonto): not the case for daemonset
       return true
     }
@@ -121,7 +124,6 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.events = events?.collect {
       new KubernetesEvent(it)
     }
-    this.revision = KubernetesApiAdaptor.getDeploymentRevision(daemonSet)
   }
 
   KubernetesServerGroup(StatefulSet statefulSet, String account, List<Event> events) {
@@ -142,7 +144,6 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.events = events?.collect {
       new KubernetesEvent(it)
     }
-    this.revision = KubernetesApiAdaptor.getDeploymentRevision(statefulSet)
   }
 
   KubernetesServerGroup(ReplicaSet replicaSet, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {

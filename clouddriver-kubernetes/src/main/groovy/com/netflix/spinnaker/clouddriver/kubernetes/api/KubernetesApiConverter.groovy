@@ -608,7 +608,6 @@ class KubernetesApiConverter {
     deployDescription.freeFormDetails = parsedName?.detail
     deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(daemonSet)
     deployDescription.namespace = daemonSet?.metadata?.namespace
-    // FIXME(dsimonto) not available for daemonSet: deployDescription.targetSize = daemonSet?.spec?.replicas
     deployDescription.securityGroups = []
     deployDescription.controllerAnnotations = daemonSet?.metadata?.annotations
     deployDescription.podAnnotations = daemonSet?.spec?.template?.metadata?.annotations

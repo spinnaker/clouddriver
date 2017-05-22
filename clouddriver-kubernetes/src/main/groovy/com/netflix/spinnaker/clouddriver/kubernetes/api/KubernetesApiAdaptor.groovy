@@ -515,15 +515,4 @@ class KubernetesApiAdaptor {
   static String getDeploymentRevision(ReplicaSet replicaSet) {
     return replicaSet?.metadata?.annotations?.get("$DEPLOYMENT_ANNOTATION/revision".toString())
   }
-
-  // TODO: is this supported and/or necessary?
-  static String getDeploymentRevision(StatefulSet statefulSet) {
-    return statefulSet?.metadata?.annotations?.get("$DEPLOYMENT_ANNOTATION/revision".toString())
-  }
-
-  // TODO: is this supported and/or necessary?
-  static String getDeploymentRevision(DaemonSet daemonSet) {
-    return daemonSet?.metadata?.annotations?.get("$DEPLOYMENT_ANNOTATION/revision".toString())
-  }
-
 }
