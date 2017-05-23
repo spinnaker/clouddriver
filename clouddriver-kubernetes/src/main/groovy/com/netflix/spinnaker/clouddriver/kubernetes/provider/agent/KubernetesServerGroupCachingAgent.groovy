@@ -248,13 +248,13 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
     List<DaemonSet> daemonSetList = loadDaemonSets()
     List<StatefulSet> statefulSetList = loadStatefulSets()
     List<KubernetesController> serverGroups = (replicationControllerList.collect {
-      it ? new KubernetesController(replicationController: it) : null
+      it ? new KubernetesController(controller: it) : null
     } + replicaSetList.collect {
-      it ? new KubernetesController(replicaSet: it) : null
+      it ? new KubernetesController(controller: it) : null
     } + daemonSetList.collect {
-      it ? new KubernetesController(daemonSet: it) : null
+      it ? new KubernetesController(controller: it) : null
     } + statefulSetList.collect {
-      it ? new KubernetesController(statefulSet: it) : null
+      it ? new KubernetesController(controller: it) : null
     }) - null
 
     List<CacheData> evictFromOnDemand = []
@@ -402,8 +402,8 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
           def autoscaler = null
           attributes.name = serverGroupName
 
-          if (serverGroup.replicaSet) {
-            if (credentials.apiAdaptor.hasDeployment(serverGroup.replicaSet)) {
+          if (serverGroup.controller in ReplicaSet) {
+            if (credentials.apiAdaptor.hasDeployment(serverGroup.controller)) {
               autoscaler = deployAutoscalers[serverGroup.namespace][clusterName]
             } else {
               autoscaler = rsAutoscalers[serverGroup.namespace][serverGroupName]
@@ -414,16 +414,11 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
             events = rcEvents[serverGroup.namespace][serverGroupName]
           }
 
-          if (serverGroup.replicaSet) {
-            attributes.serverGroup = new KubernetesServerGroup(serverGroup.replicaSet, accountName, events, autoscaler)
-          } else if (serverGroup.replicationController) {
-            attributes.serverGroup = new KubernetesServerGroup(serverGroup.replicationController, accountName, events, autoscaler)
-          } else if (serverGroup.daemonSet) {
-            attributes.serverGroup = new KubernetesServerGroup(serverGroup.daemonSet, accountName, events)
-          } else { // statefulSet
-            attributes.serverGroup = new KubernetesServerGroup(serverGroup.statefulSet, accountName, events)
+          KubernetesServerGroup kubServerGroup = new KubernetesServerGroup(serverGroup.controller, accountName, events)
+          if (autoscaler) {
+            kubServerGroup.attachAutoscaler(autoscaler)
           }
-
+          attributes.serverGroup = kubServerGroup
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
@@ -451,41 +446,30 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
   }
 
   class KubernetesController {
-    ReplicationController replicationController
-    ReplicaSet replicaSet
-    DaemonSet daemonSet
-    StatefulSet statefulSet
+    def controller
 
     String getName() {
-      replicaSet ? replicaSet.metadata.name :
-        replicationController ? replicationController.metadata.name :
-          daemonSet ? daemonSet.metadata.name :
-            statefulSet.metadata.name
+      controller.metadata.name
     }
 
     String getNamespace() {
-      replicaSet ? replicaSet.metadata.namespace :
-        replicationController ? replicationController.metadata.namespace :
-          daemonSet ? daemonSet.metadata.namespace :
-            statefulSet.metadata.namespace
+      controller.metadata.namespace
     }
 
     Map<String, String> getSelector() {
-      replicaSet ? replicaSet.spec.selector.matchLabels :
-        replicationController ? replicationController.spec.selector :
-          daemonSet ? daemonSet.spec.selector.matchLabels :
-            statefulSet.spec.selector.matchLabels
+      if (controller in ReplicationController)
+        controller.spec.selector
+      else
+        controller.spec.selector.matchLabels
     }
 
     boolean exists() {
-      replicaSet || replicationController || daemonSet || statefulSet
+      controller
     }
 
     List<String> getLoadBalancers() {
-      replicaSet ? KubernetesUtil.getLoadBalancers(replicaSet) :
-        replicationController ? KubernetesUtil.getLoadBalancers(replicationController) :
-          daemonSet ? KubernetesUtil.getLoadBalancers(daemonSet) :
-            KubernetesUtil.getLoadBalancers(statefulSet)
+      KubernetesUtil.getLoadBalancers(controller)
     }
+
   }
 }

@@ -146,7 +146,7 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     }
   }
 
-  KubernetesServerGroup(ReplicaSet replicaSet, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {
+  KubernetesServerGroup(ReplicaSet replicaSet, String account, List<Event> events) {
     this.name = replicaSet.metadata?.name
     this.account = account
     this.region = replicaSet.metadata?.namespace
@@ -164,14 +164,10 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.events = events?.collect {
       new KubernetesEvent(it)
     }
-    if (autoscaler) {
-      KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
-      this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
-    }
     this.revision = KubernetesApiAdaptor.getDeploymentRevision(replicaSet)
   }
 
-  KubernetesServerGroup(ReplicationController replicationController, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {
+  KubernetesServerGroup(ReplicationController replicationController, String account, List<Event> events) {
     this.name = replicationController.metadata?.name
     this.account = account
     this.region = replicationController.metadata?.namespace
@@ -189,10 +185,11 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.events = events?.collect {
       new KubernetesEvent(it)
     }
-    if (autoscaler) {
-      KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
-      this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
-    }
+  }
+
+  void attachAutoscaler(HorizontalPodAutoscaler autoscaler) {
+    KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
+    this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
   }
 
   @Override
