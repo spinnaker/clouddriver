@@ -46,7 +46,8 @@ class DcosConfigurationProperties {
     String name
     String uid
     String password
-    String serviceKey
+    String serviceKeyData
+    String serviceKeyFile
   }
 
   static class Account {
@@ -77,21 +78,43 @@ class DcosConfigurationProperties {
       .withCaCertFile(cluster.caCertFile).build()
   }
 
+  private static String getServiceKeyData(Account account, ClusterCredential clusterConfig) {
+    if (clusterConfig.serviceKeyData != null && clusterConfig.serviceKeyFile != null) {
+      throw new IllegalStateException("Both a serviceKeyData and serviceKeyFile were supplied for the account with name [${account.name}] and region [${clusterConfig.name}]. Only one should be configured.")
+    } else if (clusterConfig.serviceKeyData != null) {
+        return clusterConfig.serviceKeyData
+    } else if (clusterConfig.serviceKeyFile != null) {
+      try {
+        def actualFile = new File(clusterConfig.serviceKeyFile)
+
+        return actualFile.withReader('UTF-8') {
+          it.readLines().join('\n')
+        }
+      } catch (IOException e) {
+        throw new RuntimeException(e)
+      }
+    }
+
+    // We should never reach this part of the function given that we are only calling this if one of the arguments is provided.
+    throw new IllegalStateException("Either a serviceKeyData and serviceKeyFile should be supplied for the account with name [${account.name}] and region [${clusterConfig.name}]. Neither was configured.")
+  }
+
   private static DCOSAuthCredentials buildDCOSAuthCredentials(Account account, ClusterCredential clusterConfig) {
     DCOSAuthCredentials dcosAuthCredentials = null
 
-    if (!clusterConfig.uid) {
-      return dcosAuthCredentials
-    }
-
-    if (clusterConfig.password && clusterConfig.serviceKey) {
+    if (clusterConfig.uid && clusterConfig.password && (clusterConfig.serviceKeyData || clusterConfig.serviceKeyFile)) {
       throw new IllegalStateException("Both a password and serviceKey were supplied for the account with name [${account.name}] and region [${clusterConfig.name}]. Only one should be configured.")
-    } else if (clusterConfig.password) {
+    } else if (clusterConfig.uid && clusterConfig.password) {
       dcosAuthCredentials = DCOSAuthCredentials.forUserAccount(clusterConfig.uid, clusterConfig.password)
-    } else if (clusterConfig.serviceKey) {
-      dcosAuthCredentials = DCOSAuthCredentials.forServiceAccount(clusterConfig.uid, clusterConfig.serviceKey)
+    } else if (clusterConfig.uid && (clusterConfig.serviceKeyData || clusterConfig.serviceKeyFile)) {
+      clusterConfig.serviceKeyData = getServiceKeyData(account, clusterConfig)
+      dcosAuthCredentials = DCOSAuthCredentials.forServiceAccount(clusterConfig.uid, clusterConfig.serviceKeyData)
     }
 
-    return dcosAuthCredentials
+    if (dcosAuthCredentials == null) {
+      throw new IllegalStateException("DC/OS credentials for the account with name [${account.name}] and region [${clusterConfig.name}] could not be created.")
+    }
+
+    dcosAuthCredentials
   }
 }
