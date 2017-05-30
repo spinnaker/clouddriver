@@ -65,7 +65,7 @@ class CloneKubernetesAtomicOperationValidator extends DescriptionValidator<Clone
       helper.validateNamespace(credentials, description.namespace, "namespace")
     }
 
-    if ( KubernetesUtil.hasPodSpec(description) ) {
+    if (KubernetesUtil.hasPodSpec(description)) {
       if (description.podSpec.restartPolicy) {
         helper.validateRestartPolicy(description.podSpec.restartPolicy, "restartPolicy")
       }
@@ -87,7 +87,7 @@ class CloneKubernetesAtomicOperationValidator extends DescriptionValidator<Clone
       }
     }
 
-    if ( KubernetesUtil.hasPodSpec(description) ) {
+    if (KubernetesUtil.hasPodSpec(description)) {
       if (description.podSpec.containers) {
         description.podSpec.containers.eachWithIndex { container, idx ->
           KubernetesContainerValidator.validate(container, helper, "container[${idx}]")

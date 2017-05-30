@@ -95,7 +95,7 @@ class CloneKubernetesAtomicOperation implements AtomicOperation<DeploymentResult
     newDescription.namespace = description.namespace ?: description.source.namespace
     newDescription.loadBalancers = description.loadBalancers != null ? description.loadBalancers : KubernetesUtil.getLoadBalancers(ancestorServerGroup)
 
-    if ( KubernetesUtil.hasPodSpec(description) ) {
+    if (KubernetesUtil.hasPodSpec(description)) {
       def podSpec = description.podSpec
       newDescription.podSpec.restartPolicy = podSpec.restartPolicy ?: ancestorServerGroup.spec?.template?.spec?.restartPolicy
       newDescription.podSpec.nodeSelector = podSpec.nodeSelector ?: ancestorServerGroup.spec?.template?.spec?.nodeSelector

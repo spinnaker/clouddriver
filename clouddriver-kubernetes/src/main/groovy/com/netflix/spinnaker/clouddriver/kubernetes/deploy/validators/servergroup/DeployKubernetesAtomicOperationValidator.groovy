@@ -61,7 +61,7 @@ class DeployKubernetesAtomicOperationValidator extends DescriptionValidator<Depl
       helper.validateName(name, "securityGroups[${idx}]")
     }
 
-    if ( KubernetesUtil.hasPodSpec(description) ) {
+    if (KubernetesUtil.hasPodSpec(description)) {
 
       helper.validateRestartPolicy(description.podSpec.restartPolicy, "restartPolicy")
 

@@ -85,7 +85,7 @@ class CloneKubernetesJobAtomicOperation implements AtomicOperation<DeploymentRes
     if (!description.container) {
       newDescription.container = KubernetesApiConverter.fromContainer(ancestorPod.spec?.containers?.get(0))
     }
-    if ( KubernetesUtil.hasPodSpec(description) ) {
+    if (KubernetesUtil.hasPodSpec(description)) {
       if (!description.podSpec.containers) {
         newDescription.podSpec.containers = KubernetesApiConverter.fromContainer(ancestorPod.spec?.containers?.get(0))
       }

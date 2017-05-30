@@ -64,7 +64,7 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     def imageList = []
     def buildInfo = [:]
 
-    if ( KubernetesUtil.hasPodSpec(this.deployDescription) ) {
+    if (KubernetesUtil.hasPodSpec(this.deployDescription)) {
       for (def container : this.deployDescription.podSpec.containers) {
         imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
       }
@@ -182,7 +182,7 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
       @Override
       List<? extends ServerGroup.ImageSummary> getSummaries () {
         def containers = new ArrayList<KubernetesContainerDescription>()
-        if ( KubernetesUtil.hasPodSpec(deployDescription) ) {
+        if (KubernetesUtil.hasPodSpec(deployDescription)) {
           containers = deployDescription.podSpec?.containers
         } else {
           containers = deployDescription.containers

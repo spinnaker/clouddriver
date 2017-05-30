@@ -62,7 +62,7 @@ class CloneKubernetesJobAtomicOperationValidator extends DescriptionValidator<Cl
       helper.validateNamespace(credentials, description.namespace, "namespace")
     }
 
-    if ( KubernetesUtil.hasPodSpec(description) ) {
+    if (KubernetesUtil.hasPodSpec(description)) {
       KubernetesPodSpecDescription podSpec = description.podSpec
       if (podSpec.containers) {
         KubernetesContainerValidator.validate(podSpec.containers.get(0), helper, "container")

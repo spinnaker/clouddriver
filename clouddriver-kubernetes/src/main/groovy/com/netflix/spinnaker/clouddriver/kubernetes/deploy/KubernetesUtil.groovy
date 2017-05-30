@@ -46,7 +46,7 @@ class KubernetesUtil {
     def maxSeqNumber = -1
     def replicationControllers = credentials.apiAdaptor.getReplicationControllers(namespace)
 
-    replicationControllers.forEach( { replicationController ->
+    replicationControllers.forEach({ replicationController ->
       def names = Names.parseName(replicationController.getMetadata().getName())
 
       if (names.cluster == clusterName) {

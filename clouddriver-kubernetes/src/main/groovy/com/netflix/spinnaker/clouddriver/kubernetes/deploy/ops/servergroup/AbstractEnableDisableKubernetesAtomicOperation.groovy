@@ -110,7 +110,7 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
       throw new KubernetesOperationException("No replication controller or replica set $description.serverGroupName in $namespace.")
 
     KubernetesServerGroup serverGroup = clusterProviders.getServerGroup(description.account, namespace, description.serverGroupName)
-    serverGroup.instances.forEach( { instance -> pods.add(instance.getPod())})
+    serverGroup.instances.forEach({ instance -> pods.add(instance.getPod())})
 
     if (!pods) {
       task.updateStatus basePhase, "No pods to ${basePhase.toLowerCase()}. Operation finshed successfully."

@@ -933,7 +933,7 @@ class KubernetesApiConverter {
     KubernetesPodSpecDescription podSpec = new KubernetesPodSpecDescription()
     podSpec = description.podSpec
 
-    if ( podSpec ) {
+    if (podSpec) {
       if (podSpec.restartPolicy) {
         podTemplateSpecBuilder.withRestartPolicy(podSpec.restartPolicy)
       }
