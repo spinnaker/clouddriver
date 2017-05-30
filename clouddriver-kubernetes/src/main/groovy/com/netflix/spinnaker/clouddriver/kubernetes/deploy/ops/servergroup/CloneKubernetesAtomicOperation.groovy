@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.CloneKubernetesAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesPodSpecDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import io.fabric8.kubernetes.api.model.ReplicationController
@@ -93,12 +94,25 @@ class CloneKubernetesAtomicOperation implements AtomicOperation<DeploymentResult
     newDescription.targetSize = description.targetSize ?: ancestorServerGroup.spec?.replicas
     newDescription.namespace = description.namespace ?: description.source.namespace
     newDescription.loadBalancers = description.loadBalancers != null ? description.loadBalancers : KubernetesUtil.getLoadBalancers(ancestorServerGroup)
-    newDescription.restartPolicy = description.restartPolicy ?: ancestorServerGroup.spec?.template?.spec?.restartPolicy
-    newDescription.nodeSelector = description.nodeSelector ?: ancestorServerGroup.spec?.template?.spec?.nodeSelector
-    newDescription.hostNetwork = description.hostNetwork ?: ancestorServerGroup.spec?.template?.spec?.hostNetwork
-    if (!description.containers) {
-      newDescription.containers = ancestorServerGroup.spec?.template?.spec?.containers?.collect { it ->
-        KubernetesApiConverter.fromContainer(it)
+
+    if ( KubernetesUtil.hasPodSpec(description) ) {
+      def podSpec = description.podSpec
+      newDescription.podSpec.restartPolicy = podSpec.restartPolicy ?: ancestorServerGroup.spec?.template?.spec?.restartPolicy
+      newDescription.podSpec.nodeSelector = podSpec.nodeSelector ?: ancestorServerGroup.spec?.template?.spec?.nodeSelector
+      newDescription.podSpec.hostNetwork = podSpec.hostNetwork ?: ancestorServerGroup.spec?.template?.spec?.hostNetwork
+      if (!podSpec.containers) {
+        newDescription.podSpec.containers = ancestorServerGroup.spec?.template?.spec?.containers?.collect { it ->
+          KubernetesApiConverter.fromContainer(it)
+        }
+      }
+    } else {
+      newDescription.restartPolicy = description.restartPolicy ?: ancestorServerGroup.spec?.template?.spec?.restartPolicy
+      newDescription.nodeSelector = description.nodeSelector ?: ancestorServerGroup.spec?.template?.spec?.nodeSelector
+      newDescription.hostNetwork = description.hostNetwork ?: ancestorServerGroup.spec?.template?.spec?.hostNetwork
+      if (!description.containers) {
+        newDescription.containers = ancestorServerGroup.spec?.template?.spec?.containers?.collect { it ->
+          KubernetesApiConverter.fromContainer(it)
+        }
       }
     }
 

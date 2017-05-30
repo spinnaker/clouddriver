@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.job
 
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.job.RunKubernetesJobDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.KubernetesContainerValidator
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.KubernetesVolumeSourceValidator
@@ -49,14 +50,25 @@ class RunKubernetesJobAtomicOperationValidator extends DescriptionValidator<RunK
     helper.validateStack(description.stack, "stack")
     helper.validateDetails(description.freeFormDetails, "details")
     helper.validateNamespace(credentials, description.namespace, "namespace")
+    
+    if (description.podSpec) {
+      description.podSpec.volumeSources.eachWithIndex { source, idx ->
+        KubernetesVolumeSourceValidator.validate(source, helper, "volumeSources[${idx}]")
+      }
 
-    description.volumeSources.eachWithIndex { source, idx ->
-      KubernetesVolumeSourceValidator.validate(source, helper, "volumeSources[${idx}]")
+      helper.validateNotEmpty(description.podSpec.containers.get(0), "containers")
+      description.podSpec.containers.get(0).name = description.podSpec.containers.get(0).name ?: "job"
+      KubernetesContainerValidator.validate(description.podSpec.containers.get(0), helper, "container")
+    } else {
+      description.volumeSources.eachWithIndex { source, idx ->
+        KubernetesVolumeSourceValidator.validate(source, helper, "volumeSources[${idx}]")
+      }
+
+      helper.validateNotEmpty(description.container, "containers")
+      description.container.name = description.container.name ?: "job"
+      KubernetesContainerValidator.validate(description.container, helper, "container")
     }
-
-    helper.validateNotEmpty(description.container, "containers")
-    description.container.name = description.container.name ?: "job"
-    KubernetesContainerValidator.validate(description.container, helper, "container")
   }
 }
+
 

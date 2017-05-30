@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.servergro
 
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.CloneKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.KubernetesContainerValidator
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.StandardKubernetesAttributeValidator
@@ -64,8 +65,14 @@ class CloneKubernetesAtomicOperationValidator extends DescriptionValidator<Clone
       helper.validateNamespace(credentials, description.namespace, "namespace")
     }
 
-    if (description.restartPolicy) {
-      helper.validateRestartPolicy(description.restartPolicy, "restartPolicy")
+    if ( KubernetesUtil.hasPodSpec(description) ) {
+      if (description.podSpec.restartPolicy) {
+        helper.validateRestartPolicy(description.podSpec.restartPolicy, "restartPolicy")
+      }
+    } else {
+      if (description.restartPolicy) {
+        helper.validateRestartPolicy(description.restartPolicy, "restartPolicy")
+      }
     }
 
     if (description.loadBalancers) {
@@ -80,9 +87,17 @@ class CloneKubernetesAtomicOperationValidator extends DescriptionValidator<Clone
       }
     }
 
-    if (description.containers) {
-      description.containers.eachWithIndex { container, idx ->
-        KubernetesContainerValidator.validate(container, helper, "container[${idx}]")
+    if ( KubernetesUtil.hasPodSpec(description) ) {
+      if (description.podSpec.containers) {
+        description.podSpec.containers.eachWithIndex { container, idx ->
+          KubernetesContainerValidator.validate(container, helper, "container[${idx}]")
+        }
+      }
+    } else {
+      if (description.containers) {
+        description.containers.eachWithIndex { container, idx ->
+          KubernetesContainerValidator.validate(container, helper, "container[${idx}]")
+        }
       }
     }
   }

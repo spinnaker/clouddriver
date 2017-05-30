@@ -63,8 +63,15 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   Map<String, Object> getBuildInfo() {
     def imageList = []
     def buildInfo = [:]
-    for (def container : this.deployDescription.containers) {
-      imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
+
+    if ( KubernetesUtil.hasPodSpec(this.deployDescription) ) {
+      for (def container : this.deployDescription.podSpec.containers) {
+        imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
+      }
+    } else {
+      for (def container : this.deployDescription.containers) {
+        imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
+      }
     }
 
     buildInfo.images = imageList
@@ -174,7 +181,14 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     return new ServerGroup.ImagesSummary() {
       @Override
       List<? extends ServerGroup.ImageSummary> getSummaries () {
-        deployDescription.containers.collect({ KubernetesContainerDescription it ->
+        def containers = new ArrayList<KubernetesContainerDescription>()
+        if ( KubernetesUtil.hasPodSpec(deployDescription) ) {
+          containers = deployDescription.podSpec?.containers
+        } else {
+          containers = deployDescription.containers
+        }
+
+        containers.collect({ KubernetesContainerDescription it ->
           new ServerGroup.ImageSummary() {
             String serverGroupName = name
             String imageName = it.name

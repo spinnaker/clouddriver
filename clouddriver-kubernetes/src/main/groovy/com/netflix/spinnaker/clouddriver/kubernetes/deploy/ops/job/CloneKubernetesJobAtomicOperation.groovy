@@ -21,7 +21,9 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiConverter
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.job.CloneKubernetesJobAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesPodSpecDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import io.fabric8.kubernetes.api.model.Pod
@@ -79,8 +81,14 @@ class CloneKubernetesJobAtomicOperation implements AtomicOperation<DeploymentRes
     newDescription.stack = description.stack ?: ancestorNames.stack
     newDescription.freeFormDetails = description.freeFormDetails ?: ancestorNames.detail
     newDescription.namespace = description.namespace ?: description.source.namespace
+
     if (!description.container) {
       newDescription.container = KubernetesApiConverter.fromContainer(ancestorPod.spec?.containers?.get(0))
+    }
+    if ( KubernetesUtil.hasPodSpec(description) ) {
+      if (!description.podSpec.containers) {
+        newDescription.podSpec.containers = KubernetesApiConverter.fromContainer(ancestorPod.spec?.containers?.get(0))
+      }
     }
 
     return newDescription

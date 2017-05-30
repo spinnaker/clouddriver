@@ -72,6 +72,9 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
 
     def namespace = KubernetesUtil.validateNamespace(credentials, description.namespace)
     description.imagePullSecrets = credentials.imagePullSecrets[namespace]
+    if ( KubernetesUtil.hasPodSpec(description)) {
+      description.podSpec.imagePullSecrets = credentials.imagePullSecrets[namespace]
+    }
 
     def serverGroupNameResolver = new KubernetesServerGroupNameResolver(namespace, credentials)
     def clusterName = serverGroupNameResolver.combineAppStackDetail(description.application, description.stack, description.freeFormDetails)
