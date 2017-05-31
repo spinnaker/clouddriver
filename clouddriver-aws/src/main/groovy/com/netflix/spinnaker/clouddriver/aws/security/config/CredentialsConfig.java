@@ -324,6 +324,7 @@ public class CredentialsConfig {
     }
 
     private String defaultKeyPairTemplate;
+    private String defaultKeyPair;
     private List<Region> defaultRegions;
     private List<String> defaultSecurityGroups;
     private List<LifecycleHook> defaultLifecycleHooks;
@@ -344,6 +345,14 @@ public class CredentialsConfig {
 
     public void setDefaultKeyPairTemplate(String defaultKeyPairTemplate) {
         this.defaultKeyPairTemplate = defaultKeyPairTemplate;
+    }
+
+    public String getDefaultKeyPair() {
+        return defaultKeyPair;
+    }
+
+    public void setDefaultKeyPair(String defaultKeyPair) {
+        this.defaultKeyPair = defaultKeyPair;
     }
 
     public List<Region> getDefaultRegions() {
