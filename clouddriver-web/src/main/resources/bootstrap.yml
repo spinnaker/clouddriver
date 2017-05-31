@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: clouddriver
+  cloud:
+    config:
+      uri: ${figUrl:http://localhost:8888}
