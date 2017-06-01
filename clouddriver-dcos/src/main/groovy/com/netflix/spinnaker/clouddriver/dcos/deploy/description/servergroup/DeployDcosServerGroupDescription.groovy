@@ -91,8 +91,14 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
 
     String network
     boolean privileged
-    Map<String, String> parameters
+    List<Parameter> parameters
     boolean forcePullImage
+  }
+
+  @Canonical
+  static class Parameter {
+    String key
+    String value
   }
 
   @Canonical

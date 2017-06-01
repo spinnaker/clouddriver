@@ -88,7 +88,13 @@ class AppToDeployDcosServerGroupDescriptionMapper {
           return it
         }
 
-        parameters = appDocker.parameters?.collectEntries { [(it.key): it.value] }
+        parameters = appDocker.parameters?.collect { parameter ->
+          new DeployDcosServerGroupDescription.Parameter().with {
+            key = parameter.key
+            value = parameter.value
+            it
+          }
+        }
         return it
       }
 
