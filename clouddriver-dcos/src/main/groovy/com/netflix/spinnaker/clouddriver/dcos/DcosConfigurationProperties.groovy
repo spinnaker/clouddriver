@@ -111,10 +111,6 @@ class DcosConfigurationProperties {
       dcosAuthCredentials = DCOSAuthCredentials.forServiceAccount(clusterConfig.uid, clusterConfig.serviceKeyData)
     }
 
-    if (dcosAuthCredentials == null) {
-      throw new IllegalStateException("DC/OS credentials for the account with name [${account.name}] and region [${clusterConfig.name}] could not be created.")
-    }
-
     dcosAuthCredentials
   }
 }
