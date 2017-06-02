@@ -52,6 +52,9 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
   DcosJobStatus collectJob(String account, String location, String id) {
     def credentials = credentialsProvider.getCredentials(account)
 
+    // Because of how the job endpoint within Clouddriver works (by looping through ALL providers for valid job
+    // statuses), we want to protect against non-DCOS credentials and return null so that we don't break the job
+    // endpoint by throwing an exception (which will return a 500 to the caller).
     if (!(credentials instanceof DcosAccountCredentials)) {
       return null
     }
@@ -67,6 +70,9 @@ class DcosJobProvider implements JobProvider<DcosJobStatus> {
   Map<String, Object> getFileContents(String account, String location, String id, String fileName) {
     def credentials = credentialsProvider.getCredentials(account)
 
+    // Similar to above of how the job endpoint within Clouddriver works (by looping through ALL providers for a valid
+    // map), we want to protect against non-DCOS credentials and return an empty map so that we don't break the
+    // job endpoint by throwing an exception (which will return a 500 to the caller).
     if (!(credentials instanceof DcosAccountCredentials)) {
       return [:]
     }
