@@ -1,4 +1,5 @@
 *.class
+cache/
 out/
 .gradle/
 build/
@@ -13,3 +14,4 @@ README.html
 *~
 es-tmp/
 clouddriver-oracle-bmcs/bmcs-sdk
+cache/
