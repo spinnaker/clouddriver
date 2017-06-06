@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.dcos.cache.Keys
 import com.netflix.spinnaker.clouddriver.dcos.deploy.util.id.MarathonPathId
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.fiat.model.resources.Permissions
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -36,6 +37,7 @@ class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
   final String accountType
   final List<LinkedDockerRegistryConfiguration> dockerRegistries
   final List<String> requiredGroupMembership
+  final Permissions permissions
   final List<DcosRegion> regions
   // Not really a fan of creating this just for use within deck, but it works for now
   final List<DcosClusterInfo> dcosClusters
@@ -48,6 +50,7 @@ class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
                          String accountType,
                          List<LinkedDockerRegistryConfiguration> dockerRegistries,
                          List<String> requiredGroupMembership,
+                         Permissions permissions,
                          List<DcosClusterCredentials> clusters) {
     this.name = account
     this.account = account
@@ -55,6 +58,7 @@ class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
     this.accountType = accountType
     this.dockerRegistries = dockerRegistries != null ? dockerRegistries : new ArrayList<>()
     this.requiredGroupMembership = requiredGroupMembership
+    this.permissions = permissions
     this.dcosClusterCredentials = new DcosCredentialMap(clusters)
     this.dcosClusters = clusters.collect({ new DcosClusterInfo(it.name, it.dcosUrl, it.dockerRegistries) })
     this.regions = clusters.collect({ new DcosRegion(it.name) })
@@ -86,6 +90,7 @@ class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
     private String accountType
     private List<LinkedDockerRegistryConfiguration> dockerRegistries
     private List<String> requiredGroupMembership
+    private Permissions permissions
     private List<DcosClusterCredentials> clusters
 
     Builder account(String account) {
@@ -118,6 +123,14 @@ class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
       return this
     }
 
+    Builder permissions(final Permissions permissions) {
+      if (permissions.isRestricted()) {
+        this.requiredGroupMembership = []
+        this.permissions = permissions
+      }
+      return this
+    }
+
     DcosAccountCredentials build() {
       if (!account) {
         throw new IllegalArgumentException("Account name for DC/OS provider is missing.")
@@ -140,7 +153,7 @@ class DcosAccountCredentials implements AccountCredentials<DcosCredentialMap> {
 
       requiredGroupMembership = requiredGroupMembership ? Collections.unmodifiableList(requiredGroupMembership) : []
 
-      new DcosAccountCredentials(account, environment, accountType, dockerRegistries, requiredGroupMembership, clusters)
+      new DcosAccountCredentials(account, environment, accountType, dockerRegistries, requiredGroupMembership, permissions, clusters)
     }
 
   }

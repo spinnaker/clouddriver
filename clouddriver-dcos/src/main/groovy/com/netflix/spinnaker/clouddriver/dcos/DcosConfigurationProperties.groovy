@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.dcos
 
+import com.netflix.spinnaker.fiat.model.resources.Permissions
 import groovy.transform.ToString
 import mesosphere.dcos.client.Config
 import mesosphere.dcos.client.model.DCOSAuthCredentials
@@ -57,6 +58,7 @@ class DcosConfigurationProperties {
     List<ClusterCredential> clusters
     List<LinkedDockerRegistryConfiguration> dockerRegistries
     List<String> requiredGroupMembership
+    Permissions.Builder permissions = new Permissions.Builder()
   }
 
   static class LoadBalancerConfig {

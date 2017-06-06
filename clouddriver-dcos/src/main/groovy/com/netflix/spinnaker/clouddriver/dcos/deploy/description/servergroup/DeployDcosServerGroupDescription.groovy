@@ -19,11 +19,12 @@ package com.netflix.spinnaker.clouddriver.dcos.deploy.description.servergroup
 
 import com.netflix.spinnaker.clouddriver.dcos.deploy.description.AbstractDcosCredentialsDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
+import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
 
 @AutoClone
-class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescription implements DeployDescription {
+class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescription implements DeployDescription, ApplicationNameable {
   String application
   String stack
   String freeFormDetails
