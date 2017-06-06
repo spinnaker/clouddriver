@@ -34,7 +34,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
                 docker: new DeployDcosServerGroupDescription.Docker(privileged: false, forcePullImage: true,
                         network: "BRIDGE",
                         image: new DeployDcosServerGroupDescription.Image(imageId: "some/image:latest"),
-                        parameters: ["param": "value"]),
+                        parameters: [new DeployDcosServerGroupDescription.Parameter(key: 'param', value: 'value')]),
                 readinessChecks: [new DeployDcosServerGroupDescription.ReadinessCheck(name: 'check', protocol: 'tcp',
                         portName: 'checkPort', path: '/meta/health', intervalSeconds: 30, timeoutSeconds: 270,
                         httpStatusCodesForReady: [200, 201], preserveLastResponse: false)],
@@ -131,7 +131,7 @@ class DeployDcosServerGroupDescriptionToAppMapperSpec extends Specification {
         })
 
         app.container.docker.parameters.size() == description.docker.parameters.size()
-        [app.container.docker.parameters, description.docker.parameters.entrySet().asList()].transpose().forEach({ appParameter, descriptionParameter ->
+        [app.container.docker.parameters, description.docker.parameters.asList()].transpose().forEach({ appParameter, descriptionParameter ->
             assert appParameter.key == descriptionParameter.key
             assert appParameter.value == descriptionParameter.value
         })

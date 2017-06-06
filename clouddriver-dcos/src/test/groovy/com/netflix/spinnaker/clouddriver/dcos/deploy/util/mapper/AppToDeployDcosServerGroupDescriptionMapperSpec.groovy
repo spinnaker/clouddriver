@@ -193,7 +193,11 @@ class AppToDeployDcosServerGroupDescriptionMapperSpec extends Specification {
     desc.docker.privileged
     desc.docker.forcePullImage
     desc.docker.network == 'HOST'
-    desc.docker.parameters == [key1: 'value1', key2: 'value2']
+    [desc.docker.parameters, [new Parameter(key: 'key1', value: 'value1'), new Parameter(key: 'key2', value: 'value2')]].transpose().forEach({ appParameter, descriptionParameter ->
+      assert appParameter.key == descriptionParameter.key
+      assert appParameter.value == descriptionParameter.value
+    })
+
 
     desc.networkType == 'HOST'
   }
