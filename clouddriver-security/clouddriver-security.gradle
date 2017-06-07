@@ -4,6 +4,7 @@ dependencies {
   compile spinnaker.dependency('kork')
   compile spinnaker.dependency('slf4j')
   compile project(':cats:cats-core')
+  compile spinnaker.dependency('korkSecurity')
 
   compile "com.netflix.spinnaker.fiat:fiat-api:0.26.0"
   compile spinnaker.dependency('frigga')

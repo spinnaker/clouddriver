@@ -16,9 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.security
 
+import com.netflix.spinnaker.security.User
+import org.springframework.security.authentication.TestingAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
+import spock.lang.Unroll
 
 class DefaultAccountCredentialsProviderSpec extends Specification {
 
@@ -28,6 +32,11 @@ class DefaultAccountCredentialsProviderSpec extends Specification {
   def setup() {
     repo = Mock(AccountCredentialsRepository)
     provider = new DefaultAccountCredentialsProvider(repo)
+    SecurityContextHolder.clearContext()
+  }
+
+  def cleanup() {
+    SecurityContextHolder.clearContext()
   }
 
   void "should call repo to retrieve objects"() {
@@ -47,4 +56,80 @@ class DefaultAccountCredentialsProviderSpec extends Specification {
       key = "foo"
   }
 
+  def "should not return accounts to users not in requiredGroupMembership from getAll"() {
+    setup:
+      AccountCredentials openCreds = Mock(AccountCredentials) {
+        getRequiredGroupMembership() >> []
+      }
+      AccountCredentials closedCreds = Mock(AccountCredentials) {
+        getRequiredGroupMembership() >> ["VIPs"]
+      }
+      repo.getAll() >> [openCreds, closedCreds]
+
+    when:
+      Set results = provider.all
+
+    then:
+      results.size() == 1
+      results.first() == openCreds
+
+    when:
+      userWithAccounts(["VIPs"])
+      results = provider.all
+
+    then:
+      results.size() == 2
+      results.contains(openCreds)
+      results.contains(closedCreds)
+
+    when:
+      userWithAccounts(["someOtherVIPs"])
+      results = provider.all
+
+    then:
+      results.size() == 1
+      results.first() == openCreds
+  }
+
+  @Unroll
+  def "should not return accounts to users not in requiredGroupMembership from getCredentials"() {
+    setup:
+      AccountCredentials creds = Mock(AccountCredentials) {
+        getRequiredGroupMembership() >> reqMembership
+      }
+      repo.getOne("abc") >> creds
+
+    when:
+      userWithAccounts(allowedAccounts)
+      def result = provider.getCredentials("abc")
+
+    then:
+      // Groovy won't let me return creds in the data table for some reason.
+      returnCreds ? result == creds : result == null
+
+    where:
+      reqMembership | allowedAccounts || returnCreds
+      []            | []              || true
+      []            | ["a"]           || true
+      ["a"]         | []              || false
+      ["a"]         | ["b"]           || false
+      ["a"]         | ["a"]           || true
+  }
+
+  def "should deny access if no credential is found"() {
+    setup:
+      repo.getOne("abc") >> null // happens by default, but just to be clear.
+
+    when:
+      def result = provider.getCredentials("abc")
+
+    then:
+      result == null
+  }
+
+  def userWithAccounts(List accounts) {
+    def ctx = SecurityContextHolder.createEmptyContext()
+    ctx.setAuthentication(new TestingAuthenticationToken(new User(allowedAccounts: accounts), null))
+    SecurityContextHolder.setContext(ctx)
+  }
 }
