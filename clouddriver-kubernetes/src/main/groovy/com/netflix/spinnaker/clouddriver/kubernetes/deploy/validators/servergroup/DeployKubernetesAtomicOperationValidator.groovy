@@ -52,11 +52,6 @@ class DeployKubernetesAtomicOperationValidator extends DescriptionValidator<Depl
     helper.validateDetails(description.freeFormDetails, "details")
     helper.validateNonNegative(description.targetSize, "targetSize")
     helper.validateNamespace(credentials, description.namespace, "namespace")
-    helper.validateRestartPolicy(description.restartPolicy, "restartPolicy")
-
-    description.volumeSources.eachWithIndex { source, idx ->
-      KubernetesVolumeSourceValidator.validate(source, helper, "volumeSources[${idx}]")
-    }
 
     description.loadBalancers.eachWithIndex { name, idx ->
       helper.validateName(name, "loadBalancers[${idx}]")
@@ -66,9 +61,28 @@ class DeployKubernetesAtomicOperationValidator extends DescriptionValidator<Depl
       helper.validateName(name, "securityGroups[${idx}]")
     }
 
-    helper.validateNotEmpty(description.containers, "containers")
-    description.containers.eachWithIndex { container, idx ->
-      KubernetesContainerValidator.validate(container, helper, "container[${idx}]")
+    if (KubernetesUtil.hasPodSpec(description)) {
+
+      helper.validateRestartPolicy(description.podSpec.restartPolicy, "restartPolicy")
+
+      description.podSpec.volumeSources.eachWithIndex { source, idx ->
+        KubernetesVolumeSourceValidator.validate(source, helper, "volumeSources[${idx}]")
+      }
+      helper.validateNotEmpty(description.podSpec.containers, "containers")
+      description.podSpec.containers.eachWithIndex { container, idx ->
+        KubernetesContainerValidator.validate(container, helper, "container[${idx}]")
+      }
+    } else {
+
+      helper.validateRestartPolicy(description.restartPolicy, "restartPolicy")
+
+      description.volumeSources.eachWithIndex { source, idx ->
+        KubernetesVolumeSourceValidator.validate(source, helper, "volumeSources[${idx}]")
+      }
+      helper.validateNotEmpty(description.containers, "containers")
+      description.containers.eachWithIndex { container, idx ->
+        KubernetesContainerValidator.validate(container, helper, "container[${idx}]")
+      }
     }
 
     if (description.scalingPolicy) {

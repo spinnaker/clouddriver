@@ -18,7 +18,9 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.job
 
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.job.CloneKubernetesJobAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesPodSpecDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.KubernetesContainerValidator
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.StandardKubernetesAttributeValidator
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
@@ -60,8 +62,15 @@ class CloneKubernetesJobAtomicOperationValidator extends DescriptionValidator<Cl
       helper.validateNamespace(credentials, description.namespace, "namespace")
     }
 
-    if (description.container) {
-      KubernetesContainerValidator.validate(description.container, helper, "container")
+    if (KubernetesUtil.hasPodSpec(description)) {
+      KubernetesPodSpecDescription podSpec = description.podSpec
+      if (podSpec.containers) {
+        KubernetesContainerValidator.validate(podSpec.containers.get(0), helper, "container")
+      }
+    } else {
+      if (description.container) {
+        KubernetesContainerValidator.validate(description.container, helper, "container")
+      }
     }
   }
 }

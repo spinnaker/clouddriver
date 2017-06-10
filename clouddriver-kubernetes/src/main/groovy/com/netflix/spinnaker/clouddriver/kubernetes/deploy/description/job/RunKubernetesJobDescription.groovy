@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.Kubernete
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesContainerDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesImageDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesVolumeSource
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesPodSpecDescription
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
 
@@ -34,4 +35,5 @@ class RunKubernetesJobDescription extends KubernetesAtomicOperationDescription {
   Map<String, String> nodeSelector
   KubernetesContainerDescription container
   List<KubernetesVolumeSource> volumeSources
+  KubernetesPodSpecDescription podSpec
 }

@@ -627,6 +627,24 @@ class KubernetesApiConverter {
 
     deployDescription.nodeSelector = replicaSet?.spec?.template?.spec?.nodeSelector
 
+    //build podSpec
+    KubernetesPodSpecDescription podSpec = new KubernetesPodSpecDescription()
+
+    podSpec.volumeSources = replicaSet?.spec?.template?.spec?.volumes?.collect {
+      fromVolume(it)
+    } ?: []
+
+    podSpec.hostNetwork = replicaSet?.spec?.template?.spec?.hostNetwork
+    podSpec.containers = replicaSet?.spec?.template?.spec?.containers?.collect {
+      fromContainer(it)
+    } ?: []
+
+    podSpec.terminationGracePeriodSeconds = replicaSet?.spec?.template?.spec?.terminationGracePeriodSeconds
+
+    podSpec.nodeSelector = replicaSet?.spec?.template?.spec?.nodeSelector
+
+    deployDescription.podSpec = podSpec
+
     return deployDescription
   }
 
@@ -682,6 +700,23 @@ class KubernetesApiConverter {
     deployDescription.terminationGracePeriodSeconds = replicationController?.spec?.template?.spec?.terminationGracePeriodSeconds
 
     deployDescription.nodeSelector = replicationController?.spec?.template?.spec?.nodeSelector
+
+    //Build podSpec
+    KubernetesPodSpecDescription podSpec = new KubernetesPodSpecDescription()
+
+    podSpec.volumeSources = replicationController?.spec?.template?.spec?.volumes?.collect {
+      fromVolume(it)
+    } ?: []
+
+    podSpec.containers = replicationController?.spec?.template?.spec?.containers?.collect {
+      fromContainer(it)
+    } ?: []
+
+    podSpec.terminationGracePeriodSeconds = replicationController?.spec?.template?.spec?.terminationGracePeriodSeconds
+
+    podSpec.nodeSelector = replicationController?.spec?.template?.spec?.nodeSelector
+
+    deployDescription.podSpec = podSpec
 
     return deployDescription
   }
@@ -895,38 +930,74 @@ class KubernetesApiConverter {
       .endMetadata()
       .withNewSpec()
 
-    if (description.restartPolicy) {
-      podTemplateSpecBuilder.withRestartPolicy(description.restartPolicy)
-    }
+    KubernetesPodSpecDescription podSpec = new KubernetesPodSpecDescription()
+    podSpec = description.podSpec
 
-    if (description.terminationGracePeriodSeconds) {
-      podTemplateSpecBuilder.withTerminationGracePeriodSeconds(description.terminationGracePeriodSeconds)
-    }
-
-    podTemplateSpecBuilder = podTemplateSpecBuilder.withImagePullSecrets()
-
-    for (def imagePullSecret : description.imagePullSecrets) {
-      podTemplateSpecBuilder = podTemplateSpecBuilder.addNewImagePullSecret(imagePullSecret)
-    }
-
-    podTemplateSpecBuilder = podTemplateSpecBuilder.withNodeSelector(description.nodeSelector)
-
-    if (description.volumeSources) {
-      def volumeSources = description.volumeSources.findResults { volumeSource ->
-        toVolumeSource(volumeSource)
+    if (podSpec) {
+      if (podSpec.restartPolicy) {
+        podTemplateSpecBuilder.withRestartPolicy(podSpec.restartPolicy)
       }
 
-      podTemplateSpecBuilder = podTemplateSpecBuilder.withVolumes(volumeSources)
+      if (podSpec.terminationGracePeriodSeconds) {
+        podTemplateSpecBuilder.withTerminationGracePeriodSeconds(podSpec.terminationGracePeriodSeconds)
+      }
+
+      podTemplateSpecBuilder = podTemplateSpecBuilder.withImagePullSecrets()
+
+      for (def imagePullSecret : podSpec.imagePullSecrets) {
+        podTemplateSpecBuilder = podTemplateSpecBuilder.addNewImagePullSecret(imagePullSecret)
+      }
+
+      podTemplateSpecBuilder = podTemplateSpecBuilder.withNodeSelector(podSpec.nodeSelector)
+
+      if (podSpec.volumeSources) {
+        def volumeSources = podSpec.volumeSources.findResults { volumeSource ->
+          toVolumeSource(volumeSource)
+        }
+
+        podTemplateSpecBuilder = podTemplateSpecBuilder.withVolumes(volumeSources)
+      }
+
+      podTemplateSpecBuilder = podTemplateSpecBuilder.withHostNetwork(podSpec.hostNetwork)
+
+      def containers = podSpec.containers.collect { container ->
+        toContainer(container)
+      }
+
+      podTemplateSpecBuilder = podTemplateSpecBuilder.withContainers(containers)
+    } else {
+      if (description.restartPolicy) {
+        podTemplateSpecBuilder.withRestartPolicy(description.restartPolicy)
+      }
+
+      if (description.terminationGracePeriodSeconds) {
+        podTemplateSpecBuilder.withTerminationGracePeriodSeconds(description.terminationGracePeriodSeconds)
+      }
+
+      podTemplateSpecBuilder = podTemplateSpecBuilder.withImagePullSecrets()
+
+      for (def imagePullSecret : description.imagePullSecrets) {
+        podTemplateSpecBuilder = podTemplateSpecBuilder.addNewImagePullSecret(imagePullSecret)
+      }
+
+      podTemplateSpecBuilder = podTemplateSpecBuilder.withNodeSelector(description.nodeSelector)
+
+      if (description.volumeSources) {
+        def volumeSources = description.volumeSources.findResults { volumeSource ->
+          toVolumeSource(volumeSource)
+        }
+
+        podTemplateSpecBuilder = podTemplateSpecBuilder.withVolumes(volumeSources)
+      }
+
+      podTemplateSpecBuilder = podTemplateSpecBuilder.withHostNetwork(description.hostNetwork)
+
+      def containers = description.containers.collect { container ->
+        toContainer(container)
+      }
+
+      podTemplateSpecBuilder = podTemplateSpecBuilder.withContainers(containers)
     }
-
-    podTemplateSpecBuilder = podTemplateSpecBuilder.withHostNetwork(description.hostNetwork)
-
-    def containers = description.containers.collect { container ->
-      toContainer(container)
-    }
-
-    podTemplateSpecBuilder = podTemplateSpecBuilder.withContainers(containers)
-
     return podTemplateSpecBuilder.endSpec().build()
   }
 

@@ -19,6 +19,8 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy
 import com.netflix.frigga.NameValidation
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesImageDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.DeployKubernetesAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesPodSpecDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesIllegalArgumentException
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
 import io.fabric8.kubernetes.api.model.Pod
@@ -44,7 +46,7 @@ class KubernetesUtil {
     def maxSeqNumber = -1
     def replicationControllers = credentials.apiAdaptor.getReplicationControllers(namespace)
 
-    replicationControllers.forEach( { replicationController ->
+    replicationControllers.forEach({ replicationController ->
       def names = Names.parseName(replicationController.getMetadata().getName())
 
       if (names.cluster == clusterName) {
@@ -193,5 +195,9 @@ class KubernetesUtil {
     }
 
     return appName;
+  }
+
+  static Boolean hasPodSpec(DeployKubernetesAtomicOperationDescription description) {
+    return (description.podSpec)
   }
 }
