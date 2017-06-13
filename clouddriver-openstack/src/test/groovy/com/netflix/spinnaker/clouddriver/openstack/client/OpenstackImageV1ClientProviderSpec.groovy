@@ -20,7 +20,6 @@ import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackPro
 import org.openstack4j.api.exceptions.ServerResponseException
 import org.openstack4j.api.image.ImageService
 import org.openstack4j.model.image.Image
-import org.openstack4j.model.network.Subnet
 import org.springframework.http.HttpStatus
 
 class OpenstackImageV1ClientProviderSpec extends OpenstackClientProviderSpec {
@@ -32,7 +31,7 @@ class OpenstackImageV1ClientProviderSpec extends OpenstackClientProviderSpec {
     List<Image> images = [Mock(Image)]
 
     when:
-    List<Subnet> result = provider.listImages(region, filters)
+    List<Image> result = provider.listImages(region, filters)
 
     then:
     1 * mockClient.images() >> imageService
