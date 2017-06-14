@@ -29,7 +29,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
   String stack
   String freeFormDetails
   String cmd
-  List<String> args = new ArrayList<>()
+  List<String> args
   String dcosUser
   Map<String, Object> env = new HashMap<>()
   Integer desiredCapacity
