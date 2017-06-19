@@ -1,0 +1,18 @@
+[Unit]
+Description=Spinnaker CloudDriver
+After=network.target
+
+[Service]
+Type=simple
+GuessMainPID=yes
+Environment=logfile=/var/log/spinnaker/clouddriver/clouddriver.log
+ExecStartPre=/usr/bin/touch /etc/default/spinnaker
+ExecStartPre=/bin/bash -c '. /etc/default/spinnaker'
+ExecStart=/opt/clouddriver/bin/clouddriver 2>&1 ${logfile} &
+ExecStop=/bin/kill $MAINPID
+ExecReload=/bin/kill -HUP $MAINPID
+StandardOutput=journal+console
+WorkingDirectory=/opt/clouddriver
+
+[Install]
+WantedBy=multi-user.target
