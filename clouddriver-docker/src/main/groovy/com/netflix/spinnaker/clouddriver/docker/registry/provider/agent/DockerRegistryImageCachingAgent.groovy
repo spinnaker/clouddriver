@@ -91,7 +91,7 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware {
       try {
         tags = credentials.client.getTags(repository)
       } catch (e) {
-        log.error("Could not load tags for ${repository}")
+        log.error("Could not load tags for ${repository}", e)
       }
       def name = tags?.name
       def imageTags = tags?.tags
