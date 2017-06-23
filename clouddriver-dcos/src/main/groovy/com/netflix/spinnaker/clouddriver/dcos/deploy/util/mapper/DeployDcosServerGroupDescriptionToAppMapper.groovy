@@ -34,7 +34,7 @@ class DeployDcosServerGroupDescriptionToAppMapper {
             gpus = description.gpus
 
             if (description.networkType == "USER" && emptyToNull(description.networkName)) {
-              ipAddress = new AppIpAddress().with {
+              ipAddress = new IpAddress().with {
                 networkName = description.networkName
                 it
               }

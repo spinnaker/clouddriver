@@ -1,6 +1,10 @@
+repositories {
+  maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
+}
+
 dependencies {
   compile project(":clouddriver-core")
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootWeb')
-  compile 'com.cerner.marathon:marathon-client:0.3.1'
+  compile 'com.cerner.marathon:marathon-client:0.5.1-SNAPSHOT'
 }

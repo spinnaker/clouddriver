@@ -81,9 +81,9 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
                                          dcosConfigurationProperties.accounts)
 
     accountsToAdd.each { DcosConfigurationProperties.Account account ->
-      try {
-        List<DcosClusterCredentials> allAccountClusterCredentials = new ArrayList<>()
+      List<DcosClusterCredentials> allAccountClusterCredentials = new ArrayList<>()
 
+      try {
         for (DcosConfigurationProperties.ClusterCredential clusterConfig in account.clusters) {
           DcosConfigurationProperties.Cluster cluster = clusterMap.get(clusterConfig.name)
 
@@ -115,10 +115,10 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
           allAccountClusterCredentials.add(clusterCredentials)
         }
 
-        def dcosCredentials = DcosAccountCredentials.builder().account(account.name).environment(account.environment)
-          .accountType(account.accountType).dockerRegistries(account.dockerRegistries)
-          .requiredGroupMembership(account.requiredGroupMembership).clusters(clusterCredentials)
-          .permissions(account.permissions.build()).build()
+        DcosAccountCredentials dcosCredentials = DcosAccountCredentials.builder().account(account.name).environment(account.environment)
+                .accountType(account.accountType).dockerRegistries(account.dockerRegistries)
+                .requiredGroupMembership(account.requiredGroupMembership).clusters(allAccountClusterCredentials)
+                .permissions(account.permissions.build()).build()
 
         // Note: The MapBackedAccountCredentialsRepository doesn't actually use the key for anything currently.
         accountCredentialsRepository.save(dcosCredentials.name, dcosCredentials)
