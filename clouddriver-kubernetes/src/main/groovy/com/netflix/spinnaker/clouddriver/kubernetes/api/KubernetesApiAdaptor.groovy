@@ -214,6 +214,30 @@ class KubernetesApiAdaptor {
     }
   }
 
+  List<DaemonSet> getDaemonSets(String namespace) {
+    exceptionWrapper("daemonSets.list", "Get Daemon Sets", namespace) {
+      client.extensions().daemonSets().inNamespace(namespace).list().items
+    }
+  }
+
+  DaemonSet getDaemonSet(String namespace, String serverGroupName) {
+    exceptionWrapper("daemonSets.get", "Get Daemon Set $serverGroupName", namespace) {
+      client.extensions().daemonSets().inNamespace(namespace).withName(serverGroupName).get()
+    }
+  }
+
+  List<StatefulSet> getStatefulSets(String namespace) {
+    exceptionWrapper("statefulSets.list", "Get Stateful Sets", namespace) {
+      client.apps().statefulSets().inNamespace(namespace).list().items
+    }
+  }
+
+  StatefulSet getStatefulSet(String namespace, String serverGroupName) {
+    exceptionWrapper("statefulSets.get", "Get Stateful Set $serverGroupName", namespace) {
+      client.apps().statefulSets().inNamespace(namespace).withName(serverGroupName).get()
+    }
+  }
+
   List<Pod> getJobPods(String namespace, String jobName) {
     exceptionWrapper("pods.list", "Get JobStatus Pods for $jobName", namespace) {
       client.pods().inNamespace(namespace).withLabel(KubernetesUtil.JOB_LABEL, jobName).list().items
