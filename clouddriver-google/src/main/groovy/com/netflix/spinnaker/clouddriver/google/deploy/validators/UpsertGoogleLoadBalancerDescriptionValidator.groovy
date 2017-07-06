@@ -127,6 +127,19 @@ class UpsertGoogleLoadBalancerDescriptionValidator extends
             "upsertGoogleLoadBalancerDescription.certificate.certificateRequired")
         }
         break
+      case GoogleLoadBalancerType.TCP:
+        def bs = description.backendService
+        if (!bs) {
+          errors.rejectValue("backendService",
+            "upsertGoogleLoadBalancerDescription.backendServiceRequired")
+        }
+
+        def hc = bs.healthCheck
+        if (!hc) {
+          errors.rejectValue("backendService.healthCheck",
+            "upsertGoogleLoadBalancerDescription.backendService.healthCheckRequired")
+        }
+        break
       default:
         // TODO(jacobkiefer): Fail here once frontend calls are modified.
         break

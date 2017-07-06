@@ -218,6 +218,18 @@ abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperatio
         registry
       )
 
+      task.updateStatus phaseName, "Registering server group with Tcp load balancers..."
+
+      safeRetry.doRetry(
+        addTcpLoadBalancerBackends(compute, objectMapper, project, serverGroup, googleLoadBalancerProvider, task, phaseName),
+        "Tcp load balancer backends",
+        task,
+        RETRY_ERROR_CODES,
+        [],
+        [operation: "addTcpLoadbalancerBackends", action: "add", phase: phaseName, (TAG_SCOPE): SCOPE_GLOBAL],
+        registry
+      )
+
       task.updateStatus phaseName, "Registering instances with network load balancers..."
 
       def groupInstances =
@@ -362,6 +374,13 @@ abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperatio
   Closure addSslLoadBalancerBackends(compute, objectMapper, project, serverGroup, googleLoadBalancerProvider, task, phaseName) {
     return {
       GCEUtil.addSslLoadBalancerBackends(compute, objectMapper, project, serverGroup, googleLoadBalancerProvider, task, phaseName, this)
+      null
+    }
+  }
+
+  Closure addTcpLoadBalancerBackends(compute, objectMapper, project, serverGroup, googleLoadBalancerProvider, task, phaseName) {
+    return {
+      GCEUtil.addTcpLoadBalancerBackends(compute, objectMapper, project, serverGroup, googleLoadBalancerProvider, task, phaseName, this)
       null
     }
   }
