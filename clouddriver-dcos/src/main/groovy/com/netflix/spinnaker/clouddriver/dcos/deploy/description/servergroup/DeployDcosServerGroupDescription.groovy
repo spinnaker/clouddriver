@@ -181,7 +181,7 @@ class DeployDcosServerGroupDescription extends AbstractDcosCredentialsDescriptio
 
   @Canonical
   static class Residency {
-    String taskLostBehaviour
+    String taskLostBehavior
     Integer relaunchEscalationTimeoutSeconds
   }
 

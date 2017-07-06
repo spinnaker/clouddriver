@@ -179,7 +179,7 @@ class AppToDeployDcosServerGroupDescriptionMapper {
 
     if (app.residency) {
       desc.residency = new DeployDcosServerGroupDescription.Residency().with {
-        taskLostBehaviour = app.residency.taskLostBehaviour
+        taskLostBehavior = app.residency.taskLostBehavior
         relaunchEscalationTimeoutSeconds = app.residency.relaunchEscalationTimeoutSeconds
         return it
       }
