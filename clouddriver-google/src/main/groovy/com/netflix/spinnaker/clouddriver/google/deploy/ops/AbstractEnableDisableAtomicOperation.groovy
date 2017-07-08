@@ -145,6 +145,18 @@ abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperatio
         registry
       )
 
+      task.updateStatus phaseName, "Deregistering server group from tcp load balancers..."
+
+      safeRetry.doRetry(
+        destroyTcpLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, phaseName),
+        "Tcp load balancer backends",
+        task,
+        RETRY_ERROR_CODES,
+        SUCCESSFUL_ERROR_CODES,
+        [operation: "destroyTcpLoadBalancerBackends", action: "destroy", phase: phaseName, (TAG_SCOPE): SCOPE_GLOBAL],
+        registry
+      )
+
       task.updateStatus phaseName, "Deregistering server group from network load balancers..."
 
       currentTargetPoolUrls.each { targetPoolUrl ->
@@ -360,6 +372,13 @@ abstract class AbstractEnableDisableAtomicOperation extends GoogleAtomicOperatio
   Closure destroySslLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, phaseName) {
     return {
       GCEUtil.destroySslLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, phaseName, this)
+      null
+    }
+  }
+
+  Closure destroyTcpLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, phaseName) {
+    return {
+      GCEUtil.destroyTcpLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, phaseName, this)
       null
     }
   }
