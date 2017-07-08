@@ -418,7 +418,7 @@ class UpsertGoogleLoadBalancerDescriptionValidatorSpec extends Specification {
         accountName       : ACCOUNT_NAME,
         loadBalancerType  : GoogleLoadBalancerType.SSL,
         "loadBalancerName": LOAD_BALANCER_NAME,
-        "portRange"       : "443-444",
+        "portRange"       : pr,
         "certificate"     : CERTIFICATE,
         "backendService"  : [
           "name"       : DEFAULT_SERVICE,
