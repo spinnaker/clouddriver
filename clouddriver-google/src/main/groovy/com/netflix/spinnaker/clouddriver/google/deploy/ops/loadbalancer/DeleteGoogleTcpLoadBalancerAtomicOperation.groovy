@@ -78,7 +78,7 @@ class DeleteGoogleTcpLoadBalancerAtomicOperation extends DeleteGoogleLoadBalance
     }
 
     String targetProxyName = GCEUtil.getLocalName(forwardingRule.getTarget())
-    // Target HTTP(S) proxy.
+    // Target TCP proxy.
     task.updateStatus BASE_PHASE, "Retrieving target proxy $targetProxyName..."
 
     TargetTcpProxy retrievedTargetProxy = GCEUtil.getTargetProxyFromRule(compute, project, forwardingRule, BASE_PHASE, safeRetry, this) as TargetTcpProxy
