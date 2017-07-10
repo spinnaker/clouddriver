@@ -172,6 +172,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     def targetPools = []
     def internalLoadBalancers = []
     def sslLoadBalancers = []
+    def tcpLoadBalancers = []
 
     // We need the full url for each referenced network load balancer, and also to check that the HTTP(S)
     // load balancers exist.
@@ -187,6 +188,9 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
 
       // Queue SSL LBs to update.
       sslLoadBalancers = foundLoadBalancers.findAll { it.loadBalancerType == GoogleLoadBalancerType.SSL }
+
+      // Queue TCP LBs to update.
+      tcpLoadBalancers = foundLoadBalancers.findAll { it.loadBalancerType == GoogleLoadBalancerType.TCP }
 
       if (!description.disableTraffic) {
         def networkLoadBalancers = foundLoadBalancers.findAll { it.loadBalancerType == GoogleLoadBalancerType.NETWORK }
@@ -211,7 +215,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                          ACCESS_CONFIG_TYPE)
 
     def hasBackendServices = (instanceMetadata &&
-      instanceMetadata.containsKey(GoogleServerGroup.View.BACKEND_SERVICE_NAMES)) || sslLoadBalancers
+      instanceMetadata.containsKey(GoogleServerGroup.View.BACKEND_SERVICE_NAMES)) || sslLoadBalancers || tcpLoadBalancers
 
     // Resolve and queue the backend service updates, but don't execute yet.
     // We need to resolve this information to set metadata in the template so enable can know about the
@@ -221,9 +225,10 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     if (hasBackendServices) {
       List<String> backendServices = instanceMetadata[GoogleServerGroup.View.BACKEND_SERVICE_NAMES]?.split(",") ?: []
       backendServices.addAll(sslLoadBalancers.collect { it.backendService.name })
+      backendServices.addAll(tcpLoadBalancers.collect { it.backendService.name })
 
       // Set the load balancer name metadata.
-      def globalLbNames = sslLoadBalancers.collect { it.name } + GCEUtil.resolveHttpLoadBalancerNamesMetadata(backendServices, compute, project, this)
+      def globalLbNames = sslLoadBalancers.collect { it.name } + tcpLoadBalancers.collect { it.name } + GCEUtil.resolveHttpLoadBalancerNamesMetadata(backendServices, compute, project, this)
       instanceMetadata[GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES] = globalLbNames.join(",")
 
       String sourcePolicyJson = instanceMetadata[GoogleServerGroup.View.LOAD_BALANCING_POLICY]
@@ -360,6 +365,20 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
         description.autoscalingPolicy.minNumReplicas = description.capacity.min
         description.autoscalingPolicy.maxNumReplicas = description.capacity.max
       }
+    }
+
+    if (description.source?.useSourceCapacity && description.source?.region && description.source?.serverGroupName) {
+      task.updateStatus BASE_PHASE, "Looking up server group $description.source.serverGroupName in $description.source.region " +
+                                    "in order to copy the current capacity..."
+
+      // Locate the ancestor server group.
+      def ancestorServerGroup = GCEUtil.queryServerGroup(googleClusterProvider,
+                                                         description.accountName,
+                                                         description.source.region,
+                                                         description.source.serverGroupName)
+
+      description.targetSize = ancestorServerGroup.capacity.desired
+      description.autoscalingPolicy = GCEUtil.buildAutoscalingPolicyDescriptionFromAutoscalingPolicy(ancestorServerGroup.autoscalingPolicy)
     }
 
     List<InstanceGroupManagerAutoHealingPolicy> autoHealingPolicy =
