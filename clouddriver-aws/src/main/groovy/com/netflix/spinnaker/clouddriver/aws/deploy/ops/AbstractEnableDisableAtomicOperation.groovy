@@ -119,6 +119,7 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
       if (instanceIds) {
         DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest().withInstanceIds(instanceIds)
         List<Reservation> reservations = []
+        int attempts = 0
         while (true) {
           try {
             DescribeInstancesResult describeInstancesResult = regionScopedProvider.amazonEC2.describeInstances(describeInstancesRequest)
@@ -129,7 +130,12 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
 
             describeInstancesRequest.setNextToken(describeInstancesResult.nextToken)
           } catch(Exception e) {
-           log.error("Failed to describe one of the instances in  {}", instanceIds, e)
+            attempts++
+            log.error("Failed to describe one of the instances in {} (attempt {}/10)", instanceIds, attempts, e)
+            if (attempts >= 10) {
+              task.updateStatus phaseName, "Failed describing one or more instances after 10 attempts. Message: ${e.message}"
+              return false
+            }
           }
         }
 
