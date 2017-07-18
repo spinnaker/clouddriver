@@ -205,7 +205,7 @@ public class RedisTaskRepository implements TaskRepository {
 
   public void addResultObjects(List<Object> objects, JedisTask task) {
     String resultId = "taskResult:" + task.getId();
-    List<String> values = objects.stream()
+    String[] values = objects.stream()
       .map(o -> {
         try {
           return mapper.writeValueAsString(o);
@@ -213,11 +213,10 @@ public class RedisTaskRepository implements TaskRepository {
           throw new RuntimeException("Failed to convert object to string", e);
         }
       })
-      .collect(Collectors.toList());
+      .collect(Collectors.toList())
+      .toArray(new String[objects.size()]);
     redisClientDelegate.withCommandsClient(client -> {
-      for (String v : values) {
-        client.rpush(resultId, v);
-      }
+      client.rpush(resultId, values);
       client.expire(resultId, TASK_TTL);
     });
   }
