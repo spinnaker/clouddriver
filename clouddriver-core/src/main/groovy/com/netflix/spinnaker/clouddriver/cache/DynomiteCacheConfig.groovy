@@ -38,7 +38,6 @@ import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeIdentity
 import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeStatusProvider
 import com.netflix.spinnaker.cats.redis.cluster.NodeStatusProvider
 import com.netflix.spinnaker.clouddriver.core.RedisConfigurationProperties
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -49,7 +48,7 @@ import org.springframework.context.annotation.Configuration
 import java.util.concurrent.TimeUnit
 
 @Configuration
-@ConditionalOnExpression('${dynomite.enabled:false}')
+@ConditionalOnProperty('dynomite.enabled')
 @EnableConfigurationProperties([DynomiteConfigurationProperties, RedisConfigurationProperties])
 class DynomiteCacheConfig {
 
@@ -72,6 +71,7 @@ class DynomiteCacheConfig {
 
     discoveryClient.map({ dc ->
       builder.withDiscoveryClient(dc)
+        .withCPConfig(connectionPoolConfiguration)
     }).orElseGet({
       connectionPoolConfiguration
           .withTokenSupplier(new StaticTokenMapSupplier(dynomiteConfigurationProperties.dynoHostTokens))

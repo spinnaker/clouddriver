@@ -74,6 +74,7 @@ import org.springframework.web.client.RestTemplate
 @Configuration
 @Import([
   RedisConfig,
+  DynomiteConfig,
   CacheConfig
 ])
 @PropertySource(value = "classpath:META-INF/clouddriver-core.properties", ignoreResourceNotFound = true)
