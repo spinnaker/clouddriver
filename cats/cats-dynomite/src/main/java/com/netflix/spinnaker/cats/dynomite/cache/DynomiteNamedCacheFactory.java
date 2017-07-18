@@ -18,18 +18,18 @@ package com.netflix.spinnaker.cats.dynomite.cache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.NamedCacheFactory;
 import com.netflix.spinnaker.cats.cache.WriteableCache;
-import com.netflix.spinnaker.cats.redis.RedisClientDelegate;
+import com.netflix.spinnaker.cats.dynomite.DynomiteClientDelegate;
 import com.netflix.spinnaker.cats.redis.cache.AbstractRedisCache.CacheMetrics;
 import com.netflix.spinnaker.cats.redis.cache.RedisCacheOptions;
 
 public class DynomiteNamedCacheFactory implements NamedCacheFactory {
 
-  private final RedisClientDelegate dynomiteClientDelegate;
+  private final DynomiteClientDelegate dynomiteClientDelegate;
   private final ObjectMapper objectMapper;
   private final RedisCacheOptions options;
   private final CacheMetrics cacheMetrics;
 
-  public DynomiteNamedCacheFactory(RedisClientDelegate dynomiteClientDelegate, ObjectMapper objectMapper, RedisCacheOptions options, CacheMetrics cacheMetrics) {
+  public DynomiteNamedCacheFactory(DynomiteClientDelegate dynomiteClientDelegate, ObjectMapper objectMapper, RedisCacheOptions options, CacheMetrics cacheMetrics) {
     this.dynomiteClientDelegate = dynomiteClientDelegate;
     this.objectMapper = objectMapper;
     this.options = options;

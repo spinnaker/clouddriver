@@ -38,6 +38,7 @@ import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeIdentity
 import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeStatusProvider
 import com.netflix.spinnaker.cats.redis.cluster.NodeStatusProvider
 import com.netflix.spinnaker.clouddriver.core.RedisConfigurationProperties
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -48,7 +49,7 @@ import org.springframework.context.annotation.Configuration
 import java.util.concurrent.TimeUnit
 
 @Configuration
-@ConditionalOnProperty('dynomite.enabled')
+@ConditionalOnExpression('${dynomite.enabled:false}')
 @EnableConfigurationProperties([DynomiteConfigurationProperties, RedisConfigurationProperties])
 class DynomiteCacheConfig {
 
@@ -85,7 +86,7 @@ class DynomiteCacheConfig {
   }
 
   @Bean
-  RedisClientDelegate dynomiteClientDelegate(DynoJedisClient dynoJedisClient) {
+  DynomiteClientDelegate dynomiteClientDelegate(DynoJedisClient dynoJedisClient) {
     new DynomiteClientDelegate(dynoJedisClient)
   }
 

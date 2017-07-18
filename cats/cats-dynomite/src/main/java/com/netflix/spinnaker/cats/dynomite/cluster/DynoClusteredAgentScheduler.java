@@ -21,8 +21,8 @@ import com.netflix.spinnaker.cats.agent.AgentLock;
 import com.netflix.spinnaker.cats.agent.AgentScheduler;
 import com.netflix.spinnaker.cats.agent.AgentSchedulerAware;
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation;
+import com.netflix.spinnaker.cats.dynomite.DynomiteClientDelegate;
 import com.netflix.spinnaker.cats.module.CatsModuleAware;
-import com.netflix.spinnaker.cats.redis.RedisClientDelegate;
 import com.netflix.spinnaker.cats.redis.cluster.AgentIntervalProvider;
 import com.netflix.spinnaker.cats.redis.cluster.ClusteredAgentScheduler;
 import com.netflix.spinnaker.cats.redis.cluster.NodeIdentity;
@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class DynoClusteredAgentScheduler extends CatsModuleAware implements AgentScheduler<AgentLock>, Runnable {
 
-  private final RedisClientDelegate redisClientDelegate;
+  private final DynomiteClientDelegate redisClientDelegate;
   private final NodeIdentity nodeIdentity;
   private final AgentIntervalProvider intervalProvider;
   private final ExecutorService agentExecutionPool;
@@ -56,11 +56,11 @@ public class DynoClusteredAgentScheduler extends CatsModuleAware implements Agen
   private final Map<String, Long> activeAgents = new ConcurrentHashMap<>();
   private final NodeStatusProvider nodeStatusProvider;
 
-  public DynoClusteredAgentScheduler(RedisClientDelegate redisClientDelegate, NodeIdentity nodeIdentity, AgentIntervalProvider intervalProvider, NodeStatusProvider nodeStatusProvider) {
+  public DynoClusteredAgentScheduler(DynomiteClientDelegate redisClientDelegate, NodeIdentity nodeIdentity, AgentIntervalProvider intervalProvider, NodeStatusProvider nodeStatusProvider) {
     this(redisClientDelegate, nodeIdentity, intervalProvider, nodeStatusProvider, Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(ClusteredAgentScheduler.class.getSimpleName())), Executors.newCachedThreadPool(new NamedThreadFactory(AgentExecutionAction.class.getSimpleName())));
   }
 
-  public DynoClusteredAgentScheduler(RedisClientDelegate redisClientDelegate, NodeIdentity nodeIdentity, AgentIntervalProvider intervalProvider, NodeStatusProvider nodeStatusProvider, ScheduledExecutorService lockPollingScheduler, ExecutorService agentExecutionPool) {
+  public DynoClusteredAgentScheduler(DynomiteClientDelegate redisClientDelegate, NodeIdentity nodeIdentity, AgentIntervalProvider intervalProvider, NodeStatusProvider nodeStatusProvider, ScheduledExecutorService lockPollingScheduler, ExecutorService agentExecutionPool) {
     this.redisClientDelegate = redisClientDelegate;
     this.nodeIdentity = nodeIdentity;
     this.intervalProvider = intervalProvider;

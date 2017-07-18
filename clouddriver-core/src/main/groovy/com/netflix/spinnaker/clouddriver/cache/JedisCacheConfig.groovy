@@ -37,7 +37,7 @@ import org.springframework.context.annotation.Configuration
 import redis.clients.jedis.JedisPool
 
 @Configuration
-@ConditionalOnExpression('${redis.connection != null || dynomite.enabled:false}')
+@ConditionalOnExpression('${redis.enabled:true}')
 @EnableConfigurationProperties(RedisConfigurationProperties)
 class JedisCacheConfig {
 

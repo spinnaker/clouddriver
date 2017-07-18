@@ -23,28 +23,32 @@ import com.netflix.dyno.connectionpool.impl.ConnectionPoolConfigurationImpl
 import com.netflix.dyno.connectionpool.impl.lb.HostToken
 import com.netflix.dyno.jedis.DynoJedisClient
 import com.netflix.spinnaker.cats.dynomite.DynomiteClientDelegate
-import com.netflix.spinnaker.cats.redis.RedisClientDelegate
+import com.netflix.spinnaker.cats.redis.JedisClientDelegate
 import com.netflix.spinnaker.clouddriver.cache.DynomiteConfigurationProperties
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.data.task.jedis.RedisTaskRepository
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import redis.clients.jedis.JedisPool
+import redis.clients.jedis.Protocol
 
 @Configuration
-@ConditionalOnProperty('dynomite.enabled')
+@ConditionalOnExpression('${dynomite.enabled:false}')
 @EnableConfigurationProperties(DynomiteConfigurationProperties)
 class DynomiteConfig {
 
   @Bean
-  TaskRepository taskRepository(RedisClientDelegate redisClientDelegate) {
-    new RedisTaskRepository(redisClientDelegate, Optional.empty())
+  TaskRepository taskRepository(DynomiteClientDelegate dynomiteClientDelegate, Optional<JedisClientDelegate> redisClientDelegatePrevious) {
+    new RedisTaskRepository(dynomiteClientDelegate, redisClientDelegatePrevious)
   }
 
   @Bean
-  RedisClientDelegate dynomiteClientDelegate(DynoJedisClient dynoJedisClient) {
+  DynomiteClientDelegate dynomiteClientDelegate(DynoJedisClient dynoJedisClient) {
     new DynomiteClientDelegate(dynoJedisClient)
   }
 
@@ -73,6 +77,31 @@ class DynomiteConfig {
         .withHostSupplier(new StaticHostSupplier(dynomiteConfigurationProperties.dynoHosts))
         .withCPConfig(connectionPoolConfiguration)
     }).build()
+  }
+
+  @Bean
+  @ConditionalOnProperty("redis.connectionPrevious")
+  JedisClientDelegate redisClientDelegatePrevious(JedisPool jedisPoolPrevious) {
+    return new JedisClientDelegate(jedisPoolPrevious)
+  }
+
+  @Bean
+  @ConditionalOnProperty("redis.connectionPrevious")
+  JedisPool jedisPoolPrevious(RedisConfigurationProperties redisConfigurationProperties) {
+    return createPool(null, redisConfigurationProperties.connectionPrevious, 1000)
+  }
+
+  private static JedisPool createPool(GenericObjectPoolConfig redisPoolConfig, String connection, int timeout) {
+    URI redisConnection = URI.create(connection)
+
+    String host = redisConnection.host
+    int port = redisConnection.port == -1 ? Protocol.DEFAULT_PORT : redisConnection.port
+
+    int database = Integer.parseInt((redisConnection.path ?: "/${Protocol.DEFAULT_DATABASE}").split('/', 2)[1])
+
+    String password = redisConnection.userInfo ? redisConnection.userInfo.split(':', 2)[1] : null
+
+    new JedisPool(redisPoolConfig ?: new GenericObjectPoolConfig(), host, port, timeout, password, database, null)
   }
 
   static class StaticHostSupplier implements HostSupplier {
