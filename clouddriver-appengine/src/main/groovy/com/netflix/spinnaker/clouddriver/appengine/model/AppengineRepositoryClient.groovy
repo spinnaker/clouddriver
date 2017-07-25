@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * Copyright 2017 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,9 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.cats.redis;
+package com.netflix.spinnaker.clouddriver.appengine.model
 
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-
-public class JedisPoolSource implements JedisSource {
-    private final JedisPool pool;
-
-    public JedisPoolSource(JedisPool pool) {
-        this.pool = pool;
-    }
-
-    @Override
-    public Jedis getJedis() {
-        return pool.getResource();
-    }
+interface AppengineRepositoryClient {
+  void initializeLocalDirectory()
+  void updateLocalDirectoryWithVersion(String version)
 }
