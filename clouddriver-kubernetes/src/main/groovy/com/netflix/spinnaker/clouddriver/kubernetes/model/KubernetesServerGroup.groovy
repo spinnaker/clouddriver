@@ -32,6 +32,8 @@ import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 import io.fabric8.kubernetes.client.internal.SerializationUtils
+import io.kubernetes.client.models.V1beta1DaemonSet
+import io.kubernetes.client.models.V1beta1StatefulSet
 
 @CompileStatic
 @EqualsAndHashCode(includes = ["name", "namespace", "account"])
@@ -77,6 +79,10 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   }
 
   Boolean isDisabled() {
+
+    if (kind == "DaemonSet")
+      return false;
+
     if (replicas == 0) {
       return true
     }
@@ -102,7 +108,51 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.namespace = namespace
   }
 
-  KubernetesServerGroup(ReplicaSet replicaSet, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {
+
+  KubernetesServerGroup(V1beta1DaemonSet daemonSet, String account, List<Event> events) {
+
+    this.name = daemonSet.metadata?.name
+    this.account = account
+    this.region = daemonSet.metadata?.namespace
+    this.namespace = this.region
+    this.createdTime = daemonSet.metadata?.creationTimestamp?.getMillis()
+    this.zones = [this.region] as Set
+    this.securityGroups = []
+    this.loadBalancers = KubernetesUtil.getLoadBalancers(daemonSet) as Set
+    this.launchConfig = [:]
+    this.labels = daemonSet.spec?.template?.metadata?.labels
+    this.deployDescription = KubernetesApiConverter.fromDaemonSet(daemonSet)
+    //this.yaml = SerializationUtils.dumpWithoutRuntimeStateAsYaml(daemonSet)
+
+    this.kind = daemonSet.kind
+    this.events = events?.collect {
+      new KubernetesEvent(it)
+    }
+  }
+
+  KubernetesServerGroup(V1beta1StatefulSet statefulSet, String account, List<Event> events) {
+
+    this.name = statefulSet.metadata?.name
+    this.account = account
+    this.region = statefulSet.metadata?.namespace
+    this.namespace = this.region
+    this.createdTime = statefulSet.metadata?.creationTimestamp?.getMillis()
+    this.zones = [this.region] as Set
+    this.securityGroups = []
+    this.replicas = statefulSet.spec?.replicas ?: 0
+    this.loadBalancers = KubernetesUtil.getLoadBalancers(statefulSet) as Set
+    this.launchConfig = [:]
+    this.labels = statefulSet.spec?.template?.metadata?.labels
+    this.deployDescription = KubernetesApiConverter.fromStatefulSet(statefulSet)
+    //this.yaml = SerializationUtils.dumpWithoutRuntimeStateAsYaml(statefulSet)
+    this.kind = statefulSet.kind
+    this.events = events?.collect {
+      new KubernetesEvent(it)
+    }
+  }
+
+
+  KubernetesServerGroup(ReplicaSet replicaSet, String account, List<Event> events) {
     this.name = replicaSet.metadata?.name
     this.account = account
     this.region = replicaSet.metadata?.namespace
@@ -120,14 +170,11 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.events = events?.collect {
       new KubernetesEvent(it)
     }
-    if (autoscaler) {
-      KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
-      this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
-    }
+
     this.revision = KubernetesApiAdaptor.getDeploymentRevision(replicaSet)
   }
 
-  KubernetesServerGroup(ReplicationController replicationController, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {
+  KubernetesServerGroup(ReplicationController replicationController, String account, List<Event> events) {
     this.name = replicationController.metadata?.name
     this.account = account
     this.region = replicationController.metadata?.namespace
@@ -145,10 +192,12 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.events = events?.collect {
       new KubernetesEvent(it)
     }
-    if (autoscaler) {
-      KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
-      this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
-    }
+
+  }
+
+  void attachAutoscaler(HorizontalPodAutoscaler autoscaler) {
+    KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
+    this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
   }
 
   @Override
@@ -204,5 +253,23 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   @Override
   ServerGroup.ImageSummary getImageSummary() {
     imagesSummary?.summaries?.get(0)
+  }
+
+   class KubernetesControllerType{
+
+     def controller = null
+
+     def getController()
+     {
+       return controller
+     }
+
+     KubernetesControllerType(V1beta1DaemonSet daemon) {
+      controller = (V1beta1DaemonSet)daemon
+    }
+
+    KubernetesControllerType(V1beta1StatefulSet stateful){
+      controller = (V1beta1StatefulSet)stateful
+    }
   }
 }

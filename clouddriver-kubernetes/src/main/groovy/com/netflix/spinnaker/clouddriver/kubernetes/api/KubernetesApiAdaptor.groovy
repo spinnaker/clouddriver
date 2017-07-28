@@ -26,6 +26,16 @@ import io.fabric8.kubernetes.api.model.extensions.*
 import io.fabric8.kubernetes.client.DefaultKubernetesClient
 import io.fabric8.kubernetes.client.KubernetesClient
 import io.fabric8.kubernetes.client.KubernetesClientException
+import io.kubernetes.client.Configuration
+import io.kubernetes.client.apis.AppsV1beta1Api
+import  io.kubernetes.client.apis.ExtensionsV1beta1Api
+import io.kubernetes.client.ApiClient
+import io.kubernetes.client.models.V1beta1DaemonSetList
+import io.kubernetes.client.models.V1beta1DaemonSet
+import io.kubernetes.client.models.V1beta1StatefulSetList
+import io.kubernetes.client.models.V1beta1StatefulSet
+
+import  io.kubernetes.client.util.Config
 
 import java.util.concurrent.TimeUnit
 
@@ -41,6 +51,9 @@ class KubernetesApiAdaptor {
   final KubernetesClient client
   final Registry spectatorRegistry
   final Clock spectatorClock
+  final ApiClient newClient
+  final AppsV1beta1Api appApi
+  final ExtensionsV1beta1Api extApi
 
   public spectatorRegistry() { return spectatorRegistry }
 
@@ -51,6 +64,12 @@ class KubernetesApiAdaptor {
     this.config = config
     this.account = account
     this.client = new DefaultKubernetesClient(this.config)
+
+    this.newClient = io.kubernetes.client.util.Config.defaultClient()
+    Configuration.setDefaultApiClient(newClient)
+    this.appApi = new AppsV1beta1Api()
+    this.extApi = new ExtensionsV1beta1Api()
+
     this.spectatorRegistry = spectatorRegistry
     this.spectatorClock = spectatorRegistry.clock()
   }
@@ -243,6 +262,36 @@ class KubernetesApiAdaptor {
       client.pods().inNamespace(namespace).list().items
     }
   }
+
+
+  V1beta1DaemonSetList  getDaemonSets(String namespace) {
+    return this.extApi.listNamespacedDaemonSet(namespace, null, null, null, null, 300, null);
+  }
+
+  V1beta1DaemonSetList  getDaemonSetsForAllNamespace() {
+    return this.extApi.listDaemonSetForAllNamespaces(null,null,null,null,300,false)
+  }
+
+
+  V1beta1DaemonSet getDaemonSet(String namespace, String serverGroupName) {
+    return this.extApi.readNamespacedDaemonSet(serverGroupName, namespace, null, false, false)
+  }
+
+
+
+  V1beta1StatefulSetList getStatefulSets(String namespace) {
+	 return this.appApi.listNamespacedStatefulSet(namespace, null, null, null, null, 300, null)
+  }
+
+
+  V1beta1StatefulSetList getStatefulSetsForAllNamespace() {
+    return this.appApi.listStatefulSetForAllNamespaces(null,null,null,null,300,false)
+  }
+
+  V1beta1StatefulSet  getStatefulSet(String namespace, String serverGroupName) {
+    return this.appApi.readNamespacedStatefulSet(serverGroupName, namespace , null , false, false)
+  }
+
 
   List<ReplicationController> getReplicationControllers(String namespace) {
     exceptionWrapper("replicationControllers.list", "Get Replication Controllers", namespace) {
