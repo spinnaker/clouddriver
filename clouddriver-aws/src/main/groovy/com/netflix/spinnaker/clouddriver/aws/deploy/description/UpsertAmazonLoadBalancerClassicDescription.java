@@ -25,6 +25,7 @@ public class UpsertAmazonLoadBalancerClassicDescription extends UpsertAmazonLoad
   private Integer healthTimeout = 5;
   private Integer unhealthyThreshold = 2;
   private Integer healthyThreshold = 10;
+  private String region;
 
   public List<Listener> getListeners() {
     return listeners;
@@ -83,6 +84,14 @@ public class UpsertAmazonLoadBalancerClassicDescription extends UpsertAmazonLoad
   }
 
   private Boolean crossZoneBalancing = Boolean.TRUE;
+
+  public String getRegion() {
+    return region;
+  }
+
+  public void setRegion(String region) {
+    this.region = region;
+  }
 
   public static class Listener {
     public enum ListenerType {

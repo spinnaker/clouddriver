@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer
 
 import com.amazonaws.AmazonServiceException
+import com.amazonaws.services.ec2.model.IpPermission
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing
 import com.amazonaws.services.elasticloadbalancing.model.ApplySecurityGroupsToLoadBalancerRequest
 import com.amazonaws.services.elasticloadbalancing.model.ConfigureHealthCheckRequest
@@ -43,6 +44,7 @@ import com.netflix.spinnaker.clouddriver.aws.model.SubnetAnalyzer
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetTarget
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.aws.services.SecurityGroupService
+import spock.lang.Ignore
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -86,6 +88,41 @@ class UpsertAmazonLoadBalancerClassicAtomicOperationSpec extends Specification {
   def setup() {
     operation.amazonClientProvider = mockAmazonClientProvider
     operation.regionScopedProviderFactory = regionScopedProviderFactory
+  }
+
+  @Ignore("TODO -jeyrs fix test")
+  void "should update ingress rules on application security group if one exists"() {
+    given: 'an ELB with instance port on 7001'
+    description.subnetType = 'internal'
+    description.name = 'foo'
+    description.listeners.add(
+      new UpsertAmazonLoadBalancerClassicDescription.Listener(
+        externalProtocol: UpsertAmazonLoadBalancerClassicDescription.Listener.ListenerType.HTTP,
+        externalPort: 80,
+        internalPort: 7001,
+      ))
+
+    and:
+    def ports = description.listeners.collect { it.internalPort }
+    assert 8501 in ports
+    assert 7001 in ports
+
+//    mockSecurityGroupService.authorizeSecurityGroup(_ as String, _ as List<IpPermission>) >> {
+//      String securityGroup = (it as List)[0]
+//      List<IpPermission> permissions = (it as List)[1] as List<IpPermission>
+//      assert securityGroup == 'sg-1234'
+//      assert permissions.size() == 2
+//      assert 7001 in permissions*.fromPort && 7001 in permissions*.toPort
+//      assert 8501 in permissions*.fromPort && 8501 in permissions*.toPort
+//    }
+
+    when:
+    operation.operate([])
+
+    then:
+    mockSecurityGroupService.getSecurityGroupIds(["foo"],_) >> [foo:  'sg-1234']
+    1 * mockSubnetAnalyzer.getSubnetIdsForZones(_ , _, _, _) >> ["subnet-1"]
+    1 * loadBalancing.createLoadBalancer(_ as CreateLoadBalancerRequest) >> new CreateLoadBalancerResult(dNSName: 'dnsName1')
   }
 
   void "should create load balancer"() {

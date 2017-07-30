@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer
 
 import com.amazonaws.AmazonServiceException
+import com.amazonaws.services.ec2.model.IpPermission
+import com.amazonaws.services.ec2.model.IpRange
 import com.amazonaws.services.elasticloadbalancing.model.ConfigureHealthCheckRequest
 import com.amazonaws.services.elasticloadbalancing.model.CrossZoneLoadBalancing
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersRequest
@@ -26,24 +28,35 @@ import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerAttributes
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription
 import com.amazonaws.services.elasticloadbalancing.model.ModifyLoadBalancerAttributesRequest
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerClassicDescription
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.LoadBalancerUpsertHandler
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.UpsertAmazonLoadBalancerResult.LoadBalancer
+import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.SecurityGroupIngressConverter
+import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.SecurityGroupLookupFactory
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetTarget
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+
 /**
  * An AtomicOperation for creating an Elastic Load Balancer from the description of {@link UpsertAmazonLoadBalancerClassicDescription}.
  *
  *
  */
+
+@Slf4j
 class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertAmazonLoadBalancerResult> {
   private static final String BASE_PHASE = "CREATE_ELB"
+  private static final Pattern HEALTHCHECK_PORT_PATTERN = Pattern.compile("\\d+")
 
   private static Task getTask() {
     TaskRepository.threadLocalTask.get()
@@ -54,6 +67,9 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
 
   @Autowired
   RegionScopedProviderFactory regionScopedProviderFactory
+
+  @Autowired
+  SecurityGroupLookupFactory securityGroupLookupFactory
 
   private final UpsertAmazonLoadBalancerClassicDescription description
   ObjectMapper objectMapper = new ObjectMapper()
@@ -83,7 +99,7 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
       LoadBalancerDescription loadBalancer
 
       task.updateStatus BASE_PHASE, "Setting up listeners for ${loadBalancerName} in ${region}..."
-      def listeners = []
+      List<Listener> listeners = []
       description.listeners
         .each { UpsertAmazonLoadBalancerClassicDescription.Listener listener ->
           def awsListener = new Listener()
@@ -110,8 +126,12 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
       } catch (AmazonServiceException ignore) {
       }
 
-      def securityGroups = regionScopedProvider.securityGroupService.
-              getSecurityGroupIds(description.securityGroups, description.vpcId).values()
+      def securityGroupNamesToIds = regionScopedProvider.securityGroupService.getSecurityGroupIds(description.securityGroups, description.vpcId)
+      def securityGroups = securityGroupNamesToIds.values()
+      String applicationSecurityGroup = updateApplicationSecurityGroupIngressRules(listeners)
+      if (applicationSecurityGroup != null && !securityGroupNamesToIds.containsKey(applicationSecurityGroup)) {
+        securityGroups.add(applicationSecurityGroup)
+      }
 
       String dnsName
       if (!loadBalancer) {
@@ -153,5 +173,63 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
     }
     task.updateStatus BASE_PHASE, "Done deploying load balancers."
     operationResult
+  }
+
+  private String updateApplicationSecurityGroupIngressRules(List<Listener> listeners) {
+    Names names = Names.parseName(description.name)
+    String application = names.getApp()
+    final securityGroupLookup = securityGroupLookupFactory.getInstance(description.region)
+    def securityGroupUpdater = securityGroupLookup.getSecurityGroupByName(
+      description.credentialAccount,
+      application,
+      description.vpcId
+    ).orElse(null)
+
+    if (!securityGroupUpdater) {
+      log.info("Application security group not found for $application")
+      return null
+    }
+
+    try {
+      List<IpPermission> currentPermissions = SecurityGroupIngressConverter.flattenPermissions(securityGroupUpdater.securityGroup)
+      List<IpPermission> permissionsFromListeners = listeners.collect {
+        new IpPermission(
+          ipProtocol: "tcp",
+          fromPort: it.getInstancePort(),
+          toPort: it.getInstancePort(),
+          ipv4Ranges: Collections.singletonList(new IpRange(cidrIp: "0.0.0.0/0"))
+        )
+      }
+
+      // ensure to account for port in health check endpoint
+      Matcher portMatcher = HEALTHCHECK_PORT_PATTERN.matcher(description.healthCheck)
+      int healthCheckPort
+      if (description.healthCheck && portMatcher.find()) {
+        healthCheckPort = portMatcher.group() as int
+        def rules = permissionsFromListeners.find { it.fromPort == healthCheckPort && it.toPort == healthCheckPort }
+        if (!rules) {
+          permissionsFromListeners.add(
+            new IpPermission(
+              ipProtocol: "tcp",
+              fromPort: healthCheckPort,
+              toPort: healthCheckPort,
+              ipv4Ranges: Collections.singletonList(new IpRange(cidrIp: "0.0.0.0/0")))
+          )
+        }
+      }
+
+      def newIngress = permissionsFromListeners - currentPermissions
+      if (newIngress) {
+        task.updateStatus BASE_PHASE, "Configuring ingress rules for application security group $application ..."
+        securityGroupUpdater.addIngress(newIngress)
+      }
+
+      return securityGroupUpdater.securityGroup.groupId
+    } catch (Exception e) {
+      log.error("Failed to configure ingress rules from $description.name on application security group $application", e)
+      task.updateStatus BASE_PHASE, "Failed to configuring ingress rules for application security group $application"
+    }
+
+    return null
   }
 }
