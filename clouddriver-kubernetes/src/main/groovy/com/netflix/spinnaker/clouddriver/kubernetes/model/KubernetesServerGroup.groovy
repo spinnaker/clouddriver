@@ -255,21 +255,4 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     imagesSummary?.summaries?.get(0)
   }
 
-   class KubernetesControllerType{
-
-     def controller = null
-
-     def getController()
-     {
-       return controller
-     }
-
-     KubernetesControllerType(V1beta1DaemonSet daemon) {
-      controller = (V1beta1DaemonSet)daemon
-    }
-
-    KubernetesControllerType(V1beta1StatefulSet stateful){
-      controller = (V1beta1StatefulSet)stateful
-    }
-  }
 }
