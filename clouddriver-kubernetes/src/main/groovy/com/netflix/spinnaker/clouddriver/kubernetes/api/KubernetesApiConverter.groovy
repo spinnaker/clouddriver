@@ -154,6 +154,17 @@ class KubernetesApiConverter {
         volume.configMap = res.build()
         break
 
+      case KubernetesVolumeSourceType.AwsElasticBlockStore:
+        def res = new AWSElasticBlockStoreVolumeSourceBuilder().withVolumeID(volumeSource.awsElasticBlockStore.volumeId)
+        res = res.withFsType(volumeSource.awsElasticBlockStore.fsType)
+
+        if (volumeSource.awsElasticBlockStore.partition) {
+          res = res.withPartition(volumeSource.awsElasticBlockStore.partition)
+        }
+
+        volume.awsElasticBlockStore = res.build()
+        break
+
       default:
         return null
     }
@@ -421,6 +432,13 @@ class KubernetesApiConverter {
           } else if (envVar.envSource.fieldRef) {
             def fieldPath = envVar.envSource.fieldRef.fieldPath
             res = res.withNewFieldRef().withFieldPath(fieldPath).endFieldRef()
+          } else if (envVar.envSource.resourceFieldRef) {
+            def resource = envVar.envSource.resourceFieldRef.resource
+            def containerName = envVar.envSource.resourceFieldRef.containerName
+            def divisor = envVar.envSource.resourceFieldRef.divisor
+            res = res.withNewResourceFieldRef().withResource(resource)
+            res = res.withContainerName(containerName)
+            res = res.withNewDivisor(divisor).endResourceFieldRef()
           } else {
             return null
           }
@@ -541,6 +559,13 @@ class KubernetesApiConverter {
         } else if (envVar.valueFrom.fieldRef) {
           def fieldPath = envVar.valueFrom.fieldRef.fieldPath;
           source.fieldRef = new KubernetesFieldRefSource(fieldPath: fieldPath)
+        } else if (envVar.valueFrom.resourceFieldRef) {
+          def resource = envVar.valueFrom.resourceFieldRef.resource
+          def containerName = envVar.valueFrom.resourceFieldRef.containerName
+          def divisor = envVar.valueFrom.resourceFieldRef.divisor
+          source.resourceFieldRef = new KubernetesResourceFieldRefSource(resource: resource,
+                                                                         containerName: containerName,
+                                                                         divisor: divisor)
         } else {
           return null
         }
@@ -592,6 +617,12 @@ class KubernetesApiConverter {
         new KubernetesKeyToPath(key: item.key, path: item.path)
       }
       res.configMap = new KubernetesConfigMapVolumeSource(configMapName: volume.configMap.name, items: items)
+    } else if (volume.awsElasticBlockStore) {
+      res.type = KubernetesVolumeSourceType.AwsElasticBlockStore
+      def ebs = volume.awsElasticBlockStore
+      res.awsElasticBlockStore = new KubernetesAwsElasticBlockStoreVolumeSource(volumeId: ebs.volumeID,
+                                                                                fsType: ebs.fsType,
+                                                                                partition: ebs.partition)
     } else {
       res.type = KubernetesVolumeSourceType.Unsupported
     }

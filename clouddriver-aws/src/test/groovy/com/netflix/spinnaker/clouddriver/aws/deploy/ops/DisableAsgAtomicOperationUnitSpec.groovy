@@ -19,15 +19,20 @@ import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.ec2.model.DescribeInstancesResult
 import com.amazonaws.services.ec2.model.Instance
 import com.amazonaws.services.ec2.model.InstanceState
+import com.amazonaws.services.ec2.model.InstanceStateName
 import com.amazonaws.services.ec2.model.Reservation
 import com.amazonaws.services.elasticloadbalancing.model.DeregisterInstancesFromLoadBalancerRequest
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerNotFoundException
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.EnableDisableAsgDescription
+import com.netflix.spinnaker.clouddriver.aws.deploy.ops.discovery.AwsEurekaSupport
 import com.netflix.spinnaker.clouddriver.aws.model.AutoScalingProcessType
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTaskStatus
 import com.netflix.spinnaker.clouddriver.data.task.TaskState
+import com.netflix.spinnaker.clouddriver.eureka.model.EurekaApplication
+import com.netflix.spinnaker.clouddriver.eureka.model.EurekaInstance
 import retrofit.client.Response
+import spock.lang.Unroll
 
 class DisableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnitSpecSupport {
 
@@ -42,7 +47,7 @@ class DisableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnit
     def asg = Mock(AutoScalingGroup)
     asg.getAutoScalingGroupName() >> "asg1"
     asg.getLoadBalancerNames() >> ["lb1"]
-    asg.getInstances() >> [new com.amazonaws.services.autoscaling.model.Instance().withInstanceId("i1").withLifecycleState("InService") ]
+    asg.getInstances() >> [new com.amazonaws.services.autoscaling.model.Instance().withInstanceId("i1").withLifecycleState("InService")]
 
     and:
     def instance = new Instance().withState(new InstanceState().withName("running")).withInstanceId("i1")
@@ -67,7 +72,7 @@ class DisableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnit
     def asg = Mock(AutoScalingGroup)
     asg.getAutoScalingGroupName() >> "asg1"
     asg.getLoadBalancerNames() >> ["lb1"]
-    asg.getInstances() >> [new com.amazonaws.services.autoscaling.model.Instance().withInstanceId("i1").withLifecycleState("InService") ]
+    asg.getInstances() >> [new com.amazonaws.services.autoscaling.model.Instance().withInstanceId("i1").withLifecycleState("InService")]
 
     and:
     def instance = new Instance().withState(new InstanceState().withName("running")).withInstanceId("i1")
@@ -81,7 +86,9 @@ class DisableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnit
     1 * amazonEc2.describeInstances(_) >> describeInstanceResult
     1 * asgService.getAutoScalingGroup(_) >> asg
     1 * asgService.suspendProcesses(_, AutoScalingProcessType.getDisableProcesses())
-    1 * loadBalancing.deregisterInstancesFromLoadBalancer(_) >> { throw new LoadBalancerNotFoundException("Does not exist") }
+    1 * loadBalancing.deregisterInstancesFromLoadBalancer(_) >> {
+      throw new LoadBalancerNotFoundException("Does not exist")
+    }
     1 * eureka.getInstanceInfo('i1') >>
       [
         instance: [
@@ -96,7 +103,7 @@ class DisableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnit
   def 'should disable instances for asg in discovery'() {
     given:
     def asg = Mock(AutoScalingGroup)
-    asg.getInstances() >> [new com.amazonaws.services.autoscaling.model.Instance().withInstanceId("i1").withLifecycleState("InService") ]
+    asg.getInstances() >> [new com.amazonaws.services.autoscaling.model.Instance().withInstanceId("i1").withLifecycleState("InService")]
     def instance = new Instance().withState(new InstanceState().withName("running")).withInstanceId("i1")
     def describeInstanceResult = Mock(DescribeInstancesResult)
     describeInstanceResult.getReservations() >> [new Reservation().withInstances(instance)]
@@ -109,21 +116,21 @@ class DisableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnit
     2 * task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
     1 * asgService.getAutoScalingGroup(_) >> asg
     1 * eureka.getInstanceInfo('i1') >>
-        [
-            instance: [
-                app: "asg1"
-            ]
+      [
+        instance: [
+          app: "asg1"
         ]
+      ]
     1 * eureka.updateInstanceStatus('asg1', 'i1', 'OUT_OF_SERVICE')
   }
 
   def 'should skip discovery if not enabled for account'() {
     given:
     def noDiscovery = new EnableDisableAsgDescription([
-      asgs: [[
-        serverGroupName: "kato-main-v000",
-        region         : "us-west-1"
-      ]],
+      asgs       : [[
+                      serverGroupName: "kato-main-v000",
+                      region         : "us-west-1"
+                    ]],
       credentials: TestCredential.named('foo')
     ])
 
@@ -132,7 +139,7 @@ class DisableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnit
 
     def asg = Mock(AutoScalingGroup)
     asg.getAutoScalingGroupName() >> "asg1"
-    asg.getInstances() >> [new com.amazonaws.services.autoscaling.model.Instance().withInstanceId("i1").withLifecycleState("InService") ]
+    asg.getInstances() >> [new com.amazonaws.services.autoscaling.model.Instance().withInstanceId("i1").withLifecycleState("InService")]
 
     and:
     def instance = new Instance().withState(new InstanceState().withName("running")).withInstanceId("i1")
@@ -146,6 +153,71 @@ class DisableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnit
     1 * amazonEc2.describeInstances(_) >> describeInstanceResult
     1 * asgService.getAutoScalingGroup(_) >> asg
     0 * eureka.updateInstanceStatus(*_)
+  }
+
+  @Unroll("Should disable #instancesAffected instances when #percentage percentage is requested")
+  void 'should filter down to a list of instance ids by percentage'() {
+    setup:
+    def asg = Mock(AutoScalingGroup)
+    description.desiredPercentage = percentage
+
+    def reservation = Mock(Reservation)
+    def describeInstancesResult = Mock(DescribeInstancesResult)
+    describeInstancesResult.nextToken = null
+    def runningState = new InstanceState().withName(InstanceStateName.Running).withCode(16)
+
+    and:
+    asgService.getAutoScalingGroup(_) >> asg
+    asg.getInstances() >> [
+      new com.amazonaws.services.autoscaling.model.Instance(instanceId: '00001', lifecycleState: 'InService'),
+      new com.amazonaws.services.autoscaling.model.Instance(instanceId: '00002', lifecycleState: 'InService'),
+      new com.amazonaws.services.autoscaling.model.Instance(instanceId: '00003', lifecycleState: 'InService'),
+      new com.amazonaws.services.autoscaling.model.Instance(instanceId: '00004', lifecycleState: 'InService'),
+    ]
+    1 * amazonEc2.describeInstances(_) >> describeInstancesResult
+    1 * describeInstancesResult.getReservations() >> [reservation]
+    1 * reservation.getInstances() >> [
+      new com.amazonaws.services.ec2.model.Instance(instanceId: '00001', state: runningState),
+      new com.amazonaws.services.ec2.model.Instance(instanceId: '00002', state: runningState),
+      new com.amazonaws.services.ec2.model.Instance(instanceId: '00003', state: runningState),
+      new com.amazonaws.services.ec2.model.Instance(instanceId: '00004', state: runningState)
+    ]
+    op.discoverySupport = Mock(AwsEurekaSupport)
+    op.discoverySupport.getInstanceToModify(_, _, _, _, percentage) >> instances
+
+    when:
+    op.operate([])
+
+    then:
+    1 * op.discoverySupport.updateDiscoveryStatusForInstances(_, _, _, _, { it.size() == instancesAffected })
+
+    where:
+    percentage | instances          || instancesAffected
+    75         | ['00001']          || 1
+    100        | ['00001', '00004'] || 2
+    null       | null               || 4
+  }
+
+  @Unroll("Should invoke supend process #invocations times when desiredPercentage is #desiredPercentage")
+  void 'should suspend processes only if desired percentage is null or 100'() {
+    given:
+    def asg = Mock(AutoScalingGroup)
+    description.desiredPercentage = desiredPercentage
+
+    when:
+    op.operate([])
+
+    then:
+    1 * asgService.getAutoScalingGroup(_) >> asg
+    invocations * asgService.suspendProcesses(_, AutoScalingProcessType.getDisableProcesses())
+
+    where:
+    desiredPercentage || invocations
+    null              || 1
+    100               || 1
+    0                 || 0
+    50                || 0
+    99                || 0
   }
 
 }

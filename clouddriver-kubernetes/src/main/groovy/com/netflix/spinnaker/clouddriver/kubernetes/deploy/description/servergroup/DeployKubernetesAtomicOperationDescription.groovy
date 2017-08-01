@@ -180,6 +180,15 @@ class KubernetesEnvVarSource {
   KubernetesSecretSource secretSource
   KubernetesConfigMapSource configMapSource
   KubernetesFieldRefSource fieldRef
+  KubernetesResourceFieldRefSource resourceFieldRef
+}
+
+@AutoClone
+@Canonical
+class KubernetesResourceFieldRefSource {
+  String resource
+  String containerName
+  String divisor
 }
 
 @AutoClone
@@ -226,6 +235,9 @@ enum KubernetesVolumeSourceType {
   @JsonProperty("CONFIGMAP")
   ConfigMap,
 
+  @JsonProperty("AWSELASTICBLOCKSTORE")
+  AwsElasticBlockStore,
+
   @JsonProperty("UNSUPPORTED")
   Unsupported,
 }
@@ -248,6 +260,7 @@ class KubernetesVolumeSource {
   KubernetesPersistentVolumeClaim persistentVolumeClaim
   KubernetesSecretVolumeSource secret
   KubernetesConfigMapVolumeSource configMap
+  KubernetesAwsElasticBlockStoreVolumeSource awsElasticBlockStore
 }
 
 @AutoClone
@@ -256,6 +269,14 @@ class KubernetesConfigMapVolumeSource {
   String configMapName
   List<KubernetesKeyToPath> items
   Integer defaultMode
+}
+
+@AutoClone
+@Canonical
+class KubernetesAwsElasticBlockStoreVolumeSource {
+  String volumeId
+  String fsType
+  Integer partition
 }
 
 @AutoClone

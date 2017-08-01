@@ -78,7 +78,7 @@ class DeleteGoogleSslLoadBalancerAtomicOperation extends DeleteGoogleLoadBalance
     }
 
     String targetProxyName = GCEUtil.getLocalName(forwardingRule.getTarget())
-    // Target HTTP(S) proxy.
+    // Target SSL proxy.
     task.updateStatus BASE_PHASE, "Retrieving target proxy $targetProxyName..."
 
     TargetSslProxy retrievedTargetProxy = GCEUtil.getTargetProxyFromRule(compute, project, forwardingRule, BASE_PHASE, safeRetry, this) as TargetSslProxy
