@@ -7,4 +7,6 @@ dependencies {
 
   // TODO (move to https://github.com/spinnaker/spinnaker-dependencies/blob/master/src/spinnaker-dependencies.yml)
   compile 'io.fabric8:kubernetes-client:2.4.1'
+  compile fileTree(include: ['*.jar'], dir: 'libs')
+
 }

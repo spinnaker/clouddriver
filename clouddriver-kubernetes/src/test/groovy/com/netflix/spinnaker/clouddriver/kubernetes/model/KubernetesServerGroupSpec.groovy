@@ -45,7 +45,7 @@ class KubernetesServerGroupSpec extends Specification {
 
   void "Should return 1 up instances"() {
     when:
-      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [], null)
+      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [])
       serverGroup.instances = [upInstanceMock] as Set
 
     then:
@@ -58,7 +58,7 @@ class KubernetesServerGroupSpec extends Specification {
 
   void "Should return 1 up, 1 down, 1 starting, 1 oos, 1 unknown instances"() {
     when:
-      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [], null)
+      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [])
       serverGroup.instances = [upInstanceMock, downInstanceMock, startingInstanceMock, unknownInstanceMock, outOfServiceInstanceMock] as Set
 
     then:
@@ -71,7 +71,7 @@ class KubernetesServerGroupSpec extends Specification {
 
   void "Should list servergroup with no load balancers as enabled"() {
     when:
-      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [], null)
+      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [])
       serverGroup.instances = [] as Set
       serverGroup.replicas = 1
       serverGroup.labels = ["hi": "there"]
@@ -82,7 +82,7 @@ class KubernetesServerGroupSpec extends Specification {
 
   void "Should list servergroup with no enabled load balancers as disabled"() {
     when:
-      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [], null)
+      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [])
       serverGroup.instances = [] as Set
       serverGroup.replicas = 1
       serverGroup.labels = [(KubernetesUtil.loadBalancerKey("1")): "false"]
@@ -93,7 +93,7 @@ class KubernetesServerGroupSpec extends Specification {
 
   void "Should list servergroup with enabled load balancers as enabled"() {
     when:
-      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [], null)
+      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [])
       serverGroup.instances = [] as Set
       serverGroup.replicas = 1
       serverGroup.labels = [(KubernetesUtil.loadBalancerKey("1")): "true"]
@@ -104,7 +104,7 @@ class KubernetesServerGroupSpec extends Specification {
 
   void "Should list servergroup with mix of load balancers as enabled"() {
     when:
-      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [], null)
+      def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [])
       serverGroup.instances = [] as Set
       serverGroup.replicas = 1
       serverGroup.labels = [(KubernetesUtil.loadBalancerKey("1")): "true", (KubernetesUtil.loadBalancerKey("2")): "false"]
@@ -115,7 +115,7 @@ class KubernetesServerGroupSpec extends Specification {
 
   void "Should list servergroup with enabled load balancers but no instances as disabled"() {
     when:
-    def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [], null)
+    def serverGroup = new KubernetesServerGroup(new ReplicationController(), ACCOUNT, [])
     serverGroup.instances = [] as Set
     serverGroup.replicas = 0
     serverGroup.labels = [(KubernetesUtil.loadBalancerKey("1")): "true"]

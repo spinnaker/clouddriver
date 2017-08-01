@@ -25,6 +25,8 @@ import io.fabric8.kubernetes.api.model.Pod
 import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.Job
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
+import io.kubernetes.client.models.V1beta1DaemonSet
+import io.kubernetes.client.models.V1beta1StatefulSet
 import org.springframework.beans.factory.annotation.Value
 
 class KubernetesUtil {
@@ -157,6 +159,14 @@ class KubernetesUtil {
   static List<String> getLoadBalancers(Pod pod) {
     return getLoadBalancers(pod.metadata?.labels ?: [:])
   }
+
+ static List<String> getLoadBalancers(V1beta1DaemonSet ds) {
+     return getLoadBalancers(ds.spec?.template?.metadata?.labels ?: [:])
+   }
+
+   static List<String> getLoadBalancers(V1beta1StatefulSet ss) {
+     return getLoadBalancers(ss.spec?.template?.metadata?.labels ?: [:])
+   }
 
   static List<String> getLoadBalancers(ReplicaSet rs) {
     return getLoadBalancers(rs.spec?.template?.metadata?.labels ?: [:])
