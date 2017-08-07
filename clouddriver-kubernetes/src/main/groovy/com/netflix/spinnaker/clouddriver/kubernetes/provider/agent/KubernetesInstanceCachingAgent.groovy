@@ -34,7 +34,7 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 
 @Slf4j
 class KubernetesInstanceCachingAgent extends KubernetesCachingAgent {
-  static final String CACHE_TTL_ANNOTATION = "spinnaker.cache-ttl"
+  static final String CACHE_TTL_ANNOTATION = "cache.spinnaker.io/ttl"
 
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
       AUTHORITATIVE.forType(Keys.Namespace.INSTANCES.ns),
