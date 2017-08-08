@@ -39,6 +39,7 @@ import io.fabric8.kubernetes.api.model.Pod
 import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
+import io.kubernetes.client.models.V1beta1StatefulSet
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
@@ -197,6 +198,13 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
     }.flatten()
   }
 
+  List<ReplicaSet> loadStatefulSets() {
+    namespaces.collect { String namespace ->
+      credentials.apiAdaptor.getStatefulSets(namespace)
+    }.flatten()
+  }
+
+
   ReplicaSet loadReplicaSet(String namespace, String name) {
     credentials.apiAdaptor.getReplicaSet(namespace, name)
   }
@@ -215,6 +223,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
     Long start = System.currentTimeMillis()
     List<ReplicationController> replicationControllerList = loadReplicationControllers()
     List<ReplicaSet> replicaSetList = loadReplicaSets()
+    List<V1beta1StatefulSet> statefulSet = loadStatefulSets()
     List<ReplicaSetOrController> serverGroups = (replicationControllerList.collect {
       it ? new ReplicaSetOrController(replicationController: it) : null
     } + replicaSetList.collect {

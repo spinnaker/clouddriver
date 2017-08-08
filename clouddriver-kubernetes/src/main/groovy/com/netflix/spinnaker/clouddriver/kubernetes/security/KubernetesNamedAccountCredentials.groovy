@@ -213,7 +213,9 @@ public class KubernetesNamedAccountCredentials implements AccountCredentials<Kub
       }
 
       return new KubernetesCredentials(
-          new KubernetesApiAdaptor(name, config, spectatorRegistry),
+          new KubernetesApiAdaptor(name, config,
+            new KubernetesApiClientConfig(kubeconfigFile, context, cluster, user, namespaces, serviceAccount),
+            spectatorRegistry),
           namespaces,
           omitNamespaces,
           dockerRegistries,
