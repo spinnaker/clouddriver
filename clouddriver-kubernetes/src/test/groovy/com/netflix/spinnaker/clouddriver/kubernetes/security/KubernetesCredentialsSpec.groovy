@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.security
 
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import spock.lang.Specification
@@ -55,12 +56,14 @@ class KubernetesCredentialsSpec extends Specification {
     KubernetesApiAdaptor adaptorMock = Mock(KubernetesApiAdaptor)
     adaptorMock.getNamespacesByName() >> NAMESPACES2
 
+    KubernetesClientApiAdapter adaptorClientMock = Mock(KubernetesClientApiAdapter)
+
     AccountCredentialsRepository repositoryMock = Mock(AccountCredentialsRepository)
     DockerRegistryNamedAccountCredentials registryAccountMock = mockCredentials(ACCOUNT1)
     repositoryMock.getOne(ACCOUNT1) >> registryAccountMock
 
     when:
-    def result = new KubernetesCredentials(adaptorMock, NAMESPACES1, [], REGISTRIES1, repositoryMock)
+    def result = new KubernetesCredentials(adaptorMock, adaptorClientMock, NAMESPACES1, [], REGISTRIES1, repositoryMock)
 
     then:
     result.getNamespaces() == NAMESPACES1
@@ -72,12 +75,14 @@ class KubernetesCredentialsSpec extends Specification {
     KubernetesApiAdaptor adaptorMock = Mock(KubernetesApiAdaptor)
     adaptorMock.getNamespacesByName() >> NAMESPACES2
 
+    KubernetesClientApiAdapter adaptorClientMock = Mock(KubernetesClientApiAdapter)
+
     AccountCredentialsRepository repositoryMock = Mock(AccountCredentialsRepository)
     DockerRegistryNamedAccountCredentials registryAccountMock = mockCredentials(ACCOUNT1)
     repositoryMock.getOne(ACCOUNT1) >> registryAccountMock
 
     when:
-    def result = new KubernetesCredentials(adaptorMock, null, [], REGISTRIES2, repositoryMock)
+    def result = new KubernetesCredentials(adaptorMock, adaptorClientMock, null, [], REGISTRIES2, repositoryMock)
 
     then:
     result.getNamespaces() == NAMESPACES2
@@ -89,12 +94,14 @@ class KubernetesCredentialsSpec extends Specification {
     KubernetesApiAdaptor adaptorMock = Mock(KubernetesApiAdaptor)
     adaptorMock.getNamespacesByName() >> NAMESPACES2
 
+    KubernetesClientApiAdapter adaptorClientMock = Mock(KubernetesClientApiAdapter)
+
     AccountCredentialsRepository repositoryMock = Mock(AccountCredentialsRepository)
     DockerRegistryNamedAccountCredentials registryAccountMock = mockCredentials(ACCOUNT1)
     repositoryMock.getOne(ACCOUNT1) >> registryAccountMock
 
     when:
-    def result = new KubernetesCredentials(adaptorMock, null, NAMESPACES2, REGISTRIES2, repositoryMock)
+    def result = new KubernetesCredentials(adaptorMock, adaptorClientMock, null, NAMESPACES2, REGISTRIES2, repositoryMock)
 
     then:
     result.getNamespaces() == []
@@ -106,12 +113,14 @@ class KubernetesCredentialsSpec extends Specification {
     KubernetesApiAdaptor adaptorMock = Mock(KubernetesApiAdaptor)
     adaptorMock.getNamespacesByName() >> NAMESPACES2
 
+    KubernetesClientApiAdapter adaptorClientMock = Mock(KubernetesClientApiAdapter)
+
     AccountCredentialsRepository repositoryMock = Mock(AccountCredentialsRepository)
     DockerRegistryNamedAccountCredentials registryAccountMock = mockCredentials(ACCOUNT1)
     repositoryMock.getOne(ACCOUNT1) >> registryAccountMock
 
     when:
-    def result = new KubernetesCredentials(adaptorMock, null, [], REGISTRIES1, repositoryMock)
+    def result = new KubernetesCredentials(adaptorMock, adaptorClientMock, null, [], REGISTRIES1, repositoryMock)
 
     then:
     result.getNamespaces() == NAMESPACES2
@@ -124,12 +133,14 @@ class KubernetesCredentialsSpec extends Specification {
       getNamespacesByName() >> { throw new RuntimeException() }
     }
 
+    KubernetesClientApiAdapter adaptorClientMock = Mock(KubernetesClientApiAdapter)
+
     AccountCredentialsRepository repositoryMock = Mock(AccountCredentialsRepository)
     DockerRegistryNamedAccountCredentials registryAccountMock = mockCredentials(ACCOUNT1)
     repositoryMock.getOne(ACCOUNT1) >> registryAccountMock
 
     when:
-    def namespaces = new KubernetesCredentials(adaptorMock, null, [], REGISTRIES1, repositoryMock).getNamespaces()
+    def namespaces = new KubernetesCredentials(adaptorMock, adaptorClientMock, null, [], REGISTRIES1, repositoryMock).getNamespaces()
 
     then:
     namespaces == []
