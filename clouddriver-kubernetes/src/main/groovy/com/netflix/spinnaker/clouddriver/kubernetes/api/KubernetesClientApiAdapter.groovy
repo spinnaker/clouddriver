@@ -133,7 +133,7 @@ class KubernetesClientApiAdapter {
     exceptionWrapper("statefulSets.list", "Get Stateful Sets", namespace) {
       V1beta1StatefulSetList list = apiInstance.listNamespacedStatefulSet(namespace, null, null, null, null, API_CALL_TIMEOUT_SECONDS, false)
       List<V1beta1StatefulSet> statefulSets = new ArrayList<V1beta1StatefulSet>()
-      list.items.forEach({ item ->
+      list.items?.forEach({ item ->
         statefulSets.add(item)
       })
       return statefulSets
