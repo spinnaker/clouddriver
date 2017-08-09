@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Google, Inc.
+ * Copyright 2017 Cisco, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,8 @@ package com.netflix.spinnaker.clouddriver.kubernetes.api
 
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesOperationException
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesApiClientConfig
-import groovy.util.logging.Slf4j
 import io.kubernetes.client.ApiClient
 import io.kubernetes.client.ApiException
 import io.kubernetes.client.Configuration
@@ -89,9 +87,6 @@ class KubernetesClientApiAdapter {
     return true
   }
 
-  /*
-   * Atomically create a new client, and pass it to the given doOperation closure to operate against the kubernetes API
-   */
   private <T> T exceptionWrapper(String methodName, String operationMessage, String namespace, Closure<T> doOperation) {
     T result = null
     Exception failure
