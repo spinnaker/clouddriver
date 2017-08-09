@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.loadbalan
 
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.loadbalancer.KubernetesNamedServicePort
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.loadbalancer.KubernetesLoadBalancerDescription
@@ -63,12 +64,13 @@ class UpsertKubernetesLoadBalancerAtomicOperationValidatorSpec extends Specifica
     def credentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
 
     def apiMock = Mock(KubernetesApiAdaptor)
+    def apiClientMock = Mock(KubernetesClientApiAdapter)
     def accountCredentialsRepositoryMock = Mock(AccountCredentialsRepository)
 
     spectatorRegistry = new DefaultRegistry()
     dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     dockerRegistries = [dockerRegistry]
-    credentials = new KubernetesCredentials(apiMock, NAMESPACES, [], [], accountCredentialsRepositoryMock)
+    credentials = new KubernetesCredentials(apiMock, apiClientMock, NAMESPACES, [], [], accountCredentialsRepositoryMock)
     namedAccountCredentials = new KubernetesNamedAccountCredentials.Builder()
         .name(VALID_ACCOUNT)
         .dockerRegistries(dockerRegistries)

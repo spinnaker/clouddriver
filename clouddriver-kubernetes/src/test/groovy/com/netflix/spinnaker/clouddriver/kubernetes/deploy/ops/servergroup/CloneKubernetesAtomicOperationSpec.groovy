@@ -20,6 +20,7 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.CloneKubernetesAtomicOperationDescription
@@ -62,6 +63,7 @@ class CloneKubernetesAtomicOperationSpec extends Specification {
   def podSpec
   def replicationControllerContainers
   def apiMock
+  def apiClientMock
   def dockerRegistry
   def dockerRegistries
   def credentials
@@ -76,6 +78,7 @@ class CloneKubernetesAtomicOperationSpec extends Specification {
 
   def setup() {
     apiMock = Mock(KubernetesApiAdaptor)
+    apiClientMock = Mock(KubernetesClientApiAdapter)
 
     def imageId = KubernetesUtil.getImageId(REGISTRY, REPOSITORY, TAG)
     def imageDescription = KubernetesUtil.buildImageDescription(imageId)
@@ -112,7 +115,7 @@ class CloneKubernetesAtomicOperationSpec extends Specification {
     accountCredentialsRepositoryMock = Mock(AccountCredentialsRepository)
     dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     dockerRegistries = [dockerRegistry]
-    credentials = new KubernetesCredentials(apiMock, [], [], [], accountCredentialsRepositoryMock)
+    credentials = new KubernetesCredentials(apiMock, apiClientMock, [], [], [], accountCredentialsRepositoryMock)
     namedAccountCredentials = new KubernetesNamedAccountCredentials.Builder()
         .name("name")
         .dockerRegistries(dockerRegistries)
