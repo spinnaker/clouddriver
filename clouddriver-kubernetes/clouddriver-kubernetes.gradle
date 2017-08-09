@@ -7,5 +7,5 @@ dependencies {
   compile spinnaker.dependency('bootWeb')
 
   //FIXME: Remove the following line when k8s client java api jar is available in maven repo
-  compile fileTree(dir: 'kubernetes-client-java-libes', include: '*.jar')
+  compile fileTree(dir: 'kubernetes-client-java-libs', include: '*.jar')
 }

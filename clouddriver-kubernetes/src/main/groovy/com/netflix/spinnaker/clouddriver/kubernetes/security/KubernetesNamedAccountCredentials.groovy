@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.security
 
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -103,6 +104,7 @@ public class KubernetesNamedAccountCredentials implements AccountCredentials<Kub
     List<String> omitNamespaces
     int cacheThreads
     KubernetesCredentials credentials
+    KubernetesCredentials clientCredentials
     List<String> requiredGroupMembership
     Permissions permissions
     List<LinkedDockerRegistryConfiguration> dockerRegistries
@@ -212,14 +214,15 @@ public class KubernetesNamedAccountCredentials implements AccountCredentials<Kub
         }
       }
 
+      def clientConfig = new KubernetesApiClientConfig(kubeconfigFile)
+
       return new KubernetesCredentials(
-          new KubernetesApiAdaptor(name, config,
-            new KubernetesApiClientConfig(kubeconfigFile, context, cluster, user, namespaces, serviceAccount),
-            spectatorRegistry),
-          namespaces,
-          omitNamespaces,
-          dockerRegistries,
-          accountCredentialsRepository
+        new KubernetesApiAdaptor(name, config, spectatorRegistry),
+        new KubernetesClientApiAdapter(name, clientConfig, spectatorRegistry),
+        namespaces,
+        omitNamespaces,
+        dockerRegistries,
+        accountCredentialsRepository
       )
     }
 
@@ -240,6 +243,7 @@ public class KubernetesNamedAccountCredentials implements AccountCredentials<Kub
       requiredGroupMembership = requiredGroupMembership ? Collections.unmodifiableList(requiredGroupMembership) : []
       def credentials = this.credentials ? this.credentials : buildCredentials() // this sets 'namespaces' if none are passed in,
                                                           // which is why 'buildCredentials()' is called here instead of below
+
       new KubernetesNamedAccountCredentials(
           name,
           accountCredentialsRepository,

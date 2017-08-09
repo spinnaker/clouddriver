@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.security;
 import com.google.common.collect.Lists;
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor;
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import io.fabric8.kubernetes.api.model.Namespace;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
 
 public class KubernetesCredentials {
   private final KubernetesApiAdaptor apiAdaptor;
+  private final KubernetesClientApiAdapter apiClientAdaptor;
   private final List<String> namespaces;
   private final List<String> omitNamespaces;
   private final List<LinkedDockerRegistryConfiguration> dockerRegistries;
@@ -47,11 +49,13 @@ public class KubernetesCredentials {
   // TODO(lwander): refactor apiAdaptor into KubernetesNamedAccountCredentials, and any other metadata that isn't
   // strictly a credential.
   public KubernetesCredentials(KubernetesApiAdaptor apiAdaptor,
+                               KubernetesClientApiAdapter apiClientAdaptor,
                                List<String> namespaces,
                                List<String> omitNamespaces,
                                List<LinkedDockerRegistryConfiguration> dockerRegistries,
                                AccountCredentialsRepository accountCredentialsRepository) {
     this.apiAdaptor = apiAdaptor;
+    this.apiClientAdaptor = apiClientAdaptor;
     this.namespaces = namespaces != null ? namespaces : new ArrayList<>();
     this.omitNamespaces = omitNamespaces != null ? omitNamespaces : new ArrayList<>();
     this.oldNamespaces = this.namespaces;
@@ -176,6 +180,10 @@ public class KubernetesCredentials {
 
   public KubernetesApiAdaptor getApiAdaptor() {
     return apiAdaptor;
+  }
+
+  public KubernetesClientApiAdapter getClientApiAdaptor() {
+    return apiClientAdaptor;
   }
 
   public List<LinkedDockerRegistryConfiguration> getDockerRegistries() {

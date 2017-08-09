@@ -27,10 +27,6 @@ import io.fabric8.kubernetes.api.model.extensions.*
 import io.fabric8.kubernetes.client.DefaultKubernetesClient
 import io.fabric8.kubernetes.client.KubernetesClient
 import io.fabric8.kubernetes.client.KubernetesClientException
-import io.kubernetes.client.ApiClient
-import io.kubernetes.client.Configuration
-import io.kubernetes.client.apis.AppsV1beta1Api
-import io.kubernetes.client.models.*
 
 import java.util.concurrent.TimeUnit
 
@@ -46,13 +42,11 @@ class KubernetesApiAdaptor {
   final KubernetesClient client
   final Registry spectatorRegistry
   final Clock spectatorClock
-  final ApiClient apiClient
-  final AppsV1beta1Api apiInstance
 
   public spectatorRegistry() { return spectatorRegistry }
 
-  KubernetesApiAdaptor(String account, io.fabric8.kubernetes.client.Config config, KubernetesApiClientConfig clientConfig, Registry spectatorRegistry) {
-    if (!config || !clientConfig) {
+  KubernetesApiAdaptor(String account, io.fabric8.kubernetes.client.Config config, Registry spectatorRegistry) {
+    if (!config) {
       throw new IllegalArgumentException("Config may not be null.")
     }
     this.config = config
@@ -60,10 +54,6 @@ class KubernetesApiAdaptor {
     this.client = new DefaultKubernetesClient(this.config)
     this.spectatorRegistry = spectatorRegistry
     this.spectatorClock = spectatorRegistry.clock()
-
-    apiClient = clientConfig.getApiCient()
-    Configuration.setDefaultApiClient(apiClient)
-    apiInstance = new AppsV1beta1Api();
   }
 
   KubernetesOperationException formatException(String operation, String namespace, KubernetesClientException e) {
@@ -222,17 +212,6 @@ class KubernetesApiAdaptor {
   ReplicaSet createReplicaSet(String namespace, ReplicaSet replicaSet) {
     exceptionWrapper("replicaSets.create", "Create Replica Set ${replicaSet?.metadata?.name}", namespace) {
       client.extensions().replicaSets().inNamespace(namespace).create(replicaSet)
-    }
-  }
-
-  List<V1beta1StatefulSet> getStatefulSets(String namespace) {
-    exceptionWrapper("statefulSets.list", "Get Stateful Sets", namespace) {
-      V1beta1StatefulSetList list = apiInstance.listNamespacedStatefulSet(namespace, null, null, null, null, 60, false)
-      List<V1beta1StatefulSet> statefulSets = new ArrayList<V1beta1StatefulSet>()
-      list.items.forEach({ item ->
-        statefulSets.add(item)
-      })
-      return statefulSets
     }
   }
 

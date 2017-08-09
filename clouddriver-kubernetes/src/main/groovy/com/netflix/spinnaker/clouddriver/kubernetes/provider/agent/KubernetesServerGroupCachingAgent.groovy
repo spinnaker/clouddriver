@@ -198,12 +198,11 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
     }.flatten()
   }
 
-  List<ReplicaSet> loadStatefulSets() {
+  List<V1beta1StatefulSet> loadStatefulSets() {
     namespaces.collect { String namespace ->
-      credentials.apiAdaptor.getStatefulSets(namespace)
+      credentials.apiClientAdaptor.getStatefulSets(namespace)
     }.flatten()
   }
-
 
   ReplicaSet loadReplicaSet(String namespace, String name) {
     credentials.apiAdaptor.getReplicaSet(namespace, name)
