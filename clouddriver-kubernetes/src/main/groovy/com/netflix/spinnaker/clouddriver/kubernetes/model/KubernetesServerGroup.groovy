@@ -32,6 +32,7 @@ import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 import io.fabric8.kubernetes.client.internal.SerializationUtils
+import io.kubernetes.client.models.V1beta1StatefulSet
 
 @CompileStatic
 @EqualsAndHashCode(includes = ["name", "namespace", "account"])
@@ -101,6 +102,31 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.region = namespace
     this.namespace = namespace
   }
+  KubernetesServerGroup(V1beta1StatefulSet statefulSet, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {
+    this.name = statefulSet.metadata?.name
+    this.account = account
+    this.region = statefulSet.metadata?.namespace
+    this.namespace = this.region
+    this.createdTime = statefulSet.metadata?.creationTimestamp?.getMillis()
+    this.zones = [this.region] as Set
+    this.securityGroups = []
+    this.replicas = statefulSet.spec?.replicas ?: 0
+    this.loadBalancers = KubernetesUtil.getLoadBalancers(statefulSet) as Set
+    this.launchConfig = [:]
+    this.labels = statefulSet.spec?.template?.metadata?.labels
+    this.deployDescription = KubernetesApiConverter.fromStatefulSet(statefulSet)
+    //this.yaml = SerializationUtils.dumpWithoutRuntimeStateAsYaml(statefulSet)
+    this.kind = statefulSet.kind
+    this.events = events?.collect {
+      new KubernetesEvent(it)
+    }
+    if (autoscaler) {
+      KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
+      this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
+    }
+    this.revision = KubernetesApiAdaptor.getDeploymentRevision(statefulSet)
+  }
+
 
   KubernetesServerGroup(ReplicaSet replicaSet, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {
     this.name = replicaSet.metadata?.name
