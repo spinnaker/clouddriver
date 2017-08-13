@@ -26,7 +26,7 @@ import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.Job
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 import org.springframework.beans.factory.annotation.Value
-
+import io.kubernetes.client.models.V1beta1StatefulSet
 class KubernetesUtil {
   static String SECURITY_GROUP_LABEL_PREFIX = "security-group-"
   static String LOAD_BALANCER_LABEL_PREFIX = "load-balancer-"
@@ -161,7 +161,9 @@ class KubernetesUtil {
   static List<String> getLoadBalancers(ReplicaSet rs) {
     return getLoadBalancers(rs.spec?.template?.metadata?.labels ?: [:])
   }
-
+  static List<String> getLoadBalancers(V1beta1StatefulSet  rs) {
+    return getLoadBalancers(rs.spec?.template?.metadata?.labels ?: [:])
+  }
   static List<String> getLoadBalancers(ReplicationController rc) {
     return getLoadBalancers(rc.spec?.template?.metadata?.labels ?: [:])
   }
