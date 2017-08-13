@@ -25,7 +25,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.securityg
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.*
 import io.fabric8.kubernetes.api.model.*
 import io.fabric8.kubernetes.api.model.extensions.*
-
+import io.kubernetes.client.models.V1beta1StatefulSet
+import io.kubernetes.client.models.*
 class KubernetesApiConverter {
   static KubernetesSecurityGroupDescription fromIngress(Ingress ingress) {
     if (!ingress) {
@@ -463,6 +464,158 @@ class KubernetesApiConverter {
     return containerBuilder.build()
   }
 
+  static KubernetesContainerDescription fromContainer(V1Container container) {
+    if (!container) {
+      return null
+    }
+
+    def containerDescription = new KubernetesContainerDescription()
+    containerDescription.name = container.name
+    containerDescription.imageDescription = KubernetesUtil.buildImageDescription(container.image)
+
+    if (container.imagePullPolicy) {
+      containerDescription.imagePullPolicy = KubernetesPullPolicy.valueOf(container.imagePullPolicy)
+    }
+
+    container.resources?.with {
+      containerDescription.limits = limits?.cpu || limits?.memory ?
+        new KubernetesResourceDescription(
+          cpu: limits?.cpu,
+          memory: limits?.memory
+        ) : null
+
+      containerDescription.requests = requests?.cpu || requests?.memory ?
+        new KubernetesResourceDescription(
+          cpu: requests?.cpu,
+          memory: requests?.memory
+        ) : null
+    }
+
+    if (container.lifecycle) {
+      containerDescription.lifecycle = new KubernetesLifecycle()
+      if (container.lifecycle.postStart) {
+        containerDescription.lifecycle.postStart = fromHandler(container.lifecycle.postStart)
+      }
+      if (container.lifecycle.preStop) {
+        containerDescription.lifecycle.preStop = fromHandler(container.lifecycle.preStop)
+      }
+    }
+
+    containerDescription.ports = container.ports?.collect {
+      def port = new KubernetesContainerPort()
+      port.hostIp = it?.hostIP
+      if (it?.hostPort) {
+        port.hostPort = it?.hostPort?.intValue()
+      }
+      if (it?.containerPort) {
+        port.containerPort = it?.containerPort?.intValue()
+      }
+      port.name = it?.name
+      port.protocol = it?.protocol
+
+      return port
+    }
+
+    if (container.securityContext) {
+      def securityContext = container.securityContext
+
+      containerDescription.securityContext = new KubernetesSecurityContext(privileged: securityContext.privileged,
+        runAsNonRoot: securityContext.runAsNonRoot,
+        runAsUser: securityContext.runAsUser,
+        readOnlyRootFilesystem: securityContext.readOnlyRootFilesystem
+      )
+
+      if (securityContext.capabilities) {
+        def capabilities = securityContext.capabilities
+
+        containerDescription.securityContext.capabilities = new KubernetesCapabilities(add: capabilities.add, drop: capabilities.drop)
+      }
+
+      if (securityContext.seLinuxOptions) {
+        def seLinuxOptions = securityContext.seLinuxOptions
+
+        containerDescription.securityContext.seLinuxOptions = new KubernetesSeLinuxOptions(user: seLinuxOptions.user,
+          role: seLinuxOptions.role,
+          type: seLinuxOptions.type,
+          level: seLinuxOptions.level
+        )
+      }
+    }
+
+    containerDescription.livenessProbe = fromV1Probe(container?.livenessProbe)
+    containerDescription.readinessProbe = fromV1Probe(container?.readinessProbe)
+
+    containerDescription.envVars = container?.env?.collect { envVar ->
+      def result = new KubernetesEnvVar(name: envVar.name)
+      if (envVar.value) {
+        result.value = envVar.value
+      } else if (envVar.valueFrom) {
+        def source = new KubernetesEnvVarSource()
+        if (envVar.valueFrom.configMapKeyRef) {
+          def configMap = envVar.valueFrom.configMapKeyRef
+          source.configMapSource = new KubernetesConfigMapSource(key: configMap.key, configMapName: configMap.name)
+        } else if (envVar.valueFrom.secretKeyRef) {
+          def secret = envVar.valueFrom.secretKeyRef
+          source.secretSource = new KubernetesSecretSource(key: secret.key, secretName: secret.name)
+        } else if (envVar.valueFrom.fieldRef) {
+          def fieldPath = envVar.valueFrom.fieldRef.fieldPath;
+          source.fieldRef = new KubernetesFieldRefSource(fieldPath: fieldPath)
+        } else if (envVar.valueFrom.resourceFieldRef) {
+          def resource = envVar.valueFrom.resourceFieldRef.resource
+          def containerName = envVar.valueFrom.resourceFieldRef.containerName
+          def divisor = envVar.valueFrom.resourceFieldRef.divisor
+          source.resourceFieldRef = new KubernetesResourceFieldRefSource(resource: resource,
+            containerName: containerName,
+            divisor: divisor)
+        } else {
+          return null
+        }
+        result.envSource = source
+      } else {
+        return null
+      }
+      return result
+    } - null
+
+    containerDescription.volumeMounts = container?.volumeMounts?.collect { volumeMount ->
+      new KubernetesVolumeMount(name: volumeMount.name, readOnly: volumeMount.readOnly, mountPath: volumeMount.mountPath)
+    }
+
+    containerDescription.args = container?.args ?: []
+    containerDescription.command = container?.command ?: []
+
+    return containerDescription
+  }
+  static KubernetesProbe fromV1Probe(V1Probe probe) {
+    if (!probe) {
+      return null
+    }
+
+    def kubernetesProbe = new KubernetesProbe()
+    kubernetesProbe.failureThreshold = probe.failureThreshold ?: 0
+    kubernetesProbe.successThreshold = probe.successThreshold ?: 0
+    kubernetesProbe.timeoutSeconds = probe.timeoutSeconds ?: 0
+    kubernetesProbe.periodSeconds = probe.periodSeconds ?: 0
+    kubernetesProbe.initialDelaySeconds = probe.initialDelaySeconds ?: 0
+    kubernetesProbe.handler = new KubernetesHandler()
+
+    if (probe.exec) {
+      kubernetesProbe.handler.execAction = fromExecAction(probe.exec)
+      kubernetesProbe.handler.type = KubernetesHandlerType.EXEC
+    }
+
+    if (probe.tcpSocket) {
+      kubernetesProbe.handler.tcpSocketAction = fromTcpSocketAction(probe.tcpSocket)
+      kubernetesProbe.handler.type = KubernetesHandlerType.TCP
+    }
+
+    if (probe.httpGet) {
+      kubernetesProbe.handler.httpGetAction = fromHttpGetAction(probe.httpGet)
+      kubernetesProbe.handler.type = KubernetesHandlerType.HTTP
+    }
+
+    return kubernetesProbe
+  }
   static KubernetesContainerDescription fromContainer(Container container) {
     if (!container) {
       return null
@@ -630,6 +783,37 @@ class KubernetesApiConverter {
     return res
   }
 
+  static DeployKubernetesAtomicOperationDescription fromStatefulSet(V1beta1StatefulSet statefulSet) {
+    def deployDescription = new DeployKubernetesAtomicOperationDescription()
+    def parsedName = Names.parseName(statefulSet?.metadata?.name)
+
+    deployDescription.application = parsedName?.app
+    deployDescription.stack = parsedName?.stack
+    deployDescription.freeFormDetails = parsedName?.detail
+    deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(statefulSet)
+    deployDescription.namespace = statefulSet?.metadata?.namespace
+    deployDescription.targetSize = statefulSet?.spec?.replicas
+    deployDescription.securityGroups = []
+    deployDescription.replicaSetAnnotations = statefulSet?.metadata?.annotations
+    deployDescription.podAnnotations = statefulSet?.spec?.template?.metadata?.annotations
+
+    deployDescription.volumeSources = statefulSet?.spec?.template?.spec?.volumes?.collect {
+      fromVolume(it)
+    } ?: []
+
+    deployDescription.hostNetwork = statefulSet?.spec?.template?.spec?.hostNetwork
+
+    deployDescription.containers = statefulSet?.spec?.template?.spec?.containers?.collect {
+      fromContainer(it)
+    } ?: []
+
+    deployDescription.terminationGracePeriodSeconds = statefulSet?.spec?.template?.spec?.terminationGracePeriodSeconds
+    deployDescription.serviceAccountName = statefulSet?.spec?.template?.spec?.serviceAccountName
+
+    deployDescription.nodeSelector = statefulSet?.spec?.template?.spec?.nodeSelector
+
+    return deployDescription
+  }
   static DeployKubernetesAtomicOperationDescription fromReplicaSet(ReplicaSet replicaSet) {
     def deployDescription = new DeployKubernetesAtomicOperationDescription()
     def parsedName = Names.parseName(replicaSet?.metadata?.name)
