@@ -23,9 +23,9 @@ import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.Pod
 import io.kubernetes.client.Configuration
 import io.kubernetes.client.apis.AppsV1beta1Api
-import io.kubernetes.client.models.V1beta1DaemonSet
-import io.kubernetes.client.models.V1beta1DaemonSetList
+
 import io.kubernetes.client.ApiClient
+import io.kubernetes.client.models.V1PodList
 import io.kubernetes.client.models.V1beta1StatefulSet
 import io.kubernetes.client.models.V1beta1StatefulSetList
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
@@ -36,8 +36,8 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 @Slf4j
 class KubernetesControllersCachingAgent extends KubernetesCachingAgent implements OnDemandAgent{
   final OnDemandMetricsSupport metricsSupport
-  final AppsV1beta1Api appsV1beta1Api
-  final ApiClient newClient
+
+  //final ApiClient newClient
   static final String DEPLOYMENT_ANNOTATION = "deployment.kubernetes.io"
   final String category = 'serverGroup'
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
@@ -53,9 +53,9 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     this.metricsSupport = new OnDemandMetricsSupport(registry,
       this,
       "$kubernetesCloudProvider.id:$OnDemandAgent.OnDemandType.ServerGroup")
-    this.appsV1beta1Api = new AppsV1beta1Api()
-    this.newClient = io.kubernetes.client.util.Config.defaultClient()
-    Configuration.setDefaultApiClient(newClient)
+    //this.appsV1beta1Api = new AppsV1beta1Api()
+   // this.newClient = io.kubernetes.client.util.Config.defaultClient()
+   // Configuration.setDefaultApiClient(newClient)
 
   }
 
@@ -93,29 +93,13 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
   CacheResult loadData(ProviderCache providerCache) {
     reloadNamespaces()
     Long start = System.currentTimeMillis()
-    V1beta1StatefulSetList statefulSet = loadStatefulSets()
-
-
-
-    List<V1beta1StatefulSet> ss=statefulSet.getItems()
-
-
-    /*List<KubernetesController> serverGroups1 = (replicationControllerList.collect {
-      it ? new KubernetesController(controller: it) : null
-    } + replicaSetList.collect {
-      it ? new KubernetesController(controller: it) : null
-    } +   daemonSetList?.items.collect { it ? new KubernetesController(controller: it): null
-    } + statefulSetList?.items.collect { it ? new KubernetesController(controller: it): null
-    })- null*/
-
-
-    List<StateFulSet> serverGroups = (ss.collect {
+    List<V1beta1StatefulSet> statefulSet = loadStatefulSets()
+    List<StateFulSet> serverGroups = (statefulSet.collect {
       it ? new StateFulSet(statefulSet: it) : null
     }
 
 
     ) - null
-
     List<CacheData> evictFromOnDemand = []
     List<CacheData> keepInOnDemand = []
 
@@ -246,20 +230,20 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
 
 
   V1beta1StatefulSet loadStatefulSet(String namespace, String name) {
-    getStatefulSet(namespace, name)
+    credentials.apiClientAdaptor.getStatefulSet(namespace, name)
   }
   V1beta1StatefulSetList getStatefulSets(String namespace) {
-    return this.appsV1beta1Api.listNamespacedStatefulSet(namespace, null, null, null, null, 300, null)
-  }
-  V1beta1StatefulSetList getStatefulSetsForAllNamespace() {
-    return this.appsV1beta1Api.listStatefulSetForAllNamespaces(null,null,null,null,300,false)
+    return credentials.apiClientAdaptor.getStatefulSets(namespace)
   }
 
-  V1beta1StatefulSet  getStatefulSet(String namespace, String serverGroupName) {
+
+  /*V1beta1StatefulSet  getStatefulSet(String namespace, String serverGroupName) {
     return this.appsV1beta1Api.readNamespacedStatefulSet(serverGroupName, namespace , null , false, false)
-  }
-  V1beta1StatefulSetList loadStatefulSets() {
-    getStatefulSetsForAllNamespace()
+  }*/
+  List<V1beta1StatefulSet> loadStatefulSets() {
+    namespaces.collect { String namespace ->
+      credentials.apiClientAdaptor.getStatefulSets(namespace)
+    }.flatten()
   }
 
 
@@ -341,7 +325,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
           relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
 
-        pods?.forEach { pod ->
+        pods.items?.forEach { pod ->
           def key = Keys.getInstanceKey(accountName, pod.metadata.namespace, pod.metadata.name)
           instanceKeys << key
           cachedInstances[key].with {
@@ -365,7 +349,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
           attributes.name = serverGroupName
 
           if (serverGroup.statefulSet) {
-            if (hasDeployment(serverGroup.statefulSet)) {
+            if (credentials.clientApiAdaptor.hasDeployment(serverGroup.statefulSet)) {
               autoscaler = deployAutoscalers[serverGroup.namespace][clusterName]
             } else {
               autoscaler = rsAutoscalers[serverGroup.namespace][serverGroupName]
@@ -402,11 +386,9 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     ])
 
   }
-  static boolean hasDeployment(V1beta1StatefulSet statefulSet) {
-    return statefulSet?.metadata?.annotations?.any { k, v -> k.startsWith(DEPLOYMENT_ANNOTATION) }
-  }
-  List<Pod> loadPods(StateFulSet serverGroup) {
-    credentials.apiAdaptor.getPods(serverGroup.namespace, serverGroup.selector)
+
+  V1PodList loadPods(StateFulSet serverGroup) {
+    credentials.apiClientAdaptor.getPods(serverGroup.namespace, serverGroup.selector)
   }
   private static void cache(Map<String, List<CacheData>> cacheResults, String cacheNamespace, Map<String, CacheData> cacheDataById) {
     cacheResults[cacheNamespace].each {

@@ -33,6 +33,9 @@ import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 import io.fabric8.kubernetes.client.internal.SerializationUtils
 import io.kubernetes.client.models.V1beta1StatefulSet
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 
 @CompileStatic
 @EqualsAndHashCode(includes = ["name", "namespace", "account"])
@@ -115,7 +118,9 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.launchConfig = [:]
     this.labels = statefulSet.spec?.template?.metadata?.labels
     this.deployDescription = KubernetesApiConverter.fromStatefulSet(statefulSet)
+    ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
     //this.yaml = SerializationUtils.dumpWithoutRuntimeStateAsYaml(statefulSet)
+    ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
     this.kind = statefulSet.kind
     this.events = events?.collect {
       new KubernetesEvent(it)
@@ -124,7 +129,7 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
       KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
       this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
     }
-    this.revision = KubernetesApiAdaptor.getDeploymentRevision(statefulSet)
+    this.revision = KubernetesClientApiAdapter.getDeploymentRevision(statefulSet)
   }
 
 
