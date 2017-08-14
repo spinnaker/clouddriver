@@ -102,6 +102,7 @@ class KubernetesProviderConfig implements Runnable {
         newlyAddedAgents << new KubernetesLoadBalancerCachingAgent(credentials.name, credentials.credentials, objectMapper, index, credentials.cacheThreads, registry)
         newlyAddedAgents << new KubernetesSecurityGroupCachingAgent(credentials.name, credentials.credentials, objectMapper, index, credentials.cacheThreads, registry)
         newlyAddedAgents << new KubernetesServerGroupCachingAgent(credentials.name, credentials.credentials, objectMapper, index, credentials.cacheThreads, registry)
+        newlyAddedAgents << new KubernetesControllersCachingAgent(credentials.name, objectMapper,credentials.credentials, index, credentials.cacheThreads,registry)
         newlyAddedAgents << new KubernetesInstanceCachingAgent(credentials.name, credentials.credentials, objectMapper, index, credentials.cacheThreads)
         newlyAddedAgents << new KubernetesDeploymentCachingAgent(credentials.name, credentials.credentials, objectMapper, index, credentials.cacheThreads)
         newlyAddedAgents << new KubernetesServiceAccountCachingAgent(credentials.name, credentials.credentials, objectMapper, index, credentials.cacheThreads)
