@@ -25,7 +25,8 @@ import io.kubernetes.client.ApiException
 import io.kubernetes.client.Configuration
 import io.kubernetes.client.apis.AppsV1beta1Api
 import io.kubernetes.client.models.*
-
+import io.kubernetes.client.models.V1Pod
+import io.kubernetes.client.apis.CoreV1Api
 import java.util.concurrent.TimeUnit
 
 class KubernetesClientApiAdapter {
@@ -122,6 +123,19 @@ class KubernetesClientApiAdapter {
         return result
       }
     }
+  }
+  static String getDeploymentRevision(V1beta1StatefulSet statefulSet) {
+    return statefulSet?.metadata?.annotations?.get("$DEPLOYMENT_ANNOTATION/revision".toString())
+  }
+  static boolean hasDeployment(V1beta1StatefulSet statefulSet) {
+    return statefulSet?.metadata?.annotations?.any { k, v -> k.startsWith(DEPLOYMENT_ANNOTATION) }
+  }
+  V1PodList getPods(String namespace, Map<String, String> labels) {
+    CoreV1Api api = new CoreV1Api();
+     api.listNamespacedPod("default", null, null, null, null, 600, null);
+  }
+  V1beta1StatefulSet  getStatefulSet(String namespace, String serverGroupName) {
+    return this.apiInstance.readNamespacedStatefulSet(serverGroupName, namespace , null , false, false)
   }
 
   List<V1beta1StatefulSet> getStatefulSets(String namespace) {
