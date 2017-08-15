@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.core.RetrofitConfig
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfiguration
 import com.netflix.spinnaker.clouddriver.deploy.config.DeployConfiguration
 import com.netflix.spinnaker.clouddriver.docker.registry.DockerRegistryConfiguration
+import com.netflix.spinnaker.clouddriver.ecs.EcsConfiguration
 import com.netflix.spinnaker.clouddriver.eureka.EurekaProviderConfiguration
 import com.netflix.spinnaker.clouddriver.google.GoogleConfiguration
 import com.netflix.spinnaker.clouddriver.jobs.config.LocalJobConfig
@@ -54,6 +55,7 @@ import java.security.Security
   DeployConfiguration,
   RetrofitConfig,
   AwsConfiguration,
+  EcsConfiguration,
   AppengineConfiguration,
   GoogleConfiguration,
   OracleBMCSConfiguration,

@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.clouddriver.aws.ecs;
+package com.netflix.spinnaker.clouddriver.ecs;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

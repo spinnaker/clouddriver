@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.clouddriver.aws.ecs;
+package com.netflix.spinnaker.clouddriver.ecs;
 
 import org.springframework.stereotype.Component;
 import com.netflix.spinnaker.clouddriver.core.CloudProvider;
@@ -15,7 +15,6 @@ class EcsCloudProvider implements CloudProvider {
   final String displayName = "Amazon-ECS";
 
   final Class<? extends Annotation> operationAnnotationType = EcsOperation.class;
-
 
   @Override
   public String getId() {
