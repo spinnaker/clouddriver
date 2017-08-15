@@ -1,11 +1,11 @@
-package com.netflix.spinnakerclouddriver.aws.ecs;
+package com.netflix.spinnaker.clouddriver.aws.ecs;
 
 import org.springframework.stereotype.Component;
 import com.netflix.spinnaker.clouddriver.core.CloudProvider;
 
 import java.lang.annotation.Annotation;
 
-//@Component
+@Component
 class EcsCloudProvider implements CloudProvider {
 
   public static final String ID = "ecs";

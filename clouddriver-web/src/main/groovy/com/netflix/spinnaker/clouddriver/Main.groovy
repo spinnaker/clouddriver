@@ -33,7 +33,6 @@ import com.netflix.spinnaker.clouddriver.openstack.OpenstackConfiguration
 import com.netflix.spinnaker.clouddriver.oraclebmcs.OracleBMCSConfiguration
 import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig
 import com.netflix.spinnaker.config.ErrorConfiguration
-import com.netflix.spinnakerclouddriver.aws.ecs.EcsConfiguration
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.autoconfigure.batch.BatchAutoConfiguration
 import org.springframework.boot.autoconfigure.groovy.template.GroovyTemplateAutoConfiguration
@@ -55,7 +54,6 @@ import java.security.Security
   DeployConfiguration,
   RetrofitConfig,
   AwsConfiguration,
-  EcsConfiguration,
   AppengineConfiguration,
   GoogleConfiguration,
   OracleBMCSConfiguration,

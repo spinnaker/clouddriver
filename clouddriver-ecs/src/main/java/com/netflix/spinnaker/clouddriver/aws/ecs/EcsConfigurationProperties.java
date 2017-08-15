@@ -1,4 +1,4 @@
-package com.netflix.spinnakerclouddriver.aws.ecs;
+package com.netflix.spinnaker.clouddriver.aws.ecs;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
