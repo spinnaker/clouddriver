@@ -40,7 +40,6 @@ import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 
-
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 
@@ -66,8 +65,8 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
                                     Registry registry) {
     super(accountName, objectMapper, credentials, agentIndex, agentCount)
     this.metricsSupport = new OnDemandMetricsSupport(registry,
-                                                     this,
-                                                     "$kubernetesCloudProvider.id:$OnDemandAgent.OnDemandType.ServerGroup")
+      this,
+      "$kubernetesCloudProvider.id:$OnDemandAgent.OnDemandType.ServerGroup")
   }
 
   @Override
@@ -310,7 +309,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent implement
 
       if (onDemandData && onDemandData.attributes.cacheTime >= start) {
         Map<String, List<CacheData>> cacheResults = objectMapper.readValue(onDemandData.attributes.cacheResults as String,
-                                                                           new TypeReference<Map<String, List<MutableCacheData>>>() { })
+          new TypeReference<Map<String, List<MutableCacheData>>>() { })
         cache(cacheResults, Keys.Namespace.APPLICATIONS.ns, cachedApplications)
         cache(cacheResults, Keys.Namespace.CLUSTERS.ns, cachedClusters)
         cache(cacheResults, Keys.Namespace.SERVER_GROUPS.ns, cachedServerGroups)
