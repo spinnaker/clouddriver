@@ -27,6 +27,7 @@ import io.fabric8.kubernetes.api.model.extensions.*
 import io.fabric8.kubernetes.client.DefaultKubernetesClient
 import io.fabric8.kubernetes.client.KubernetesClient
 import io.fabric8.kubernetes.client.KubernetesClientException
+
 import java.util.concurrent.TimeUnit
 
 @Slf4j
@@ -509,5 +510,4 @@ class KubernetesApiAdaptor {
   static String getDeploymentRevision(ReplicaSet replicaSet) {
     return replicaSet?.metadata?.annotations?.get("$DEPLOYMENT_ANNOTATION/revision".toString())
   }
-
 }
