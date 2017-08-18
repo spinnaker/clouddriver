@@ -32,6 +32,7 @@ import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 import io.fabric8.kubernetes.client.internal.SerializationUtils
+import io.kubernetes.client.models.V1beta1StatefulSet
 
 @CompileStatic
 @EqualsAndHashCode(includes = ["name", "namespace", "account"])
@@ -63,16 +64,17 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   Map<String, Object> getBuildInfo() {
     def imageList = []
     def buildInfo = [:]
-    for (def container : this.deployDescription.containers) {
-      imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
+    if (deployDescription != null) {
+      for (def container : this.deployDescription.containers) {
+        imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
+      }
+
+      buildInfo.images = imageList
+
+      def parsedName = Names.parseName(name)
+
+      buildInfo.createdBy = this.deployDescription?.deployment?.enabled ? parsedName.cluster : null
     }
-
-    buildInfo.images = imageList
-
-    def parsedName = Names.parseName(name)
-
-    buildInfo.createdBy = this.deployDescription?.deployment?.enabled ? parsedName.cluster : null
-
     return buildInfo
   }
 
@@ -125,6 +127,24 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
       this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
     }
     this.revision = KubernetesApiAdaptor.getDeploymentRevision(replicaSet)
+  }
+
+  KubernetesServerGroup(V1beta1StatefulSet statefulSet, String account, List<Event> events) {
+    this.name = statefulSet.metadata?.name
+    this.account = account
+    this.region = statefulSet.metadata?.namespace
+    this.namespace = this.region
+    this.createdTime = statefulSet.metadata?.creationTimestamp?.getMillis()
+    this.zones = [this.region] as Set
+    this.securityGroups = []
+    this.replicas = statefulSet.spec?.replicas ?: 0
+    this.launchConfig = [:]
+    this.labels = statefulSet.spec?.template?.metadata?.labels
+    this.kind = statefulSet.kind
+    this.events = events?.collect {
+      new KubernetesEvent(it)
+    }
+
   }
 
   KubernetesServerGroup(ReplicationController replicationController, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {

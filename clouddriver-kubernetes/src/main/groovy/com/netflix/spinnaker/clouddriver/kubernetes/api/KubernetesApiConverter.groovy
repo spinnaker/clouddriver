@@ -55,7 +55,7 @@ class KubernetesApiConverter {
           resPath.path = path.path
           if (path.backend) {
             resPath.ingress = new KubernetesIngressBackend(port: path.backend.servicePort?.intVal ?: 0,
-                                                           serviceName: path.backend.serviceName)
+              serviceName: path.backend.serviceName)
           }
 
           return resPath
@@ -93,11 +93,11 @@ class KubernetesApiConverter {
     loadBalancerDescription.externalIps = service.spec.externalIPs ?: []
     loadBalancerDescription.ports = service.spec.ports?.collect { port ->
       new KubernetesNamedServicePort(
-          name: port.name,
-          protocol: port.protocol,
-          port: port.port ?: 0,
-          targetPort: port.targetPort?.intVal ?: 0,
-          nodePort: port.nodePort ?: 0
+        name: port.name,
+        protocol: port.protocol,
+        port: port.port ?: 0,
+        targetPort: port.targetPort?.intVal ?: 0,
+        nodePort: port.nodePort ?: 0
       )
     }
 
@@ -131,15 +131,15 @@ class KubernetesApiConverter {
 
       case KubernetesVolumeSourceType.PersistentVolumeClaim:
         def res = new PersistentVolumeClaimVolumeSourceBuilder()
-            .withClaimName(volumeSource.persistentVolumeClaim.claimName)
-            .withReadOnly(volumeSource.persistentVolumeClaim.readOnly)
+          .withClaimName(volumeSource.persistentVolumeClaim.claimName)
+          .withReadOnly(volumeSource.persistentVolumeClaim.readOnly)
 
         volume.persistentVolumeClaim = res.build()
         break
 
       case KubernetesVolumeSourceType.Secret:
         def res = new SecretVolumeSourceBuilder()
-            .withSecretName(volumeSource.secret.secretName)
+          .withSecretName(volumeSource.secret.secretName)
 
         volume.secret = res.build()
         break
@@ -408,9 +408,9 @@ class KubernetesApiConverter {
         def res = new VolumeMountBuilder()
 
         return res.withMountPath(mount.mountPath)
-            .withName(mount.name)
-            .withReadOnly(mount.readOnly)
-            .build()
+          .withName(mount.name)
+          .withReadOnly(mount.readOnly)
+          .build()
       }
 
       containerBuilder = containerBuilder.withVolumeMounts(volumeMounts)
@@ -478,16 +478,16 @@ class KubernetesApiConverter {
 
     container.resources?.with {
       containerDescription.limits = limits?.cpu?.amount || limits?.memory?.amount ?
-          new KubernetesResourceDescription(
-              cpu: limits?.cpu?.amount,
-              memory: limits?.memory?.amount
-          ) : null
+        new KubernetesResourceDescription(
+          cpu: limits?.cpu?.amount,
+          memory: limits?.memory?.amount
+        ) : null
 
       containerDescription.requests = requests?.cpu?.amount || requests?.memory?.amount ?
-          new KubernetesResourceDescription(
-              cpu: requests?.cpu?.amount,
-              memory: requests?.memory?.amount
-          ) : null
+        new KubernetesResourceDescription(
+          cpu: requests?.cpu?.amount,
+          memory: requests?.memory?.amount
+        ) : null
     }
 
     if (container.lifecycle) {
@@ -519,9 +519,9 @@ class KubernetesApiConverter {
       def securityContext = container.securityContext
 
       containerDescription.securityContext = new KubernetesSecurityContext(privileged: securityContext.privileged,
-                                                                           runAsNonRoot: securityContext.runAsNonRoot,
-                                                                           runAsUser: securityContext.runAsUser,
-                                                                           readOnlyRootFilesystem: securityContext.readOnlyRootFilesystem
+        runAsNonRoot: securityContext.runAsNonRoot,
+        runAsUser: securityContext.runAsUser,
+        readOnlyRootFilesystem: securityContext.readOnlyRootFilesystem
       )
 
       if (securityContext.capabilities) {
@@ -534,9 +534,9 @@ class KubernetesApiConverter {
         def seLinuxOptions = securityContext.seLinuxOptions
 
         containerDescription.securityContext.seLinuxOptions = new KubernetesSeLinuxOptions(user: seLinuxOptions.user,
-                                                                                           role: seLinuxOptions.role,
-                                                                                           type: seLinuxOptions.type,
-                                                                                           level: seLinuxOptions.level
+          role: seLinuxOptions.role,
+          type: seLinuxOptions.type,
+          level: seLinuxOptions.level
         )
       }
     }
@@ -564,8 +564,8 @@ class KubernetesApiConverter {
           def containerName = envVar.valueFrom.resourceFieldRef.containerName
           def divisor = envVar.valueFrom.resourceFieldRef.divisor
           source.resourceFieldRef = new KubernetesResourceFieldRefSource(resource: resource,
-                                                                         containerName: containerName,
-                                                                         divisor: divisor)
+            containerName: containerName,
+            divisor: divisor)
         } else {
           return null
         }
@@ -621,8 +621,8 @@ class KubernetesApiConverter {
       res.type = KubernetesVolumeSourceType.AwsElasticBlockStore
       def ebs = volume.awsElasticBlockStore
       res.awsElasticBlockStore = new KubernetesAwsElasticBlockStoreVolumeSource(volumeId: ebs.volumeID,
-                                                                                fsType: ebs.fsType,
-                                                                                partition: ebs.partition)
+        fsType: ebs.fsType,
+        partition: ebs.partition)
     } else {
       res.type = KubernetesVolumeSourceType.Unsupported
     }
@@ -664,8 +664,8 @@ class KubernetesApiConverter {
 
   static void attachAutoscaler(DeployKubernetesAtomicOperationDescription description, HorizontalPodAutoscaler autoscaler) {
     description.capacity = new Capacity(min: autoscaler.spec.minReplicas,
-                                        max: autoscaler.spec.maxReplicas,
-                                        desired: description.targetSize)
+      max: autoscaler.spec.maxReplicas,
+      desired: description.targetSize)
     def cpuUtilization = new KubernetesCpuUtilization(target: autoscaler.spec.targetCPUUtilizationPercentage)
     description.scalingPolicy = new KubernetesScalingPolicy(cpuUtilization: cpuUtilization)
   }
@@ -826,8 +826,8 @@ class KubernetesApiConverter {
   }
 
   static DeploymentFluentImpl toDeployment(DeploymentFluentImpl serverGroupBuilder,
-                                        DeployKubernetesAtomicOperationDescription description,
-                                        String replicaSetName) {
+                                           DeployKubernetesAtomicOperationDescription description,
+                                           String replicaSetName) {
     def parsedName = Names.parseName(replicaSetName)
     def targetSize = description.targetSize ?: description.capacity?.desired
 

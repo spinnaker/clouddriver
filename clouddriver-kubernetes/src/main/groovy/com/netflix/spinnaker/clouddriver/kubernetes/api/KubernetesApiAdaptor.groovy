@@ -115,8 +115,8 @@ class KubernetesApiAdaptor {
       }
 
       spectatorRegistry.timer(
-              spectatorRegistry.createId("kubernetes.api", tags))
-              .record(spectatorClock.monotonicTime() - startTime, TimeUnit.NANOSECONDS)
+        spectatorRegistry.createId("kubernetes.api", tags))
+        .record(spectatorClock.monotonicTime() - startTime, TimeUnit.NANOSECONDS)
 
       if (failure) {
         throw failure
@@ -381,7 +381,7 @@ class KubernetesApiAdaptor {
   }
 
   List<ConfigMap> getConfigMaps(String namespace) {
-   exceptionWrapper("configMaps.list", "Get Config Maps", namespace) {
+    exceptionWrapper("configMaps.list", "Get Config Maps", namespace) {
       client.configMaps().inNamespace(namespace).list().items
     }
   }
