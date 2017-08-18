@@ -34,10 +34,6 @@ public class KubernetesApiClientConfig extends Config {
   }
 
   public ApiClient getApiCient() throws Exception {
-    if (kubeconfigFile) {
-      return Config.defaultClient()
-    } else {
-      return fromConfig(kubeconfigFile)
-    }
+    return (kubeconfigFile ? fromConfig(kubeconfigFile) : Config.defaultClient())
   }
 }
