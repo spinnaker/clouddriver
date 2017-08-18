@@ -17,12 +17,30 @@
 package com.netflix.spinnaker.clouddriver.aws.data
 
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.cache.KeyParser
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace
 import groovy.transform.CompileStatic
+import org.springframework.stereotype.Component
+
 import static com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider.ID
 
-@CompileStatic
-class Keys {
+@Component("AmazonKeys")
+class Keys implements KeyParser {
+
+  @Override
+  String getCloudProvider() {
+    return ID
+  }
+
+  @Override
+  Map<String, String> parseKey(String key) {
+    return parse(key)
+  }
+
+  @Override
+  Boolean canParse(String type) {
+    return Namespace.values().any { it.ns == type }
+  }
 
   static Map<String, String> parse(String key) {
     def parts = key.split(':')

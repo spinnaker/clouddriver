@@ -17,9 +17,13 @@
 package com.netflix.spinnaker.clouddriver.aws.cache
 
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.cache.KeyParser
+import org.springframework.stereotype.Component
+
 import static com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider.ID
 
-class Keys {
+@Component("AmazonInfraKeys")
+class Keys implements KeyParser {
   static enum Namespace {
     CERTIFICATES,
     SECURITY_GROUPS,
@@ -41,6 +45,21 @@ class Keys {
     String toString() {
       ns
     }
+  }
+
+  @Override
+  String getCloudProvider() {
+    return ID
+  }
+
+  @Override
+  Map<String, String> parseKey(String key) {
+    return parse(key)
+  }
+
+  @Override
+  Boolean canParse(String type) {
+    return Namespace.values().any { it.ns == type }
   }
 
   static Map<String, String> parse(String key) {
