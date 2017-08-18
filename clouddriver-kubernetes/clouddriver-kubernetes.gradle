@@ -6,6 +6,5 @@ dependencies {
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootWeb')
 
-  compile 'io.kubernetes:client-java-api:0.1'
   compile 'io.kubernetes:client-java-util:0.1'
 }
