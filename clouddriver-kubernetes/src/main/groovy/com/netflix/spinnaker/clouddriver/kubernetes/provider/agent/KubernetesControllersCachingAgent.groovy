@@ -26,7 +26,6 @@ import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
-import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesServerGroup
 import com.netflix.spinnaker.clouddriver.kubernetes.provider.view.MutableCacheData
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
@@ -35,7 +34,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.cache.Keys
 import com.netflix.spectator.api.Registry
 import groovy.util.logging.Slf4j
 import io.fabric8.kubernetes.api.model.Event
-import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.kubernetes.client.models.V1beta1StatefulSet
 
 /**
@@ -85,8 +83,6 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     }
 
     def serverGroupName = data.serverGroupName.toString()
-
-
 
     V1beta1StatefulSet statefulSet = metricsSupport.readData {
       loadStatefulSets()
