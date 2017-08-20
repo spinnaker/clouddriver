@@ -116,20 +116,13 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.zones = [this.region] as Set
     this.securityGroups = []
     this.replicas = statefulSet.spec?.replicas ?: 0
-    // Prashant 3 this.loadBalancers = KubernetesUtil.getLoadBalancers(statefulSet) as Set
     this.launchConfig = [:]
     this.labels = statefulSet.spec?.template?.metadata?.labels
     this.deployDescription = null
-    //this.yaml = SerializationUtils.dumpWithoutRuntimeStateAsYaml(statefulSet)
     this.kind = statefulSet.kind
     this.events = events?.collect {
       new KubernetesEvent(it)
     }
-    /*if (autoscaler) {
-      KubernetesApiConverter.attachAutoscaler(this.deployDescription, autoscaler)
-      this.autoscalerStatus = new KubernetesAutoscalerStatus(autoscaler)
-    }*/
-    //this.revision = KubernetesApiAdaptor.getDeploymentRevision(statefulSet)
   }
 
   KubernetesServerGroup(ReplicaSet replicaSet, String account, List<Event> events, HorizontalPodAutoscaler autoscaler) {

@@ -210,30 +210,15 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     Map<String, MutableCacheData> cachedInstances = MutableCacheData.mutableCacheMap()
     Map<String, MutableCacheData> cachedLoadBalancers = MutableCacheData.mutableCacheMap()
 
-    // Map namespace -> name -> event
-    Map<String, Map<String, Event>> rcEvents = [:].withDefault { _ -> [:] }
-    Map<String, Map<String, Event>> rsEvents = [:].withDefault { _ -> [:] }
+    Map<String, Map<String, Event>> stateFulsetEvents = [:].withDefault { _ -> [:] }
+
     try {
       namespaces.each { String namespace ->
-        rcEvents[namespace] = credentials.apiAdaptor.getEvents(namespace, KubernetesUtil.DEPRECATED_SERVER_GROUP_KIND)
-        rsEvents[namespace] = credentials.apiAdaptor.getEvents(namespace, KubernetesUtil.SERVER_GROUP_KIND)
+        stateFulsetEvents[namespace] = credentials.apiAdaptor.getEvents(namespace, "V1beta1StatefulSet")
+
       }
     } catch (Exception e) {
       log.warn "Failure fetching events for all server groups in $namespaces", e
-    }
-
-    // Map namespace -> name -> autoscaler
-    Map<String, Map<String, HorizontalPodAutoscaler>> rcAutoscalers = [:].withDefault { _ -> [:] }
-    Map<String, Map<String, HorizontalPodAutoscaler>> rsAutoscalers = [:].withDefault { _ -> [:] }
-    Map<String, Map<String, HorizontalPodAutoscaler>> deployAutoscalers = [:].withDefault { _ -> [:] }
-    try {
-      namespaces.each { String namespace ->
-        rcAutoscalers[namespace] = credentials.apiAdaptor.getAutoscalers(namespace, KubernetesUtil.DEPRECATED_SERVER_GROUP_KIND)
-        rsAutoscalers[namespace] = credentials.apiAdaptor.getAutoscalers(namespace, KubernetesUtil.SERVER_GROUP_KIND)
-        deployAutoscalers[namespace] = credentials.apiAdaptor.getAutoscalers(namespace, KubernetesUtil.DEPLOYMENT_KIND)
-      }
-    } catch (Exception e) {
-      log.warn "Failure fetching autoscalers for all server groups in $namespaces", e
     }
 
     for (StateFulSet serverGroup: serverGroups) {
@@ -259,22 +244,17 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
         def applicationKey = Keys.getApplicationKey(applicationName)
         def clusterKey = Keys.getClusterKey(accountName, applicationName, category, clusterName)
         def instanceKeys = []
-        def loadBalancerKeys = serverGroup.loadBalancers.collect({
-          Keys.getLoadBalancerKey(accountName, serverGroup.namespace, it)
-        })
 
         cachedApplications[applicationKey].with {
           attributes.name = applicationName
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
-          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
 
         cachedClusters[clusterKey].with {
           attributes.name = clusterName
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
-          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
 
         cachedServerGroups[serverGroupKey].with {
@@ -283,12 +263,11 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
 
           if (serverGroup.statefulSet) {
 
-            events = rsEvents[serverGroup.namespace][serverGroupName]
+            events = stateFulsetEvents[serverGroup.namespace][serverGroupName]
           }
           attributes.serverGroup = new KubernetesServerGroup(serverGroup.statefulSet, accountName, events)
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
-          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
           relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
         }
       }
@@ -344,12 +323,5 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     boolean exists() {
       statefulSet
     }
-
-     List<String> getLoadBalancers() {
-       KubernetesUtil.getLoadBalancers(statefulSet)
-     }
-
-
-
   }
 }

@@ -79,6 +79,11 @@ class KubernetesProviderUtils {
     KubernetesServerGroup serverGroup = objectMapper.convertValue(cacheData.attributes.serverGroup, KubernetesServerGroup)
     serverGroup.instances = instances
     serverGroup.deploymentStatus = deployment ? new KubernetesDeploymentStatus(deployment) : null
+    /**
+     * We are checking Null here because in the KubernetesServerGroup for statefullset we don't have deployDescription yet
+     * It will be available in next code checkin then will remove this Null check
+     */
+    if(serverGroup.deployDescription!=null)
     serverGroup.deployDescription.deployment = KubernetesApiConverter.fromDeployment(deployment)
     return serverGroup
   }
