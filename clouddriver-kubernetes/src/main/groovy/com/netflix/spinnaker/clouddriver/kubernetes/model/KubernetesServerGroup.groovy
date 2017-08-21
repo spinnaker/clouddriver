@@ -68,16 +68,16 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
      * I have added a null check as in statefullset deployDescription is null
      */
     if (deployDescription != null) {
-    for (def container : this.deployDescription.containers) {
-      imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
+      for (def container : this.deployDescription.containers) {
+        imageList.add(KubernetesUtil.getImageIdWithoutRegistry(container.imageDescription))
+      }
+
+      buildInfo.images = imageList
+
+      def parsedName = Names.parseName(name)
+
+      buildInfo.createdBy = this.deployDescription?.deployment?.enabled ? parsedName.cluster : null
     }
-
-    buildInfo.images = imageList
-
-    def parsedName = Names.parseName(name)
-
-    buildInfo.createdBy = this.deployDescription?.deployment?.enabled ? parsedName.cluster : null
-   }
     return buildInfo
   }
 
