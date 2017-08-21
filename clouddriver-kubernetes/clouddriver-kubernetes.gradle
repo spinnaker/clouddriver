@@ -5,4 +5,6 @@ dependencies {
   compile spinnaker.dependency('frigga')
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootWeb')
+
+  compile 'io.kubernetes:client-java-util:0.1'
 }
