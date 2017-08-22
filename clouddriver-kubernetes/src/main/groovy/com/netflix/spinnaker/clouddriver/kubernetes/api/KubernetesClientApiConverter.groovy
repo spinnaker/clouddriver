@@ -45,6 +45,11 @@ import io.kubernetes.client.models.V1Container
 import io.kubernetes.client.models.V1Probe
 import io.kubernetes.client.models.V1Volume
 import io.kubernetes.client.models.V1beta1StatefulSet
+import io.kubernetes.client.models.V1Handler
+import io.kubernetes.client.models.V1ExecAction
+import io.kubernetes.client.models.V1TCPSocketAction
+import io.kubernetes.client.models.V1HTTPGetAction
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.*
 
 /**
  * Created by spinnaker on 20/8/17.
@@ -169,37 +174,7 @@ class KubernetesClientApiConverter {
     containerDescription.livenessProbe = fromV1Probe(container?.livenessProbe)
     containerDescription.readinessProbe = fromV1Probe(container?.readinessProbe)
 
-    /*containerDescription.envVars = container?.env?.collect { envVar ->
-      def result = new KubernetesEnvVar(name: envVar.name)
-      if (envVar.value) {
-        result.value = envVar.value
-      } else if (envVar.valueFrom) {
-        def source = new KubernetesEnvVarSource()
-        if (envVar.valueFrom.configMapKeyRef) {
-          def configMap = envVar.valueFrom.configMapKeyRef
-          source.configMapSource = new KubernetesConfigMapSource(key: configMap.key, configMapName: configMap.name)
-        } else if (envVar.valueFrom.secretKeyRef) {
-          def secret = envVar.valueFrom.secretKeyRef
-          source.secretSource = new KubernetesSecretSource(key: secret.key, secretName: secret.name)
-        } else if (envVar.valueFrom.fieldRef) {
-          def fieldPath = envVar.valueFrom.fieldRef.fieldPath;
-          source.fieldRef = new KubernetesFieldRefSource(fieldPath: fieldPath)
-        } else if (envVar.valueFrom.resourceFieldRef) {
-          def resource = envVar.valueFrom.resourceFieldRef.resource
-          def containerName = envVar.valueFrom.resourceFieldRef.containerName
-          def divisor = envVar.valueFrom.resourceFieldRef.divisor
-          source.resourceFieldRef = new KubernetesResourceFieldRefSource(resource: resource,
-            containerName: containerName,
-            divisor: divisor)
-        } else {
-          return null
-        }
-        result.envSource = source
-      } else {
-        return null
-      }
-      return result
-    } - null*/
+
 
     containerDescription.volumeMounts = container?.volumeMounts?.collect { volumeMount ->
       new KubernetesVolumeMount(name: volumeMount.name, readOnly: volumeMount.readOnly, mountPath: volumeMount.mountPath)
@@ -255,6 +230,61 @@ class KubernetesClientApiConverter {
     return res
   }
 
+  static KubernetesExecAction fromExecAction(V1ExecAction exec) {
+    if (!exec) {
+      return null
+    }
+
+    def kubernetesExecAction = new KubernetesExecAction()
+    kubernetesExecAction.commands = exec.command
+    return kubernetesExecAction
+  }
+
+  static KubernetesHandler fromHandler(V1Handler handler) {
+    def kubernetesHandler = new KubernetesHandler()
+    if (handler.exec) {
+      kubernetesHandler.execAction = fromExecAction(handler.exec)
+      kubernetesHandler.type = KubernetesHandlerType.EXEC
+    }
+
+    if (handler.tcpSocket) {
+      kubernetesHandler.tcpSocketAction = fromTcpSocketAction(handler.tcpSocket)
+      kubernetesHandler.type = KubernetesHandlerType.TCP
+    }
+
+    if (handler.httpGet) {
+      kubernetesHandler.httpGetAction = fromHttpGetAction(handler.httpGet)
+      kubernetesHandler.type = KubernetesHandlerType.HTTP
+    }
+
+    return kubernetesHandler
+  }
+
+  static KubernetesHttpGetAction fromHttpGetAction(V1HTTPGetAction httpGet) {
+    if (!httpGet) {
+      return null
+    }
+
+    def kubernetesHttpGetAction = new KubernetesHttpGetAction()
+    kubernetesHttpGetAction.host = httpGet.host
+    kubernetesHttpGetAction.path = httpGet.path
+    kubernetesHttpGetAction.port = httpGet.port?.intVal ?: 0
+    kubernetesHttpGetAction.uriScheme = httpGet.scheme
+    kubernetesHttpGetAction.httpHeaders = httpGet.httpHeaders?.collect() {
+      new KeyValuePair(name: it.name, value: it.value)
+    }
+    return kubernetesHttpGetAction
+  }
+
+  static KubernetesTcpSocketAction fromTcpSocketAction(V1TCPSocketAction tcpSocket) {
+    if (!tcpSocket) {
+      return null
+    }
+
+    def kubernetesTcpSocketAction = new KubernetesTcpSocketAction()
+    kubernetesTcpSocketAction.port = tcpSocket.port ?: 0
+    return kubernetesTcpSocketAction
+  }
 
   static KubernetesProbe fromV1Probe(V1Probe probe) {
     if (!probe) {
