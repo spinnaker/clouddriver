@@ -40,6 +40,10 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergro
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesVolumeMount
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesVolumeSource
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesVolumeSourceType
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesExecAction
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesHttpGetAction
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KeyValuePair
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesTcpSocketAction
 import io.fabric8.kubernetes.api.model.KeyToPath
 import io.kubernetes.client.models.V1Container
 import io.kubernetes.client.models.V1Probe
@@ -49,13 +53,12 @@ import io.kubernetes.client.models.V1Handler
 import io.kubernetes.client.models.V1ExecAction
 import io.kubernetes.client.models.V1TCPSocketAction
 import io.kubernetes.client.models.V1HTTPGetAction
-import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.*
+
 
 /**
  * Created by spinnaker on 20/8/17.
  */
 class KubernetesClientApiConverter {
-
 
   static DeployKubernetesAtomicOperationDescription fromStatefulSet(V1beta1StatefulSet statefulSet) {
     def deployDescription = new DeployKubernetesAtomicOperationDescription()
@@ -173,8 +176,6 @@ class KubernetesClientApiConverter {
 
     containerDescription.livenessProbe = fromV1Probe(container?.livenessProbe)
     containerDescription.readinessProbe = fromV1Probe(container?.readinessProbe)
-
-
 
     containerDescription.volumeMounts = container?.volumeMounts?.collect { volumeMount ->
       new KubernetesVolumeMount(name: volumeMount.name, readOnly: volumeMount.readOnly, mountPath: volumeMount.mountPath)
