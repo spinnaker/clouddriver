@@ -20,6 +20,7 @@ import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiConverter
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.DeployKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesContainerDescription
@@ -118,7 +119,7 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.replicas = statefulSet.spec?.replicas ?: 0
     this.launchConfig = [:]
     this.labels = statefulSet.spec?.template?.metadata?.labels
-    this.deployDescription = null
+    this.deployDescription = KubernetesClientApiConverter.fromStatefulSet(statefulSet)
     this.kind = statefulSet.kind
     this.events = events?.collect {
       new KubernetesEvent(it)

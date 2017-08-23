@@ -26,6 +26,7 @@ import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesServerGroup
 import com.netflix.spinnaker.clouddriver.kubernetes.provider.view.MutableCacheData
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
@@ -240,17 +241,21 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
         def applicationKey = Keys.getApplicationKey(applicationName)
         def clusterKey = Keys.getClusterKey(accountName, applicationName, category, clusterName)
         def instanceKeys = []
-
+        def loadBalancerKeys = serverGroup.loadBalancers.collect({
+          Keys.getLoadBalancerKey(accountName, serverGroup.namespace, it)
+        })
         cachedApplications[applicationKey].with {
           attributes.name = applicationName
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
+          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
 
         cachedClusters[clusterKey].with {
           attributes.name = clusterName
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
+          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
 
         cachedServerGroups[serverGroupKey].with {
@@ -265,6 +270,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
+          relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
         }
       }
     }
@@ -319,5 +325,10 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     boolean exists() {
       statefulSet
     }
+
+    List<String> getLoadBalancers() {
+      KubernetesUtil.getLoadBalancers(statefulSet.spec?.template?.metadata?.labels ?: [:])
+    }
+
   }
 }
