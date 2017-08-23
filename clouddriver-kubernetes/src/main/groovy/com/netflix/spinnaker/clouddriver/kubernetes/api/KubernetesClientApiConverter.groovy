@@ -54,7 +54,6 @@ import io.kubernetes.client.models.V1ExecAction
 import io.kubernetes.client.models.V1TCPSocketAction
 import io.kubernetes.client.models.V1HTTPGetAction
 
-
 /**
  * Created by spinnaker on 20/8/17.
  */
@@ -76,7 +75,7 @@ class KubernetesClientApiConverter {
     deployDescription.securityGroups = []
     deployDescription.replicaSetAnnotations = statefulSet?.metadata?.annotations
     deployDescription.podAnnotations = statefulSet?.spec?.template?.metadata?.annotations
-    deployDescription.volumeClaimList = statefulSet?.spec?.getVolumeClaimTemplates()
+    deployDescription.volumeClaims = statefulSet?.spec?.getVolumeClaimTemplates()
     deployDescription.volumeSources = statefulSet?.spec?.template?.spec?.volumes?.collect {
       fromVolume(it)
     } ?: []

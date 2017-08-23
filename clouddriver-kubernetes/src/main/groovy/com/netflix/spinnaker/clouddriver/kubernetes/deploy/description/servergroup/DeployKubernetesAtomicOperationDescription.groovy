@@ -22,7 +22,6 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.KubernetesAtomicOperationDescription
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
-import io.kubernetes.client.models.V1PersistentVolumeClaim
 
 @AutoClone
 @Canonical
@@ -49,7 +48,7 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesAtomicOperati
   String serviceAccountName
   Integer sequence
   KubernetesPodSpecDescription podSpec
-  List<V1PersistentVolumeClaim> volumeClaimList
+  List<KubernetesPersistentVolumeClaimDescription> volumeClaims
 
   @JsonIgnore
   Set<String> imagePullSecrets
@@ -424,3 +423,36 @@ class KubernetesPodSpecDescription {
   Long terminationGracePeriodSeconds
   List<KubernetesVolumeSource> volumeSources
 }
+
+@AutoClone
+@Canonical
+class KubernetesPersistentVolumeClaimDescription {
+  String claimName
+  List<String> accessModes
+  KubernetesPeristentResourceRequirement requirements
+  KubernetesPersistentLabelSelector selector
+  String storageClassName
+}
+
+@AutoClone
+@Canonical
+class KubernetesPeristentResourceRequirement {
+  Map<String, String> limits
+  Map<String, String> requests
+}
+
+@AutoClone
+@Canonical
+class KubernetesPersistentLabelSelector {
+  List<KubernetesLabelSelectorRequirements> matchExpressions
+  Map<String, String> matchLabels
+}
+
+@AutoClone
+@Canonical
+class KubernetesLabelSelectorRequirements {
+  String key
+  String operator
+  List<String> values
+}
+
