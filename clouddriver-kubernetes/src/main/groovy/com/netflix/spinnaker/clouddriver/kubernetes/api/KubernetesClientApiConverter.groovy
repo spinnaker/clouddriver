@@ -70,26 +70,22 @@ class KubernetesClientApiConverter {
     /**
      * Will fetch this values in next Part of checkin , when required
      */
-//    deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(statefulSet)
+    deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(statefulSet.spec?.template?.metadata?.labels ?: [:])
     deployDescription.namespace = statefulSet?.metadata?.namespace
     deployDescription.targetSize = statefulSet?.spec?.replicas
     deployDescription.securityGroups = []
     deployDescription.replicaSetAnnotations = statefulSet?.metadata?.annotations
     deployDescription.podAnnotations = statefulSet?.spec?.template?.metadata?.annotations
-
+    deployDescription.volumeClaimList = statefulSet?.spec?.getVolumeClaimTemplates()
     deployDescription.volumeSources = statefulSet?.spec?.template?.spec?.volumes?.collect {
       fromVolume(it)
     } ?: []
-
     deployDescription.hostNetwork = statefulSet?.spec?.template?.spec?.hostNetwork
-
     deployDescription.containers = statefulSet?.spec?.template?.spec?.containers?.collect {
       fromContainer(it)
     } ?: []
-
     deployDescription.terminationGracePeriodSeconds = statefulSet?.spec?.template?.spec?.terminationGracePeriodSeconds
     deployDescription.serviceAccountName = statefulSet?.spec?.template?.spec?.serviceAccountName
-
     deployDescription.nodeSelector = statefulSet?.spec?.template?.spec?.nodeSelector
 
     return deployDescription

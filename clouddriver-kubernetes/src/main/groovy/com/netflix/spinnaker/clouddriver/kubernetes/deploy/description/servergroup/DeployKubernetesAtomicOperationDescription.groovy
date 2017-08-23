@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.KubernetesAtomicOperationDescription
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
+import io.kubernetes.client.models.V1PersistentVolumeClaim
 
 @AutoClone
 @Canonical
@@ -48,6 +49,7 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesAtomicOperati
   String serviceAccountName
   Integer sequence
   KubernetesPodSpecDescription podSpec
+  List<V1PersistentVolumeClaim> volumeClaimList
 
   @JsonIgnore
   Set<String> imagePullSecrets
