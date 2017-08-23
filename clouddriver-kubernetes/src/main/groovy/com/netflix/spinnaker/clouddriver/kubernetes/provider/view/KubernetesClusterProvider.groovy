@@ -24,21 +24,15 @@ import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.cache.Keys
-import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesCluster
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesInstance
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesLoadBalancer
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesServerGroup
-import com.netflix.spinnaker.clouddriver.kubernetes.provider.KubernetesProvider
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
-import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.extensions.Deployment
-import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-
-import java.util.ArrayList
 
 @Component
 class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
@@ -83,16 +77,21 @@ class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
   }
 
   @Override
-  KubernetesCluster getCluster(String applicationName, String account, String name) {
+  KubernetesCluster getCluster(String application, String account, String name, boolean includeDetails) {
     CacheData serverGroupCluster = cacheView.get(Keys.Namespace.CLUSTERS.ns, Keys.getClusterKey(account, applicationName, "serverGroup", name))
     List<CacheData> clusters = [serverGroupCluster] - null
-    return clusters ? translateClusters(clusters, true).inject(new KubernetesCluster()) { KubernetesCluster acc, KubernetesCluster val ->
+    return clusters ? translateClusters(clusters, includeDetails).inject(new KubernetesCluster()) { KubernetesCluster acc, KubernetesCluster val ->
       acc.name = acc.name ?: val.name
       acc.accountName = acc.accountName ?: val.accountName
       acc.loadBalancers.addAll(val.loadBalancers)
       acc.serverGroups.addAll(val.serverGroups)
       return acc
     } : null
+  }
+
+  @Override
+  KubernetesCluster getCluster(String applicationName, String account, String name) {
+    return getCluster(applicationName, account, name, true)
   }
 
   static Collection<CacheData> resolveRelationshipDataForCollection(Cache cacheView, Collection<CacheData> sources, String relationship, CacheFilter cacheFilter = null) {
