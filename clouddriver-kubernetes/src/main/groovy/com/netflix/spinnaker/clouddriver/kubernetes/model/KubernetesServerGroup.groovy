@@ -33,6 +33,7 @@ import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
 import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 import io.fabric8.kubernetes.client.internal.SerializationUtils
+import io.kubernetes.client.models.V1beta1DaemonSet
 import io.kubernetes.client.models.V1beta1StatefulSet
 
 @CompileStatic
@@ -121,6 +122,30 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.labels = statefulSet.spec?.template?.metadata?.labels
     this.deployDescription = KubernetesClientApiConverter.fromStatefulSet(statefulSet)
     this.kind = statefulSet.kind
+    this.events = events?.collect {
+      new KubernetesEvent(it)
+    }
+  }
+
+  KubernetesServerGroup(V1beta1DaemonSet daemonSet, String account, List<Event> events) {
+    this.name = daemonSet.metadata?.name
+    this.account = account
+    this.region = daemonSet.metadata?.namespace
+    this.namespace = this.region
+    this.createdTime = daemonSet.metadata?.creationTimestamp?.getMillis()
+    this.zones = [this.region] as Set
+    this.securityGroups = []
+    /**
+     * Need to check if this is required or not
+     */
+    //this.replicas = daemonSet.spec?.replicas ?: 0
+    this.launchConfig = [:]
+    this.labels = daemonSet.spec?.template?.metadata?.labels
+    /**
+     * Will fetch this valu in next Pull Request
+     */
+    //this.deployDescription = KubernetesClientApiConverter.fromStatefulSet(daemonSet)
+    this.kind = daemonSet.kind
     this.events = events?.collect {
       new KubernetesEvent(it)
     }

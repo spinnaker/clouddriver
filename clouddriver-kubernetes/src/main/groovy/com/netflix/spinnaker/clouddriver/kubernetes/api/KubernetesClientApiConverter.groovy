@@ -44,7 +44,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergro
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesHttpGetAction
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KeyValuePair
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesTcpSocketAction
-import io.fabric8.kubernetes.api.model.KeyToPath
+import io.kubernetes.client.models.V1KeyToPath
 import io.kubernetes.client.models.V1Container
 import io.kubernetes.client.models.V1Probe
 import io.kubernetes.client.models.V1Volume
@@ -209,7 +209,7 @@ class KubernetesClientApiConverter {
       res.secret = new KubernetesSecretVolumeSource(secretName: volume.secret.secretName)
     } else if (volume.configMap) {
       res.type = KubernetesVolumeSourceType.ConfigMap
-      def items = volume.configMap.items?.collect { KeyToPath item ->
+      def items = volume.configMap.items?.collect { V1KeyToPath item ->
         new KubernetesKeyToPath(key: item.key, path: item.path)
       }
       res.configMap = new KubernetesConfigMapVolumeSource(configMapName: volume.configMap.name, items: items)
