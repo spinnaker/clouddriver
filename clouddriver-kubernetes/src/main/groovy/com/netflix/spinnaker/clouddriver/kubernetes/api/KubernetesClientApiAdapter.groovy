@@ -25,6 +25,7 @@ import io.kubernetes.client.ApiException
 import io.kubernetes.client.Configuration
 import io.kubernetes.client.apis.AppsV1beta1Api
 import io.kubernetes.client.models.*
+import io.kubernetes.client.apis.ExtensionsV1beta1Api
 
 import java.util.concurrent.TimeUnit
 
@@ -40,6 +41,7 @@ class KubernetesClientApiAdapter {
   final Clock spectatorClock
   final ApiClient client
   final AppsV1beta1Api apiInstance
+  final ExtensionsV1beta1Api extApi
 
   public spectatorRegistry() { return spectatorRegistry }
 
@@ -55,6 +57,7 @@ class KubernetesClientApiAdapter {
     client = config.getApiCient()
     Configuration.setDefaultApiClient(client)
     apiInstance = new AppsV1beta1Api();
+    extApi = new ExtensionsV1beta1Api()
   }
 
   KubernetesOperationException formatException(String operation, String namespace, ApiException e) {
@@ -132,6 +135,13 @@ class KubernetesClientApiAdapter {
         statefulSets.add(item)
       })
       return statefulSets
+    }
+  }
+
+  List<V1beta1StatefulSet> getDaemonSets(String namespace) {
+    exceptionWrapper("daemonSets.list", "Get Daemon Sets", namespace) {
+      V1beta1DaemonSetList list = extApi.listNamespacedDaemonSet(namespace, null, null, null, null, API_CALL_TIMEOUT_SECONDS, null)
+      return list.items
     }
   }
 }

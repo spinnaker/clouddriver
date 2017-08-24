@@ -35,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.cache.Keys
 import com.netflix.spectator.api.Registry
 import groovy.util.logging.Slf4j
 import io.fabric8.kubernetes.api.model.Event
+import io.kubernetes.client.models.V1beta1DaemonSet
 import io.kubernetes.client.models.V1beta1StatefulSet
 
 /**
@@ -89,8 +90,12 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
       loadStatefulSets()
     }
 
+    V1beta1DaemonSet daemonSet = metricsSupport.readData {
+      loadDaemonSets()
+    }
+
     CacheResult result = metricsSupport.transformData {
-      buildCacheResult([new StateFulSet(statefulSet: statefulSet)], [:], [], Long.MAX_VALUE)
+      buildCacheResult([new KubernetesController(controller: statefulSet,controller1: daemonSet)], [:], [], Long.MAX_VALUE)
     }
     def jsonResult = objectMapper.writeValueAsString(result.cacheResults)
 
@@ -115,7 +120,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
       }
     }
     // Evict this server group if it no longer exists.
-    Map<String, Collection<String>> evictions = statefulSet  ? [:] : [
+    Map<String, Collection<String>> evictions = statefulSet | daemonSet  ? [:] : [
       (Keys.Namespace.SERVER_GROUPS.ns): [
         Keys.getServerGroupKey(accountName, namespace, serverGroupName)
       ]
@@ -154,8 +159,11 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     reloadNamespaces()
     Long start = System.currentTimeMillis()
     List<V1beta1StatefulSet> statefulSet = loadStatefulSets()
-    List<StateFulSet> serverGroups = (statefulSet.collect {
-      it ? new StateFulSet(statefulSet: it) : null
+    List<V1beta1DaemonSet> daemonSet = loadDaemonSets()
+    List<KubernetesController> serverGroups = (statefulSet.collect {
+      it ? new KubernetesController(controller: it) : null
+    }+ daemonSet.collect {
+      it ? new KubernetesController(controller: it) : null
     }
     ) - null
     List<CacheData> evictFromOnDemand = []
@@ -198,7 +206,13 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     }.flatten()
   }
 
-  private CacheResult buildCacheResult(List<StateFulSet> serverGroups, Map<String, CacheData> onDemandKeep, List<String> onDemandEvict, Long start) {
+  List<V1beta1DaemonSet> loadDaemonSets() {
+    namespaces.collect { String namespace ->
+      credentials.apiClientAdaptor.getDaemonSets(namespace)
+    }.flatten()
+  }
+
+  private CacheResult buildCacheResult(List<KubernetesController> serverGroups, Map<String, CacheData> onDemandKeep, List<String> onDemandEvict, Long start) {
     log.info("Describing items in ${agentType}")
 
     Map<String, MutableCacheData> cachedApplications = MutableCacheData.mutableCacheMap()
@@ -208,17 +222,19 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     Map<String, MutableCacheData> cachedLoadBalancers = MutableCacheData.mutableCacheMap()
 
     Map<String, Map<String, Event>> stateFulsetEvents = [:].withDefault { _ -> [:] }
+    Map<String, Map<String, Event>> daemonsetEvents = [:].withDefault { _ -> [:] }
 
     try {
       namespaces.each { String namespace ->
         stateFulsetEvents[namespace] = credentials.apiAdaptor.getEvents(namespace, "V1beta1StatefulSet")
+        daemonsetEvents[namespace] = credentials.apiAdaptor.getEvents(namespace, "V1beta1DaemonSet")
 
       }
     } catch (Exception e) {
       log.warn "Failure fetching events for all server groups in $namespaces", e
     }
 
-    for (StateFulSet serverGroup: serverGroups) {
+    for (KubernetesController serverGroup: serverGroups) {
       if (!serverGroup.exists()) {
         continue
       }
@@ -262,11 +278,12 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
           def events = null
           attributes.name = serverGroupName
 
-          if (serverGroup.statefulSet) {
-
+          if (serverGroup.controller instanceof V1beta1StatefulSet) {
             events = stateFulsetEvents[serverGroup.namespace][serverGroupName]
+          } else if (serverGroup.controller instanceof V1beta1DaemonSet) {
+            events = daemonsetEvents[serverGroup.namespace][serverGroupName]
           }
-          attributes.serverGroup = new KubernetesServerGroup(serverGroup.statefulSet, accountName, events)
+          attributes.serverGroup = new KubernetesServerGroup(serverGroup.controller, accountName, events)
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
@@ -307,28 +324,27 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     }
   }
 
-  class StateFulSet{
+  class KubernetesController{
 
-    V1beta1StatefulSet statefulSet
+    def controller
     String getName() {
-      statefulSet.metadata.name
+      controller.metadata.name
     }
 
     String getNamespace() {
-      statefulSet.metadata.namespace
+      controller.metadata.namespace
     }
 
     Map<String, String> getSelector() {
-      statefulSet.spec.selector.matchLabels
+      controller.spec.selector.matchLabels
     }
 
     boolean exists() {
-      statefulSet
+      controller
     }
 
     List<String> getLoadBalancers() {
-      KubernetesUtil.getLoadBalancers(statefulSet.spec?.template?.metadata?.labels ?: [:])
+      KubernetesUtil.getLoadBalancers(controller.spec?.template?.metadata?.labels ?: [:])
     }
-
   }
 }
