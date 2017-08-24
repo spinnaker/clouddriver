@@ -346,6 +346,5 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     List<String> getLoadBalancers() {
       KubernetesUtil.getLoadBalancers(controller.spec?.template?.metadata?.labels ?: [:])
     }
-
   }
 }

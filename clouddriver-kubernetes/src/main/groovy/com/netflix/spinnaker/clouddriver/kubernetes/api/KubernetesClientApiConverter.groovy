@@ -210,7 +210,7 @@ class KubernetesClientApiConverter {
     } else if (volume.configMap) {
       res.type = KubernetesVolumeSourceType.ConfigMap
       def items = volume.configMap.items?.collect { V1KeyToPath item ->
-        new KubernetesKeyToPath(key: item.key, path: item.path)
+       new KubernetesKeyToPath(key: item.key, path: item.path)
       }
       res.configMap = new KubernetesConfigMapVolumeSource(configMapName: volume.configMap.name, items: items)
     } else if (volume.awsElasticBlockStore) {
