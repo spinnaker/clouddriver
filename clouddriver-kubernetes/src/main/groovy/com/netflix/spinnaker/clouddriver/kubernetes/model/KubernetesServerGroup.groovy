@@ -136,7 +136,8 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.zones = [this.region] as Set
     this.securityGroups = []
     /**
-     * Need to check if this is required or not
+     * DaemonSetsSpec doesnot support Replicas : Checked the Documentation (V1beta1DaemonSetSpec.md)
+     * Thats why i think its not required
      */
     //this.replicas = daemonSet.spec?.replicas ?: 0
     this.launchConfig = [:]
