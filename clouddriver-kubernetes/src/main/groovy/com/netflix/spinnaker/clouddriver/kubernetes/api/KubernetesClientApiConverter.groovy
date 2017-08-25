@@ -348,9 +348,9 @@ class KubernetesClientApiConverter {
    * @param obj
    * @return
    */
-  static String getYaml(Object obj){
+  static String getYaml(Object obj) {
     ObjectMapper m = new ObjectMapper(new YAMLFactory());
-    return   m.writeValueAsString(obj).replaceAll("\\\\", "");
+    return m.writeValueAsString(obj).replaceAll("\\\\", "");
   }
 
 }
