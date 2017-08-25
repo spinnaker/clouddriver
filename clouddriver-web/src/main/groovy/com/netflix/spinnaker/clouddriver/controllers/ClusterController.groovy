@@ -201,7 +201,7 @@ class ClusterController {
     }
 
     // load all server groups w/o instance details (this is reasonably efficient)
-    def sortedServerGroups = getServerGroups(application, account, clusterName, cloudProvider, null /* region */, false).findAll {
+    def matchedServerGroups = getServerGroups(application, account, clusterName, cloudProvider, null /* region */, false).findAll {
       def scopeMatch = it.region == scope || it.zones?.contains(scope)
 
       def enableMatch
@@ -212,14 +212,14 @@ class ClusterController {
       }
 
       return scopeMatch && enableMatch
-    }.sort { a, b -> b.createdTime <=> a.createdTime }
+    }
 
-    if (!sortedServerGroups) {
+    if (!matchedServerGroups) {
       throw new NotFoundException("No server groups found (account: ${account}, cluster: ${clusterName}, type: ${cloudProvider})")
     }
 
     // load matched server groups w/ instance details
-    sortedServerGroups = sortedServerGroups.collect {
+    def sortedServerGroups = matchedServerGroups.sort { a, b -> b.createdTime <=> a.createdTime }.collect {
       serverGroupController.getServerGroup(application, account, it.region, it.name)
     }
 
