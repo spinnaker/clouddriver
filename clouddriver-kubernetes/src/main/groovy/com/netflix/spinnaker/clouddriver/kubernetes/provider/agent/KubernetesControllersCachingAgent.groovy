@@ -65,7 +65,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
 
   @Override
   boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    return false
+    OnDemandAgent.OnDemandType.ServerGroup == type && cloudProvider == kubernetesCloudProvider.id
   }
 
   @Override
