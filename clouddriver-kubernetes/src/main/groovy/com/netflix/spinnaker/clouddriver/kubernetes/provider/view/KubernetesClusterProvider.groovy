@@ -237,4 +237,9 @@ class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
   String getCloudProviderId() {
     return kubernetesCloudProvider.id
   }
+
+  @Override
+  boolean supportsMinimalClusters() {
+    return false
+  }
 }
