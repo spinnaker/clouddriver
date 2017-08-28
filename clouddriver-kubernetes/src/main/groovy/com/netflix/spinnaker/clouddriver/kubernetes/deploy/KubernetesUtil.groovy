@@ -34,6 +34,8 @@ class KubernetesUtil {
   static String DEPRECATED_SERVER_GROUP_KIND = "ReplicationController"
   static String SERVER_GROUP_KIND = "ReplicaSet"
   static String DEPLOYMENT_KIND = "Deployment"
+  static String CONTROLLERS_STATEFULSET_KIND = "StatefulSet"
+  static String CONTROLLERS_DAEMONSET_KIND = "DaemonSet"
   static String JOB_LABEL = "job"
   @Value("kubernetes.defaultRegistry:gcr.io")
   static String DEFAULT_REGISTRY
