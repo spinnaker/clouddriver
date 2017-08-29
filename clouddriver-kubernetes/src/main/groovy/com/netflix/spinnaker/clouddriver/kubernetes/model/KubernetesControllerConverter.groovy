@@ -32,10 +32,7 @@ class KubernetesControllerConverter implements HasMetadata {
     this.metadata = new ObjectMeta()
     this.metadata.name = metadata.name
     this.metadata.namespace = metadata.namespace
-    ObjectMeta mdata = new ObjectMeta()
-    mdata.name = metadata.name
-    mdata.namespace = metadata.namespace
-    setMetadata(mdata)
+    setMetadata(this.metadata)
   }
 
   @Override
