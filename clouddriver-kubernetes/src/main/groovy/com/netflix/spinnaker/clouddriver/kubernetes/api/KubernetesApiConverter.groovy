@@ -641,7 +641,7 @@ class KubernetesApiConverter {
     deployDescription.namespace = replicaSet?.metadata?.namespace
     deployDescription.targetSize = replicaSet?.spec?.replicas
     deployDescription.securityGroups = []
-    deployDescription.controllerAnnotations = replicaSet?.metadata?.annotations
+    deployDescription.replicaSetAnnotations = replicaSet?.metadata?.annotations
     deployDescription.podAnnotations = replicaSet?.spec?.template?.metadata?.annotations
 
     deployDescription.volumeSources = replicaSet?.spec?.template?.spec?.volumes?.collect {
@@ -812,7 +812,7 @@ class KubernetesApiConverter {
 
     return serverGroupBuilder.withNewMetadata()
       .withName(replicaSetName)
-      .withAnnotations(description.controllerAnnotations)
+      .withAnnotations(description.replicaSetAnnotations)
       .endMetadata()
       .withNewSpec()
       .withNewSelector()
@@ -833,7 +833,7 @@ class KubernetesApiConverter {
 
     def builder = serverGroupBuilder.withNewMetadata()
       .withName(parsedName.cluster)
-      .withAnnotations(description.controllerAnnotations)
+      .withAnnotations(description.replicaSetAnnotations)
       .endMetadata()
       .withNewSpec()
       .withNewSelector()
