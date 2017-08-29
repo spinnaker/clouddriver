@@ -73,7 +73,7 @@ class KubernetesClientApiConverter {
     deployDescription.namespace = statefulSet?.metadata?.namespace
     deployDescription.targetSize = statefulSet?.spec?.replicas
     deployDescription.securityGroups = []
-    deployDescription.replicaSetAnnotations = statefulSet?.metadata?.annotations
+    deployDescription.controllerAnnotations = statefulSet?.metadata?.annotations
     deployDescription.podAnnotations = statefulSet?.spec?.template?.metadata?.annotations
     deployDescription.volumeClaims = statefulSet?.spec?.getVolumeClaimTemplates()
     deployDescription.volumeSources = statefulSet?.spec?.template?.spec?.volumes?.collect {

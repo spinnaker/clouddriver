@@ -39,7 +39,7 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesAtomicOperati
   List<KubernetesVolumeSource> volumeSources
   Capacity capacity
   KubernetesScalingPolicy scalingPolicy
-  Map<String, String> replicaSetAnnotations
+  Map<String, String> controllerAnnotations
   Map<String, String> podAnnotations
   Map<String, String> volumeAnnotations
   Map<String, String> nodeSelector
