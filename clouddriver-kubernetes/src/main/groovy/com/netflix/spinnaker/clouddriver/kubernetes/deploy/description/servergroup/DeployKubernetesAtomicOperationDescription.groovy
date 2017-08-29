@@ -40,7 +40,9 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesAtomicOperati
   Capacity capacity
   KubernetesScalingPolicy scalingPolicy
   Map<String, String> replicaSetAnnotations
+  Map<String, String> controllerAnnotations
   Map<String, String> podAnnotations
+  Map<String, String> volumeAnnotations
   Map<String, String> nodeSelector
   KubernetesSecurityContext securityContext
   KubernetesDeployment deployment
