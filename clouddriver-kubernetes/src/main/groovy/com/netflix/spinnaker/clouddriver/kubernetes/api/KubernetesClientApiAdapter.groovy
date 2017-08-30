@@ -27,10 +27,14 @@ import io.kubernetes.client.apis.AppsV1beta1Api
 import io.kubernetes.client.models.*
 import io.kubernetes.client.apis.ExtensionsV1beta1Api
 import io.kubernetes.client.apis.AutoscalingV1Api
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import java.util.concurrent.TimeUnit
 
 class KubernetesClientApiAdapter {
+  private static final Logger LOG = LoggerFactory.getLogger(KubernetesClientApiConverter)
+
   String account
 
   static final int RETRY_COUNT = 20
@@ -44,7 +48,7 @@ class KubernetesClientApiAdapter {
   final ApiClient client
   final AppsV1beta1Api apiInstance
   final ExtensionsV1beta1Api extApi
-  final AutoscalingV1Api autoScalerInstance
+  final AutoscalingV1Api scalerApi
 
   public spectatorRegistry() { return spectatorRegistry }
 
@@ -61,7 +65,7 @@ class KubernetesClientApiAdapter {
     Configuration.setDefaultApiClient(client)
     apiInstance = new AppsV1beta1Api()
     extApi = new ExtensionsV1beta1Api()
-    autoScalerInstance = new AutoscalingV1Api()
+    scalerApi = new AutoscalingV1Api()
   }
 
   KubernetesClientOperationException formatException(String operation, String namespace, ApiException e) {
@@ -146,7 +150,7 @@ class KubernetesClientApiAdapter {
   }
 
   V1beta1StatefulSet createStatfulSet(String namespace, V1beta1StatefulSet statefulSet) {
-    exceptionWrapper("StatefulSet.create", "Create Stateful Set ${statefulSet?.metadata?.name}", namespace) {
+    exceptionWrapper("statefulSets.create", "Create Stateful Set ${statefulSet?.metadata?.name}", namespace) {
       return apiInstance.createNamespacedStatefulSet(namespace, statefulSet, null)
     }
   }
@@ -156,9 +160,9 @@ class KubernetesClientApiAdapter {
       V1HorizontalPodAutoscaler result = null
 
       try {
-        result = autoScalerInstance.readNamespacedHorizontalPodAutoscalerStatus(name, namespace, API_CALL_RESULT_FORMAT)
-      } catch(Exception ex) {
-        //FIXME: Unable to find assoicated autoscaler.  We can try to print out this error.
+        result = scalerApi.readNamespacedHorizontalPodAutoscalerStatus(name, namespace, API_CALL_RESULT_FORMAT)
+      } catch (Exception ex) {
+        LOG.info "Unable to find autoscaler {$name in $namespace}: $ex."
       }
 
       return result
@@ -167,7 +171,7 @@ class KubernetesClientApiAdapter {
 
   V1HorizontalPodAutoscaler createAutoscaler(String namespace, V1HorizontalPodAutoscaler autoscaler) {
     exceptionWrapper("horizontalPodAutoscalers.create", "Create Autoscaler ${autoscaler?.metadata?.name}", namespace) {
-      return autoScalerInstance.createNamespacedHorizontalPodAutoscaler(namespace, autoscaler, API_CALL_RESULT_FORMAT)
+      return scalerApi.createNamespacedHorizontalPodAutoscaler(namespace, autoscaler, API_CALL_RESULT_FORMAT)
     }
   }
 
@@ -177,7 +181,7 @@ class KubernetesClientApiAdapter {
       Boolean orphanDependents = true
       String propagationPolicy = ""
 
-      return autoScalerInstance.deleteNamespacedHorizontalPodAutoscaler(name, namespace, deleteOption, API_CALL_RESULT_FORMAT, 30, orphanDependents, propagationPolicy);
+      return scalerApi.deleteNamespacedHorizontalPodAutoscaler(name, namespace, deleteOption, API_CALL_RESULT_FORMAT, 30, orphanDependents, propagationPolicy);
     }
   }
 }
