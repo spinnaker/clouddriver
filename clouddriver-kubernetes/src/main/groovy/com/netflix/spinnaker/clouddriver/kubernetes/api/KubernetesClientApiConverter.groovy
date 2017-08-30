@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.clouddriver.kubernetes.api
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.DeployKubernetesAtomicOperationDescription
@@ -49,6 +51,7 @@ import io.kubernetes.client.models.V1Container
 import io.kubernetes.client.models.V1Probe
 import io.kubernetes.client.models.V1Volume
 import io.kubernetes.client.models.V1beta1StatefulSet
+import io.kubernetes.client.models.V1beta1DaemonSet
 import io.kubernetes.client.models.V1Handler
 import io.kubernetes.client.models.V1ExecAction
 import io.kubernetes.client.models.V1TCPSocketAction
@@ -66,14 +69,11 @@ class KubernetesClientApiConverter {
     deployDescription.application = parsedName?.app
     deployDescription.stack = parsedName?.stack
     deployDescription.freeFormDetails = parsedName?.detail
-    /**
-     * Will fetch this values in next Part of checkin , when required
-     */
     deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(statefulSet.spec?.template?.metadata?.labels ?: [:])
     deployDescription.namespace = statefulSet?.metadata?.namespace
     deployDescription.targetSize = statefulSet?.spec?.replicas
     deployDescription.securityGroups = []
-    deployDescription.controllerAnnotations = statefulSet?.metadata?.annotations
+    deployDescription.replicaSetAnnotations = statefulSet?.metadata?.annotations
     deployDescription.podAnnotations = statefulSet?.spec?.template?.metadata?.annotations
     deployDescription.volumeClaims = statefulSet?.spec?.getVolumeClaimTemplates()
     deployDescription.volumeSources = statefulSet?.spec?.template?.spec?.volumes?.collect {
@@ -90,6 +90,33 @@ class KubernetesClientApiConverter {
     return deployDescription
   }
 
+  static DeployKubernetesAtomicOperationDescription fromDaemonSet(V1beta1DaemonSet daemonSet) {
+    def deployDescription = new DeployKubernetesAtomicOperationDescription()
+    def parsedName = Names.parseName(daemonSet?.metadata?.name)
+
+    deployDescription.application = parsedName?.app
+    deployDescription.stack = parsedName?.stack
+    deployDescription.freeFormDetails = parsedName?.detail
+    deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(daemonSet.spec?.template?.metadata?.labels ?: [:])
+    deployDescription.namespace = daemonSet?.metadata?.namespace
+    deployDescription.securityGroups = []
+    deployDescription.podAnnotations = daemonSet?.spec?.template?.metadata?.annotations
+    deployDescription.volumeSources = daemonSet?.spec?.template?.spec?.volumes?.collect {
+      fromVolume(it)
+    } ?: []
+
+    deployDescription.hostNetwork = daemonSet?.spec?.template?.spec?.hostNetwork
+
+    deployDescription.containers = daemonSet?.spec?.template?.spec?.containers?.collect {
+      fromContainer(it)
+    } ?: []
+
+    deployDescription.terminationGracePeriodSeconds = daemonSet?.spec?.template?.spec?.terminationGracePeriodSeconds
+
+    deployDescription.nodeSelector = daemonSet?.spec?.template?.spec?.nodeSelector
+
+    return deployDescription
+  }
 
   static KubernetesContainerDescription fromContainer(V1Container container) {
     if (!container) {
@@ -210,7 +237,7 @@ class KubernetesClientApiConverter {
     } else if (volume.configMap) {
       res.type = KubernetesVolumeSourceType.ConfigMap
       def items = volume.configMap.items?.collect { V1KeyToPath item ->
-       new KubernetesKeyToPath(key: item.key, path: item.path)
+        new KubernetesKeyToPath(key: item.key, path: item.path)
       }
       res.configMap = new KubernetesConfigMapVolumeSource(configMapName: volume.configMap.name, items: items)
     } else if (volume.awsElasticBlockStore) {
@@ -264,7 +291,7 @@ class KubernetesClientApiConverter {
     def kubernetesHttpGetAction = new KubernetesHttpGetAction()
     kubernetesHttpGetAction.host = httpGet.host
     kubernetesHttpGetAction.path = httpGet.path
-    kubernetesHttpGetAction.port = httpGet.port?.intVal ?: 0
+    kubernetesHttpGetAction.port = httpGet.port?.toInteger() ?: 0
     kubernetesHttpGetAction.uriScheme = httpGet.scheme
     kubernetesHttpGetAction.httpHeaders = httpGet.httpHeaders?.collect() {
       new KeyValuePair(name: it.name, value: it.value)
@@ -312,4 +339,15 @@ class KubernetesClientApiConverter {
 
     return kubernetesProbe
   }
+
+  /**
+   * Let me know if this Api has to go in kubernetes-client/java
+   * @param obj
+   * @return
+   */
+  static String getYaml(Object obj) {
+    ObjectMapper m = new ObjectMapper(new YAMLFactory());
+    return m.writeValueAsString(obj).replaceAll("\\\\", "");
+  }
+
 }

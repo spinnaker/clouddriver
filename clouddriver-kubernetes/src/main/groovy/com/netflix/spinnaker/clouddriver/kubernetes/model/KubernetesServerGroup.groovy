@@ -121,6 +121,7 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.launchConfig = [:]
     this.labels = statefulSet.spec?.template?.metadata?.labels
     this.deployDescription = KubernetesClientApiConverter.fromStatefulSet(statefulSet)
+    this.yaml = KubernetesClientApiConverter.getYaml(statefulSet)
     this.kind = statefulSet.kind
     this.events = events?.collect {
       new KubernetesEvent(it)
@@ -135,17 +136,10 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.createdTime = daemonSet.metadata?.creationTimestamp?.getMillis()
     this.zones = [this.region] as Set
     this.securityGroups = []
-    /**
-     * DaemonSetsSpec doesnot support Replicas : Checked the Documentation (V1beta1DaemonSetSpec.md)
-     * Thats why i think its not required
-     */
-    //this.replicas = daemonSet.spec?.replicas ?: 0
     this.launchConfig = [:]
     this.labels = daemonSet.spec?.template?.metadata?.labels
-    /**
-     * Will fetch this valu in next Pull Request
-     */
-    //this.deployDescription = KubernetesClientApiConverter.fromStatefulSet(daemonSet)
+    this.deployDescription = KubernetesClientApiConverter.fromDaemonSet(daemonSet)
+    this.yaml = KubernetesClientApiConverter.getYaml(daemonSet)
     this.kind = daemonSet.kind
     this.events = events?.collect {
       new KubernetesEvent(it)
