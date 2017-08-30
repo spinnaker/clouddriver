@@ -977,15 +977,11 @@ class KubernetesApiConverter {
     return hasDeployment(description) ? [(parsedName.cluster): "true"] : [(name): "true"]
   }
 
-  static Map<String, String> restrictedServerGroupLabels(String name) {
-    return restrictedServerGroupLabels(name, false)
-  }
-
   /*
    * This represents the set of labels that differentiate replica sets from deployments - these are needed so
    * different replica sets under the same deployment don't apply to the same pods
    */
-  static Map<String, String> restrictedServerGroupLabels(String name, boolean requireRCLabel) {
+  static Map<String, String> restrictedServerGroupLabels(String name) {
     def parsedName = Names.parseName(name)
     def labels = [
       "version": parsedName.sequence?.toString() ?: "na",
@@ -1001,9 +997,7 @@ class KubernetesApiConverter {
       labels += ["detail": parsedName.detail]
     }
 
-    if (!requireRCLabel) {
-      labels += [(KubernetesUtil.SERVER_GROUP_LABEL): name]
-    }
+    labels += [(KubernetesUtil.SERVER_GROUP_LABEL): name]
 
     return labels
   }

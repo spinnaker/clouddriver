@@ -322,7 +322,7 @@ class KubernetesClientApiConverter {
 
     V1ObjectMeta metadata = new V1ObjectMeta()
     V1LabelSelector selector = new V1LabelSelector()
-    metadata.labels = KubernetesApiConverter.baseServerGroupLabels(description, statefulSetName) + KubernetesApiConverter.restrictedServerGroupLabels(statefulSetName, true)
+    metadata.labels = genericLabels(statefulSetName, description.namespace)
     selector.matchLabels = metadata.labels
 
     spec.template.metadata = metadata
@@ -829,5 +829,18 @@ class KubernetesClientApiConverter {
   static KubernetesControllerConverter toKubernetesController(V1beta1StatefulSet controllerSet) {
     //FIXME: Use this method for k8s client api transforms to fabric8 object till fully k8s client api compilant
     return (new KubernetesControllerConverter(controllerSet.kind, controllerSet.apiVersion, controllerSet.metadata))
+  }
+
+  /*
+    TODO:Create some gneral purpose labels for helping identify a controller.  Feel free to expend or fix this function.
+   */
+  static Map<String, String> genericLabels(String name, String namespace) {
+    def labels = [
+      "app"      : name,
+      "cluster"  : name,
+      "namespace": namespace,
+    ]
+
+    return labels
   }
 }
