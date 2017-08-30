@@ -79,7 +79,7 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
     def serverGroupNameResolver = new KubernetesServerGroupNameResolver(namespace, credentials)
     def clusterName = serverGroupNameResolver.combineAppStackDetail(description.application, description.stack, description.freeFormDetails)
 
-    if (KubernetesClientApiConverter.isNewController(description)) {
+    if (KubernetesClientApiConverter.addReplicationControllerLabel(description)) {
       return deployController(credentials, clusterName, namespace)
     }
 
@@ -138,7 +138,7 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
 
   HasMetadata deployController(KubernetesCredentials credentials, String name, String namespace) {
     def controllerSet
-    if ( description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND) {
+    if (description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND) {
       task.updateStatus BASE_PHASE, "Building stateful set..."
       controllerSet = KubernetesClientApiConverter.toStatefulSet(description, name)
 

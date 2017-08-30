@@ -47,11 +47,14 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergro
 import io.kubernetes.client.models.*
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.autoscaler.KubernetesAutoscalerDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesControllerConverter
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 /**
  * Created by spinnaker on 20/8/17.
  */
 class KubernetesClientApiConverter {
+  private static final Logger LOG = LoggerFactory.getLogger(KubernetesClientApiConverter)
 
   static DeployKubernetesAtomicOperationDescription fromStatefulSet(V1beta1StatefulSet statefulSet) {
     def deployDescription = new DeployKubernetesAtomicOperationDescription()
@@ -365,6 +368,7 @@ class KubernetesClientApiConverter {
           V1ResourceRequirements resources = new V1ResourceRequirements()
           resources.limits = claim.requirements.limits
           resources.requests = claim.requirements.requests
+
           spec.resources = resources
         }
 
@@ -446,6 +450,7 @@ class KubernetesClientApiConverter {
 
     podSpec.containers = containers
     podTemplateSpec.spec = podSpec
+
     return podTemplateSpec
   }
   static V1Volume toVolumeSource(KubernetesVolumeSource volumeSource) {
@@ -461,7 +466,6 @@ class KubernetesClientApiConverter {
           default:
             res = "" // Empty string is default...
         }
-
         break
 
       case KubernetesVolumeSourceType.HostPath:
@@ -494,6 +498,7 @@ class KubernetesClientApiConverter {
         break
 
       default:
+        LOG.warn "Unable to identify  KubernetesVolumeSourceType $KubernetesVolumeSourceType".toString()
         return null
     }
 
@@ -556,12 +561,16 @@ class KubernetesClientApiConverter {
         seLinuxOptions.role = container.securityContext.seLinuxOptions.role
         seLinuxOptions.type = container.securityContext.seLinuxOptions.type
         seLinuxOptions.level = container.securityContext.seLinuxOptions.level
+
+        v1container.securityContext.seLinuxOptions = seLinuxOptions
       }
 
       if (securityContext.capabilities) {
         V1Capabilities capabilities = new V1Capabilities()
         capabilities.add = securityContext.capabilities.add
         capabilities.drop = securityContext.capabilities.drop
+
+        v1container.securityContext.capabilities = capabilities
       }
 
       v1container.securityContext = securityContext
@@ -585,7 +594,8 @@ class KubernetesClientApiConverter {
         if (probe.successThreshold) {
           v1probe.successThreshold = probe.successThreshold
         }
-        f(probe.periodSeconds) {
+
+        if(probe.periodSeconds) {
           v1probe.periodSeconds = probe.periodSeconds
         }
 
@@ -808,10 +818,12 @@ class KubernetesClientApiConverter {
     return autoscaler
   }
 
-  static Boolean isNewController(DeployKubernetesAtomicOperationDescription description) {
-    return (description.kind &&
-      (description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND || description.kind == KubernetesUtil.CONTROLLERS_DAEMONSET_KIND)) ?
-      true : false
+  static Boolean addReplicationControllerLabel(DeployKubernetesAtomicOperationDescription description) {
+    if (description.kind) {
+      return (description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND || description.kind == KubernetesUtil.CONTROLLERS_DAEMONSET_KIND) ? true : false
+    }
+
+    return false
   }
 
   static KubernetesControllerConverter toKubernetesController(V1beta1StatefulSet controllerSet) {
