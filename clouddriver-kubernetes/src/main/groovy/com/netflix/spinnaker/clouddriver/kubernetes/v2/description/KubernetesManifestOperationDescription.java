@@ -17,19 +17,13 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
-import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
-import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable;
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.KubernetesAtomicOperationDescription;
 import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Data
-public class KubernetesManifestOperationDescription implements DeployDescription, CredentialsNameable, ApplicationNameable {
-  String application;
-  String account;
-  List<KubernetesManifest> manifest = new ArrayList<>();
-  KubernetesNamedAccountCredentials credentials;
+public class KubernetesManifestOperationDescription extends KubernetesAtomicOperationDescription {
+  List<KubernetesAugmentedManifest> manifests = new ArrayList<>();
 }
