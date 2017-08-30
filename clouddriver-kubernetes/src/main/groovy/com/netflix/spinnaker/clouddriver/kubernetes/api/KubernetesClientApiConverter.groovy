@@ -818,14 +818,6 @@ class KubernetesClientApiConverter {
     return autoscaler
   }
 
-  static Boolean addReplicationControllerLabel(DeployKubernetesAtomicOperationDescription description) {
-    if (description.kind) {
-      return (description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND || description.kind == KubernetesUtil.CONTROLLERS_DAEMONSET_KIND) ? true : false
-    }
-
-    return false
-  }
-
   static KubernetesControllerConverter toKubernetesController(V1beta1StatefulSet controllerSet) {
     //FIXME: Use this method for k8s client api transforms to fabric8 object till fully k8s client api compilant
     return (new KubernetesControllerConverter(controllerSet.kind, controllerSet.apiVersion, controllerSet.metadata))

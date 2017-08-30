@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.ops.servergroup
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
-import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.autoscaler.KubernetesAutoscalerDescription
@@ -28,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import io.fabric8.kubernetes.api.builder.BaseFluent
 import io.fabric8.kubernetes.api.model.HasMetadata
 import io.fabric8.kubernetes.api.model.extensions.DeploymentBuilder
 import io.fabric8.kubernetes.api.model.extensions.DeploymentFluentImpl
@@ -79,7 +77,7 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
     def serverGroupNameResolver = new KubernetesServerGroupNameResolver(namespace, credentials)
     def clusterName = serverGroupNameResolver.combineAppStackDetail(description.application, description.stack, description.freeFormDetails)
 
-    if (KubernetesClientApiConverter.addReplicationControllerLabel(description)) {
+    if (description.kind) {
       return deployController(credentials, clusterName, namespace)
     }
 
