@@ -24,6 +24,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesServerGroup
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.autoscaler.KubernetesAutoscalerDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.DeployKubernetesAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiConverter
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiConverter
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import io.fabric8.kubernetes.api.builder.BaseFluent
 import io.fabric8.kubernetes.api.model.HasMetadata
@@ -76,6 +79,10 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
     def serverGroupNameResolver = new KubernetesServerGroupNameResolver(namespace, credentials)
     def clusterName = serverGroupNameResolver.combineAppStackDetail(description.application, description.stack, description.freeFormDetails)
 
+    if (KubernetesClientApiConverter.isNewController(description)) {
+      return deployController(credentials, clusterName, namespace)
+    }
+
     task.updateStatus BASE_PHASE, "Looking up next sequence index for cluster ${clusterName}..."
 
     String replicaSetName
@@ -127,5 +134,30 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
     }
 
     return replicaSet
+  }
+
+  HasMetadata deployController(KubernetesCredentials credentials, String name, String namespace) {
+    def controllerSet
+    if ( description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND) {
+      task.updateStatus BASE_PHASE, "Building stateful set..."
+      controllerSet = KubernetesClientApiConverter.toStatefulSet(description, name)
+
+      task.updateStatus BASE_PHASE, "Deployed replica set ${controllerSet.metadata.name}"
+      controllerSet = credentials.clientApiAdaptor.createStatfulSet(namespace, controllerSet)
+
+      if (description.scalingPolicy) {
+        task.updateStatus BASE_PHASE, "Attaching a horizontal pod autoscaler..."
+
+        def autoscaler = KubernetesClientApiConverter.toAutoscaler(new KubernetesAutoscalerDescription(name, description), name, description.kind)
+
+        if (credentials.clientApiAdaptor.getAutoscaler(namespace, name)) {
+          credentials.clientApiAdaptor.deleteAutoscaler(namespace, name)
+        }
+
+        credentials.clientApiAdaptor.createAutoscaler(namespace, autoscaler)
+      }
+    }
+
+    return KubernetesClientApiConverter.toKubernetesController(controllerSet)
   }
 }
