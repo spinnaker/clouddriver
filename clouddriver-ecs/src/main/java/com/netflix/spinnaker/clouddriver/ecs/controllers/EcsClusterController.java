@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RestController
-@RequestMapping("/ecs/{account}/{region}")
 public class EcsClusterController {
 
   AmazonClientProvider amazonClientProvider;
@@ -59,9 +58,10 @@ public class EcsClusterController {
     throw new NotFoundException(String.format("AWS account %s was not found.  Please specify a valid account name"));
   }
 
-  @RequestMapping(value = "/ecscluster", method = RequestMethod.GET)
+  @RequestMapping(value = "/ecs/{account}/{region}/ecscluster", method = RequestMethod.GET)
   public List<String> findEcsClusters(@PathVariable("account") String account,
                                       @PathVariable("region") String region) {
+
     AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(account, getCredentials(account).getCredentialsProvider(), region);
 
     ListClustersRequest listClustersRequest = new ListClustersRequest();
