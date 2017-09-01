@@ -56,6 +56,7 @@ import io.kubernetes.client.models.V1Handler
 import io.kubernetes.client.models.V1ExecAction
 import io.kubernetes.client.models.V1TCPSocketAction
 import io.kubernetes.client.models.V1HTTPGetAction
+import groovy.util.logging.Slf4j
 
 /**
  * Created by spinnaker on 20/8/17.
