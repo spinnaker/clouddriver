@@ -60,6 +60,7 @@ import io.kubernetes.client.models.V1HTTPGetAction
 /**
  * Created by spinnaker on 20/8/17.
  */
+@Slf4j
 class KubernetesClientApiConverter {
 
   static DeployKubernetesAtomicOperationDescription fromStatefulSet(V1beta1StatefulSet statefulSet) {
@@ -291,7 +292,11 @@ class KubernetesClientApiConverter {
     def kubernetesHttpGetAction = new KubernetesHttpGetAction()
     kubernetesHttpGetAction.host = httpGet.host
     kubernetesHttpGetAction.path = httpGet.path
-    kubernetesHttpGetAction.port = httpGet.port?.toInteger() ?: 0
+    try {
+      kubernetesHttpGetAction.port = httpGet.port?.toInteger() ?: 0
+    } catch(NumberFormatException ex) {
+	  log.warn "Port value is not Integer", ex
+    }
     kubernetesHttpGetAction.uriScheme = httpGet.scheme
     kubernetesHttpGetAction.httpHeaders = httpGet.httpHeaders?.collect() {
       new KeyValuePair(name: it.name, value: it.value)
@@ -341,7 +346,7 @@ class KubernetesClientApiConverter {
   }
 
   /**
-   * Let me know if this Api has to go in kubernetes-client/java
+   * This method converts the Object to YAML
    * @param obj
    * @return
    */
