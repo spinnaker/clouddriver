@@ -291,7 +291,7 @@ class KubernetesClientApiConverter {
     kubernetesHttpGetAction.path = httpGet.path
     try {
       kubernetesHttpGetAction.port = httpGet.port?.toInteger() ?: 0
-    }catch(NumberFormatException ex){
+    } catch (NumberFormatException ex) {
       log.warn "Port number is not Integer", ex
     }
     kubernetesHttpGetAction.uriScheme = httpGet.scheme
