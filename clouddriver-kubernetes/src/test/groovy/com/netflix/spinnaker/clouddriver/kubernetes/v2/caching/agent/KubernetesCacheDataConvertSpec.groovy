@@ -69,7 +69,7 @@ metadata:
       cacheData.attributes.get("name") == name
       cacheData.attributes.get("namespace") == namespace
       cacheData.attributes.get("kind") == kind
-      cacheData.id == Keys.infrastructure(kind, apiVersion, account, application, namespace, name)
+      cacheData.id == Keys.infrastructure(kind, apiVersion, account, namespace, name)
     }
 
     where:
@@ -78,6 +78,24 @@ metadata:
     KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "one-app"   | "the-cluster" | "some-namespace" | "a-name-v000"
     KubernetesKind.DEPLOYMENT  | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "one-app"   | "the-cluster" | "some-namespace" | "a-name"
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1                 | "another-account" | "your-app"  | null          | "some-namespace" | "what-name"
+  }
+
+  def "given a single owner reference, correctly build relationships"() {
+    setup:
+    def ownerRefs = [new KubernetesManifest.OwnerReference(kind: kind, apiVersion: apiVersion, name: name)]
+
+    when:
+    def result = KubernetesCacheDataConverter.ownerReferenceRelationships(account, namespace, ownerRefs)
+
+    then:
+    result.get(kind.toString()) == [Keys.infrastructure(kind, apiVersion, account, namespace, name)]
+
+    where:
+    kind                       | apiVersion                              | account           | cluster       | namespace        | name
+    KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "another-clu" | "some-namespace" | "a-name-v000"
+    KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "the-cluster" | "some-namespace" | "a-name-v000"
+    KubernetesKind.DEPLOYMENT  | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "the-cluster" | "some-namespace" | "a-name"
+    KubernetesKind.SERVICE     | KubernetesApiVersion.V1                 | "another-account" | "cluster"     | "some-namespace" | "what-name"
   }
 
 }

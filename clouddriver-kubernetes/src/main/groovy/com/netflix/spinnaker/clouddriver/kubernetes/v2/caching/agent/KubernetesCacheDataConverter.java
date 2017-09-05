@@ -30,9 +30,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesMan
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.APPLICATION;
@@ -72,7 +74,27 @@ public class KubernetesCacheDataConverter {
       relationships.put(CLUSTER.toString(), Collections.singletonList(Keys.cluster(account, application, cluster)));
     }
 
-    String key = Keys.infrastructure(kind, apiVersion, account, application, namespace, name);
+    relationships.putAll(ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences(mapper)));
+
+    String key = Keys.infrastructure(kind, apiVersion, account, namespace, name);
     return new DefaultCacheData(key, attributes, relationships);
+  }
+
+  static Map<String, Collection<String>> ownerReferenceRelationships(String account, String namespace, List<KubernetesManifest.OwnerReference> references) {
+    Map<String, Collection<String>> relationships = new HashMap<>();
+    for (KubernetesManifest.OwnerReference reference : references) {
+      KubernetesKind kind = reference.getKind();
+      KubernetesApiVersion apiVersion = reference.getApiVersion();
+      String name = reference.getName();
+      Collection<String> keys = relationships.get(kind.toString());
+      if (keys == null) {
+        keys = new ArrayList<>();
+      }
+
+      keys.add(Keys.infrastructure(kind, apiVersion, account, namespace, name));
+      relationships.put(kind.toString(), keys);
+    }
+
+    return relationships;
   }
 }

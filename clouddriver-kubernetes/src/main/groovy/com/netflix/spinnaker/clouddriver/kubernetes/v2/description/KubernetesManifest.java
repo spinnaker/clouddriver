@@ -18,10 +18,15 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Data;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class KubernetesManifest extends HashMap<String, Object> {
@@ -75,6 +80,17 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  public List<OwnerReference> getOwnerReferences(ObjectMapper mapper) {
+    Map<String, Object> metadata = getMetatdata();
+    Object ownerReferences = metadata.get("ownerReferences");
+    if (ownerReferences == null) {
+      return new ArrayList<>();
+    }
+
+    return mapper.convertValue(ownerReferences, new TypeReference<List<OwnerReference>>() {});
+  }
+
+  @JsonIgnore
   public Map<String, String> getAnnotations() {
     Map<String, String> result = (Map<String, String>) getMetatdata().get("annotations");
     if (result == null) {
@@ -100,5 +116,13 @@ public class KubernetesManifest extends HashMap<String, Object> {
     String name = split[1];
 
     return new ImmutablePair<>(kind, name);
+  }
+
+  @Data
+  public static class OwnerReference {
+    KubernetesApiVersion apiVersion;
+    KubernetesKind kind;
+    String name;
+    boolean controller;
   }
 }

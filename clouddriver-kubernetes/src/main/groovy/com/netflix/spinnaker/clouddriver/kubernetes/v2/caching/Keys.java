@@ -82,7 +82,7 @@ public class Keys {
     return createKey(Kind.LOGICAL, LogicalKind.CLUSTER, account, application, name);
   }
 
-  public static String infrastructure(KubernetesKind kind, KubernetesApiVersion version, String account, String application, String namespace, String name) {
-    return createKey(Kind.INFRASTRUCTURE, kind, version, account, application, namespace, name);
+  public static String infrastructure(KubernetesKind kind, KubernetesApiVersion version, String account, String namespace, String name) {
+    return createKey(Kind.INFRASTRUCTURE, kind, version, account, namespace, name);
   }
 }
