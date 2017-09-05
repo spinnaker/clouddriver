@@ -13,24 +13,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.netflix.spinnaker.clouddriver.ecs.model;
 
-import com.netflix.spinnaker.clouddriver.model.Application;
+import com.netflix.spinnaker.clouddriver.model.Instance;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.Map;
 import java.util.Set;
 
 @Data
-public class EcsApplication implements Application {
+@NoArgsConstructor
+public class EcsServerGroup implements ServerGroup {
 
-  private String name;
-  Map<String, String> attributes;
-  Map<String, Set<String>> clusterNames;
+  String name;
+  String type;
+  String cloudProvider;
+  String region;
+  Boolean disabled;
+  Long createdTime;
+  Set<String> zones;
+  Set<Instance> instances;
+  Set<String> loadBalancers;
+  Set<String> securityGroups;
+  Map<String, Object> launchConfig;
+  InstanceCounts instanceCounts;
+  Capacity capacity;
+  ImagesSummary imagesSummary;
+  ImageSummary imageSummary;
+  Map<String, Object> tags;
 
-  public EcsApplication(String name, Map<String, String> attributes, Map<String, Set<String>> clusterNames) {
-    this.name = name;
-    this.attributes = attributes;
-    this.clusterNames = clusterNames;
+  @Override
+  public Boolean isDisabled() {
+    return disabled;
   }
+
 }

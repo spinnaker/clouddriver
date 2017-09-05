@@ -2,11 +2,8 @@ package com.netflix.spinnaker.clouddriver.ecs.view;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
-import com.amazonaws.services.ec2.model.DescribeInstanceStatusRequest;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.ContainerInstance;
-import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
@@ -15,6 +12,7 @@ import com.amazonaws.services.ecs.model.Task;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
+import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
@@ -36,6 +34,8 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
   @Autowired
   private AmazonClientProvider amazonClientProvider;
 
+  @Autowired
+  private ContainerInformationService containerInformationService;
 
   @Override
   public String getCloudProvider() {
@@ -56,7 +56,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(account, awsCredentialsProvider, region);
 
     Task ecsTask = getTask(amazonECS, id);
-    InstanceStatus instanceStatus = getEC2InstanceStatus(amazonEC2, getContainerInstance(amazonECS, ecsTask));
+    InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, containerInformationService.getContainerInstance(amazonECS, ecsTask));
 
     if (ecsTask != null && instanceStatus != null) {
       ecsInstance = new EcsTask(id, ecsTask, instanceStatus);
@@ -112,53 +112,5 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     return task;
   }
 
-
-  private ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
-    if (task == null) {
-      return null;
-    }
-
-    ContainerInstance container = null;
-
-    List<String> queryList = new ArrayList<>();
-    queryList.add(task.getContainerInstanceArn());
-    DescribeContainerInstancesRequest request = new DescribeContainerInstancesRequest()
-      .withCluster(task.getClusterArn())
-      .withContainerInstances(queryList);
-    List<ContainerInstance> containerList = amazonECS.describeContainerInstances(request).getContainerInstances();
-
-    if (!containerList.isEmpty()) {
-      if (containerList.size() != 1) {
-        throw new InvalidParameterException("Tasks should only have one container associated to them. Multiple found");
-      }
-      container = containerList.get(0);
-    }
-
-    return container;
-  }
-
-  private InstanceStatus getEC2InstanceStatus(AmazonEC2 amazonEC2, ContainerInstance container) {
-    if (container == null) {
-      return null;
-    }
-
-    InstanceStatus instanceStatus = null;
-
-    List<String> queryList = new ArrayList<>();
-    queryList.add(container.getEc2InstanceId());
-    DescribeInstanceStatusRequest request = new DescribeInstanceStatusRequest()
-      .withInstanceIds(queryList);
-    List<InstanceStatus> instanceStatusList = amazonEC2.describeInstanceStatus(request).getInstanceStatuses();
-
-    if (!instanceStatusList.isEmpty()) {
-      if (instanceStatusList.size() != 1) {
-        String message = "Container instances should only have only one Instance Status. Multiple found";
-        throw new InvalidParameterException(message);
-      }
-      instanceStatus = instanceStatusList.get(0);
-    }
-
-    return instanceStatus;
-  }
 }
 
