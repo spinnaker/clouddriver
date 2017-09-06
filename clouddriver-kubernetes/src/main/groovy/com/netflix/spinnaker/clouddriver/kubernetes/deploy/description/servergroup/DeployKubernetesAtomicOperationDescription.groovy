@@ -46,6 +46,7 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesAtomicOperati
   Map<String, String> nodeSelector
   KubernetesSecurityContext securityContext
   KubernetesDeployment deployment
+  KubernetesStrategy updateStrategy
   Long terminationGracePeriodSeconds
   String serviceAccountName
   Integer sequence
