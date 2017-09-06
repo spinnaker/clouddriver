@@ -96,7 +96,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   }
 
   public List<String> getNamespaces() {
-    return credentials.getNamespaces();
+    return credentials.getDeclaredNamespaces();
   }
 
   @Override
@@ -127,6 +127,10 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   @Override
   public String getCloudProvider() {
     return cloudProvider;
+  }
+
+  public int getCacheThreads() {
+    return cacheThreads;
   }
 
   @Override
@@ -271,7 +275,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
               accountCredentialsRepository
           );
         case v2:
-          return (C) new KubernetesV2Credentials();
+          return (C) new KubernetesV2Credentials(name, spectatorRegistry);
         default:
           throw new IllegalArgumentException("Unknown provider type: " + version);
       }
@@ -284,6 +288,10 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
 
       if ((omitNamespaces != null && !omitNamespaces.isEmpty()) && (namespaces != null && !namespaces.isEmpty())) {
         throw new IllegalArgumentException("At most one of 'namespaces' and 'omitNamespaces' can be specified");
+      }
+
+      if (cacheThreads == 0) {
+        cacheThreads = 1;
       }
 
       if (version == null) {
@@ -301,7 +309,6 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       }
 
       if (credentials == null) {
-
         credentials = buildCredentials();
       }
 
