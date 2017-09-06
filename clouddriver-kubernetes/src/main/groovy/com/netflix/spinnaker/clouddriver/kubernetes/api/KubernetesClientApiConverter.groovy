@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.clouddriver.kubernetes.api
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.DeployKubernetesAtomicOperationDescription
@@ -44,6 +46,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergro
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesHttpGetAction
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KeyValuePair
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesTcpSocketAction
+import groovy.util.logging.Slf4j
 import io.kubernetes.client.models.*
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.autoscaler.KubernetesAutoscalerDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesControllerConverter
@@ -53,6 +56,7 @@ import org.slf4j.LoggerFactory
 /**
  * Created by spinnaker on 20/8/17.
  */
+@Slf4j
 class KubernetesClientApiConverter {
   private static final Logger LOG = LoggerFactory.getLogger(KubernetesClientApiConverter)
 
@@ -63,9 +67,6 @@ class KubernetesClientApiConverter {
     deployDescription.application = parsedName?.app
     deployDescription.stack = parsedName?.stack
     deployDescription.freeFormDetails = parsedName?.detail
-    /**
-     * Will fetch this values in next Part of checkin , when required
-     */
     deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(statefulSet.spec?.template?.metadata?.labels ?: [:])
     deployDescription.namespace = statefulSet?.metadata?.namespace
     deployDescription.targetSize = statefulSet?.spec?.replicas
@@ -87,6 +88,33 @@ class KubernetesClientApiConverter {
     return deployDescription
   }
 
+  static DeployKubernetesAtomicOperationDescription fromDaemonSet(V1beta1DaemonSet daemonSet) {
+    def deployDescription = new DeployKubernetesAtomicOperationDescription()
+    def parsedName = Names.parseName(daemonSet?.metadata?.name)
+
+    deployDescription.application = parsedName?.app
+    deployDescription.stack = parsedName?.stack
+    deployDescription.freeFormDetails = parsedName?.detail
+    deployDescription.loadBalancers = KubernetesUtil?.getLoadBalancers(daemonSet.spec?.template?.metadata?.labels ?: [:])
+    deployDescription.namespace = daemonSet?.metadata?.namespace
+    deployDescription.securityGroups = []
+    deployDescription.podAnnotations = daemonSet?.spec?.template?.metadata?.annotations
+    deployDescription.volumeSources = daemonSet?.spec?.template?.spec?.volumes?.collect {
+      fromVolume(it)
+    } ?: []
+
+    deployDescription.hostNetwork = daemonSet?.spec?.template?.spec?.hostNetwork
+
+    deployDescription.containers = daemonSet?.spec?.template?.spec?.containers?.collect {
+      fromContainer(it)
+    } ?: []
+
+    deployDescription.terminationGracePeriodSeconds = daemonSet?.spec?.template?.spec?.terminationGracePeriodSeconds
+
+    deployDescription.nodeSelector = daemonSet?.spec?.template?.spec?.nodeSelector
+
+    return deployDescription
+  }
 
   static KubernetesContainerDescription fromContainer(V1Container container) {
     if (!container) {
@@ -261,7 +289,11 @@ class KubernetesClientApiConverter {
     def kubernetesHttpGetAction = new KubernetesHttpGetAction()
     kubernetesHttpGetAction.host = httpGet.host
     kubernetesHttpGetAction.path = httpGet.path
-    kubernetesHttpGetAction.port = httpGet.port?.intVal ?: 0
+    try {
+      kubernetesHttpGetAction.port = httpGet.port?.toInteger() ?: 0
+    } catch (NumberFormatException ex) {
+      log.warn "Port number is not Integer", ex
+    }
     kubernetesHttpGetAction.uriScheme = httpGet.scheme
     kubernetesHttpGetAction.httpHeaders = httpGet.httpHeaders?.collect() {
       new KeyValuePair(name: it.name, value: it.value)
@@ -308,6 +340,16 @@ class KubernetesClientApiConverter {
     }
 
     return kubernetesProbe
+  }
+
+  /**
+   * This method converts the Object to YAML
+   * @param obj
+   * @return
+   */
+  static String getYaml(Object obj) {
+    ObjectMapper m = new ObjectMapper(new YAMLFactory());
+    return m.writeValueAsString(obj).replaceAll("\\\\", "");
   }
 
   static V1beta1StatefulSet toStatefulSet(DeployKubernetesAtomicOperationDescription description,
