@@ -41,6 +41,7 @@ class KubernetesClientApiAdapter {
   static final long RETRY_MAX_WAIT_MILLIS = TimeUnit.SECONDS.toMillis(10)
   static final long RETRY_INITIAL_WAIT_MILLIS = 100
   static final int API_CALL_TIMEOUT_SECONDS = 60
+  static final int TERMINATION_GRACE_PERIOD_SECONDS = 30
   static final String API_CALL_RESULT_FORMAT = ""
   static final String DEPLOYMENT_ANNOTATION = "deployment.kubernetes.io"
   final Registry spectatorRegistry
@@ -151,7 +152,7 @@ class KubernetesClientApiAdapter {
 
   V1beta1StatefulSet createStatfulSet(String namespace, V1beta1StatefulSet statefulSet) {
     exceptionWrapper("statefulSets.create", "Create Stateful Set ${statefulSet?.metadata?.name}", namespace) {
-      return apiInstance.createNamespacedStatefulSet(namespace, statefulSet, null)
+      return apiInstance.createNamespacedStatefulSet(namespace, statefulSet, API_CALL_RESULT_FORMAT)
     }
   }
 
@@ -181,7 +182,13 @@ class KubernetesClientApiAdapter {
       Boolean orphanDependents = true
       String propagationPolicy = ""
 
-      return scalerApi.deleteNamespacedHorizontalPodAutoscaler(name, namespace, deleteOption, API_CALL_RESULT_FORMAT, 30, orphanDependents, propagationPolicy);
+      return scalerApi.deleteNamespacedHorizontalPodAutoscaler(name, namespace, deleteOption, API_CALL_RESULT_FORMAT, TERMINATION_GRACE_PERIOD_SECONDS, orphanDependents, propagationPolicy);
+    }
+  }
+
+  V1beta1DaemonSet createDaemonSet(String namespace, V1beta1DaemonSet daemonSet) {
+    exceptionWrapper("DaemonSet.create", "Create Daemon Set ${daemonSet?.metadata?.name}", namespace) {
+      return extApi.createNamespacedDaemonSet(namespace, daemonSet, API_CALL_RESULT_FORMAT)
     }
   }
 }

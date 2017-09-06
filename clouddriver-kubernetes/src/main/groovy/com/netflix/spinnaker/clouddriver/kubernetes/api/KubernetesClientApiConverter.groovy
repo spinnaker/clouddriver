@@ -275,7 +275,7 @@ class KubernetesClientApiConverter {
     }
 
     def kubernetesTcpSocketAction = new KubernetesTcpSocketAction()
-    kubernetesTcpSocketAction.port = tcpSocket.port ?: 0
+    kubernetesTcpSocketAction.port = tcpSocket.port.toInteger() ?: 0
     return kubernetesTcpSocketAction
   }
 
@@ -313,19 +313,23 @@ class KubernetesClientApiConverter {
   static V1beta1StatefulSet toStatefulSet(DeployKubernetesAtomicOperationDescription description,
                                           String statefulSetName) {
     def targetSize = description.targetSize ?: description.capacity?.desired
+    def stateful = new V1beta1StatefulSet()
+    def spec = new V1beta1StatefulSetSpec()
 
-    V1beta1StatefulSet stateful = new V1beta1StatefulSet()
-    V1beta1StatefulSetSpec spec = new V1beta1StatefulSetSpec()
+    def templateSpec = toPodTemplateSpec(description, statefulSetName)
+    spec.template = templateSpec
 
-    V1PodTemplateSpec templateSpec = new V1PodTemplateSpec()
-    spec.template = toPodTemplateSpec(description, statefulSetName)
-
-    V1ObjectMeta metadata = new V1ObjectMeta()
-    V1LabelSelector selector = new V1LabelSelector()
+    def metadata = new V1ObjectMeta()
+    def selector = new V1LabelSelector()
     metadata.labels = genericLabels(statefulSetName, description.namespace)
-    selector.matchLabels = metadata.labels
-
+    if (description.controllerAnnotations) {
+      metadata.annotations = new HashMap<String, String>()
+      description.controllerAnnotations.forEach({ k, v ->
+        metadata.annotations.put(k, v)
+      })
+    }
     spec.template.metadata = metadata
+    selector.matchLabels = metadata.labels
     spec.selector = selector
     spec.serviceName = statefulSetName
     spec.replicas = description.targetSize
@@ -335,8 +339,11 @@ class KubernetesClientApiConverter {
       spec.addVolumeClaimTemplatesItem(persistentVolumeClaim)
     })
 
+    metadata = new V1ObjectMeta()
     metadata.name = statefulSetName
     metadata.namespace = description.namespace
+    metadata.labels = genericLabels(statefulSetName, description.namespace)
+
     stateful.metadata = metadata
     stateful.spec = spec
     stateful.apiVersion = description.apiVersion
@@ -349,8 +356,8 @@ class KubernetesClientApiConverter {
     def persistentVolumeClaims = new ArrayList<V1PersistentVolumeClaim>()
     if (description.volumeClaims) {
       description.volumeClaims.forEach({ claim ->
-        V1PersistentVolumeClaimSpec spec = new V1PersistentVolumeClaimSpec()
-        V1ObjectMeta metadata = new V1ObjectMeta()
+        def spec = new V1PersistentVolumeClaimSpec()
+        def metadata = new V1ObjectMeta()
 
         if (description.volumeAnnotations) {
           metadata.annotations = new HashMap<String, String>()
@@ -365,7 +372,7 @@ class KubernetesClientApiConverter {
         }
 
         if (claim.requirements) {
-          V1ResourceRequirements resources = new V1ResourceRequirements()
+          def resources = new V1ResourceRequirements()
           resources.limits = claim.requirements.limits
           resources.requests = claim.requirements.requests
 
@@ -376,11 +383,7 @@ class KubernetesClientApiConverter {
           spec.storageClassName = claim.storageClassName
         }
 
-        if (claim.claimName) {
-          spec.volumeName = claim.claimName
-        }
-
-        V1PersistentVolumeClaim volumeClaim = new V1PersistentVolumeClaim()
+        def volumeClaim = new V1PersistentVolumeClaim()
         volumeClaim.spec = spec
         volumeClaim.metadata = metadata
 
@@ -389,14 +392,12 @@ class KubernetesClientApiConverter {
     }
 
     return persistentVolumeClaims
-
   }
 
   static V1PodTemplateSpec toPodTemplateSpec(DeployKubernetesAtomicOperationDescription description, String name) {
-    V1PodTemplateSpec podTemplateSpec = new V1PodTemplateSpec()
-    V1PodSpec podSpec = new V1PodSpec()
-    V1ObjectMeta metadata = new V1ObjectMeta()
-
+    def podTemplateSpec = new V1PodTemplateSpec()
+    def podSpec = new V1PodSpec()
+    def metadata = new V1ObjectMeta()
 
     for (def loadBalancer : description.loadBalancers) {
       metadata.labels.put(KubernetesUtil.loadBalancerKey(loadBalancer), "true")
@@ -407,23 +408,28 @@ class KubernetesClientApiConverter {
       description.podAnnotations.forEach({ k, v ->
         metadata.annotations.put(k, v)
       })
-      podTemplateSpec.metadata = metadata
     }
+
+    podTemplateSpec.metadata = metadata
 
     if (description.restartPolicy) {
       podSpec.restartPolicy = description.restartPolicy
+    } else {
+      podSpec.restartPolicy = "Always"
     }
 
     if (description.terminationGracePeriodSeconds) {
       podSpec.terminationGracePeriodSeconds = description.terminationGracePeriodSeconds
     }
 
-    podSpec.imagePullSecrets = new ArrayList()
-    for (def imagePullSecret : description.imagePullSecrets) {
-      V1ObjectReference secret = new V1ObjectReference()
-      secret.name = imagePullSecret
-      secret.namespace = description.namespace
-      podSpec.imagePullSecrets.add(secret)
+    if (description.imagePullSecrets) {
+      podSpec.imagePullSecrets = new ArrayList()
+      for (def imagePullSecret : description.imagePullSecrets) {
+        def secret = new V1ObjectReference()
+        secret.name = imagePullSecret
+        secret.namespace = description.namespace
+        podSpec.imagePullSecrets.add(secret)
+      }
     }
 
     if (description.serviceAccountName) {
@@ -444,20 +450,17 @@ class KubernetesClientApiConverter {
       toContainer(container)
     }
 
-    if (description.kind != KubernetesUtil.CONTROLLERS_DAEMONSET_KIND) {
-      podSpec.dnsPolicy = "ClusterFirst"
-    }
-
+    podSpec.dnsPolicy = "ClusterFirst"
     podSpec.containers = containers
     podTemplateSpec.spec = podSpec
 
     return podTemplateSpec
   }
   static V1Volume toVolumeSource(KubernetesVolumeSource volumeSource) {
-    V1Volume volume = new V1Volume(name: volumeSource.name)
+    def volume = new V1Volume(name: volumeSource.name)
     switch (volumeSource.type) {
       case KubernetesVolumeSourceType.EmptyDir:
-        V1EmptyDirVolumeSource res = V1EmptyDirVolumeSource
+        def res = new V1EmptyDirVolumeSource()
         switch (volumeSource.emptyDir.medium) {
           case KubernetesStorageMediumType.Memory:
             res.medium = "Memory"
@@ -469,26 +472,26 @@ class KubernetesClientApiConverter {
         break
 
       case KubernetesVolumeSourceType.HostPath:
-        V1HostPathVolumeSource res = V1HostPathVolumeSource()
+        def res = new V1HostPathVolumeSource()
         res.path = volumeSource.hostPath.path
         volume.hostPath = res
         break
 
       case KubernetesVolumeSourceType.PersistentVolumeClaim:
-        V1PersistentVolumeClaimVolumeSource res = V1PersistentVolumeClaimVolumeSource()
+        def res = new V1PersistentVolumeClaimVolumeSource()
         res.claimName = volumeSource.persistentVolumeClaim.claimName
         res.readOnly = volumeSource.persistentVolumeClaim.readOnly
         volume.persistentVolumeClaim = res
         break
 
       case KubernetesVolumeSourceType.Secret:
-        V1SecretVolumeSource res = V1SecretVolumeSource
+        def res = new V1SecretVolumeSource()
         res.secretName = volumeSource.secret.secretName
         volume.secret = res.secretName
         break
 
       case KubernetesVolumeSourceType.ConfigMap:
-        V1ConfigMapVolumeSource res = new V1ConfigMapVolumeSource()
+        def res = new V1ConfigMapVolumeSource()
         def items = volumeSource.configMap.items?.collect { KubernetesKeyToPath item ->
           new V1KeyToPath(key: item.key, path: item.path)
         }
@@ -508,21 +511,21 @@ class KubernetesClientApiConverter {
   static V1Container toContainer(KubernetesContainerDescription container) {
     KubernetesUtil.normalizeImageDescription(container.imageDescription)
     def imageId = KubernetesUtil.getImageId(container.imageDescription)
-    V1Container v1container = new V1Container()
+    def v1container = new V1Container()
 
     v1container.image = container.imageDescription.repository
 
     if (container.imagePullPolicy) {
       v1container.imagePullPolicy = container.imagePullPolicy.toString()
     } else {
-      v1container.imagePullPolicy = "IfNotPresent"
+      v1container.imagePullPolicy = "ALWAYS"
     }
 
     v1container.name = container.name
 
     if (container.ports) {
       container.ports.forEach { it ->
-        V1ContainerPort ports = new V1ContainerPort()
+        def ports = new V1ContainerPort()
         if (it.name) {
           ports.name = it.name
         }
@@ -548,7 +551,7 @@ class KubernetesClientApiConverter {
     }
 
     if (container.securityContext) {
-      V1SecurityContext securityContext = new V1SecurityContext()
+      def securityContext = new V1SecurityContext()
       securityContext.runAsNonRoot = container.securityContext.runAsNonRoot
       securityContext.runAsUser = container.securityContext.runAsUser
       securityContext.privileged = container.securityContext.privileged
@@ -556,7 +559,7 @@ class KubernetesClientApiConverter {
       v1container.securityContext = container.securityContext
 
       if (container.securityContext.seLinuxOptions) {
-        V1SELinuxOptions seLinuxOptions = new V1SELinuxOptions()
+        def seLinuxOptions = new V1SELinuxOptions()
         seLinuxOptions.user = container.securityContext.seLinuxOptions.user
         seLinuxOptions.role = container.securityContext.seLinuxOptions.role
         seLinuxOptions.type = container.securityContext.seLinuxOptions.type
@@ -566,7 +569,7 @@ class KubernetesClientApiConverter {
       }
 
       if (securityContext.capabilities) {
-        V1Capabilities capabilities = new V1Capabilities()
+        def capabilities = new V1Capabilities()
         capabilities.add = securityContext.capabilities.add
         capabilities.drop = securityContext.capabilities.drop
 
@@ -578,7 +581,7 @@ class KubernetesClientApiConverter {
 
     [liveness: container.livenessProbe, readiness: container.readinessProbe].each { k, v ->
       def probe = v
-      V1Probe v1probe = new V1Probe()
+      def v1probe = new V1Probe()
       if (probe) {
 
         v1probe.initialDelaySeconds = probe.initialDelaySeconds
@@ -627,7 +630,7 @@ class KubernetesClientApiConverter {
     }
 
     if (container.lifecycle) {
-      V1Lifecycle lifecycle = new V1Lifecycle()
+      def lifecycle = new V1Lifecycle()
 
       if (container.lifecycle.postStart) {
         lifecycle.postStart = toHandler(container.lifecycle.postStart)
@@ -639,7 +642,7 @@ class KubernetesClientApiConverter {
       v1container.lifecycle = lifecycle
     }
 
-    V1ResourceRequirements resources = new V1ResourceRequirements()
+    def resources = new V1ResourceRequirements()
     if (container.requests) {
       def requests = [:]
 
@@ -654,27 +657,28 @@ class KubernetesClientApiConverter {
     }
 
     if (container.limits) {
-
       def limits = [:]
 
       if (container.limits.memory) {
         limits.memory = container.limits.memory
       }
+
       if (container.limits.cpu) {
         limits.cpu = container.limits.cpu
       }
 
-      resources.limits limits
+      resources.limits = limits
     }
     v1container.resources = resources
 
     if (container.volumeMounts) {
-      def volumeMounts = container.volumeMounts.collect { mount ->
+      def volumeMounts = new ArrayList<V1VolumeMount>()
+      container.volumeMounts.collect { mount ->
         def res = new V1VolumeMount()
         res.name = mount.name
         res.mountPath = mount.mountPath
         res.readOnly = mount.readOnly
-        return res
+        volumeMounts.add(res)
       }
       v1container.volumeMounts = volumeMounts
     }
@@ -702,7 +706,7 @@ class KubernetesClientApiConverter {
             def resource = envVar.envSource.resourceFieldRef.resource
             def containerName = envVar.envSource.resourceFieldRef.containerName
             def divisor = envVar.envSource.resourceFieldRef.divisor
-            V1ResourceFieldSelector resouceField = new V1ResourceFieldSelector()
+            def resouceField = new V1ResourceFieldSelector()
             resouceField.resource = resource
             resouceField.containerName = containerName
             resouceField.divisor = divisor
@@ -745,7 +749,7 @@ class KubernetesClientApiConverter {
   }
 
   static V1HTTPGetAction toHttpGetAction(KubernetesHttpGetAction action) {
-    V1HTTPGetAction httpGetAction = new V1HTTPGetAction()
+    def httpGetAction = new V1HTTPGetAction()
     if (action.host) {
       httpGetAction.host = action.host
     }
@@ -774,7 +778,7 @@ class KubernetesClientApiConverter {
   }
 
   static V1Handler toHandler(KubernetesHandler handler) {
-    V1Handler handlerBuilder = new V1Handler()
+    def handlerBuilder = new V1Handler()
     switch (handler.type) {
       case KubernetesHandlerType.EXEC:
         handlerBuilder.exec = toExecAction(handler.execAction)
@@ -795,7 +799,7 @@ class KubernetesClientApiConverter {
   static V1HorizontalPodAutoscaler toAutoscaler(KubernetesAutoscalerDescription description,
                                                 String resourceName,
                                                 String resourceKind) {
-    V1HorizontalPodAutoscaler autoscaler = new V1HorizontalPodAutoscaler()
+    def autoscaler = new V1HorizontalPodAutoscaler()
 
     V1ObjectMeta metadata = new V1ObjectMeta()
     metadata.name = resourceName
@@ -803,12 +807,12 @@ class KubernetesClientApiConverter {
 
     autoscaler.metadata = metadata
 
-    V1HorizontalPodAutoscalerSpec spec = new V1HorizontalPodAutoscalerSpec()
+    def spec = new V1HorizontalPodAutoscalerSpec()
     spec.minReplicas = description.capacity.min
     spec.maxReplicas = description.capacity.max
     spec.targetCPUUtilizationPercentage = description.scalingPolicy.cpuUtilization.target
 
-    V1CrossVersionObjectReference targetRef = new V1CrossVersionObjectReference()
+    def targetRef = new V1CrossVersionObjectReference()
     targetRef.name = resourceName
     targetRef.kind = resourceKind
 
@@ -819,6 +823,11 @@ class KubernetesClientApiConverter {
   }
 
   static KubernetesControllerConverter toKubernetesController(V1beta1StatefulSet controllerSet) {
+    //FIXME: Use this method for k8s client api transforms to fabric8 object till fully k8s client api compilant
+    return (new KubernetesControllerConverter(controllerSet.kind, controllerSet.apiVersion, controllerSet.metadata))
+  }
+
+  static KubernetesControllerConverter toKubernetesController(V1beta1DaemonSet controllerSet) {
     //FIXME: Use this method for k8s client api transforms to fabric8 object till fully k8s client api compilant
     return (new KubernetesControllerConverter(controllerSet.kind, controllerSet.apiVersion, controllerSet.metadata))
   }
@@ -834,5 +843,57 @@ class KubernetesClientApiConverter {
     ]
 
     return labels
+  }
+
+  static V1beta1DaemonSet toDaemonSet(DeployKubernetesAtomicOperationDescription description,
+                                      String daemonsetName) {
+    def targetSize = description.targetSize ?: description.capacity?.desired
+
+    def daemonset = new V1beta1DaemonSet()
+    def spec = new V1beta1DaemonSetSpec()
+    def templateSpec = new V1PodTemplateSpec()
+    spec.template = toPodTemplateSpec(description, daemonsetName)
+
+    def metadata = new V1ObjectMeta()
+    def selector = new V1LabelSelector()
+    metadata.labels = genericLabels(daemonsetName, description.namespace)
+    if (description.controllerAnnotations) {
+      metadata.annotations = new HashMap<String, String>()
+      description.controllerAnnotations.forEach({ k, v ->
+        metadata.annotations.put(k, v)
+      })
+    }
+    spec.template.metadata = metadata
+    selector.matchLabels = metadata.labels
+
+    spec.template.metadata = metadata
+    spec.selector = selector
+
+    if (description.updateStrategy) {
+      def updateStrategy = new V1beta1DaemonSetUpdateStrategy()
+
+      if (description.updateStrategy.type.name() == "Recreate") {
+        //Note: Use 'Recreate' which is supported by validation code
+        updateStrategy.type = "OnDelete"
+      } else {
+        updateStrategy.type = description.updateStrategy.type
+        if (description.updateStrategy.rollingUpdate) {
+          def rollingUpdate = new V1beta1RollingUpdateDaemonSet()
+          rollingUpdate.maxUnavailable = description.updateStrategy.rollingUpdate.maxUnavailable
+          updateStrategy.rollingUpdate = rollingUpdate
+        }
+      }
+      spec.updateStrategy = updateStrategy
+    }
+
+
+    metadata.name = daemonsetName
+    metadata.namespace = description.namespace
+    daemonset.metadata = metadata
+    daemonset.spec = spec
+    daemonset.apiVersion = description.apiVersion
+    daemonset.kind = description.kind
+
+    return daemonset
   }
 }

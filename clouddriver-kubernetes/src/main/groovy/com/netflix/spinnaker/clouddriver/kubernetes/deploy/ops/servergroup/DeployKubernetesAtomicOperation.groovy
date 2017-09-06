@@ -134,26 +134,33 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
     return replicaSet
   }
 
-  HasMetadata deployController(KubernetesCredentials credentials, String name, String namespace) {
+  HasMetadata deployController(KubernetesCredentials credentials, String controllerName, String namespace) {
     def controllerSet
     if (description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND) {
       task.updateStatus BASE_PHASE, "Building stateful set..."
-      controllerSet = KubernetesClientApiConverter.toStatefulSet(description, name)
+      controllerSet = KubernetesClientApiConverter.toStatefulSet(description, controllerName)
 
-      task.updateStatus BASE_PHASE, "Deployed replica set ${controllerSet.metadata.name}"
+      task.updateStatus BASE_PHASE, "Deployed stateful set ${controllerSet.metadata.name}"
       controllerSet = credentials.clientApiAdaptor.createStatfulSet(namespace, controllerSet)
 
       if (description.scalingPolicy) {
         task.updateStatus BASE_PHASE, "Attaching a horizontal pod autoscaler..."
 
-        def autoscaler = KubernetesClientApiConverter.toAutoscaler(new KubernetesAutoscalerDescription(name, description), name, description.kind)
+        def autoscaler = KubernetesClientApiConverter.toAutoscaler(new KubernetesAutoscalerDescription(controllerName, description), controllerName, description.kind)
 
-        if (credentials.clientApiAdaptor.getAutoscaler(namespace, name)) {
-          credentials.clientApiAdaptor.deleteAutoscaler(namespace, name)
+        if (credentials.clientApiAdaptor.getAutoscaler(namespace, controllerName)) {
+          credentials.clientApiAdaptor.deleteAutoscaler(namespace, controllerName)
         }
 
         credentials.clientApiAdaptor.createAutoscaler(namespace, autoscaler)
       }
+    }
+    else if (description.kind == KubernetesUtil.CONTROLLERS_DAEMONSET_KIND) {
+      task.updateStatus BASE_PHASE, "Building daemonset set..."
+      controllerSet = KubernetesClientApiConverter.toDaemonSet(description, controllerName)
+
+      task.updateStatus BASE_PHASE, "Deployed daemonset set ${controllerSet.metadata.name}"
+      controllerSet = credentials.clientApiAdaptor.createDaemonSet(namespace, controllerSet)
     }
 
     return KubernetesClientApiConverter.toKubernetesController(controllerSet)
