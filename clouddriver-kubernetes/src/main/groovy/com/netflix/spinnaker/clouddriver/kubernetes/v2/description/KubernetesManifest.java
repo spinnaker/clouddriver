@@ -46,7 +46,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   @JsonIgnore
   public void setKind(KubernetesKind kind) {
-    put("kind", kind.name);
+    put("kind", kind.toString());
   }
 
   @JsonIgnore
@@ -56,7 +56,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   @JsonIgnore
   public void setApiVersion(KubernetesApiVersion apiVersion) {
-    put("apiVersion", apiVersion.name);
+    put("apiVersion", apiVersion.toString());
   }
 
   @JsonIgnore

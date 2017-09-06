@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind
@@ -27,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesMan
 import io.kubernetes.client.models.V1beta1ReplicaSet
 import org.yaml.snakeyaml.Yaml
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class KubernetesCacheDataConvertSpec extends Specification {
   def mapper = new ObjectMapper()
@@ -36,6 +38,7 @@ class KubernetesCacheDataConvertSpec extends Specification {
     return mapper.convertValue(yaml.load(input), KubernetesManifest.class)
   }
 
+  @Unroll
   def "given a correctly annotated manifest, build attributes & infer relationships"() {
     setup:
     def rawManifest = """
@@ -62,7 +65,7 @@ metadata:
     } else {
       cacheData.relationships.get(Keys.LogicalKind.APPLICATION.toString()) == [Keys.application(application)]
       if (cluster) {
-        cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == [Keys.cluster(account, application, cluster)]
+        cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == [Keys.cluster(account, cluster)]
       } else {
         cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == null
       }
@@ -80,6 +83,7 @@ metadata:
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1                 | "another-account" | "your-app"  | null          | "some-namespace" | "what-name"
   }
 
+  @Unroll
   def "given a single owner reference, correctly build relationships"() {
     setup:
     def ownerRefs = [new KubernetesManifest.OwnerReference(kind: kind, apiVersion: apiVersion, name: name)]
@@ -98,4 +102,31 @@ metadata:
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1                 | "another-account" | "cluster"     | "some-namespace" | "what-name"
   }
 
+  @Unroll
+  def "given a cache data entry, invert its relationships"() {
+    setup:
+    def id = Keys.infrastructure(kind, version, "account", "namespace", "version")
+    def cacheData = new DefaultCacheData(id, null, relationships)
+
+    when:
+    def result = KubernetesCacheDataConverter.invertRelationships(cacheData)
+
+    then:
+    relationships.collect {
+      group, keys -> keys.collect {
+        key -> result.find {
+          data -> data.id == key && data.relationships.get(kind.toString()) == [id]
+        } != null
+      }.inject true, { a, b -> a && b }
+    }.inject true, { a, b -> a && b }
+
+    where:
+    kind                       | version                           | relationships
+    KubernetesKind.REPLICA_SET | KubernetesApiVersion.APPS_V1BETA1 | ["application": [Keys.application("app")]]
+    KubernetesKind.REPLICA_SET | KubernetesApiVersion.APPS_V1BETA1 | ["application": []]
+    KubernetesKind.REPLICA_SET | KubernetesApiVersion.APPS_V1BETA1 | [:]
+    KubernetesKind.REPLICA_SET | KubernetesApiVersion.APPS_V1BETA1 | ["deployment": [Keys.infrastructure(KubernetesKind.DEPLOYMENT, KubernetesApiVersion.APPS_V1BETA1, "account", "namespace", "a-name")]]
+    KubernetesKind.SERVICE     | KubernetesApiVersion.V1           | ["cluster": [Keys.cluster("account", "name")], "application": [Keys.application("blarg")]]
+    KubernetesKind.SERVICE     | KubernetesApiVersion.V1           | ["cluster": [Keys.cluster("account", "name")], "application": [Keys.application("blarg"), Keys.application("asdfasdf")]]
+  }
 }

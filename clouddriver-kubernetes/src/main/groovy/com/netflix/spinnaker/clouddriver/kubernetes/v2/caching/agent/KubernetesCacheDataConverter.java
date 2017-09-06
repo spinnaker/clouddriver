@@ -71,7 +71,7 @@ public class KubernetesCacheDataConverter {
 
     String cluster = spinnakerRelationships.getCluster();
     if (!StringUtils.isEmpty(cluster)) {
-      relationships.put(CLUSTER.toString(), Collections.singletonList(Keys.cluster(account, application, cluster)));
+      relationships.put(CLUSTER.toString(), Collections.singletonList(Keys.cluster(account, cluster)));
     }
 
     relationships.putAll(ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences(mapper)));
@@ -96,5 +96,56 @@ public class KubernetesCacheDataConverter {
     }
 
     return relationships;
+  }
+
+  /**
+   * To ensure the entire relationship graph is bidirectional, invert any relationship entries here to point back at the
+   * resource being cached (key).
+   */
+  static List<CacheData> invertRelationships(CacheData cacheData) {
+    String key = cacheData.getId();
+    Keys.CacheKey parsedKey = Keys.parseKey(key).orElseThrow(() -> new IllegalStateException("Cache data produced with illegal key format " + key));
+    String group = parsedKey.getGroup();
+    Map<String, Collection<String>> relationshipGroupings = cacheData.getRelationships();
+    List<CacheData> result = new ArrayList<>();
+
+    for (Collection<String> relationships : relationshipGroupings.values()) {
+      for (String relationship : relationships) {
+        result.add(invertSingleRelationship(group, key, relationship));
+      }
+    }
+
+    return result;
+  }
+
+  static void logStratifiedCacheData(String agentType, Map<String, Collection<CacheData>> stratifiedCacheData) {
+    for (Map.Entry<String, Collection<CacheData>> entry : stratifiedCacheData.entrySet()) {
+      log.info(agentType + ": grouping " + entry.getKey() + " has " + entry.getValue().size() + " entries");
+    }
+  }
+
+  static Map<String, Collection<CacheData>> stratifyCacheDataByGroup(List<CacheData> ungroupedCacheData) {
+    Map<String, Collection<CacheData>> result = new HashMap<>();
+    for (CacheData cacheData : ungroupedCacheData) {
+      String key = cacheData.getId();
+      Keys.CacheKey parsedKey = Keys.parseKey(key).orElseThrow(() -> new IllegalStateException("Cache data produced with illegal key format " + key));
+      String group = parsedKey.getGroup();
+
+      Collection<CacheData> groupedCacheData = result.get(group);
+      if (groupedCacheData == null) {
+        groupedCacheData = new ArrayList<>();
+      }
+
+      groupedCacheData.add(cacheData);
+      result.put(group, groupedCacheData);
+    }
+
+    return result;
+  }
+
+  private static CacheData invertSingleRelationship(String group, String key, String relationship) {
+    Map<String, Collection<String>> relationships = new HashMap<>();
+    relationships.put(group, Collections.singletonList(key));
+    return new DefaultCacheData(relationship, null, relationships);
   }
 }
