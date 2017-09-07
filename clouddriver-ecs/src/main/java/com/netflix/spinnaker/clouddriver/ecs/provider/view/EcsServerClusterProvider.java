@@ -265,7 +265,13 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name, boolean includeDetails) {
-    return getClusters().get(application).iterator().next();
+
+    Set<EcsServerCluster> ecsServerClusters = getClusters().get(application);
+    if (ecsServerClusters == null || ecsServerClusters.size() == 0) {
+      return null;
+    } else {
+      return ecsServerClusters.iterator().next();
+    }
   }
 
   /**

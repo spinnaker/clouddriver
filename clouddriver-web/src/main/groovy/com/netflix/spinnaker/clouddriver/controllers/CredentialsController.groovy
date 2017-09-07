@@ -75,7 +75,7 @@ class CredentialsController {
   Map getAccount(@PathVariable("name") String name) {
     def accountDetail = renderDetail(accountCredentialsProvider.getCredentials(name))
     if (!accountDetail) {
-      throw new NotFoundException("Account does not exist (name: ${name})")
+      return renderDetail(accountCredentialsProvider.getAll().iterator().next())  // TODO - implement the ECS accounts properly, so we don't need to do this shenanigan
     }
 
     return accountDetail
