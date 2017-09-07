@@ -121,16 +121,26 @@ class KubernetesLoadBalancerProvider implements LoadBalancerProvider<KubernetesL
     }
   }
 
-  // TODO(lwander): Implement if/when these methods are needed in Deck.
   @Override
   LoadBalancerProvider.Item get(String name) {
-    throw new OperationNotSupportedException("Kubernetes is a special snowflake.")
+    // this is just a placeholder
+    return list().find { it.name == name }
   }
 
   @Override
-  List<LoadBalancerProvider.Details> byAccountAndRegionAndName(String account,
-                                                               String region,
-                                                               String name) {
-    throw new OperationNotSupportedException("No balancers for you!")
+  List<KubernetesLoadBalancer> byAccountAndRegionAndName(String account,
+                                                         String region,
+                                                         String name) {
+    Set<CacheData> loadBalancers = KubernetesProviderUtils.getAllMatchingKeyPattern(cacheView,
+                                                                                    Keys.Namespace.LOAD_BALANCERS.ns,
+                                                                                    Keys.getLoadBalancerKey(account, region, name))
+    if (!loadBalancers || loadBalancers.size() == 0) {
+      return null
+    }
+
+    return loadBalancers.collect{ lb ->
+      Map<String, KubernetesServerGroup> serverGroups = [:]
+      translateLoadBalancer(lb, serverGroups)
+    } ?: [:]
   }
 }
