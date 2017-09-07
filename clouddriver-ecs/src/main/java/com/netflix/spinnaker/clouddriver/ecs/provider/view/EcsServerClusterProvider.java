@@ -21,6 +21,8 @@ import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
+import com.amazonaws.services.ecs.model.ListClustersRequest;
+import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
@@ -49,8 +51,10 @@ import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -79,6 +83,27 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       }
     }
     return clusterMap;
+  }
+
+  public List<String> getEcsClusters(String account, String region) {
+
+    List<String> listCluster = new ArrayList<>();
+
+    for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
+      if (credentials instanceof AmazonCredentials) {
+        AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(account,
+          ((AmazonCredentials) credentials).getCredentialsProvider(),
+          region);
+        ListClustersRequest listClustersRequest = new ListClustersRequest();
+        ListClustersResult listClustersResult = amazonECS.listClusters(listClustersRequest);
+
+        for (String clusterArn : listClustersResult.getClusterArns()) {
+          String ecsClusterName = inferClusterNameFromClusterArn(clusterArn);
+          listCluster.add(ecsClusterName);
+        }
+      }
+    }
+    return listCluster;
   }
 
   private Map<String, Set<EcsServerCluster>> findClusters(Map<String, Set<EcsServerCluster>> clusterMap,
