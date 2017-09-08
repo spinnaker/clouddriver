@@ -20,10 +20,12 @@ import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesClientOperationException
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesApiClientConfig
+import io.fabric8.kubernetes.api.model.Pod
 import io.kubernetes.client.ApiClient
 import io.kubernetes.client.ApiException
 import io.kubernetes.client.Configuration
 import io.kubernetes.client.apis.AppsV1beta1Api
+import io.kubernetes.client.apis.CoreV1Api
 import io.kubernetes.client.models.*
 import io.kubernetes.client.apis.ExtensionsV1beta1Api
 import io.kubernetes.client.apis.AutoscalingV1Api
@@ -138,14 +140,40 @@ class KubernetesClientApiAdapter {
 
   List<V1beta1StatefulSet> getStatefulSets(String namespace) {
     exceptionWrapper("statefulSets.list", "Get Stateful Sets", namespace) {
+      /*
+       "fixme" and note this is k8s-client api issue and we are working this as workaround.
+        */
       V1beta1StatefulSetList list = apiInstance.listNamespacedStatefulSet(namespace, null, null, null, null, API_CALL_TIMEOUT_SECONDS, false)
+      String apiVersion = list.getApiVersion();
+      String kind = list.getKind();
+      if (kind != null && kind.equals("StatefulSetList")) {
+        kind = "SatefulSet";
+      }
+      for (V1beta1StatefulSet item : list.getItems()) {
+        item.setApiVersion(apiVersion);
+        item.setKind(kind);
+      }
+
       return list.items
     }
   }
 
-  List<V1beta1StatefulSet> getDaemonSets(String namespace) {
+  List<V1beta1DaemonSet> getDaemonSets(String namespace) {
     exceptionWrapper("daemonSets.list", "Get Daemon Sets", namespace) {
+      /*
+     "fixme" and note this is k8s-client api issue and we are working this as workaround.
+      */
       V1beta1DaemonSetList list = extApi.listNamespacedDaemonSet(namespace, null, null, null, null, API_CALL_TIMEOUT_SECONDS, null)
+      String apiVersion = list.getApiVersion();
+      String kind = list.getKind();
+      if (kind != null && kind.equals("DaemonSetList")) {
+        kind = "DaemonSet";
+      }
+      for (V1beta1DaemonSet item : list.getItems()) {
+        item.setApiVersion(apiVersion);
+        item.setKind(kind);
+      }
+
       return list.items
     }
   }
@@ -176,6 +204,18 @@ class KubernetesClientApiAdapter {
     }
   }
 
+  V1PodList getPods(String namespace, Map<String, String> labels) {
+    CoreV1Api api = new CoreV1Api();
+    String label
+    if (labels != null) {
+      Map.Entry<String, String> entry = labels.entrySet().iterator().next()
+      String key = entry.getKey()
+      String value = entry.getValue()
+      label = key + "=" + value
+    }
+    api.listNamespacedPod(namespace, null, null, label, null, API_CALL_TIMEOUT_SECONDS, null)
+  }
+  
   boolean deleteAutoscaler(String namespace, String name) {
     exceptionWrapper("horizontalPodAutoscalers.delete", "Destroy Autoscaler $name", namespace) {
       V1DeleteOptions deleteOption = new V1DeleteOptions()
