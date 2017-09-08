@@ -37,6 +37,7 @@ import groovy.util.logging.Slf4j
 import io.fabric8.kubernetes.api.model.Event
 import io.kubernetes.client.models.V1beta1DaemonSet
 import io.kubernetes.client.models.V1beta1StatefulSet
+import io.kubernetes.client.models.V1PodList
 
 /**
  * Created by spinnaker on 20/8/17.
@@ -148,6 +149,10 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     return KubernetesServerGroupCachingAgent.types
   }
 
+  V1PodList loadPods(KubernetesController serverGroup) {
+    credentials.apiClientAdaptor.getPods(serverGroup.namespace, serverGroup.selector)
+  }
+
   /**
    * Triggered by an AgentScheduler to tell this Agent to load its data.
    *
@@ -250,6 +255,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
         cache(cacheResults, Keys.Namespace.INSTANCES.ns, cachedInstances)
       } else {
         def serverGroupName = serverGroup.name
+        def pods = loadPods(serverGroup)
         def names = Names.parseName(serverGroupName)
         def applicationName = names.app
         def clusterName = names.cluster
@@ -272,6 +278,17 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
           relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
+        }
+
+        pods?.getItems().forEach { pod ->
+          def key = Keys.getInstanceKey(accountName, pod.metadata.namespace, pod.metadata.name)
+          instanceKeys << key
+          cachedInstances[key].with {
+            relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
+            relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
+            relationships[Keys.Namespace.SERVER_GROUPS.ns].add(serverGroupKey)
+            relationships[Keys.Namespace.LOAD_BALANCERS.ns].addAll(loadBalancerKeys)
+          }
         }
 
         cachedServerGroups[serverGroupKey].with {
