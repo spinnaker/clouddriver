@@ -145,13 +145,9 @@ class KubernetesClientApiAdapter {
         */
       V1beta1StatefulSetList list = apiInstance.listNamespacedStatefulSet(namespace, null, null, null, null, API_CALL_TIMEOUT_SECONDS, false)
       String apiVersion = list.getApiVersion();
-      String kind = list.getKind();
-      if (kind != null && kind.equals("StatefulSetList")) {
-        kind = "SatefulSet";
-      }
       for (V1beta1StatefulSet item : list.getItems()) {
         item.setApiVersion(apiVersion);
-        item.setKind(kind);
+        item.setKind("StatefulSet");
       }
 
       return list.items
@@ -165,13 +161,9 @@ class KubernetesClientApiAdapter {
       */
       V1beta1DaemonSetList list = extApi.listNamespacedDaemonSet(namespace, null, null, null, null, API_CALL_TIMEOUT_SECONDS, null)
       String apiVersion = list.getApiVersion();
-      String kind = list.getKind();
-      if (kind != null && kind.equals("DaemonSetList")) {
-        kind = "DaemonSet";
-      }
       for (V1beta1DaemonSet item : list.getItems()) {
         item.setApiVersion(apiVersion);
-        item.setKind(kind);
+        item.setKind("DaemonSet");
       }
 
       return list.items
@@ -205,17 +197,19 @@ class KubernetesClientApiAdapter {
   }
 
   V1PodList getPods(String namespace, Map<String, String> labels) {
-    CoreV1Api api = new CoreV1Api();
-    String label
-    if (labels != null) {
-      Map.Entry<String, String> entry = labels.entrySet().iterator().next()
-      String key = entry.getKey()
-      String value = entry.getValue()
-      label = key + "=" + value
+    exceptionWrapper("pods.list", "Get Pods matching $labels", namespace) {
+      CoreV1Api api = new CoreV1Api()
+      String label
+      if (labels != null) {
+        Map.Entry<String, String> entry = labels.entrySet().iterator().next()
+        String key = entry.getKey()
+        String value = entry.getValue()
+        label = key + "=" + value
+      }
+      api.listNamespacedPod(namespace, null, null, label, null, API_CALL_TIMEOUT_SECONDS, null)
     }
-    api.listNamespacedPod(namespace, null, null, label, null, API_CALL_TIMEOUT_SECONDS, null)
   }
-  
+
   boolean deleteAutoscaler(String namespace, String name) {
     exceptionWrapper("horizontalPodAutoscalers.delete", "Destroy Autoscaler $name", namespace) {
       V1DeleteOptions deleteOption = new V1DeleteOptions()
