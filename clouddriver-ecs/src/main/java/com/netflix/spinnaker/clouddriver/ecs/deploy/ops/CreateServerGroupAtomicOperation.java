@@ -93,16 +93,21 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
 
   private TaskDefinition registerTaskDefinition(AmazonECS ecs) {
     KeyValuePair serverGroupEnv = new KeyValuePair();
-    serverGroupEnv.setName("server_group");
+    serverGroupEnv.setName("SERVER_GROUP");
     serverGroupEnv.setValue(description.getServerGroupVersion());
 
     KeyValuePair cloudStackEnv = new KeyValuePair();
-    cloudStackEnv.setName("cloud_stack");
+    cloudStackEnv.setName("CLOUD_STACK");
     cloudStackEnv.setValue(description.getStack());
+
+    KeyValuePair cloudDetailEnv = new KeyValuePair();
+    cloudDetailEnv.setName("CLOUD_DETAIL");
+    cloudDetailEnv.setValue(description.getDetail());
 
     Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
     containerEnvironment.add(serverGroupEnv);
     containerEnvironment.add(cloudStackEnv);
+    containerEnvironment.add(cloudDetailEnv);
 
     PortMapping portMapping = new PortMapping();
     portMapping.setHostPort(0);
