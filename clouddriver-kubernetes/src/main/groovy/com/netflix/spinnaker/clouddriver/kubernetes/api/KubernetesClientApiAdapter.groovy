@@ -51,6 +51,7 @@ class KubernetesClientApiAdapter {
   final AppsV1beta1Api apiInstance
   final ExtensionsV1beta1Api extApi
   final AutoscalingV1Api scalerApi
+  final CoreV1Api coreApi
 
   public spectatorRegistry() { return spectatorRegistry }
 
@@ -68,6 +69,7 @@ class KubernetesClientApiAdapter {
     apiInstance = new AppsV1beta1Api()
     extApi = new ExtensionsV1beta1Api()
     scalerApi = new AutoscalingV1Api()
+    coreApi = new CoreV1Api()
   }
 
   KubernetesClientOperationException formatException(String operation, String namespace, ApiException e) {
@@ -139,14 +141,32 @@ class KubernetesClientApiAdapter {
 
   List<V1beta1StatefulSet> getStatefulSets(String namespace) {
     exceptionWrapper("statefulSets.list", "Get Stateful Sets", namespace) {
+      /*
+       "fixme" and note this is k8s-client api issue and we are working this as workaround.
+        */
       V1beta1StatefulSetList list = apiInstance.listNamespacedStatefulSet(namespace, null, null, null, null, API_CALL_TIMEOUT_SECONDS, false)
+      String apiVersion = list.getApiVersion();
+      for (V1beta1StatefulSet item : list.getItems()) {
+        item.setApiVersion(apiVersion);
+        item.setKind("StatefulSet");
+      }
+
       return list.items
     }
   }
 
   List<V1beta1DaemonSet> getDaemonSets(String namespace) {
     exceptionWrapper("daemonSets.list", "Get Daemon Sets", namespace) {
+      /*
+     "fixme" and note this is k8s-client api issue and we are working this as workaround.
+      */
       V1beta1DaemonSetList list = extApi.listNamespacedDaemonSet(namespace, null, null, null, null, API_CALL_TIMEOUT_SECONDS, null)
+      String apiVersion = list.getApiVersion();
+      for (V1beta1DaemonSet item : list.getItems()) {
+        item.setApiVersion(apiVersion);
+        item.setKind("DaemonSet");
+      }
+
       return list.items
     }
   }
@@ -177,6 +197,19 @@ class KubernetesClientApiAdapter {
     }
   }
 
+  V1PodList getPods(String namespace, Map<String, String> labels) {
+    exceptionWrapper("pods.list", "Get Pods matching $labels", namespace) {
+      String label
+      if (labels != null) {
+        Map.Entry<String, String> entry = labels.entrySet().iterator().next()
+        String key = entry.getKey()
+        String value = entry.getValue()
+        label = key + "=" + value
+      }
+      coreApi.listNamespacedPod(namespace, null, null, label, null, API_CALL_TIMEOUT_SECONDS, null)
+    }
+  }
+
   boolean deleteAutoscaler(String namespace, String name) {
     exceptionWrapper("horizontalPodAutoscalers.delete", "Destroy Autoscaler $name", namespace) {
       V1DeleteOptions deleteOption = new V1DeleteOptions()
@@ -195,9 +228,7 @@ class KubernetesClientApiAdapter {
 
   List<String> getNamespacesByName() {
     exceptionWrapper("namespaces.list", "Get Namespaces", null) {
-      //FIXME: Temp code change and need to change code after code merge.
-      CoreV1Api apiInstance = new CoreV1Api();
-      V1NamespaceList result = apiInstance.listNamespace(API_CALL_RESULT_FORMAT, null, null, null, 30, null);
+      V1NamespaceList result = coreApi.listNamespace(API_CALL_RESULT_FORMAT, null, null, null, 30, null);
       return result.items
     }
   }
