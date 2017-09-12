@@ -26,8 +26,8 @@ import java.util.List;
 public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "CREATE_ECS_SERVER_GROUP";
 
-  private static final String IMAGE_ARN = "abcd";
-  private static final String TARGET_GROUP_ARN = "abcd";
+  private static final String DOCKER_IMAGE = "769716316905.dkr.ecr.us-west-2.amazonaws.com/continuous-delivery:latest";
+  private static final String TARGET_GROUP_ARN = "arn:aws:elasticloadbalancing:us-west-2:769716316905:targetgroup/ecs-poc-test/9e8997b7cff00c62";
   private static final String REGION = "us-west-2";
   private static final String CONTAINER_NAME = "springfun-yay";
   private static final String APP_VERSION = "v1337";
@@ -117,7 +117,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
     containerDefinition.setPortMappings(portMappings);
     containerDefinition.setCpu(description.getComputeUnits());
     containerDefinition.setMemoryReservation(description.getReservedMemory());
-    containerDefinition.setImage(IMAGE_ARN);
+    containerDefinition.setImage(DOCKER_IMAGE);
     containerDefinition.setName(CONTAINER_NAME);
 
     Collection<ContainerDefinition> containerDefinitions = new LinkedList<>();
