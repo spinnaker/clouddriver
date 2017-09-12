@@ -194,15 +194,16 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
     String[] splitResourceName = splitArn[1].split("-");
 
-    if (splitResourceName.length != 3) {
+    if (splitResourceName.length < 2) {
       return null; // TODO - do a better verification, and handle cases with both cloudStack and CloudDetail
     }
 
     ServiceMetadata serviceMetadata = new ServiceMetadata();
+    String serverGroupVersion = splitResourceName.length > 2 ? splitResourceName[2] : "v0001"; // TODO - implement proper logic here
     serviceMetadata
       .setApplicationName(splitResourceName[0])
       .setCloudStack(splitResourceName[1])
-      .setServerGroupVersion(splitResourceName[2]);
+      .setServerGroupVersion(serverGroupVersion);
 
     return serviceMetadata;
   }
