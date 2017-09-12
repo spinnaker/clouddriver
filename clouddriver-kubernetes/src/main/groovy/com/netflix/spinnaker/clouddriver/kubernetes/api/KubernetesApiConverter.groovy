@@ -991,7 +991,7 @@ class KubernetesApiConverter {
     def parsedName = Names.parseName(name)
     def labels = [
       "version": parsedName.sequence?.toString() ?: "na",
-      "app": parsedName.app,
+      "app"    : parsedName.app,
       "cluster": parsedName.cluster,
     ]
 

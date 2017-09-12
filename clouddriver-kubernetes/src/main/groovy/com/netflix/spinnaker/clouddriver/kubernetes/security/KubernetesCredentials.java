@@ -22,3 +22,4 @@ import java.util.List;
 public interface KubernetesCredentials {
   List<String> getDeclaredNamespaces();
 }
+
