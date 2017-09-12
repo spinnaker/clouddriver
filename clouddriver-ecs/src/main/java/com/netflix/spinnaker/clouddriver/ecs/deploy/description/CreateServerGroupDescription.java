@@ -22,12 +22,9 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class CreateServerGroupDescription extends AbstractAmazonCredentialsDescription {
-  String application;
+public class CreateServerGroupDescription extends AbstractECSDescription {
   String ecsClusterName;
   String iamRole;
-  String stack;
-  String detail;
   Integer containerPort;
   Integer computeUnits;
   Integer reservedMemory;

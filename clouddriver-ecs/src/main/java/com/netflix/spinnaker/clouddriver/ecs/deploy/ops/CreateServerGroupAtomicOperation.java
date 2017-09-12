@@ -43,7 +43,8 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
   public Void operate(List priorOutputs) {
     getTask().updateStatus(BASE_PHASE, "Initializing Create Amazon ECS Server Group Operation...");
     AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), REGION);
+    // TODO: Remove the ternary operator when region is fixed.
+    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion() != null ? description.getRegion() : REGION);
     String familyName = getFamilyName();
     TaskDefinition taskDefinition = registerTaskDefinition(ecs);
 
@@ -55,7 +56,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
     loadBalancer.setContainerName(CONTAINER_NAME);
     loadBalancer.setContainerPort(description.getContainerPort());
     String targetGroupARN = TARGET_GROUP_ARN;
-    if(description.getTargetGroups() != null && description.getTargetGroups().size() > 0) {
+    if (description.getTargetGroups() != null && description.getTargetGroups().size() > 0) {
       targetGroupARN = description.getTargetGroups().get(0);
     }
     loadBalancer.setTargetGroupArn(targetGroupARN);
@@ -128,12 +129,14 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
 
   private String getFamilyName() {
     String familyName = description.getApplication();
+
     if (description.getStack() != null) {
       familyName += "-" + description.getStack();
     }
     if (description.getDetail() != null) {
       familyName += "-" + description.getDetail();
     }
+
     return familyName;
   }
 }
