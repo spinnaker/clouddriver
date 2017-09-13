@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.search
 
+import com.google.common.collect.ImmutableList
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import groovy.transform.Canonical
@@ -53,14 +54,17 @@ class ApplicationSearchProvider implements SearchProvider {
   }
 
   @Override
-  SearchResultSet search(String query, List<String> types, Integer pageNumber, Integer pageSize, Map<String, String> filters) {
+  SearchResultSet search(String query, List<String> types,
+                         Integer pageNumber,
+                         Integer pageSize,
+                         Map<String, String> filters) {
     if (!types.contains(APPLICATIONS_TYPE)) {
       return new SearchResultSet(totalMatches: 0)
     }
 
     Authentication auth = SecurityContextHolder.context.authentication
 
-    def results = front50Service.searchByName(query, pageSize).findResults {
+    def results = front50Service.searchByName(query, pageSize, filters).findResults {
       def application = it.name.toString().toLowerCase()
       if (permissionEvaluator && !permissionEvaluator.hasPermission(auth, application, 'APPLICATION', 'READ')) {
         return null
@@ -72,5 +76,10 @@ class ApplicationSearchProvider implements SearchProvider {
       return it
     }
     return new SearchResultSet(results.size(), pageNumber, pageSize, getPlatform(), query, results)
+  }
+
+  @Override
+  List<String> excludedFilters() {
+    return ImmutableList.of("cloudProvider")
   }
 }
