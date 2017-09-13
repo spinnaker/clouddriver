@@ -207,11 +207,6 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     return result
   }
 
-  //@Override
-  String getSimpleName() {
-    return KubernetesControllersCachingAgent.simpleName
-  }
-
   List<V1beta1StatefulSet> loadStatefulSets() {
     namespaces.collect { String namespace ->
       credentials.apiClientAdaptor.getStatefulSets(namespace)
