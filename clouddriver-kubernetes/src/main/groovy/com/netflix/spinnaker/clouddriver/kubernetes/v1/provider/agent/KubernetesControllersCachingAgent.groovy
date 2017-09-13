@@ -118,7 +118,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     V1beta1DaemonSet daemonSet = metricsSupport.readData {
       loadDaemonSets()
     }
-    
+
     CacheResult result = metricsSupport.transformData {
       buildCacheResult([new KubernetesController(controller: statefulSet,controller1: daemonSet)], [:], [], Long.MAX_VALUE)
     }
@@ -159,7 +159,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent implement
     )
   }
 
-  //@Override
+  @Override
   Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
     return null
   }
