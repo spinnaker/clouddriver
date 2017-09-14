@@ -33,6 +33,8 @@ import java.util.List;
 public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "DESTROY_ECS_SERVER_GROUP";
 
+  private static final String CLUSTER_NAME = "poc";
+
   @Autowired
   AmazonClientProvider amazonClientProvider;
   @Autowired
@@ -57,18 +59,14 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
     UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest();
     updateServiceRequest.setService(description.getServerGroupName());
     updateServiceRequest.setDesiredCount(0);
-    if (description.getCluster() != null) {
-      updateServiceRequest.setCluster(description.getCluster());
-    }
+    updateServiceRequest.setCluster(CLUSTER_NAME);
 
     getTask().updateStatus(BASE_PHASE, "Scaling " + description.getServerGroupName() + " service down to 0.");
     ecs.updateService(updateServiceRequest);
 
     DeleteServiceRequest deleteServiceRequest = new DeleteServiceRequest();
     deleteServiceRequest.setService(description.getServerGroupName());
-    if (description.getCluster() != null) {
-      deleteServiceRequest.setCluster(description.getCluster());
-    }
+    deleteServiceRequest.setCluster(CLUSTER_NAME);
 
     getTask().updateStatus(BASE_PHASE, "Deleting " + description.getServerGroupName() + " service.");
     ecs.deleteService(deleteServiceRequest);
