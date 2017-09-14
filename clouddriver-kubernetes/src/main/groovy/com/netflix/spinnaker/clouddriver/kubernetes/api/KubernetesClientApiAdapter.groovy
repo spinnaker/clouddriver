@@ -20,15 +20,14 @@ import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesClientOperationException
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesApiClientConfig
-import io.fabric8.kubernetes.api.model.Pod
 import io.kubernetes.client.ApiClient
 import io.kubernetes.client.ApiException
 import io.kubernetes.client.Configuration
 import io.kubernetes.client.apis.AppsV1beta1Api
-import io.kubernetes.client.apis.CoreV1Api
 import io.kubernetes.client.models.*
 import io.kubernetes.client.apis.ExtensionsV1beta1Api
 import io.kubernetes.client.apis.AutoscalingV1Api
+import io.kubernetes.client.apis.CoreV1Api
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -52,6 +51,7 @@ class KubernetesClientApiAdapter {
   final AppsV1beta1Api apiInstance
   final ExtensionsV1beta1Api extApi
   final AutoscalingV1Api scalerApi
+  final CoreV1Api coreApi
 
   public spectatorRegistry() { return spectatorRegistry }
 
@@ -69,6 +69,7 @@ class KubernetesClientApiAdapter {
     apiInstance = new AppsV1beta1Api()
     extApi = new ExtensionsV1beta1Api()
     scalerApi = new AutoscalingV1Api()
+    coreApi = new CoreV1Api()
   }
 
   KubernetesClientOperationException formatException(String operation, String namespace, ApiException e) {
@@ -198,7 +199,6 @@ class KubernetesClientApiAdapter {
 
   V1PodList getPods(String namespace, Map<String, String> labels) {
     exceptionWrapper("pods.list", "Get Pods matching $labels", namespace) {
-      CoreV1Api api = new CoreV1Api()
       String label
       if (labels != null) {
         Map.Entry<String, String> entry = labels.entrySet().iterator().next()
@@ -206,7 +206,7 @@ class KubernetesClientApiAdapter {
         String value = entry.getValue()
         label = key + "=" + value
       }
-      api.listNamespacedPod(namespace, null, null, label, null, API_CALL_TIMEOUT_SECONDS, null)
+      coreApi.listNamespacedPod(namespace, null, null, label, null, API_CALL_TIMEOUT_SECONDS, null)
     }
   }
 
@@ -225,4 +225,12 @@ class KubernetesClientApiAdapter {
       return extApi.createNamespacedDaemonSet(namespace, daemonSet, API_CALL_RESULT_FORMAT)
     }
   }
+
+  List<String> getNamespacesByName() {
+    exceptionWrapper("namespaces.list", "Get Namespaces", null) {
+      V1NamespaceList result = coreApi.listNamespace(API_CALL_RESULT_FORMAT, null, null, null, 30, null);
+      return result.items
+    }
+  }
 }
+

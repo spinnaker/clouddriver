@@ -100,9 +100,14 @@ class AzureClusterProvider implements ClusterProvider<AzureCluster> {
   }
 
   @Override
+  AzureCluster getCluster(String application, String account, String name, boolean includeDetails) {
+    CacheData cluster = cacheView.get(AZURE_CLUSTERS.ns, Keys.getClusterKey(azureCloudProvider, application, name, account))
+    cluster ? translateClusters([cluster], includeDetails)[0] : null
+  }
+
+  @Override
   AzureCluster getCluster(String applicationName, String account, String name) {
-    CacheData cluster = cacheView.get(AZURE_CLUSTERS.ns, Keys.getClusterKey(azureCloudProvider, applicationName, name, account, ))
-    cluster ? translateClusters([cluster], true)[0] : null
+    return getCluster(applicationName, account, name, true)
   }
 
   @Override
@@ -120,6 +125,11 @@ class AzureClusterProvider implements ClusterProvider<AzureCluster> {
   @Override
   String getCloudProviderId() {
     return azureCloudProvider.id
+  }
+
+  @Override
+  boolean supportsMinimalClusters() {
+    return false
   }
 
   private Collection<AzureCluster> translateClusters(Collection<CacheData> clusterData, boolean includeDetails) {

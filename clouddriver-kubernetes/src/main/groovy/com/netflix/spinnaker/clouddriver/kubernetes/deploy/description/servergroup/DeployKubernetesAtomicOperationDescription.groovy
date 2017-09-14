@@ -51,6 +51,8 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesAtomicOperati
   String serviceAccountName
   Integer sequence
   KubernetesPodSpecDescription podSpec
+  KubernetesDnsPolicy dnsPolicy
+  Source source
   List<KubernetesPersistentVolumeClaimDescription> volumeClaims
 
   @JsonIgnore
@@ -246,6 +248,17 @@ enum KubernetesVolumeSourceType {
   Unsupported,
 }
 
+enum KubernetesDnsPolicy {
+  @JsonProperty("ClusterFirst")
+  ClusterFirst,
+
+  @JsonProperty("Default")
+  Default,
+
+  @JsonProperty("ClusterFirstWithHostNet")
+  ClusterFirstWithHostNet,
+}
+
 enum KubernetesStorageMediumType {
   @JsonProperty("DEFAULT")
   Default,
@@ -429,6 +442,14 @@ class KubernetesPodSpecDescription {
 
 @AutoClone
 @Canonical
+class Source {
+  String serverGroupName
+  String region
+  String namespace
+  String account
+  Boolean useSourceCapacity
+}
+
 class KubernetesPersistentVolumeClaimDescription {
   String claimName
   List<String> accessModes

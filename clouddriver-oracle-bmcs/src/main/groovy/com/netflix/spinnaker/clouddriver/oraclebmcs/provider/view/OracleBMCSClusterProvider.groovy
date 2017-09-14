@@ -73,8 +73,13 @@ class OracleBMCSClusterProvider implements ClusterProvider<OracleBMCSCluster.Vie
   }
 
   @Override
-  OracleBMCSCluster.View getCluster(String application, String account, String name) {
+  OracleBMCSCluster.View getCluster(String application, String account, String name, boolean includeDetails) {
     getClusters(application, account).find { name == it.name }
+  }
+
+  @Override
+  OracleBMCSCluster.View getCluster(String application, String account, String name) {
+    return getCluster(application, account, name, true)
   }
 
   @Override
@@ -86,6 +91,11 @@ class OracleBMCSClusterProvider implements ClusterProvider<OracleBMCSCluster.Vie
       return null
     }
     return serverGroups.iterator().next().getView()
+  }
+
+  @Override
+  boolean supportsMinimalClusters() {
+    return false
   }
 
   private OracleBMCSServerGroup restoreCreds(OracleBMCSServerGroup partial, String identifier) {

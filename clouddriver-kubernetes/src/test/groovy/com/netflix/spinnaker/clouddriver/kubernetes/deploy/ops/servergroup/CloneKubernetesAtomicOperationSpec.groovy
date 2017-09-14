@@ -20,14 +20,13 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
-import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.CloneKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesContainerDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesResourceDescription
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import io.fabric8.kubernetes.api.model.*
 import spock.lang.Specification
@@ -63,7 +62,6 @@ class CloneKubernetesAtomicOperationSpec extends Specification {
   def podSpec
   def replicationControllerContainers
   def apiMock
-  def apiClientMock
   def dockerRegistry
   def dockerRegistries
   def credentials
@@ -78,7 +76,6 @@ class CloneKubernetesAtomicOperationSpec extends Specification {
 
   def setup() {
     apiMock = Mock(KubernetesApiAdaptor)
-    apiClientMock = Mock(KubernetesClientApiAdapter)
 
     def imageId = KubernetesUtil.getImageId(REGISTRY, REPOSITORY, TAG)
     def imageDescription = KubernetesUtil.buildImageDescription(imageId)
@@ -115,7 +112,7 @@ class CloneKubernetesAtomicOperationSpec extends Specification {
     accountCredentialsRepositoryMock = Mock(AccountCredentialsRepository)
     dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     dockerRegistries = [dockerRegistry]
-    credentials = new KubernetesCredentials(apiMock, apiClientMock, [], [], [], accountCredentialsRepositoryMock)
+    credentials = new KubernetesV1Credentials(apiMock, [], [], [], accountCredentialsRepositoryMock)
     namedAccountCredentials = new KubernetesNamedAccountCredentials.Builder()
         .name("name")
         .dockerRegistries(dockerRegistries)

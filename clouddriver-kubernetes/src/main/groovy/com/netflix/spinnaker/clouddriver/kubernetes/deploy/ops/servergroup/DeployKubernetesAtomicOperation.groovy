@@ -21,11 +21,13 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
-import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.autoscaler.KubernetesAutoscalerDescription
-import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.DeployKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiConverter
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.autoscaler.KubernetesAutoscalerDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.DeployKubernetesAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import io.fabric8.kubernetes.api.model.HasMetadata
 import io.fabric8.kubernetes.api.model.extensions.DeploymentBuilder
@@ -92,6 +94,19 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
 
     task.updateStatus BASE_PHASE, "Replica set name chosen to be ${replicaSetName}."
 
+    if (description.source?.useSourceCapacity) {
+      task.updateStatus BASE_PHASE, "Reading ancestor server group ${description.source.serverGroupName}..."
+      def ancestorServerGroup = credentials.apiAdaptor.getReplicationController(description.source.namespace, description.source.serverGroupName)
+      if (!ancestorServerGroup) {
+        ancestorServerGroup = credentials.apiAdaptor.getReplicaSet(description.source.namespace, description.source.serverGroupName)
+      }
+      if (!ancestorServerGroup) {
+        throw new KubernetesResourceNotFoundException("Source server group $description.source.serverGroupName does not exist.")
+      }
+
+      description.targetSize = ancestorServerGroup.spec?.replicas
+    }
+
     task.updateStatus BASE_PHASE, "Building replica set..."
     def replicaSet = KubernetesApiConverter.toReplicaSet(new ReplicaSetBuilder(), description, replicaSetName)
 
@@ -134,7 +149,7 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
     return replicaSet
   }
 
-  HasMetadata deployController(KubernetesCredentials credentials, String controllerName, String namespace) {
+  HasMetadata deployController(KubernetesV1Credentials credentials, String controllerName, String namespace) {
     def controllerSet
     if (description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND) {
       task.updateStatus BASE_PHASE, "Building stateful set..."

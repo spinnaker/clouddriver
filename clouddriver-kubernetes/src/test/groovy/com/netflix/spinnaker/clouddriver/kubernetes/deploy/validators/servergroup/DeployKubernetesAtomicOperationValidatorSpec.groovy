@@ -20,12 +20,11 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.servergro
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
-import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.*
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.StandardKubernetesAttributeValidator
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
@@ -86,7 +85,6 @@ class DeployKubernetesAtomicOperationValidatorSpec extends Specification {
 
     def spectatorRegistry = new DefaultRegistry()
     def apiMock = Mock(KubernetesApiAdaptor)
-    def apiClientMock = Mock(KubernetesClientApiAdapter)
     def accountCredentialsRepositoryMock = Mock(AccountCredentialsRepository)
 
     DOCKER_REGISTRY_ACCOUNTS.forEach({ account ->
@@ -101,7 +99,7 @@ class DeployKubernetesAtomicOperationValidatorSpec extends Specification {
 
     def dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     def dockerRegistries = [dockerRegistry]
-    def credentials = new KubernetesCredentials(apiMock, apiClientMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
+    def credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
     def namedAccountCredentials = new KubernetesNamedAccountCredentials.Builder()
         .name(VALID_ACCOUNT)
         .dockerRegistries(dockerRegistries)
