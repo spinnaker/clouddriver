@@ -22,6 +22,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -34,6 +35,7 @@ class KubernetesSecurityGroupCachingAgentSpec extends Specification {
 
   KubernetesSecurityGroupCachingAgent cachingAgent
   KubernetesApiAdaptor apiMock
+  KubernetesClientApiAdapter apiClientMock
   Registry registryMock
   KubernetesV1Credentials kubernetesCredentials
 
@@ -46,9 +48,11 @@ class KubernetesSecurityGroupCachingAgentSpec extends Specification {
 
     apiMock.getNamespacesByName() >> [NAMESPACE]
 
+    apiClientMock = Mock(KubernetesClientApiAdapter)
+
     def accountCredentialsRepositoryMock = Mock(AccountCredentialsRepository)
 
-    kubernetesCredentials = new KubernetesV1Credentials(apiMock, [], [], [], accountCredentialsRepositoryMock)
+    kubernetesCredentials = new KubernetesV1Credentials(apiMock, apiClientMock, [], [], [], accountCredentialsRepositoryMock)
 
     def namedCrededentialsMock = Mock(KubernetesNamedAccountCredentials)
     namedCrededentialsMock.getCredentials() >> kubernetesCredentials

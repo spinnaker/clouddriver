@@ -20,6 +20,7 @@ import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesOperationException
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesApiClientConfig
 import groovy.util.logging.Slf4j
 import io.fabric8.kubernetes.api.model.*
 import io.fabric8.kubernetes.api.model.extensions.*

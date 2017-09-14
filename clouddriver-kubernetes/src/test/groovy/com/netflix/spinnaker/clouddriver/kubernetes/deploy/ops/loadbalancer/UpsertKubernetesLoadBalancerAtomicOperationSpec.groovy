@@ -20,6 +20,7 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.loadbalancer.KubernetesLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.loadbalancer.KubernetesNamedServicePort
@@ -53,6 +54,7 @@ class UpsertKubernetesLoadBalancerAtomicOperationSpec extends Specification {
   }
 
   def apiMock
+  def apiClientMock
   def accountCredentialsRepositoryMock
   def credentials
   def namedAccountCredentials
@@ -63,12 +65,13 @@ class UpsertKubernetesLoadBalancerAtomicOperationSpec extends Specification {
 
   def setup() {
     apiMock = Mock(KubernetesApiAdaptor)
+    apiClientMock = Mock(KubernetesClientApiAdapter)
 
     spectatorRegistry = new DefaultRegistry()
     dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     dockerRegistries = [dockerRegistry]
     accountCredentialsRepositoryMock = Mock(AccountCredentialsRepository)
-    credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], [], accountCredentialsRepositoryMock)
+    credentials = new KubernetesV1Credentials(apiMock, apiClientMock, NAMESPACES, [], [], accountCredentialsRepositoryMock)
     namedAccountCredentials = new KubernetesNamedAccountCredentials.Builder()
         .name("accountName")
         .credentials(credentials)
@@ -254,3 +257,4 @@ class UpsertKubernetesLoadBalancerAtomicOperationSpec extends Specification {
     resultServiceMock.getMetadata() >> [name: '', namespace: '']
   }
 }
+

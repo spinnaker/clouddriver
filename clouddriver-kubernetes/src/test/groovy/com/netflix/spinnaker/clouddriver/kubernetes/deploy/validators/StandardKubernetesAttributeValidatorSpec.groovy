@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators
 
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesClientApiAdapter
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
@@ -47,6 +48,7 @@ class StandardKubernetesAttributeValidatorSpec extends Specification {
     def credentialsRepo = new MapBackedAccountCredentialsRepository()
     accountCredentialsProvider = new DefaultAccountCredentialsProvider(credentialsRepo)
     def apiMock = Mock(KubernetesApiAdaptor)
+    def apiClientMock = Mock(KubernetesClientApiAdapter)
     def accountCredentialsRepositoryMock = Mock(AccountCredentialsRepository)
 
     DOCKER_REGISTRY_ACCOUNTS.forEach({ account ->
@@ -61,7 +63,7 @@ class StandardKubernetesAttributeValidatorSpec extends Specification {
 
     def dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     def dockerRegistries = [dockerRegistry]
-    credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
+    credentials = new KubernetesV1Credentials(apiMock, apiClientMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
     def namedAccountCredentials = new KubernetesNamedAccountCredentials.Builder()
         .name(ACCOUNT_NAME)
         .dockerRegistries(dockerRegistries)
