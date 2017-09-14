@@ -61,6 +61,7 @@ class DeployKubernetesAtomicOperationSpec extends Specification {
 
   def spectatorRegistry
   def apiMock
+  def apiClientMock
   def credentials
   def namedAccountCredentials
   def dockerRegistry

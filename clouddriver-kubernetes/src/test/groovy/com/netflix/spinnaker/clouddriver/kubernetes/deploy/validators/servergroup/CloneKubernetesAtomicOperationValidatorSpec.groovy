@@ -93,7 +93,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
 
     def dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     def dockerRegistries = [dockerRegistry]
-    def credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
+    def credentials = new KubernetesV1Credentials(apiMock,  NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
     def namedAccountCredentials = new KubernetesNamedAccountCredentials.Builder()
         .name(VALID_ACCOUNT)
         .dockerRegistries(dockerRegistries)

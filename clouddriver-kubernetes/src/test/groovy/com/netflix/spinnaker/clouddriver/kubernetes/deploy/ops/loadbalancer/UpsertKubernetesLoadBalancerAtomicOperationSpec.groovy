@@ -53,6 +53,7 @@ class UpsertKubernetesLoadBalancerAtomicOperationSpec extends Specification {
   }
 
   def apiMock
+  def apiClientMock
   def accountCredentialsRepositoryMock
   def credentials
   def namedAccountCredentials
