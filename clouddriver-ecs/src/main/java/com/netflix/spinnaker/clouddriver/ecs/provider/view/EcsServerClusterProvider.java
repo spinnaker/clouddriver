@@ -53,6 +53,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -263,7 +264,18 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterDetails(String application) {
-    return getClusters();
+    Map<String, Set<EcsServerCluster>> result = getClusters();
+
+    Iterator<Map.Entry<String, Set<EcsServerCluster>>> iterator = result.entrySet().iterator();
+
+    while (iterator.hasNext()) {
+      Map.Entry<String, Set<EcsServerCluster>> entry = iterator.next();
+      if (!entry.getKey().equals(application)) {
+        iterator.remove();
+      }
+    }
+
+    return result;
   }
 
   /**
