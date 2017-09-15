@@ -33,6 +33,7 @@ import java.util.List;
 public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "DESTROY_ECS_SERVER_GROUP";
 
+  // TODO: Remove hardcoded CLUSTER_NAME.
   private static final String CLUSTER_NAME = "poc";
 
   @Autowired
