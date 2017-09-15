@@ -16,23 +16,36 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
-import com.netflix.spinnaker.clouddriver.aws.deploy.description.AbstractAmazonCredentialsDescription;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class CreateServerGroupDescription extends AbstractECSDescription {
   String ecsClusterName;
   String iamRole;
   Integer containerPort;
-  Integer computeUnits;
-  Integer reservedMemory;
   List<String> targetGroups;
   List<String> securityGroups;
 
-  Integer desiredCount;
   String serverGroupVersion;
   String portProtocol;
 
+  Integer computeUnits;
+  Integer reservedMemory;
+
+  String dockerImageAddress;
+
+  ServerGroup.Capacity capacity;
+
+  Source source;
+
+  Map<String, List<String>> availabilityZones;
+
+  @Data
+  public class Source {
+    String asgName, serverGroupName, account, region, useSourceCapacity;
+  }
 }

@@ -19,6 +19,8 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.DescribeServicesRequest;
+import com.amazonaws.services.ecs.model.DescribeServicesResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
@@ -51,6 +53,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -127,11 +130,21 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
             InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
               amazonEC2,
               containerInformationService.getContainerInstance(amazonECS, task));
-            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus));
+
+            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, "continuous-delivery", "us-west-2");
+            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus));
           }
         }
 
-        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances);
+        DescribeServicesResult describeServicesResult =
+          amazonECS.describeServices(new DescribeServicesRequest().withCluster(clusterArn).withServices(serviceArn));
+        ServerGroup.Capacity capacity = new ServerGroup.Capacity();
+        capacity.setDesired(describeServicesResult.getServices().get(0).getDesiredCount());
+        capacity.setMin(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
+        capacity.setMax(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
+
+
+        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity);
         EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
 
         if (clusterMap.get(metadata.applicationName) != null) {
@@ -169,17 +182,28 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion,
                                              ServiceMetadata metadata,
-                                             Set<Instance> instances) {
+                                             Set<Instance> instances,
+                                             ServerGroup.Capacity capacity) {
     return new EcsServerGroup()
-          .setName(constructServerGroupName(metadata))
-          .setCloudProvider("aws")   // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
-          .setType("aws")            // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
-          .setRegion(awsRegion.getName())
-          .setInstances(instances);
+      .setName(constructServerGroupName(metadata))
+      .setCloudProvider(EcsCloudProvider.ID)
+      .setType(EcsCloudProvider.ID)
+      .setRegion(awsRegion.getName())
+      .setInstances(instances)
+      .setCapacity(capacity)
+      ;
   }
 
   private String constructServerGroupName(ServiceMetadata metadata) {
-    return metadata.applicationName + "-" +  metadata.cloudStack + "-" + metadata.serverGroupVersion; // TODO - support CLOUD_DETAIL variable
+    StringBuilder stringBuilder = new StringBuilder();
+    stringBuilder.append(metadata.applicationName).append("-");
+
+    if (metadata.cloudStack != null) {
+      stringBuilder.append(metadata.cloudStack).append("-");
+    }
+
+    stringBuilder.append(metadata.serverGroupVersion);
+    return stringBuilder.toString(); // TODO - support CLOUD_DETAIL variable
   }
 
   private ServiceMetadata extractMetadataFromServiceArn(String arn) {
@@ -280,8 +304,24 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    This will be modified and updated properly once we finish the POC
    */
   @Override
-  public ServerGroup getServerGroup(String account, String region, String name) {
-    return getClusters().get(name).iterator().next().getServerGroups().iterator().next();
+  public ServerGroup getServerGroup(String account, String region, String serverGroupName) {
+    // TODO - use a caching system, and also check for account which is currently not the case here
+    Map<String, Set<EcsServerCluster>> clusters = getClusters();
+
+    for (Map.Entry<String, Set<EcsServerCluster>> entry: clusters.entrySet()) {
+      if (entry.getKey().equals(serverGroupName.split("-")[0])) {
+        for (EcsServerCluster ecsServerCluster: entry.getValue()) {
+          for (ServerGroup serverGroup: ecsServerCluster.getServerGroups()) {
+            if (region.equals(serverGroup.getRegion())
+                  && serverGroupName.equals(serverGroup.getName())) {
+              return serverGroup;
+            }
+          }
+        }
+      }
+    }
+
+    throw new Error(String.format("Server group %s not found", serverGroupName));
   }
 
   @Override
