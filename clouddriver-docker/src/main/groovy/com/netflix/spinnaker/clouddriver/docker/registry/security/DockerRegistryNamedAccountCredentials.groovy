@@ -194,7 +194,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                         boolean trackDigests,
                                         boolean sortTagsByDate,
                                         String catalogFile,
-                                        insecureRegistry) {
+                                        boolean insecureRegistry) {
     this(accountName,
          environment,
          accountType,
