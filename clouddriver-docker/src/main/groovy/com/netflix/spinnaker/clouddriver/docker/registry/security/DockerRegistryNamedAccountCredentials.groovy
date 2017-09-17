@@ -44,6 +44,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     boolean insecureRegistry
     List<String> repositories
     List<String> skip
+    String catalogFile
 
     Builder() {}
 
@@ -147,6 +148,11 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
       return this
     }
 
+    Builder catalogFile(String catalogFile) {
+      this.catalogFile = catalogFile
+      return this
+    }
+
     DockerRegistryNamedAccountCredentials build() {
       return new DockerRegistryNamedAccountCredentials(accountName,
                                                        environment,
@@ -165,6 +171,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                                        paginateSize,
                                                        trackDigests,
                                                        sortTagsByDate,
+                                                       catalogFile,
                                                        insecureRegistry)
     }
   }
@@ -186,7 +193,8 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                         int paginateSize,
                                         boolean trackDigests,
                                         boolean sortTagsByDate,
-                                        boolean insecureRegistry) {
+                                        String catalogFile,
+                                        insecureRegistry) {
     this(accountName,
          environment,
          accountType,
@@ -204,6 +212,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
          paginateSize,
          trackDigests,
          sortTagsByDate,
+         catalogFile,
          insecureRegistry,
          null)
   }
@@ -225,11 +234,17 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                         int paginateSize,
                                         boolean trackDigests,
                                         boolean sortTagsByDate,
+                                        String catalogFile,
                                         boolean insecureRegistry,
                                         List<String> requiredGroupMembership) {
     if (!accountName) {
       throw new IllegalArgumentException("Docker Registry account must be provided with a name.")
     }
+
+    if (repositories && catalogFile) {
+      throw new IllegalArgumentException("repositories and catalogFile may not be specified together.")
+    }
+
     this.accountName = accountName
     this.environment = environment
     this.accountType = accountType
@@ -269,7 +284,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     this.insecureRegistry = insecureRegistry;
     this.skip = skip ?: []
     this.requiredGroupMembership = requiredGroupMembership == null ? Collections.emptyList() : Collections.unmodifiableList(requiredGroupMembership)
-    this.credentials = buildCredentials(repositories)
+    this.credentials = buildCredentials(repositories, catalogFile)
   }
 
   @JsonIgnore
@@ -309,7 +324,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     return CLOUD_PROVIDER
   }
 
-  private DockerRegistryCredentials buildCredentials(List<String> repositories) {
+  private DockerRegistryCredentials buildCredentials(List<String> repositories, String catalogFile) {
     try {
       DockerRegistryClient client = (new DockerRegistryClient.Builder())
         .address(address)
@@ -319,6 +334,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
         .passwordFile(passwordFile)
         .clientTimeoutMillis(clientTimeoutMillis)
         .paginateSize(paginateSize)
+        .catalogFile(catalogFile)
         .insecureRegistry(insecureRegistry)
         .build()
 
@@ -355,4 +371,5 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
   final DockerRegistryCredentials credentials
   final List<String> requiredGroupMembership
   final List<String> skip
+  final String catalogFile
 }
