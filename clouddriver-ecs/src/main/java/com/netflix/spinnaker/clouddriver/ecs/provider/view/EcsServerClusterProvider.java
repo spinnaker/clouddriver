@@ -185,6 +185,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                              ServiceMetadata metadata,
                                              Set<Instance> instances,
                                              ServerGroup.Capacity capacity) {
+    ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
+
     return new EcsServerGroup()
       .setName(constructServerGroupName(metadata))
       .setCloudProvider(EcsCloudProvider.ID)
@@ -192,7 +194,44 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setRegion(awsRegion.getName())
       .setInstances(instances)
       .setCapacity(capacity)
+      .setInstanceCounts(instanceCounts)
       ;
+  }
+
+  private ServerGroup.InstanceCounts generateInstanceCount(Set<Instance> instances) {
+    ServerGroup.InstanceCounts instanceCounts = new ServerGroup.InstanceCounts();
+    for (Instance instance: instances) {
+      switch (instance.getHealthState()) {
+        case Up:
+          instanceCounts.setUp(instanceCounts.getUp() + 1);
+          break;
+        case Down:
+          instanceCounts.setDown(instanceCounts.getDown() + 1);
+          break;
+        case Failed:
+          instanceCounts.setDown(instanceCounts.getDown() + 1);
+          break;
+        case Starting:
+          instanceCounts.setOutOfService(instanceCounts.getOutOfService() + 1);
+          break;
+        case Unknown:
+          instanceCounts.setUnknown(instanceCounts.getUnknown() + 1);
+          break;
+        case OutOfService:
+          instanceCounts.setOutOfService(instanceCounts.getOutOfService() + 1);
+          break;
+        case Succeeded:
+          instanceCounts.setUp(instanceCounts.getUp());
+          break;
+        default:
+          throw new Error(String.format(
+            "Unexpected health state: %s.  Don't know how to proceed - update %s",
+            instance.getHealthState(),
+            this.getClass().getSimpleName()));
+      }
+      instanceCounts.setTotal(instanceCounts.getTotal() + 1);
+    }
+    return instanceCounts;
   }
 
   private String constructServerGroupName(ServiceMetadata metadata) {
