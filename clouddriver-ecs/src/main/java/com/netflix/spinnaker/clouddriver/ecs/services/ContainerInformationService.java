@@ -26,6 +26,7 @@ import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesResult;
+import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.Task;
@@ -86,6 +87,18 @@ public class ContainerInformationService {
       return null;
     }
 
+  }
+
+  public String getClusterArn(AmazonECS amazonECS, String taskId) {
+    List<String> taskIds = new ArrayList<>();
+    taskIds.add(taskId);
+    for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
+      DescribeTasksRequest request = new DescribeTasksRequest().withCluster(clusterArn).withTasks(taskIds);
+      if ( !amazonECS.describeTasks(request).getTasks().isEmpty() ) {
+        return clusterArn;
+      }
+    }
+    return null;
   }
 
   public ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
