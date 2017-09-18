@@ -24,14 +24,20 @@ import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
+import com.amazonaws.services.ecs.model.DescribeContainerInstancesResult;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
+import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
+import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.Task;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
@@ -68,10 +74,28 @@ public class ContainerInformationService {
       AmazonElasticLoadBalancing AmazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, accountCredentials.getCredentialsProvider(), region);
       AmazonloadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest().withNames(loadBalancerName));
 
+      DescribeTasksResult taskDescription = amazonECS.describeTasks(new DescribeTasksRequest().withCluster(service.getClusterArn()).withTasks(taskId));
+      DescribeContainerInstancesResult containerDescriptions = amazonECS.describeContainerInstances(
+        new DescribeContainerInstancesRequest().withCluster(clusterArn).withContainerInstances(taskDescription.getTasks().get(0).getContainerInstanceArn()));
+      // TODO: Currently assuming there's 1 container with 1 port for the task given.
+      int port = taskDescription.getTasks().get(0).getContainers().get(0).getNetworkBindings().get(0).getHostPort();
+
+      DescribeTargetHealthResult targetGroupHealthResult = null;
+      List<LoadBalancer> loadBalancers = service.getLoadBalancers();
+      //There should only be 1 based on AWS documentation.
+      if(loadBalancers.size()>1){
+        throw new IllegalArgumentException("Cannot have more than 1 loadbalancer while checking ECS health.");
+      }
+      for (LoadBalancer loadBalancer : loadBalancers) {
+        targetGroupHealthResult = AmazonloadBalancing.describeTargetHealth(
+          new DescribeTargetHealthRequest().withTargetGroupArn(loadBalancer.getTargetGroupArn()).withTargets(
+            new TargetDescription().withId(containerDescriptions.getContainerInstances().get(0).getEc2InstanceId()).withPort(port)));
+      }
+
       List<Map<String, String>> healthMetrics = new ArrayList<>();
       Map<String, String> loadBalancerHealth = new HashMap<>();
       loadBalancerHealth.put("instanceId", taskId);
-      loadBalancerHealth.put("state", "Up");
+      loadBalancerHealth.put("state", targetGroupHealthResult.getTargetHealthDescriptions().get(0).getTargetHealth().getState());
       loadBalancerHealth.put("type", "loadBalancer");
 
       Map<String, String> firstLoadBalancer = new HashMap<>();
@@ -92,9 +116,9 @@ public class ContainerInformationService {
   public String getClusterArn(AmazonECS amazonECS, String taskId) {
     List<String> taskIds = new ArrayList<>();
     taskIds.add(taskId);
-    for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
+    for (String clusterArn : amazonECS.listClusters().getClusterArns()) {
       DescribeTasksRequest request = new DescribeTasksRequest().withCluster(clusterArn).withTasks(taskIds);
-      if ( !amazonECS.describeTasks(request).getTasks().isEmpty() ) {
+      if (!amazonECS.describeTasks(request).getTasks().isEmpty()) {
         return clusterArn;
       }
     }
