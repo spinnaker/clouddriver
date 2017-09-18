@@ -83,6 +83,9 @@ public class ContainerInformationService {
       DescribeTargetHealthResult targetGroupHealthResult = null;
       List<LoadBalancer> loadBalancers = service.getLoadBalancers();
       //There should only be 1 based on AWS documentation.
+      if(loadBalancers.size()>1){
+        throw new IllegalArgumentException("Cannot have more than 1 loadbalancer while checking ECS health.");
+      }
       for (LoadBalancer loadBalancer : loadBalancers) {
         targetGroupHealthResult = AmazonloadBalancing.describeTargetHealth(
           new DescribeTargetHealthRequest().withTargetGroupArn(loadBalancer.getTargetGroupArn()).withTargets(
