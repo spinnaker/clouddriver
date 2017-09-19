@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecs.security;
 
 
-import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig;
 import lombok.Data;
 
 import java.util.List;

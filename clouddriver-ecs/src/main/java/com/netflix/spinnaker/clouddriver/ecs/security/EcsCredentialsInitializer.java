@@ -45,11 +45,11 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
       if (accountCredentials instanceof NetflixAmazonCredentials) {
         for (int x = 0; x < ecsCredentialsConfig.getAccounts().size(); x++) {
           if (ecsCredentialsConfig.getAccounts().get(x).getAwsAccount().equals(accountCredentials.getName())) {
+
             NetflixAmazonCredentials netflixECSCredentials = (NetflixAmazonCredentials) accountCredentials;
             netflixECSCredentials.CLOUD_PROVIDER = "ecs";
-
             credentials.add(netflixECSCredentials);
-
+            
             break;
           }
         }
