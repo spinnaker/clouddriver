@@ -54,6 +54,7 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
         for (ECSCredentialsConfig.Account ecsAccount : ecsCredentialsConfig.getAccounts()) {
           if (ecsAccount.getAwsAccount().equals(accountCredentials.getName())) {
 
+            // TODO: accountCredentials should be serializable or somehow cloneable.
             CredentialsConfig.Account account = new CredentialsConfig.Account();
             account.setName(ecsAccount.getName());
             account.setAccountType("ecs");
