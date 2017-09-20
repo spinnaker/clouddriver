@@ -39,7 +39,8 @@ import static java.util.Objects.requireNonNull;
  *
  */
 public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
-    private static final String CLOUD_PROVIDER = "aws";
+    // TODO: CLOUD_PROVIDER was originally private static final, this needs discussion.
+    public String CLOUD_PROVIDER = "aws";
 
     private final String name;
     private final String environment;

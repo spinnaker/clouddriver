@@ -48,8 +48,8 @@ class CredentialsController {
   List<Map> list() {
     def listOfMaps = accountCredentialsProvider.all.collect(this.&renderSummary)
 
-    temporaryWorkaroundForPOC(listOfMaps)
-    return listOfMaps;
+    //temporaryWorkaroundForPOC(listOfMaps)
+    return listOfMaps
   }
 
   private void temporaryWorkaroundForPOC(List<Map> listOfMaps) {
