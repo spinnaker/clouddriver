@@ -132,7 +132,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
               amazonEC2,
               containerInformationService.getContainerInstance(amazonECS, task));
 
-            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, "continuous-delivery", "us-west-2");
+            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
             instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus));
           }
         }
