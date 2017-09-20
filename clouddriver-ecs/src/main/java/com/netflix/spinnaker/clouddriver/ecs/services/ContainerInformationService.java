@@ -95,7 +95,10 @@ public class ContainerInformationService {
       List<Map<String, String>> healthMetrics = new ArrayList<>();
       Map<String, String> loadBalancerHealth = new HashMap<>();
       loadBalancerHealth.put("instanceId", taskId);
-      loadBalancerHealth.put("state", targetGroupHealthResult.getTargetHealthDescriptions().get(0).getTargetHealth().getState());
+
+      String targetHealth = targetGroupHealthResult.getTargetHealthDescriptions().get(0).getTargetHealth().getState();
+
+      loadBalancerHealth.put("state", targetHealth.equals("healthy") ? "Up" : "Unknown");  // TODO - Return better values, and think of a better strategy at defining health
       loadBalancerHealth.put("type", "loadBalancer");
 
       Map<String, String> firstLoadBalancer = new HashMap<>();
