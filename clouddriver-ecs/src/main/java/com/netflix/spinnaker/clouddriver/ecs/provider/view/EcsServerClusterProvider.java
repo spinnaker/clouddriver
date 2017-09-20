@@ -78,7 +78,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
     for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
-      if (credentials instanceof AmazonCredentials) {
+      if (credentials instanceof AmazonCredentials && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {  // TODO - the first if condition can be problematic for AWS logic.  We'll probably need to look into this after POC, and figure out how to deal with account credentials for AWS and ECS in a smart way, without AWS trying to use ECS credentials
         clusterMap = findClusters(clusterMap, (AmazonCredentials) credentials);
       }
     }

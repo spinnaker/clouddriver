@@ -54,27 +54,32 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
         for (ECSCredentialsConfig.Account ecsAccount : ecsCredentialsConfig.getAccounts()) {
           if (ecsAccount.getAwsAccount().equals(accountCredentials.getName())) {
 
+            NetflixAmazonCredentials netflixAmazonCredentials = (NetflixAmazonCredentials) accountCredentials;
+
             // TODO: accountCredentials should be serializable or somehow cloneable.
             CredentialsConfig.Account account = new CredentialsConfig.Account();
             account.setName(ecsAccount.getName());
             account.setAccountType("ecs");
             account.setAccountId(accountCredentials.getAccountId());
-            account.setAllowPrivateThirdPartyImages(((NetflixAmazonCredentials) accountCredentials).getAllowPrivateThirdPartyImages());
-            account.setBastionEnabled(((NetflixAmazonCredentials) accountCredentials).getBastionEnabled());
-            account.setBastionHost(((NetflixAmazonCredentials) accountCredentials).getBastionHost());
+            account.setAllowPrivateThirdPartyImages(netflixAmazonCredentials.getAllowPrivateThirdPartyImages());
+            account.setBastionEnabled(netflixAmazonCredentials.getBastionEnabled());
+            account.setBastionHost(netflixAmazonCredentials.getBastionHost());
             account.setEdda(account.getEdda());
             accountCredentials.getCredentials();
-            account.setAssumeRole(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getAssumeRole());
-            account.setDiscoveryEnabled(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getDiscoveryEnabled());
-            account.setDiscovery(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getDiscovery());
-            account.setDefaultKeyPair(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getDefaultKeyPair());
-            account.setDefaultSecurityGroups(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getDefaultSecurityGroups());
-            account.setEddaEnabled(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getEddaEnabled());
+
+            account.setDiscoveryEnabled(netflixAmazonCredentials.getDiscoveryEnabled());
+            account.setDiscovery(netflixAmazonCredentials.getDiscovery());
+            account.setDefaultKeyPair(netflixAmazonCredentials.getDefaultKeyPair());
+            account.setDefaultSecurityGroups(netflixAmazonCredentials.getDefaultSecurityGroups());
+            account.setEddaEnabled(netflixAmazonCredentials.getEddaEnabled());
             account.setEnvironment(accountCredentials.getEnvironment());
-            account.setFront50(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getFront50());
-            account.setFront50Enabled(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getFront50Enabled());
+            account.setFront50(netflixAmazonCredentials.getFront50());
+            account.setFront50Enabled(netflixAmazonCredentials.getFront50Enabled());
             account.setRequiredGroupMembership(accountCredentials.getRequiredGroupMembership());
+
+            //TODO - The lines below should be conditional on having an AssumeRole
             account.setSessionName(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getSessionName());
+            account.setAssumeRole(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getAssumeRole());
 
             List<CredentialsConfig.Region> regions = new LinkedList<>();
             for (AmazonCredentials.AWSRegion awsRegion : ((NetflixAssumeRoleAmazonCredentials) accountCredentials).getRegions()) {
@@ -83,6 +88,7 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
               region.setDeprecated(awsRegion.getDeprecated());
               region.setName(awsRegion.getName());
               region.setPreferredZones((List<String>) awsRegion.getPreferredZones());
+              regions.add(region);
             }
             account.setRegions(regions);
 
