@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
 import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.GroupIdentifier;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
@@ -112,6 +114,9 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       credentials.getCredentialsProvider(),
       awsRegion.getName());
 
+    String vpcId = null; // TODO - the assumption that there is only 1 VPC associated with the cluster might not be true 100% of the time.  It should be, but I am sure some people out there are weird
+    Set<String> securityGroups = new HashSet<>();
+
     for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(clusterArn));
@@ -138,6 +143,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
             List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
             instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus));
+
+            if (vpcId == null) {
+              com.amazonaws.services.ec2.model.Instance oneEc2Instance = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(containerInformationService.getContainerInstance(amazonECS, task).getEc2InstanceId())).getReservations().get(0).getInstances().get(0);
+              vpcId = oneEc2Instance.getVpcId();
+              for (GroupIdentifier groupIdentifier: oneEc2Instance.getSecurityGroups()) {
+                securityGroups.add(groupIdentifier.getGroupId());
+              }
+            }
           }
         }
 
@@ -168,7 +181,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         ;
 
 
-        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime, clusterName, taskDefinition);
+        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime,
+          clusterName, taskDefinition, vpcId, securityGroups);
         EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
 
         if (clusterMap.get(metadata.applicationName) != null) {
@@ -210,7 +224,9 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                              ServerGroup.Capacity capacity,
                                              long creationTime,
                                              String ecsCluster,
-                                             TaskDefinition taskDefinition) {
+                                             TaskDefinition taskDefinition,
+                                             String vpcId,
+                                             Set<String> securityGroups) {
     ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
 
     return new EcsServerGroup()
@@ -224,6 +240,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setCreatedTime(creationTime)
       .setEcsCluster(ecsCluster)
       .setTaskDefinition(taskDefinition)
+      .setVpcId(vpcId)
+      .setSecurityGroups(securityGroups)
       ;
   }
 
