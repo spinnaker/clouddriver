@@ -16,9 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.model;
 
+import com.amazonaws.services.ecs.model.KeyValuePair;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Collection;
 import java.util.Map;
 
 @Data
@@ -31,6 +33,6 @@ public class TaskDefinition {
   int cpuUnits;
   int memoryReservation;
 
-  Map<String, String> environmentVariables;
+  Collection<KeyValuePair> environmentVariables;
 
 }

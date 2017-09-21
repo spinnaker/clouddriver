@@ -28,6 +28,7 @@ import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
+import com.amazonaws.services.ecs.model.KeyValuePair;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
@@ -165,12 +166,13 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
         DescribeTaskDefinitionRequest taskDefinitionRequest = new DescribeTaskDefinitionRequest().withTaskDefinition(describeServicesResult.getServices().get(0).getTaskDefinition());
         DescribeTaskDefinitionResult taskDefinitionResult = amazonECS.describeTaskDefinition(taskDefinitionRequest);
-        TaskDefinition taskDefinition = new TaskDefinition();
 
         com.amazonaws.services.ecs.model.TaskDefinition definition = taskDefinitionResult.getTaskDefinition();
         ContainerDefinition containerDefinition = definition.getContainerDefinitions().get(0);
         String roleArn = describeServicesResult.getServices().get(0).getRoleArn();
         String iamRole = roleArn != null ? roleArn.split("/")[1] : "None";
+
+        TaskDefinition taskDefinition = new TaskDefinition();
         taskDefinition
           .setContainerImage(containerDefinition.getImage())
           .setContainerPort(containerDefinition.getPortMappings().get(0).getContainerPort())
@@ -178,8 +180,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
           .setMemoryReservation(containerDefinition.getMemoryReservation())
           .setIamRole(iamRole)
           .setTaskName(definition.getTaskDefinitionArn().split("/")[1])
+          .setEnvironmentVariables(containerDefinition.getEnvironment())
         ;
-
 
         EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime,
           clusterName, taskDefinition, vpcId, securityGroups);
