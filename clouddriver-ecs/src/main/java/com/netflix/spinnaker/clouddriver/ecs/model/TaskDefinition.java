@@ -16,40 +16,21 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.model;
 
-import com.netflix.spinnaker.clouddriver.model.Instance;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Map;
-import java.util.Set;
 
 @Data
 @NoArgsConstructor
-public class EcsServerGroup implements ServerGroup {
+public class TaskDefinition {
+  String taskName;
+  String containerImage;
+  String iamRole;
+  int containerPort;
+  int cpuUnits;
+  int memoryReservation;
 
-  String name;
-  String type;
-  String cloudProvider;
-  String region;
-  Boolean disabled;
-  Long createdTime;
-  Set<String> zones;
-  Set<Instance> instances;
-  Set<String> loadBalancers;
-  Set<String> securityGroups;
-  Map<String, Object> launchConfig;
-  InstanceCounts instanceCounts;
-  Capacity capacity;
-  ImagesSummary imagesSummary;
-  ImageSummary imageSummary;
-  Map<String, Object> tags;
-  String ecsCluster;
-  TaskDefinition taskDefinition;
-
-  @Override
-  public Boolean isDisabled() {
-    return disabled;
-  }
+  Map<String, String> environmentVariables;
 
 }

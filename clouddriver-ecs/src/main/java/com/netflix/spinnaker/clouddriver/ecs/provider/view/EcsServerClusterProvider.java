@@ -19,8 +19,11 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesResult;
+import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
+import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
@@ -40,6 +43,7 @@ import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
+import com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.Instance;
@@ -143,9 +147,28 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         capacity.setDesired(describeServicesResult.getServices().get(0).getDesiredCount());
         capacity.setMin(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
         capacity.setMax(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
+        long creationTime = describeServicesResult.getServices().get(0).getCreatedAt().getTime();
+        String clusterName = inferClusterNameFromClusterArn(describeServicesResult.getServices().get(0).getClusterArn());
+
+        DescribeTaskDefinitionRequest taskDefinitionRequest = new DescribeTaskDefinitionRequest().withTaskDefinition(describeServicesResult.getServices().get(0).getTaskDefinition());
+        DescribeTaskDefinitionResult taskDefinitionResult = amazonECS.describeTaskDefinition(taskDefinitionRequest);
+        TaskDefinition taskDefinition = new TaskDefinition();
+
+        com.amazonaws.services.ecs.model.TaskDefinition definition = taskDefinitionResult.getTaskDefinition();
+        ContainerDefinition containerDefinition = definition.getContainerDefinitions().get(0);
+        String roleArn = describeServicesResult.getServices().get(0).getRoleArn();
+        String iamRole = roleArn != null ? roleArn.split("/")[1] : "None";
+        taskDefinition
+          .setContainerImage(containerDefinition.getImage())
+          .setContainerPort(containerDefinition.getPortMappings().get(0).getContainerPort())
+          .setCpuUnits(containerDefinition.getCpu())
+          .setMemoryReservation(containerDefinition.getMemoryReservation())
+          .setIamRole(iamRole)
+          .setTaskName(definition.getTaskDefinitionArn().split("/")[1])
+        ;
 
 
-        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity);
+        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime, clusterName, taskDefinition);
         EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
 
         if (clusterMap.get(metadata.applicationName) != null) {
@@ -184,7 +207,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion,
                                              ServiceMetadata metadata,
                                              Set<Instance> instances,
-                                             ServerGroup.Capacity capacity) {
+                                             ServerGroup.Capacity capacity,
+                                             long creationTime,
+                                             String ecsCluster,
+                                             TaskDefinition taskDefinition) {
     ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
 
     return new EcsServerGroup()
@@ -195,6 +221,9 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setInstances(instances)
       .setCapacity(capacity)
       .setInstanceCounts(instanceCounts)
+      .setCreatedTime(creationTime)
+      .setEcsCluster(ecsCluster)
+      .setTaskDefinition(taskDefinition)
       ;
   }
 
