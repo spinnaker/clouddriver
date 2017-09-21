@@ -8,5 +8,5 @@ abstract class AbstractECSDescription extends AbstractAmazonCredentialsDescripti
   String application;
   String region;
   String stack;
-  String detail;
+  String freeFormDetails;
 }

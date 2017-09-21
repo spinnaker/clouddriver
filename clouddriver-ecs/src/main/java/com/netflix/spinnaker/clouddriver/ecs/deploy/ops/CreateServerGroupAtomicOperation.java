@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
@@ -64,10 +65,6 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), region);
     TaskDefinition taskDefinition = registerTaskDefinition(ecs, serviceName);
 
-    DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration();
-    deploymentConfiguration.setMinimumHealthyPercent(50);
-    deploymentConfiguration.setMaximumPercent(100);
-
     LoadBalancer loadBalancer = new LoadBalancer();
     loadBalancer.setContainerName(inferServergroupVersion());
     loadBalancer.setContainerPort(description.getContainerPort());
@@ -82,22 +79,20 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
     loadBalancers.add(loadBalancer);
 
-
-
     CreateServiceRequest request = new CreateServiceRequest();
     request.setServiceName(serviceName);
-    request.setDesiredCount(description.getCapacity().getDesired()!= null ? description.getCapacity().getDesired() : 1);
+    request.setDesiredCount(description.getCapacity().getDesired() != null ? description.getCapacity().getDesired() : 1);
     request.setCluster(description.getEcsClusterName());
     request.setRole(description.getIamRole());
-    request.setDeploymentConfiguration(deploymentConfiguration);
     request.setLoadBalancers(loadBalancers);
     request.setTaskDefinition(taskDefinition.getTaskDefinitionArn());
+    request.setDeploymentConfiguration(new DeploymentConfiguration().withMinimumHealthyPercent(50).withMaximumPercent(100));
 
 
-    getTask().updateStatus(BASE_PHASE, "Creating " + description.getCapacity().getDesired() + " of " + familyName +
+    getTask().updateStatus(BASE_PHASE, "Creating " + description.getCapacity().getDesired() + " of " + serviceName +
       " with " + taskDefinition.getTaskDefinitionArn() + " for " + description.getCredentialAccount() + ".");
     ecs.createService(request);
-    getTask().updateStatus(BASE_PHASE, "Done creating " + description.getCapacity().getDesired() + " of " + familyName +
+    getTask().updateStatus(BASE_PHASE, "Done creating " + description.getCapacity().getDesired() + " of " + serviceName +
       " with " + taskDefinition.getTaskDefinitionArn() + " for " + description.getCredentialAccount() + ".");
 
     String serverGroupName = region + ":" + serviceName;  // See in Orca MonitorKatoTask#getServerGroupNames for a reason for this
@@ -116,8 +111,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     if (description.getSource() == null) {
       return "v0001";
     } else {
-      String[] splitName = description.getSource().getServerGroupName().split("-");
-      String lastPortionOfSplitName = splitName[splitName.length - 1];
+      String lastPortionOfSplitName = StringUtils.substringAfterLast(description.getSource().getServerGroupName(), "-");
       lastPortionOfSplitName = lastPortionOfSplitName.replace("v", "");
 
       String numberAsText = String.format("v%04d", (Integer.valueOf(lastPortionOfSplitName) + 1));
@@ -127,48 +121,22 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   }
 
   private TaskDefinition registerTaskDefinition(AmazonECS ecs, String serviceName) {
-    KeyValuePair serverGroupEnv = new KeyValuePair();
-    serverGroupEnv.setName("SERVER_GROUP");
-    serverGroupEnv.setValue(description.getServerGroupVersion());
-
-    KeyValuePair cloudStackEnv = new KeyValuePair();
-    cloudStackEnv.setName("CLOUD_STACK");
-    cloudStackEnv.setValue(description.getStack());
-
-    KeyValuePair cloudDetailEnv = new KeyValuePair();
-    cloudDetailEnv.setName("CLOUD_DETAIL");
-    cloudDetailEnv.setValue(description.getDetail());
-
     Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
-    containerEnvironment.add(serverGroupEnv);
-    containerEnvironment.add(cloudStackEnv);
-    containerEnvironment.add(cloudDetailEnv);
-
-    PortMapping portMapping = new PortMapping();
-    portMapping.setHostPort(0);
-    portMapping.setContainerPort(description.getContainerPort());
-    portMapping.setProtocol(description.getPortProtocol() != null ? description.getPortProtocol() : "tcp");
+    containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(description.getServerGroupVersion()));
+    containerEnvironment.add(new KeyValuePair().withName("CLOUD_STACK").withValue(description.getStack()));
+    containerEnvironment.add(new KeyValuePair().withName("CLOUD_DETAIL").withValue(description.getFreeFormDetails()));
 
     Collection<PortMapping> portMappings = new LinkedList<>();
-    portMappings.add(portMapping);
-
-    ContainerDefinition containerDefinition = new ContainerDefinition();
-    containerDefinition.setEnvironment(containerEnvironment);
-    containerDefinition.setPortMappings(portMappings);
-    containerDefinition.setCpu(description.getComputeUnits());
-    containerDefinition.setMemoryReservation(description.getReservedMemory());
-    containerDefinition.setImage(description.getDockerImageAddress());
-    containerDefinition.setName(inferServergroupVersion());
+    portMappings.add(new PortMapping().withHostPort(0).withContainerPort(description.getContainerPort())
+      .withProtocol(description.getPortProtocol() != null ? description.getPortProtocol() : "tcp"));
 
     Collection<ContainerDefinition> containerDefinitions = new LinkedList<>();
-    containerDefinitions.add(containerDefinition);
-
-    RegisterTaskDefinitionRequest registerTaskDefinitionRequest = new RegisterTaskDefinitionRequest();
-    registerTaskDefinitionRequest.setContainerDefinitions(containerDefinitions);
-    registerTaskDefinitionRequest.setFamily(getFamilyName());
+    containerDefinitions.add(new ContainerDefinition().withName(inferServergroupVersion()).withEnvironment(containerEnvironment).withPortMappings(portMappings)
+      .withCpu(description.getComputeUnits()).withMemoryReservation(description.getReservedMemory()).withImage(description.getDockerImageAddress()));
 
     getTask().updateStatus(BASE_PHASE, "Creating Amazon ECS Task Definition...");
-    RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(registerTaskDefinitionRequest);
+    RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(new RegisterTaskDefinitionRequest()
+      .withContainerDefinitions(containerDefinitions).withFamily(getFamilyName()));
     getTask().updateStatus(BASE_PHASE, "Done creating Amazon ECS Task Definition...");
     return registerTaskDefinitionResult.getTaskDefinition();
   }
@@ -179,8 +147,8 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     if (description.getStack() != null) {
       familyName += "-" + description.getStack();
     }
-    if (description.getDetail() != null) {
-      familyName += "-" + description.getDetail();
+    if (description.getFreeFormDetails() != null) {
+      familyName += "-" + description.getFreeFormDetails();
     }
 
     return familyName;
