@@ -21,7 +21,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 
 @Component
@@ -61,7 +60,8 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
     if (ecsTask != null && instanceStatus != null) {
 //      List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus("poc", ecsTask.getTaskArn(), null, "continuous-delivery", "us-west-2");  // TODO - Use the caching system properly
-      ecsInstance = new EcsTask(id, ecsTask, instanceStatus, null);
+      String address = containerInformationService.getTaskPrivateAddress(amazonECS, amazonEC2, ecsTask);
+      ecsInstance = new EcsTask(id, ecsTask, instanceStatus, null, address);
     }
 
     return ecsInstance;

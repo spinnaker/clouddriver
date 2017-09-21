@@ -28,7 +28,6 @@ import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
-import com.amazonaws.services.ecs.model.KeyValuePair;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
@@ -142,8 +141,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
               amazonEC2,
               containerInformationService.getContainerInstance(amazonECS, task));
 
+            String address = containerInformationService.getTaskPrivateAddress(amazonECS, amazonEC2, task);
+
             List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
-            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus));
+            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus, address));
 
             if (vpcId == null) {
               com.amazonaws.services.ec2.model.Instance oneEc2Instance = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(containerInformationService.getContainerInstance(amazonECS, task).getEc2InstanceId())).getReservations().get(0).getInstances().get(0);
