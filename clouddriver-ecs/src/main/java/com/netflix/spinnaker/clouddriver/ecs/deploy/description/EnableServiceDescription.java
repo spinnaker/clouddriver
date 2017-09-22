@@ -16,9 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
-import com.netflix.spinnaker.clouddriver.aws.deploy.description.AbstractAmazonCredentialsDescription;
+import lombok.Data;
 
-public class EnableServiceDescription extends AbstractAmazonCredentialsDescription {
-
-  // TODO - implement this stub
+@Data
+public class EnableServiceDescription extends AbstractECSDescription {
+  String serverGroupName;
 }

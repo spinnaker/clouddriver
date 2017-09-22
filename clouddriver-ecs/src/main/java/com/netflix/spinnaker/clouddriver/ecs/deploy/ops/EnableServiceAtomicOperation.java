@@ -16,13 +16,29 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DestroyServiceDescription;
+import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.UpdateServiceRequest;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
+import com.netflix.spinnaker.clouddriver.data.task.Task;
+import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.EnableServiceDescription;
+import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
 public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
+  private static final String BASE_PHASE = "ENABLE_ECS_SERVER_GROUP";
+
+  @Autowired
+  AmazonClientProvider amazonClientProvider;
+  @Autowired
+  AccountCredentialsProvider accountCredentialsProvider;
+  @Autowired
+  ContainerInformationService containerInformationService;
 
   EnableServiceDescription description;
 
@@ -30,12 +46,22 @@ public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
     this.description = description;
   }
 
+  private static Task getTask() {
+    return TaskRepository.threadLocalTask.get();
+  }
+
   @Override
   public Void operate(List priorOutputs) {
+    getTask().updateStatus(BASE_PHASE, "Initializing Enable Amazon ECS Server Group Operation...");
 
-    // TODO - implement this stub
+    AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
+    String clusterName = containerInformationService.getClusterName(description.getServerGroupName(), description.getCredentialAccount(), description.getRegion());
+
+    getTask().updateStatus(BASE_PHASE, "Enabling " + description.getServerGroupName() + " service for " + description.getCredentialAccount() + ".");
+    ecs.updateService(new UpdateServiceRequest().withCluster(clusterName).withService(description.getServerGroupName()).withDesiredCount(1));
+    getTask().updateStatus(BASE_PHASE, "Service " + description.getServerGroupName() + " enabled for " + description.getCredentialAccount() + ".");
 
     return null;
   }
-
 }

@@ -33,20 +33,20 @@ import com.amazonaws.services.ecs.model.DescribeServicesResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
+import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.Task;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
-import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -202,4 +202,21 @@ public class ContainerInformationService {
     return instanceStatus;
   }
 
+  public String getClusterName(String serviceName, String accountName, String region) {
+    NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(accountName, accountCredentials.getCredentialsProvider(), region);
+
+    ListClustersResult listClustersResult = amazonECS.listClusters();
+
+    for (String clusterARN : listClustersResult.getClusterArns()) {
+      DescribeServicesResult describeServicesResult = amazonECS.describeServices(new DescribeServicesRequest().withServices(serviceName).withCluster(clusterARN));
+      for (Service service : describeServicesResult.getServices()) {
+        if (service.getServiceName().equals(serviceName)) {
+          return StringUtils.substringAfterLast(clusterARN, "/");
+        }
+      }
+    }
+
+    return null;
+  }
 }
