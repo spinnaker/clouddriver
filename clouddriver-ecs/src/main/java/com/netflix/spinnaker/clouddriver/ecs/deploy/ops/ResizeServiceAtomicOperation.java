@@ -16,25 +16,64 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
+import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.TaskDefinition;
+import com.amazonaws.services.ecs.model.UpdateServiceRequest;
+import com.amazonaws.services.ecs.model.UpdateServiceResult;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
+import com.netflix.spinnaker.clouddriver.data.task.Task;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
+import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
 public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
+  private static final String BASE_PHASE = "RESIZE_ECS_SERVER_GROUP";
+  private static final String ecsClusterName = "poc";  // TODO - get the cluster name from the ContainerInformationService, instead of hard-coding
 
-  ResizeServiceDescription description;
+  private final ResizeServiceDescription description;
+
+  @Autowired
+  AccountCredentialsProvider accountCredentialsProvider;
+
+  @Autowired
+  AmazonClientProvider amazonClientProvider;
 
   public ResizeServiceAtomicOperation(ResizeServiceDescription description) {
     this.description = description;
   }
 
+  private static Task getTask() {
+    return TaskRepository.threadLocalTask.get();
+  }
   @Override
   public Void operate(List priorOutputs) {
+    getTask().updateStatus(BASE_PHASE, "Initializing Resize ECS Server Group Operation...");
 
-    // TODO - implement this stub
+    String serverGroupName = description.getServerGroupName();
+    Integer newSize = description.getCapacity().getDesired();
 
+    getTask().updateStatus(BASE_PHASE, String.format("Resizing %s to %s instances.", serverGroupName, newSize));
+    resizeService(serverGroupName, description.getRegion(), newSize);
+    getTask().updateStatus(BASE_PHASE, String.format("Done resizing %s to %s", serverGroupName , newSize));
     return null;
   }
 
+  private void resizeService(String serviceName, String region, Integer desiredCount) {
+    AmazonCredentials credentials
+      = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(), credentials.getCredentialsProvider(), region);
+
+    UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest()
+      .withCluster(ecsClusterName)
+      .withService(serviceName)
+      .withDesiredCount(desiredCount);
+
+    amazonECS.updateService(updateServiceRequest);
+  }
 }

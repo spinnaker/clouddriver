@@ -24,6 +24,7 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.Container;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesResult;
@@ -33,6 +34,7 @@ import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.LoadBalancer;
+import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.Task;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
@@ -133,7 +135,17 @@ public class ContainerInformationService {
   }
 
   public String getTaskPrivateAddress(AmazonECS amazonECS, AmazonEC2 amazonEC2, Task task) {
-    int hostPort = task.getContainers().get(0).getNetworkBindings().get(0).getHostPort();
+    List<Container> containers = task.getContainers();
+    if (containers == null || containers.size() <1) {
+      return "unknown";
+    }
+
+    List<NetworkBinding> networkBindings = containers.get(0).getNetworkBindings();
+    if (networkBindings == null || networkBindings.size() <1) {
+      return "unknown";
+    }
+
+    int hostPort = networkBindings.get(0).getHostPort();
     String hostEc2InstanceId = getContainerInstance(amazonECS, task).getEc2InstanceId();
 
     DescribeInstancesResult describeInstancesResult = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(hostEc2InstanceId));

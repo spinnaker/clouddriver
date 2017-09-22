@@ -208,12 +208,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
             clusterMap.get(metadata.applicationName).add(spinnakerCluster);
           }
         }
-
-        /*if (clusterMap.get(metadata.applicationName) != null) {
-          clusterMap.get(metadata.applicationName).add(spinnakerCluster);
-        } else {
-          clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
-        }*/
       }
     }
 

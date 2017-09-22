@@ -16,9 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
-import com.netflix.spinnaker.clouddriver.aws.deploy.description.AbstractAmazonCredentialsDescription;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import lombok.Data;
 
-public class ResizeServiceDescription extends AbstractAmazonCredentialsDescription {
+@Data
+public class ResizeServiceDescription extends AbstractECSDescription {
+  String serverGroupName;
 
-  // TODO - implement this stub
+  ServerGroup.Capacity capacity;
 }
