@@ -34,6 +34,8 @@ import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.ListClustersResult;
+import com.amazonaws.services.ecs.model.ListServicesRequest;
+import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Service;
@@ -218,5 +220,27 @@ public class ContainerInformationService {
     }
 
     return null;
+  }
+
+  public int getLatestServiceVersion(String clusterName, String serviceName, String accountName, String region) {
+    int latestVersion = 0;
+
+    NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(accountName, accountCredentials.getCredentialsProvider(), region);
+
+    ListServicesResult listServicesResult = amazonECS.listServices(new ListServicesRequest().withCluster(clusterName));
+
+    for (String serviceARN : listServicesResult.getServiceArns()) {
+      if (!serviceARN.contains(serviceName)) { continue; }
+
+      int currentVersion = 0;
+      try {
+        currentVersion = Integer.parseInt(StringUtils.substringAfterLast(serviceARN, "-").replaceAll("v", ""));
+      } catch (NumberFormatException e) {
+      }
+      latestVersion = Math.max(currentVersion, latestVersion);
+    }
+
+    return latestVersion;
   }
 }

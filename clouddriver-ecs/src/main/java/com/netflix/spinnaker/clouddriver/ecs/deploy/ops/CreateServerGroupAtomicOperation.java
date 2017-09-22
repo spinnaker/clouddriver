@@ -19,6 +19,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
+import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.apache.commons.lang3.StringUtils;
@@ -40,6 +41,8 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   AmazonClientProvider amazonClientProvider;
   @Autowired
   AccountCredentialsProvider accountCredentialsProvider;
+  @Autowired
+  ContainerInformationService containerInformationService;
 
   public CreateServerGroupAtomicOperation(CreateServerGroupDescription description) {
     this.description = description;
@@ -53,9 +56,10 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   public DeploymentResult operate(List priorOutputs) {
     getTask().updateStatus(BASE_PHASE, "Initializing Create Amazon ECS Server Group Operation...");
     AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+    String versionString = inferServergroupVersion();
 
     String familyName = getFamilyName();
-    String serviceName = familyName + "-" + inferServergroupVersion();
+    String serviceName = familyName + "-" + versionString;
 
     if (description.getAvailabilityZones().size() != 1) {
       throw new Error(String.format("You must specify exactly 1 region to be used.  You specified %s region(s)"));
@@ -63,10 +67,10 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
 
     String region = description.getAvailabilityZones().keySet().iterator().next();
     AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), region);
-    TaskDefinition taskDefinition = registerTaskDefinition(ecs, serviceName);
+    TaskDefinition taskDefinition = registerTaskDefinition(ecs, versionString);
 
     LoadBalancer loadBalancer = new LoadBalancer();
-    loadBalancer.setContainerName(inferServergroupVersion());
+    loadBalancer.setContainerName(versionString);
     loadBalancer.setContainerPort(description.getContainerPort());
 
     if (description.getTargetGroups().size() == 1) {
@@ -108,21 +112,14 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   }
 
   private String inferServergroupVersion() {
-    if (description.getSource() == null) {
-      return "v0001";
-    } else {
-      String lastPortionOfSplitName = StringUtils.substringAfterLast(description.getSource().getServerGroupName(), "-");
-      lastPortionOfSplitName = lastPortionOfSplitName.replace("v", "");
+    int version = containerInformationService.getLatestServiceVersion(description.getEcsClusterName(), getFamilyName(), description.getCredentialAccount(), description.getRegion());
+    return String.format("v%04d", (version+ 1));
 
-      String numberAsText = String.format("v%04d", (Integer.valueOf(lastPortionOfSplitName) + 1));
-
-      return numberAsText;
-    }
   }
 
-  private TaskDefinition registerTaskDefinition(AmazonECS ecs, String serviceName) {
+  private TaskDefinition registerTaskDefinition(AmazonECS ecs, String versionString) {
     Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
-    containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(description.getServerGroupVersion()));
+    containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(versionString));
     containerEnvironment.add(new KeyValuePair().withName("CLOUD_STACK").withValue(description.getStack()));
     containerEnvironment.add(new KeyValuePair().withName("CLOUD_DETAIL").withValue(description.getFreeFormDetails()));
 
@@ -131,7 +128,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
       .withProtocol(description.getPortProtocol() != null ? description.getPortProtocol() : "tcp"));
 
     Collection<ContainerDefinition> containerDefinitions = new LinkedList<>();
-    containerDefinitions.add(new ContainerDefinition().withName(inferServergroupVersion()).withEnvironment(containerEnvironment).withPortMappings(portMappings)
+    containerDefinitions.add(new ContainerDefinition().withName(versionString).withEnvironment(containerEnvironment).withPortMappings(portMappings)
       .withCpu(description.getComputeUnits()).withMemoryReservation(description.getReservedMemory()).withImage(description.getDockerImageAddress()));
 
     getTask().updateStatus(BASE_PHASE, "Creating Amazon ECS Task Definition...");
