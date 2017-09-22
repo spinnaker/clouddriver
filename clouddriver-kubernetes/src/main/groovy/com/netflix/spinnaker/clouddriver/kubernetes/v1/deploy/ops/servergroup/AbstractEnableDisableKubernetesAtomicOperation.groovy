@@ -23,8 +23,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.description.servergroup.EnableDisableKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.description.servergroup.KubernetesServerGroupDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.exception.KubernetesOperationException
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.model.KubernetesServerGroup
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.view.KubernetesClusterProvider
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.model.KubernetesV1ServerGroup
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.view.KubernetesV1ClusterProvider
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import io.fabric8.kubernetes.api.model.Pod
 import io.fabric8.kubernetes.api.model.ReplicationController
@@ -49,7 +49,7 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
   }
 
   @Autowired
-  KubernetesClusterProvider clusterProviders
+  KubernetesV1ClusterProvider clusterProviders
 
   @Override
   Void operate(List priorOutputs) {
@@ -109,7 +109,7 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
     if (!replicationController && !replicaSet )
       throw new KubernetesOperationException("No replication controller or replica set $description.serverGroupName in $namespace.")
 
-    KubernetesServerGroup serverGroup = clusterProviders.getServerGroup(description.account, namespace, description.serverGroupName)
+    KubernetesV1ServerGroup serverGroup = clusterProviders.getServerGroup(description.account, namespace, description.serverGroupName)
     serverGroup.instances.forEach( { instance -> pods.add(instance.getPod())})
 
     if (!pods) {
