@@ -16,13 +16,29 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DestroyServiceDescription;
+import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.UpdateServiceRequest;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
+import com.netflix.spinnaker.clouddriver.data.task.Task;
+import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DisableServiceDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
+// TODO: DisableServiceAtomicOperation should not be resizing the service to 0 tasks. It should do something such as removing the instance from the target group.
 public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
+  private static final String BASE_PHASE = "DISABLE_ECS_SERVER_GROUP";
+  // TODO: Remove hardcoded CLUSTER_NAME.
+  private static final String CLUSTER_NAME = "poc";
+
+  @Autowired
+  AmazonClientProvider amazonClientProvider;
+  @Autowired
+  AccountCredentialsProvider accountCredentialsProvider;
 
   DisableServiceDescription description;
 
@@ -30,10 +46,20 @@ public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
     this.description = description;
   }
 
+  private static Task getTask() {
+    return TaskRepository.threadLocalTask.get();
+  }
+
   @Override
   public Void operate(List priorOutputs) {
+    getTask().updateStatus(BASE_PHASE, "Initializing Disable Amazon ECS Server Group Operation...");
 
-    // TODO - implement this stub
+    AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
+
+    getTask().updateStatus(BASE_PHASE, "Disabling " + description.getServerGroupName() + " service for " + description.getCredentialAccount() + ".");
+    ecs.updateService(new UpdateServiceRequest().withCluster(CLUSTER_NAME).withService(description.getServerGroupName()).withDesiredCount(0));
+    getTask().updateStatus(BASE_PHASE, "Service " + description.getServerGroupName() + " disabled for " + description.getCredentialAccount() + ".");
 
     return null;
   }
