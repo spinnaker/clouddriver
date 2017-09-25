@@ -15,30 +15,28 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.view.model;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.model.Cluster;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import com.netflix.spinnaker.moniker.Moniker;
+import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.HashSet;
 import java.util.Set;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
-public class KubernetesV2Cluster implements Cluster {
-  String name;
-  Moniker moniker;
-  String type;
-  String accountName;
-  Set<ServerGroup> serverGroups = new HashSet<>();
-  Set<LoadBalancer> loadBalancers = new HashSet<>();
+public class KubernetesV2LoadBalancer extends ManifestBasedModel implements LoadBalancer {
+  String account;
+  Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
+  KubernetesManifest manifest;
+  Keys.InfrastructureCacheKey key;
 
-  public KubernetesV2Cluster(Keys.ClusterCacheKey key) {
-    this.name = key.getName();
-    this.accountName = key.getAccount();
-    this.moniker = Moniker.builder().cluster(name).build(); // TODO(lwander) if it turns out that cluster -> app is important, enforce constraints here.
+  public KubernetesV2LoadBalancer(KubernetesManifest manifest, String key) {
+    this.manifest = manifest;
+    this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
   }
 }

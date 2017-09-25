@@ -15,7 +15,7 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.view.provider;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -51,5 +51,14 @@ public class KubernetesCacheUtils {
         .map(cd -> cd.getRelationships().get(to))
         .flatMap(Collection::stream)
         .collect(Collectors.toList()));
+  }
+
+  public Collection<CacheData> loadRelationshipsFromCache(Collection<CacheData> sources, String relationshipType) {
+    List<String> keys = sources.stream()
+        .map(cd -> cd.getRelationships().get(relationshipType))
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList());
+
+    return cache.getAll(relationshipType, keys);
   }
 }
