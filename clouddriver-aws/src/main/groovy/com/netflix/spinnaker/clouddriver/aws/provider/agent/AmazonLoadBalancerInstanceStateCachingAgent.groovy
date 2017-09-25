@@ -95,7 +95,17 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent, Healt
   @Override
   CacheResult loadData(ProviderCache providerCache) {
     log.info("Describing items in ${agentType}")
-    def loadBalancing = amazonClientProvider.getAmazonElasticLoadBalancing(account, region)
+    try {
+      def loadBalancing = amazonClientProvider.getAmazonElasticLoadBalancing(account, region)
+    } catch ( Exception e ) {
+      def errorMessage = "Could not grab load balencer! Failure Type: ${e.class.simpleName}; Message: ${e.message}"
+      def phaseName = "LOAD_ELB"
+      log.error(errorMessage, e)
+      if (task.status && (!task.status || !task.status.isFailed())) {
+        task.updateStatus phaseName, errorMessage
+        task.fail()
+     }
+    }
     def allVpcsGlob = Keys.getLoadBalancerKey('*', account.name, region, '*', null)
     def nonVpcGlob = Keys.getLoadBalancerKey('*', account.name, region, null, null)
     def loadBalancerKeys =
