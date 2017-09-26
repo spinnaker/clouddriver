@@ -22,18 +22,48 @@ import io.kubernetes.client.util.KubeConfig;
 import io.kubernetes.client.util.SSLUtils;
 
 import groovy.util.logging.Slf4j
+import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.constructor.SafeConstructor
 
 import javax.net.ssl.KeyManager;
 
 @Slf4j
 public class KubernetesApiClientConfig extends Config {
   String kubeconfigFile
+  String context
+  String cluster
+  String user
 
-  public KubernetesApiClientConfig(String kubeconfigFile) {
+  public KubernetesApiClientConfig(String kubeconfigFile, String context, String cluster, String user) {
     this.kubeconfigFile = kubeconfigFile
+    this.context = context
+    this.user = user
   }
 
   public ApiClient getApiCient() throws Exception {
-    return (kubeconfigFile ? fromConfig(kubeconfigFile) : Config.defaultClient())
+    InputStream is = new FileInputStream(kubeconfigFile);
+    Reader input = new InputStreamReader(is);
+    Yaml yaml = new Yaml(new SafeConstructor());
+    Object config = yaml.load(input);
+    Map<String, Object> configMap = (Map<String, Object>)config;
+
+    //Override these values
+    if (this.context) {
+      configMap.put("current-context", this.context)
+    }
+
+    if (this.cluster) {
+      configMap.put("clusters", cluster)
+    }
+
+    if (this.user) {
+      configMap.put("users", user)
+    }
+
+    yaml = new Yaml(new SafeConstructor());
+    String out = yaml.dump(configMap);
+    InputStream kubeconfigIS = new ByteArrayInputStream(out.getBytes());
+
+    return (kubeconfigFile ? fromConfig(kubeconfigIS) : Config.defaultClient())
   }
 }
