@@ -26,6 +26,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKin
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestAnnotater
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestSpinnakerRelationships
+import com.netflix.spinnaker.kork.artifacts.model.Artifact
+import com.netflix.spinnaker.moniker.Moniker
 import io.kubernetes.client.models.V1beta1ReplicaSet
 import org.apache.commons.lang3.tuple.Triple
 import org.yaml.snakeyaml.Yaml
@@ -52,18 +54,19 @@ metadata:
   name: $name
   namespace: $namespace
 """
-    def relationships = new KubernetesManifestSpinnakerRelationships()
-        .setApplication(application)
-        .setCluster(cluster)
+    def moniker = Moniker.builder()
+        .app(application)
+        .cluster(cluster)
+        .build()
     def metadata = new KubernetesAugmentedManifest.Metadata()
-        .setRelationships(relationships)
+        .setMoniker(moniker)
 
     def manifest = stringToManifest(rawManifest)
     KubernetesManifestAnnotater.annotateManifest(manifest, metadata)
     V1beta1ReplicaSet resource = mapper.convertValue(manifest, V1beta1ReplicaSet.class)
 
     when:
-    def cacheData = KubernetesCacheDataConverter.fromResource(account, mapper, resource)
+    def cacheData = KubernetesCacheDataConverter.convertAsResource(account, mapper, resource)
 
     then:
     if (application == null) {
@@ -149,12 +152,23 @@ metadata:
   def "correctly derive annotated spinnaker relationships"() {
     setup:
     def spinnakerRelationships = new KubernetesManifestSpinnakerRelationships()
-      .setCluster(cluster)
-      .setApplication(application)
       .setLoadBalancers(loadBalancers)
 
+    def moniker = Moniker.builder()
+      .cluster(cluster)
+      .app(application)
+      .build()
+
+    def artifact = new Artifact()
+
+    def metadata = KubernetesAugmentedManifest.Metadata.builder()
+      .relationships(spinnakerRelationships)
+      .moniker(moniker)
+      .artifact(artifact)
+      .build()
+
     when:
-    def relationships = KubernetesCacheDataConverter.annotatedRelationships(ACCOUNT, NAMESPACE, spinnakerRelationships)
+    def relationships = KubernetesCacheDataConverter.annotatedRelationships(ACCOUNT, NAMESPACE, metadata)
     def parsedLbs = loadBalancers.collect { lb -> KubernetesManifest.fromFullResourceName(lb) }
 
     then:
