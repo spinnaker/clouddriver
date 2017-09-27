@@ -137,10 +137,8 @@ class AmazonLoadBalancerInstanceStateCachingAgent implements CachingAgent, Healt
       }
 
     } catch ( LoadBalancerNotFoundException e ) {
-      def errorMessage = "Could not grab load balencer! Failure Type: ${e.class.simpleName}; Message: ${e.message}"
-      def phaseName = "LOAD_ELB"
-      log.info(errorMessage)
-      task.fail()
+      // Need to do something here; Either a retry or throw an error
+
     }
     log.info("Caching ${lbHealths.size()} items in ${agentType}")
     new DefaultCacheResult(
