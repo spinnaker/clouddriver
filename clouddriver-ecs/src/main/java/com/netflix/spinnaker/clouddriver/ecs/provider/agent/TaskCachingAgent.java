@@ -2,10 +2,10 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.DescribeServicesRequest;
-import com.amazonaws.services.ecs.model.ListServicesRequest;
-import com.amazonaws.services.ecs.model.ListServicesResult;
-import com.amazonaws.services.ecs.model.Service;
+import com.amazonaws.services.ecs.model.DescribeTasksRequest;
+import com.amazonaws.services.ecs.model.ListTasksRequest;
+import com.amazonaws.services.ecs.model.ListTasksResult;
+import com.amazonaws.services.ecs.model.Task;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
@@ -16,7 +16,6 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,11 +27,12 @@ import java.util.Map;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
-public class ServiceCachingAgent implements CachingAgent {
+public class TaskCachingAgent implements CachingAgent {
+
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
-    AUTHORITATIVE.forType(SERVICES.toString())
+    AUTHORITATIVE.forType(TASKS.toString())
   ));
 
   private AmazonClientProvider amazonClientProvider;
@@ -40,11 +40,16 @@ public class ServiceCachingAgent implements CachingAgent {
   private String region;
   private String accountName;
 
-  public ServiceCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
+  public TaskCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
     this.accountName = accountName;
     this.region = region;
     this.amazonClientProvider = amazonClientProvider;
     this.awsCredentialsProvider = awsCredentialsProvider;
+  }
+
+  @Override
+  public Collection<AgentDataType> getProvidedDataTypes() {
+    return Collections.emptyList();
   }
 
   @Override
@@ -57,54 +62,41 @@ public class ServiceCachingAgent implements CachingAgent {
     for (CacheData cluster : clusters) {
       String nextToken = null;
       do {
-        ListServicesRequest listServicesRequest = new ListServicesRequest().withCluster((String) cluster.getAttributes().get("name"));
+        ListTasksRequest listTasksRequest = new ListTasksRequest().withCluster((String) cluster.getAttributes().get("name"));
         if (nextToken != null) {
-          listServicesRequest.setNextToken(nextToken);
+          listTasksRequest.setNextToken(nextToken);
         }
-        ListServicesResult listServicesResult = ecs.listServices(listServicesRequest);
-        List<String> serviceArns = listServicesResult.getServiceArns();
-        List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster((String) cluster.getAttributes().get("name")).withServices(serviceArns)).getServices();
+        ListTasksResult listTasksResult = ecs.listTasks(listTasksRequest);
+        List<String> taskArns = listTasksResult.getTaskArns();
+        List<Task> tasks = ecs.describeTasks(new DescribeTasksRequest().withCluster((String) cluster.getAttributes().get("name")).withTasks(taskArns)).getTasks();
 
-        for (Service service : services) {
+        for (Task task : tasks) {
           Map<String, Object> attributes = new HashMap<>();
-          String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
-          attributes.put("applicationName", applicationName);
-          attributes.put("serviceName", service.getServiceName());
-          attributes.put("serviceArn", service.getServiceArn());
-          attributes.put("clusterArn", service.getClusterArn());
-          attributes.put("roleArn", service.getRoleArn());
-          attributes.put("taskDefinition", service.getTaskDefinition());
-          attributes.put("desiredCount", service.getDesiredCount());
-          attributes.put("maximumPercent", service.getDeploymentConfiguration().getMaximumPercent());
-          attributes.put("minimumHealthyPercent", service.getDeploymentConfiguration().getMinimumHealthyPercent());
-          attributes.put("loadBalancers", service.getLoadBalancers());
+          attributes.put("taskArn", task.getTaskArn());
+          attributes.put("clusterArn", task.getClusterArn());
+          attributes.put("containerInstanceArn", task.getContainerInstanceArn());
+          attributes.put("containers", task.getContainers());
 
-
-          String key = Keys.getServiceKey(accountName, region, service.getServiceName());
+          String key = Keys.getTaskKey(accountName, region, task.getContainerInstanceArn());
           dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
         }
-        nextToken = listServicesResult.getNextToken();
+        nextToken = listTasksResult.getNextToken();
       } while (nextToken != null && nextToken.length() != 0);
     }
 
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
-    dataMap.put(SERVICES.toString(), dataPoints);
+    dataMap.put(TASKS.toString(), dataPoints);
 
     return new DefaultCacheResult(dataMap);
   }
 
   @Override
   public String getAgentType() {
-    return ServiceCachingAgent.class.getSimpleName();
+    return TaskCachingAgent.class.getSimpleName();
   }
 
   @Override
   public String getProviderName() {
     return EcsProvider.NAME;
-  }
-
-  @Override
-  public Collection<AgentDataType> getProvidedDataTypes() {
-    return types;
   }
 }
