@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
 
@@ -21,7 +22,7 @@ public class EcsProvider extends AgentSchedulerAware implements SearchableProvid
   public static final String NAME = EcsProvider.class.getName();
 
   private static final Set<String> defaultCaches = new HashSet<>(Arrays.asList(
-    SERVICES.toString()));
+    SERVICES.toString(), ECS_CLUSTERS.toString()));
 
   private static final Map<String, String> urlMappingTemplates = new HashMap<>();
 
