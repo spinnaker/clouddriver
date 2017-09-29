@@ -44,7 +44,6 @@ public class KubernetesApiClientConfig extends Config {
   }
 
   public ApiClient getApiCient() throws Exception {
-    def kubeConfig = KubeConfigUtils.parseConfig(new File(kubeconfigFile))
     KubeConfig kubeconfig
 
     try {
