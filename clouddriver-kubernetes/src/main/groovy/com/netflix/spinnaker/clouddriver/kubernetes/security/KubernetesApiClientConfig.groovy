@@ -55,7 +55,18 @@ public class KubernetesApiClientConfig extends Config {
     } catch (FileNotFoundException e) {
       throw new RuntimeException("Unable to create credentials from kubeconfig file: " + e, e)
     } catch (Exception e2) {
-      throw new RuntimeException("Missing required field(s) in kubeconfig file or/and clouddriver configuration.")
+      throw new RuntimeException("Missing required field(s) in kubenetes configuration file.")
+    }
+
+    InputStream is = new FileInputStream(kubeconfigFile)
+    Reader input = new InputStreamReader(is)
+    Yaml yaml = new Yaml(new SafeConstructor())
+    Object config = yaml.load(input)
+    Map<String, Object> configMap = (Map<String, Object>)config
+
+    //TODO: Need to validate cluster and user when client library exposes these api.
+    if (StringUtils.isEmpty(context) && !configMap.get("current-context")) {
+      throw new RuntimeException("Missing required field ${context} in kubeconfig file and clouddriver configuration.")
     }
 
     if (!StringUtils.isEmpty(context)) {
