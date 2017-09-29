@@ -15,10 +15,17 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
+package com.netflix.spinnaker.clouddriver.docker.registry.api.v2;
 
-public class KubernetesApiException extends RuntimeException {
-  public KubernetesApiException(String operation, Throwable e) {
-    super(operation + " failed: " + e.getMessage(), e);
+public class DockerUserAgent {
+  static public String getUserAgent() {
+    String version;
+    try {
+      version = DockerUserAgent.class.getPackage().getImplementationVersion();
+    } catch (Exception _ignored) {
+      version = "Unknown";
+    }
+
+    return "Spinnaker/" + version;
   }
 }
