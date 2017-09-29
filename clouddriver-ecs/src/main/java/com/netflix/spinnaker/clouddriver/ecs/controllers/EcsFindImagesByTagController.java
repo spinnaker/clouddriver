@@ -88,7 +88,7 @@ public class EcsFindImagesByTagController {
     List<ImageDetail> imagesWithThisTag = new ArrayList<>();
 
     for (ImageDetail imageDetail: imagesResult.getImageDetails()) {
-      if (imageDetail.getImageTags().contains(tag)) {  // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
+      if (imageDetail.getImageTags() != null && imageDetail.getImageTags().contains(tag)) {  // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
         imagesWithThisTag.add(imageDetail);
       }
     }
