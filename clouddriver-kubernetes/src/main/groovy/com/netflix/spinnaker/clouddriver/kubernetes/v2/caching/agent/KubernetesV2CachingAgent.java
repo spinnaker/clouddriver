@@ -55,9 +55,14 @@ public abstract class KubernetesV2CachingAgent<T> extends KubernetesCachingAgent
 
   protected CacheResult buildCacheResult(List<T> resources) {
     List<CacheData> resourceData = resources.stream()
-        .map(rs -> KubernetesCacheDataConverter.fromResource(accountName, objectMapper, rs))
+        .map(rs -> KubernetesCacheDataConverter.convertAsResource(accountName, objectMapper, rs))
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
+
+    resourceData.addAll(resources.stream()
+        .map(rs -> KubernetesCacheDataConverter.convertAsArtifact(accountName, objectMapper, rs))
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList()));
 
     List<CacheData> invertedRelationships = resourceData.stream()
         .map(KubernetesCacheDataConverter::invertRelationships)
@@ -70,7 +75,6 @@ public abstract class KubernetesV2CachingAgent<T> extends KubernetesCachingAgent
     KubernetesCacheDataConverter.logStratifiedCacheData(getAgentType(), entries);
 
     return new DefaultCacheResult(entries);
-
   }
 
   protected abstract List<T> loadPrimaryResourceList();
