@@ -22,6 +22,7 @@ import io.kubernetes.client.util.KubeConfig;
 import io.kubernetes.client.util.SSLUtils;
 
 import groovy.util.logging.Slf4j
+import org.apache.commons.lang3.StringUtils
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.SafeConstructor
 
@@ -33,37 +34,54 @@ public class KubernetesApiClientConfig extends Config {
   String context
   String cluster
   String user
+  String userAgent
 
-  public KubernetesApiClientConfig(String kubeconfigFile, String context, String cluster, String user) {
+  public KubernetesApiClientConfig(String kubeconfigFile, String context, String cluster, String user, String userAgent) {
     this.kubeconfigFile = kubeconfigFile
     this.context = context
     this.user = user
+    this.userAgent = userAgent
   }
 
   public ApiClient getApiCient() throws Exception {
-    InputStream is = new FileInputStream(kubeconfigFile);
-    Reader input = new InputStreamReader(is);
-    Yaml yaml = new Yaml(new SafeConstructor());
-    Object config = yaml.load(input);
-    Map<String, Object> configMap = (Map<String, Object>)config;
+    def kubeConfig = KubeConfigUtils.parseConfig(new File(kubeconfigFile))
+    KubeConfig kubeconfig
 
-    //Override these values
-    if (this.context) {
-      configMap.put("current-context", this.context)
+    try {
+      if (StringUtils.isEmpty(kubeconfigFile)) {
+        kubeconfig = KubeConfig.loadDefaultKubeConfig()
+      } else {
+        kubeconfig = KubeConfig.loadKubeConfig(new FileReader(kubeconfigFile))
+      }
+    } catch (FileNotFoundException e) {
+      throw new RuntimeException("Unable to create credentials from kubeconfig file: " + e, e)
+    } catch (Exception e2) {
     }
 
-    if (this.cluster) {
-      configMap.put("clusters", cluster)
+    InputStream is = new FileInputStream(kubeconfigFile)
+    Reader input = new InputStreamReader(is)
+    Yaml yaml = new Yaml(new SafeConstructor())
+    Object config = yaml.load(input)
+    Map<String, Object> configMap = (Map<String, Object>)config
+
+    //TODO: Need to validate cluster and user when client library exposes these api.
+    if (StringUtils.isEmpty(context) && !configMap.get("current-context")) {
+      throw new RuntimeException("Missing required field ${context} in kubeconfig file and clouddriver configuration.")
     }
 
-    if (this.user) {
-      configMap.put("users", user)
+    if (!StringUtils.isEmpty(context)) {
+      kubeconfig.setContext(context);
     }
 
-    yaml = new Yaml(new SafeConstructor());
-    String out = yaml.dump(configMap);
-    InputStream kubeconfigIS = new ByteArrayInputStream(out.getBytes());
+    ApiClient client = Config.fromConfig(kubeconfig);
 
-    return (kubeconfigFile ? fromConfig(kubeconfigIS) : Config.defaultClient())
+    if (!StringUtils.isEmpty(userAgent)) {
+      client.setUserAgent(userAgent);
+    }
+
+    is.close()
+    input.close()
+
+    return client
   }
 }
