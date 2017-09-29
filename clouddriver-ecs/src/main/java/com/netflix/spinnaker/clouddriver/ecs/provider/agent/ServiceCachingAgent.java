@@ -57,13 +57,13 @@ public class ServiceCachingAgent implements CachingAgent {
     for (CacheData cluster : clusters) {
       String nextToken = null;
       do {
-        ListServicesRequest listServicesRequest = new ListServicesRequest().withCluster((String) cluster.getAttributes().get("name"));
+        ListServicesRequest listServicesRequest = new ListServicesRequest().withCluster((String) cluster.getAttributes().get("clusterName"));
         if (nextToken != null) {
           listServicesRequest.setNextToken(nextToken);
         }
         ListServicesResult listServicesResult = ecs.listServices(listServicesRequest);
         List<String> serviceArns = listServicesResult.getServiceArns();
-        List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster((String) cluster.getAttributes().get("name")).withServices(serviceArns)).getServices();
+        List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster((String) cluster.getAttributes().get("clusterName")).withServices(serviceArns)).getServices();
 
         for (Service service : services) {
           Map<String, Object> attributes = new HashMap<>();

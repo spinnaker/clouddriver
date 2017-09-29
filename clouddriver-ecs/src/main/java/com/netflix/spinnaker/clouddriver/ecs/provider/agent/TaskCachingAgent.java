@@ -62,13 +62,13 @@ public class TaskCachingAgent implements CachingAgent {
     for (CacheData cluster : clusters) {
       String nextToken = null;
       do {
-        ListTasksRequest listTasksRequest = new ListTasksRequest().withCluster((String) cluster.getAttributes().get("name"));
+        ListTasksRequest listTasksRequest = new ListTasksRequest().withCluster((String) cluster.getAttributes().get("clusterName"));
         if (nextToken != null) {
           listTasksRequest.setNextToken(nextToken);
         }
         ListTasksResult listTasksResult = ecs.listTasks(listTasksRequest);
         List<String> taskArns = listTasksResult.getTaskArns();
-        List<Task> tasks = ecs.describeTasks(new DescribeTasksRequest().withCluster((String) cluster.getAttributes().get("name")).withTasks(taskArns)).getTasks();
+        List<Task> tasks = ecs.describeTasks(new DescribeTasksRequest().withCluster((String) cluster.getAttributes().get("clusterName")).withTasks(taskArns)).getTasks();
 
         for (Task task : tasks) {
           Map<String, Object> attributes = new HashMap<>();

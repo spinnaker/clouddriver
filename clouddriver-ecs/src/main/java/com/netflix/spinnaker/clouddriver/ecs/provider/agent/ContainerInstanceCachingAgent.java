@@ -56,7 +56,7 @@ public class ContainerInstanceCachingAgent implements CachingAgent {
     for (CacheData cluster : clusters) {
       String nextToken = null;
       do {
-        ListContainerInstancesRequest listContainerInstancesRequest = new ListContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("name"));
+        ListContainerInstancesRequest listContainerInstancesRequest = new ListContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("clusterName"));
         if (nextToken != null) {
           listContainerInstancesRequest.setNextToken(nextToken);
         }
@@ -65,7 +65,7 @@ public class ContainerInstanceCachingAgent implements CachingAgent {
         List<String> containerInstanceArns = listContainerInstancesResult.getContainerInstanceArns();
 
         List<ContainerInstance> containerInstances = ecs.describeContainerInstances(new DescribeContainerInstancesRequest()
-          .withCluster((String) cluster.getAttributes().get("name")).withContainerInstances(containerInstanceArns)).getContainerInstances();
+          .withCluster((String) cluster.getAttributes().get("clusterName")).withContainerInstances(containerInstanceArns)).getContainerInstances();
 
         for (ContainerInstance containerInstance : containerInstances) {
           Map<String, Object> attributes = new HashMap<>();
