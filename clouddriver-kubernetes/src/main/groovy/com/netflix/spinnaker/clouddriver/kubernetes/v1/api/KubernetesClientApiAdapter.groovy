@@ -156,7 +156,7 @@ class KubernetesClientApiAdapter {
 
         return list.items
       } catch (ApiException ex) {
-        log.debug("Cannot fetch Statefulsets Required Kubernates VERSION>=1.6")
+        log.debug("Cannot fetch Statefulsets Required Kubernetes VERSION>=1.6")
       }
     }
   }
@@ -176,7 +176,7 @@ class KubernetesClientApiAdapter {
 
         return list.items
       } catch (ApiException ex) {
-        log.debug("Cannot fetch Daemonsets Required Kubernates VERSION>=1.6")
+        log.debug("Cannot fetch Daemonsets Required Kubernetes VERSION>=1.6")
       }
     }
   }
