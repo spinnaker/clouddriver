@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * Copyright 2017 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,13 +12,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package com.netflix.spinnaker.clouddriver.aws.deploy.description
+package com.netflix.spinnaker.clouddriver.docker.registry.api.v2;
 
-abstract class AbstractRegionAsgInstanceIdsDescription extends AbstractAmazonCredentialsDescription {
-  String region
-  String asgName
-  List<String> instanceIds
-  Integer targetHealthyDeployPercentage
+public class DockerUserAgent {
+  static public String getUserAgent() {
+    String version;
+    try {
+      version = DockerUserAgent.class.getPackage().getImplementationVersion();
+    } catch (Exception _ignored) {
+      version = "Unknown";
+    }
+
+    return "Spinnaker/" + version;
+  }
 }
