@@ -71,6 +71,11 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  public void setName(String name) {
+    getMetatdata().put("name", name);
+  }
+
+  @JsonIgnore
   public String getNamespace() {
     return (String) getMetatdata().get("namespace");
   }
@@ -78,6 +83,11 @@ public class KubernetesManifest extends HashMap<String, Object> {
   @JsonIgnore
   public void setNamespace(String namespace) {
     getMetatdata().put("namespace", namespace);
+  }
+
+  @JsonIgnore
+  public String getCreationTimestamp() {
+    return getMetatdata().get("creationTimestamp").toString();
   }
 
   @JsonIgnore

@@ -17,12 +17,24 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1beta1ReplicaSet;
 import org.springframework.stereotype.Component;
 
 @Component
 public class KubernetesReplicaSetDeployer extends KubernetesDeployer<V1beta1ReplicaSet> {
+  @Override
+  public KubernetesKind kind() {
+    return KubernetesKind.REPLICA_SET;
+  }
+
+  @Override
+  public KubernetesApiVersion apiVersion() {
+    return KubernetesApiVersion.EXTENSIONS_V1BETA1;
+  }
+
   @Override
   Class<V1beta1ReplicaSet> getDeployedClass() {
     return V1beta1ReplicaSet.class;
@@ -31,5 +43,10 @@ public class KubernetesReplicaSetDeployer extends KubernetesDeployer<V1beta1Repl
   @Override
   void deploy(KubernetesV2Credentials credentials, V1beta1ReplicaSet resource) {
     credentials.createReplicaSet(resource);
+  }
+
+  @Override
+  public boolean versioned() {
+    return true;
   }
 }

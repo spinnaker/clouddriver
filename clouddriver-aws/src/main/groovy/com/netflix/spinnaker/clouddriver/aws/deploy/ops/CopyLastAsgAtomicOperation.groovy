@@ -165,7 +165,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
         newDescription.terminationPolicies = description.terminationPolicies != null ? description.terminationPolicies : ancestorAsg.terminationPolicies
         newDescription.kernelId = description.kernelId ?: (ancestorLaunchConfiguration.kernelId ?: null)
         newDescription.ramdiskId = description.ramdiskId ?: (ancestorLaunchConfiguration.ramdiskId ?: null)
-        newDescription.instanceMonitoring = description.instanceMonitoring != null ? description.instanceMonitoring : ancestorLaunchConfiguration.instanceMonitoring
+        newDescription.instanceMonitoring = description.instanceMonitoring != null ? description.instanceMonitoring : ancestorLaunchConfiguration.instanceMonitoring?.enabled
         newDescription.ebsOptimized = description.ebsOptimized != null ? description.ebsOptimized : ancestorLaunchConfiguration.ebsOptimized
         newDescription.classicLinkVpcId = description.classicLinkVpcId != null ? description.classicLinkVpcId : ancestorLaunchConfiguration.classicLinkVPCId
         newDescription.classicLinkVpcSecurityGroups = description.classicLinkVpcSecurityGroups != null ? description.classicLinkVpcSecurityGroups : translateSecurityGroupIds(ancestorLaunchConfiguration.classicLinkVPCSecurityGroups)
@@ -180,6 +180,14 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
          */
         if (localFileUserDataProperties && !localFileUserDataProperties.enabled) {
           newDescription.base64UserData = description.base64UserData != null ? description.base64UserData : ancestorLaunchConfiguration.userData
+        }
+
+        if (description.spotPrice == null) {
+          newDescription.spotPrice = ancestorLaunchConfiguration.spotPrice
+        } else if (description.spotPrice) {
+          newDescription.spotPrice = description.spotPrice
+        } else { // ""
+          newDescription.spotPrice = null
         }
       }
 

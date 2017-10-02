@@ -25,15 +25,16 @@ import com.netflix.spinnaker.clouddriver.model.Summary
 import com.netflix.spinnaker.clouddriver.model.TargetServerGroup
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
+import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.Canonical
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.MessageSource
-import org.springframework.context.i18n.LocaleContextHolder
-import org.springframework.http.HttpStatus
 import org.springframework.security.access.prepost.PostAuthorize
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 
+@Slf4j
 @RestController
 @RequestMapping("/applications/{application}/clusters")
 class ClusterController {
@@ -80,11 +81,17 @@ class ClusterController {
       def clusters = (Set<Cluster>) it.getClusters(application, account)
       def clusterViews = []
       for (cluster in clusters) {
-        clusterViews << new ClusterViewModel(name: cluster.name, account: cluster.accountName, loadBalancers: cluster.loadBalancers.collect {
-          it.name
-        }, serverGroups: cluster.serverGroups.collect {
-          it.name
-        })
+        clusterViews << new ClusterViewModel(
+            name: cluster.name,
+            moniker: cluster.moniker,
+            account: cluster.accountName,
+            loadBalancers: cluster.loadBalancers.collect {
+              it.name
+            },
+            serverGroups: cluster.serverGroups.collect {
+              it.name
+            },
+        )
       }
       clusterViews
     }?.flatten() as Set<ClusterViewModel>
@@ -148,7 +155,11 @@ class ClusterController {
                      @PathVariable String serverGroupName,
                      @RequestParam(value = "region", required = false) String region) {
     // we can optimize loads iff the cloud provider supports loading minimal clusters (ie. w/o instances)
-    def shouldExpand = !clusterProviders.find { it.cloudProviderId == type }.supportsMinimalClusters()
+    def clusterProvider = clusterProviders.find { it.cloudProviderId == type }
+    if (!clusterProvider) {
+      log.warn("No cluster provider found for type (type: ${type}, account: ${account})")
+    }
+    def shouldExpand = clusterProvider ? !clusterProvider.supportsMinimalClusters() : true
 
     def serverGroups = getServerGroups(application, account, clusterName, type, region, shouldExpand).findAll {
       region ? it.name == serverGroupName && it.region == region : it.name == serverGroupName
@@ -188,7 +199,11 @@ class ClusterController {
     }
 
     // we can optimize loads iff the cloud provider supports loading minimal clusters (ie. w/o instances)
-    def shouldExpand = !clusterProviders.find { it.cloudProviderId == cloudProvider }.supportsMinimalClusters()
+    def clusterProvider = clusterProviders.find { it.cloudProviderId == cloudProvider }
+    if (!clusterProvider) {
+      log.warn("No cluster provider found for cloud provider (cloudProvider: ${cloudProvider}, account: ${account})")
+    }
+    def shouldExpand = clusterProvider ? !clusterProvider.supportsMinimalClusters() : true
 
     // load all server groups w/o instance details (this is reasonably efficient)
     def sortedServerGroups = getServerGroups(application, account, clusterName, cloudProvider, null /* region */, shouldExpand).findAll {
@@ -272,6 +287,7 @@ class ClusterController {
   static class ClusterViewModel {
     String name
     String account
+    Moniker moniker
     List<String> loadBalancers
     List<String> serverGroups
   }
