@@ -66,7 +66,7 @@ public class KubernetesApiClientConfig extends Config {
 
     //TODO: Need to validate cluster and user when client library exposes these api.
     if (StringUtils.isEmpty(context) && !configMap.get("current-context")) {
-      throw new RuntimeException("Missing required field ${context} in kubeconfig file and clouddriver configuration.")
+      throw new RuntimeException("Missing required field context in kubeconfig file and clouddriver configuration.")
     }
 
     if (!StringUtils.isEmpty(context)) {
