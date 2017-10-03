@@ -78,12 +78,14 @@ public class EcsFindImagesByTagController {
   public Object findImage(@RequestParam("q") String dockerImageUrl, HttpServletRequest request) {
     String accountId = dockerImageUrl.split("\\.")[0];
     String tag = dockerImageUrl.split("\\:")[1];
+    String repository = dockerImageUrl.split("\\/")[1].split(":")[0]; //TODO - these regexes make my eyes bleed.  Use a better approach.
+
     NetflixAmazonCredentials credentials = getCredentials(accountId);
 
     AmazonECR amazonECR = amazonClientProvider.getAmazonEcr(credentials.getName(), credentials.getCredentialsProvider(), "us-west-2");
 
-    ListImagesResult result = amazonECR.listImages(new ListImagesRequest().withRegistryId(accountId).withRepositoryName("continuous-delivery"));
-    DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName("continuous-delivery").withImageIds(result.getImageIds()));
+    ListImagesResult result = amazonECR.listImages(new ListImagesRequest().withRegistryId(accountId).withRepositoryName(repository));
+    DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName(repository ).withImageIds(result.getImageIds()));
 
     List<ImageDetail> imagesWithThisTag = new ArrayList<>();
 
