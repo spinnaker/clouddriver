@@ -79,8 +79,6 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
 
     KubernetesApiClientConfig configClient = new KubernetesApiClientConfig(kubeconfigFile, context, cluster, user, userAgent);
 
-
-
     this.apiAdaptor = new KubernetesApiAdaptor(name, config, spectatorRegistry);
     this.apiClientAdaptor = new KubernetesClientApiAdapter(name, configClient, spectatorRegistry);
     this.namespaces = namespaces != null ? namespaces : new ArrayList<>();
