@@ -2,12 +2,14 @@ dependencies {
   spinnaker.group('kubernetes')
   compile project(":clouddriver-core")
   compile project(":clouddriver-docker")
-  compile spinnaker.dependency('frigga')
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootWeb')
+  compile spinnaker.dependency('frigga')
+  compile spinnaker.dependency('korkArtifacts')
   compile spinnaker.dependency('lombok')
 
   // TODO(lwander) move to spinnaker-dependencies when library stabilizes
-  compile 'io.kubernetes:client-java-util:0.1'
+  compile 'io.kubernetes:client-java:0.2'
   compile 'com.github.fge:json-patch:1.9'
+  compile 'com.netflix.spinnaker.moniker:moniker:0.2.0'
 }

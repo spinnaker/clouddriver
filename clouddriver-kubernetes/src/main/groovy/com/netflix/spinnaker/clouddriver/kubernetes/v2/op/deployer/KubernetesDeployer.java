@@ -19,42 +19,30 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesAugmentedManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 
 public abstract class KubernetesDeployer<T> {
   @Autowired
   protected ObjectMapper objectMapper;
 
-  private void annotateRelationships(KubernetesAugmentedManifest pair) {
-    KubernetesManifestAnnotater.annotateManifestWithRelationships(pair.getManifest(), pair.getRelationships());
+  @Autowired
+  private KubernetesCacheUtils cacheUtils;
+
+  private T convertManifest(KubernetesManifest manifest) {
+    return objectMapper.convertValue(manifest, getDeployedClass());
   }
 
-  private T convertManifest(KubernetesAugmentedManifest pair) {
-    return objectMapper.convertValue((Map) pair.getManifest(), getDeployedClass());
-  }
-
-  private void setNamespaceIfMissing(KubernetesManifest manifest, String namespace) {
-    if (StringUtils.isEmpty(manifest.getNamespace())) {
-      manifest.setNamespace(namespace);
-    }
-  }
-
-  public DeploymentResult deployManifestPair(KubernetesV2Credentials credentials, KubernetesAugmentedManifest pair) {
-    KubernetesManifest manifest = pair.getManifest();
-    setNamespaceIfMissing(manifest, credentials.getDefaultNamespace());
-
-    annotateRelationships(pair);
-    T resource = convertManifest(pair);
+  public DeploymentResult deployAugmentedManifest(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+    T resource = convertManifest(manifest);
     deploy(credentials, resource);
 
     DeploymentResult result = new DeploymentResult();
@@ -65,6 +53,10 @@ public abstract class KubernetesDeployer<T> {
   }
 
   abstract Class<T> getDeployedClass();
+
+  abstract public KubernetesKind kind();
+  abstract public KubernetesApiVersion apiVersion();
+  abstract public boolean versioned();
 
   abstract void deploy(KubernetesV2Credentials credentials, T resource);
 }

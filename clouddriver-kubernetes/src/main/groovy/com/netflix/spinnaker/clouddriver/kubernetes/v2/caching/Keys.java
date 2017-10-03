@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class Keys {
    */
   public enum Kind {
     LOGICAL,
+    ARTIFACT,
     INFRASTRUCTURE;
 
     @Override
@@ -73,10 +75,14 @@ public class Keys {
 
   private static String createKey(Object... elems) {
     List<String> components = Arrays.stream(elems)
-        .map(Object::toString)
+        .map(s -> s == null ? "" : s.toString())
         .collect(Collectors.toList());
     components.add(0, provider);
     return String.join(":", components);
+  }
+
+  public static String artifact(String type, String name, String location, String version) {
+    return createKey(Kind.ARTIFACT, type, name, location, version);
   }
 
   public static String application(String name) {
@@ -87,8 +93,12 @@ public class Keys {
     return createKey(Kind.LOGICAL, LogicalKind.CLUSTER, account, name);
   }
 
-  public static String infrastructure(KubernetesKind kind, KubernetesApiVersion version, String account, String namespace, String name) {
-    return createKey(Kind.INFRASTRUCTURE, kind, version, account, namespace, name);
+  public static String infrastructure(KubernetesApiVersion version, KubernetesKind kind, String account, String namespace, String name) {
+    return createKey(Kind.INFRASTRUCTURE, version, kind, account, namespace, name);
+  }
+
+  public static String infrastructure(KubernetesManifest manifest, String account) {
+    return infrastructure(manifest.getApiVersion(), manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
   }
 
   public static Optional<CacheKey> parseKey(String key) {
@@ -103,13 +113,15 @@ public class Keys {
       switch (kind) {
         case LOGICAL:
           return Optional.of(parseLogicalKey(parts));
+        case ARTIFACT:
+          return Optional.of(new ArtifactCacheKey(parts));
         case INFRASTRUCTURE:
           return Optional.of(new InfrastructureCacheKey(parts));
         default:
           throw new IllegalArgumentException("Unknown kind " + kind);
       }
     } catch (IllegalArgumentException e) {
-      log.warn("Kubernetes owned kind with unknown key structure '{}' (perhaps try flushing all clouddriver:* redis keys)", key, e);
+      log.warn("Kubernetes owned kind with unknown key structure '{}': {} (perhaps try flushing all clouddriver:* redis keys)", key, parts, e);
       return Optional.empty();
     }
   }
@@ -137,6 +149,37 @@ public class Keys {
 
   @EqualsAndHashCode(callSuper = true)
   @Data
+  public static class ArtifactCacheKey extends CacheKey {
+    private Kind kind = Kind.ARTIFACT;
+    private String type;
+    private String name;
+    private String location;
+    private String version;
+
+    public ArtifactCacheKey(String[] parts) {
+      if (parts.length != 6) {
+        throw new IllegalArgumentException("Malformed artifact key" + Arrays.toString(parts));
+      }
+
+      type = parts[2];
+      name = parts[3];
+      location = parts[4];
+      version = parts[5];
+    }
+
+    @Override
+    public String toString() {
+      return createKey(kind, type, name, version);
+    }
+
+    @Override
+    public String getGroup() {
+      return kind.toString();
+    }
+  }
+
+  @EqualsAndHashCode(callSuper = true)
+  @Data
   public static class ApplicationCacheKey extends CacheKey {
     private Kind kind = Kind.LOGICAL;
     private LogicalKind logicalKind = LogicalKind.APPLICATION;
@@ -148,6 +191,11 @@ public class Keys {
       }
 
       name = parts[3];
+    }
+
+    @Override
+    public String toString() {
+      return createKey(kind, logicalKind, name);
     }
 
     @Override
@@ -174,6 +222,11 @@ public class Keys {
     }
 
     @Override
+    public String toString() {
+      return createKey(kind, logicalKind, account, name);
+    }
+
+    @Override
     public String getGroup() {
       return logicalKind.toString();
     }
@@ -194,11 +247,16 @@ public class Keys {
         throw new IllegalArgumentException("Malformed infrastructure key " + Arrays.toString(parts));
       }
 
-      kubernetesKind = KubernetesKind.fromString(parts[2]);
-      kubernetesApiVersion = KubernetesApiVersion.fromString(parts[3]);
+      kubernetesApiVersion = KubernetesApiVersion.fromString(parts[2]);
+      kubernetesKind = KubernetesKind.fromString(parts[3]);
       account = parts[4];
       namespace = parts[5];
       name = parts[6];
+    }
+
+    @Override
+    public String toString() {
+      return createKey(kind, kubernetesKind, kubernetesApiVersion, account, namespace, name);
     }
 
     @Override

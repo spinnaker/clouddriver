@@ -44,9 +44,28 @@ class GoogleBackendService {
   GoogleLoadBalancingScheme loadBalancingScheme
 
   /**
+   * The portName this backend service will forward traffic to.
+   *
+   * Load balancers in GCP specify a port name, and each server group added to a
+   * load balancer needs to specify a mapping from that port name to a port to actually
+   * receive traffic.
+   */
+  String portName = GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME
+
+  /**
    * Specifies whether edge caching is enabled or not. Only applicable for Https LBs.
    */
   Boolean enableCDN
+
+  /**
+   * If set, enables connection draining for this backend service. This is the number of seconds to wait
+   * before instances that belong to this backend service are terminated in order to drain in-flight connections.
+   *
+   * No new connections are accepted.
+   *
+   * For reference: https://cloud.google.com/compute/docs/load-balancing/enabling-connection-draining
+   */
+  Integer connectionDrainingTimeoutSec
 
   // Note: This enum has non-standard style constants because we use these constants as strings directly
   // in the redis cache keys for backend services, where we want to avoid underscores and camelcase is the norm.

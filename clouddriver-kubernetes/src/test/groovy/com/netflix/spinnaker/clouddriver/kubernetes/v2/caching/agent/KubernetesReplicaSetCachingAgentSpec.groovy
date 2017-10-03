@@ -18,6 +18,9 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.cats.cache.DefaultCacheData
+import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion
@@ -25,7 +28,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKin
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import io.kubernetes.client.models.V1ObjectMeta
 import io.kubernetes.client.models.V1beta1ReplicaSet
+import org.joda.time.DateTime
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class KubernetesReplicaSetCachingAgentSpec extends Specification {
   def ACCOUNT = "my-account"
@@ -38,14 +43,17 @@ class KubernetesReplicaSetCachingAgentSpec extends Specification {
     setup:
     def replicaSet = new V1beta1ReplicaSet()
     def annotations = [
-        'relationships.spinnaker.io/cluster': '"' + CLUSTER + '"',
-        'relationships.spinnaker.io/application': '"' + APPLICATION + '"'
+        'moniker.spinnaker.io/cluster': '"' + CLUSTER + '"',
+        'moniker.spinnaker.io/application': '"' + APPLICATION + '"',
+        'artifact.spinnaker.io/type': '"' + "replicaSet" + '"',
+        'artifact.spinnaker.io/name': '"' + NAME + '"'
     ]
 
     def metadata = new V1ObjectMeta()
     metadata.setAnnotations(annotations)
     metadata.setName(NAME)
     metadata.setNamespace(NAMESPACE)
+    metadata.setCreationTimestamp(DateTime.now())
     replicaSet.setMetadata(metadata)
     replicaSet.setKind(KubernetesKind.REPLICA_SET.name)
     replicaSet.setApiVersion(KubernetesApiVersion.EXTENSIONS_V1BETA1.name)
@@ -58,17 +66,51 @@ class KubernetesReplicaSetCachingAgentSpec extends Specification {
     namedAccountCredentials.getCredentials() >> credentials
     namedAccountCredentials.getName() >> ACCOUNT
 
-    def cachingAgent = new KubernetesReplicaSetCachingAgent(namedAccountCredentials, new ObjectMapper(), null, 0, 1)
+    def registryMock = Mock(Registry)
+    registryMock.timer(_) >> null
+    def cachingAgent = new KubernetesReplicaSetCachingAgent(namedAccountCredentials, new ObjectMapper(), registryMock, 0, 1)
+    def providerCacheMock = Mock(ProviderCache)
+    providerCacheMock.getAll(_, _) >> []
 
     when:
-    def result = cachingAgent.loadData(null)
+    def result = cachingAgent.loadData(providerCacheMock)
 
     then:
-    result.cacheResults[KubernetesKind.REPLICA_SET.name].size() == 1
-    def cacheData = result.cacheResults[KubernetesKind.REPLICA_SET.name].iterator().next()
-    cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == [Keys.cluster(ACCOUNT, CLUSTER)]
-    cacheData.relationships.get(Keys.LogicalKind.APPLICATION.toString()) == [Keys.application(APPLICATION)]
-    cacheData.attributes.get("name") == NAME
-    cacheData.attributes.get("namespace") == NAMESPACE
+    result.cacheResults[KubernetesKind.REPLICA_SET.name].size() == 2
+    result.cacheResults[KubernetesKind.REPLICA_SET.name].find { cacheData ->
+      cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == [Keys.cluster(ACCOUNT, CLUSTER)]
+      cacheData.relationships.get(Keys.LogicalKind.APPLICATION.toString()) == [Keys.application(APPLICATION)]
+      cacheData.attributes.get("name") == NAME
+      cacheData.attributes.get("namespace") == NAMESPACE
+    } != null
+  }
+
+  @Unroll
+  void "merges two cache data"() {
+    when:
+    def credentials = Mock(KubernetesV2Credentials)
+    credentials.getDeclaredNamespaces() >> [NAMESPACE]
+
+    def namedAccountCredentials = Mock(KubernetesNamedAccountCredentials)
+    namedAccountCredentials.getCredentials() >> credentials
+    namedAccountCredentials.getName() >> ACCOUNT
+
+    def registryMock = Mock(Registry)
+    registryMock.timer(_) >> null
+    def cachingAgent = new KubernetesReplicaSetCachingAgent(namedAccountCredentials, new ObjectMapper(), registryMock, 0, 1)
+    def a = new DefaultCacheData("id", attrA, relA)
+    def b = new DefaultCacheData("id", attrB, relB)
+    cachingAgent.mergeCacheData(a, b)
+
+    then:
+    b.getAttributes().collect { k, v -> a.getAttributes().get(k) == v }.every()
+    b.getRelationships().collect { k, v -> v.collect { r -> b.getRelationships().get(k).contains(r) }.every() }.every()
+
+    where:
+    attrA      | attrB      | relA              | relB
+    ["a": "b"] | ["c": "d"] | ["a": ["1", "2"]] | ["b": ["3", "4"]]
+    [:]        | ["c": "d"] | [:]               | ["b": ["3", "4"]]
+    [:]        | [:]        | [:]               | [:]
+    ["a": "b"] | [:]        | ["a": ["1", "2"]] | [:]
   }
 }

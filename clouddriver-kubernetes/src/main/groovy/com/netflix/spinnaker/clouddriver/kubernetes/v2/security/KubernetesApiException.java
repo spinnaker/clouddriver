@@ -20,8 +20,5 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 public class KubernetesApiException extends RuntimeException {
   public KubernetesApiException(String operation, Throwable e) {
     super(operation + " failed: " + e.getMessage(), e);
-    if (e == null) {
-      throw new IllegalArgumentException("ApiExceptions must be created with a cause");
-    }
   }
 }

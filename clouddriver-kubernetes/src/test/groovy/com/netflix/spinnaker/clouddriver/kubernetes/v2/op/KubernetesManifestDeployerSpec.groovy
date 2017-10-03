@@ -21,14 +21,19 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesUnversionedArtifactConverter
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesVersionedArtifactConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesAugmentedManifest
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestSpinnakerRelationships
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesReplicaSetDeployer
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
+import com.netflix.spinnaker.kork.artifacts.model.Artifact
+import com.netflix.spinnaker.moniker.Moniker
 import org.yaml.snakeyaml.Yaml
 import spock.lang.Specification
 
@@ -37,6 +42,7 @@ class KubernetesManifestDeployerSpec extends Specification {
   def yaml = new Yaml()
 
   def NAME = "my-name"
+  def VERSION = "version"
   def NAMESPACE = "my-namespace"
   def BACKUP_NAMESPACE = "my-backup-namespace"
   def KIND = KubernetesKind.REPLICA_SET
@@ -66,9 +72,12 @@ metadata:
   }
 
   KubernetesManifestDeployer createMockDeployer(KubernetesV2Credentials credentials, String manifest) {
+    def metadata = new KubernetesAugmentedManifest.Metadata()
+    metadata.setRelationships(new KubernetesManifestSpinnakerRelationships())
+        .setMoniker(new Moniker())
     def manifestPair = new KubernetesAugmentedManifest()
         .setManifest(stringToManifest(manifest))
-        .setRelationships(new KubernetesManifestSpinnakerRelationships())
+        .setMetadata(metadata)
 
     def deployDescription = new KubernetesManifestOperationDescription()
         .setManifests(Collections.singletonList(manifestPair))
@@ -79,9 +88,18 @@ metadata:
 
     def replicaSetDeployer = new KubernetesReplicaSetDeployer()
     replicaSetDeployer.objectMapper = new ObjectMapper()
+    replicaSetDeployer.versioned() >> true
+    replicaSetDeployer.apiVersion() >> API_VERSION
+    replicaSetDeployer.kind() >> KIND
+    def versionedArtifactConverterMock = Mock(KubernetesVersionedArtifactConverter)
+    versionedArtifactConverterMock.getDeployedName(_) >> "$NAME-$VERSION"
+    versionedArtifactConverterMock.toArtifact(_) >> new Artifact()
+    def registry = new KubernetesResourcePropertyRegistry(Collections.singletonList(replicaSetDeployer),
+        versionedArtifactConverterMock,
+        new KubernetesUnversionedArtifactConverter())
 
     def deployOp = new KubernetesManifestDeployer(deployDescription)
-    deployOp.replicaSetDeployer = replicaSetDeployer
+    deployOp.registry = registry
 
     return deployOp
   }
@@ -97,7 +115,8 @@ metadata:
 
     then:
     1 * credentialsMock.createReplicaSet(_) >> null
-    result.serverGroupNames == ["$NAMESPACE:$KIND/$NAME"]
+    result.serverGroupNames.size == 1
+    result.serverGroupNames[0] == "$NAMESPACE:$API_VERSION|$KIND|$NAME-$VERSION"
   }
 
   void "replica set deployer uses backup namespace"() {
@@ -111,6 +130,7 @@ metadata:
 
     then:
     1 * credentialsMock.createReplicaSet(_) >> null
-    result.serverGroupNames == ["$BACKUP_NAMESPACE:$KIND/$NAME"]
+    result.serverGroupNames.size == 1
+    result.serverGroupNames[0] == "$BACKUP_NAMESPACE:$API_VERSION|$KIND|$NAME-$VERSION"
   }
 }
