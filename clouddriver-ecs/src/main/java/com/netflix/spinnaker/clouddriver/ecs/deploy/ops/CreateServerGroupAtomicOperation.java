@@ -1,5 +1,10 @@
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
+import com.amazonaws.services.applicationautoscaling.model.RegisterScalableTargetRequest;
+import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
+import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.amazonaws.services.ecs.model.CreateServiceRequest;
@@ -9,6 +14,7 @@ import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.PortMapping;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionResult;
+import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
@@ -22,7 +28,6 @@ import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGrou
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
@@ -54,88 +59,190 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
 
   @Override
   public DeploymentResult operate(List priorOutputs) {
-    getTask().updateStatus(BASE_PHASE, "Initializing Create Amazon ECS Server Group Operation...");
-    AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-    String versionString = inferServergroupVersion();
+    updateTaskStatus("Initializing Create Amazon ECS Server Group Operation...");
 
-    String familyName = getFamilyName();
-    String serviceName = familyName + "-" + versionString;
+    updateTaskStatus("Creating Amazon ECS Task Definition...");
+    TaskDefinition taskDefinition = registerTaskDefinition();
+    updateTaskStatus("Done creating Amazon ECS Task Definition...");
 
-    if (description.getAvailabilityZones().size() != 1) {
-      throw new Error(String.format("You must specify exactly 1 region to be used.  You specified %s region(s)"));
-    }
 
-    String region = description.getAvailabilityZones().keySet().iterator().next();
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), region);
-    TaskDefinition taskDefinition = registerTaskDefinition(ecs, versionString);
+    Service service = createService(taskDefinition);
+    createAutoScalingGroup(service);
+
+    return makeDeploymentResult(service);
+  }
+
+  private TaskDefinition registerTaskDefinition() {
+    AmazonECS ecs = getAmazonEcsClient();
+    String serverGroupVersion = inferNextServerGroupVersion();
+
+    Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
+    containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(serverGroupVersion));
+    containerEnvironment.add(new KeyValuePair().withName("CLOUD_STACK").withValue(description.getStack()));
+    containerEnvironment.add(new KeyValuePair().withName("CLOUD_DETAIL").withValue(description.getFreeFormDetails()));
+
+    PortMapping portMapping = new PortMapping()
+      .withHostPort(0)
+      .withContainerPort(description.getContainerPort())
+      .withProtocol(description.getPortProtocol() != null ? description.getPortProtocol() : "tcp");
+
+    Collection<PortMapping> portMappings = new LinkedList<>();
+    portMappings.add(portMapping);
+
+    ContainerDefinition containerDefinition = new ContainerDefinition()
+      .withName(serverGroupVersion)
+      .withEnvironment(containerEnvironment)
+      .withPortMappings(portMappings)
+      .withCpu(description.getComputeUnits())
+      .withMemoryReservation(description.getReservedMemory())
+      .withImage(description.getDockerImageAddress());
+
+    Collection<ContainerDefinition> containerDefinitions = new LinkedList<>();
+    containerDefinitions.add(containerDefinition);
+
+    RegisterTaskDefinitionRequest request = new RegisterTaskDefinitionRequest()
+      .withContainerDefinitions(containerDefinitions)
+      .withFamily(getFamilyName());
+
+    RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(request);
+
+    return registerTaskDefinitionResult.getTaskDefinition();
+  }
+
+  private Service createService(TaskDefinition taskDefinition) {
+    AmazonECS ecs = getAmazonEcsClient();
+    String serviceName = getNextServiceName();
+    Collection<LoadBalancer> loadBalancers = new LinkedList<>();
+    loadBalancers.add(retrieveLoadBalancer());
+
+    Integer desiredCapacity = getDesiredCapacity();
+    String taskDefinitionArn = taskDefinition.getTaskDefinitionArn();
+
+    DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration()
+      .withMinimumHealthyPercent(50)
+      .withMaximumPercent(100);
+
+    CreateServiceRequest request = new CreateServiceRequest()
+      .withServiceName(serviceName)
+      .withDesiredCount(desiredCapacity != null ? desiredCapacity : 1)
+      .withCluster(description.getEcsClusterName())
+      .withRole(description.getIamRole())
+      .withLoadBalancers(loadBalancers)
+      .withTaskDefinition(taskDefinitionArn)
+      .withDeploymentConfiguration(deploymentConfiguration);
+
+    updateTaskStatus(String.format("Creating %s of %s with %s for %s.",
+      desiredCapacity, serviceName, taskDefinitionArn, description.getCredentialAccount()));
+
+    Service service = ecs.createService(request).getService();
+
+    updateTaskStatus(String.format("Done creating %s of %s with %s for %s.",
+      desiredCapacity, serviceName, taskDefinitionArn, description.getCredentialAccount()));
+
+    return service;
+  }
+
+  private void createAutoScalingGroup(Service service) {
+    AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
+    RegisterScalableTargetRequest request = new RegisterScalableTargetRequest()
+      .withServiceNamespace(ServiceNamespace.Ecs)
+      .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
+      .withResourceId(String.format("service/%s/%s", description.getEcsClusterName(), service.getServiceName()))
+      .withRoleARN(service.getRoleArn())
+      .withMinCapacity(0)
+      .withMaxCapacity(getDesiredCapacity());
+
+    updateTaskStatus("Creating Amazon Application Auto Scaling Scalable Target Definition...");
+    autoScalingClient.registerScalableTarget(request);
+    updateTaskStatus("Done creating Amazon Application Auto Scaling Scalable Target Definition...");
+  }
+
+  private DeploymentResult makeDeploymentResult(Service service) {
+    Map<String, String> namesByRegion = new HashMap<>();
+    namesByRegion.put(getRegion(), service.getServiceName());
+
+    DeploymentResult result = new DeploymentResult();
+    result.setServerGroupNames(Arrays.asList(getServerGroupName(service)));
+    result.setServerGroupNameByRegion(namesByRegion);
+    return result;
+  }
+
+  private LoadBalancer retrieveLoadBalancer() {
+    AmazonCredentials credentials = getCredentials();
+    String region = getRegion();
+    String versionString = inferNextServerGroupVersion();
 
     LoadBalancer loadBalancer = new LoadBalancer();
     loadBalancer.setContainerName(versionString);
     loadBalancer.setContainerPort(description.getContainerPort());
 
     if (description.getTargetGroups().size() == 1) {
-      AmazonElasticLoadBalancing loadBalancingV2 = amazonClientProvider.getAmazonElasticLoadBalancingV2(description.getCredentialAccount(), credentials.getCredentialsProvider(), region);
+      AmazonElasticLoadBalancing loadBalancingV2 = amazonClientProvider.getAmazonElasticLoadBalancingV2(
+        description.getCredentialAccount(),
+        credentials.getCredentialsProvider(),
+        region);
       String targetGroupName = description.getTargetGroups().get(0);  // TODO - make target group a single value field in Deck instead of an array here
-      DescribeTargetGroupsResult describeTargetGroupsResult = loadBalancingV2.describeTargetGroups(new DescribeTargetGroupsRequest().withNames(targetGroupName));
+      DescribeTargetGroupsRequest request = new DescribeTargetGroupsRequest().withNames(targetGroupName);
+      DescribeTargetGroupsResult describeTargetGroupsResult = loadBalancingV2.describeTargetGroups(request);
       loadBalancer.setTargetGroupArn(describeTargetGroupsResult.getTargetGroups().get(0).getTargetGroupArn());
     }
-
-    Collection<LoadBalancer> loadBalancers = new LinkedList<>();
-    loadBalancers.add(loadBalancer);
-
-    CreateServiceRequest request = new CreateServiceRequest();
-    request.setServiceName(serviceName);
-    request.setDesiredCount(description.getCapacity().getDesired() != null ? description.getCapacity().getDesired() : 1);
-    request.setCluster(description.getEcsClusterName());
-    request.setRole(description.getIamRole());
-    request.setLoadBalancers(loadBalancers);
-    request.setTaskDefinition(taskDefinition.getTaskDefinitionArn());
-    request.setDeploymentConfiguration(new DeploymentConfiguration().withMinimumHealthyPercent(50).withMaximumPercent(100));
-
-
-    getTask().updateStatus(BASE_PHASE, "Creating " + description.getCapacity().getDesired() + " of " + serviceName +
-      " with " + taskDefinition.getTaskDefinitionArn() + " for " + description.getCredentialAccount() + ".");
-    ecs.createService(request);
-    getTask().updateStatus(BASE_PHASE, "Done creating " + description.getCapacity().getDesired() + " of " + serviceName +
-      " with " + taskDefinition.getTaskDefinitionArn() + " for " + description.getCredentialAccount() + ".");
-
-    String serverGroupName = region + ":" + serviceName;  // See in Orca MonitorKatoTask#getServerGroupNames for a reason for this
-
-    DeploymentResult result = new DeploymentResult();
-    result.setServerGroupNames(Arrays.asList(serverGroupName));
-    Map<String, String> namesByRegion = new HashMap<>();
-    namesByRegion.put(region, serviceName);
-
-    result.setServerGroupNameByRegion(namesByRegion);
-
-    return result;
+    return loadBalancer;
   }
 
-  private String inferServergroupVersion() {
+  private AWSApplicationAutoScaling getAmazonApplicationAutoScalingClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String region = getRegion();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonApplicationAutoScaling(credentialAccount, credentialsProvider, region);
+  }
+
+  private AmazonECS getAmazonEcsClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String region = getRegion();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
+  }
+
+  private String getServerGroupName(Service service) {
+    // See in Orca MonitorKatoTask#getServerGroupNames for a reason for this
+    return getRegion() + ":" + service.getServiceName();
+  }
+
+  private void updateTaskStatus(String status) {
+    getTask().updateStatus(BASE_PHASE, status);
+  }
+
+  private AmazonCredentials getCredentials() {
+    return (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+  }
+
+  private Integer getDesiredCapacity() {
+    return description.getCapacity().getDesired();
+  }
+
+  private String getNextServiceName() {
+    String familyName = getFamilyName();
+    String versionString = inferNextServerGroupVersion();
+    return familyName + "-" + versionString;
+  }
+
+  private String getRegion() {
+    hasValidRegion();
+    return description.getAvailabilityZones().keySet().iterator().next();
+  }
+
+  private void hasValidRegion() {
+    if (description.getAvailabilityZones().size() != 1) {
+      String message = "You must specify exactly 1 region to be used.  You specified %s region(s)";
+      throw new Error(String.format(message, description.getAvailabilityZones().size()));
+    }
+  }
+
+  private String inferNextServerGroupVersion() {
     int version = containerInformationService.getLatestServiceVersion(description.getEcsClusterName(), getFamilyName(), description.getCredentialAccount(), description.getRegion());
     return String.format("v%04d", (version+ 1));
-
-  }
-
-  private TaskDefinition registerTaskDefinition(AmazonECS ecs, String versionString) {
-    Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
-    containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(versionString));
-    containerEnvironment.add(new KeyValuePair().withName("CLOUD_STACK").withValue(description.getStack()));
-    containerEnvironment.add(new KeyValuePair().withName("CLOUD_DETAIL").withValue(description.getFreeFormDetails()));
-
-    Collection<PortMapping> portMappings = new LinkedList<>();
-    portMappings.add(new PortMapping().withHostPort(0).withContainerPort(description.getContainerPort())
-      .withProtocol(description.getPortProtocol() != null ? description.getPortProtocol() : "tcp"));
-
-    Collection<ContainerDefinition> containerDefinitions = new LinkedList<>();
-    containerDefinitions.add(new ContainerDefinition().withName(versionString).withEnvironment(containerEnvironment).withPortMappings(portMappings)
-      .withCpu(description.getComputeUnits()).withMemoryReservation(description.getReservedMemory()).withImage(description.getDockerImageAddress()));
-
-    getTask().updateStatus(BASE_PHASE, "Creating Amazon ECS Task Definition...");
-    RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(new RegisterTaskDefinitionRequest()
-      .withContainerDefinitions(containerDefinitions).withFamily(getFamilyName()));
-    getTask().updateStatus(BASE_PHASE, "Done creating Amazon ECS Task Definition...");
-    return registerTaskDefinitionResult.getTaskDefinition();
   }
 
   private String getFamilyName() {

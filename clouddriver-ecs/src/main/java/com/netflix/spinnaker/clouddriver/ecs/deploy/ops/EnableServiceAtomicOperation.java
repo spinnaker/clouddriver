@@ -16,6 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsRequest;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsResult;
+import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
+import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
+import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
@@ -28,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
@@ -52,16 +60,89 @@ public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
 
   @Override
   public Void operate(List priorOutputs) {
-    getTask().updateStatus(BASE_PHASE, "Initializing Enable Amazon ECS Server Group Operation...");
-
-    AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
-    String clusterName = containerInformationService.getClusterName(description.getServerGroupName(), description.getCredentialAccount(), description.getRegion());
-
-    getTask().updateStatus(BASE_PHASE, "Enabling " + description.getServerGroupName() + " service for " + description.getCredentialAccount() + ".");
-    ecs.updateService(new UpdateServiceRequest().withCluster(clusterName).withService(description.getServerGroupName()).withDesiredCount(1));
-    getTask().updateStatus(BASE_PHASE, "Service " + description.getServerGroupName() + " enabled for " + description.getCredentialAccount() + ".");
-
+    updateTaskStatus("Initializing Enable Amazon ECS Server Group Operation...");
+    enableService();
     return null;
+  }
+
+  private void enableService() {
+    AmazonECS ecsClient = getAmazonEcsClient();
+
+    String service = description.getServerGroupName();
+    String account = description.getCredentialAccount();
+    String cluster = getCluster(service, account);
+
+    UpdateServiceRequest request = new UpdateServiceRequest()
+      .withCluster(cluster)
+      .withService(service)
+      .withDesiredCount(getMaxCapacity());
+
+    updateTaskStatus(String.format("Enabling %s service for %s.", service, account));
+    ecsClient.updateService(request);
+    updateTaskStatus(String.format("Service %s enabled for %s.", service, account));
+  }
+
+  private String getCluster(String service, String account) {
+    return containerInformationService.getClusterName(service, account, description.getRegion());
+  }
+
+  private Integer getMaxCapacity() {
+    ScalableTarget target = getScalableTarget();
+    if (target != null) {
+      return target.getMaxCapacity();
+    }
+    return 1;
+  }
+
+  private ScalableTarget getScalableTarget() {
+    AWSApplicationAutoScaling appASClient = getAmazonApplicationAutoScalingClient();
+
+    String service = description.getServerGroupName();
+    String account = description.getCredentialAccount();
+    String cluster = getCluster(service, account);
+
+    List<String> resourceIds = new ArrayList<>();
+    resourceIds.add(String.format("service/%s/%s", cluster, service));
+
+    DescribeScalableTargetsRequest request = new DescribeScalableTargetsRequest()
+      .withResourceIds(resourceIds)
+      .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
+      .withServiceNamespace(ServiceNamespace.Ecs);
+
+    DescribeScalableTargetsResult result = appASClient.describeScalableTargets(request);
+
+    if (result.getScalableTargets().isEmpty()) {
+      return null;
+    }
+
+    if (result.getScalableTargets().size() == 1) {
+      return result.getScalableTargets().get(0);
+    }
+
+    throw new Error("Multiple Scalable Targets found");
+  }
+
+  private AWSApplicationAutoScaling getAmazonApplicationAutoScalingClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String region = description.getRegion();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonApplicationAutoScaling(credentialAccount, credentialsProvider, region);
+  }
+
+  private AmazonECS getAmazonEcsClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String region = description.getRegion();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
+  }
+
+  private AmazonCredentials getCredentials() {
+    return (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+  }
+
+  private void updateTaskStatus(String status) {
+    getTask().updateStatus(BASE_PHASE, status);
   }
 }

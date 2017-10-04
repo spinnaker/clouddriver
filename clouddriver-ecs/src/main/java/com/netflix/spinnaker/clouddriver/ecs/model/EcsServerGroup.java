@@ -47,10 +47,19 @@ public class EcsServerGroup implements ServerGroup {
   String ecsCluster;
   TaskDefinition taskDefinition;
   String vpcId;
+  AutoScalingGroup asg;
 
   @Override
   public Boolean isDisabled() {
     return disabled;
+  }
+
+  @Data
+  @NoArgsConstructor
+  public static class AutoScalingGroup {
+    Integer minSize;
+    Integer maxSize;
+    Integer desiredCapacity;
   }
 
 }

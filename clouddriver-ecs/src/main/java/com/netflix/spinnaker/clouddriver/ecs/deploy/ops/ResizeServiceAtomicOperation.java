@@ -16,17 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
+import com.amazonaws.services.applicationautoscaling.model.RegisterScalableTargetRequest;
+import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
+import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
-import com.amazonaws.services.ecs.model.UpdateServiceResult;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
+import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -53,27 +55,68 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
   }
   @Override
   public Void operate(List priorOutputs) {
-    getTask().updateStatus(BASE_PHASE, "Initializing Resize ECS Server Group Operation...");
+    updateTaskStatus("Initializing Resize ECS Server Group Operation...");
 
-    String serverGroupName = description.getServerGroupName();
-    Integer newSize = description.getCapacity().getDesired();
+    resizeService();
+    resizeAutoScalingGroup();
 
-    getTask().updateStatus(BASE_PHASE, String.format("Resizing %s to %s instances.", serverGroupName, newSize));
-    resizeService(serverGroupName, description.getRegion(), newSize);
-    getTask().updateStatus(BASE_PHASE, String.format("Done resizing %s to %s", serverGroupName , newSize));
     return null;
   }
 
-  private void resizeService(String serviceName, String region, Integer desiredCount) {
-    AmazonCredentials credentials
-      = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(), credentials.getCredentialsProvider(), region);
+  private void resizeService() {
+    AmazonECS amazonECS = getAmazonEcsClient();
+
+    String serviceName = description.getServerGroupName();
+    Integer desiredCount = description.getCapacity().getDesired();
 
     UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest()
       .withCluster(ecsClusterName)
       .withService(serviceName)
       .withDesiredCount(desiredCount);
-
+    updateTaskStatus(String.format("Resizing %s to %s instances.", serviceName, desiredCount));
     amazonECS.updateService(updateServiceRequest);
+    updateTaskStatus(String.format("Done resizing %s to %s", serviceName , desiredCount));
+  }
+
+  private void resizeAutoScalingGroup() {
+    AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
+
+    String  serviceName = description.getServerGroupName();
+    Integer desiredCount = description.getCapacity().getDesired();
+
+    RegisterScalableTargetRequest request = new RegisterScalableTargetRequest()
+      .withServiceNamespace(ServiceNamespace.Ecs)
+      .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
+      .withResourceId(String.format("service/%s/%s", ecsClusterName, serviceName))
+      .withMinCapacity(0)
+      .withMaxCapacity(desiredCount);
+
+    updateTaskStatus(String.format("Resizing Scalable Target of %s to %s instances", serviceName, desiredCount));
+    autoScalingClient.registerScalableTarget(request);
+    updateTaskStatus(String.format("Done resizing Scalable Target of %s to %s instances", serviceName, desiredCount));
+  }
+
+  private AWSApplicationAutoScaling getAmazonApplicationAutoScalingClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String region = description.getRegion();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonApplicationAutoScaling(credentialAccount, credentialsProvider, region);
+  }
+
+  private AmazonECS getAmazonEcsClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String region = description.getRegion();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
+  }
+
+  private AmazonCredentials getCredentials() {
+    return (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+  }
+
+  private void updateTaskStatus(String status) {
+    getTask().updateStatus(BASE_PHASE, status);
   }
 }

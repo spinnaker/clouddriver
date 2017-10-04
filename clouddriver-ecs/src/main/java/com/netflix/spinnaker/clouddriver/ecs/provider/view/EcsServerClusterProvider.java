@@ -16,6 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsRequest;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsResult;
+import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
+import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
+import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.GroupIdentifier;
@@ -58,9 +65,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -84,18 +91,21 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   public Map<String, Set<EcsServerCluster>> getClusters() {
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
-    for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
-      if (credentials instanceof AmazonCredentials && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {  // TODO - the first if condition can be problematic for AWS logic.  We'll probably need to look into this after POC, and figure out how to deal with account credentials for AWS and ECS in a smart way, without AWS trying to use ECS credentials
-        clusterMap = findClusters(clusterMap, (AmazonCredentials) credentials);
-      }
+    for (AmazonCredentials credentials : getEcsCredentials()) {
+      clusterMap = findClusters(clusterMap, credentials);
     }
     return clusterMap;
   }
 
   private Map<String, Set<EcsServerCluster>> findClusters(Map<String, Set<EcsServerCluster>> clusterMap,
                                                           AmazonCredentials credentials) {
+    return findClusters(clusterMap, credentials, null);
+  }
+  private Map<String, Set<EcsServerCluster>> findClusters(Map<String, Set<EcsServerCluster>> clusterMap,
+                                                          AmazonCredentials credentials,
+                                                          String application) {
     for (AmazonCredentials.AWSRegion awsRegion : credentials.getRegions()) {
-      clusterMap = findClustersForRegion(clusterMap, credentials, awsRegion);
+      clusterMap = findClustersForRegion(clusterMap, credentials, awsRegion, application);
     }
 
     return clusterMap;
@@ -103,7 +113,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   private Map<String, Set<EcsServerCluster>> findClustersForRegion(Map<String, Set<EcsServerCluster>> clusterMap,
                                                                    AmazonCredentials credentials,
-                                                                   AmazonCredentials.AWSRegion awsRegion) {
+                                                                   AmazonCredentials.AWSRegion awsRegion,
+                                                                   String application) {
 
     AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(),
       credentials.getCredentialsProvider(),
@@ -122,8 +133,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(clusterArn));
       for (String serviceArn : result.getServiceArns()) {
-
         ServiceMetadata metadata = extractMetadataFromServiceArn(serviceArn);
+
+        if ((null != application) && (!application.equals(metadata.getApplicationName()) )) {
+          continue;
+        }
+
         Set<Instance> instances = new HashSet<>();
 
         DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(
@@ -159,12 +174,20 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
         DescribeServicesResult describeServicesResult =
           amazonECS.describeServices(new DescribeServicesRequest().withCluster(clusterArn).withServices(serviceArn));
+        String clusterName = inferClusterNameFromClusterArn(describeServicesResult.getServices().get(0).getClusterArn());
+        ScalableTarget target = retrieveScalableTarget(credentials, awsRegion, serviceArn, clusterName);
         ServerGroup.Capacity capacity = new ServerGroup.Capacity();
         capacity.setDesired(describeServicesResult.getServices().get(0).getDesiredCount());
-        capacity.setMin(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
-        capacity.setMax(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
+        if (target != null) {
+          capacity.setMin(target.getMinCapacity());
+          capacity.setMax(target.getMaxCapacity());
+        } else {
+          capacity.setMin(describeServicesResult.getServices().get(0).getDesiredCount());
+          capacity.setMax(describeServicesResult.getServices().get(0).getDesiredCount());
+        }
+
         long creationTime = describeServicesResult.getServices().get(0).getCreatedAt().getTime();
-        String clusterName = inferClusterNameFromClusterArn(describeServicesResult.getServices().get(0).getClusterArn());
+
 
         DescribeTaskDefinitionRequest taskDefinitionRequest = new DescribeTaskDefinitionRequest().withTaskDefinition(describeServicesResult.getServices().get(0).getTaskDefinition());
         DescribeTaskDefinitionResult taskDefinitionResult = amazonECS.describeTaskDefinition(taskDefinitionRequest);
@@ -186,10 +209,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         ;
 
         EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime,
-          clusterName, taskDefinition, vpcId, securityGroups);
+          clusterName, taskDefinition, vpcId, securityGroups, target);
 
         if (!clusterMap.containsKey(metadata.applicationName)) {
-          EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
+          EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
           clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
         } else {
           String escClusterName = removeVersion(ecsServerGroup.getName());
@@ -204,7 +227,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
           }
 
           if(!found){
-            EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
+            EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
             clusterMap.get(metadata.applicationName).add(spinnakerCluster);
           }
         }
@@ -212,6 +235,27 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     }
 
     return clusterMap;
+  }
+
+  private ScalableTarget retrieveScalableTarget(AmazonCredentials credentials, AmazonCredentials.AWSRegion awsRegion, String serviceArn, String clusterName) {
+    AWSApplicationAutoScaling appASClient = getAmazonApplicationAutoScalingClient(credentials, awsRegion);
+    List<String> resourceIds = new ArrayList<>();
+    resourceIds.add(String.format("service/%s/%s", clusterName, getServiceName(serviceArn)));
+    DescribeScalableTargetsRequest request = new DescribeScalableTargetsRequest()
+      .withResourceIds(resourceIds)
+      .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
+      .withServiceNamespace(ServiceNamespace.Ecs);
+    DescribeScalableTargetsResult result = appASClient.describeScalableTargets(request);
+
+    if (result.getScalableTargets().isEmpty()) {
+      return null;
+    }
+
+    if (result.getScalableTargets().size() == 1) {
+      return result.getScalableTargets().get(0);
+    }
+
+    throw new Error("Multiple Scalable Targets found");
   }
 
   private Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> extractLoadBalancersData(
@@ -226,7 +270,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   private EcsServerCluster generateSpinnakerServerCluster(AmazonCredentials credentials,
-                                                          ServiceMetadata metadata,
                                                           Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers,
                                                           EcsServerGroup ecsServerGroup) {
     return new EcsServerCluster()
@@ -244,11 +287,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                              String ecsCluster,
                                              TaskDefinition taskDefinition,
                                              String vpcId,
-                                             Set<String> securityGroups) {
+                                             Set<String> securityGroups,
+                                             ScalableTarget scalableTarget) {
     ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
 
-    return new EcsServerGroup()
-      .setDisabled(capacity.getDesired() < 1)     // TODO: Whether the server group is disabled should be determined by another factor.
+    EcsServerGroup serverGroup = new EcsServerGroup()
+      .setDisabled(capacity.getDesired() == 0)
       .setName(constructServerGroupName(metadata))
       .setCloudProvider(EcsCloudProvider.ID)
       .setType(EcsCloudProvider.ID)
@@ -262,6 +306,29 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setVpcId(vpcId)
       .setSecurityGroups(securityGroups)
       ;
+
+    if (scalableTarget != null) {
+      EcsServerGroup.AutoScalingGroup asg = new EcsServerGroup.AutoScalingGroup()
+        .setDesiredCapacity(scalableTarget.getMaxCapacity())
+        .setMaxSize(scalableTarget.getMaxCapacity())
+        .setMinSize(scalableTarget.getMinCapacity());
+
+      serverGroup.setAsg(asg);
+    }
+
+    return serverGroup;
+  }
+
+  private AWSApplicationAutoScaling getAmazonApplicationAutoScalingClient(AmazonCredentials credentials,
+                                                                          AmazonCredentials.AWSRegion awsRegion) {
+    String account = credentials.getName();
+    AWSCredentialsProvider provider = credentials.getCredentialsProvider();
+    String region = awsRegion.getName();
+    return amazonClientProvider.getAmazonApplicationAutoScaling(account, provider, region);
+  }
+
+  private String getServiceName(String serviceArn) {
+    return serviceArn.split("/")[1];
   }
 
   private ServerGroup.InstanceCounts generateInstanceCount(Set<Instance> instances) {
@@ -383,18 +450,23 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterDetails(String application) {
-    Map<String, Set<EcsServerCluster>> result = getClusters();
+    Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
-    Iterator<Map.Entry<String, Set<EcsServerCluster>>> iterator = result.entrySet().iterator();
-
-    while (iterator.hasNext()) {
-      Map.Entry<String, Set<EcsServerCluster>> entry = iterator.next();
-      if (!entry.getKey().equals(application)) {
-        iterator.remove();
-      }
+    for (AmazonCredentials credentials : getEcsCredentials()) {
+      clusterMap = findClusters(clusterMap, credentials, application);
     }
 
-    return result;
+    return clusterMap;
+  }
+
+  private List<AmazonCredentials> getEcsCredentials() {
+    List<AmazonCredentials> ecsCredentialsList = new ArrayList<>();
+    for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
+      if (credentials instanceof AmazonCredentials && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {
+        ecsCredentialsList.add((AmazonCredentials) credentials);
+      }
+    }
+    return ecsCredentialsList;
   }
 
   /**
@@ -439,10 +511,20 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public ServerGroup getServerGroup(String account, String region, String serverGroupName) {
+    if (serverGroupName == null) {
+      throw new Error("Invalid Server Group");
+    }
     // TODO - use a caching system, and also check for account which is currently not the case here
-    Map<String, Set<EcsServerCluster>> clusters = getClusters();
 
-    for (Map.Entry<String, Set<EcsServerCluster>> entry : clusters.entrySet()) {
+    // TODO - remove the application filter.
+    String application = serverGroupName.split("-")[0];
+    Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
+
+    for (AmazonCredentials credentials : getEcsCredentials()) {
+      clusterMap = findClusters(clusterMap, credentials, application);
+    }
+
+    for (Map.Entry<String, Set<EcsServerCluster>> entry : clusterMap.entrySet()) {
       if (entry.getKey().equals(serverGroupName.split("-")[0])) {
         for (EcsServerCluster ecsServerCluster : entry.getValue()) {
           for (ServerGroup serverGroup : ecsServerCluster.getServerGroups()) {
