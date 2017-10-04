@@ -15,6 +15,8 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,7 +29,9 @@ import java.util.Map;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
-public class ClusterCachingAgent implements CachingAgent {
+public class EcsClusterCachingAgent implements CachingAgent {
+  private final Logger log = LoggerFactory.getLogger(getClass());
+
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(ECS_CLUSTERS.toString())
   ));
@@ -37,7 +41,7 @@ public class ClusterCachingAgent implements CachingAgent {
   private String region;
   private String accountName;
 
-  public ClusterCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
+  public EcsClusterCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
     this.accountName = accountName;
     this.region = region;
     this.amazonClientProvider = amazonClientProvider;
@@ -74,6 +78,7 @@ public class ClusterCachingAgent implements CachingAgent {
       nextToken = listClustersResult.getNextToken();
     } while (nextToken != null && nextToken.length() != 0);
 
+    log.info("Caching " + dataPoints.size() + " ECS clusters in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(ECS_CLUSTERS.toString(), dataPoints);
 
@@ -82,7 +87,7 @@ public class ClusterCachingAgent implements CachingAgent {
 
   @Override
   public String getAgentType() {
-    return ClusterCachingAgent.class.getSimpleName();
+    return EcsClusterCachingAgent.class.getSimpleName();
   }
 
   @Override

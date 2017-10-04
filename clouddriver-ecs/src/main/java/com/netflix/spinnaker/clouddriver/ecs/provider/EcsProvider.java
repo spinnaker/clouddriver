@@ -3,6 +3,7 @@ package com.netflix.spinnaker.clouddriver.ecs.provider;
 import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.agent.AgentSchedulerAware;
 import com.netflix.spinnaker.clouddriver.cache.SearchableProvider;
+import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 
@@ -11,11 +12,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
@@ -30,11 +34,9 @@ public class EcsProvider extends AgentSchedulerAware implements SearchableProvid
   private static final Map<String, String> urlMappingTemplates = new HashMap<>();
 
   private final Collection<Agent> agents;
-
   private final AccountCredentialsRepository accountCredentialsRepository;
-
   private final Keys keys = new Keys();
-
+  private Collection<HealthProvidingCachingAgent> healthAgents;
 
   public EcsProvider(AccountCredentialsRepository accountCredentialsRepository, Collection<Agent> agents) {
     this.agents = agents;
@@ -70,6 +72,19 @@ public class EcsProvider extends AgentSchedulerAware implements SearchableProvid
   @Override
   public Collection<Agent> getAgents() {
     return agents;
+  }
+
+
+  public void synchronizeHealthAgents() {
+    healthAgents = Collections.unmodifiableCollection(agents.stream()
+      .filter(a -> a instanceof HealthProvidingCachingAgent)
+      .map(a -> (HealthProvidingCachingAgent) a).collect(Collectors.toList()));
+  }
+
+  public Collection<HealthProvidingCachingAgent> getHealthAgents() {
+    List<HealthProvidingCachingAgent> newHealthAgents = new LinkedList<>();
+    newHealthAgents.addAll(healthAgents);
+    return Collections.unmodifiableCollection(newHealthAgents);
   }
 
 }

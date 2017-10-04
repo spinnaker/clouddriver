@@ -154,16 +154,20 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
           for (Task task : describeTasksResult.getTasks()) {
             InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
-              amazonEC2,
-              containerInformationService.getContainerInstance(amazonECS, task));
+              amazonEC2, credentials.getName(), awsRegion.getName(), task.getContainerInstanceArn());
 
-            String address = containerInformationService.getTaskPrivateAddress(amazonECS, amazonEC2, task);
+            String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), amazonEC2, task);
 
-            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
-            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus, address));
+            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
+            try {
+              instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus, address));
+            }catch(NullPointerException e){
+              e.printStackTrace();
+            }
 
             if (vpcId == null) {
-              com.amazonaws.services.ec2.model.Instance oneEc2Instance = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(containerInformationService.getContainerInstance(amazonECS, task).getEc2InstanceId())).getReservations().get(0).getInstances().get(0);
+              String es2HostId = containerInformationService.getEC2InstanceHostID(credentials.getName(), awsRegion.getName(), task.getContainerInstanceArn());
+              com.amazonaws.services.ec2.model.Instance oneEc2Instance = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(es2HostId)).getReservations().get(0).getInstances().get(0);
               vpcId = oneEc2Instance.getVpcId();
               for (GroupIdentifier groupIdentifier: oneEc2Instance.getSecurityGroups()) {
                 securityGroups.add(groupIdentifier.getGroupId());
