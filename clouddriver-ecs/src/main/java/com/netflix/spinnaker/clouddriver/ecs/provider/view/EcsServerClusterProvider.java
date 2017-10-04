@@ -317,7 +317,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         .setMaxSize(scalableTarget.getMaxCapacity())
         .setMinSize(scalableTarget.getMinCapacity());
 
-      serverGroup.setAsg(asg);
+      // TODO: Update Deck to handle an asg. Current Deck implementation uses a EC2 AutoScaling Group
+      //serverGroup.setAsg(asg);
     }
 
     return serverGroup;
