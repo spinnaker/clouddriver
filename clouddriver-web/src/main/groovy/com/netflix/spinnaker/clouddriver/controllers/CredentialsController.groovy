@@ -46,14 +46,36 @@ class CredentialsController {
 
   @RequestMapping(method = RequestMethod.GET)
   List<Map> list() {
-    accountCredentialsProvider.all.collect(this.&renderSummary)
+    def listOfMaps = accountCredentialsProvider.all.collect(this.&renderSummary)
+
+    //temporaryWorkaroundForPOC(listOfMaps)
+    return listOfMaps
+  }
+
+  private void temporaryWorkaroundForPOC(List<Map> listOfMaps) {
+    LinkedHashMap<String, Object> ecsAccount = new LinkedHashMap<>();
+
+    for (Map.Entry entry : listOfMaps.get(0).entrySet()) {
+
+      if (entry.getKey().equals("cloudProvider")) {
+        ecsAccount.put(entry.getKey(), "ecs")
+      } else if (entry.getKey().equals("name")) {
+        ecsAccount.put(entry.getKey(), "ecs-acct")
+      } else if (entry.getKey().equals("type")) {
+        ecsAccount.put(entry.getKey(), "ecs")
+      } else {
+        ecsAccount.put(entry.getKey(), entry.getValue())
+      }
+    }
+
+    listOfMaps.add(ecsAccount)
   }
 
   @RequestMapping(value = "/{name:.+}", method = RequestMethod.GET)
   Map getAccount(@PathVariable("name") String name) {
     def accountDetail = renderDetail(accountCredentialsProvider.getCredentials(name))
     if (!accountDetail) {
-      throw new NotFoundException("Account does not exist (name: ${name})")
+      return renderDetail(accountCredentialsProvider.getAll().iterator().next())  // TODO - implement the ECS accounts properly, so we don't need to do this shenanigan
     }
 
     return accountDetail
