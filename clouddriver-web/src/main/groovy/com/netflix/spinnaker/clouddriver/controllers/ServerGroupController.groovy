@@ -60,9 +60,9 @@ class ServerGroupController {
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ') and hasPermission(#account, 'ACCOUNT', 'READ')")
   @RequestMapping(value = "/applications/{application}/serverGroups/{account}/{region}/{name:.+}", method = RequestMethod.GET)
   ServerGroup getServerGroupByApplication(@PathVariable String application, // needed for @PreAuthorize
-                             @PathVariable String account,
-                             @PathVariable String region,
-                             @PathVariable String name) {
+                                          @PathVariable String account,
+                                          @PathVariable String region,
+                                          @PathVariable String name) {
     getServerGroup(account, region, name)
   }
 
@@ -76,8 +76,8 @@ class ServerGroupController {
   }
 
   private getServerGroup(String account,
-                                    String region,
-                                    String name) {
+                         String region,
+                         String name) {
     def matches = (Set<ServerGroup>) clusterProviders.findResults { provider ->
       requestQueue.execute(name, { provider.getServerGroup(account, region, name) })
     }
