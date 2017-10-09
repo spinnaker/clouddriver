@@ -59,6 +59,7 @@ class ServerGroupController {
 
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ') and hasPermission(#account, 'ACCOUNT', 'READ')")
   @RequestMapping(value = "/applications/{application}/serverGroups/{account}/{region}/{name:.+}", method = RequestMethod.GET)
+  // TODO: Consolidate /application and /serverGroup endpoints. See https://github.com/spinnaker/spinnaker/issues/2023
   ServerGroup getServerGroupByApplication(@PathVariable String application, // needed for @PreAuthorize
                                           @PathVariable String account,
                                           @PathVariable String region,
