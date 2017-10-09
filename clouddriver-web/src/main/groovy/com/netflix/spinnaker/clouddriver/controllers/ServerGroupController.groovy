@@ -69,9 +69,9 @@ class ServerGroupController {
   @PreAuthorize("hasPermission(#account, 'ACCOUNT', 'READ')")
   @PostAuthorize("hasPermission(returnObject?.moniker?.app, 'APPLICATION', 'READ')")
   @RequestMapping(value = "/serverGroups/{account}/{region}/{name:.+}", method = RequestMethod.GET)
-  ServerGroup getServerGroupByName(@PathVariable String account,
-                                   @PathVariable String region,
-                                   @PathVariable String name) {
+  ServerGroup getServerGroupByMoniker(@PathVariable String account,
+                                      @PathVariable String region,
+                                      @PathVariable String name) {
     getServerGroup(account, region, name)
   }
 
