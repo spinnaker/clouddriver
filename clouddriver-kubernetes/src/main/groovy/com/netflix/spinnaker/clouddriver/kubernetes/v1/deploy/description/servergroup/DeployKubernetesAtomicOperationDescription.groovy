@@ -46,7 +46,7 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesAtomicOperati
   Map<String, String> nodeSelector
   KubernetesSecurityContext securityContext
   KubernetesDeployment deployment
-  KubernetesStrategy updateStrategy
+  KubernetesUpdateController updateController
   Long terminationGracePeriodSeconds
   String serviceAccountName
   Integer sequence
@@ -121,6 +121,15 @@ class KubernetesDeployment {
   boolean paused
   Integer rollbackRevision         // May be null
   Integer progressRollbackSeconds  // May be null
+}
+
+@AutoClone
+@Canonical
+class KubernetesUpdateController {
+  boolean enabled
+  KubernetesStrategy updateStrategy
+  //int minReadySeconds              // for 1.7 model
+  //Integer revisionHistoryLimit     // for 1.7 model
 }
 
 @AutoClone
