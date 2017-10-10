@@ -269,7 +269,7 @@ class KubernetesClientApiAdapter {
       try {
         return apiInstance.readNamespacedStatefulSet(statefulSetName, namespace, API_CALL_RESULT_FORMAT, null, null)
       } catch (Exception e) {
-
+        log.debug(e.message)
       }
       return null
     }
