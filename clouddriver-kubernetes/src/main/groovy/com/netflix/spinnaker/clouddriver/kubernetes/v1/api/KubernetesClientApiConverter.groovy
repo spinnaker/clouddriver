@@ -926,7 +926,6 @@ class KubernetesClientApiConverter {
           }
           spec.updateStrategy = updateStrategy
         }
-
       }
     }
 
@@ -943,7 +942,6 @@ class KubernetesClientApiConverter {
   static V1beta1StatefulSet toReplaceStatefulSet(
                                                  V1beta1StatefulSet configuredStatefulSet,
                                                  V1beta1StatefulSet deployedStatefulSet) {
-    //Based on 1.6 api model, spec: Forbidden: updates to statefulset spec for fields other than 'replicas', 'template', and 'updateStrategy' are forbidden."
     deployedStatefulSet.spec.replicas = configuredStatefulSet.spec.replicas
     deployedStatefulSet.spec.template = configuredStatefulSet.spec.template
 
@@ -951,7 +949,6 @@ class KubernetesClientApiConverter {
   }
 
   static V1beta1DaemonSet toReplaceDaemonSet(V1beta1DaemonSet configurefDaemonSet, V1beta1DaemonSet deployedDaemonSet) {
-    //Based on 1.6 api model, spec: Forbidden: updates to statefulset spec for fields other than 'replicas', 'template', and 'updateStrategy' are forbidden."
     deployedDaemonSet.spec.template = configurefDaemonSet.spec.template
     deployedDaemonSet.spec.updateStrategy = configurefDaemonSet.spec.updateStrategy
 

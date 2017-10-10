@@ -128,8 +128,8 @@ class KubernetesDeployment {
 class KubernetesUpdateController {
   boolean enabled
   KubernetesStrategy updateStrategy
-  //int minReadySeconds              // for 1.7 model
-  //Integer revisionHistoryLimit     // for 1.7 model
+  int minReadySeconds
+  Integer revisionHistoryLimit
 }
 
 @AutoClone

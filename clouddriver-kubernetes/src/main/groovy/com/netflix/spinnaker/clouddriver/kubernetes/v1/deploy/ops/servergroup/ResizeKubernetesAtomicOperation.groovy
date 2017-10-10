@@ -113,7 +113,7 @@ class ResizeKubernetesAtomicOperation implements AtomicOperation<Void> {
   void resizeController(KubernetesV1Credentials credentials, String namespace, String serverGroupName, int size) {
 
     if (description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND) {
-      credentials.apiClientAdaptor.resizeStatefulSet(serverGroupName, namespace, size)
+      credentials.apiClientAdaptor.resizeStatefulSet(serverGroupName, namespace, size, false)
     } else if (description.kind == KubernetesUtil.CONTROLLERS_DAEMONSET_KIND) {
       throw new KubernetesOperationException("Resize DaemonSet is not support.")
     }
