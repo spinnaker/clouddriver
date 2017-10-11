@@ -19,6 +19,8 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesUnversionedArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesVersionedArtifactConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesDeployer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -30,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class KubernetesResourcePropertyRegistry {
   @Autowired
   public KubernetesResourcePropertyRegistry(List<KubernetesDeployer> deployers,
+      KubernetesSpinnakerKindMap kindMap,
       KubernetesVersionedArtifactConverter versionedArtifactConverter,
       KubernetesUnversionedArtifactConverter unversionedArtifactConverter) {
     for (KubernetesDeployer deployer : deployers) {
@@ -38,6 +41,7 @@ public class KubernetesResourcePropertyRegistry {
           .converter(deployer.versioned() ? versionedArtifactConverter : unversionedArtifactConverter)
           .build();
 
+      kindMap.addRelationship(deployer.spinnakerKind(), deployer.kind());
       apiVersionLookup.withApiVersion(deployer.apiVersion()).setProperties(deployer.kind(), properties);
     }
   }

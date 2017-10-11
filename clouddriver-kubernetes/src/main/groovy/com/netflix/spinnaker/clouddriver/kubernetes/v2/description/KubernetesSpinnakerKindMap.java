@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -24,20 +25,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// TODO(lwander) integrate with KubernetesResourcePropertiesRegistry
 @Component
 public class KubernetesSpinnakerKindMap {
   public enum SpinnakerKind {
     INSTANCE,
     SERVER_GROUP,
     LOAD_BALANCER,
-    SECURITY_GROUP
+    SECURITY_GROUP,
+    UNCLASSIFIED
   }
 
   private Map<SpinnakerKind, List<KubernetesKind>> spinnakerToKubernetes = new HashMap<>();
   private Map<KubernetesKind, SpinnakerKind> kubernetesToSpinnaker = new HashMap<>();
 
-  private void addRelationship(SpinnakerKind spinnakerKind, KubernetesKind kubernetesKind) {
+  void addRelationship(SpinnakerKind spinnakerKind, KubernetesKind kubernetesKind) {
     List<KubernetesKind> kinds = spinnakerToKubernetes.get(spinnakerKind);
     if (kinds == null) {
       kinds = new ArrayList<>();
@@ -49,10 +50,6 @@ public class KubernetesSpinnakerKindMap {
   }
 
   public KubernetesSpinnakerKindMap() {
-    addRelationship(SpinnakerKind.SERVER_GROUP, KubernetesKind.REPLICA_SET);
-    addRelationship(SpinnakerKind.LOAD_BALANCER, KubernetesKind.SERVICE);
-    addRelationship(SpinnakerKind.LOAD_BALANCER, KubernetesKind.INGRESS);
-    addRelationship(SpinnakerKind.SECURITY_GROUP, KubernetesKind.NETWORK_POLICY);
     addRelationship(SpinnakerKind.INSTANCE, KubernetesKind.POD);
   }
 
