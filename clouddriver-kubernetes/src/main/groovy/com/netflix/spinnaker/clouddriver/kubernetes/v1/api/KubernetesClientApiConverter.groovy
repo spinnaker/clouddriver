@@ -939,15 +939,6 @@ class KubernetesClientApiConverter {
     return daemonset
   }
 
-  static V1beta1StatefulSet toReplaceStatefulSet(
-                                                 V1beta1StatefulSet configuredStatefulSet,
-                                                 V1beta1StatefulSet deployedStatefulSet) {
-    deployedStatefulSet.spec.replicas = configuredStatefulSet.spec.replicas
-    deployedStatefulSet.spec.template = configuredStatefulSet.spec.template
-
-    return deployedStatefulSet
-  }
-
   static V1beta1DaemonSet toReplaceDaemonSet(V1beta1DaemonSet configurefDaemonSet, V1beta1DaemonSet deployedDaemonSet) {
     deployedDaemonSet.spec.template = configurefDaemonSet.spec.template
     deployedDaemonSet.spec.updateStrategy = configurefDaemonSet.spec.updateStrategy
