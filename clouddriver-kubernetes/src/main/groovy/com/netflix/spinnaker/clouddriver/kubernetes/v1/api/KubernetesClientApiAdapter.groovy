@@ -200,47 +200,7 @@ class KubernetesClientApiAdapter {
       final Map[] jsonPatch = determineJsonPatch(current, desired);
       V1beta1StatefulSet statefulSet = apiInstance.patchNamespacedStatefulSet(name, namespace, jsonPatch, null)
 
-      if (mustWait) {
-        def labels = statefulSet.metadata.labels
-        V1PodList pods = getPods(namespace, labels)
-        int podSize = pods.items.size()
-        int terminationGracePeriodSeconds = statefulSet.spec.template.spec.terminationGracePeriodSeconds ?: TERMINATION_GRACE_PERIOD_SECONDS
-
-        if (podSize != targetSize) {
-          waitForNumberOfPodUpdated(name, namespace, labels, podSize, targetSize, terminationGracePeriodSeconds)
-        }
-      }
-
       return statefulSet
-    }
-  }
-
-  void waitForNumberOfPodUpdated(String name, String namespace, Map<String, String> labels, int podSize, int targetSize, int terminationGracePeriodSeconds) {
-    if (targetSize < podSize) {
-      //Only wait if reduce pods
-      System.sleep(terminationGracePeriodSeconds * 1000)
-    }
-
-    int delayTime = 5
-    int delayInterval = 12
-    while (podSize != targetSize) {
-      def podlist = getPods(namespace, labels)
-      try {
-        podSize = podlist.items.size()
-      } catch(Exception e) {
-        log.debug(e.message)
-
-        break
-      }
-
-      System.sleep( delayTime * 1000)
-      if (delayInterval > 0) {
-        delayInterval--
-      } else {
-        log.warn "Unable to terminiate all running pods {$name in $namespace}."
-
-        break
-      }
     }
   }
 
