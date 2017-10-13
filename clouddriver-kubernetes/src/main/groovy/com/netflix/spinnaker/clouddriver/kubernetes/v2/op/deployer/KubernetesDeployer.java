@@ -20,9 +20,10 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -46,17 +47,18 @@ public abstract class KubernetesDeployer<T> {
     deploy(credentials, resource);
 
     DeploymentResult result = new DeploymentResult();
-    result.setServerGroupNames(new ArrayList<>(Collections.singleton(manifest.getNamespace() + ":" + manifest.getFullResourceName())));
-    result.setServerGroupNameByRegion(new HashMap<>(Collections.singletonMap(manifest.getNamespace(), manifest.getFullResourceName())));
+    result.setDeployedNames(new ArrayList<>(Collections.singleton(manifest.getNamespace() + ":" + manifest.getFullResourceName())));
+    result.setDeployedNamesByLocation(new HashMap<>(Collections.singletonMap(manifest.getNamespace(), Collections.singletonList(manifest.getFullResourceName()))));
 
     return result;
   }
 
-  abstract Class<T> getDeployedClass();
+  abstract public Class<T> getDeployedClass();
 
   abstract public KubernetesKind kind();
   abstract public KubernetesApiVersion apiVersion();
   abstract public boolean versioned();
+  abstract public SpinnakerKind spinnakerKind();
 
   abstract void deploy(KubernetesV2Credentials credentials, T resource);
 }

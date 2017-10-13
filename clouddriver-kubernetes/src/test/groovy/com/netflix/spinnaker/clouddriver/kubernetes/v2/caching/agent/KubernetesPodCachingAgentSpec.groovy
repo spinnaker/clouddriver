@@ -20,8 +20,8 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import io.kubernetes.client.models.V1ObjectMeta
 import io.kubernetes.client.models.V1Pod
@@ -68,9 +68,9 @@ class KubernetesPodCachingAgentSpec extends Specification {
     def result = cachingAgent.loadData(null)
 
     then:
-    result.cacheResults[KubernetesKind.POD.name].size() == 2
+    result.cacheResults[KubernetesKind.POD.name].size() == 1
     result.cacheResults[KubernetesKind.POD.name].find { cacheData ->
-      cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == [Keys.cluster(ACCOUNT, CLUSTER)]
+      cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == [Keys.cluster(ACCOUNT, APPLICATION, CLUSTER)]
       cacheData.relationships.get(Keys.LogicalKind.APPLICATION.toString()) == [Keys.application(APPLICATION)]
       cacheData.attributes.get("name") == NAME
       cacheData.attributes.get("namespace") == NAMESPACE

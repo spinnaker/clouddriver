@@ -23,8 +23,8 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1beta1ReplicaSet;
 import lombok.Getter;
@@ -81,11 +81,6 @@ public class KubernetesReplicaSetCachingAgent extends KubernetesV2OnDemandCachin
   }
 
   @Override
-  protected OnDemandType onDemandType() {
-    return OnDemandType.ServerGroup;
-  }
-
-  @Override
   protected KubernetesKind primaryKind() {
     return KubernetesKind.REPLICA_SET;
   }
@@ -93,19 +88,5 @@ public class KubernetesReplicaSetCachingAgent extends KubernetesV2OnDemandCachin
   @Override
   protected KubernetesApiVersion primaryApiVersion() {
     return KubernetesApiVersion.EXTENSIONS_V1BETA1;
-  }
-
-  @Override
-  protected Map<String, String> mapKeyToOnDemandResult(Keys.InfrastructureCacheKey key) {
-    return new ImmutableMap.Builder<String, String>()
-        .put("serverGroup", key.getName())
-        .put("account", key.getAccount())
-        .put("region", key.getNamespace())
-        .build();
-  }
-
-  @Override
-  protected Optional<String> getResourceNameFromOnDemandRequest(Map<String, ?> request) {
-    return request.containsKey("serverGroup") ? Optional.of((String) request.get("serverGroup")) : Optional.empty();
   }
 }

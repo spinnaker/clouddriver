@@ -17,9 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +58,10 @@ public class Keys {
     APPLICATION,
     CLUSTER;
 
+    public static boolean isLogicalGroup(String group) {
+      return group.equals(APPLICATION.toString()) || group.equals(CLUSTER.toString());
+    }
+
     @Override
     public String toString() {
       return name().toLowerCase();
@@ -89,8 +93,8 @@ public class Keys {
     return createKey(Kind.LOGICAL, LogicalKind.APPLICATION, name);
   }
 
-  public static String cluster(String account, String name) {
-    return createKey(Kind.LOGICAL, LogicalKind.CLUSTER, account, name);
+  public static String cluster(String account, String application, String name) {
+    return createKey(Kind.LOGICAL, LogicalKind.CLUSTER, account, application, name);
   }
 
   public static String infrastructure(KubernetesApiVersion version, KubernetesKind kind, String account, String namespace, String name) {
@@ -145,6 +149,7 @@ public class Keys {
   public static abstract class CacheKey {
     private Kind kind;
     public abstract String getGroup();
+    public abstract String getName();
   }
 
   @EqualsAndHashCode(callSuper = true)
@@ -210,15 +215,17 @@ public class Keys {
     private Kind kind = Kind.LOGICAL;
     private LogicalKind logicalKind = LogicalKind.CLUSTER;
     private String account;
+    private String application;
     private String name;
 
     public ClusterCacheKey(String[] parts) {
-      if (parts.length != 5) {
+      if (parts.length != 6) {
         throw new IllegalArgumentException("Malformed cluster key " + Arrays.toString(parts));
       }
 
       account = parts[3];
-      name = parts[4];
+      application = parts[4];
+      name = parts[5];
     }
 
     @Override

@@ -15,11 +15,12 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.validator;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.validator.manifest;
 
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestOperationDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestOperationDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.validator.KubernetesValidationUtil;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -31,7 +32,7 @@ import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.D
 
 @KubernetesOperation(DEPLOY_MANIFEST)
 @Component
-public class KubernetesManifestValidator extends DescriptionValidator<KubernetesManifestOperationDescription> {
+public class KubernetesDeployManifestValidator extends DescriptionValidator<KubernetesManifestOperationDescription> {
   @Autowired
   AccountCredentialsProvider provider;
 
@@ -39,11 +40,6 @@ public class KubernetesManifestValidator extends DescriptionValidator<Kubernetes
   public void validate(List priorDescriptions, KubernetesManifestOperationDescription description, Errors errors) {
     KubernetesValidationUtil util = new KubernetesValidationUtil("deployKubernetesManifest", errors);
     if (!util.validateV2Credentials(provider, description.getAccount())) {
-      return;
-    }
-
-    // TODO(lwander): Temporary restriction
-    if (!util.validateSizeEquals("manifestMetadataPairs", description.getManifests(), 1)) {
       return;
     }
   }

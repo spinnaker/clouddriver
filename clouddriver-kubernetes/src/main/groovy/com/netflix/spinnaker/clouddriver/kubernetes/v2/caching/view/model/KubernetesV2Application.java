@@ -15,27 +15,24 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
-import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import com.netflix.spinnaker.moniker.Moniker;
+import com.netflix.spinnaker.clouddriver.model.Application;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Data
-public class KubernetesAugmentedManifest {
-  KubernetesManifest manifest;
-  Metadata metadata;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
-  @Data
-  @Builder
-  @NoArgsConstructor
-  @AllArgsConstructor
-  public static class Metadata {
-    KubernetesManifestSpinnakerRelationships relationships;
-    Artifact artifact;
-    Moniker moniker;
-  }
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class KubernetesV2Application implements Application {
+  private String name;
+  private Map<String, String> attributes = new HashMap<>();
+  private Map<String, Set<String>> clusterNames = new HashMap<>();
 }

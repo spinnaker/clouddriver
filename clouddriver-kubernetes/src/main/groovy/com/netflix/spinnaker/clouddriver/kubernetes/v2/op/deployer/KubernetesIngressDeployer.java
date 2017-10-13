@@ -17,8 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1beta1Ingress;
 import org.springframework.stereotype.Component;
@@ -36,7 +37,7 @@ public class KubernetesIngressDeployer extends KubernetesDeployer<V1beta1Ingress
   }
 
   @Override
-  Class<V1beta1Ingress> getDeployedClass() {
+  public Class<V1beta1Ingress> getDeployedClass() {
     return V1beta1Ingress.class;
   }
 
@@ -48,5 +49,10 @@ public class KubernetesIngressDeployer extends KubernetesDeployer<V1beta1Ingress
   @Override
   public boolean versioned() {
     return false;
+  }
+
+  @Override
+  public SpinnakerKind spinnakerKind() {
+    return SpinnakerKind.LOAD_BALANCER;
   }
 }

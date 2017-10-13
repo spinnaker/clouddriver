@@ -15,15 +15,11 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import lombok.Data;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup.Capacity;
 
-import java.util.ArrayList;
-import java.util.List;
-
-@Data
-public class KubernetesManifestSpinnakerRelationships {
-  List<String> loadBalancers = new ArrayList<>();
-  List<String> securityGroups = new ArrayList<>();
+public interface CanResize {
+  void resize(KubernetesV2Credentials credentials, String namespace, String name, Capacity capacity);
 }
