@@ -39,7 +39,7 @@ import com.netflix.spinnaker.clouddriver.appengine.provider.callbacks.AppengineC
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
-import com.netflix.spinnaker.clouddriver.kubernetes.provider.view.MutableCacheData
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.view.MutableCacheData
 import groovy.util.logging.Slf4j
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
@@ -404,11 +404,14 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
     }
 
     providerCache.getAll(ON_DEMAND.ns, keys).collect {
-      [
-        details  : Keys.parse(it.id),
-        cacheTime: it.attributes.cacheTime,
-        processedCount: it.attributes.processedCount,
-        processedTime: it.attributes.processedTime
+      def details = Keys.parse(it.id)
+
+      return [
+          details       : details,
+          moniker       : convertOnDemandDetails(details),
+          cacheTime     : it.attributes.cacheTime,
+          processedCount: it.attributes.processedCount,
+          processedTime : it.attributes.processedTime
       ]
     }
   }

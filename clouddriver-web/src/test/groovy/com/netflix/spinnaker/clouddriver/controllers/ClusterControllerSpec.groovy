@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.controllers
 
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonServerGroup
 import com.netflix.spinnaker.clouddriver.model.Application
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider
 import com.netflix.spinnaker.clouddriver.model.Cluster
@@ -70,7 +71,7 @@ class ClusterControllerSpec extends Specification {
       clusterController.clusterProviders = [clusterProvider1]
 
     when:
-      clusterController.getForAccountAndNameAndType("app", "test", "cluster", "aws")
+      clusterController.getForAccountAndNameAndType("app", "test", "cluster", "aws", true)
 
     then:
       thrown NotFoundException
@@ -78,22 +79,48 @@ class ClusterControllerSpec extends Specification {
 
   void "should return specific named serverGroup"() {
     setup:
+      def serverGroupController = Mock(ServerGroupController)
+
       def clusterProvider1 = Mock(ClusterProvider)
       clusterController.clusterProviders = [clusterProvider1]
-      def serverGroup = Mock(ServerGroup)
-      serverGroup.getName() >> "serverGroupName"
+      clusterController.serverGroupController = serverGroupController
 
-    when:
-      def result = clusterController.getServerGroup("app", "account", "clusterName", "type", "serverGroupName", null, null)
+      def serverGroup = new AmazonServerGroup(name: "clusterName-v001", region: "us-west-2")
 
-    then:
-      1 * clusterProvider1.getCluster(_, _, _) >> {
+    when: "region is not supplied"
+      def result = clusterController.getServerGroup("app", "account", "clusterName", "type", "clusterName-v001", null)
+
+    then: "expect a collection of server groups to be returned"
+      1 * clusterProvider1.getCloudProviderId() >> { return "type" }
+      1 * clusterProvider1.supportsMinimalClusters() >> { return true }
+      1 * clusterProvider1.getCluster("app", "account", "clusterName", false) >> {
         def cluster = Mock(Cluster)
         cluster.getType() >> "type"
         cluster.getServerGroups() >> [serverGroup]
         cluster
       }
-      result == [serverGroup] as Set
+      1 * serverGroupController.getServerGroupByApplication("app", "account", "us-west-2", "clusterName-v001") >> serverGroup
+      0 * _
+
+      // all similarly named server groups are returned (ie. one per region) when region not provided
+      result == [serverGroup]
+
+    when: "region is supplied"
+      result = clusterController.getServerGroup("app", "account", "clusterName", "type", "clusterName-v001", "us-west-2")
+
+    then: "expect a single server group to be returned"
+      1 * clusterProvider1.getCloudProviderId() >> { return "type" }
+      1 * clusterProvider1.supportsMinimalClusters() >> { return false }
+      1 * clusterProvider1.getCluster("app", "account", "clusterName", true) >> {
+        def cluster = Mock(Cluster)
+        cluster.getType() >> "type"
+        cluster.getServerGroups() >> [serverGroup]
+        cluster
+      }
+      0 * _
+
+      // only a single server group is returned when region is explicitly provided
+      result == serverGroup
   }
 
   void "should throw exception when no clusters are found for an account"() {
@@ -115,7 +142,7 @@ class ClusterControllerSpec extends Specification {
       clusterController.clusterProviders = [clusterProvider1]
 
     when:
-      clusterController.getForAccountAndName("app", "account", "name")
+      clusterController.getForAccountAndName("app", "account", "name", true)
 
     then:
       1 * clusterProvider1.getCluster(*_) >> null
@@ -125,8 +152,12 @@ class ClusterControllerSpec extends Specification {
   @Unroll
   void "should return the server group for the '#location:#target' target"() {
     given:
+      def serverGroupController = Mock(ServerGroupController)
+
       def clusterProvider1 = Mock(ClusterProvider)
       clusterController.clusterProviders = [clusterProvider1]
+      clusterController.serverGroupController = serverGroupController
+
       def serverGroup1 = Mock(ServerGroup)
       with(serverGroup1) {
         getName() >> "serverGroup-v1"
@@ -164,6 +195,8 @@ class ClusterControllerSpec extends Specification {
         getInstances() >> [Mock(Instance), Mock(Instance)]
       }
 
+      clusterProvider1.getCloudProviderId() >> { return "cloudProvider" }
+      clusterProvider1.supportsMinimalClusters() >> { return false }
       clusterProvider1.getCluster(*_) >> {
         def cluster = Mock(Cluster)
         with(cluster) {
@@ -172,6 +205,10 @@ class ClusterControllerSpec extends Specification {
         }
         cluster
       }
+      serverGroupController.getServerGroup(_, _, "north", "serverGroup-v1") >> { return serverGroup1 }
+      serverGroupController.getServerGroup(_, _, "south", "serverGroup-v2") >> { return serverGroup2 }
+      serverGroupController.getServerGroup(_, _, "north", "serverGroup-v2") >> { return serverGroup3 }
+      serverGroupController.getServerGroup(_, _, "south", "serverGroup-v3") >> { return serverGroup4 }
 
     when:
       def result = clusterController.getTargetServerGroup(
@@ -223,8 +260,12 @@ class ClusterControllerSpec extends Specification {
 
   def "should get ImageSummary from serverGroup"() {
     given:
+      def serverGroupController = Mock(ServerGroupController)
+
       def clusterProvider1 = Mock(ClusterProvider)
       clusterController.clusterProviders = [clusterProvider1]
+      clusterController.serverGroupController = serverGroupController
+
       def mockImageSummary = Mock(ServerGroup.ImageSummary)
       def serverGroup1 = Mock(ServerGroup)
       with(serverGroup1) {
@@ -236,6 +277,9 @@ class ClusterControllerSpec extends Specification {
         getInstances() >> [Mock(Instance)]
         getImageSummary() >> mockImageSummary
       }
+
+      clusterProvider1.getCloudProviderId() >> { return "cloudProvider" }
+      clusterProvider1.supportsMinimalClusters() >> { return true }
       clusterProvider1.getCluster(*_) >> {
         def cluster = Mock(Cluster)
         with(cluster) {
@@ -244,6 +288,7 @@ class ClusterControllerSpec extends Specification {
         }
         cluster
       }
+      serverGroupController.getServerGroupByApplication(*_)  >> { return serverGroup1 }
 
     when:
       def result = clusterController.getServerGroupSummary(

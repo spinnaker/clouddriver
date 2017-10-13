@@ -35,11 +35,12 @@ class DockerRegistryClientSpec extends Specification {
   DockerRegistryClient client
 
   def setupSpec() {
-    client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100)
+
   }
 
   void "DockerRegistryClient should request a real set of tags."() {
     when:
+      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", false)
       DockerRegistryTags result = client.getTags(REPOSITORY1)
 
     then:
@@ -49,10 +50,34 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient should validate that it is pointing at a v2 endpoint."() {
     when:
+      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", false)
       // Can only fail due to an exception thrown here.
       client.checkV2Availability()
 
     then:
       true
+  }
+
+  void "DockerRegistryClient invoked with insecureRegistry=true"() {
+    when:
+      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", true)
+      DockerRegistryTags result = client.getTags(REPOSITORY1)
+
+    then:
+      result.name == REPOSITORY1
+      result.tags.size() > 0
+  }
+
+  void "DockerRegistryClient uses correct user agent"() {
+    when:
+    client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", true)
+    client.registryService = Mock(DockerRegistryClient.DockerRegistryService)
+
+    def userAgent = client.userAgent
+    client.getTags(REPOSITORY1)
+
+    then:
+    userAgent.startsWith("Spinnaker")
+    1 * client.registryService.getTags(_, _, userAgent)
   }
 }

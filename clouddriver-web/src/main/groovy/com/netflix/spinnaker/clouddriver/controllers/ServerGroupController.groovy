@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.model.view.ServerGroupViewModelPostProcessor
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
+import com.netflix.spinnaker.moniker.Moniker
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.MessageSource
 import org.springframework.security.access.prepost.PostAuthorize
@@ -58,12 +59,28 @@ class ServerGroupController {
 
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ') and hasPermission(#account, 'ACCOUNT', 'READ')")
   @RequestMapping(value = "/applications/{application}/serverGroups/{account}/{region}/{name:.+}", method = RequestMethod.GET)
-  ServerGroup getServerGroup(@PathVariable String application, // needed for @PreAuthorize
-                             @PathVariable String account,
-                             @PathVariable String region,
-                             @PathVariable String name) {
+  ServerGroup getServerGroupByApplication(@PathVariable String application, // needed for @PreAuthorize
+                                          @PathVariable String account,
+                                          @PathVariable String region,
+                                          @PathVariable() String name) {
+    getServerGroup(account, region, name)
+  }
+
+  @PreAuthorize("hasPermission(#account, 'ACCOUNT', 'READ')")
+  @PostAuthorize("hasPermission(returnObject?.moniker?.app, 'APPLICATION', 'READ')")
+  @RequestMapping(value = "/serverGroups/{account}/{region}/{name:.+}", method = RequestMethod.GET)
+  // TODO: /application and /serverGroup endpoints should be in their own controllers. See https://github.com/spinnaker/spinnaker/issues/2023
+  ServerGroup getServerGroupByMoniker(@PathVariable String account,
+                                      @PathVariable String region,
+                                      @PathVariable String name) {
+    getServerGroup(account, region, name)
+  }
+
+  private getServerGroup(String account,
+                         String region,
+                         String name) {
     def matches = (Set<ServerGroup>) clusterProviders.findResults { provider ->
-      requestQueue.execute(application, { provider.getServerGroup(account, region, name) })
+      requestQueue.execute(name, { provider.getServerGroup(account, region, name) })
     }
     if (!matches) {
       throw new NotFoundException("Server group not found (account: ${account}, region: ${region}, name: ${name})")
@@ -78,8 +95,12 @@ class ServerGroupController {
   List<Map> expandedList(String application, String cloudProvider) {
     return clusterProviders
       .findAll { cloudProvider ? cloudProvider.equalsIgnoreCase(it.cloudProviderId) : true }
-      .findResults { ClusterProvider cp -> requestQueue.execute(application, { cp.getClusterDetails(application)?.values() }) }
-      .collectNested { Cluster c ->
+      .findResults { ClusterProvider cp ->
+      requestQueue.execute(application, {
+        cp.getClusterDetails(application)?.values()
+      })
+    }
+    .collectNested { Cluster c ->
       c.serverGroups?.collect {
         expanded(it, c)
       } ?: []
@@ -104,7 +125,7 @@ class ServerGroupController {
     def clusters = (Set<Cluster>) clusterProviders
       .findAll { cloudProvider ? cloudProvider.equalsIgnoreCase(it.cloudProviderId) : true }
       .findResults { provider ->
-        requestQueue.execute(application, { provider.getClusterDetails(application)?.values() })
+      requestQueue.execute(application, { provider.getClusterDetails(application)?.values() })
     }.flatten()
     clusters.each { Cluster cluster ->
       cluster.serverGroups.each { ServerGroup serverGroup ->
@@ -117,7 +138,7 @@ class ServerGroupController {
 
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ')")
   @PostAuthorize("@authorizationSupport.filterForAccounts(returnObject)")
-  @RequestMapping(value= "/applications/{application}/serverGroups", method = RequestMethod.GET)
+  @RequestMapping(value = "/applications/{application}/serverGroups", method = RequestMethod.GET)
   List list(@PathVariable String application,
             @RequestParam(required = false, value = 'expand', defaultValue = 'false') String expand,
             @RequestParam(required = false, value = 'cloudProvider') String cloudProvider,
@@ -138,7 +159,7 @@ class ServerGroupController {
 
   @PostFilter("hasPermission(filterObject?.application, 'APPLICATION', 'READ')")
   @PostAuthorize("@authorizationSupport.filterForAccounts(returnObject)")
-  @RequestMapping(value= "/serverGroups", method = RequestMethod.GET)
+  @RequestMapping(value = "/serverGroups", method = RequestMethod.GET)
   List getServerGroupsByApplications(@RequestParam(value = 'applications') List<String> applications,
                                      @RequestParam(required = false, value = 'cloudProvider') String cloudProvider) {
     applications.collectMany { summaryList(it, cloudProvider) }
@@ -172,6 +193,7 @@ class ServerGroupController {
     String instanceType
     String application
     Boolean isDisabled
+    Moniker moniker
     Map buildInfo
     Long createdTime
     List<InstanceViewModel> instances
@@ -196,6 +218,7 @@ class ServerGroupController {
       instanceCounts = serverGroup.getInstanceCounts()
       securityGroups = serverGroup.getSecurityGroups()
       loadBalancers = serverGroup.getLoadBalancers()
+      moniker = serverGroup.getMoniker()
       if (serverGroup.launchConfig) {
         if (serverGroup.launchConfig.instanceType) {
           instanceType = serverGroup.launchConfig.instanceType

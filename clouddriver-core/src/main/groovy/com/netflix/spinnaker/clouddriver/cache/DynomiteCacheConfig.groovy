@@ -27,11 +27,10 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AgentScheduler
 import com.netflix.spinnaker.cats.cache.NamedCacheFactory
 import com.netflix.spinnaker.cats.dynomite.DynomiteClientDelegate
+import com.netflix.spinnaker.cats.dynomite.cache.DynomiteCache.CacheMetrics
 import com.netflix.spinnaker.cats.dynomite.cache.DynomiteNamedCacheFactory
 import com.netflix.spinnaker.cats.dynomite.cluster.DynoClusteredAgentScheduler
 import com.netflix.spinnaker.cats.redis.RedisClientDelegate
-import com.netflix.spinnaker.cats.redis.cache.AbstractRedisCache
-import com.netflix.spinnaker.cats.redis.cache.AbstractRedisCache.CacheMetrics
 import com.netflix.spinnaker.cats.redis.cache.RedisCacheOptions
 import com.netflix.spinnaker.cats.redis.cluster.AgentIntervalProvider
 import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeIdentity
@@ -54,8 +53,8 @@ import java.util.concurrent.TimeUnit
 class DynomiteCacheConfig {
 
   @Bean
-  AbstractRedisCache.CacheMetrics cacheMetrics(Registry registry) {
-    new SpectatorRedisCacheMetrics(registry)
+  CacheMetrics cacheMetrics(Registry registry) {
+    new SpectatorDynomiteCacheMetrics(registry)
   }
 
   @Bean
@@ -103,7 +102,7 @@ class DynomiteCacheConfig {
 
   @Bean
   NamedCacheFactory cacheFactory(
-    RedisClientDelegate dynomiteClientDelegate,
+    DynomiteClientDelegate dynomiteClientDelegate,
     ObjectMapper objectMapper,
     RedisCacheOptions redisCacheOptions,
     CacheMetrics cacheMetrics) {
@@ -120,6 +119,7 @@ class DynomiteCacheConfig {
   AgentIntervalProvider agentIntervalProvider(RedisConfigurationProperties redisConfigurationProperties) {
     new CustomSchedulableAgentIntervalProvider(
       TimeUnit.SECONDS.toMillis(redisConfigurationProperties.poll.intervalSeconds),
+      TimeUnit.SECONDS.toMillis(redisConfigurationProperties.poll.errorIntervalSeconds),
       TimeUnit.SECONDS.toMillis(redisConfigurationProperties.poll.timeoutSeconds)
     );
   }

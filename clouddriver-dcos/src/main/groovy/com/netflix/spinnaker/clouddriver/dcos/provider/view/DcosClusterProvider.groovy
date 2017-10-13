@@ -91,10 +91,10 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster> {
   }
 
   @Override
-  DcosCluster getCluster(final String application, final String account, final String name) {
+  DcosCluster getCluster(String application, String account, String name, boolean includeDetails) {
     CacheData serverGroupCluster = cacheView.get(Keys.Namespace.CLUSTERS.ns, Keys.getClusterKey(account, application, name))
     List<CacheData> clusters = [serverGroupCluster] - null
-    return clusters ? translateClusters(clusters, true).inject(new DcosCluster()) { DcosCluster acc, DcosCluster val ->
+    return clusters ? translateClusters(clusters, includeDetails).inject(new DcosCluster()) { DcosCluster acc, DcosCluster val ->
       acc.name = acc.name ?: val.name
       acc.accountName = acc.accountName ?: val.accountName
       acc.loadBalancers.addAll(val.loadBalancers)
@@ -104,10 +104,19 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster> {
   }
 
   @Override
+  DcosCluster getCluster(final String application, final String account, final String name) {
+    return getCluster(application, account, name, true)
+  }
+
+  @Override
   ServerGroup getServerGroup(final String account, final String combinedRegion, final String name) {
     String region = combinedRegion.split(DcosSpinnakerAppId.SAFE_REGION_SEPARATOR).first()
     String group = combinedRegion.split(DcosSpinnakerAppId.SAFE_REGION_SEPARATOR).tail().join("/")
-    String serverGroupKey = Keys.getServerGroupKey(DcosSpinnakerAppId.from(account, group, name).get(), region)
+    Optional<DcosSpinnakerAppId> appId = DcosSpinnakerAppId.from(account, group, name)
+    if (!appId.present) {
+      return null
+    }
+    String serverGroupKey = Keys.getServerGroupKey(appId.get(), region)
     CacheData serverGroupData = cacheView.get(Keys.Namespace.SERVER_GROUPS.ns, serverGroupKey)
     if (!serverGroupData) {
       return null
@@ -119,6 +128,11 @@ class DcosClusterProvider implements ClusterProvider<DcosCluster> {
   @Override
   String getCloudProviderId() {
     return dcosCloudProvider.id
+  }
+
+  @Override
+  boolean supportsMinimalClusters() {
+    return false
   }
 
   private static Map<String, Set<DcosCluster>> mapResponse(Collection<DcosCluster> clusters) {

@@ -19,6 +19,8 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.ec2.model.DeleteSecurityGroupRequest
 import com.amazonaws.services.ec2.model.IpPermission
+import com.amazonaws.services.ec2.model.IpRange
+import com.amazonaws.services.ec2.model.Ipv6Range
 import com.amazonaws.services.ec2.model.RevokeSecurityGroupIngressRequest
 import com.amazonaws.services.ec2.model.SecurityGroup
 import com.amazonaws.services.ec2.model.UserIdGroupPair
@@ -95,44 +97,19 @@ class DeleteSecurityGroupAtomicOperation implements AtomicOperation<Void> {
                       securityGroupToRevokeIngressPermissions.put(sg, ipPermissions)
                     }
                     IpPermission permission = ipPerm.clone()
+
+                    // Make sure we only delete the security group rules and not the IP range rules
+                    permission.setIpRanges(new ArrayList<String>())
+                    permission.setIpv4Ranges(new ArrayList<IpRange>())
+                    permission.setIpv6Ranges(new ArrayList<Ipv6Range>())
                     permission.userIdGroupPairs = [pair]
+
                     ipPermissions.push(permission)
                   }
                 }
               }
             }
-
-            // Try to clear dependency violations
-            if (description.removeDependencies && securityGroupToRevokeIngressPermissions.size() > 0) {
-              // We only support removing ingress rules right now.
-              // Revoke ingress rules that contain this security group
-              securityGroupToRevokeIngressPermissions.each { entry ->
-                RevokeSecurityGroupIngressRequest req = new RevokeSecurityGroupIngressRequest(groupId: entry.key.groupId, ipPermissions: entry.value)
-                try {
-                  ec2.revokeSecurityGroupIngress(req)
-                } catch (AmazonServiceException ase) {
-                  task.updateStatus BASE_PHASE, ase.errorMessage
-                }
-              }
-
-              // Try to delete the security group one more time
-              // We need to retry a couple times because the ingress revoke has some propagation delay
-              // and we might be trying to delete it too soon
-              try {
-                OperationPoller.retryWithBackoff({ o ->
-                  ec2.deleteSecurityGroup(request)
-                }, 1000, 2)
-              } catch (AmazonServiceException ase) {
-                if (e.errorCode == "DependencyViolation") {
-                  this.generateDependencyError(e, task, securityGroupToRevokeIngressPermissions)
-                } else if (e.errorCode != "InvalidGroup.NotFound") {
-                  task.updateStatus BASE_PHASE, ase.errorMessage
-                  throw ase
-                }
-              }
-            } else {
-              this.generateDependencyError(e, task, securityGroupToRevokeIngressPermissions)
-            }
+            this.generateDependencyError(e, task, securityGroupToRevokeIngressPermissions)
           } else if (e.errorCode != "InvalidGroup.NotFound") {
             task.updateStatus BASE_PHASE, e.errorMessage
             throw e

@@ -71,7 +71,7 @@ class AllowLaunchAtomicOperationUnitSpec extends Specification {
     1 * ec2.describeImages(_) >> { DescribeImagesRequest dir ->
         assert dir.executableUsers
         assert dir.executableUsers.size() == 1
-        assert dir.executableUsers.first() == '67890'
+        assert dir.executableUsers.first() == '12345'
         assert dir.filters
         assert dir.filters.size() == 1
         assert dir.filters.first().name == 'name'
@@ -79,38 +79,42 @@ class AllowLaunchAtomicOperationUnitSpec extends Specification {
 
         new DescribeImagesResult().withImages(new Image().withImageId('ami-12345').withOwnerId('67890'))
     }
-    1 * ec2.modifyImageAttribute(_)
   }
 
   void "image attribute modification is invoked on request"() {
     setup:
-    def ec2 = Mock(AmazonEC2) {
+    def prodCredentials = TestCredential.named('prod')
+    def testCredentials = TestCredential.named('test')
+
+    def sourceAmazonEc2 = Mock(AmazonEC2) {
       describeTags(_) >> new DescribeTagsResult()
-      describeImages(_) >> new DescribeImagesResult().withImages(new Image().withImageId('ami-123456').withOwnerId('5678'))
+      describeImages(_) >> new DescribeImagesResult().withImages(new Image().withImageId('ami-123456').withOwnerId(testCredentials.accountId))
     }
-    def provider = Stub(AmazonClientProvider) {
-      getAmazonEC2(_, _, true) >> ec2
+    def targetAmazonEc2 = Mock(AmazonEC2) {
+      describeTags(_) >> new DescribeTagsResult()
+      describeImages(_) >> null
     }
-    def source = Stub(NetflixAmazonCredentials) {
-      getAccountId() >> '5678'
-    }
-    def description = new AllowLaunchDescription(account: "prod", amiName: "ami-123456", region: "us-west-1", credentials: source)
+    def provider = Mock(AmazonClientProvider)
+    def description = new AllowLaunchDescription(account: "prod", amiName: "ami-123456", region: "us-west-1", credentials: testCredentials)
     def op = new AllowLaunchAtomicOperation(description)
     op.amazonClientProvider = provider
-    def accountHolder = Mock(AccountCredentialsProvider)
-    op.accountCredentialsProvider = accountHolder
+    op.accountCredentialsProvider = Mock(AccountCredentialsProvider)
 
     when:
     op.operate([])
 
     then:
-    1 * ec2.modifyImageAttribute(_) >> { ModifyImageAttributeRequest request ->
-      assert request.launchPermission.add.get(0).userId == "5678"
+    with(op.accountCredentialsProvider){
+      1 * getCredentials("prod") >> prodCredentials
     }
-    1 * accountHolder.getCredentials("prod") >> {
-      def mock = Stub(NetflixAmazonCredentials)
-      mock.getAccountId() >> 5678
-      mock
+    with(provider) {
+      1 * getAmazonEC2(testCredentials, _, true) >> sourceAmazonEc2
+      1 * getAmazonEC2(prodCredentials, _, true) >> targetAmazonEc2
+    }
+    with(sourceAmazonEc2) {
+      1 * modifyImageAttribute(_) >> { ModifyImageAttributeRequest request ->
+        assert request.launchPermission.add.get(0).userId == prodCredentials.accountId
+      }
     }
   }
 
@@ -173,9 +177,8 @@ class AllowLaunchAtomicOperationUnitSpec extends Specification {
       1 * getAmazonEC2(testCredentials, _, true) >> sourceAmazonEc2
       1 * getAmazonEC2(testCredentials, _, true) >> targetAmazonEc2
     }
-    with(sourceAmazonEc2) {
+    with(targetAmazonEc2) {
       1 * describeImages(_) >> new DescribeImagesResult().withImages(new Image().withImageId("ami-123456").withOwnerId(testCredentials.accountId))
-      1 * modifyImageAttribute(_)
     }
 
     0 * _
@@ -251,14 +254,13 @@ class AllowLaunchAtomicOperationUnitSpec extends Specification {
       1 * getAmazonEC2(ownerCredentials, _, true) >> ownerAmazonEc2
     }
 
-    with(ownerAmazonEc2) {
+    with(targetAmazonEc2) {
       1 * describeImages(_) >> new DescribeImagesResult().withImages(
         new Image()
           .withImageId("ami-123456")
           .withOwnerId(ownerCredentials.accountId)
           .withPublic(true))
     }
-
     0 * _
 
   }
@@ -286,6 +288,9 @@ class AllowLaunchAtomicOperationUnitSpec extends Specification {
       1 * getAmazonEC2(targetCredentials, _, true) >> targetAmazonEc2
       1 * getAmazonEC2(sourceCredentials, _, true) >> sourceAmazonEc2
     }
+    with(targetAmazonEc2) {
+      3 * describeImages(_) >> new DescribeImagesResult()
+    }
     with(sourceAmazonEc2) {
       3 * describeImages(_) >> new DescribeImagesResult()
     }
@@ -301,8 +306,8 @@ class AllowLaunchAtomicOperationUnitSpec extends Specification {
   Closure<DescribeTagsResult> constructDescribeTagsResult = { Map tags ->
     new DescribeTagsResult(tags: tags.collect {new TagDescription(key: it.key, value: it.value) })
   }
-  
-  void "should return resolved target AMI without performing additional operations"() {  
+
+  void "should skip allow launch on resolved target AMI if found but still perform tag syncing"() {
     setup:
     def ownerCredentials = TestCredential.named('owner')
     def targetCredentials = TestCredential.named('target')
@@ -326,17 +331,23 @@ class AllowLaunchAtomicOperationUnitSpec extends Specification {
       1 * getAmazonEC2(targetCredentials, _, true) >> targetAmazonEc2
       1 * getAmazonEC2(ownerCredentials, _, true) >> ownerAmazonEc2
     }
-    with(ownerAmazonEc2) {
-      3 * describeImages(_) >> new DescribeImagesResult()
-    }	
     with(targetAmazonEc2) {
       1 * describeImages(_) >> new DescribeImagesResult().withImages(
         new Image()
           .withImageId("ami-123456")
-          .withOwnerId(targetCredentials.accountId))	  
+          .withOwnerId(ownerCredentials.accountId))
+      1 * describeTags(_) >> new DescribeTagsResult().withTags(new TagDescription().withKey("existingTag").withValue("existingValue"))
+      1 * createTags(_) >> { CreateTagsRequest ctr ->
+        assert ctr.getTags().size() == 1
+        assert ctr.getTags().get(0).getKey() == "missingTag"
+        assert ctr.getTags().get(0).getValue() == "missingValue"
+      }
+    }
+    with (ownerAmazonEc2) {
+      1 * describeTags(_) >> new DescribeTagsResult().withTags(new TagDescription().withKey("existingTag").withValue("existingValue"), new TagDescription().withKey("missingTag").withValue("missingValue"))
     }
     0 * _
-    
+
   }
-  
+
 }

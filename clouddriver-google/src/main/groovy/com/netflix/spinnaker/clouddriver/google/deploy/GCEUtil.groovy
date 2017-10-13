@@ -382,24 +382,48 @@ class GCEUtil {
                                                                   String phase,
                                                                   SafeRetry safeRetry,
                                                                   GoogleExecutorTraits executor) {
-    Map<String, InstanceGroupManagersScopedList> aggregatedList = safeRetry.doRetry(
-      { return executor.timeExecute(
-            credentials.compute.instanceGroupManagers().aggregatedList(projectName),
+    boolean executedAtLeastOnce = false
+    String nextPageToken = null
+    Map<String, InstanceGroupManagersScopedList> fullAggregatedList = [:].withDefault { new InstanceGroupManagersScopedList() }
+
+    while (!executedAtLeastOnce || nextPageToken) {
+      Map<String, InstanceGroupManagersScopedList> aggregatedList = safeRetry.doRetry(
+        {
+          InstanceGroupManagerAggregatedList instanceGroupManagerAggregatedList = executor.timeExecute(
+            credentials.compute.instanceGroupManagers().aggregatedList(projectName).setPageToken(nextPageToken),
             "compute.instanceGroupManagers.aggregatedList",
             executor.TAG_SCOPE, executor.SCOPE_GLOBAL
-        ).getItems()
-      },
-      "aggregated managed instance groups",
-      task,
-      RETRY_ERROR_CODES,
-      [],
-      [action: "list", phase: phase, operation: "compute.instanceGroupManagers.aggregatedList", (executor.TAG_SCOPE): executor.SCOPE_GLOBAL],
-      executor.registry
-    ) as Map<String, InstanceGroupManagersScopedList>
+          )
+
+          executedAtLeastOnce = true
+          nextPageToken = instanceGroupManagerAggregatedList.getNextPageToken()
+
+          return instanceGroupManagerAggregatedList.getItems()
+        },
+        "aggregated managed instance groups",
+        task,
+        RETRY_ERROR_CODES,
+        [],
+        [action: "list", phase: phase, operation: "compute.instanceGroupManagers.aggregatedList", (executor.TAG_SCOPE): executor.SCOPE_GLOBAL],
+        executor.registry
+      ) as Map<String, InstanceGroupManagersScopedList>
+
+      aggregatedList.each { scope, InstanceGroupManagersScopedList instanceGroupManagersScopedList ->
+        // Only accumulate these results if there are actual MIGs in this scope.
+        if (instanceGroupManagersScopedList.getInstanceGroupManagers()) {
+          // The scope we are adding to may not have any MIGs yet.
+          if (!fullAggregatedList[scope].getInstanceGroupManagers()) {
+            fullAggregatedList[scope].setInstanceGroupManagers([])
+          }
+
+          fullAggregatedList[scope].getInstanceGroupManagers().addAll(instanceGroupManagersScopedList.getInstanceGroupManagers())
+        }
+      }
+    }
 
     def zonesInRegion = credentials.getZonesFromRegion(region)
 
-    return aggregatedList.findResults { _, InstanceGroupManagersScopedList instanceGroupManagersScopedList ->
+    return fullAggregatedList.findResults { _, InstanceGroupManagersScopedList instanceGroupManagersScopedList ->
       return instanceGroupManagersScopedList.getInstanceGroupManagers()?.findResults { mig ->
         if (mig.zone) {
           return getLocalName(mig.zone) in zonesInRegion ? mig : null
@@ -574,13 +598,21 @@ class GCEUtil {
     return GCE_API_PREFIX + "$projectName/regions/$region/instanceGroups/$serverGroupName"
   }
 
-  static List<AttachedDisk> buildAttachedDisks(String projectName,
+  static List<AttachedDisk> buildAttachedDisks(BaseGoogleInstanceDescription description,
                                                String zone,
-                                               Image sourceImage,
-                                               List<GoogleDisk> disks,
                                                boolean useDiskTypeUrl,
-                                               String instanceType,
-                                               GoogleConfiguration.DeployDefaults deployDefaults) {
+                                               GoogleConfiguration.DeployDefaults deployDefaults,
+                                               Task task,
+                                               String phase,
+                                               String clouddriverUserAgentApplicationName,
+                                               List<String> baseImageProjects,
+                                               GoogleExecutorTraits executor) {
+    def credentials = description.credentials
+    def compute = credentials.compute
+    def project = credentials.project
+    def disks = description.disks
+    def instanceType = description.instanceType
+
     if (!disks) {
       disks = deployDefaults.determineInstanceTypeDisk(instanceType).disks
     }
@@ -591,14 +623,27 @@ class GCEUtil {
 
     def firstPersistentDisk = disks.find { it.persistent }
 
-    if (firstPersistentDisk && sourceImage.diskSizeGb > firstPersistentDisk.sizeGb) {
-      firstPersistentDisk.sizeGb = sourceImage.diskSizeGb
-    }
-
     return disks.collect { disk ->
-      def diskType = useDiskTypeUrl ? buildDiskTypeUrl(projectName, zone, disk.type) : disk.type
+      def diskType = useDiskTypeUrl ? buildDiskTypeUrl(project, zone, disk.type) : disk.type
+      def sourceImage =
+        disk.persistent
+        ? queryImage(project,
+                     disk.is(firstPersistentDisk) ? description.image : disk.sourceImage,
+                     credentials,
+                     compute,
+                     task,
+                     phase,
+                     clouddriverUserAgentApplicationName,
+                     baseImageProjects,
+                     executor)
+        : null
+
+      if (sourceImage && sourceImage.diskSizeGb > disk.sizeGb) {
+        disk.sizeGb = sourceImage.diskSizeGb
+      }
+
       def attachedDiskInitializeParams =
-        new AttachedDiskInitializeParams(sourceImage: disk.is(firstPersistentDisk) ? sourceImage.selfLink : null,
+        new AttachedDiskInitializeParams(sourceImage: sourceImage?.selfLink,
                                          diskSizeGb: disk.sizeGb,
                                          diskType: diskType)
 
@@ -1027,7 +1072,7 @@ class GCEUtil {
     )
   }
 
-  // Note: listeningPort is not set in this method.
+  // Note: namedPorts are not set in this method.
   static GoogleHttpLoadBalancingPolicy loadBalancingPolicyFromBackend(Backend backend) {
     def backendBalancingMode = GoogleLoadBalancingPolicy.BalancingMode.valueOf(backend.balancingMode)
     return new GoogleHttpLoadBalancingPolicy(
