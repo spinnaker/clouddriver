@@ -15,7 +15,7 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -96,6 +96,11 @@ public class KubernetesManifestAnnotater {
   public static void annotateManifest(KubernetesManifest manifest, Artifact artifact) {
     Map<String, String> annotations = manifest.getAnnotations();
     storeAnnotations(annotations, artifact);
+
+    manifest.getSpecTemplateAnnotations().flatMap(a -> {
+      storeAnnotations(a, artifact);
+      return Optional.empty();
+    });
   }
 
   private static void storeAnnotations(Map<String, String> annotations, Moniker moniker) {

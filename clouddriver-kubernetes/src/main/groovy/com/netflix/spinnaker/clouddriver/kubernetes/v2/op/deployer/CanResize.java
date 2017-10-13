@@ -15,21 +15,11 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import com.netflix.spinnaker.moniker.Moniker;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup.Capacity;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class KubernetesManifestMetadata {
-  KubernetesManifestSpinnakerRelationships relationships;
-  Artifact artifact;
-  Moniker moniker;
+public interface CanResize {
+  void resize(KubernetesV2Credentials credentials, String namespace, String name, Capacity capacity);
 }

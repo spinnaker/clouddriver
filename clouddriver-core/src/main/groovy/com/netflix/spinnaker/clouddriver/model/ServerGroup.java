@@ -21,6 +21,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 import java.util.Map;
@@ -162,55 +166,11 @@ public interface ServerGroup {
   @Deprecated
   ImageSummary getImageSummary();
 
+  @Builder
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Data
   static class InstanceCounts {
-    public Integer getTotal() {
-      return total;
-    }
-
-    public void setTotal(Integer total) {
-      this.total = total;
-    }
-
-    public Integer getUp() {
-      return up;
-    }
-
-    public void setUp(Integer up) {
-      this.up = up;
-    }
-
-    public Integer getDown() {
-      return down;
-    }
-
-    public void setDown(Integer down) {
-      this.down = down;
-    }
-
-    public Integer getUnknown() {
-      return unknown;
-    }
-
-    public void setUnknown(Integer unknown) {
-      this.unknown = unknown;
-    }
-
-    public Integer getOutOfService() {
-      return outOfService;
-    }
-
-    public void setOutOfService(Integer outOfService) {
-      this.outOfService = outOfService;
-    }
-
-    public Integer getStarting() {
-      return starting;
-    }
-
-    public void setStarting(Integer starting) {
-      this.starting = starting;
-    }
-
     /**
      * Total number of instances in the server group
      */
@@ -237,31 +197,11 @@ public interface ServerGroup {
     private Integer starting = 0;
   }
 
+  @Builder
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Data
   public static class Capacity {
-    public Integer getMin() {
-      return min;
-    }
-
-    public void setMin(Integer min) {
-      this.min = min;
-    }
-
-    public Integer getMax() {
-      return max;
-    }
-
-    public void setMax(Integer max) {
-      this.max = max;
-    }
-
-    public Integer getDesired() {
-      return desired;
-    }
-
-    public void setDesired(Integer desired) {
-      this.desired = desired;
-    }
-
     /**
      * Minimum number of instances required in this server group. If provider specific {@code ServerGroup} does not have
      * a notion of min then this should be same as {@code desired}

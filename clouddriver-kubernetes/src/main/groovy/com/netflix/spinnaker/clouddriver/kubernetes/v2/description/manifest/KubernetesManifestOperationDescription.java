@@ -15,15 +15,12 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.description.KubernetesAtomicOperationDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription;
 import com.netflix.spinnaker.moniker.Moniker;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
 @EqualsAndHashCode(callSuper = true)

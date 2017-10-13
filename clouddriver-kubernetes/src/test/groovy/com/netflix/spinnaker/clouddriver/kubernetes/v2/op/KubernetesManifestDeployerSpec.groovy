@@ -24,19 +24,20 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesUnversionedArtifactConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesVersionedArtifactConverter
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestOperationDescription
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestSpinnakerRelationships
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSpinnakerRelationships
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesReplicaSetDeployer
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest.KubernetesManifestDeployer
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import com.netflix.spinnaker.moniker.Moniker
-import io.kubernetes.client.models.V1beta1ReplicaSet
 import org.yaml.snakeyaml.Yaml
 import spock.lang.Specification
 
@@ -95,12 +96,13 @@ metadata:
     versionedArtifactConverterMock.getDeployedName(_) >> "$NAME-$VERSION"
     versionedArtifactConverterMock.toArtifact(_) >> new Artifact()
     def registry = new KubernetesResourcePropertyRegistry(Collections.singletonList(replicaSetDeployer),
+        new KubernetesSpinnakerKindMap(),
         versionedArtifactConverterMock,
         new KubernetesUnversionedArtifactConverter())
 
     NamerRegistry.lookup().withProvider(KubernetesCloudProvider.ID)
       .withAccount(ACCOUNT)
-      .setNamer(V1beta1ReplicaSet.class, new KubernetesManifestNamer());
+      .setNamer(KubernetesManifest.class, new KubernetesManifestNamer())
     
     def deployOp = new KubernetesManifestDeployer(deployDescription, registry)
 
@@ -118,8 +120,8 @@ metadata:
 
     then:
     1 * credentialsMock.createReplicaSet(_) >> null
-    result.serverGroupNames.size == 1
-    result.serverGroupNames[0] == "$NAMESPACE:$API_VERSION|$KIND|$NAME-$VERSION"
+    result.deployedNames.size == 1
+    result.deployedNames[0] == "$NAMESPACE:$API_VERSION|$KIND|$NAME-$VERSION"
   }
 
   void "replica set deployer uses backup namespace"() {
@@ -133,7 +135,7 @@ metadata:
 
     then:
     1 * credentialsMock.createReplicaSet(_) >> null
-    result.serverGroupNames.size == 1
-    result.serverGroupNames[0] == "$BACKUP_NAMESPACE:$API_VERSION|$KIND|$NAME-$VERSION"
+    result.deployedNames.size == 1
+    result.deployedNames[0] == "$BACKUP_NAMESPACE:$API_VERSION|$KIND|$NAME-$VERSION"
   }
 }

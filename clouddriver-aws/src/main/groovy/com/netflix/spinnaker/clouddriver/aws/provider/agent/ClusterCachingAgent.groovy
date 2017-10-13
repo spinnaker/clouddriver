@@ -128,6 +128,13 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
     types
   }
 
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (SERVER_GROUPS.ns): Keys.getServerGroupKey('*', '*', account.name, region)
+    ]
+  }
+
   static class AmazonClients {
     final AmazonAutoScaling autoScaling
     final AmazonEC2 amazonEC2
@@ -685,16 +692,15 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
       serverGroup = Keys.getServerGroupKey(asg.autoScalingGroupName, account, region)
       String vpcId = null
       if (asg.getVPCZoneIdentifier()) {
-        String[] subnets = asg.getVPCZoneIdentifier().split(',')
-        Set<String> vpcIds = subnets.collect { subnetMap[it] }
+        ArrayList<String> subnets = asg.getVPCZoneIdentifier().split(',')
+        Set<String> vpcIds = subnets.findResults { subnetMap[it] }
         if (vpcIds.size() != 1) {
-          throw new RuntimeException("failed to resolve one vpc (found ${vpcIds}) for subnets ${subnets} in ASG ${asg.autoScalingGroupName} account ${account} region ${region}")
+          throw new RuntimeException("failed to resolve only one vpc (found ${vpcIds}) for subnets ${subnets} in ASG ${asg.autoScalingGroupName} account ${account} region ${region}")
         }
         vpcId = vpcIds.first()
       }
       this.vpcId = vpcId
       launchConfig = Keys.getLaunchConfigKey(asg.launchConfigurationName, account, region)
-
       loadBalancerNames = (asg.loadBalancerNames.collect {
         Keys.getLoadBalancerKey(it, account, region, vpcId, null)
       } as Set).asImmutable()

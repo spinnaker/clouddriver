@@ -17,20 +17,29 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
+import com.google.common.primitives.Ints;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
+@Slf4j
 public class KubernetesV2ServerGroup extends ManifestBasedModel implements ServerGroup {
   Boolean disabled;
   Long createdTime;
@@ -39,7 +48,6 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
   Set<String> loadBalancers = new HashSet<>();
   Set<String> securityGroups = new HashSet<>();
   Map<String, Object> launchConfig = new HashMap<>();
-  InstanceCounts instanceCounts;
   Capacity capacity = new Capacity();
   ImageSummary imageSummary;
   ImagesSummary imagesSummary;
@@ -47,12 +55,48 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
   Keys.InfrastructureCacheKey key;
 
   @Override
+  public ServerGroup.InstanceCounts getInstanceCounts() {
+    return ServerGroup.InstanceCounts.builder()
+        .total(Ints.checkedCast(instances.size()))
+        .up(Ints.checkedCast(instances.stream().filter(i -> i.getHealthState().equals(HealthState.Up)).count()))
+        .down(Ints.checkedCast(instances.stream().filter(i -> i.getHealthState().equals(HealthState.Down)).count()))
+        .unknown(Ints.checkedCast(instances.stream().filter(i -> i.getHealthState().equals(HealthState.Unknown)).count()))
+        .outOfService(Ints.checkedCast(instances.stream().filter(i -> i.getHealthState().equals(HealthState.OutOfService)).count()))
+        .starting(Ints.checkedCast(instances.stream().filter(i -> i.getHealthState().equals(HealthState.Starting)).count()))
+        .build();
+  }
+
+  @Override
   public Boolean isDisabled() {
     return disabled;
   }
 
-  public KubernetesV2ServerGroup(KubernetesManifest manifest, String key) {
+  private KubernetesV2ServerGroup(KubernetesManifest manifest, String key, List<KubernetesV2Instance> instances) {
     this.manifest = manifest;
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
+    this.instances = new HashSet<>(instances);
+  }
+
+  public static KubernetesV2ServerGroup fromCacheData(CacheData cd, List<CacheData> instanceData) {
+    if (cd == null) {
+      return null;
+    }
+
+    if (instanceData == null) {
+      instanceData = new ArrayList<>();
+    }
+
+    KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
+
+    if (manifest == null) {
+      log.warn("Cache data {} inserted without a manifest", cd.getId());
+      return null;
+    }
+
+    List<KubernetesV2Instance> instances = instanceData.stream()
+        .map(KubernetesV2Instance::fromCacheData)
+        .collect(Collectors.toList());
+
+    return new KubernetesV2ServerGroup(manifest, cd.getId(), instances);
   }
 }

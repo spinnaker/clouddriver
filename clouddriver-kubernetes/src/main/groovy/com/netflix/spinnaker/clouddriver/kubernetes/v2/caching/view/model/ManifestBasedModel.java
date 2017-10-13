@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
 
@@ -39,7 +39,7 @@ abstract public class ManifestBasedModel {
   }
 
   public String getType() {
-    return getManifest().getKind().toString();
+    return KubernetesCloudProvider.getID();
   }
 
   public String getCloudProvider() {

@@ -15,15 +15,24 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
+import com.netflix.spinnaker.clouddriver.model.Application;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 @Data
-public class KubernetesManifestSpinnakerRelationships {
-  List<String> loadBalancers = new ArrayList<>();
-  List<String> securityGroups = new ArrayList<>();
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class KubernetesV2Application implements Application {
+  private String name;
+  private Map<String, String> attributes = new HashMap<>();
+  private Map<String, Set<String>> clusterNames = new HashMap<>();
 }
