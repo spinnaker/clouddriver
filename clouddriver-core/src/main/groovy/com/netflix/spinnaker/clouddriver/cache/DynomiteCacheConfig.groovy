@@ -102,7 +102,7 @@ class DynomiteCacheConfig {
 
   @Bean
   NamedCacheFactory cacheFactory(
-    RedisClientDelegate dynomiteClientDelegate,
+    DynomiteClientDelegate dynomiteClientDelegate,
     ObjectMapper objectMapper,
     RedisCacheOptions redisCacheOptions,
     CacheMetrics cacheMetrics) {
@@ -119,6 +119,7 @@ class DynomiteCacheConfig {
   AgentIntervalProvider agentIntervalProvider(RedisConfigurationProperties redisConfigurationProperties) {
     new CustomSchedulableAgentIntervalProvider(
       TimeUnit.SECONDS.toMillis(redisConfigurationProperties.poll.intervalSeconds),
+      TimeUnit.SECONDS.toMillis(redisConfigurationProperties.poll.errorIntervalSeconds),
       TimeUnit.SECONDS.toMillis(redisConfigurationProperties.poll.timeoutSeconds)
     );
   }

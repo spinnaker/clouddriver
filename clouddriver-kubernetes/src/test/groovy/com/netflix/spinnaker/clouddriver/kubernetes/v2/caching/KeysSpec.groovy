@@ -17,8 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
 import spock.lang.Specification
 import spock.lang.Unroll
 
@@ -42,12 +42,12 @@ class KeysSpec extends Specification {
   @Unroll
   def "produces correct cluster keys #key"() {
     expect:
-    Keys.cluster(account, cluster) == key
+    Keys.cluster(account, application, cluster) == key
 
     where:
     account | application | cluster   || key
-    "ac"    | "app"       | "cluster" || "kubernetes.v2:logical:cluster:ac:cluster"
-    ""      | ""          | ""        || "kubernetes.v2:logical:cluster::"
+    "ac"    | "app"       | "cluster" || "kubernetes.v2:logical:cluster:ac:app:cluster"
+    ""      | ""          | ""        || "kubernetes.v2:logical:cluster:::"
   }
 
   @Unroll
@@ -57,9 +57,9 @@ class KeysSpec extends Specification {
 
     where:
     kind                       | apiVersion                              | account | namespace   | name      || key
-    KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "ac"    | "namespace" | "v1-v000" || "kubernetes.v2:infrastructure:extensions/v1beta1:replicaSet:ac:namespace:v1-v000"
+    KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "ac"    | "namespace" | "v1-v000" || "kubernetes.v2:infrastructure:extensions.v1beta1:replicaSet:ac:namespace:v1-v000"
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1                 | "ac"    | "namespace" | "v1"      || "kubernetes.v2:infrastructure:v1:service:ac:namespace:v1"
-    KubernetesKind.DEPLOYMENT  | KubernetesApiVersion.APPS_V1BETA1       | "ac"    | "namespace" | "v1"      || "kubernetes.v2:infrastructure:apps/v1beta1:deployment:ac:namespace:v1"
+    KubernetesKind.DEPLOYMENT  | KubernetesApiVersion.APPS_V1BETA1       | "ac"    | "namespace" | "v1"      || "kubernetes.v2:infrastructure:apps.v1beta1:deployment:ac:namespace:v1"
   }
 
   @Unroll
@@ -82,21 +82,22 @@ class KeysSpec extends Specification {
   @Unroll
   def "unpacks cluster key for '#name' and '#account'"() {
     when:
-    def key = "kubernetes.v2:logical:cluster:$account:$name"
+    def key = "kubernetes.v2:logical:cluster:$account:$application:$name"
     def parsed = Keys.parseKey(key).get()
 
     then:
     parsed instanceof Keys.ClusterCacheKey
     def parsedClusterKey = (Keys.ClusterCacheKey) parsed
     parsedClusterKey.account == account
+    parsedClusterKey.application == application
     parsedClusterKey.name == name
 
     where:
-    account | name
-    "ac"    | "name"
-    ""      | "sdf"
-    "ac"    | ""
-    ""      | ""
+    account | application | name
+    "ac"    | ""          | "name"
+    ""      | "asdf"      | "sdf"
+    "ac"    | "ll"        | ""
+    ""      | ""          | ""
   }
 
   @Unroll

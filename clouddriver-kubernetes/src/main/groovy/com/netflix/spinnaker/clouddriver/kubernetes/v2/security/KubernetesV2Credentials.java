@@ -20,21 +20,22 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fge.jsonpatch.diff.JsonDiff;
-import com.google.gson.Gson;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import io.kubernetes.client.ApiClient;
 import io.kubernetes.client.ApiException;
 import io.kubernetes.client.apis.AppsV1beta1Api;
 import io.kubernetes.client.apis.CoreV1Api;
 import io.kubernetes.client.apis.ExtensionsV1beta1Api;
 import io.kubernetes.client.models.AppsV1beta1Deployment;
+import io.kubernetes.client.models.V1DeleteOptions;
 import io.kubernetes.client.models.V1Pod;
 import io.kubernetes.client.models.V1PodList;
 import io.kubernetes.client.models.V1Service;
+import io.kubernetes.client.models.V1Status;
 import io.kubernetes.client.models.V1beta1Ingress;
 import io.kubernetes.client.models.V1beta1NetworkPolicy;
 import io.kubernetes.client.models.V1beta1NetworkPolicyList;
@@ -66,12 +67,14 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final Clock clock;
   private final String accountName;
   private final ObjectMapper mapper = new ObjectMapper();
-  private final Gson gson = new Gson();
   private final List<String> namespaces;
   private final List<String> omitNamespaces;
   private final String PRETTY = "";
+  private final String CONTINUE = null;
   private final boolean EXACT = true;
   private final boolean EXPORT = false;
+  private final boolean INCLUDE_UNINITIALIZED = false;
+  private final Integer LIMIT = null; // TODO(lwander): include paginination
   private final boolean WATCH = false;
   private final String DEFAULT_VERSION = "0";
   private final int TIMEOUT_SECONDS = 10; // TODO(lwander) make configurable
@@ -87,6 +90,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     List<String> namespaces = new ArrayList<>();
     List<String> omitNamespaces = new ArrayList<>();
     Registry registry;
+    boolean debug;
 
     public Builder accountName(String accountName) {
       this.accountName = accountName;
@@ -123,6 +127,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder debug(boolean debug) {
+      this.debug = debug;
+      return this;
+    }
+
     public KubernetesV2Credentials build() {
       KubeConfig kubeconfig;
       try {
@@ -148,7 +157,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       namespaces = namespaces == null ? new ArrayList<>() : namespaces;
       omitNamespaces = omitNamespaces == null ? new ArrayList<>() : omitNamespaces;
       
-      return new KubernetesV2Credentials(accountName, client, namespaces, omitNamespaces, registry);
+      return new KubernetesV2Credentials(accountName, client, namespaces, omitNamespaces, registry, debug);
     }
 
   }
@@ -157,15 +166,15 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       @NotNull ApiClient client,
       @NotNull List<String> namespaces,
       @NotNull List<String> omitNamespaces,
-      @NotNull Registry registry) {
+      @NotNull Registry registry,
+      boolean debug) {
     this.registry = registry;
     this.clock = registry.clock();
     this.accountName = accountName;
     this.namespaces = namespaces;
     this.omitNamespaces = omitNamespaces;
     this.client = client;
-      // TODO(lwander) make debug mode configurable
-    this.client.setDebugging(true);
+    this.client.setDebugging(debug);
     this.coreV1Api = new CoreV1Api(this.client);
     this.extensionsV1beta1Api = new ExtensionsV1beta1Api(this.client);
     this.appsV1beta1Api = new AppsV1beta1Api(this.client);
@@ -174,11 +183,13 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Override
   public List<String> getDeclaredNamespaces() {
     List<String> result;
+    String labelSelector = null;
+    String fieldSelector = null;
     if (!namespaces.isEmpty()) {
       result = namespaces;
     } else {
       try {
-        result = coreV1Api.listNamespace(null, null, null, null, TIMEOUT_SECONDS, null)
+        result = coreV1Api.listNamespace(PRETTY, CONTINUE, fieldSelector, INCLUDE_UNINITIALIZED, labelSelector, LIMIT, DEFAULT_VERSION, TIMEOUT_SECONDS, WATCH)
             .getItems()
             .stream()
             .map(n -> n.getMetadata().getName())
@@ -220,6 +231,22 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     });
   }
 
+  public V1Status deleteDeployment(String namespace, String name, V1DeleteOptions deleteOptions) {
+    final String methodName = "deployments.delete";
+    return runAndRecordMetrics(methodName, namespace, () -> {
+      try {
+        return appsV1beta1Api.deleteNamespacedDeployment(name, namespace, deleteOptions, PRETTY, null, null, null);
+      } catch (ApiException e) {
+        throw new KubernetesApiException(methodName, e);
+      }
+    });
+  }
+
+  public void patchDeployment(String namespace, String name, AppsV1beta1Deployment desired) {
+    AppsV1beta1Deployment current = readDeployment(namespace, name);
+    patchDeployment(current, desired);
+  }
+
   public void patchDeployment(AppsV1beta1Deployment current, AppsV1beta1Deployment desired) {
     final String methodName = "deployments.patch";
     final String namespace = current.getMetadata().getNamespace();
@@ -252,12 +279,52 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     });
   }
 
+  public void resizeDeployment(String namespace, String name, int replicas) {
+    AppsV1beta1Deployment deployment = readDeployment(namespace, name);
+    deployment.getSpec().setReplicas(replicas);
+    patchDeployment(namespace, name, deployment);
+  }
+
   public void createIngress(V1beta1Ingress ingress) {
     final String methodName = "ingresses.create";
     final String namespace = ingress.getMetadata().getNamespace();
     runAndRecordMetrics(methodName, namespace, () -> {
       try {
         return extensionsV1beta1Api.createNamespacedIngress(namespace, ingress, null);
+      } catch (ApiException e) {
+        throw new KubernetesApiException(methodName, e);
+      }
+    });
+  }
+
+  public V1Status deleteIngress(String namespace, String name, V1DeleteOptions deleteOptions) {
+    final String methodName = "ingresses.delete";
+    return runAndRecordMetrics(methodName, namespace, () -> {
+      try {
+        return extensionsV1beta1Api.deleteNamespacedIngress(name, namespace, deleteOptions, PRETTY, null, null, null);
+      } catch (ApiException e) {
+        throw new KubernetesApiException(methodName, e);
+      }
+    });
+  }
+
+  public void createNetworkPolicy(V1beta1NetworkPolicy networkPolicy) {
+    final String methodName = "networkPolicies.create";
+    final String namespace = networkPolicy.getMetadata().getNamespace();
+    runAndRecordMetrics(methodName, namespace, () -> {
+      try {
+        return extensionsV1beta1Api.createNamespacedNetworkPolicy(namespace, networkPolicy, null);
+      } catch (ApiException e) {
+        throw new KubernetesApiException(methodName, e);
+      }
+    });
+  }
+
+  public V1Status deleteNetworkPolicy(String namespace, String name, V1DeleteOptions deleteOptions) {
+    final String methodName = "networkPolicies.delete";
+    return runAndRecordMetrics(methodName, namespace, () -> {
+      try {
+        return extensionsV1beta1Api.deleteNamespacedNetworkPolicy(name, namespace, deleteOptions, PRETTY, null, null, null);
       } catch (ApiException e) {
         throw new KubernetesApiException(methodName, e);
       }
@@ -276,7 +343,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     final KubernetesKind kind = KubernetesKind.NETWORK_POLICY;
     return runAndRecordMetrics(methodName, namespace, () -> {
       try {
-        V1beta1NetworkPolicyList list = extensionsV1beta1Api.listNamespacedNetworkPolicy(namespace, PRETTY, fieldSelectorString, labelSelectorString, DEFAULT_VERSION, TIMEOUT_SECONDS, WATCH);
+        V1beta1NetworkPolicyList list = extensionsV1beta1Api.listNamespacedNetworkPolicy(namespace, PRETTY, CONTINUE, fieldSelectorString, INCLUDE_UNINITIALIZED, labelSelectorString, LIMIT, DEFAULT_VERSION, TIMEOUT_SECONDS, WATCH);
         return annotateMissingFields(list == null ? new ArrayList<>() : list.getItems(),
             V1beta1NetworkPolicy.class,
             apiVersion,
@@ -317,7 +384,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     final KubernetesKind kind = KubernetesKind.POD;
     return runAndRecordMetrics(methodName, namespace, () -> {
       try {
-        V1PodList list = coreV1Api.listNamespacedPod(namespace, PRETTY, fieldSelectorString, labelSelectorString, DEFAULT_VERSION, TIMEOUT_SECONDS, WATCH);
+        V1PodList list = coreV1Api.listNamespacedPod(namespace, PRETTY, CONTINUE, fieldSelectorString, INCLUDE_UNINITIALIZED, labelSelectorString, LIMIT, DEFAULT_VERSION, TIMEOUT_SECONDS, WATCH);
         return annotateMissingFields(list == null ? new ArrayList<>() : list.getItems(),
             V1Pod.class,
             apiVersion,
@@ -340,6 +407,17 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     });
   }
 
+  public V1Status deleteReplicaSet(String namespace, String name, V1DeleteOptions deleteOptions) {
+    final String methodName = "replicaSets.delete";
+    return runAndRecordMetrics(methodName, namespace, () -> {
+      try {
+        return extensionsV1beta1Api.deleteNamespacedReplicaSet(name, namespace, deleteOptions, PRETTY, null, null, null);
+      } catch (ApiException e) {
+        throw new KubernetesApiException(methodName, e);
+      }
+    });
+  }
+
   public List<V1beta1ReplicaSet> listAllReplicaSets(String namespace) {
     return listReplicaSets(namespace, new KubernetesSelectorList(), new KubernetesSelectorList());
   }
@@ -352,11 +430,30 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     final KubernetesKind kind = KubernetesKind.REPLICA_SET;
     return runAndRecordMetrics(methodName, namespace, () -> {
       try {
-        V1beta1ReplicaSetList list = extensionsV1beta1Api.listNamespacedReplicaSet(namespace, PRETTY, fieldSelectorString, labelSelectorString, DEFAULT_VERSION, TIMEOUT_SECONDS, WATCH);
+        V1beta1ReplicaSetList list = extensionsV1beta1Api.listNamespacedReplicaSet(namespace, PRETTY, CONTINUE, fieldSelectorString, INCLUDE_UNINITIALIZED, labelSelectorString, LIMIT, DEFAULT_VERSION, TIMEOUT_SECONDS, WATCH);
         return annotateMissingFields(list == null ? new ArrayList<>() : list.getItems(),
             V1beta1ReplicaSet.class,
             apiVersion,
             kind);
+      } catch (ApiException e) {
+        throw new KubernetesApiException(methodName, e);
+      }
+    });
+  }
+
+  public void patchReplicaSet(String namespace, String name, V1beta1ReplicaSet desired) {
+    V1beta1ReplicaSet current = readReplicaSet(namespace, name);
+    patchReplicaSet(current, desired);
+  }
+
+  public void patchReplicaSet(V1beta1ReplicaSet current, V1beta1ReplicaSet desired) {
+    final String methodName = "replicaSets.patch";
+    final String namespace = current.getMetadata().getNamespace();
+    final String name = current.getMetadata().getName();
+    final Map[] jsonPatch = determineJsonPatch(current, desired);
+    runAndRecordMetrics(methodName, namespace, () -> {
+      try {
+        return extensionsV1beta1Api.patchNamespacedReplicaSet(name, namespace, jsonPatch, null);
       } catch (ApiException e) {
         throw new KubernetesApiException(methodName, e);
       }
@@ -381,12 +478,29 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     });
   }
 
+  public void resizeReplicaSet(String namespace, String name, int replicas) {
+    V1beta1ReplicaSet replicaSet = readReplicaSet(namespace, name);
+    replicaSet.getSpec().setReplicas(replicas);
+    patchReplicaSet(namespace, name, replicaSet);
+  }
+
   public void createService(V1Service service) {
     final String methodName = "services.create";
     final String namespace = service.getMetadata().getNamespace();
     runAndRecordMetrics(methodName, namespace, () -> {
       try {
         return coreV1Api.createNamespacedService(namespace, service, null);
+      } catch (ApiException e) {
+        throw new KubernetesApiException(methodName, e);
+      }
+    });
+  }
+
+  public V1Status deleteService(String namespace, String name) {
+    final String methodName = "services.delete";
+    return runAndRecordMetrics(methodName, namespace, () -> {
+      try {
+        return coreV1Api.deleteNamespacedService(name, namespace, PRETTY);
       } catch (ApiException e) {
         throw new KubernetesApiException(methodName, e);
       }

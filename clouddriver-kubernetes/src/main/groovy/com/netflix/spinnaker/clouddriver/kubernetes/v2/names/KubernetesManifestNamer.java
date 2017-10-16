@@ -17,19 +17,15 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.names;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesAugmentedManifest.Metadata;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifestAnnotater;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
 
 public class KubernetesManifestNamer implements Namer<KubernetesManifest> {
   @Override
   public void applyMoniker(KubernetesManifest obj, Moniker moniker) {
-    KubernetesManifestAnnotater.annotateManifest(obj, Metadata.builder()
-        .moniker(moniker)
-        .build()
-    );
+    KubernetesManifestAnnotater.annotateManifest(obj, moniker);
   }
 
   @Override

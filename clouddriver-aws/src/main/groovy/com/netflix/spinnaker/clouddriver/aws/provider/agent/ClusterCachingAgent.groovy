@@ -128,6 +128,13 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
     types
   }
 
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (SERVER_GROUPS.ns): Keys.getServerGroupKey('*', '*', account.name, region)
+    ]
+  }
+
   static class AmazonClients {
     final AmazonAutoScaling autoScaling
     final AmazonEC2 amazonEC2
@@ -448,13 +455,16 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
       key.type == SERVER_GROUPS.ns && key.account == account.name && key.region == region
     }
     return providerCache.getAll(ON_DEMAND.ns, keys, RelationshipCacheFilter.none()).collect {
-      [
-        id: it.id,
-        details  : Keys.parse(it.id),
-        cacheTime: it.attributes.cacheTime,
-        cacheExpiry: it.attributes.cacheExpiry,
-        processedCount: it.attributes.processedCount,
-        processedTime: it.attributes.processedTime
+      def details = Keys.parse(it.id)
+
+      return [
+          id            : it.id,
+          details       : details,
+          moniker       : convertOnDemandDetails(details),
+          cacheTime     : it.attributes.cacheTime,
+          cacheExpiry   : it.attributes.cacheExpiry,
+          processedCount: it.attributes.processedCount,
+          processedTime : it.attributes.processedTime
       ]
     }
   }
@@ -682,16 +692,15 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
       serverGroup = Keys.getServerGroupKey(asg.autoScalingGroupName, account, region)
       String vpcId = null
       if (asg.getVPCZoneIdentifier()) {
-        String[] subnets = asg.getVPCZoneIdentifier().split(',')
-        Set<String> vpcIds = subnets.collect { subnetMap[it] }
+        ArrayList<String> subnets = asg.getVPCZoneIdentifier().split(',')
+        Set<String> vpcIds = subnets.findResults { subnetMap[it] }
         if (vpcIds.size() != 1) {
-          throw new RuntimeException("failed to resolve one vpc (found ${vpcIds}) for subnets ${subnets} in ASG ${asg.autoScalingGroupName} account ${account} region ${region}")
+          throw new RuntimeException("failed to resolve only one vpc (found ${vpcIds}) for subnets ${subnets} in ASG ${asg.autoScalingGroupName} account ${account} region ${region}")
         }
         vpcId = vpcIds.first()
       }
       this.vpcId = vpcId
       launchConfig = Keys.getLaunchConfigKey(asg.launchConfigurationName, account, region)
-
       loadBalancerNames = (asg.loadBalancerNames.collect {
         Keys.getLoadBalancerKey(it, account, region, vpcId, null)
       } as Set).asImmutable()

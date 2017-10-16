@@ -18,10 +18,10 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 
 import java.util.Arrays;
@@ -34,7 +34,7 @@ public abstract class KubernetesArtifactConverter {
   protected String getType(KubernetesManifest manifest) {
     return String.join("/",
         KubernetesCloudProvider.getID(),
-        manifest.getApiVersion().toString() + ":" + manifest.getKind().toString()
+        manifest.getApiVersion().toString() + "|" + manifest.getKind().toString()
     );
   }
 
@@ -48,7 +48,7 @@ public abstract class KubernetesArtifactConverter {
       throw new IllegalArgumentException("Not a kubernetes artifact: " + artifact);
     }
 
-    split = String.join("/", Arrays.copyOfRange(split, 1, split.length)).split(":");
+    split = String.join("/", Arrays.copyOfRange(split, 1, split.length)).split("\\|");
 
     if (split.length != 2) {
       throw new IllegalArgumentException("Not a kubernetes artifact: " + artifact);

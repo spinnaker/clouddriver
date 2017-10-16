@@ -17,6 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSpinnakerRelationships
 import com.netflix.spinnaker.moniker.Moniker
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -43,9 +46,8 @@ class KubernetesManifestAnnotatorSpec extends Specification {
       .app(application)
       .build()
 
-    def metadata = new KubernetesAugmentedManifest.Metadata().setRelationships(relationships).setMoniker(moniker)
-
-    KubernetesManifestAnnotater.annotateManifest(manifest, metadata)
+    KubernetesManifestAnnotater.annotateManifest(manifest, relationships)
+    KubernetesManifestAnnotater.annotateManifest(manifest, moniker)
     relationships == KubernetesManifestAnnotater.getManifestRelationships(manifest)
     moniker == KubernetesManifestAnnotater.getMoniker(manifest)
 
@@ -71,9 +73,7 @@ class KubernetesManifestAnnotatorSpec extends Specification {
       .app(application)
       .build()
 
-    def metadata = new KubernetesAugmentedManifest.Metadata().setMoniker(moniker)
-
-    KubernetesManifestAnnotater.annotateManifest(manifest, metadata)
+    KubernetesManifestAnnotater.annotateManifest(manifest, moniker)
     manifest.getAnnotations().get(clusterKey) == '"' + cluster + '"'
     manifest.getAnnotations().get(applicationKey) == '"' + application + '"'
 

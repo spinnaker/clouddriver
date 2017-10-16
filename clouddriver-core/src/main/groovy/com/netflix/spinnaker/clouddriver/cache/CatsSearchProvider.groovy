@@ -49,6 +49,9 @@ class CatsSearchProvider implements SearchProvider {
   @Autowired(required = false)
   List<KeyParser> keyParsers;
 
+  @Autowired(required = false)
+  List<KeyProcessor> keyProcessors;
+
   @Autowired
   public CatsSearchProvider(Cache cacheView, List<SearchableProvider> providers) {
     this.cacheView = cacheView
@@ -154,7 +157,7 @@ class CatsSearchProvider implements SearchProvider {
     resultSet
   }
 
-  private List<String> findMatches(String q, List<String> toQuery, Map<String, String> filters) {
+  private List<String> findMatches(String q, List<String> cachesToQuery, Map<String, String> filters) {
 
     if (!q && keyParsers) {
       // no keyword search so find sensible default value to set for searching
@@ -170,15 +173,26 @@ class CatsSearchProvider implements SearchProvider {
       log.info("no query string specified, looked for sensible default and found: ${q}")
     }
 
-    log.info("Querying ${toQuery} for term: ${q}")
+    log.info("Querying ${cachesToQuery} for term: ${q}")
     String normalizedWord = q.toLowerCase()
-    List<String> matches = new ArrayList<String>()
-    toQuery.each { String cache ->
-      matches.addAll(cacheView.filterIdentifiers(cache, "*:${cache}:*${normalizedWord}*").findAll { String key ->
+    List<String> matches = cachesToQuery.collect { String cache ->
+      List<KeyProcessor> keyProcessors = (this.keyProcessors ?: []).findAll { it.canProcess(cache) }
+
+      // if the key represented in the cache doesn't actually exist, don't process it
+      Closure keyExists = { String key ->
+        boolean exists = keyProcessors.empty || keyProcessors.any { it.exists(key) }
+        if (!exists) {
+          log.warn("found ${cache} key that did not exist: ${key}")
+        }
+        return exists
+      }
+
+      Closure filtersMatch = { String key ->
         try {
           if (!filters) {
             return true
           }
+
           if (keyParsers) {
             KeyParser parser = keyParsers.find { it.cloudProvider == filters.cloudProvider && it.canParseType(cache) }
             if (parser) {
@@ -195,8 +209,16 @@ class CatsSearchProvider implements SearchProvider {
         } catch (Exception e) {
           log.warn("Failed on $cache:$key", e)
         }
-      })
-    }
+      }
+
+      Collection<String> identifiers = cacheView
+        .filterIdentifiers(cache, "*:${cache}:*${normalizedWord}*")
+        .findAll(keyExists)
+        .findAll(filtersMatch)
+
+      return identifiers
+    }.flatten()
+
     matches.sort { String a, String b ->
       def aKey = a.toLowerCase().substring(a.indexOf(':'))
       def bKey = b.toLowerCase().substring(b.indexOf(':'))

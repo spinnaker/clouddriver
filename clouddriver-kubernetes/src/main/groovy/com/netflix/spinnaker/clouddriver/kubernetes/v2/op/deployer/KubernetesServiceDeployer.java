@@ -17,14 +17,15 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1Service;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesServiceDeployer extends KubernetesDeployer<V1Service> {
+public class KubernetesServiceDeployer extends KubernetesDeployer<V1Service> implements CanDelete<Void> {
   @Override
   public KubernetesKind kind() {
     return KubernetesKind.SERVICE;
@@ -36,7 +37,7 @@ public class KubernetesServiceDeployer extends KubernetesDeployer<V1Service> {
   }
 
   @Override
-  Class<V1Service> getDeployedClass() {
+  public Class<V1Service> getDeployedClass() {
     return V1Service.class;
   }
 
@@ -48,5 +49,20 @@ public class KubernetesServiceDeployer extends KubernetesDeployer<V1Service> {
   @Override
   public boolean versioned() {
     return false;
+  }
+
+  @Override
+  public SpinnakerKind spinnakerKind() {
+    return SpinnakerKind.LOAD_BALANCER;
+  }
+
+  @Override
+  public Class<Void> getDeleteOptionsClass() {
+    return Void.class;
+  }
+
+  @Override
+  public void delete(KubernetesV2Credentials credentials, String namespace, String name, Void deleteOptions) {
+    credentials.deleteService(namespace, name);
   }
 }

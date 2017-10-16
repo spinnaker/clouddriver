@@ -32,13 +32,16 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
+import com.netflix.spinnaker.moniker.Namer;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Triple;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,6 +55,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.netflix.spinnaker.clouddriver.cache.OnDemandAgent.OnDemandType.Manifest;
+
 @Slf4j
 public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2CachingAgent<T> implements OnDemandAgent {
   @Getter
@@ -62,16 +67,15 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
   private final static String PROCESSED_COUNT_KEY = "processedCount";
   private final static String PROCESSED_TIME_KEY = "processedTime";
   private final static String CACHE_RESULTS_KEY = "cacheResults";
+  private final static String MONIKER_KEY = "moniker";
+  private final static String DETAILS_KEY = "details";
+  private final Namer<KubernetesManifest> namer;
 
   protected abstract List<T> loadPrimaryResourceList();
   protected abstract T loadPrimaryResource(String namespace, String name);
-  protected abstract OnDemandType onDemandType();
+  protected abstract Class<T> primaryResourceClass();
   protected abstract KubernetesKind primaryKind();
   protected abstract KubernetesApiVersion primaryApiVersion();
-
-  /* Kind-of ugly... required for the on demand madness in orca that expects various fields like region, serverGroup, etc... */
-  protected abstract Map<String, String> mapKeyToOnDemandResult(Keys.InfrastructureCacheKey key);
-  protected abstract Optional<String> getResourceNameFromOnDemandRequest(Map<String, ?> request);
 
   protected KubernetesV2OnDemandCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
       ObjectMapper objectMapper,
@@ -79,8 +83,12 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
       int agentIndex,
       int agentCount) {
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
+    namer = NamerRegistry.lookup()
+        .withProvider(KubernetesCloudProvider.getID())
+        .withAccount(namedAccountCredentials.getName())
+        .withResource(primaryResourceClass());
 
-    metricsSupport = new OnDemandMetricsSupport(registry, this, KubernetesCloudProvider.getID() + ":" + onDemandType());
+    metricsSupport = new OnDemandMetricsSupport(registry, this, KubernetesCloudProvider.getID() + ":" + Manifest);
   }
 
   @Override
@@ -151,7 +159,7 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
         CacheData mergedEntry = currentByGroup.stream()
             .filter(cd -> cd.getId().equals(addedCacheData.getId()))
             .findFirst()
-            .flatMap(cd -> Optional.of(mergeCacheData(cd, addedCacheData)))
+            .flatMap(cd -> Optional.of(KubernetesCacheDataConverter.mergeCacheData(cd, addedCacheData)))
             .orElse(addedCacheData);
 
         currentByGroup.removeIf(cd -> cd.getId().equals(addedCacheData.getId()));
@@ -160,22 +168,6 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
 
       current.put(group, currentByGroup);
     }
-  }
-
-  protected CacheData mergeCacheData(CacheData current, CacheData added) {
-    String id = current.getId();
-    Map<String, Object> attributes = current.getAttributes();
-    Map<String, Collection<String>> relationships = current.getRelationships();
-    attributes.putAll(added.getAttributes());
-    added.getRelationships()
-        .entrySet()
-        .forEach(entry -> relationships.merge(entry.getKey(), entry.getValue(),
-            (a, b) -> {
-              a.addAll(b);
-              return a;
-            }));
-
-    return new DefaultCacheData(id, attributes, relationships);
   }
 
   private void processOnDemandEntry(CacheData onDemandEntry) {
@@ -218,13 +210,15 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
 
     log.info("Storing on demand '{}'", key);
     cacheResult = buildCacheResult(resource);
+    KubernetesManifest manifest = objectMapper.convertValue(resource, KubernetesManifest.class);
     String jsonResult = objectMapper.writeValueAsString(cacheResult.getCacheResults());
 
     Map<String, Object> attributes = new ImmutableMap.Builder<String, Object>()
         .put(CACHE_TIME_KEY, System.currentTimeMillis())
         .put(CACHE_RESULTS_KEY, jsonResult)
         .put(PROCESSED_COUNT_KEY, 0)
-        .put(PROCESSED_TIME_KEY, null)
+        .put(PROCESSED_TIME_KEY, -1)
+        .put(MONIKER_KEY, namer.deriveMoniker(manifest))
         .build();
 
     Map<String, Collection<String>> relationships = new HashMap<>();
@@ -236,11 +230,22 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
 
   @Override
   public OnDemandAgent.OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-    String account = (String) data.get("accountName");
-    String name = getResourceNameFromOnDemandRequest(data).orElse("");
-    String namespace = (String) data.get("namespace");
-    if (StringUtils.isEmpty(namespace)) {
-      namespace = (String) data.get("region"); // sigh, namespace == region in k8s <-> spinnaker
+    String account = (String) data.get("account");
+    String namespace = (String) data.get("location");
+    String fullName = (String) data.get("name");
+    String name;
+
+    try {
+      Triple<KubernetesApiVersion, KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(fullName);
+      if (parsedName.getLeft() != primaryApiVersion()
+          || parsedName.getMiddle() != primaryKind()) {
+        return null;
+      }
+
+      name = parsedName.getRight();
+    } catch (Exception e) {
+      // This is OK - the cache controller tries (w/o much info) to get every cache agent to handle each request
+      return null;
     }
 
     reloadNamespaces();
@@ -251,6 +256,7 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
       return null;
     }
 
+    log.info("Accepted on demand refresh of '{}'", data);
     OnDemandAgent.OnDemandResult result;
     T resource = loadPrimaryResource(namespace, name);
     String resourceKey = Keys.infrastructure(primaryApiVersion(), primaryKind(), account, namespace, name);
@@ -272,7 +278,7 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type == onDemandType() && cloudProvider.equals(KubernetesCloudProvider.getID());
+    return type == Manifest && cloudProvider.equals(KubernetesCloudProvider.getID());
   }
 
   @Override
@@ -298,12 +304,25 @@ public abstract class KubernetesV2OnDemandCachingAgent<T> extends KubernetesV2Ca
           Map<String, String> details = mapKeyToOnDemandResult(parsedKey);
           Map<String, Object> attributes = cd.getAttributes();
           return new ImmutableMap.Builder<String, Object>()
-              .put("details", details)
+              .put(DETAILS_KEY, details)
+              .put(MONIKER_KEY, attributes.get(MONIKER_KEY))
               .put(CACHE_TIME_KEY, attributes.get(CACHE_TIME_KEY))
               .put(PROCESSED_COUNT_KEY, attributes.get(PROCESSED_COUNT_KEY))
               .put(PROCESSED_TIME_KEY, attributes.get(PROCESSED_TIME_KEY))
               .build();
         })
         .collect(Collectors.toList());
+  }
+
+  private Map<String, String> mapKeyToOnDemandResult(Keys.InfrastructureCacheKey key) {
+    return new ImmutableMap.Builder<String, String>()
+        .put("name", KubernetesManifest.getFullResourceName(
+            key.getKubernetesApiVersion(),
+            key.getKubernetesKind(),
+            key.getName()
+        ))
+        .put("account", key.getAccount())
+        .put("location", key.getNamespace())
+        .build();
   }
 }

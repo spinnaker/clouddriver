@@ -17,7 +17,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.converters
 
 import com.fasterxml.jackson.databind.DeserializationFeature
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.description.KubernetesAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 
