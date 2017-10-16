@@ -36,12 +36,15 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     File dockerconfigFile
     String email
     int cacheThreads
+    long cacheIntervalSeconds
     long clientTimeoutMillis
     int paginateSize
     boolean trackDigests
     boolean sortTagsByDate
+    boolean insecureRegistry
     List<String> repositories
     List<String> skip
+    String catalogFile
 
     Builder() {}
 
@@ -105,6 +108,11 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
       return this
     }
 
+    Builder cacheIntervalSeconds(long cacheIntervalSeconds) {
+      this.cacheIntervalSeconds = cacheIntervalSeconds
+      return this
+    }
+
     Builder clientTimeoutMillis(long clientTimeoutMillis) {
       this.clientTimeoutMillis = clientTimeoutMillis
       return this
@@ -125,6 +133,11 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
       return this
     }
 
+    Builder insecureRegistry(boolean insecureRegistry) {
+      this.insecureRegistry = insecureRegistry
+      return this
+    }
+
     Builder repositories(List<String> repositories) {
       this.repositories = repositories
       return this
@@ -132,6 +145,11 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
 
     Builder skip(List<String> skip) {
       this.skip = skip
+      return this
+    }
+
+    Builder catalogFile(String catalogFile) {
+      this.catalogFile = catalogFile
       return this
     }
 
@@ -148,10 +166,13 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                                        repositories,
                                                        skip,
                                                        cacheThreads,
+                                                       cacheIntervalSeconds,
                                                        clientTimeoutMillis,
                                                        paginateSize,
                                                        trackDigests,
-                                                       sortTagsByDate)
+                                                       sortTagsByDate,
+                                                       catalogFile,
+                                                       insecureRegistry)
     }
   }
 
@@ -167,10 +188,13 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                         List<String> repositories,
                                         List<String> skip,
                                         int cacheThreads,
+                                        long cacheIntervalSeconds,
                                         long clientTimeoutMillis,
                                         int paginateSize,
                                         boolean trackDigests,
-                                        boolean sortTagsByDate) {
+                                        boolean sortTagsByDate,
+                                        String catalogFile,
+                                        boolean insecureRegistry) {
     this(accountName,
          environment,
          accountType,
@@ -183,10 +207,13 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
          repositories,
          skip,
          cacheThreads,
+         cacheIntervalSeconds,
          clientTimeoutMillis,
          paginateSize,
          trackDigests,
          sortTagsByDate,
+         catalogFile,
+         insecureRegistry,
          null)
   }
 
@@ -202,19 +229,28 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
                                         List<String> repositories,
                                         List<String> skip,
                                         int cacheThreads,
+                                        long cacheIntervalSeconds,
                                         long clientTimeoutMillis,
                                         int paginateSize,
                                         boolean trackDigests,
                                         boolean sortTagsByDate,
+                                        String catalogFile,
+                                        boolean insecureRegistry,
                                         List<String> requiredGroupMembership) {
     if (!accountName) {
       throw new IllegalArgumentException("Docker Registry account must be provided with a name.")
     }
+
+    if (repositories && catalogFile) {
+      throw new IllegalArgumentException("repositories and catalogFile may not be specified together.")
+    }
+
     this.accountName = accountName
     this.environment = environment
     this.accountType = accountType
     this.passwordFile = passwordFile
     this.cacheThreads = cacheThreads ?: 1
+    this.cacheIntervalSeconds = cacheIntervalSeconds ?: 30
     this.paginateSize = paginateSize ?: 100
     this.clientTimeoutMillis = clientTimeoutMillis ?: TimeUnit.MINUTES.toMillis(1)
 
@@ -245,9 +281,10 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     this.email = email
     this.trackDigests = trackDigests
     this.sortTagsByDate = sortTagsByDate
+    this.insecureRegistry = insecureRegistry;
     this.skip = skip ?: []
     this.requiredGroupMembership = requiredGroupMembership == null ? Collections.emptyList() : Collections.unmodifiableList(requiredGroupMembership)
-    this.credentials = buildCredentials(repositories)
+    this.credentials = buildCredentials(repositories, catalogFile)
   }
 
   @JsonIgnore
@@ -287,7 +324,7 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     return CLOUD_PROVIDER
   }
 
-  private DockerRegistryCredentials buildCredentials(List<String> repositories) {
+  private DockerRegistryCredentials buildCredentials(List<String> repositories, String catalogFile) {
     try {
       DockerRegistryClient client = (new DockerRegistryClient.Builder())
         .address(address)
@@ -297,6 +334,8 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
         .passwordFile(passwordFile)
         .clientTimeoutMillis(clientTimeoutMillis)
         .paginateSize(paginateSize)
+        .catalogFile(catalogFile)
+        .insecureRegistry(insecureRegistry)
         .build()
 
       return new DockerRegistryCredentials(client, repositories, trackDigests, skip, sortTagsByDate)
@@ -324,10 +363,13 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
   final boolean trackDigests
   final boolean sortTagsByDate
   final int cacheThreads
+  final long cacheIntervalSeconds
   final long clientTimeoutMillis
   final int paginateSize
+  final boolean insecureRegistry
   @JsonIgnore
   final DockerRegistryCredentials credentials
   final List<String> requiredGroupMembership
   final List<String> skip
+  final String catalogFile
 }

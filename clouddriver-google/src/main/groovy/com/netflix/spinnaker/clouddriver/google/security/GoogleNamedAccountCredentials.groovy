@@ -20,6 +20,8 @@ import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.MachineTypeAggregatedList
 import com.google.api.services.compute.model.Region
 import com.google.api.services.compute.model.RegionList
+import com.google.api.services.compute.model.Zone
+import com.google.api.services.compute.model.ZoneList
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.consul.config.ConsulConfig
 import com.netflix.spinnaker.clouddriver.google.ComputeVersion
@@ -33,6 +35,15 @@ import groovy.transform.TupleConstructor
 @TupleConstructor
 class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredentials> {
 
+  // Sorted in reverse clock speed order as per the table here (https://cloud.google.com/compute/docs/regions-zones/regions-zones#available).
+  static final List<String> SORTED_CPU_PLATFORMS = [
+    "Intel Sandy Bridge",
+    "Intel Ivy Bridge",
+    "Intel Haswell",
+    "Intel Broadwell",
+    "Intel Skylake"
+  ]
+
   final String name // aka accountName
   final String environment
   final String accountType
@@ -42,15 +53,18 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
   final GoogleCredentials credentials
 
   final String project
+  final String xpnHostProject
   final String applicationName
   final List<String> imageProjects
   final ComputeVersion computeVersion
   final Map<String, List<String>> regionToZonesMap
   final Map<String, Map> locationToInstanceTypesMap
+  final Map<String, List<String>> locationToCpuPlatformsMap
   final List<GoogleInstanceTypeDisk> instanceTypeDisks
   final ConsulConfig consulConfig
   final Compute compute
   final String userDataFile
+  final List<String> regionsToManage
 
   static class Builder {
     String name
@@ -59,20 +73,23 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
     List<String> requiredGroupMembership = []
     Permissions permissions = Permissions.EMPTY
     String project
+    String xpnHostProject
     String applicationName
     List<String> imageProjects = []
     ComputeVersion computeVersion = ComputeVersion.DEFAULT
     Map<String, List<String>> regionToZonesMap = [:]
     Map<String, Map> locationToInstanceTypesMap = [:]
+    Map<String, List<String>> locationToCpuPlatformsMap
     List<GoogleInstanceTypeDisk> instanceTypeDisks = []
     String jsonKey
     GoogleCredentials credentials
     Compute compute
     ConsulConfig consulConfig
     String userDataFile
+    List<String> regionsToManage
 
     /**
-     * If true, overwrites any value in regionToZoneMap and locationToInstanceTypesMap with values from the platform.
+     * If true, overwrites any value in regionToZoneMap, locationToInstanceTypesMap and locationToCpuPlatformsMap with values from the platform.
      */
     boolean liveLookupsEnabled = true
 
@@ -141,6 +158,11 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
       return this
     }
 
+    Builder locationToCpuPlatformsMap(Map<String, List<String>> locationToCpuPlatformsMap) {
+      this.locationToCpuPlatformsMap = locationToCpuPlatformsMap
+      return this
+    }
+
     Builder instanceTypeDisks(List<GoogleInstanceTypeDisk> instanceTypeDisks) {
       this.instanceTypeDisks = instanceTypeDisks
       return this
@@ -161,6 +183,11 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
 
     Builder userDataFile(String userDataFile) {
       this.userDataFile = userDataFile
+      return this
+    }
+
+    Builder regionsToManage(List<String> regionsToManage, List<String> defaultRegions) {
+      this.regionsToManage = (regionsToManage != null) ? regionsToManage : defaultRegions
       return this
     }
 
@@ -192,8 +219,10 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
       }
 
       if (liveLookupsEnabled) {
+        xpnHostProject = compute.projects().getXpnHost(project).execute()?.getName()
         regionToZonesMap = queryRegions(compute, project)
         locationToInstanceTypesMap = queryInstanceTypes(compute, project, regionToZonesMap)
+        locationToCpuPlatformsMap = queryCpuPlatforms(compute, project, regionToZonesMap)
       }
 
       new GoogleNamedAccountCredentials(name,
@@ -204,27 +233,35 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
                                         permissions,
                                         credentials,
                                         project,
+                                        xpnHostProject,
                                         applicationName,
                                         imageProjects,
                                         computeVersion,
                                         regionToZonesMap,
                                         locationToInstanceTypesMap,
+                                        locationToCpuPlatformsMap,
                                         instanceTypeDisks,
                                         consulConfig,
                                         compute,
-                                        userDataFile)
+                                        userDataFile,
+                                        regionsToManage)
 
     }
   }
 
   public List<Map> getRegions() {
     List<Map> regionList = []
-
-    regionToZonesMap.each { String region, List<String> zones ->
-      Map regionMap = new HashMap()
-      regionMap.put("name", region)
-      regionMap.put("zones", zones)
-      regionList.add(regionMap)
+    if (regionsToManage != null) {
+      if (!regionsToManage.isEmpty()) {
+        regionToZonesMap.findAll { regionsToManage.contains(it.getKey()) }.each {
+          String region, List<String> zones ->
+            regionList.add([name: region, zones: zones])
+        }
+      }
+    } else {
+      regionToZonesMap.each { String region, List<String> zones ->
+        regionList.add([name: region, zones: zones])
+      }
     }
     return regionList
   }
@@ -344,6 +381,64 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
           instanceTypes: commonInstanceTypes,
           vCpuMax: vCpuMaxInRegion
         ]
+      }
+    }
+  }
+
+  static Map<String, List<String>> queryCpuPlatforms(Compute compute,
+                                                     String project,
+                                                     Map<String, List<String>> regionToZonesMap) {
+    Map<String, List<String>> locationToCpuPlatformsMap = new HashMap<>()
+    ZoneList zoneList = compute.zones().list(project).execute()
+    String nextPageToken = zoneList.getNextPageToken()
+
+    populateLocationToCpuPlatformsMap(zoneList, locationToCpuPlatformsMap)
+
+    while (nextPageToken) {
+      zoneList = compute.zones().list(project).setPageToken(nextPageToken).execute()
+      nextPageToken = zoneList.getNextPageToken()
+
+      populateLocationToCpuPlatformsMap(zoneList, locationToCpuPlatformsMap)
+    }
+
+    populateRegionCpuPlatforms(locationToCpuPlatformsMap, regionToZonesMap)
+
+    return locationToCpuPlatformsMap
+  }
+
+  @VisibleForTesting
+  static void populateLocationToCpuPlatformsMap(ZoneList zoneList, Map<String, List<String>> locationToCpuPlatformsMap) {
+    zoneList.getItems().each { Zone zone ->
+      if (zone.availableCpuPlatforms) {
+        locationToCpuPlatformsMap[zone.name] = zone.availableCpuPlatforms.toSorted { a, b ->
+          SORTED_CPU_PLATFORMS.indexOf(a) <=> SORTED_CPU_PLATFORMS.indexOf(b)
+        }
+      }
+    }
+  }
+
+  static void populateRegionCpuPlatforms(Map<String, List<String>> locationToCpuPlatformsMap,
+                                         Map<String, List<String>> regionToZonesMap) {
+    // Populate region to cpu platforms mappings.
+    regionToZonesMap.each { region, zoneNames ->
+      // The RMIG will deploy to the last 3 zones (after sorting by zone name).
+      if (zoneNames.size() > 3) {
+        zoneNames = zoneNames.sort().drop(zoneNames.size() - 3)
+      }
+
+      def matchingCpuPlatformsLists = locationToCpuPlatformsMap.findAll { zone, _ ->
+        zone in zoneNames
+      }.values()
+
+      if (matchingCpuPlatformsLists) {
+        def firstZoneCpuPlatforms = matchingCpuPlatformsLists[0]
+        def remainingZoneCpuPlatforms = matchingCpuPlatformsLists.drop(1)
+        // Determine what cpu platforms are present in all zones in this region.
+        def commonCpuPlatforms = remainingZoneCpuPlatforms.inject(firstZoneCpuPlatforms) { acc, el -> acc.intersect(el) }
+
+        if (commonCpuPlatforms) {
+          locationToCpuPlatformsMap[region] = commonCpuPlatforms
+        }
       }
     }
   }

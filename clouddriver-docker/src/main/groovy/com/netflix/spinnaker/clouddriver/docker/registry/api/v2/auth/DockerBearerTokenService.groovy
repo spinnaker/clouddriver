@@ -16,11 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth
 
+import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.DockerUserAgent
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryAuthenticationException
 import groovy.util.logging.Slf4j
-import org.springframework.beans.factory.annotation.Autowired
 import retrofit.RestAdapter
-import retrofit.client.Header
 import retrofit.http.GET
 import retrofit.http.Headers
 import retrofit.http.Path
@@ -33,9 +32,9 @@ class DockerBearerTokenService {
   String username
   String password
   File passwordFile
+  String authWarning
 
-  @Autowired
-  String clouddriverUserAgentApplicationName
+  final static String userAgent = DockerUserAgent.getUserAgent()
 
   DockerBearerTokenService() {
     realmToService = new HashMap<String, TokenService>()
@@ -72,11 +71,11 @@ class DockerBearerTokenService {
     if (resolvedPassword?.length() > 0) {
       def message = "Your registry password has %s whitespace, if this is unintentional authentication will fail."
       if (resolvedPassword.charAt(0).isWhitespace()) {
-        log.warn sprintf(message, ["leading"])
+        authWarning = sprintf(message, ["leading"])
       }
 
       if (resolvedPassword.charAt(resolvedPassword.length() - 1).isWhitespace()) {
-        log.warn sprintf(message, ["trailing"])
+        authWarning = sprintf(message, ["trailing"])
       }
     }
 
@@ -194,11 +193,18 @@ class DockerBearerTokenService {
 
     def tokenService = getTokenService(authenticateDetails.realm)
     def token
-    if (basicAuthHeader) {
-      token = tokenService.getToken(authenticateDetails.path, authenticateDetails.service, authenticateDetails.scope, basicAuthHeader, clouddriverUserAgentApplicationName)
-    }
-    else {
-      token = tokenService.getToken(authenticateDetails.path, authenticateDetails.service, authenticateDetails.scope, clouddriverUserAgentApplicationName)
+    try {
+      if (basicAuthHeader) {
+        token = tokenService.getToken(authenticateDetails.path, authenticateDetails.service, authenticateDetails.scope, basicAuthHeader, userAgent)
+      } else {
+        token = tokenService.getToken(authenticateDetails.path, authenticateDetails.service, authenticateDetails.scope, userAgent)
+      }
+    } catch (Exception e) {
+      if (authWarning) {
+        throw new DockerRegistryAuthenticationException("Authentication failed ($authWarning): ${e.getMessage()}", e)
+      } else {
+        throw new DockerRegistryAuthenticationException("Authentication failed: ${e.getMessage()}", e)
+      }
     }
 
     cachedTokens[repository] = token

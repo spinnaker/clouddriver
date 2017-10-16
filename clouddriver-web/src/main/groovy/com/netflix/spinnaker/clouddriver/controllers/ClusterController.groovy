@@ -24,15 +24,17 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.model.Summary
 import com.netflix.spinnaker.clouddriver.model.TargetServerGroup
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
+import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.Canonical
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.MessageSource
-import org.springframework.context.i18n.LocaleContextHolder
-import org.springframework.http.HttpStatus
 import org.springframework.security.access.prepost.PostAuthorize
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 
+@Slf4j
 @RestController
 @RequestMapping("/applications/{application}/clusters")
 class ClusterController {
@@ -48,6 +50,9 @@ class ClusterController {
 
   @Autowired
   RequestQueue requestQueue
+
+  @Autowired
+  ServerGroupController serverGroupController
 
   @PreAuthorize("@fiatPermissionEvaluator.storeWholePermission() and hasPermission(#application, 'APPLICATION', 'READ')")
   @PostAuthorize("@authorizationSupport.filterForAccounts(returnObject)")
@@ -76,16 +81,22 @@ class ClusterController {
       def clusters = (Set<Cluster>) it.getClusters(application, account)
       def clusterViews = []
       for (cluster in clusters) {
-        clusterViews << new ClusterViewModel(name: cluster.name, account: cluster.accountName, loadBalancers: cluster.loadBalancers.collect {
-          it.name
-        }, serverGroups: cluster.serverGroups.collect {
-          it.name
-        })
+        clusterViews << new ClusterViewModel(
+            name: cluster.name,
+            moniker: cluster.moniker,
+            account: cluster.accountName,
+            loadBalancers: cluster.loadBalancers.collect {
+              it.name
+            },
+            serverGroups: cluster.serverGroups.collect {
+              it.name
+            },
+        )
       }
       clusterViews
     }?.flatten() as Set<ClusterViewModel>
     if (!clusters) {
-      throw new AccountClustersNotFoundException(application: application, account: account)
+      throw new NotFoundException("No clusters found (application: ${application}, account: ${account})")
     }
     clusters
   }
@@ -94,13 +105,15 @@ class ClusterController {
   @RequestMapping(value = "/{account:.+}/{name:.+}", method = RequestMethod.GET)
   Set<Cluster> getForAccountAndName(@PathVariable String application,
                                     @PathVariable String account,
-                                    @PathVariable String name) {
+                                    @PathVariable String name,
+                                    @RequestParam(required = false, value = 'expand', defaultValue = 'true') boolean expand) {
     def clusters = clusterProviders.collect { provider ->
-      requestQueue.execute(application, { provider.getCluster(application, account, name) })
+      requestQueue.execute(application, { provider.getCluster(application, account, name, expand) })
     }
+
     clusters.removeAll([null])
     if (!clusters) {
-      throw new ClusterNotFoundException(cluster: name)
+      throw new NotFoundException("Cluster not found (application: ${application}, account: ${account}, name: ${name})")
     }
     clusters
   }
@@ -110,11 +123,12 @@ class ClusterController {
   Cluster getForAccountAndNameAndType(@PathVariable String application,
                                       @PathVariable String account,
                                       @PathVariable String name,
-                                      @PathVariable String type) {
-    Set<Cluster> allClusters = getForAccountAndName(application, account, name)
+                                      @PathVariable String type,
+                                      @RequestParam(required = false, value = 'expand', defaultValue = 'true') boolean expand) {
+    Set<Cluster> allClusters = getForAccountAndName(application, account, name, expand)
     def cluster = allClusters.find { it.type == type }
     if (!cluster) {
-      throw new ClusterNotFoundException(cluster: name)
+      throw new NotFoundException("No clusters found (application: ${application}, account: ${account}, type: ${type})")
     }
     cluster
   }
@@ -125,8 +139,9 @@ class ClusterController {
                                    @PathVariable String account,
                                    @PathVariable String clusterName,
                                    @PathVariable String type,
-                                   @RequestParam(value = "region", required = false) String region) {
-    Cluster cluster = getForAccountAndNameAndType(application, account, clusterName, type)
+                                   @RequestParam(value = "region", required = false) String region,
+                                   @RequestParam(required = false, value = 'expand', defaultValue = 'true') boolean expand) {
+    Cluster cluster = getForAccountAndNameAndType(application, account, clusterName, type, expand)
     def results = region ? cluster.serverGroups.findAll { it.region == region } : cluster.serverGroups
     results ?: []
   }
@@ -138,14 +153,26 @@ class ClusterController {
                      @PathVariable String clusterName,
                      @PathVariable String type,
                      @PathVariable String serverGroupName,
-                     @RequestParam(value = "region", required = false) String region,
-                     @RequestParam(value = "health", required = false) Boolean health) {
-    def serverGroups = getServerGroups(application, account, clusterName, type, region).findAll {
+                     @RequestParam(value = "region", required = false) String region) {
+    // we can optimize loads iff the cloud provider supports loading minimal clusters (ie. w/o instances)
+    def clusterProvider = clusterProviders.find { it.cloudProviderId == type }
+    if (!clusterProvider) {
+      log.warn("No cluster provider found for type (type: ${type}, account: ${account})")
+    }
+    def shouldExpand = clusterProvider ? !clusterProvider.supportsMinimalClusters() : true
+
+    def serverGroups = getServerGroups(application, account, clusterName, type, region, shouldExpand).findAll {
       region ? it.name == serverGroupName && it.region == region : it.name == serverGroupName
     }
     if (!serverGroups) {
-      throw new ServerGroupNotFoundException(serverGroupName: serverGroupName)
+      throw new NotFoundException("Server group not found (account: ${account}, name: ${serverGroupName}, type: ${type})")
     }
+
+    serverGroups = shouldExpand ? serverGroups : serverGroups.collect {
+      // server groups were minimally loaded initially and require expansion
+      serverGroupController.getServerGroupByApplication(application, account, it.region, it.name)
+    }
+
     region ? serverGroups?.getAt(0) : serverGroups
   }
 
@@ -168,11 +195,19 @@ class ClusterController {
     try {
       tsg = TargetServerGroup.fromString(target)
     } catch (IllegalArgumentException e) {
-      throw new TargetNotFoundException(target: target)
+      throw new NotFoundException("Target not found (target: ${target})")
     }
 
-    def sortedServerGroups = getServerGroups(application, account, clusterName, cloudProvider, null /* region */).findAll {
-      def scopeMatch = it.region == scope || it.zones.contains(scope)
+    // we can optimize loads iff the cloud provider supports loading minimal clusters (ie. w/o instances)
+    def clusterProvider = clusterProviders.find { it.cloudProviderId == cloudProvider }
+    if (!clusterProvider) {
+      log.warn("No cluster provider found for cloud provider (cloudProvider: ${cloudProvider}, account: ${account})")
+    }
+    def shouldExpand = clusterProvider ? !clusterProvider.supportsMinimalClusters() : true
+
+    // load all server groups w/o instance details (this is reasonably efficient)
+    def sortedServerGroups = getServerGroups(application, account, clusterName, cloudProvider, null /* region */, shouldExpand).findAll {
+      def scopeMatch = it.region == scope || it.zones?.contains(scope)
 
       def enableMatch
       if (Boolean.valueOf(onlyEnabled)) {
@@ -185,7 +220,13 @@ class ClusterController {
     }.sort { a, b -> b.createdTime <=> a.createdTime }
 
     if (!sortedServerGroups) {
-      throw new ServerGroupNotFoundException()
+      throw new NotFoundException("No server groups found (account: ${account}, cluster: ${clusterName}, type: ${cloudProvider})")
+    }
+
+    if (!shouldExpand) {
+      sortedServerGroups = sortedServerGroups.collect {
+        serverGroupController.getServerGroupByApplication(application, account, it.region, it.name)
+      }
     }
 
     switch (tsg) {
@@ -193,13 +234,13 @@ class ClusterController {
         return sortedServerGroups.get(0)
       case TargetServerGroup.PREVIOUS:
         if (sortedServerGroups.size() == 1) {
-          throw new TargetNotFoundException(target: target)
+          throw new NotFoundException("Target not found (target: ${target})")
         }
         return sortedServerGroups.get(1)
       case TargetServerGroup.OLDEST:
         // At least two expected, but some cases just want the oldest no matter what.
         if (Boolean.valueOf(validateOldest) && sortedServerGroups.size() == 1) {
-          throw new TargetNotFoundException(target: target)
+          throw new NotFoundException("Target not found (target: ${target})")
         }
         return sortedServerGroups.last()
       case TargetServerGroup.LARGEST:
@@ -210,7 +251,7 @@ class ClusterController {
         }.get(0)
       case TargetServerGroup.FAIL:
         if (sortedServerGroups.size() > 1) {
-          throw new TargetFailException(scope: scope, serverGroupNames: sortedServerGroups.name)
+          throw new NotFoundException("More than one target found (scope: ${scope}, serverGroups: ${sortedServerGroups*.name})")
         }
         return sortedServerGroups.get(0)
     }
@@ -238,82 +279,15 @@ class ClusterController {
     try {
       return (Summary) sg.invokeMethod("get${summaryType.capitalize()}Summary".toString(), null /* args */)
     } catch (MissingMethodException e) {
-      throw new SummaryNotFoundException(summaryType: summaryType)
+      throw new NotFoundException("Summary not found (type: ${summaryType})")
     }
-  }
-
-  @ExceptionHandler
-  @ResponseStatus(HttpStatus.NOT_FOUND)
-  Map handleClusterNotFoundException(AccountClustersNotFoundException ex) {
-    def message = messageSource.getMessage("account.clusters.not.found", [ex.application, ex.account] as String[], "account.clusters.not.found", LocaleContextHolder.locale)
-    [error: "account.clusters.not.found", message: message, status: HttpStatus.NOT_FOUND]
-  }
-
-  @ExceptionHandler
-  @ResponseStatus(HttpStatus.NOT_FOUND)
-  Map handleClusterNotFoundException(ClusterNotFoundException ex) {
-    def message = messageSource.getMessage("cluster.not.found", [ex.cluster] as String[], "cluster.not.found", LocaleContextHolder.locale)
-    [error: "cluster.not.found", message: message, status: HttpStatus.NOT_FOUND]
-  }
-
-  @ExceptionHandler
-  @ResponseStatus(HttpStatus.NOT_FOUND)
-  Map handleServerGroupNotFoundException(ServerGroupNotFoundException ex) {
-    def message = messageSource.getMessage("serverGroup.not.found", [ex.serverGroupName] as String[], "serverGroup.not.found", LocaleContextHolder.locale)
-    [error: "serverGroup.not.found", message: message, status: HttpStatus.NOT_FOUND]
-  }
-
-  @ExceptionHandler
-  @ResponseStatus(HttpStatus.NOT_FOUND)
-  Map handleTargetNotFoundException(TargetNotFoundException ex) {
-    def message = messageSource.getMessage("target.not.found", [ex.target] as String[], "target.not.found", LocaleContextHolder.locale)
-    [error: "target.not.found", message: message, status: HttpStatus.NOT_FOUND]
-  }
-
-  @ExceptionHandler
-  @ResponseStatus(HttpStatus.NOT_FOUND)
-  Map handleTargetFailException(TargetFailException ex) {
-    def message = messageSource.getMessage("target.fail.strategy", [ex.scope, ex.serverGroupNames.join(",")] as String[], "target.fail.strategy", LocaleContextHolder.locale)
-    [error: "target.fail.strategy", message: message, status: HttpStatus.NOT_FOUND]
-  }
-
-  @ExceptionHandler
-  @ResponseStatus(HttpStatus.NOT_FOUND)
-  Map handleSummaryNotFoundException(SummaryNotFoundException ex) {
-    def message = messageSource.getMessage("summary.not.found", [ex.summaryType] as String[], "summary.not.found", LocaleContextHolder.locale)
-    [error: "summary.not.found", message: message, status: HttpStatus.NOT_FOUND]
-  }
-
-  static class AccountClustersNotFoundException extends RuntimeException {
-    String application
-    String account
-  }
-
-  static class ClusterNotFoundException extends RuntimeException {
-    String cluster
-  }
-
-  static class ServerGroupNotFoundException extends RuntimeException {
-    String serverGroupName
-  }
-
-  static class TargetNotFoundException extends RuntimeException {
-    String target
-  }
-
-  static class TargetFailException extends RuntimeException {
-    String scope
-    List<String> serverGroupNames
-  }
-
-  static class SummaryNotFoundException extends RuntimeException {
-    String summaryType
   }
 
   @Canonical
   static class ClusterViewModel {
     String name
     String account
+    Moniker moniker
     List<String> loadBalancers
     List<String> serverGroups
   }

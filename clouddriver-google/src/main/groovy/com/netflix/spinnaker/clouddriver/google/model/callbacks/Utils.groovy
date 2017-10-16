@@ -50,7 +50,7 @@ class Utils {
     }
     def tokens = portRange.split('-')
     if (tokens.length != 2) {
-      throw new IllegalFormatException("Port range ${portRange} formatted improperly.")
+      throw new IllegalArgumentException("Port range ${portRange} formatted improperly.")
     }
 
     tokens[0] != tokens[1] ? portRange : tokens[0]
@@ -68,12 +68,12 @@ class Utils {
 
   static GoogleTargetProxyType getTargetProxyType(String fullUrl) {
     if (!fullUrl) {
-      throw new IllegalFormatException("Target proxy url ${fullUrl} malformed.")
+      throw new IllegalArgumentException("Target proxy url ${fullUrl} malformed.")
     }
 
     int lastIndex = fullUrl.lastIndexOf('/')
     if (lastIndex == -1) {
-      throw new IllegalFormatException("Target proxy url ${fullUrl} malformed.")
+      throw new IllegalArgumentException("Target proxy url ${fullUrl} malformed.")
     }
     String withoutName = fullUrl.substring(0, lastIndex)
     switch (getLocalName(withoutName)) {
@@ -86,8 +86,11 @@ class Utils {
       case 'targetSslProxies':
         return GoogleTargetProxyType.SSL
         break
+      case 'targetTcpProxies':
+        return GoogleTargetProxyType.TCP
+        break
       default:
-        throw new IllegalFormatException("Target proxy url ${fullUrl} has unknown type.")
+        throw new IllegalArgumentException("Target proxy url ${fullUrl} has unknown type.")
         break
     }
   }
@@ -100,12 +103,12 @@ class Utils {
 
   static String getHealthCheckType(String fullUrl) {
     if (!fullUrl) {
-      throw new IllegalFormatException("Health check url ${fullUrl} malformed.")
+      throw new IllegalArgumentException("Health check url ${fullUrl} malformed.")
     }
 
     int lastIndex = fullUrl.lastIndexOf('/')
     if (lastIndex == -1) {
-      throw new IllegalFormatException("Health check url ${fullUrl} malformed.")
+      throw new IllegalArgumentException("Health check url ${fullUrl} malformed.")
     }
     String withoutName = fullUrl.substring(0, lastIndex)
     return getLocalName(withoutName)
@@ -133,7 +136,7 @@ class Utils {
     def urlParts = fullUrl.split("/")
 
     if (urlParts.length < 4) {
-      throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+      throw new IllegalArgumentException("Server group Url ${fullUrl} malformed.")
     }
 
     String regionsOrZones = urlParts[urlParts.length - 4]
@@ -147,7 +150,7 @@ class Utils {
         return zone.substring(0, lastDash)
         break
       default:
-        throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+        throw new IllegalArgumentException("Server group Url ${fullUrl} malformed.")
         break
     }
   }
@@ -160,19 +163,19 @@ class Utils {
     def urlParts = fullUrl.split("/")
 
     if (urlParts.length < 4) {
-      throw new IllegalFormatException("Server group url ${fullUrl} malformed.")
+      throw new IllegalArgumentException("Server group url ${fullUrl} malformed.")
     }
 
     String regionsOrZones = urlParts[urlParts.length - 4]
     switch (regionsOrZones) {
       case "regions":
-        throw new IllegalFormatException("Can't parse a zone from regional group url ${fullUrl}.")
+        throw new IllegalArgumentException("Can't parse a zone from regional group url ${fullUrl}.")
         break
       case "zones":
         return urlParts[urlParts.length - 3]
         break
       default:
-        throw new IllegalFormatException("Server group url ${fullUrl} malformed.")
+        throw new IllegalArgumentException("Server group url ${fullUrl} malformed.")
         break
     }
   }
@@ -190,7 +193,7 @@ class Utils {
     def urlParts = fullUrl.split("/")
 
     if (urlParts.length < 4) {
-      throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+      throw new IllegalArgumentException("Server group Url ${fullUrl} malformed.")
     }
 
     String regionsOrZones = urlParts[urlParts.length - 4]
@@ -202,7 +205,7 @@ class Utils {
         return GoogleServerGroup.ServerGroupType.ZONAL
         break
       default:
-        throw new IllegalFormatException("Server group Url ${fullUrl} malformed.")
+        throw new IllegalArgumentException("Server group Url ${fullUrl} malformed.")
         break
     }
     return regionsOrZones
@@ -272,8 +275,18 @@ class Utils {
     return loadBalancer.name in httpLoadBalancersFromMetadata && !(serverGroup.name in backendGroupNames)
   }
 
-  static String getNetworkNameFromInstanceTemplate(InstanceTemplate instanceTemplate) {
-    return getLocalName(instanceTemplate?.properties?.networkInterfaces?.getAt(0)?.network)
+  static String decorateXpnResourceIdIfNeeded(String managedProjectId, String xpnResource) {
+    if (!xpnResource) {
+      return xpnResource
+    }
+    def xpnResourceProject = GCEUtil.deriveProjectId(xpnResource)
+    def xpnResourceId = GCEUtil.getLocalName(xpnResource)
+
+    if (xpnResourceProject != managedProjectId) {
+      xpnResourceId = "$xpnResourceProject/$xpnResourceId"
+    }
+
+    return xpnResourceId
   }
 
   static boolean determineInternalLoadBalancerDisabledState(GoogleInternalLoadBalancer loadBalancer,
@@ -296,6 +309,20 @@ class Utils {
 
     if (loadBalancer.backendService == null) {
       log.warn("Malformed ssl load balancer encountered: ${loadBalancer}")
+    }
+    List<GoogleLoadBalancedBackend> serviceBackends = loadBalancer?.backendService?.backends
+    List<String> backendGroupNames = serviceBackends
+      .findAll { serverGroup.region == Utils.getRegionFromGroupUrl(it.serverGroupUrl) }
+      .collect { GCEUtil.getLocalName(it.serverGroupUrl) }
+    return loadBalancer.name in globalLoadBalancersFromMetadata && !(serverGroup.name in backendGroupNames)
+  }
+
+  static boolean determineTcpLoadBalancerDisabledState(GoogleTcpLoadBalancer loadBalancer,
+                                                       GoogleServerGroup serverGroup) {
+    def globalLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES)
+
+    if (loadBalancer.backendService == null) {
+      log.warn("Malformed tcp load balancer encountered: ${loadBalancer}")
     }
     List<GoogleLoadBalancedBackend> serviceBackends = loadBalancer?.backendService?.backends
     List<String> backendGroupNames = serviceBackends

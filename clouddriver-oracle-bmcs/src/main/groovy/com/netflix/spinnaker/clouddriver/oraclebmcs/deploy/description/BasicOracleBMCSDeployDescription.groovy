@@ -23,5 +23,6 @@ class BasicOracleBMCSDeployDescription extends BaseOracleBMCSInstanceDescription
   String application
   String stack
   String freeFormDetails
+  String loadBalancerId
   ServerGroup.Capacity capacity
 }

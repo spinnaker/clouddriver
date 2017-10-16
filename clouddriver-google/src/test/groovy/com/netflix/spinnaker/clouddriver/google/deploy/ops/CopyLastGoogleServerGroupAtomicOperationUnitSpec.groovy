@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.ops
 
 import com.google.api.services.compute.Compute
+import com.google.api.services.compute.model.AttachedDisk
+import com.google.api.services.compute.model.AttachedDiskInitializeParams
 import com.google.api.services.compute.model.Image
 import com.google.api.services.compute.model.InstanceProperties
 import com.google.api.services.compute.model.InstanceTemplate
@@ -51,6 +53,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
   private static final String NEW_SERVER_GROUP_NAME = "$APPLICATION_NAME-$STACK_NAME-v001"
   private static final String IMAGE = "debian-7-wheezy-v20141108"
   private static final String INSTANCE_TYPE = "f1-micro"
+  private static final String MIN_CPU_PLATFORM = "Intel Skylake"
   private static final String INSTANCE_TEMPLATE_NAME = "myapp-dev-v000-${System.currentTimeMillis()}"
   private static final String REGION = "us-central1"
   private static final Map<String, String> INSTANCE_METADATA =
@@ -74,7 +77,11 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
   private static final String DISK_TYPE = "pd-standard"
   private static final GoogleDisk DISK_PD_STANDARD = new GoogleDisk(type: DISK_TYPE, sizeGb: DISK_SIZE_GB)
   private static final String DEFAULT_NETWORK_NAME = "default"
+  private static final String DEFAULT_NETWORK_URL =
+          "https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/global/networks/$DEFAULT_NETWORK_NAME"
   private static final String SUBNET_NAME = "some-subnet"
+  private static final String SUBNET_URL =
+          "https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/regions/$REGION/subnetworks/$SUBNET_NAME"
   private static final String ACCESS_CONFIG_NAME = "External NAT"
   private static final String ACCESS_CONFIG_TYPE = "ONE_TO_ONE_NAT"
 
@@ -104,15 +111,15 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
     credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
 
     sourceImage = new Image(selfLink: IMAGE)
-    network = new GoogleNetwork(selfLink: DEFAULT_NETWORK_NAME)
-    subnet = new GoogleSubnet(selfLink: SUBNET_NAME)
-    attachedDisks = GCEUtil.buildAttachedDisks(PROJECT_NAME,
-                                               null,
-                                               sourceImage,
-                                               [DISK_PD_STANDARD],
-                                               false,
-                                               INSTANCE_TYPE,
-                                               new GoogleConfiguration.DeployDefaults())
+    network = new GoogleNetwork(selfLink: DEFAULT_NETWORK_URL)
+    subnet = new GoogleSubnet(selfLink: SUBNET_URL)
+    attachedDisks = [new AttachedDisk(boot: true,
+                                      autoDelete: true,
+                                      type: "PERSISTENT",
+                                      initializeParams: new AttachedDiskInitializeParams(sourceImage: IMAGE,
+                                                                                         diskSizeGb: DISK_PD_STANDARD.sizeGb,
+                                                                                         diskType: DISK_PD_STANDARD.type))]
+
     networkInterface = GCEUtil.buildNetworkInterface(network,
                                                      subnet,
                                                      true,
@@ -125,6 +132,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
                                 onHostMaintenance: "MIGRATE")
     serviceAccount = GCEUtil.buildServiceAccount(SERVICE_ACCOUNT_EMAIL, AUTH_SCOPES)
     instanceProperties = new InstanceProperties(machineType: INSTANCE_TYPE,
+                                                minCpuPlatform: MIN_CPU_PLATFORM,
                                                 disks: attachedDisks,
                                                 networkInterfaces: [networkInterface],
                                                 canIpForward: false,
@@ -156,6 +164,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
                                                          targetSize: targetSize,
                                                          image: "backports-$IMAGE",
                                                          instanceType: "n1-standard-8",
+                                                         minCpuPlatform: "Intel Broadwell",
                                                          disks: [new GoogleDisk(type: "pd-ssd", sizeGb: 250)],
                                                          regional: false,
                                                          region: REGION,
@@ -225,6 +234,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       newDescription.targetSize = 2
       newDescription.image = IMAGE
       newDescription.instanceType = INSTANCE_TYPE
+      newDescription.minCpuPlatform = MIN_CPU_PLATFORM
       newDescription.disks = [DISK_PD_STANDARD]
       newDescription.regional = false
       newDescription.region = REGION
@@ -281,6 +291,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       newDescription.targetSize = 2
       newDescription.image = IMAGE
       newDescription.instanceType = INSTANCE_TYPE
+      newDescription.minCpuPlatform = MIN_CPU_PLATFORM
       newDescription.disks = [DISK_PD_STANDARD]
       newDescription.regional = false
       newDescription.region = REGION
@@ -336,6 +347,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       newDescription.targetSize = 2
       newDescription.image = IMAGE
       newDescription.instanceType = INSTANCE_TYPE
+      newDescription.minCpuPlatform = MIN_CPU_PLATFORM
       newDescription.disks = [DISK_PD_STANDARD]
       newDescription.regional = false
       newDescription.region = REGION

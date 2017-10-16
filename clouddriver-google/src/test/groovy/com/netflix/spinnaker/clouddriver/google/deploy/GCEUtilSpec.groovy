@@ -414,7 +414,7 @@ class GCEUtilSpec extends Specification {
                 'metadata': new Metadata(items: [
                   new Metadata.Items(
                     key: (GoogleServerGroup.View.LOAD_BALANCING_POLICY),
-                    value: "{\"balancingMode\": \"UTILIZATION\",\"maxUtilization\": 0.80, \"listeningPort\": 8080, \"capacityScaler\": 0.77}"
+                    value: "{\"balancingMode\": \"UTILIZATION\",\"maxUtilization\": 0.80, \"namedPorts\": [{\"name\": \"http\", \"port\": 8080}], \"capacityScaler\": 0.77}"
                   ),
                   new Metadata.Items(
                     key: (GoogleServerGroup.View.BACKEND_SERVICE_NAMES),
@@ -473,5 +473,35 @@ class GCEUtilSpec extends Specification {
       true       | REGION   |  [new GoogleHttpLoadBalancer(name: 'spinnaker-http-load-balancer').view] | ['spinnaker-http-load-balancer'] | 'backend-service'
       false      | ZONE     |  []                                                                      | []                               | null
       true       | REGION   |  []                                                                      | []                               | null
+  }
+
+  @Unroll
+  void "should derive project id from #fullResourceLink"() {
+    expect:
+      GCEUtil.deriveProjectId(fullResourceLink) == "my-test-project"
+
+    where:
+      fullResourceLink << [
+        "https://www.googleapis.com/compute/v1/projects/my-test-project/global/firewalls/name-a",
+        "www.googleapis.com/compute/v1/projects/my-test-project/global/firewalls/name-a",
+        "compute/v1/projects/my-test-project/global/firewalls/name-a",
+        "projects/my-test-project/global/firewalls/name-a"
+      ]
+  }
+
+  @Unroll
+  void "should not derive project id from #fullResourceLink"() {
+    when:
+      GCEUtil.deriveProjectId(fullResourceLink)
+
+    then:
+      thrown IllegalArgumentException
+
+    where:
+      fullResourceLink << [
+        null,
+        "",
+        "https://www.googleapis.com/compute/v1/my-test-project/global/firewalls/name-a"
+      ]
   }
 }

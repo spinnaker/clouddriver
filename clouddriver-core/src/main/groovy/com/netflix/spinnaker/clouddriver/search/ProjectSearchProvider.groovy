@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.search
 
+import com.google.common.collect.ImmutableList
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import groovy.transform.Canonical
 
@@ -51,7 +52,7 @@ class ProjectSearchProvider implements SearchProvider {
       return new SearchResultSet(totalMatches: 0)
     }
 
-    def projects = front50Service.searchForProjects([ name: query, applications: query ], pageSize) as List<Map>
+    def projects = front50Service.searchForProjects([ name: query, applications: query ] << filters, pageSize) as List<Map>
     def results = (projects ?: []).collect { Map project ->
       project.type = PROJECTS_TYPE
       project.url = "/projects/${project.id}".toString()
@@ -59,5 +60,10 @@ class ProjectSearchProvider implements SearchProvider {
     } as List<Map>
 
     return new SearchResultSet(results.size(), pageNumber, pageSize, getPlatform(), query, results)
+  }
+
+  @Override
+  List<String> excludedFilters() {
+    return ImmutableList.of("cloudProvider")
   }
 }

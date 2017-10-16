@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.model.SecurityGroup
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule
+import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.Immutable
 
 @Immutable
@@ -35,14 +36,17 @@ class GoogleSecurityGroup implements SecurityGroup {
   final String accountName
   final String region
   final String network
+  final String selfLink
   // Don't see an elegant way to encapsulate source tags in an inbound rule.
   final List<String> sourceTags
   final List<String> targetTags
   final Set<Rule> inboundRules
   final Set<Rule> outboundRules
 
+  void setMoniker(Moniker _ignored) {}
+
   @Override
   SecurityGroupSummary getSummary() {
-    new GoogleSecurityGroupSummary(name: name, id: id, network: network, sourceTags: sourceTags, targetTags: targetTags)
+    new GoogleSecurityGroupSummary(name: name, id: id, network: network, selfLink: selfLink, sourceTags: sourceTags, targetTags: targetTags)
   }
 }

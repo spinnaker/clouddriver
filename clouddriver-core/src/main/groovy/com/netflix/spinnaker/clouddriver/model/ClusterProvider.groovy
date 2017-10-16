@@ -78,6 +78,9 @@ interface ClusterProvider<T extends Cluster> {
   @Nullable
   T getCluster(String application, String account, String name)
 
+  @Nullable
+  T getCluster(String application, String account, String name, boolean includeDetails)
+
   /**
    * Looks up a server group known to this provider, within a specified {@link com.netflix.spinnaker.clouddriver.security.AccountCredentials} and region, and with the specified name.
    * @param account name
@@ -92,4 +95,11 @@ interface ClusterProvider<T extends Cluster> {
    * @return the identifier of the backing cloud provider
    */
   String getCloudProviderId()
+
+  /**
+   * Determines whether or not optimizations can be made by retrieving minimal or unexpanded clusters.
+   *
+   * This primarily affects how server groups are loaded for a cluster (@see com.netflix.spinnaker.clouddriver.controllers.ClusterController}.
+   */
+  boolean supportsMinimalClusters()
 }

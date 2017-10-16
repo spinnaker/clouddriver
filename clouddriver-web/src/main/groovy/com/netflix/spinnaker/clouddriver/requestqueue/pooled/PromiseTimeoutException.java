@@ -16,9 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.requestqueue.pooled;
 
-import java.util.concurrent.TimeoutException;
+import com.netflix.spinnaker.clouddriver.requestqueue.QueuedRequestException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
-class PromiseTimeoutException extends TimeoutException {
+@ResponseStatus(value = HttpStatus.TOO_MANY_REQUESTS)
+class PromiseTimeoutException extends QueuedRequestException {
   PromiseTimeoutException() {
     super();
   }

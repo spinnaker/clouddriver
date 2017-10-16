@@ -30,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.google.GoogleApiTestUtils
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
@@ -180,14 +181,13 @@ class EnableGoogleServerGroupAtomicOperationUnitSpec extends Specification {
               instanceGroupManagersSetTargetPoolsMock
       1 * instanceGroupManagersSetTargetPoolsMock.execute()
 
-      2 * computeMock.globalForwardingRules() >> globalForwardingRules
-      2 * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
-      2 * globalForwardingRulesList.execute() >> new ForwardingRuleList(items: [])
+      3 * computeMock.globalForwardingRules() >> globalForwardingRules
+      3 * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
+      3 * globalForwardingRulesList.execute() >> new ForwardingRuleList(items: [])
       registry.timer(
-          registry.createId("google.api",
-                [api: "compute.targetPools.addInstance",
-                 scope: "regional", region: REGION,
-                 success: "true", statusCode: "0"])  // See GoogleExecutorTraitsSpec
+          GoogleApiTestUtils.makeOkId(
+            registry, "compute.targetPools.addInstance",
+            [scope: "regional", region: REGION])
       ).count() == 2
   }
 
@@ -228,9 +228,9 @@ class EnableGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       2 * forwardingRulesMock.list(PROJECT_NAME, REGION) >> forwardingRulesListMock
       2 * forwardingRulesListMock.execute() >> forwardingRulesList2
 
-      2 * computeMock.globalForwardingRules() >> globalForwardingRules
-      2 * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
-      2 * globalForwardingRulesList.execute() >> new ForwardingRuleList(items: [])
+      3 * computeMock.globalForwardingRules() >> globalForwardingRules
+      3 * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
+      3 * globalForwardingRulesList.execute() >> new ForwardingRuleList(items: [])
 
       def exc = thrown GoogleResourceNotFoundException
       exc.message == "Regional load balancers [$FORWARDING_RULE_1, $FORWARDING_RULE_2] not found."

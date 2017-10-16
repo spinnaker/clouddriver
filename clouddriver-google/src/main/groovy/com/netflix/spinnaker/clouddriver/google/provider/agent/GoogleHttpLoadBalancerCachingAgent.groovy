@@ -132,7 +132,7 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerCachi
 
       @Override
       void onSuccess(ForwardingRule forwardingRule, HttpHeaders responseHeaders) throws IOException {
-        if (forwardingRule.target && Utils.getTargetProxyType(forwardingRule.target) != GoogleTargetProxyType.SSL) {
+        if (forwardingRule.target && Utils.getTargetProxyType(forwardingRule.target) in [GoogleTargetProxyType.HTTP, GoogleTargetProxyType.HTTPS]) {
           cacheRemainderOfLoadBalancerResourceGraph(forwardingRule)
         } else {
           throw new IllegalArgumentException("Not responsible for on demand caching of load balancers without target " +
@@ -146,7 +146,7 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerCachi
       @Override
       void onSuccess(ForwardingRuleList forwardingRuleList, HttpHeaders responseHeaders) throws IOException {
         forwardingRuleList?.items?.each { ForwardingRule forwardingRule ->
-          if (forwardingRule.target && Utils.getTargetProxyType(forwardingRule.target) != GoogleTargetProxyType.SSL) {
+          if (forwardingRule.target && Utils.getTargetProxyType(forwardingRule.target) in [GoogleTargetProxyType.HTTP, GoogleTargetProxyType.HTTPS]) {
             cacheRemainderOfLoadBalancerResourceGraph(forwardingRule)
           }
         }
@@ -338,7 +338,7 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerCachi
     void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) throws IOException {
       if (e.getCode() == 404) {
         log.warn(e.getMessage())
-        googleLoadBalancer.containsBackendBucket = true;
+        googleLoadBalancer.containsBackendBucket = true
       } else {
         throw new GoogleOperationException(e.getMessage())
       }
@@ -362,6 +362,8 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerCachi
         service.sessionAffinity = GoogleSessionAffinity.valueOf(backendService.sessionAffinity)
         service.affinityCookieTtlSec = backendService.affinityCookieTtlSec
         service.enableCDN = backendService.enableCDN
+        service.portName = backendService.portName ?: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME
+        service.connectionDrainingTimeoutSec = backendService.connectionDraining?.drainingTimeoutSec ?: 0
         service.backends = backendService.backends?.collect { Backend backend ->
           new GoogleLoadBalancedBackend(
               serverGroupUrl: backend.group,

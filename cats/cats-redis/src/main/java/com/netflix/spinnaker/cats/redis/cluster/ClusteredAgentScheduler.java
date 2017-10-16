@@ -16,36 +16,49 @@
 
 package com.netflix.spinnaker.cats.redis.cluster;
 
-import com.netflix.spinnaker.cats.agent.*;
+import com.netflix.spinnaker.cats.agent.Agent;
+import com.netflix.spinnaker.cats.agent.AgentExecution;
+import com.netflix.spinnaker.cats.agent.AgentLock;
+import com.netflix.spinnaker.cats.agent.AgentScheduler;
+import com.netflix.spinnaker.cats.agent.AgentSchedulerAware;
+import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation;
 import com.netflix.spinnaker.cats.module.CatsModuleAware;
-import com.netflix.spinnaker.cats.redis.JedisSource;
+import com.netflix.spinnaker.cats.redis.RedisClientDelegate;
 import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import redis.clients.jedis.Jedis;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @SuppressFBWarnings
 public class ClusteredAgentScheduler extends CatsModuleAware implements AgentScheduler<AgentLock>, Runnable {
-    private final JedisSource jedisSource;
+    private static enum Status {
+        SUCCESS,
+        FAILURE
+    }
+
+    private final RedisClientDelegate redisClientDelegate;
     private final NodeIdentity nodeIdentity;
     private final AgentIntervalProvider intervalProvider;
     private final ExecutorService agentExecutionPool;
     private final Map<String, AgentExecutionAction> agents = new ConcurrentHashMap<>();
-    private final Map<String, Long> activeAgents = new ConcurrentHashMap<>();
+    private final Map<String, NextAttempt> activeAgents = new ConcurrentHashMap<>();
     private final NodeStatusProvider nodeStatusProvider;
 
-    public ClusteredAgentScheduler(JedisSource jedisSource, NodeIdentity nodeIdentity, AgentIntervalProvider intervalProvider, NodeStatusProvider nodeStatusProvider) {
-        this(jedisSource, nodeIdentity, intervalProvider, nodeStatusProvider, Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(ClusteredAgentScheduler.class.getSimpleName())), Executors.newCachedThreadPool(new NamedThreadFactory(AgentExecutionAction.class.getSimpleName())));
+    public ClusteredAgentScheduler(RedisClientDelegate redisClientDelegate, NodeIdentity nodeIdentity, AgentIntervalProvider intervalProvider, NodeStatusProvider nodeStatusProvider) {
+        this(redisClientDelegate, nodeIdentity, intervalProvider, nodeStatusProvider, Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(ClusteredAgentScheduler.class.getSimpleName())), Executors.newCachedThreadPool(new NamedThreadFactory(AgentExecutionAction.class.getSimpleName())));
     }
 
-    public ClusteredAgentScheduler(JedisSource jedisSource, NodeIdentity nodeIdentity, AgentIntervalProvider intervalProvider, NodeStatusProvider nodeStatusProvider, ScheduledExecutorService lockPollingScheduler, ExecutorService agentExecutionPool) {
-        this.jedisSource = jedisSource;
+    public ClusteredAgentScheduler(RedisClientDelegate redisClientDelegate, NodeIdentity nodeIdentity, AgentIntervalProvider intervalProvider, NodeStatusProvider nodeStatusProvider, ScheduledExecutorService lockPollingScheduler, ExecutorService agentExecutionPool) {
+        this.redisClientDelegate = redisClientDelegate;
         this.nodeIdentity = nodeIdentity;
         this.intervalProvider = intervalProvider;
         this.nodeStatusProvider = nodeStatusProvider;
@@ -53,15 +66,15 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
         lockPollingScheduler.scheduleAtFixedRate(this, 0, 1, TimeUnit.SECONDS);
     }
 
-    private Map<String, Long> acquire() {
-        Map<String, Long> acquired = new HashMap<>(agents.size());
+    private Map<String, NextAttempt> acquire() {
+        Map<String, NextAttempt> acquired = new HashMap<>(agents.size());
         Set<String> skip = new HashSet<>(activeAgents.keySet());
         for (Map.Entry<String, AgentExecutionAction> agent : agents.entrySet()) {
             if (!skip.contains(agent.getKey())) {
                 final String agentType = agent.getKey();
                 AgentIntervalProvider.Interval interval = intervalProvider.getInterval(agent.getValue().getAgent());
                 if (acquireRunKey(agentType, interval.getTimeout())) {
-                    acquired.put(agentType, System.currentTimeMillis() + interval.getInterval());
+                    acquired.put(agentType, new NextAttempt(System.currentTimeMillis(), interval.getInterval(), interval.getErrorInterval()));
                 }
             }
         }
@@ -81,9 +94,9 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
     }
 
     private void runAgents() {
-        Map<String, Long> thisRun = acquire();
+        Map<String, NextAttempt> thisRun = acquire();
         activeAgents.putAll(thisRun);
-        for (final Map.Entry<String, Long> toRun : thisRun.entrySet()) {
+        for (final Map.Entry<String, NextAttempt> toRun : thisRun.entrySet()) {
             final AgentExecutionAction exec = agents.get(toRun.getKey());
             agentExecutionPool.submit(new AgentJob(toRun.getValue(), exec, this));
         }
@@ -99,31 +112,34 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
     private static final String TTL_LOCK_KEY = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('set', KEYS[1], ARGV[1], 'PX', ARGV[2], 'XX') else return nil end";
 
     private boolean acquireRunKey(String agentType, long timeout) {
-        try (Jedis jedis = jedisSource.getJedis()) {
-            String response = jedis.set(agentType, nodeIdentity.getNodeIdentity(), SET_IF_NOT_EXIST, SET_EXPIRE_TIME_MILLIS, timeout);
+        return redisClientDelegate.withCommandsClient(client -> {
+            String response = client.set(agentType, nodeIdentity.getNodeIdentity(), SET_IF_NOT_EXIST, SET_EXPIRE_TIME_MILLIS, timeout);
             return SUCCESS_RESPONSE.equals(response);
-        }
+        });
     }
 
-    private boolean deleteLock(Jedis jedis, String agentType) {
-        Object response = jedis.eval(DELETE_LOCK_KEY, Arrays.asList(agentType), Arrays.asList(nodeIdentity.getNodeIdentity()));
-        return DEL_SUCCESS.equals(response);
+    private boolean deleteLock(String agentType) {
+        return redisClientDelegate.withScriptingClient(client -> {
+            Object response = client.eval(DELETE_LOCK_KEY, Arrays.asList(agentType), Arrays.asList(nodeIdentity.getNodeIdentity()));
+            return DEL_SUCCESS.equals(response);
+        });
     }
 
-    private boolean ttlLock(Jedis jedis, String agentType, long newTtl) {
-        Object response = jedis.eval(TTL_LOCK_KEY, Arrays.asList(agentType), Arrays.asList(nodeIdentity.getNodeIdentity(), Long.toString(newTtl)));
-        return SUCCESS_RESPONSE.equals(response);
+    private boolean ttlLock(String agentType, long newTtl) {
+        return redisClientDelegate.withScriptingClient(client -> {
+            Object response = client.eval(TTL_LOCK_KEY, Arrays.asList(agentType), Arrays.asList(nodeIdentity.getNodeIdentity(), Long.toString(newTtl)));
+            return SUCCESS_RESPONSE.equals(response);
+        });
     }
 
     private void releaseRunKey(String agentType, long when) {
         final long newTtl = when - System.currentTimeMillis();
         final boolean delete = newTtl < MIN_TTL_THRESHOLD;
-        try (Jedis jedis = jedisSource.getJedis()) {
-            if (delete) {
-                deleteLock(jedis, agentType);
-            } else {
-                ttlLock(jedis, agentType, newTtl);
-            }
+
+        if (delete) {
+            deleteLock(agentType);
+        } else {
+            ttlLock(agentType, newTtl);
         }
     }
 
@@ -147,26 +163,48 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
 
     @Override
     public void unschedule(Agent agent) {
+        releaseRunKey(agent.getAgentType(), 0); // Delete lock key now.
         agents.remove(agent.getAgentType());
     }
 
+    private static class NextAttempt {
+        private final long currentTime;
+        private final long successInterval;
+        private final long errorInterval;
+
+        public NextAttempt(long currentTime, long successInterval, long errorInterval) {
+            this.currentTime = currentTime;
+            this.successInterval = successInterval;
+            this.errorInterval = errorInterval;
+        }
+
+        public long getNextTime(Status status) {
+            if (status == Status.SUCCESS) {
+                return currentTime + successInterval;
+            }
+
+            return currentTime + errorInterval;
+        }
+    }
+
     private static class AgentJob implements Runnable {
-        private final long lockReleaseTime;
+        private final NextAttempt lockReleaseTime;
         private final AgentExecutionAction action;
         private final ClusteredAgentScheduler scheduler;
 
-        public AgentJob(long lockReleaseTime, AgentExecutionAction action, ClusteredAgentScheduler scheduler) {
-            this.lockReleaseTime = lockReleaseTime;
+        public AgentJob(NextAttempt times, AgentExecutionAction action, ClusteredAgentScheduler scheduler) {
+            this.lockReleaseTime = times;
             this.action = action;
             this.scheduler = scheduler;
         }
 
         @Override
         public void run() {
+            Status status = Status.FAILURE;
             try {
-                action.execute();
+                status = action.execute();
             } finally {
-                scheduler.agentCompleted(action.getAgent().getAgentType(), lockReleaseTime);
+                scheduler.agentCompleted(action.getAgent().getAgentType(), lockReleaseTime.getNextTime(status));
             }
         }
     }
@@ -186,14 +224,16 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
             return agent;
         }
 
-        public void execute() {
+        Status execute() {
             try {
                 executionInstrumentation.executionStarted(agent);
                 long startTime = System.nanoTime();
                 agentExecution.executeAgent(agent);
                 executionInstrumentation.executionCompleted(agent, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+                return Status.SUCCESS;
             } catch (Throwable cause) {
                 executionInstrumentation.executionFailed(agent, cause);
+                return Status.FAILURE;
             }
         }
 

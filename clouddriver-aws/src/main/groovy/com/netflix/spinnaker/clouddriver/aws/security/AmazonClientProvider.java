@@ -26,6 +26,8 @@ import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
+import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.AmazonECSClientBuilder;
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancingClientBuilder;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
@@ -36,6 +38,8 @@ import com.amazonaws.services.lambda.AWSLambdaAsyncClientBuilder;
 import com.amazonaws.services.lambda.AWSLambdaClientBuilder;
 import com.amazonaws.services.route53.AmazonRoute53;
 import com.amazonaws.services.route53.AmazonRoute53ClientBuilder;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflow;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowClientBuilder;
 import com.amazonaws.services.sns.AmazonSNS;
@@ -277,6 +281,10 @@ public class AmazonClientProvider {
     return awsSdkClientSupplier.getClient(AmazonEC2ClientBuilder.class, AmazonEC2.class, accountName, awsCredentialsProvider, region);
   }
 
+  public AmazonECS getAmazonEcs(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
+    return awsSdkClientSupplier.getClient(AmazonECSClientBuilder.class, AmazonECS.class, accountName, awsCredentialsProvider, region);
+  }
+
   public AWSLambda getAmazonLambda(NetflixAmazonCredentials amazonCredentials, String region) {
     return proxyHandlerBuilder.getProxyHandler(AWSLambda.class, AWSLambdaClientBuilder.class, amazonCredentials, region);
   }
@@ -291,6 +299,10 @@ public class AmazonClientProvider {
 
   public AWSLambdaAsync getAmazonLambdaAsync(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(AWSLambdaAsyncClientBuilder.class, AWSLambdaAsync.class, accountName, awsCredentialsProvider, region);
+  }
+
+  public AmazonS3 getAmazonS3(NetflixAmazonCredentials amazonCredentials, String region) {
+    return proxyHandlerBuilder.getProxyHandler(AmazonS3.class, AmazonS3ClientBuilder.class, amazonCredentials, region, true);
   }
 
   public AmazonAutoScaling getAutoScaling(NetflixAmazonCredentials amazonCredentials, String region) {

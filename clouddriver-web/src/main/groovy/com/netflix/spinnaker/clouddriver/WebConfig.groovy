@@ -25,13 +25,13 @@ import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueueConfiguration
 import com.netflix.spinnaker.filters.AuthenticatedRequestFilter
 import com.netflix.spinnaker.kork.web.interceptors.MetricsInterceptor
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.context.embedded.FilterRegistrationBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.Ordered
-import org.springframework.security.access.AccessDeniedException
+import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.filter.ShallowEtagHeaderFilter
@@ -70,11 +70,7 @@ public class WebConfig extends WebMvcConfigurerAdapter {
 
   @Bean
   RequestQueue requestQueue(RequestQueueConfiguration requestQueueConfiguration, Registry registry) {
-    if (!requestQueueConfiguration.enabled) {
-      return RequestQueue.noop()
-    }
-
-    return RequestQueue.pooled(registry, requestQueueConfiguration.timeoutMillis, requestQueueConfiguration.poolSize)
+    return RequestQueue.forConfig(registry, requestQueueConfiguration);
   }
 
   @Bean
@@ -96,10 +92,10 @@ public class WebConfig extends WebMvcConfigurerAdapter {
   }
 
   @ControllerAdvice
-  static class AccessDeniedExceptionHandler {
-    @ExceptionHandler(AccessDeniedException)
-    public void handle(HttpServletResponse response, AccessDeniedException ex) {
-      response.sendError(HttpServletResponse.SC_FORBIDDEN, ex.getMessage())
+  static class IllegalArgumentExceptionHandler {
+    @ExceptionHandler(IllegalArgumentException)
+    public void handle(HttpServletResponse response, IllegalArgumentException ex) {
+      response.sendError(HttpStatus.BAD_REQUEST.value(), ex.getMessage())
     }
   }
 }

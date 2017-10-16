@@ -25,6 +25,8 @@ import mesosphere.dcos.client.DCOSClient
 
 import java.util.concurrent.ConcurrentHashMap
 
+import static java.lang.reflect.Proxy.newProxyInstance
+
 class DcosClientProvider {
 
   private final Map<String, DCOS> dcosClients = new ConcurrentHashMap<>()
@@ -37,33 +39,23 @@ class DcosClientProvider {
   DCOS getDcosClient(DcosAccountCredentials credentials, String clusterName) {
     def compositeKey = DcosClientCompositeKey.buildFromVerbose(credentials.account, clusterName).get()
     def trueCredentials = credentials.getCredentialsByCluster(clusterName)
+    def clientInterfaces = new Class<?>[1]
+    clientInterfaces[0] = DCOS.class
 
-    return dcosClients.computeIfAbsent(compositeKey.toString(), { k -> DCOSClient.getInstance(trueCredentials.dcosUrl, trueCredentials.dcosConfig) })
+    return dcosClients.computeIfAbsent(compositeKey.toString(), { k ->
+      newProxyInstance(DCOS.class.getClassLoader(), [DCOS.class] as Class<?>[],
+              new DcosSpectatorHandler(DCOSClient.getInstance(trueCredentials.dcosUrl, trueCredentials.dcosConfig),
+                      credentials.account, clusterName, credentials.spectatorRegistry))
+    })
   }
 
   DCOS getDcosClient(DcosClusterCredentials credentials) {
     def compositeKey = DcosClientCompositeKey.buildFrom(credentials.account, credentials.cluster).get()
 
-    return dcosClients.computeIfAbsent(compositeKey.toString(), { k -> DCOSClient.getInstance(credentials.dcosUrl, credentials.dcosConfig) })
-  }
-
-  DCOS getDcosClient(String accountName, String clusterName) {
-    def compositeKey = DcosClientCompositeKey.buildFrom(accountName, clusterName).get()
-
     return dcosClients.computeIfAbsent(compositeKey.toString(), { k ->
-      def credentials = credentialsProvider.getCredentials(accountName)
-
-      if (!(credentials instanceof DcosAccountCredentials)) {
-        throw new IllegalArgumentException("Account [${accountName}] is not a valid DC/OS account!")
-      }
-
-      def trueCredentials = credentials.getCredentials().getCredentialsByCluster(clusterName)
-
-      if (!trueCredentials) {
-        throw new IllegalArgumentException("Cluster [${clusterName}] is not a valid DC/OS cluster for the DC/OS account [${accountName}]!")
-      }
-
-      DCOSClient.getInstance(trueCredentials.dcosUrl, trueCredentials.dcosConfig)
+      newProxyInstance(DCOS.class.getClassLoader(), [DCOS.class] as Class<?>[],
+              new DcosSpectatorHandler(DCOSClient.getInstance(credentials.dcosUrl, credentials.dcosConfig),
+                      credentials.account, credentials.cluster, credentials.spectatorRegistry))
     })
   }
 }

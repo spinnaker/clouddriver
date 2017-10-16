@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.google.deploy.ops
 
-import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.AttachedDisk
 import com.google.api.services.compute.model.AutoscalingPolicy
 import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPolicy
@@ -108,6 +107,7 @@ class CopyLastGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Dep
       return newDescription
     }
 
+    def project = newDescription.credentials.project
     def ancestorNames = Names.parseName(ancestorServerGroup.name)
 
     // Override any ancestor values that were specified directly on the cloneServerGroup call.
@@ -136,6 +136,11 @@ class CopyLastGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Dep
       InstanceProperties ancestorInstanceProperties = ancestorInstanceTemplate.properties
 
       newDescription.instanceType = description.instanceType ?: ancestorInstanceProperties.machineType
+
+      newDescription.minCpuPlatform =
+          description.minCpuPlatform != null
+          ? description.minCpuPlatform
+          : ancestorInstanceProperties.minCpuPlatform
 
       List<AttachedDisk> attachedDisks = ancestorInstanceProperties?.disks
 
@@ -214,12 +219,14 @@ class CopyLastGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Dep
                                                      ancestorInstanceProperties.serviceAccounts)
 
       newDescription.network =
-        GCEUtil.getLocalName(description.network ?: ancestorInstanceProperties.networkInterfaces?.getAt(0)?.network)
+          description.network != null
+          ? description.network
+          : Utils.decorateXpnResourceIdIfNeeded(project, ancestorInstanceProperties.networkInterfaces?.getAt(0)?.network)
 
       newDescription.subnet =
           description.subnet != null
           ? description.subnet
-          : GCEUtil.getLocalName(ancestorInstanceProperties.networkInterfaces?.getAt(0)?.subnetwork)
+          : Utils.decorateXpnResourceIdIfNeeded(project, ancestorInstanceProperties.networkInterfaces?.getAt(0)?.subnetwork)
 
       newDescription.associatePublicIpAddress =
           description.associatePublicIpAddress != null

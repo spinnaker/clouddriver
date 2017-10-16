@@ -16,12 +16,20 @@
 
 package com.netflix.spinnaker.clouddriver.aws.cache
 
+import com.google.common.base.CaseFormat
+import com.google.common.collect.ImmutableSet
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.cache.KeyParser
+import org.springframework.stereotype.Component
+
 import static com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider.ID
 
-class Keys {
+@Component("AmazonInfraKeys")
+class Keys implements KeyParser {
+
   static enum Namespace {
-    SECURITY_GROUPS,
+    CERTIFICATES,
+    SECURITY_GROUPS(["application", "name", "id", "region", "account", "vpcId"]),
     SUBNETS,
     VPCS,
     KEY_PAIRS,
@@ -30,16 +38,38 @@ class Keys {
     ON_DEMAND
 
     final String ns
+    final Set<String> fields
 
-    private Namespace() {
-      def parts = name().split('_')
-
-      ns = parts.tail().inject(new StringBuilder(parts.head().toLowerCase())) { val, next -> val.append(next.charAt(0)).append(next.substring(1).toLowerCase()) }
+    private Namespace(List<String> keyFields = []) {
+      ns = CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, name())
+      fields = ImmutableSet.copyOf(["provider", "type"] + keyFields);
     }
 
     String toString() {
       ns
     }
+  }
+  private static final Set<String> PARSEABLE_FIELDS =
+    ImmutableSet.builder().addAll(Namespace.SECURITY_GROUPS.fields).build()
+
+  @Override
+  String getCloudProvider() {
+    return ID
+  }
+
+  @Override
+  Map<String, String> parseKey(String key) {
+    return parse(key)
+  }
+
+  @Override
+  Boolean canParseType(String type) {
+    return Namespace.values().any { it.ns == type }
+  }
+
+  @Override
+  Boolean canParseField(String field) {
+    return PARSEABLE_FIELDS.contains(field)
   }
 
   static Map<String, String> parse(String key) {
@@ -65,6 +95,9 @@ class Keys {
         break
       case Namespace.SUBNETS.ns:
         result << [id: parts[2], account: parts[3], region: parts[4]]
+        break
+      case Namespace.CERTIFICATES.ns:
+        result << [id: parts[2], account: parts[3], region: parts[4], type: parts[5]]
         break
       case Namespace.KEY_PAIRS.ns:
         result << [id: parts[2], account: parts[3], region: parts[4]]
@@ -95,6 +128,13 @@ class Keys {
                              String region,
                              String account) {
     "$ID:${Namespace.SUBNETS}:${subnetId}:${account}:${region}"
+  }
+
+  static String getCertificateKey(String certificateId,
+                             String region,
+                             String account,
+                             String certificateType) {
+    "$ID:${Namespace.SUBNETS}:${certificateId}:${account}:${region}:${certificateType}"
   }
 
   static String getVpcKey(String vpcId,

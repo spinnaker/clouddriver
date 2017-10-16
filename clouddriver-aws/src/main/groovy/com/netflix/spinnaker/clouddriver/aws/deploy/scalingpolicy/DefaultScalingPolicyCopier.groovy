@@ -61,10 +61,12 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
     sourceAsgScalingPolicies.each { sourceAsgScalingPolicy ->
       String newPolicyName = [targetAsgName, 'policy', idGenerator.nextId()].join('-')
       def policyRequest = buildNewPolicyRequest(newPolicyName, sourceAsgScalingPolicy, targetAsgName)
+      task.updateStatus "AWS_DEPLOY", "Creating scaling policy (${policyRequest}) on ${targetRegion}/${targetAsgName} from ${sourceRegion}/${sourceAsgName}..."
+
       def result = targetAutoScaling.putScalingPolicy(policyRequest)
       sourcePolicyArnToTargetPolicyArn[sourceAsgScalingPolicy.policyARN] = result.policyARN
 
-      task.updateStatus "AWS_DEPLOY", "Creating scaling policy (${policyRequest}) on ${targetRegion}/${targetAsgName} from ${sourceRegion}/${sourceAsgName}..."
+      task.updateStatus "AWS_DEPLOY", "Created scaling policy (${policyRequest}) on ${targetRegion}/${targetAsgName} from ${sourceRegion}/${sourceAsgName}..."
     }
     Collection<String> allSourceAlarmNames = sourceAsgScalingPolicies*.alarms*.alarmName.flatten().unique()
     if (allSourceAlarmNames) {
@@ -73,6 +75,20 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
   }
 
   protected PutScalingPolicyRequest buildNewPolicyRequest(String newPolicyName, ScalingPolicy sourceAsgScalingPolicy, String targetAsgName) {
+    if (sourceAsgScalingPolicy.targetTrackingConfiguration) {
+      if (sourceAsgScalingPolicy.targetTrackingConfiguration.customizedMetricSpecification) {
+        // update target tracking policies to point to the new ASG
+        // this will cause grief if a target tracking policy is configured against a *different* ASG, but we are doing
+        // the same thing with simple and step policies and have not had any issues thus far
+        sourceAsgScalingPolicy.targetTrackingConfiguration.customizedMetricSpecification.dimensions
+          .findAll { d ->
+          d.name == DIMENSION_NAME_FOR_ASG
+        }
+        .each { d ->
+          d.value = targetAsgName
+        }
+      }
+    }
     return new PutScalingPolicyRequest(
       autoScalingGroupName: targetAsgName,
       policyName: newPolicyName,
@@ -85,6 +101,7 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
       metricAggregationType: sourceAsgScalingPolicy.metricAggregationType,
       stepAdjustments: sourceAsgScalingPolicy.stepAdjustments,
       estimatedInstanceWarmup: sourceAsgScalingPolicy.estimatedInstanceWarmup,
+      targetTrackingConfiguration: sourceAsgScalingPolicy.targetTrackingConfiguration
     )
   }
 
@@ -124,6 +141,7 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
         metricName: alarm.metricName,
         namespace: alarm.namespace,
         statistic: alarm.statistic,
+        extendedStatistic: alarm.extendedStatistic,
         dimensions: newDimensions,
         period: alarm.period,
         unit: alarm.unit,
@@ -136,7 +154,8 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
   }
 
   protected boolean shouldCopySourceAlarm(MetricAlarm metricAlarm) {
-    return true
+    // AWS auto-creates TargetTracking alarms, so we don't want to copy them (otherwise, we'll have duplicates)
+    return !metricAlarm.alarmName.startsWith("TargetTracking-")
   }
 
   @Canonical

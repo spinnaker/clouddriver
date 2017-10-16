@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.handlers
 
-import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.autoscaling.model.BlockDeviceMapping
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
 import com.amazonaws.services.autoscaling.model.LaunchConfiguration
@@ -60,6 +59,11 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
     hvm: ['c3', 'c4', 'd2', 'i2', 'g2', 'r3', 'm3', 'm4', 't2']
   ]
 
+  // http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSOptimized.html
+  private static final DEFAULT_EBS_OPTIMIZED_FAMILIES = [
+    'c4', 'd2', 'f1', 'g3', 'i3', 'm4', 'p2', 'r4', 'x1'
+  ]
+
   private static Task getTask() {
     TaskRepository.threadLocalTask.get()
   }
@@ -68,17 +72,20 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
   private final AccountCredentialsRepository accountCredentialsRepository
   private final AwsConfiguration.DeployDefaults deployDefaults
   private final ScalingPolicyCopier scalingPolicyCopier
+  private final BlockDeviceConfig blockDeviceConfig
 
   private List<CreateServerGroupEvent> deployEvents = []
 
   BasicAmazonDeployHandler(RegionScopedProviderFactory regionScopedProviderFactory,
                            AccountCredentialsRepository accountCredentialsRepository,
                            AwsConfiguration.DeployDefaults deployDefaults,
-                           ScalingPolicyCopier scalingPolicyCopier) {
+                           ScalingPolicyCopier scalingPolicyCopier,
+                           BlockDeviceConfig blockDeviceConfig) {
     this.regionScopedProviderFactory = regionScopedProviderFactory
     this.accountCredentialsRepository = accountCredentialsRepository
     this.deployDefaults = deployDefaults
     this.scalingPolicyCopier = scalingPolicyCopier
+    this.blockDeviceConfig = blockDeviceConfig
   }
 
   @Override
@@ -215,7 +222,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
       }
 
       if (description.blockDevices == null) {
-        description.blockDevices = BlockDeviceConfig.getBlockDevicesForInstanceType(deployDefaults, description.instanceType)
+        description.blockDevices = blockDeviceConfig.getBlockDevicesForInstanceType(description.instanceType)
       }
       ResolvedAmiResult ami = priorOutputs.find({
         it instanceof ResolvedAmiResult && it.region == region && it.amiName == description.amiName
@@ -233,6 +240,10 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
 
       if (description.useAmiBlockDeviceMappings) {
         description.blockDevices = convertBlockDevices(ami.blockDeviceMappings)
+      }
+
+      if (description.spotPrice == "") {
+        description.spotPrice = null
       }
 
       def autoScalingWorker = new AutoScalingWorker(
@@ -270,7 +281,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         kernelId: description.kernelId,
         ramdiskId: description.ramdiskId,
         instanceMonitoring: description.instanceMonitoring,
-        ebsOptimized: description.ebsOptimized,
+        ebsOptimized: description.ebsOptimized == null ? getDefaultEbsOptimizedFlag(description.instanceType) : description.ebsOptimized,
         regionScopedProvider: regionScopedProvider,
         base64UserData: description.base64UserData,
         legacyUdf: description.legacyUdf,
@@ -286,7 +297,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
           task, sourceRegionScopedProvider,
           regionScopedProvider.amazonCredentials, description.credentials,
           description.source.asgName, asgName,
-          regionScopedProvider.region, region
+          description.source.region, region
         )
       }
 
@@ -319,7 +330,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
                                                     BasicAmazonDeployDescription description) {
 
     //skip a couple of AWS calls if we won't use any of the data
-    if (!(useSourceCapacity || description.copySourceCustomBlockDeviceMappings || description.copySourceSpotPrice)) {
+    if (!(useSourceCapacity || description.copySourceCustomBlockDeviceMappings)) {
       return description
     }
 
@@ -352,7 +363,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
     }
 
     //skip a describeLaunchConfiguration if we won't use it for anything
-    if (!(description.copySourceSpotPrice || description.copySourceCustomBlockDeviceMappings)) {
+    if (!description.copySourceCustomBlockDeviceMappings) {
       return description
     }
 
@@ -361,11 +372,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
     )
 
     if (description.copySourceCustomBlockDeviceMappings) {
-      description.blockDevices = buildBlockDeviceMappings(deployDefaults, description, sourceLaunchConfiguration)
-    }
-
-    if (description.copySourceSpotPrice) {
-      description.spotPrice = description.spotPrice ?: sourceLaunchConfiguration.spotPrice
+      description.blockDevices = buildBlockDeviceMappings(description, sourceLaunchConfiguration)
     }
 
     return description
@@ -379,7 +386,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
                                               NetflixAmazonCredentials targetCredentials,
                                               String sourceAsgName,
                                               String targetAsgName,
-                                              String sourceRegions,
+                                              String sourceRegion,
                                               String targetRegion) {
     if (!sourceRegionScopedProvider) {
       return
@@ -387,7 +394,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
 
     def asgReferenceCopier = sourceRegionScopedProvider.getAsgReferenceCopier(targetCredentials, targetRegion)
     scalingPolicyCopier.copyScalingPolicies(task, sourceAsgName, targetAsgName,
-      sourceCredentials, targetCredentials, sourceRegions, targetRegion)
+      sourceCredentials, targetCredentials, sourceRegion, targetRegion)
     asgReferenceCopier.copyScheduledActionsForAsg(task, sourceAsgName, targetAsgName)
   }
 
@@ -480,6 +487,11 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
     }
   }
 
+  private static boolean getDefaultEbsOptimizedFlag(String instanceType) {
+    String family = instanceType?.contains('.') ? instanceType.split("\\.")[0] : ''
+    return DEFAULT_EBS_OPTIMIZED_FAMILIES.contains(family)
+  }
+
   /**
    * Determine block devices
    *
@@ -493,8 +505,9 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
    * Otherwise:
    * - Continue to use any custom block device mappings (if set)
    */
-  private static Collection<AmazonBlockDevice> buildBlockDeviceMappings(
-    DeployDefaults deployDefaults,
+  @VisibleForTesting
+  @PackageScope
+  Collection<AmazonBlockDevice> buildBlockDeviceMappings(
     BasicAmazonDeployDescription description,
     LaunchConfiguration sourceLaunchConfiguration
   ) {
@@ -508,8 +521,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
       def blockDevicesForSourceAsg = sourceLaunchConfiguration.blockDeviceMappings.collect {
         [deviceName: it.deviceName, virtualName: it.virtualName, size: it.ebs?.volumeSize]
       }.sort { it.deviceName }
-      def blockDevicesForSourceInstanceType = BlockDeviceConfig.getBlockDevicesForInstanceType(
-        deployDefaults,
+      def blockDevicesForSourceInstanceType = blockDeviceConfig.getBlockDevicesForInstanceType(
         sourceLaunchConfiguration.instanceType
       ).collect {
         [deviceName: it.deviceName, virtualName: it.virtualName, size: it.size]
@@ -517,7 +529,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
 
       if (blockDevicesForSourceAsg == blockDevicesForSourceInstanceType) {
         // use default block mappings for the new instance type (since default block mappings were used on the previous instance type)
-        return BlockDeviceConfig.getBlockDevicesForInstanceType(deployDefaults, description.instanceType)
+        return blockDeviceConfig.getBlockDevicesForInstanceType(description.instanceType)
       }
     }
 

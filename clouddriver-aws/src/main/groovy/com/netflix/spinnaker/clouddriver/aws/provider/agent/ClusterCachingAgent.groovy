@@ -128,6 +128,13 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
     types
   }
 
+  @Override
+  Optional<Map<String, String>> getCacheKeyPatterns() {
+    return [
+      (SERVER_GROUPS.ns): Keys.getServerGroupKey('*', '*', account.name, region)
+    ]
+  }
+
   static class AmazonClients {
     final AmazonAutoScaling autoScaling
     final AmazonEC2 amazonEC2
@@ -263,9 +270,10 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   private AutoScalingGroupsResults loadAutoScalingGroups(AmazonClients clients) {
-    log.info("Describing auto scaling groups in ${agentType}")
+    log.debug("Describing auto scaling groups in ${agentType}")
 
-    def request = new DescribeAutoScalingGroupsRequest()
+    def request = new DescribeAutoScalingGroupsRequest().withMaxRecords(100)
+
     Long start = account.eddaEnabled ? null : System.currentTimeMillis()
 
     List<AutoScalingGroup> asgs = []
@@ -300,7 +308,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   private Map<String, List<Map>> loadScalingPolicies(AmazonClients clients, String asgName) {
-    log.info("Describing scaling policies in ${agentType}")
+    log.debug("Describing scaling policies in ${agentType}")
 
     def request = new DescribePoliciesRequest()
     if (asgName) {
@@ -336,7 +344,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   private Map<String, List<Map>> loadScheduledActions(AmazonClients clients, String asgName) {
-    log.info("Describing scheduled actions in ${agentType}")
+    log.debug("Describing scheduled actions in ${agentType}")
 
     def request = new DescribeScheduledActionsRequest()
     if (asgName) {
@@ -362,9 +370,9 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   private Map<String, Map> loadAlarms(AmazonClients clients, List alarmNames) {
-    log.info("Describing alarms in ${agentType}")
+    log.debug("Describing alarms in ${agentType}")
 
-    def request = new DescribeAlarmsRequest()
+    def request = new DescribeAlarmsRequest().withMaxRecords(100)
     if (alarmNames.size()) {
       request.withAlarmNames(alarmNames)
     }
@@ -383,7 +391,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
 
   @Override
   CacheResult loadData(ProviderCache providerCache) {
-    log.info("Describing items in ${agentType}")
+    log.debug("Describing items in ${agentType}")
 
     def clients = new AmazonClients(amazonClientProvider, account, region, false)
 
@@ -420,13 +428,13 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
     CacheResult result = buildCacheResult(asgs, scalingPolicies, scheduledActions, getSubnetToVpcIdMap(clients), usableOnDemandCacheDatas.collectEntries { [it.id, it] }, evictableOnDemandCacheDatas*.id)
     recordDrift(start)
     def cacheResults = result.cacheResults
-    log.info("Caching ${cacheResults[APPLICATIONS.ns]?.size()} applications in ${agentType}")
-    log.info("Caching ${cacheResults[CLUSTERS.ns]?.size()} clusters in ${agentType}")
-    log.info("Caching ${cacheResults[SERVER_GROUPS.ns]?.size()} server groups in ${agentType}")
-    log.info("Caching ${cacheResults[LOAD_BALANCERS.ns]?.size()} load balancers in ${agentType}")
-    log.info("Caching ${cacheResults[TARGET_GROUPS.ns]?.size()} target groups in ${agentType}")
-    log.info("Caching ${cacheResults[LAUNCH_CONFIGS.ns]?.size()} launch configs in ${agentType}")
-    log.info("Caching ${cacheResults[INSTANCES.ns]?.size()} instances in ${agentType}")
+    log.debug("Caching ${cacheResults[APPLICATIONS.ns]?.size()} applications in ${agentType}")
+    log.debug("Caching ${cacheResults[CLUSTERS.ns]?.size()} clusters in ${agentType}")
+    log.debug("Caching ${cacheResults[SERVER_GROUPS.ns]?.size()} server groups in ${agentType}")
+    log.debug("Caching ${cacheResults[LOAD_BALANCERS.ns]?.size()} load balancers in ${agentType}")
+    log.debug("Caching ${cacheResults[TARGET_GROUPS.ns]?.size()} target groups in ${agentType}")
+    log.debug("Caching ${cacheResults[LAUNCH_CONFIGS.ns]?.size()} launch configs in ${agentType}")
+    log.debug("Caching ${cacheResults[INSTANCES.ns]?.size()} instances in ${agentType}")
     if (evictableOnDemandCacheDatas) {
       log.info("Evicting onDemand cache keys (${evictableOnDemandCacheDatas.collect { "${it.id}/${start - it.attributes.cacheTime}ms" }.join(", ")})")
     }
@@ -447,13 +455,16 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
       key.type == SERVER_GROUPS.ns && key.account == account.name && key.region == region
     }
     return providerCache.getAll(ON_DEMAND.ns, keys, RelationshipCacheFilter.none()).collect {
-      [
-        id: it.id,
-        details  : Keys.parse(it.id),
-        cacheTime: it.attributes.cacheTime,
-        cacheExpiry: it.attributes.cacheExpiry,
-        processedCount: it.attributes.processedCount,
-        processedTime: it.attributes.processedTime
+      def details = Keys.parse(it.id)
+
+      return [
+          id            : it.id,
+          details       : details,
+          moniker       : convertOnDemandDetails(details),
+          cacheTime     : it.attributes.cacheTime,
+          cacheExpiry   : it.attributes.cacheExpiry,
+          processedCount: it.attributes.processedCount,
+          processedTime : it.attributes.processedTime
       ]
     }
   }
@@ -681,16 +692,15 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
       serverGroup = Keys.getServerGroupKey(asg.autoScalingGroupName, account, region)
       String vpcId = null
       if (asg.getVPCZoneIdentifier()) {
-        String[] subnets = asg.getVPCZoneIdentifier().split(',')
-        Set<String> vpcIds = subnets.collect { subnetMap[it] }
+        ArrayList<String> subnets = asg.getVPCZoneIdentifier().split(',')
+        Set<String> vpcIds = subnets.findResults { subnetMap[it] }
         if (vpcIds.size() != 1) {
-          throw new RuntimeException("failed to resolve one vpc (found ${vpcIds}) for subnets ${subnets} in ASG ${asg.autoScalingGroupName} account ${account} region ${region}")
+          throw new RuntimeException("failed to resolve only one vpc (found ${vpcIds}) for subnets ${subnets} in ASG ${asg.autoScalingGroupName} account ${account} region ${region}")
         }
         vpcId = vpcIds.first()
       }
       this.vpcId = vpcId
       launchConfig = Keys.getLaunchConfigKey(asg.launchConfigurationName, account, region)
-
       loadBalancerNames = (asg.loadBalancerNames.collect {
         Keys.getLoadBalancerKey(it, account, region, vpcId, null)
       } as Set).asImmutable()

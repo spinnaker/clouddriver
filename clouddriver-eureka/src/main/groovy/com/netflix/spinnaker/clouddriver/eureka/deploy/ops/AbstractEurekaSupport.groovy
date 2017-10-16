@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.eureka.deploy.ops
 import com.amazonaws.AmazonServiceException
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.eureka.api.Eureka
+import com.netflix.spinnaker.clouddriver.helpers.EnableDisablePercentageCategorizer
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import groovy.transform.InheritConstructors
@@ -70,6 +71,12 @@ abstract class AbstractEurekaSupport {
     def eureka = getEureka(description.credentials, description.region)
     def random = new Random()
     def applicationName = null
+    def targetHealthyDeployPercentage = description.targetHealthyDeployPercentage != null ? description.targetHealthyDeployPercentage : 100
+    if (targetHealthyDeployPercentage < 0 || targetHealthyDeployPercentage > 100) {
+      throw new NumberFormatException("targetHealthyDeployPercentage must be an integer between 0 and 100")
+    } else if (targetHealthyDeployPercentage < 100) {
+      AbstractEurekaSupport.log.info("Marking ${description.asgName} instances ${discoveryStatus.value} with targetHealthyDeployPercentage ${targetHealthyDeployPercentage}")
+    }
     try {
       applicationName = retry(task, phaseName, findApplicationNameRetryMax) { retryCount ->
         def instanceId = instanceIds[random.nextInt(instanceIds.size())]
@@ -95,7 +102,7 @@ abstract class AbstractEurekaSupport {
     }
 
     def errors = [:]
-    boolean shouldFail = false
+    def fatals = []
     int index = 0
     for (String instanceId : instanceIds) {
       if (index > 0) {
@@ -128,7 +135,7 @@ abstract class AbstractEurekaSupport {
 
           Response resp
 
-          if(discoveryStatus == DiscoveryStatus.Disable) {
+          if (discoveryStatus == DiscoveryStatus.Disable) {
             resp = eureka.updateInstanceStatus(applicationName, instanceId, discoveryStatus.value)
           } else {
             resp = eureka.resetInstanceStatus(applicationName, instanceId, DiscoveryStatus.Disable.value)
@@ -149,17 +156,23 @@ abstract class AbstractEurekaSupport {
       }
       if (errors[instanceId]) {
         if (verifyInstanceAndAsgExist(description.credentials, description.region, instanceId, description.asgName)) {
-          shouldFail = true
+          fatals.add(instanceId)
         } else {
           task.updateStatus phaseName, "Instance '${instanceId}' does not exist and will not be marked as '${discoveryStatus.value}'"
         }
       }
       index++
     }
-    if (shouldFail) {
-      task.updateStatus phaseName, "Failed marking instances '${discoveryStatus.value}' in discovery for instances ${errors.keySet()}"
-      task.fail()
-      AbstractEurekaSupport.log.info("[$phaseName] - Failed marking discovery $discoveryStatus.value for instances ${errors}")
+    if (fatals) {
+      Integer requiredInstances = Math.ceil(instanceIds.size() * targetHealthyDeployPercentage / 100D) as Integer
+      if (instanceIds.size() - fatals.size() >= requiredInstances) {
+        AbstractEurekaSupport.log.info("[$phaseName] - Failed marking discovery $discoveryStatus.value for instances ${fatals} " +
+          "but proceeding as ${fatals.size()} failures is within targetHealthyDeployPercentage: ${targetHealthyDeployPercentage}")
+      } else {
+        task.updateStatus phaseName, "Failed marking instances '${discoveryStatus.value}' in discovery for instances ${errors.keySet()}"
+        task.fail()
+        AbstractEurekaSupport.log.info("[$phaseName] - Failed marking discovery $discoveryStatus.value for instances ${errors}")
+      }
     }
   }
 
@@ -217,15 +230,13 @@ abstract class AbstractEurekaSupport {
                                                                    String region,
                                                                    String asgName,
                                                                    String targetDiscoveryStatus) {
-    def matches = (Set<ServerGroup>) clusterProviders.findResults {
-      it.getServerGroup(account, region, asgName)
-    }
 
-    if (!matches) {
+    ServerGroup serverGroup = getCachedServerGroup(clusterProviders, account, region, asgName)
+
+    if (!serverGroup) {
       return Optional.empty()
     }
 
-    def serverGroup = matches.first()
     def containsDiscoveryStatus = false
 
     serverGroup*.instances*.health.flatten().each { Map<String, String> health ->
@@ -237,6 +248,47 @@ abstract class AbstractEurekaSupport {
     return Optional.of(containsDiscoveryStatus)
   }
 
+  static ServerGroup getCachedServerGroup(Collection<ClusterProvider> clusterProviders,
+                                          String account,
+                                          String region,
+                                          String asgName) {
+    def matches = (Set<ServerGroup>) clusterProviders.findResults {
+      it.getServerGroup(account, region, asgName)
+    }
+
+    if (!matches) {
+      return null
+    }
+
+    def serverGroup = matches.first()
+    return serverGroup
+  }
+
+  List<String> getInstanceToModify(String account, String region, String asgName, List<String> instances, int desiredPercentage) {
+    ServerGroup serverGroup = getCachedServerGroup(clusterProviders, account, region, asgName)
+    if (!serverGroup) {
+      return []
+    }
+    List<String> modified = []
+    List<String> unmodified = []
+
+    instances.each { instanceId ->
+      boolean isUp = false
+      serverGroup.instances.find { it.name == instanceId }?.health.flatten().each {
+        Map<String, String> health ->
+          if (DiscoveryStatus.Enable.value.equalsIgnoreCase(health?.eurekaStatus)) {
+            isUp = true
+          }
+      }
+      if (isUp) {
+        unmodified.add(instanceId)
+      } else {
+        modified.add(instanceId)
+      }
+    }
+
+    return EnableDisablePercentageCategorizer.getInstancesToModify(modified, unmodified, desiredPercentage)
+  }
 
   enum DiscoveryStatus {
     Enable('UP'),

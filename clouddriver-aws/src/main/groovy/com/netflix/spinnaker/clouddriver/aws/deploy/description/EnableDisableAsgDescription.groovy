@@ -34,4 +34,8 @@ class EnableDisableAsgDescription extends AbstractAmazonCredentialsDescription i
 
   @Deprecated
   List<String> regions = []
+
+  Integer desiredPercentage
+
+  Integer targetHealthyDeployPercentage
 }

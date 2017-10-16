@@ -30,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.google.GoogleApiTestUtils
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
@@ -143,19 +144,18 @@ class DisableGoogleServerGroupAtomicOperationUnitSpec extends Specification {
           new InstanceGroupManagersSetTargetPoolsRequest(targetPools: [])) >> instanceGroupManagersSetTargetPoolsMock
       1 * instanceGroupManagersSetTargetPoolsMock.execute()
 
-      2 * computeMock.globalForwardingRules() >> globalForwardingRules
-      2 * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
-      2 * globalForwardingRulesList.execute() >> new ForwardingRuleList(items: [])
+      3 * computeMock.globalForwardingRules() >> globalForwardingRules
+      3 * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
+      3 * globalForwardingRulesList.execute() >> new ForwardingRuleList(items: [])
 
       1 * computeMock.forwardingRules() >> forwardingRules
       1 * forwardingRules.list(PROJECT_NAME, _) >> forwardingRulesList
       1 * forwardingRulesList.execute() >> new ForwardingRuleList(items: [])
 
       registry.timer(
-          registry.createId("google.api",
-                [api: "compute.targetPools.removeInstance",
-                 scope: "regional", region: REGION,
-                 success: "true", statusCode: "0"])  // See GoogleExecutorTraitsSpec
+          GoogleApiTestUtils.makeOkId(
+            registry, "compute.targetPools.removeInstance",
+            [scope: "regional", region: REGION])
       ).count() == 2
   }
 }

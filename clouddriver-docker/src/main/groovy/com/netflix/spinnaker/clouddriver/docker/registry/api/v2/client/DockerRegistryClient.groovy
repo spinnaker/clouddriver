@@ -18,24 +18,29 @@ package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.DockerUserAgent
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerToken
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryAuthenticationException
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryOperationException
+import com.netflix.spinnaker.clouddriver.docker.registry.security.TrustAllX509TrustManager
 import com.squareup.okhttp.OkHttpClient
 import groovy.util.logging.Slf4j
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
 import retrofit.RestAdapter
 import retrofit.RetrofitError
 import retrofit.client.OkClient
 import retrofit.client.Response
 import retrofit.converter.GsonConverter
-import retrofit.http.*
+import retrofit.http.GET
+import retrofit.http.Header
+import retrofit.http.Headers
+import retrofit.http.Path
+import retrofit.http.Query
 
-import java.net.*
-import java.io.*
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -51,6 +56,8 @@ class DockerRegistryClient {
     File dockerconfigFile
     long clientTimeoutMillis
     int paginateSize
+    String catalogFile
+    boolean insecureRegistry
 
     Builder address(String address) {
       this.address = address
@@ -92,16 +99,27 @@ class DockerRegistryClient {
       return this
     }
 
+    Builder catalogFile(String catalogFile) {
+      this.catalogFile = catalogFile
+      return this
+    }
+    
+    Builder insecureRegistry(boolean insecureRegistry) {
+      this.insecureRegistry = insecureRegistry
+      return this
+    }
+
     DockerRegistryClient build() {
+
       if (password && passwordFile) {
         throw new IllegalArgumentException('Error, at most one of "password", "passwordFile", or "dockerconfigFile" can be specified')
       }
       if (password) {
-        return new DockerRegistryClient(address, email, username, password, clientTimeoutMillis, paginateSize)
+        return new DockerRegistryClient(address, email, username, password, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
       } else if (passwordFile) {
-        return new DockerRegistryClient(address, email, username, passwordFile, clientTimeoutMillis, paginateSize)
+        return new DockerRegistryClient(address, email, username, passwordFile, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
       } else {
-        return new DockerRegistryClient(address, clientTimeoutMillis, paginateSize)
+        return new DockerRegistryClient(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
       }
     }
 
@@ -115,21 +133,28 @@ class DockerRegistryClient {
   String email
   DockerRegistryService registryService
   GsonConverter converter
+  String catalogFile
+
+  final static String userAgent = DockerUserAgent.getUserAgent()
+  final int paginateSize
 
   String getBasicAuth() {
     return tokenService?.basicAuth
   }
 
-  @Autowired
-  String clouddriverUserAgentApplicationName
-
-  final int paginateSize
-
-  DockerRegistryClient(String address, long clientTimeoutMillis, int paginateSize) {
+  DockerRegistryClient(String address, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry) {
     this.paginateSize = paginateSize
     this.tokenService = new DockerBearerTokenService()
     OkHttpClient client = new OkHttpClient()
     client.setReadTimeout(clientTimeoutMillis, TimeUnit.MILLISECONDS)
+
+    if (insecureRegistry) {
+        SSLContext sslContext = SSLContext.getInstance("SSL")
+        TrustManager[] trustManagers = [new TrustAllX509TrustManager()]
+        sslContext.init(null, trustManagers, new java.security.SecureRandom())
+        client.setSslSocketFactory(sslContext.getSocketFactory())
+    }
+
     this.registryService = new RestAdapter.Builder()
       .setEndpoint(address)
       .setClient(new OkClient(client))
@@ -138,16 +163,17 @@ class DockerRegistryClient {
       .create(DockerRegistryService)
     this.converter = new GsonConverter(new GsonBuilder().create())
     this.address = address
+    this.catalogFile = catalogFile
   }
 
-  DockerRegistryClient(String address, String email, String username, String password, long clientTimeoutMillis, int paginateSize) {
-    this(address, clientTimeoutMillis, paginateSize)
+  DockerRegistryClient(String address, String email, String username, String password, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry) {
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
     this.tokenService = new DockerBearerTokenService(username, password)
     this.email = email
   }
 
-  DockerRegistryClient(String address, String email, String username, File passwordFile, long clientTimeoutMillis, int paginateSize) {
-    this(address, clientTimeoutMillis, paginateSize)
+  DockerRegistryClient(String address, String email, String username, File passwordFile, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry) {
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
     this.tokenService = new DockerBearerTokenService(username, passwordFile)
     this.email = email
   }
@@ -209,9 +235,9 @@ class DockerRegistryClient {
 
   private getManifest(String name, String tag) {
     request({
-      registryService.getManifest(name, tag, tokenService.basicAuthHeader, clouddriverUserAgentApplicationName)
+      registryService.getManifest(name, tag, tokenService.basicAuthHeader, userAgent)
     }, { token ->
-      registryService.getManifest(name, tag, token, clouddriverUserAgentApplicationName)
+      registryService.getManifest(name, tag, token, userAgent)
     }, name)
   }
 
@@ -270,14 +296,24 @@ class DockerRegistryClient {
    * don't want you to download their whole catalog (it's potentially a lot of data).
    */
   public DockerRegistryCatalog getCatalog(String path = null) {
+    if (catalogFile) {
+      log.info("Using catalog list at $catalogFile")
+      try {
+        String userDefinedCatalog = new File(catalogFile).getText()
+        return (DockerRegistryCatalog) new Gson().fromJson(userDefinedCatalog, DockerRegistryCatalog.class)
+      } catch (Exception e) {
+        throw new DockerRegistryOperationException("Unable to read catalog file $catalogFile:" + e.getMessage())
+      }
+    }
+
     def response
     try {
       response = request({
-        path ? registryService.get(path, tokenService.basicAuthHeader, clouddriverUserAgentApplicationName) :
-          registryService.getCatalog(paginateSize, tokenService.basicAuthHeader, clouddriverUserAgentApplicationName)
+        path ? registryService.get(path, tokenService.basicAuthHeader, userAgent) :
+          registryService.getCatalog(paginateSize, tokenService.basicAuthHeader, userAgent)
       }, { token ->
-        path ? registryService.get(path, token, clouddriverUserAgentApplicationName) :
-          registryService.getCatalog(paginateSize, token, clouddriverUserAgentApplicationName)
+        path ? registryService.get(path, token, userAgent) :
+          registryService.getCatalog(paginateSize, token, userAgent)
       }, "_catalog")
     } catch (Exception e) {
       log.warn("Error encountered during catalog of $path" + e.getMessage())
@@ -297,11 +333,11 @@ class DockerRegistryClient {
 
   public DockerRegistryTags getTags(String repository, String path = null) {
     def response = request({
-      path ? registryService.get(path, tokenService.basicAuthHeader, clouddriverUserAgentApplicationName) :
-        registryService.getTags(repository, tokenService.basicAuthHeader, clouddriverUserAgentApplicationName)
+      path ? registryService.get(path, tokenService.basicAuthHeader, userAgent) :
+        registryService.getTags(repository, tokenService.basicAuthHeader, userAgent)
     }, { token ->
-      path ? registryService.get(path, token, clouddriverUserAgentApplicationName) :
-        registryService.getTags(repository, token, clouddriverUserAgentApplicationName)
+      path ? registryService.get(path, token, userAgent) :
+        registryService.getTags(repository, token, userAgent)
     }, repository)
 
     def nextPath = findNextLink(response?.headers)
@@ -340,9 +376,9 @@ class DockerRegistryClient {
 
   private Response doCheckV2Availability(String basicAuthHeader = null) {
     request({
-      registryService.checkVersion(basicAuthHeader, clouddriverUserAgentApplicationName)
+      registryService.checkVersion(basicAuthHeader, userAgent)
     }, { token ->
-      registryService.checkVersion(token, clouddriverUserAgentApplicationName)
+      registryService.checkVersion(token, userAgent)
     }, "v2 version check")
   }
 

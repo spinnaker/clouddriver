@@ -175,6 +175,8 @@ class StandardGceAttributeValidator {
     if (validateNotEmpty(region, "region") && credentials) {
       if (!(region in credentials.regionToZonesMap)) {
         errors.rejectValue("region", "${context}.region.invalid")
+      } else if (!(region in credentials.regions*.name)) {
+        errors.rejectValue("region", "${context}.region.unconfigured")
       }
     }
   }
@@ -183,6 +185,8 @@ class StandardGceAttributeValidator {
     if (validateNotEmpty(zone, "zone") && credentials) {
       if (!credentials.regionFromZone(zone)) {
         errors.rejectValue("zone", "${context}.zone.invalid")
+      } else if (!(credentials.regionFromZone(zone) in credentials.regions*.name)) {
+        errors.rejectValue("zone", "${context}.zone.unconfigured")
       }
     }
   }
@@ -328,6 +332,12 @@ class StandardGceAttributeValidator {
     }
   }
 
+  def validateMinCpuPlatform(String minCpuPlatform, String location, GoogleNamedAccountCredentials credentials) {
+    if (!credentials.locationToCpuPlatformsMap[location].contains(minCpuPlatform)) {
+      errors.rejectValue("minCpuPlatform", "${context}.minCpuPlatform.invalid", "CPU platform $minCpuPlatform is not available in $location.")
+    }
+  }
+
   def validateInstanceTypeDisks(GoogleInstanceTypeDisk instanceTypeDisk, List<GoogleDisk> specifiedDisks) {
     // The fields type and sizeGb are required on each disk, and sizeGb must be greater than zero.
     specifiedDisks.eachWithIndex { disk, index ->
@@ -344,10 +354,6 @@ class StandardGceAttributeValidator {
         errors.rejectValue("disks",
                            "${context}.disks.missingPersistentDisk",
                            "A persistent boot disk is required.")
-      } else if (persistentDiskCount > 1) {
-        errors.rejectValue("disks",
-                           "${context}.disks.tooManyPersistentDisks",
-                           "Cannot specify more than one persistent disk.")
       }
     }
 
@@ -357,6 +363,23 @@ class StandardGceAttributeValidator {
         errors.rejectValue("disks",
                            "${context}.disk${index}.sizeGb.invalidSize",
                            "Persistent disks must be at least 10GB.")
+      }
+    }
+
+    // sourceImage must not be specified on the first persistent disk, and is required on all remaining persistent disks.
+    def firstPersistentDisk = specifiedDisks.find { it.persistent }
+
+    specifiedDisks.eachWithIndex { disk, index ->
+      if (disk.is(firstPersistentDisk)) {
+        if (firstPersistentDisk.sourceImage) {
+          errors.rejectValue("disks",
+                             "${context}.disk${index}.sourceImage.unexpected",
+                             "The boot disk must not specify source image, it must be specified at the top-level on the request as `image`.")
+        }
+      } else if (disk.persistent && !disk.sourceImage) {
+        errors.rejectValue("disks",
+                           "${context}.disk${index}.sourceImage.required",
+                           "All non-boot persistent disks are required to specify source image.")
       }
     }
 

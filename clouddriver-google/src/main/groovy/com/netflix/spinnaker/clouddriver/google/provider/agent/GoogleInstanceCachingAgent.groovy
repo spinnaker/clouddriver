@@ -105,10 +105,12 @@ class GoogleInstanceCachingAgent extends AbstractGoogleCachingAgent {
         def googleInstance = new GoogleInstance(
             name: instanceName,
             instanceType: Utils.getLocalName(instance.machineType),
+            cpuPlatform: instance.cpuPlatform,
             launchTime: instanceTimestamp,
             zone: localZoneName,
             region: credentials.regionFromZone(localZoneName),
             networkInterfaces: instance.networkInterfaces,
+            networkName: Utils.decorateXpnResourceIdIfNeeded(project, instance.networkInterfaces?.getAt(0)?.network),
             metadata: instance.metadata,
             disks: instance.disks,
             serviceAccounts: instance.serviceAccounts,

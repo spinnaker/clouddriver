@@ -159,30 +159,27 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperation extends GoogleAtomi
       if (overriddenProperties.image
           || overriddenProperties.disks
           || overriddenProperties.instanceType) {
-        def sourceImage = GCEUtil.queryImage(project,
-                                             description.image,
-                                             credentials,
-                                             compute,
-                                             task,
-                                             BASE_PHASE,
-                                             clouddriverUserAgentApplicationName,
-                                             googleConfigurationProperties.baseImageProjects,
-                                             this)
-        def attachedDisks = GCEUtil.buildAttachedDisks(project,
+        def clonedDescription = description.clone()
+
+        clonedDescription.disks = overriddenProperties.disks
+
+        def attachedDisks = GCEUtil.buildAttachedDisks(clonedDescription,
                                                        null,
-                                                       sourceImage,
-                                                       overriddenProperties.disks,
                                                        false,
-                                                       newDescription.instanceType,
-                                                       googleDeployDefaults)
+                                                       googleDeployDefaults,
+                                                       task,
+                                                       BASE_PHASE,
+                                                       clouddriverUserAgentApplicationName,
+                                                       googleConfigurationProperties.baseImageProjects,
+                                                       this)
 
         instanceTemplateProperties.setDisks(attachedDisks)
       }
 
       // Override the instance template's machine type if instanceType was specified.
       if (overriddenProperties.instanceType) {
-
         def machineTypeName
+
         if (description.instanceType.startsWith('custom')) {
           machineTypeName = description.instanceType
         } else {
@@ -190,6 +187,11 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperation extends GoogleAtomi
         }
 
         instanceTemplateProperties.setMachineType(machineTypeName)
+      }
+
+      // Override the instance template's minCpuPlatform property if it was specified.
+      if (overriddenProperties.minCpuPlatform) {
+        instanceTemplateProperties.setMinCpuPlatform(description.minCpuPlatform)
       }
 
       // Override the instance template's canIpForward property if it was specified.

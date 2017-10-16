@@ -16,13 +16,63 @@
 
 package com.netflix.spinnaker.clouddriver.aws.data
 
+import com.google.common.collect.ImmutableMap
+import com.google.common.collect.ImmutableSet
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.cache.KeyParser
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace
 import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
+import groovy.transform.TypeCheckingMode
+import org.springframework.stereotype.Component
+
 import static com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider.ID
 
 @CompileStatic
-class Keys {
+@Component("AmazonKeys")
+class Keys implements KeyParser {
+
+  private static final Map<String, String> NAMESPACE_MAPPING =
+    ImmutableMap.builder()
+      .put(Namespace.SERVER_GROUPS.ns, "serverGroup")
+      .put(Namespace.INSTANCES.ns, "instanceId")
+      .put(Namespace.LOAD_BALANCERS.ns, "loadBalancer")
+      .put(Namespace.TARGET_GROUPS.ns, "targetGroup")
+      .put(Namespace.CLUSTERS.ns, "cluster")
+      .put(Namespace.APPLICATIONS.ns, "application")
+      .build()
+
+  private static final Set<String> PARSEABLE_FIELDS =
+    ImmutableSet.builder()
+      .addAll(Namespace.SERVER_GROUPS.fields)
+      .addAll(Namespace.LOAD_BALANCERS.fields)
+      .build()
+
+  @Override
+  String getNameMapping(String cache) {
+    return NAMESPACE_MAPPING.get(cache)
+  }
+
+  @Override
+  String getCloudProvider() {
+    return ID
+  }
+
+  @Override
+  Map<String, String> parseKey(String key) {
+    return parse(key)
+  }
+
+  @Override
+  @TypeChecked(value = TypeCheckingMode.SKIP)
+  Boolean canParseType(String type) {
+    return Namespace.values().any { it.ns == type }
+  }
+
+  @Override
+  Boolean canParseField(String field) {
+    return PARSEABLE_FIELDS.contains(field)
+  }
 
   static Map<String, String> parse(String key) {
     def parts = key.split(':')
@@ -94,7 +144,11 @@ class Keys {
 
   static String getServerGroupKey(String autoScalingGroupName, String account, String region) {
     Names names = Names.parseName(autoScalingGroupName)
-    "${ID}:${Namespace.SERVER_GROUPS}:${names.cluster}:${account}:${region}:${names.group}"
+    return getServerGroupKey(names.cluster, names.group, account, region)
+  }
+
+  static String getServerGroupKey(String cluster, String autoScalingGroupName, String account, String region) {
+    "${ID}:${Namespace.SERVER_GROUPS}:${cluster}:${account}:${region}:${autoScalingGroupName}"
   }
 
   static String getInstanceKey(String instanceId, String account, String region) {

@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.ops
 
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest
 import com.amazonaws.services.ec2.model.DescribeInstancesResult
-import com.amazonaws.services.ec2.model.Filter
 import com.amazonaws.services.ec2.model.InstanceStateName
 import com.amazonaws.services.ec2.model.Reservation
 import com.amazonaws.services.elasticloadbalancing.model.DeregisterInstancesFromLoadBalancerRequest
@@ -30,15 +29,15 @@ import com.amazonaws.services.elasticloadbalancingv2.model.InvalidTargetExceptio
 import com.amazonaws.services.elasticloadbalancingv2.model.RegisterTargetsRequest
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroupNotFoundException
-import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport
-import com.netflix.spinnaker.clouddriver.data.task.Task
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.EnableDisableAsgDescription
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.EnableDisableInstanceDiscoveryDescription
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.discovery.AwsEurekaSupport
 import com.netflix.spinnaker.clouddriver.aws.model.AutoScalingProcessType
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
+import com.netflix.spinnaker.clouddriver.data.task.Task
+import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -103,7 +102,9 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
 
       task.updateStatus phaseName, "${presentParticipling} ASG '$serverGroupName' in $region..."
       if (disable) {
-        asgService.suspendProcesses(serverGroupName, AutoScalingProcessType.getDisableProcesses())
+        if (description.desiredPercentage == null || description.desiredPercentage == 100) {
+          asgService.suspendProcesses(serverGroupName, AutoScalingProcessType.getDisableProcesses())
+        }
       } else {
         asgService.resumeProcesses(serverGroupName, AutoScalingProcessType.getDisableProcesses())
       }
@@ -112,17 +113,29 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
         it.lifecycleState == "InService" || it.lifecycleState.startsWith("Pending")
       }*.instanceId
 
+      int failedAttempts = 0
       if (instanceIds) {
         DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest().withInstanceIds(instanceIds)
         List<Reservation> reservations = []
         while (true) {
-          DescribeInstancesResult describeInstancesResult = regionScopedProvider.amazonEC2.describeInstances(describeInstancesRequest)
-          reservations.addAll(describeInstancesResult.getReservations())
-          if (!describeInstancesResult.nextToken) {
-            break
+          try {
+            DescribeInstancesResult describeInstancesResult = regionScopedProvider.amazonEC2.describeInstances(describeInstancesRequest)
+            reservations.addAll(describeInstancesResult.getReservations())
+            if (!describeInstancesResult.nextToken) {
+              break
+            }
+
+            describeInstancesRequest.setNextToken(describeInstancesResult.nextToken)
+          } catch(Exception e) {
+            failedAttempts++
+            log.error("Failed to describe one of the instances in  {}", instanceIds, e)
+            if (failedAttempts >= 10) {
+              task.updateStatus phaseName, "Failed to describe instances 10 times, aborting. This may happen if the server group has been disabled for a long period of time."
+              return false
+            }
           }
-          describeInstancesRequest.setNextToken(describeInstancesResult.nextToken)
         }
+
         List<String> filteredInstanceIds = []
         for (Reservation reservation : reservations) {
           filteredInstanceIds += reservation.getInstances().findAll {
@@ -132,6 +145,12 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
         instanceIds = filteredInstanceIds
       }
 
+      if (instanceIds && credentials.discoveryEnabled && description.desiredPercentage && disable) {
+        instanceIds = discoverySupport.getInstanceToModify(credentials.name, region, serverGroupName, instanceIds, description.desiredPercentage)
+        task.updateStatus phaseName, "Only disabling instances $instanceIds on ASG $serverGroupName with percentage ${description.desiredPercentage}"
+      }
+
+      // ELB/ALB registration
       if (disable) {
         changeRegistrationOfInstancesWithLoadBalancer(asg.loadBalancerNames, instanceIds) { String loadBalancerName, List<Instance> instances ->
           try {
@@ -160,6 +179,7 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
         }
       }
 
+      // eureka registration
       if (credentials.discoveryEnabled && instanceIds) {
         def status = disable ? AbstractEurekaSupport.DiscoveryStatus.Disable : AbstractEurekaSupport.DiscoveryStatus.Enable
         task.updateStatus phaseName, "Marking ASG $serverGroupName as $status with Discovery"
@@ -168,7 +188,8 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
             credentials: credentials,
             region: region,
             asgName: serverGroupName,
-            instanceIds: instanceIds
+            instanceIds: instanceIds,
+            targetHealthyDeployPercentage: description.targetHealthyDeployPercentage != null ? description.targetHealthyDeployPercentage : 100
         )
         discoverySupport.updateDiscoveryStatusForInstances(
             enableDisableInstanceDiscoveryDescription, task, phaseName, status, instanceIds

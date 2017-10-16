@@ -106,6 +106,7 @@ abstract class AbstractGoogleLoadBalancerCachingAgent extends AbstractGoogleCach
     } else {
       loadBalancerKey = Keys.getLoadBalancerKey(region, accountName, data.loadBalancerName as String)
 
+      // TODO(duftler): Is this right? Seems like this should use a wildcard.
       // No load balancer was found, so need to find identifiers for all load balancers in the region.
       identifiers = providerCache.filterIdentifiers(LOAD_BALANCERS.ns, loadBalancerKey)
     }
@@ -162,11 +163,13 @@ abstract class AbstractGoogleLoadBalancerCachingAgent extends AbstractGoogleCach
     }
 
     return providerCache.getAll(ON_DEMAND.ns, keys).collect { CacheData cacheData ->
+      def details = Keys.parse(cacheData.id)
       [
-        details       : Keys.parse(cacheData.id),
-        cacheTime     : cacheData.attributes.cacheTime,
-        processedCount: cacheData.attributes.processedCount,
-        processedTime : cacheData.attributes.processedTime
+          details       : details,
+          moniker       : convertOnDemandDetails(details),
+          cacheTime     : cacheData.attributes.cacheTime,
+          processedCount: cacheData.attributes.processedCount,
+          processedTime : cacheData.attributes.processedTime
       ]
     }
   }

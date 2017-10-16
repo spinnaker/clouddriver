@@ -21,6 +21,9 @@ import com.netflix.spinnaker.clouddriver.appengine.deploy.AppengineMutexReposito
 import com.netflix.spinnaker.clouddriver.appengine.deploy.AppengineServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.DeployAppengineDescription
 import com.netflix.spinnaker.clouddriver.appengine.deploy.exception.AppengineOperationException
+import com.netflix.spinnaker.clouddriver.appengine.gcsClient.AppengineGcsRepositoryClient
+import com.netflix.spinnaker.clouddriver.appengine.storage.GcsStorageService
+import com.netflix.spinnaker.clouddriver.appengine.storage.config.StorageConfigurationProperties
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
@@ -39,11 +42,20 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
   @Autowired
   AppengineJobExecutor jobExecutor
 
+  @Autowired(required=false)
+  StorageConfigurationProperties storageConfiguration
+
+  @Autowired(required=false)
+  GcsStorageService.Factory storageServiceFactory
+
   DeployAppengineDescription description
+  boolean usesGcs
 
   DeployAppengineAtomicOperation(DeployAppengineDescription description) {
     this.description = description
+    this.usesGcs = description.repositoryUrl.startsWith("gs://")
   }
+
   /**
    * curl -X POST -H "Content-Type: application/json" -d '[ { "createServerGroup": { "application": "myapp", "stack": "stack", "freeFormDetails": "details", "repositoryUrl": "https://github.com/organization/project.git", "branch": "feature-branch", "credentials": "my-appengine-account", "configFilepaths": ["app.yaml"] } } ]' "http://localhost:7002/appengine/ops"
    * curl -X POST -H "Content-Type: application/json" -d '[ { "createServerGroup": { "application": "myapp", "stack": "stack", "freeFormDetails": "details", "repositoryUrl": "https://github.com/organization/project.git", "branch": "feature-branch", "credentials": "my-appengine-account", "configFilepaths": ["app.yaml"], "promote": true, "stopPreviousVersion": true } } ]' "http://localhost:7002/appengine/ops"
@@ -51,7 +63,8 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
    */
   @Override
   DeploymentResult operate(List priorOutputs) {
-    def directoryPath = getFullDirectoryPath(description.credentials.localRepositoryDirectory, description.repositoryUrl)
+    def  baseDir = description.credentials.localRepositoryDirectory
+    def  directoryPath = getFullDirectoryPath(baseDir, description.repositoryUrl)
 
     /*
     * We can't allow concurrent deploy operations on the same local repository.
@@ -71,28 +84,46 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
 
   String cloneOrUpdateLocalRepository(String directoryPath, Integer retryCount) {
     def repositoryUrl = description.repositoryUrl
-    def branch = description.branch
     def directory = new File(directoryPath)
-    def repositoryClient = description.credentials.gitCredentials.buildRepositoryClient(
-      repositoryUrl,
-      directoryPath,
-      description.gitCredentialType
-    )
+    def branch = description.branch
+    def branchLogName = branch
+    def repositoryClient
+
+    if (usesGcs) {
+      if (storageConfiguration == null) {
+        throw new IllegalStateException(
+            "GCS has been disabled. To enable it, configure storage.gcs.enabled=false and restart clouddriver.")
+      }
+
+      def applicationDirectoryRoot = description.applicationDirectoryRoot
+      String credentialPath = ""
+      if (description.storageAccountName != null && !description.storageAccountName.isEmpty()) {
+        credentialPath = storageConfiguration.getAccount(description.storageAccountName).jsonPath
+      }
+      GcsStorageService storage = storageServiceFactory.newForCredentials(credentialPath)
+      repositoryClient = new AppengineGcsRepositoryClient(repositoryUrl, directoryPath, applicationDirectoryRoot,
+                                                          storage, jobExecutor)
+      branchLogName = "(current)"
+    } else {
+      repositoryClient = description.credentials.gitCredentials.buildRepositoryClient(
+        repositoryUrl,
+        directoryPath,
+        description.gitCredentialType
+      )
+    }
 
     try {
       if (!directory.exists()) {
-        task.updateStatus BASE_PHASE, "Cloning repository $repositoryUrl into local directory..."
+        task.updateStatus BASE_PHASE, "Grabbing repository $repositoryUrl into local directory..."
         directory.mkdir()
-        repositoryClient.cloneRepository()
+        repositoryClient.initializeLocalDirectory()
       }
-      task.updateStatus BASE_PHASE, "Fetching updates from $repositoryUrl..."
-      repositoryClient.fetch()
-      task.updateStatus BASE_PHASE, "Checking out branch $branch..."
-      repositoryClient.checkout(branch)
+      task.updateStatus BASE_PHASE, "Fetching updates from $repositoryUrl for $branchLogName..."
+      repositoryClient.updateLocalDirectoryWithVersion(branch)
     } catch (Exception e) {
       directory.deleteDir()
       if (retryCount > 0) {
-        return cloneOrUpdateLocalRepository(directoryPath,  retryCount - 1)
+        return cloneOrUpdateLocalRepository(directoryPath, retryCount - 1)
       } else {
         throw e
       }

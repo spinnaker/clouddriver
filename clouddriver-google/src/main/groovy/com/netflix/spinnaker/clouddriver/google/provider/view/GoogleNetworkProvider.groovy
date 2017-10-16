@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.google.provider.view
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.api.services.compute.model.Network
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
@@ -61,16 +60,12 @@ class GoogleNetworkProvider implements NetworkProvider<GoogleNetwork> {
   }
 
   GoogleNetwork fromCacheData(CacheData cacheData) {
-    if (!(cacheData.attributes.network.id instanceof BigInteger)) {
-      cacheData.attributes.network.id = new BigInteger(cacheData.attributes.network.id)
-    }
-
-    Network network = objectMapper.convertValue(cacheData.attributes.network, Network)
+    Map network = cacheData.attributes.network
     Map<String, String> parts = Keys.parse(cacheData.id)
 
-    new GoogleNetwork(
+    return new GoogleNetwork(
       cloudProvider: this.cloudProvider,
-      id: network.name,
+      id: parts.id,
       name: network.name,
       account: parts.account,
       region: parts.region,

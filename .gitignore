@@ -13,3 +13,5 @@ README.html
 *~
 es-tmp/
 clouddriver-oracle-bmcs/bmcs-sdk
+gatling.conf
+.DS_Store

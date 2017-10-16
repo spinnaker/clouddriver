@@ -64,11 +64,16 @@ class AppengineClusterProvider implements ClusterProvider<AppengineCluster> {
   }
 
   @Override
-  AppengineCluster getCluster(String applicationName, String account, String clusterName) {
+  AppengineCluster getCluster(String application, String account, String name, boolean includeDetails) {
     List<CacheData> clusterData =
-      [cacheView.get(CLUSTERS.ns, Keys.getClusterKey(account, applicationName, clusterName))] - null
+      [cacheView.get(CLUSTERS.ns, Keys.getClusterKey(account, application, name))] - null
 
-    clusterData ? translateClusters(clusterData, true).head() : null
+    clusterData ? translateClusters(clusterData, includeDetails).head() : null
+  }
+
+  @Override
+  AppengineCluster getCluster(String applicationName, String account, String clusterName) {
+    return getCluster(applicationName, account, clusterName, true)
   }
 
   @Override
@@ -116,6 +121,11 @@ class AppengineClusterProvider implements ClusterProvider<AppengineCluster> {
     AppengineCloudProvider.ID
   }
 
+  @Override
+  boolean supportsMinimalClusters() {
+    return false
+  }
+
   Collection<AppengineCluster> translateClusters(Collection<CacheData> clusterData, boolean includeDetails) {
     if (!clusterData) {
       return []
@@ -150,7 +160,7 @@ class AppengineClusterProvider implements ClusterProvider<AppengineCluster> {
         }
         cluster.serverGroups = clusterDataEntry.relationships[SERVER_GROUPS.ns].collect { serverGroupKey ->
           def parts = Keys.parse(serverGroupKey)
-          new AppengineServerGroup(name: parts.name, account: parts.account)
+          new AppengineServerGroup(name: parts.name, account: parts.account, region: parts.region)
         }
       }
       cluster

@@ -10,8 +10,13 @@ package com.netflix.spinnaker.clouddriver.oraclebmcs.deploy.op
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.oraclebmcs.deploy.OracleBMCSWorkRequestPoller
 import com.netflix.spinnaker.clouddriver.oraclebmcs.deploy.description.DestroyOracleBMCSServerGroupDescription
+import com.netflix.spinnaker.clouddriver.oraclebmcs.model.OracleBMCSServerGroup
+import com.netflix.spinnaker.clouddriver.oraclebmcs.security.OracleBMCSNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.oraclebmcs.service.servergroup.OracleBMCSServerGroupService
+import com.oracle.bmc.loadbalancer.LoadBalancerClient
+import com.oracle.bmc.loadbalancer.responses.DeleteBackendSetResponse
 import spock.lang.Specification
 
 class DestroyOracleBMCSServerGroupAtomicOperationSpec extends Specification {
@@ -20,16 +25,24 @@ class DestroyOracleBMCSServerGroupAtomicOperationSpec extends Specification {
     setup:
     def destroyDesc = new DestroyOracleBMCSServerGroupDescription()
     destroyDesc.serverGroupName = "sg1"
-
+    def creds = Mock(OracleBMCSNamedAccountCredentials)
+    def loadBalancerClient = Mock(LoadBalancerClient)
+    creds.loadBalancerClient >> loadBalancerClient
+    destroyDesc.credentials = creds
     TaskRepository.threadLocalTask.set(Mock(Task))
     def sgService = Mock(OracleBMCSServerGroupService)
     DestroyOracleBMCSServerGroupAtomicOperation op = new DestroyOracleBMCSServerGroupAtomicOperation(destroyDesc)
     op.oracleBMCSServerGroupService = sgService
+    GroovySpy(OracleBMCSWorkRequestPoller, global: true)
+
 
     when:
     op.operate(null)
 
     then:
     1 * sgService.destroyServerGroup(_, _, "sg1")
+    1 * sgService.getServerGroup(_, _, "sg1") >> new OracleBMCSServerGroup(loadBalancerId: "ocid.lb.oc1..12345")
+    1 * loadBalancerClient.deleteBackendSet(_) >> DeleteBackendSetResponse.builder().opcWorkRequestId("wr1").build()
+    1 * OracleBMCSWorkRequestPoller.poll("wr1", _, _, loadBalancerClient) >> null
   }
 }

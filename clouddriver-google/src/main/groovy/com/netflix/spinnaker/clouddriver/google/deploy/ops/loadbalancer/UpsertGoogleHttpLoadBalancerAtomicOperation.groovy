@@ -34,6 +34,7 @@ import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCrede
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationsRegistry
 import com.netflix.spinnaker.clouddriver.orchestration.OrchestrationProcessor
+import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -237,7 +238,9 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
         Boolean differentSessionAffinity = GoogleSessionAffinity.valueOf(existingService.getSessionAffinity()) != backendService.sessionAffinity
         Boolean differentSessionCookieTtl = existingService.getAffinityCookieTtlSec() != backendService.affinityCookieTtlSec
         Boolean differentCDN = existingService.getEnableCDN() != backendService.enableCDN
-        if (differentHealthChecks || differentSessionAffinity || differentSessionCookieTtl || differentCDN) {
+        Boolean differentPortName = existingService.getPortName() != backendService.portName
+        Boolean differentConnectionDraining = existingService.getConnectionDraining()?.getDrainingTimeoutSec() != backendService?.connectionDrainingTimeoutSec
+        if (differentHealthChecks || differentSessionAffinity || differentSessionCookieTtl || differentCDN || differentPortName || differentConnectionDraining) {
           serviceNeedsUpdatedSet.add(backendService.name)
         }
       }
@@ -298,7 +301,8 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
         task.updateStatus BASE_PHASE, "Creating backend service $backendServiceName..."
         BackendService bs = new BackendService(
           name: backendServiceName,
-          portName: GoogleHttpLoadBalancingPolicy.HTTP_PORT_NAME,
+          portName: backendService.portName ?: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME,
+          connectionDraining: new ConnectionDraining().setDrainingTimeoutSec(backendService.connectionDrainingTimeoutSec),
           healthChecks: [GCEUtil.buildHttpHealthCheckUrl(project, backendService.healthCheck.name)],
           sessionAffinity: sessionAffinity,
           enableCDN: backendService.enableCDN,
@@ -316,7 +320,8 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
           task.updateStatus BASE_PHASE, "Updating backend service $backendServiceName..."
           def bsToUpdate = existingServices.find { it.name == backendServiceName }
           def hcName = backendService.healthCheck.name
-          bsToUpdate.portName = GoogleHttpLoadBalancingPolicy.HTTP_PORT_NAME
+          bsToUpdate.portName = backendService.portName ?: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME
+          bsToUpdate.connectionDraining = new ConnectionDraining().setDrainingTimeoutSec(backendService.connectionDrainingTimeoutSec)
           bsToUpdate.healthChecks = [GCEUtil.buildHttpHealthCheckUrl(project, hcName)]
           bsToUpdate.sessionAffinity = sessionAffinity
           bsToUpdate.enableCDN = backendService.enableCDN
@@ -574,6 +579,10 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
         serverGroupName: groupName
       ]
 
+      if (instanceDescription.minCpuPlatform) {
+        templateOpMap.minCpuPlatform = instanceDescription.minCpuPlatform
+      }
+
       def instanceMetadata = templateOpMap?.instanceMetadata
       if (instanceMetadata) {
         List<String> globalLbs = instanceMetadata.(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES)?.split(',') ?: []
@@ -590,7 +599,7 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
         ]
       }
 
-      def converter = atomicOperationsRegistry.getAtomicOperationConverter('modifyGoogleServerGroupInstanceTemplateDescription', 'gce')
+      def converter = atomicOperationsRegistry.getAtomicOperationConverter('modifyGoogleServerGroupInstanceTemplateDescription', 'gce', ProviderVersion.v1)
       AtomicOperation templateOp = converter.convertOperation(templateOpMap)
       orchestrationProcessor.process([templateOp], UUID.randomUUID().toString())
     }

@@ -20,9 +20,9 @@ import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Tag
-import com.netflix.spinnaker.cats.redis.cache.RedisCache
+import com.netflix.spinnaker.cats.redis.cache.RedisCache.CacheMetrics
 
-class SpectatorRedisCacheMetrics implements RedisCache.CacheMetrics {
+class SpectatorRedisCacheMetrics implements CacheMetrics {
   private final Registry registry
 
   SpectatorRedisCacheMetrics(Registry registry) {

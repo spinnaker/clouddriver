@@ -20,10 +20,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationConverter
+import com.netflix.spinnaker.kork.web.exceptions.InvalidRequestException
 import groovy.transform.InheritConstructors
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.HttpStatus
-import org.springframework.web.bind.annotation.ResponseStatus
 
 abstract class AbstractAtomicOperationsCredentialsSupport implements AtomicOperationConverter {
   @Autowired
@@ -41,7 +40,7 @@ abstract class AbstractAtomicOperationsCredentialsSupport implements AtomicOpera
 
   def <T extends AccountCredentials> T getCredentialsObject(String name) {
     if (name == null) {
-      throw new CredentialsNotFoundException("credential name is required")
+      throw new InvalidRequestException("credential name is required")
     }
     T credential
     try {
@@ -51,12 +50,9 @@ abstract class AbstractAtomicOperationsCredentialsSupport implements AtomicOpera
       }
       credential = (T) repoCredential
     } catch (Exception e) {
-      throw new CredentialsNotFoundException("credential not found (name: ${name}, names: ${accountCredentialsProvider.getAll()*.name})", e)
+      throw new InvalidRequestException("credential not found (name: ${name}, names: ${accountCredentialsProvider.getAll()*.name})", e)
     }
 
     return credential
   }
-
-  @InheritConstructors
-  static class CredentialsNotFoundException extends RuntimeException {}
 }

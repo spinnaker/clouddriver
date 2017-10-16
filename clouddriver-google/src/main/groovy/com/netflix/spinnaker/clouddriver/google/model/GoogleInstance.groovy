@@ -41,6 +41,7 @@ class GoogleInstance {
 
   String name
   String instanceType
+  String cpuPlatform
   Long launchTime
   String zone
   String region
@@ -48,6 +49,7 @@ class GoogleInstance {
   List<GoogleLoadBalancerHealth> loadBalancerHealths = []
   ConsulNode consulNode
   List<NetworkInterface> networkInterfaces
+  String networkName
   Metadata metadata
   List<Disk> disks
   List<ServiceAccount> serviceAccounts
@@ -60,11 +62,6 @@ class GoogleInstance {
   String serverGroup
   @JsonIgnore
   List<String> securityGroups = []
-
-  @JsonIgnore
-  String getNetworkName() {
-    return Utils.getLocalName(networkInterfaces?.getAt(0)?.network)
-  }
 
   @JsonIgnore
   View getView() {
@@ -80,6 +77,7 @@ class GoogleInstance {
     String name = GoogleInstance.this.name
     String instanceId = GoogleInstance.this.name
     String instanceType = GoogleInstance.this.instanceType
+    String cpuPlatform = GoogleInstance.this.cpuPlatform
     Long launchTime = GoogleInstance.this.launchTime
     String zone = GoogleInstance.this.zone
     String region = GoogleInstance.this.region

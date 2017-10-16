@@ -17,15 +17,20 @@
 
 package com.netflix.spinnaker.clouddriver.dcos.security
 
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.dcos.DcosClientCompositeKey
+import com.netflix.spinnaker.clouddriver.dcos.DcosClientProvider
 import com.netflix.spinnaker.clouddriver.dcos.DcosConfigurationProperties
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import groovy.util.logging.Slf4j
+import mesosphere.dcos.client.DCOS
+import mesosphere.dcos.client.DCOSException
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -38,14 +43,17 @@ import org.springframework.context.annotation.Scope
 class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable {
   private final static LOGGER = LoggerFactory.getLogger(DcosCredentialsInitializer)
 
+  @Autowired Registry spectatorRegistry
+
   @Bean
   List<? extends DcosAccountCredentials> dcosCredentials(String clouddriverUserAgentApplicationName,
                                                          DcosConfigurationProperties dcosConfigurationProperties,
                                                          ApplicationContext applicationContext,
                                                          AccountCredentialsRepository accountCredentialsRepository,
+                                                         DcosClientProvider clientProvider,
                                                          List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
 
-    synchronizeDcosAccounts(clouddriverUserAgentApplicationName, dcosConfigurationProperties, null, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrappers)
+    synchronizeDcosAccounts(clouddriverUserAgentApplicationName, dcosConfigurationProperties, null, applicationContext, accountCredentialsRepository, clientProvider, providerSynchronizerTypeWrappers)
   }
 
   @Override
@@ -61,6 +69,7 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
                                                                  CatsModule catsModule,
                                                                  ApplicationContext applicationContext,
                                                                  AccountCredentialsRepository accountCredentialsRepository,
+                                                                 DcosClientProvider clientProvider,
                                                                  List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
 
     // TODO what to do with clouddriverUserAgentApplicationName?
@@ -76,9 +85,9 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
                                          dcosConfigurationProperties.accounts)
 
     accountsToAdd.each { DcosConfigurationProperties.Account account ->
-      try {
-        List<DcosClusterCredentials> clusterCredentials = new ArrayList<>()
+      List<DcosClusterCredentials> allAccountClusterCredentials = new ArrayList<>()
 
+      try {
         for (DcosConfigurationProperties.ClusterCredential clusterConfig in account.clusters) {
           DcosConfigurationProperties.Cluster cluster = clusterMap.get(clusterConfig.name)
 
@@ -96,14 +105,25 @@ class DcosCredentialsInitializer implements CredentialsInitializerSynchronizable
 
           def dockerRegistries = cluster.dockerRegistries ? cluster.dockerRegistries : account.dockerRegistries
 
-          clusterCredentials.add(DcosClusterCredentials.builder().key(key.get()).dcosUrl(cluster.dcosUrl)
-                                   .secretStore(cluster.secretStore).dockerRegistries(dockerRegistries)
-                                   .dcosConfig(DcosConfigurationProperties.buildConfig(account, cluster, clusterConfig)).build())
+          DcosClusterCredentials clusterCredentials = DcosClusterCredentials.builder().key(key.get()).dcosUrl(cluster.dcosUrl)
+            .secretStore(cluster.secretStore).dockerRegistries(dockerRegistries)
+            .dcosConfig(DcosConfigurationProperties.buildConfig(account, cluster, clusterConfig))
+            .spectatorRegistry(spectatorRegistry).build()
+
+          DCOS client = clientProvider.getDcosClient(clusterCredentials)
+          try {
+            client.getServerInfo()
+          } catch (DCOSException e) {
+            LOGGER.error("[account={}] There was a problem trying to connect to the cluster with url=[{}] using uid=[{}]. Details: ", account.name, cluster.dcosUrl, clusterConfig.uid, e)
+          }
+
+          allAccountClusterCredentials.add(clusterCredentials)
         }
 
-        def dcosCredentials = DcosAccountCredentials.builder().account(account.name).environment(account.environment)
-          .accountType(account.accountType).dockerRegistries(account.dockerRegistries)
-          .requiredGroupMembership(account.requiredGroupMembership).clusters(clusterCredentials).build()
+        DcosAccountCredentials dcosCredentials = DcosAccountCredentials.builder().account(account.name).environment(account.environment)
+                .accountType(account.accountType).dockerRegistries(account.dockerRegistries)
+                .requiredGroupMembership(account.requiredGroupMembership).clusters(allAccountClusterCredentials)
+                .permissions(account.permissions.build()).spectatorRegistry(spectatorRegistry).build()
 
         // Note: The MapBackedAccountCredentialsRepository doesn't actually use the key for anything currently.
         accountCredentialsRepository.save(dcosCredentials.name, dcosCredentials)
