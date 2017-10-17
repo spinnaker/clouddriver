@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.appengine.storage.GcsStorageService
 import com.netflix.spinnaker.clouddriver.appengine.storage.StorageUtils
 import groovy.transform.TupleConstructor
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
 
 @TupleConstructor
@@ -46,7 +47,7 @@ class AppengineGcsRepositoryClient implements AppengineRepositoryClient {
       throw new IllegalArgumentException("Repository is not a GCS bucket: " + repositoryUrl)
     }
 
-    def dest = targetDirectory + File.separator + applicationDirectoryRoot
+    def dest = applicationDirectoryRoot ? targetDirectory + File.separator + applicationDirectoryRoot : targetDirectory
 
     def fullPath = repositoryUrl.substring(gsPrefix.length())
     if (applicationDirectoryRoot) {
@@ -55,6 +56,12 @@ class AppengineGcsRepositoryClient implements AppengineRepositoryClient {
     def slash = fullPath.indexOf("/")
     def bucketName = fullPath.substring(0, slash)
     def bucketPath = fullPath.substring(slash + 1)
+
+    // Start with a clean directory for each deployment.
+    File appDirectory = new File(targetDirectory)
+    if (appDirectory.exists() && appDirectory.isDirectory()) {
+      FileUtils.forceDelete(appDirectory)
+    }
 
     if (fullPath.endsWith(".tar")) {
       InputStream tas = storage.openObjectStream(bucketName, bucketPath)
