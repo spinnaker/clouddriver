@@ -21,14 +21,15 @@ import com.netflix.spinnaker.clouddriver.appengine.model.AppengineRepositoryClie
 import com.netflix.spinnaker.clouddriver.appengine.storage.GcsStorageService
 import com.netflix.spinnaker.clouddriver.appengine.storage.StorageUtils
 import groovy.transform.TupleConstructor
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import groovy.util.logging.Slf4j
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
 
+@Slf4j
 @TupleConstructor
 class AppengineGcsRepositoryClient implements AppengineRepositoryClient {
   String repositoryUrl
-  String targetDirectory
+  String targetDirectoryPath
   String applicationDirectoryRoot
   GcsStorageService storage
   AppengineJobExecutor jobExecutor
@@ -47,7 +48,7 @@ class AppengineGcsRepositoryClient implements AppengineRepositoryClient {
       throw new IllegalArgumentException("Repository is not a GCS bucket: " + repositoryUrl)
     }
 
-    def dest = applicationDirectoryRoot ? targetDirectory + File.separator + applicationDirectoryRoot : targetDirectory
+    def dest = applicationDirectoryRoot ? targetDirectoryPath + File.separator + applicationDirectoryRoot : targetDirectoryPath
 
     def fullPath = repositoryUrl.substring(gsPrefix.length())
     if (applicationDirectoryRoot) {
@@ -58,9 +59,12 @@ class AppengineGcsRepositoryClient implements AppengineRepositoryClient {
     def bucketPath = fullPath.substring(slash + 1)
 
     // Start with a clean directory for each deployment.
-    File appDirectory = new File(targetDirectory)
-    if (appDirectory.exists() && appDirectory.isDirectory()) {
-      FileUtils.forceDelete(appDirectory)
+    File targetDirectory = new File(targetDirectoryPath)
+    if (targetDirectory.exists() && targetDirectory.isDirectory()) {
+      FileUtils.forceDelete(targetDirectory)
+    } else if (targetDirectory.exists() && targetDirectory.isFile()) {
+      log.error("GAE staging directory resolved to a file: ${}, failing...")
+      throw new IllegalArgumentException("GAE staging directory resolved to a file: ${}, failing...")
     }
 
     if (fullPath.endsWith(".tar")) {
