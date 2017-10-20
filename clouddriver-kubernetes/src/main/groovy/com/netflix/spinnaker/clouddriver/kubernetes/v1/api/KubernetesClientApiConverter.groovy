@@ -381,11 +381,27 @@ class KubernetesClientApiConverter {
       spec.addVolumeClaimTemplatesItem(persistentVolumeClaim)
     })
 
-    //FIXME: Inlude updateStradegy when api model is available
+    if (description.updateController) {
+      def updateController = description.updateController
+      def updateStrategy = new V1beta1StatefulSetUpdateStrategy()
+      def rollingUpdate = new V1beta1RollingUpdateStatefulSetStrategy()
+
+      if(updateController) {
+        if (updateController.updateStrategy.type.name() != "Recreate") {
+          updateStrategy.type = updateController.updateStrategy.type
+          if (updateController.updateStrategy.rollingUpdate) {
+            updateStrategy.rollingUpdate = rollingUpdate
+          }
+          spec.updateStrategy = updateStrategy
+        }
+      }
+    }
+
     metadata = new V1ObjectMeta()
     metadata.name = statefulSetName
     metadata.namespace = description.namespace
     metadata.labels = genericLabels(description.application, statefulSetName, description.namespace)
+    metadata.deletionGracePeriodSeconds = description.terminationGracePeriodSeconds
 
     stateful.metadata = metadata
     stateful.spec = spec
@@ -937,13 +953,6 @@ class KubernetesClientApiConverter {
     daemonset.kind = description.kind
 
     return daemonset
-  }
-
-  static V1beta1DaemonSet toReplaceDaemonSet(V1beta1DaemonSet configurefDaemonSet, V1beta1DaemonSet deployedDaemonSet) {
-    deployedDaemonSet.spec.template = configurefDaemonSet.spec.template
-    deployedDaemonSet.spec.updateStrategy = configurefDaemonSet.spec.updateStrategy
-
-    return deployedDaemonSet
   }
 
   static boolean canUpdated(DeployKubernetesAtomicOperationDescription description) {
