@@ -376,6 +376,10 @@ class KubernetesClientApiConverter {
     spec.serviceName = statefulSetName
     spec.replicas = description.targetSize
 
+    if (description.podManagementPolicy) {
+      spec.podManagementPolicy = description.podManagementPolicy
+    }
+
     def persistentVolumeClaims = toPersistentVolumeClaims(description, statefulSetName)
     persistentVolumeClaims.forEach({ persistentVolumeClaim ->
       spec.addVolumeClaimTemplatesItem(persistentVolumeClaim)
@@ -390,6 +394,9 @@ class KubernetesClientApiConverter {
         if (updateController.updateStrategy.type.name() != "Recreate") {
           updateStrategy.type = updateController.updateStrategy.type
           if (updateController.updateStrategy.rollingUpdate) {
+            if (updateController.updateStrategy.rollingUpdate.partition) {
+              rollingUpdate.partition = updateController.updateStrategy.rollingUpdate.partition
+            }
             updateStrategy.rollingUpdate = rollingUpdate
           }
           spec.updateStrategy = updateStrategy
@@ -933,7 +940,7 @@ class KubernetesClientApiConverter {
       def rollingUpdate = new V1beta1RollingUpdateDaemonSet()
 
       if(updateController) {
-        //Note: Do nothandle OnDelete because it will cause Kubernete failed.
+        //Note: Do not handle OnDelete because it is default.
         if (updateController.updateStrategy.type.name() != "Recreate") {
           updateStrategy.type = updateController.updateStrategy.type
           if (updateController.updateStrategy.rollingUpdate) {
