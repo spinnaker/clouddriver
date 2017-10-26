@@ -213,14 +213,11 @@ class KubernetesClientApiAdapter {
     }
   }
 
-  boolean hardDestroyStatefulSet(String name, String namespace) {
-    exceptionWrapper("statefulSets.delete", "Hard Destroy Stateful Set $name", namespace) {
-      V1DeleteOptions deleteOptions = new V1DeleteOptions()
-      Boolean orphanDependents = true
-
+  boolean deleteStatefulSetNotCascade(String name, String namespace, V1DeleteOptions deleteOptions, Boolean orphanDependents, String propagationPolicy) {
+    exceptionWrapper("statefulSets.delete", "Delete Stateful Set $name", namespace) {
       V1Status status
       try {
-        status = apiInstance.deleteNamespacedStatefulSet(name, namespace, deleteOptions, null, TERMINATION_GRACE_PERIOD_SECONDS, orphanDependents, null)
+        status = apiInstance.deleteNamespacedStatefulSet(name, namespace, deleteOptions ?: new V1DeleteOptions(), API_CALL_RESULT_FORMAT, TERMINATION_GRACE_PERIOD_SECONDS, orphanDependents, propagationPolicy)
       } catch(Exception e) {
         log.debug(e.message)
       }
@@ -273,13 +270,9 @@ class KubernetesClientApiAdapter {
     }
   }
 
-  boolean deleteAutoscaler(String namespace, String name) {
+  boolean deleteAutoscaler(String namespace, String name, V1DeleteOptions deleteOptions, Boolean orphanDependents, String propagationPolicy)  {
     exceptionWrapper("horizontalPodAutoscalers.delete", "Destroy Autoscaler $name", namespace) {
-      V1DeleteOptions deleteOption = new V1DeleteOptions()
-      Boolean orphanDependents = true
-      String propagationPolicy = ""
-
-      return scalerApi.deleteNamespacedHorizontalPodAutoscaler(name, namespace, deleteOption, API_CALL_RESULT_FORMAT, TERMINATION_GRACE_PERIOD_SECONDS, orphanDependents, propagationPolicy);
+      return scalerApi.deleteNamespacedHorizontalPodAutoscaler(name, namespace, deleteOptions, API_CALL_RESULT_FORMAT, TERMINATION_GRACE_PERIOD_SECONDS, orphanDependents, propagationPolicy);
     }
   }
 
@@ -314,25 +307,24 @@ class KubernetesClientApiAdapter {
       def nodeSelector = new HashMap<String, String>()
       UUID uuid = UUID.randomUUID()
 
+      //Use generated random uid for replacing nodeseletor value which can trigger daemonset pod deletion(refer to kubectl)
       nodeSelector.put(uuid.toString(), uuid.toString())
       deployedControllerSet.spec.template.spec.nodeSelector = nodeSelector
 
-      V1beta1DaemonSet daemonSet = extApi.replaceNamespacedDaemonSet(name, namespace, deployedControllerSet, null)
+      V1beta1DaemonSet daemonSet = extApi.replaceNamespacedDaemonSet(name, namespace, deployedControllerSet, API_CALL_RESULT_FORMAT)
 
       return daemonSet
     }
   }
 
-  boolean hardDestroyDaemonSet(String name, String namespace) {
+  boolean hardDestroyDaemonSet(String name, String namespace, V1DeleteOptions deleteoptions, Boolean orphanDependents, String propagationPolicy) {
     exceptionWrapper("daemonSets.delete", "Hard Destroy Daemon Set ${name}", namespace) {
-      V1DeleteOptions body = new V1DeleteOptions()
-      Boolean orphanDependents = true
       def deployedControllerSet = getDaemonSet(name, namespace)
       V1beta1DaemonSet daemonset = deleteDaemonSetPod(name, namespace, deployedControllerSet)
 
       V1Status status
       try {
-        status = extApi.deleteNamespacedDaemonSet(name, namespace, body, null, TERMINATION_GRACE_PERIOD_SECONDS, orphanDependents, null);
+        status = extApi.deleteNamespacedDaemonSet(name, namespace, deleteoptions ?: new V1DeleteOptions(), API_CALL_RESULT_FORMAT, TERMINATION_GRACE_PERIOD_SECONDS, orphanDependents, propagationPolicy);
       } catch(Exception e) {
         log.debug(e.message)
       }
