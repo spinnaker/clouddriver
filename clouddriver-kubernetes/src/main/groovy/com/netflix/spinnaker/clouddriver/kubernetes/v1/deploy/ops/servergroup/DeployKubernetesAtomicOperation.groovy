@@ -213,7 +213,7 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
       def autoscaler = KubernetesClientApiConverter.toAutoscaler(new KubernetesAutoscalerDescription(controllerName, description), controllerName, description.kind)
 
       if (credentials.clientApiAdaptor.getAutoscaler(namespace, controllerName)) {
-        credentials.clientApiAdaptor.deleteAutoscaler(namespace, controllerName, null, null, null)
+        credentials.clientApiAdaptor.deleteAutoscaler(namespace, controllerName,null,null,null)
       }
       credentials.clientApiAdaptor.createAutoscaler(namespace, autoscaler)
     }
@@ -222,7 +222,7 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
   }
 
   def deployDaemonSet(KubernetesV1Credentials credentials, String controllerName, String clusterName, String namespace, boolean canUpdated) {
-    task.updateStatus BASE_PHASE, "Building daemonset set..."
+    task.updateStatus BASE_PHASE, "Building daemon set..."
     def controllerSet = KubernetesClientApiConverter.toDaemonSet(description, controllerName)
 
     if (canUpdated) {
@@ -234,11 +234,11 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
         }
         controllerSet = credentials.clientApiAdaptor.replaceDaemonSet(controllerName, namespace, controllerSet)
       } else {
-        task.updateStatus BASE_PHASE, "Deployed daemons set ${controllerName}"
+        task.updateStatus BASE_PHASE, "Deployed daemon set ${controllerName}"
         controllerSet = credentials.clientApiAdaptor.createDaemonSet(namespace, controllerSet)
       }
     } else {
-      task.updateStatus BASE_PHASE, "Deployed daemons set ${controllerName}"
+      task.updateStatus BASE_PHASE, "Deployed daemon set ${controllerName}"
       controllerSet = credentials.clientApiAdaptor.createDaemonSet(namespace, controllerSet)
     }
 

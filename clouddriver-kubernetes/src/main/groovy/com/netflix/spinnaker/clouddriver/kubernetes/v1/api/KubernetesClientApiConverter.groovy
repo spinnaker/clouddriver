@@ -939,7 +939,7 @@ class KubernetesClientApiConverter {
       def updateStrategy = new V1beta1DaemonSetUpdateStrategy()
       def rollingUpdate = new V1beta1RollingUpdateDaemonSet()
 
-      if(updateController) {
+      if (updateController) {
         //Note: Do not handle OnDelete because it is default.
         if (updateController.updateStrategy.type.name() != "Recreate") {
           updateStrategy.type = updateController.updateStrategy.type
