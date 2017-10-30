@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
@@ -27,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesDeployer;
 import com.netflix.spinnaker.clouddriver.model.ManifestProvider;
+import com.netflix.spinnaker.moniker.Moniker;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -37,13 +37,11 @@ import java.util.Optional;
 public class KubernetesV2ManifestProvider implements ManifestProvider<KubernetesV2Manifest> {
   private final KubernetesResourcePropertyRegistry registry;
   private final KubernetesCacheUtils cacheUtils;
-  private final ObjectMapper mapper;
 
   @Autowired
-  public KubernetesV2ManifestProvider(KubernetesResourcePropertyRegistry registry, KubernetesCacheUtils cacheUtils, ObjectMapper mapper) {
+  public KubernetesV2ManifestProvider(KubernetesResourcePropertyRegistry registry, KubernetesCacheUtils cacheUtils) {
     this.registry = registry;
     this.cacheUtils = cacheUtils;
-    this.mapper = mapper;
   }
 
   @Override
@@ -68,12 +66,14 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
         .getDeployer();
 
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(data);
+    Moniker moniker = KubernetesCacheDataConverter.getMoniker(data);
 
     return new KubernetesV2Manifest().builder()
         .account(account)
         .location(location)
         .manifest(manifest)
-        .stable(deployer.isStable(manifest))
+        .moniker(moniker)
+        .status(deployer.status(manifest))
         .build();
   }
 }
