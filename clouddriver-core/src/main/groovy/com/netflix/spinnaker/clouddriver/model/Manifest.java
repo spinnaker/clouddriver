@@ -15,15 +15,31 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
+package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.moniker.Moniker;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
-import java.util.Map;
+public interface Manifest {
+  Moniker getMoniker();
+  String getAccount();
+  String getLocation();
+  Status getStatus();
 
-@EqualsAndHashCode(callSuper = true)
-@Data
-public class KubernetesDeleteManifestDescription extends KubernetesManifestOperationDescription {
-  Map deleteOptions;
+  @Data
+  class Status {
+    boolean stable;
+    String message;
+
+    public static Status unstable(String message) {
+      return new Status()
+          .setMessage(message)
+          .setStable(false);
+    }
+
+    public static Status stable() {
+      return new Status()
+          .setStable(true);
+    }
+  }
 }

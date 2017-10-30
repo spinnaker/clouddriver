@@ -24,15 +24,16 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesUnversionedArtifactConverter
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesVersionedArtifactConverter
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeployManifestDescription
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSpinnakerRelationships
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeployManifestDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSpinnakerRelationships
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesReplicaSetDeployer
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest.KubernetesDeployManifestOperation
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
@@ -87,11 +88,14 @@ metadata:
     namedCredentialsMock.getName() >> ACCOUNT
     deployDescription.setCredentials(namedCredentialsMock)
 
+    def jobExecutorMock = Mock(KubectlJobExecutor)
+    jobExecutorMock.deploy(_, _) >> null
+
     def replicaSetDeployer = new KubernetesReplicaSetDeployer()
     replicaSetDeployer.objectMapper = new ObjectMapper()
     replicaSetDeployer.versioned() >> true
-    replicaSetDeployer.apiVersion() >> API_VERSION
     replicaSetDeployer.kind() >> KIND
+    replicaSetDeployer.jobExecutor = jobExecutorMock
     def versionedArtifactConverterMock = Mock(KubernetesVersionedArtifactConverter)
     versionedArtifactConverterMock.getDeployedName(_) >> "$NAME-$VERSION"
     versionedArtifactConverterMock.toArtifact(_) >> new Artifact()
@@ -117,11 +121,9 @@ metadata:
 
     when:
     def result = deployOp.operate([])
-
     then:
-    1 * credentialsMock.createReplicaSet(_) >> null
     result.deployedNames.size == 1
-    result.deployedNames[0] == "$NAMESPACE:$API_VERSION|$KIND|$NAME-$VERSION"
+    result.deployedNames[0] == "$NAMESPACE:$KIND $NAME-$VERSION"
   }
 
   void "replica set deployer uses backup namespace"() {
@@ -134,8 +136,7 @@ metadata:
     def result = deployOp.operate([])
 
     then:
-    1 * credentialsMock.createReplicaSet(_) >> null
     result.deployedNames.size == 1
-    result.deployedNames[0] == "$BACKUP_NAMESPACE:$API_VERSION|$KIND|$NAME-$VERSION"
+    result.deployedNames[0] == "$BACKUP_NAMESPACE:$KIND $NAME-$VERSION"
   }
 }

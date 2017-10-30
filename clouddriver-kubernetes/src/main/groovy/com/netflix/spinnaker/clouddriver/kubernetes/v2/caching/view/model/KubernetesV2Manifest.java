@@ -15,15 +15,24 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.model.Manifest;
+import com.netflix.spinnaker.moniker.Moniker;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
-import java.util.Map;
-
-@EqualsAndHashCode(callSuper = true)
 @Data
-public class KubernetesDeleteManifestDescription extends KubernetesManifestOperationDescription {
-  Map deleteOptions;
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class KubernetesV2Manifest implements Manifest {
+  private String account;
+  private String location;
+  private Moniker moniker;
+  private KubernetesManifest manifest;
+  private Status status;
 }

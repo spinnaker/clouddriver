@@ -21,30 +21,29 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 
-public abstract class KubernetesDeployer<T> {
+public abstract class KubernetesDeployer {
   @Autowired
   protected ObjectMapper objectMapper;
 
   @Autowired
   private KubernetesCacheUtils cacheUtils;
 
-  private T convertManifest(KubernetesManifest manifest) {
-    return objectMapper.convertValue(manifest, getDeployedClass());
-  }
+  @Autowired
+  protected KubectlJobExecutor jobExecutor;
 
   public DeploymentResult deployAugmentedManifest(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
-    T resource = convertManifest(manifest);
-    deploy(credentials, resource);
+    deploy(credentials, manifest);
 
     DeploymentResult result = new DeploymentResult();
     result.setDeployedNames(new ArrayList<>(Collections.singleton(manifest.getNamespace() + ":" + manifest.getFullResourceName())));
@@ -53,12 +52,12 @@ public abstract class KubernetesDeployer<T> {
     return result;
   }
 
-  abstract public Class<T> getDeployedClass();
-
   abstract public KubernetesKind kind();
-  abstract public KubernetesApiVersion apiVersion();
   abstract public boolean versioned();
   abstract public SpinnakerKind spinnakerKind();
+  abstract public Status status(KubernetesManifest manifest);
 
-  abstract void deploy(KubernetesV2Credentials credentials, T resource);
+  void deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+    jobExecutor.deploy(credentials, manifest);
+  }
 }

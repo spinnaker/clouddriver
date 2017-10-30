@@ -127,22 +127,8 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
       }
 
       def securityGroupNamesToIds = regionScopedProvider.securityGroupService.getSecurityGroupIds(description.securityGroups, description.vpcId)
-      try {
-        String applicationLoadBalancerSecurityGroupId = ingressApplicationLoadBalancerGroup(
-          description,
-          region,
-          listeners,
-          securityGroupLookupFactory
-        )
-
-        securityGroupNamesToIds.put(description.application + "-elb", applicationLoadBalancerSecurityGroupId)
-        task.updateStatus BASE_PHASE, "Authorized application Load Balancer Security Group $applicationLoadBalancerSecurityGroupId"
-      } catch (Exception e) {
-        log.error("Failed to authorize app ELB security group {}-elb on application security group", description.name,  e)
-        task.updateStatus BASE_PHASE, "Failed to authorize app ELB security group ${description.name}-elb on application security group"
-      }
-
       def securityGroups = securityGroupNamesToIds.values()
+      log.info("security groups on {} {}", description.name, securityGroups)
       String dnsName
       if (!loadBalancer) {
         task.updateStatus BASE_PHASE, "Creating ${loadBalancerName} in ${description.credentials.name}:${region}..."
@@ -151,6 +137,25 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
           subnetIds = regionScopedProvider.subnetAnalyzer.getSubnetIdsForZones(availabilityZones,
                   description.subnetType, SubnetTarget.ELB, 1)
         }
+
+        String application = null
+        try {
+          application = Names.parseName(description.name).getApp() ?: Names.parseName(description.clusterName).getApp()
+          IngressLoadBalancerGroupResult ingressLoadBalancerResult = ingressApplicationLoadBalancerGroup(
+            description,
+            application,
+            region,
+            listeners,
+            securityGroupLookupFactory
+          )
+
+          securityGroupNamesToIds.put(ingressLoadBalancerResult.groupName, ingressLoadBalancerResult.groupId)
+          task.updateStatus BASE_PHASE, "Authorized app ELB Security Group ${ingressLoadBalancerResult}"
+        } catch (Exception e) {
+          log.error("Failed to authorize app ELB security group {}-elb on application security group", application,  e)
+          task.updateStatus BASE_PHASE, "Failed to authorize app ELB security group ${application}-elb on application security group"
+        }
+
         dnsName = LoadBalancerUpsertHandler.createLoadBalancer(loadBalancing, loadBalancerName, isInternal, availabilityZones, subnetIds, listeners, securityGroups)
       } else {
         dnsName = loadBalancer.DNSName
@@ -185,30 +190,27 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
     operationResult
   }
 
-  private static String ingressApplicationLoadBalancerGroup(UpsertAmazonLoadBalancerClassicDescription description,
-                                                            String region,
-                                                            List<Listener> loadBalancerListeners,
-                                                            SecurityGroupLookupFactory securityGroupLookupFactory) throws FailedSecurityGroupIngressException {
-    String application = Names.parseName(description.name).getApp() ?: Names.parseName(description.clusterName).getApp()
+  private static IngressLoadBalancerGroupResult ingressApplicationLoadBalancerGroup(UpsertAmazonLoadBalancerClassicDescription description,
+                                                                                    String application,
+                                                                                    String region,
+                                                                                    List<Listener> loadBalancerListeners,
+                                                                                    SecurityGroupLookupFactory securityGroupLookupFactory) throws FailedSecurityGroupIngressException {
     SecurityGroupLookup securityGroupLookup = securityGroupLookupFactory.getInstance(region)
-    String applicationLoadBalancerSecurityGroupName = application + "-elb"
 
     // 1. get app load balancer security group & app security group. create if doesn't exist
     SecurityGroupUpdater applicationLoadBalancerSecurityGroupUpdater = getOrCreateSecurityGroup(
-      applicationLoadBalancerSecurityGroupName,
-      description.vpcId,
-      description.credentialAccount,
+      application + "-elb",
       region,
       "Application ELB Security Group for $application",
+      description,
       securityGroupLookup
     )
 
     SecurityGroupUpdater applicationSecurityGroupUpdater = getOrCreateSecurityGroup(
       application,
-      description.vpcId,
-      description.credentialAccount,
       region,
       "Application Security Group for $application",
+      description,
       securityGroupLookup
     )
 
@@ -234,7 +236,25 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
       }
     }
 
-    return source.groupId
+    return new IngressLoadBalancerGroupResult(source.groupId, source.groupName)
+  }
+
+  private static class IngressLoadBalancerGroupResult {
+    private final String groupId
+    private final String groupName
+
+    IngressLoadBalancerGroupResult(String groupId, String groupName) {
+      this.groupId = groupId
+      this.groupName = groupName
+    }
+
+    @Override
+    String toString() {
+      return "IngressLoadBalancerGroupResult{" +
+        "groupId='" + groupId + '\'' +
+        ", groupName='" + groupName + '\'' +
+        '}'
+    }
   }
 
   private static IpPermission newIpPermissionWithSourceAndPort(String sourceGroupId, int port) {
@@ -258,26 +278,26 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
   }
 
   private static SecurityGroupUpdater getOrCreateSecurityGroup(String groupName,
-                                                               String vpcId,
-                                                               String account,
                                                                String region,
-                                                               String description,
+                                                               String descriptionText,
+                                                               UpsertAmazonLoadBalancerClassicDescription description,
                                                                SecurityGroupLookup securityGroupLookup) {
     SecurityGroupUpdater securityGroupUpdater = null
     OperationPoller.retryWithBackoff({
       securityGroupUpdater = securityGroupLookup.getSecurityGroupByName(
-        account,
+        description.credentialAccount,
         groupName,
-        vpcId
+        description.vpcId
       ).orElse(null)
 
       if (!securityGroupUpdater) {
         securityGroupUpdater = securityGroupLookup.createSecurityGroup(
           new UpsertSecurityGroupDescription(
             name: groupName,
-            description: description,
-            vpcId: vpcId,
-            region: region
+            description: descriptionText,
+            vpcId: description.vpcId,
+            region: region,
+            credentials: description.credentials
           )
         )
       }

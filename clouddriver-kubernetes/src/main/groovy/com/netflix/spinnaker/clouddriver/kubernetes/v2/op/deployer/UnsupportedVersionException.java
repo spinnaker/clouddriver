@@ -15,15 +15,12 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 
-import java.util.Map;
-
-@EqualsAndHashCode(callSuper = true)
-@Data
-public class KubernetesDeleteManifestDescription extends KubernetesManifestOperationDescription {
-  Map deleteOptions;
+public class UnsupportedVersionException extends IllegalArgumentException {
+  public UnsupportedVersionException(KubernetesManifest manifest) {
+    super("No " + manifest.getKind() + " is supported at api version " + manifest.getApiVersion());
+  }
 }
