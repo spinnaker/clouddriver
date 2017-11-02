@@ -1,12 +1,11 @@
 package com.netflix.spinnaker.clouddriver.ecs.security;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 
-public class NetflixESCredentials extends NetflixAmazonCredentials {
+public class NetflixECSCredentials extends NetflixAmazonCredentials {
   private static final String CLOUD_PROVIDER = "ecs";
 
-  public NetflixESCredentials(NetflixAmazonCredentials copy) {
+  public NetflixECSCredentials(NetflixAmazonCredentials copy) {
     super(copy, copy.getCredentialsProvider());
   }
 
