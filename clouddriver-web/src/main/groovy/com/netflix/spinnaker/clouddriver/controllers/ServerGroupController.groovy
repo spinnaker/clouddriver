@@ -129,7 +129,7 @@ class ServerGroupController {
     }.flatten()
     clusters.each { Cluster cluster ->
       cluster.serverGroups.each { ServerGroup serverGroup ->
-        serverGroupViews << new ServerGroupViewModel(serverGroup, cluster)
+        serverGroupViews << new ServerGroupViewModel(serverGroup, cluster.name, cluster.accountName)
       }
     }
 
@@ -160,9 +160,35 @@ class ServerGroupController {
   @PostFilter("hasPermission(filterObject?.application, 'APPLICATION', 'READ')")
   @PostAuthorize("@authorizationSupport.filterForAccounts(returnObject)")
   @RequestMapping(value = "/serverGroups", method = RequestMethod.GET)
-  List getServerGroupsByApplications(@RequestParam(value = 'applications') List<String> applications,
-                                     @RequestParam(required = false, value = 'cloudProvider') String cloudProvider) {
-    applications.collectMany { summaryList(it, cloudProvider) }
+  List getServerGroups(@RequestParam(required = false, value = 'applications') List<String> applications,
+                       @RequestParam(required = false, value = 'serverGroupNames') List<String> serverGroupNames,
+                       @RequestParam(required = false, value = 'cloudProvider') String cloudProvider) {
+    if ((applications && serverGroupNames) || (!applications && !serverGroupNames)) {
+      throw new IllegalArgumentException("Provide either 'applications' or 'serverGroupNames' parameter, but not both");
+    }
+
+    if (applications) {
+      return getServerGroupsForApplications(applications, cloudProvider)
+    } else {
+      return getServerGroupsForNames(serverGroupNames)
+    }
+  }
+
+  private List<ServerGroupViewModel> getServerGroupsForApplications(List<String> applications, String cloudProvider) {
+    return applications.collectMany { summaryList(it, cloudProvider) }
+  }
+
+  private List<ServerGroupViewModel> getServerGroupsForNames(List<String> serverGroupNames) {
+    return serverGroupNames.collect {
+      def segments = it.split(':')
+      if (segments.size() != 3) {
+        throw new IllegalArgumentException("Expected serverGroupNames in the format [account1:region1:name1,account2:region2:name2] but got " + serverGroupNames)
+      }
+
+      def (account, region, name) = segments;
+      def serverGroup = getServerGroup(account, region, name)
+      return new ServerGroupViewModel(serverGroup, serverGroup.moniker.cluster, account)
+    }
   }
 
   private Collection buildSubsetForClusters(Collection<String> clusters, String application, Boolean isExpanded) {
@@ -177,7 +203,7 @@ class ServerGroupController {
     }.flatten()
     return matches.findResults { cluster ->
       cluster.serverGroups.collect {
-        isExpanded ? expanded(it, cluster) : new ServerGroupViewModel(it, cluster)
+        isExpanded ? expanded(it, cluster) : new ServerGroupViewModel(it, cluster.name, cluster.accountName)
       }
     }.flatten()
   }
@@ -204,13 +230,13 @@ class ServerGroupController {
     Map<String, Object> tags
     Map providerMetadata
 
-    ServerGroupViewModel(ServerGroup serverGroup, Cluster cluster) {
-      this.cluster = cluster.name
+    ServerGroupViewModel(ServerGroup serverGroup, String clusterName, String accountName) {
+      cluster = clusterName
       type = serverGroup.type
       cloudProvider = serverGroup.cloudProvider
       name = serverGroup.name
       application = Names.parseName(serverGroup.name).getApp()
-      account = cluster.accountName
+      account = accountName
       region = serverGroup.region
       createdTime = serverGroup.getCreatedTime()
       isDisabled = serverGroup.isDisabled()
