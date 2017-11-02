@@ -27,10 +27,10 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class EcsAccountMakerTest {
+public class EcsAccountBuilderTest {
 
   @Test
-  public void shouldMakeAccount() {
+  public void shouldBuildAccount() {
     //Given
     String accountName = "ecs-test-account";
     String accountType = "ecs";
