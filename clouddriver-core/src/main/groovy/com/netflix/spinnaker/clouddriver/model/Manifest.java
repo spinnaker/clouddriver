@@ -17,8 +17,29 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-public interface Manifest<S> {
-  S getStatus();
-  boolean isReady();
+import com.netflix.spinnaker.moniker.Moniker;
+import lombok.Data;
+
+public interface Manifest {
+  Moniker getMoniker();
   String getAccount();
+  String getLocation();
+  Status getStatus();
+
+  @Data
+  class Status {
+    boolean stable;
+    String message;
+
+    public static Status unstable(String message) {
+      return new Status()
+          .setMessage(message)
+          .setStable(false);
+    }
+
+    public static Status stable() {
+      return new Status()
+          .setStable(true);
+    }
+  }
 }

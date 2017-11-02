@@ -17,12 +17,11 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
-import io.kubernetes.client.models.V1DeleteOptions;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
-@EqualsAndHashCode(callSuper = true)
+import java.util.List;
+
 @Data
-public class KubernetesDeleteManifestDescription extends KubernetesManifestOperationDescription {
-  V1DeleteOptions options;
+public class KubernetesManifestList {
+  private List<KubernetesManifest> items;
 }

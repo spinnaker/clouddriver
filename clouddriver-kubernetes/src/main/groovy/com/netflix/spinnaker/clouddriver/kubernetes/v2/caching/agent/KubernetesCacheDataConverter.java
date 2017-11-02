@@ -30,9 +30,10 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSpinnakerRelationships;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
+import io.kubernetes.client.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Triple;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,17 +44,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.Kind.ARTIFACT;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.APPLICATION;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.CLUSTER;
+import static java.lang.Math.toIntExact;
 
 @Slf4j
 public class KubernetesCacheDataConverter {
   private static ObjectMapper mapper = new ObjectMapper();
+  private static final JSON json = new JSON();
+  // TODO(lwander): make configurable
+  private static final int logicalTtlSeconds = toIntExact(TimeUnit.MINUTES.toSeconds(10));
+  private static final int infrastructureTtlSeconds = -1;
 
-  public static CacheData convertAsArtifact(String account, ObjectMapper mapper, Object resource) {
-    KubernetesManifest manifest = mapper.convertValue(resource, KubernetesManifest.class);
+  public static CacheData convertAsArtifact(String account, KubernetesManifest manifest) {
     String namespace = manifest.getNamespace();
     Artifact artifact = KubernetesManifestAnnotater.getArtifact(manifest);
     if (artifact.getType() == null) {
@@ -72,7 +78,7 @@ public class KubernetesCacheDataConverter {
     String owner = Keys.infrastructure(manifest, account);
     cacheRelationships.put(manifest.getKind().toString(), Collections.singletonList(owner));
 
-    return new DefaultCacheData(key, attributes, cacheRelationships);
+    return new DefaultCacheData(key, logicalTtlSeconds, attributes, cacheRelationships);
   }
 
   public static Collection<CacheData> dedupCacheData(Collection<CacheData> input) {
@@ -95,6 +101,8 @@ public class KubernetesCacheDataConverter {
     Map<String, Object> attributes = new HashMap<>();
     attributes.putAll(added.getAttributes());
     attributes.putAll(current.getAttributes());
+    // Behavior is: if no ttl is set on either, the merged key won't expire
+    int ttl = Math.min(current.getTtlSeconds(), added.getTtlSeconds());
 
     Map<String, Collection<String>> relationships = new HashMap<>();
     relationships.putAll(current.getRelationships());
@@ -108,15 +116,15 @@ public class KubernetesCacheDataConverter {
               return result;
             }));
 
-    return new DefaultCacheData(id, attributes, relationships);
+    return new DefaultCacheData(id, ttl, attributes, relationships);
   }
 
-  public static CacheData convertAsResource(String account, ObjectMapper mapper, Object resource, List<KubernetesManifest> resourceRelationships) {
-    KubernetesManifest manifest = mapper.convertValue(resource, KubernetesManifest.class);
+  public static CacheData convertAsResource(String account, KubernetesManifest manifest, List<KubernetesManifest> resourceRelationships) {
     KubernetesKind kind = manifest.getKind();
     KubernetesApiVersion apiVersion = manifest.getApiVersion();
     String name = manifest.getName();
     String namespace = manifest.getNamespace();
+    Moniker moniker = KubernetesManifestAnnotater.getMoniker(manifest);
 
     Map<String, Object> attributes = new ImmutableMap.Builder<String, Object>()
         .put("kind", kind)
@@ -125,10 +133,10 @@ public class KubernetesCacheDataConverter {
         .put("namespace", namespace)
         .put("fullResourceName", manifest.getFullResourceName())
         .put("manifest", manifest)
+        .put("moniker", moniker)
         .build();
 
     KubernetesManifestSpinnakerRelationships relationships = KubernetesManifestAnnotater.getManifestRelationships(manifest);
-    Moniker moniker = KubernetesManifestAnnotater.getMoniker(manifest);
     Artifact artifact = KubernetesManifestAnnotater.getArtifact(manifest);
     KubernetesManifestMetadata metadata = KubernetesManifestMetadata.builder()
         .relationships(relationships)
@@ -146,15 +154,19 @@ public class KubernetesCacheDataConverter {
 
     // TODO(lwander) avoid overwriting keys here
     cacheRelationships.putAll(annotatedRelationships(account, namespace, metadata));
-    cacheRelationships.putAll(ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences(mapper)));
+    cacheRelationships.putAll(ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
     cacheRelationships.putAll(implicitRelationships(account, namespace, resourceRelationships));
 
-    String key = Keys.infrastructure(apiVersion, kind, account, namespace, name);
-    return new DefaultCacheData(key, attributes, cacheRelationships);
+    String key = Keys.infrastructure(kind, account, namespace, name);
+    return new DefaultCacheData(key, infrastructureTtlSeconds, attributes, cacheRelationships);
   }
 
   public static KubernetesManifest getManifest(CacheData cacheData) {
     return mapper.convertValue(cacheData.getAttributes().get("manifest"), KubernetesManifest.class);
+  }
+
+  public static Moniker getMoniker(CacheData cacheData) {
+    return mapper.convertValue(cacheData.getAttributes().get("moniker"), Moniker.class);
   }
 
   public static KubernetesManifest convertToManifest(Object o) {
@@ -162,7 +174,8 @@ public class KubernetesCacheDataConverter {
   }
 
   public static <T> T getResource(KubernetesManifest manifest, Class<T> clazz) {
-    return mapper.convertValue(manifest, clazz);
+    // A little hacky, but the only way to deserialize any timestamps using string constructors
+    return json.deserialize(json.serialize(manifest), clazz);
   }
 
   static Map<String, Collection<String>> annotatedRelationships(String account, String namespace, KubernetesManifestMetadata metadata) {
@@ -196,9 +209,8 @@ public class KubernetesCacheDataConverter {
   }
 
   static void addSingleRelationship(Map<String, Collection<String>> relationships, String account, String namespace, String fullName) {
-    Triple<KubernetesApiVersion, KubernetesKind, String> triple = KubernetesManifest.fromFullResourceName(fullName);
-    KubernetesKind kind = triple.getMiddle();
-    KubernetesApiVersion apiVersion = triple.getLeft();
+    Pair<KubernetesKind, String> triple = KubernetesManifest.fromFullResourceName(fullName);
+    KubernetesKind kind = triple.getLeft();
     String name = triple.getRight();
 
     Collection<String> keys = relationships.get(kind.toString());
@@ -207,7 +219,7 @@ public class KubernetesCacheDataConverter {
       keys = new ArrayList<>();
     }
 
-    keys.add(Keys.infrastructure(apiVersion, kind, account, namespace, name));
+    keys.add(Keys.infrastructure(kind, account, namespace, name));
 
     relationships.put(kind.toString(), keys);
   }
@@ -217,14 +229,13 @@ public class KubernetesCacheDataConverter {
     manifests = manifests == null ? new ArrayList<>() : manifests;
     for (KubernetesManifest manifest : manifests) {
       KubernetesKind kind = manifest.getKind();
-      KubernetesApiVersion apiVersion = manifest.getApiVersion();
       String name = manifest.getName();
       Collection<String> keys = relationships.get(kind.toString());
       if (keys == null) {
         keys = new ArrayList<>();
       }
 
-      keys.add(Keys.infrastructure(apiVersion, kind, account, namespace, name));
+      keys.add(Keys.infrastructure(kind, account, namespace, name));
       relationships.put(kind.toString(), keys);
     }
 
@@ -236,14 +247,13 @@ public class KubernetesCacheDataConverter {
     references = references == null ? new ArrayList<>() : references;
     for (KubernetesManifest.OwnerReference reference : references) {
       KubernetesKind kind = reference.getKind();
-      KubernetesApiVersion apiVersion = reference.getApiVersion();
       String name = reference.getName();
       Collection<String> keys = relationships.get(kind.toString());
       if (keys == null) {
         keys = new ArrayList<>();
       }
 
-      keys.add(Keys.infrastructure(apiVersion, kind, account, namespace, name));
+      keys.add(Keys.infrastructure(kind, account, namespace, name));
       relationships.put(kind.toString(), keys);
     }
 
@@ -307,16 +317,19 @@ public class KubernetesCacheDataConverter {
   private static Optional<CacheData> invertSingleRelationship(String group, String key, String relationship) {
     Map<String, Collection<String>> relationships = new HashMap<>();
     relationships.put(group, Collections.singletonList(key));
-    return Keys.parseKey(relationship).flatMap(k -> {
+    return Keys.parseKey(relationship).map(k -> {
       Map<String, Object> attributes;
+      int ttl;
       if (Keys.LogicalKind.isLogicalGroup(k.getGroup())) {
+        ttl = logicalTtlSeconds;
         attributes = new ImmutableMap.Builder<String, Object>()
             .put("name", k.getName())
             .build();
       } else {
+        ttl = infrastructureTtlSeconds;
         attributes = new HashMap<>();
       }
-      return Optional.of(new DefaultCacheData(relationship, attributes, relationships));
+      return new DefaultCacheData(relationship, ttl, attributes, relationships);
     });
   }
 }
