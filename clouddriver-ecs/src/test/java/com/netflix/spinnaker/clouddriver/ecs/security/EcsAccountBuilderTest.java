@@ -40,7 +40,7 @@ public class EcsAccountMakerTest {
     when(netflixAmazonCredentials.getAccountId()).thenReturn("id-1234567890");
 
     //When
-    CredentialsConfig.Account account = EcsAccountMaker.makeAccount(netflixAmazonCredentials, accountName, accountType);
+    CredentialsConfig.Account account = EcsAccountBuilder.build(netflixAmazonCredentials, accountName, accountType);
 
     //Then
     assertTrue("The new account should not be of the same type as the old account (" + netflixAmazonCredentials.getAccountType() + ").",
