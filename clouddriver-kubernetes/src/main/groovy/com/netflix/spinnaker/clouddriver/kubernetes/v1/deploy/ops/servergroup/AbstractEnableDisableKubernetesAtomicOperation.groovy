@@ -53,6 +53,9 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
 
   @Override
   Void operate(List priorOutputs) {
+    if (checkControllerType()) {
+      return
+    }
     task.updateStatus basePhase, "Initializing ${basePhase.toLowerCase()} operation..."
     task.updateStatus basePhase, "Looking up provided namespace..."
 
@@ -65,6 +68,10 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
 
     def replicationController = credentials.apiAdaptor.getReplicationController(namespace, description.serverGroupName)
     def replicaSet = credentials.apiAdaptor.getReplicaSet(namespace, description.serverGroupName)
+
+    if (!replicationController && !replicaSet) {
+      throw new KubernetesOperationException("Only support operation for replication controller or replica set $description.serverGroupName in $namespace.")
+    }
 
     // If we edit the spec when disabling less than 100% of pods, we won't be able to handle autoscaling
     // actively correctly.
@@ -150,5 +157,23 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
     task.updateStatus basePhase, "Finished ${verb} server group."
 
     null // Return nothing from void
+  }
+
+  Boolean checkControllerType() {
+    switch(description.kind) {
+    //disable/enable statefulset and daemonset server group operations are not support
+      case KubernetesUtil.CONTROLLERS_STATEFULSET_KIND:
+        task.updateStatus basePhase, "Skip disable/enable StatefuSet server group $description.serverGroupName in $description.namespace."
+        return true
+      case KubernetesUtil.CONTROLLERS_DAEMONSET_KIND:
+        task.updateStatus basePhase, "Skip disable/enable DaemonSet server group $description.serverGroupName in $description.namespace."
+        return true
+      case KubernetesUtil.SERVER_GROUP_KIND:
+        return false
+      case KubernetesUtil.DEPRECATED_SERVER_GROUP_KIND:
+        return false
+      default:
+        return null
+    }
   }
 }
