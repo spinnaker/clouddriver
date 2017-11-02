@@ -26,9 +26,9 @@ import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.LinkedList;
 import java.util.List;
 
-public class EcsAccountMaker {
+public class EcsAccountBuilder {
 
-  public static CredentialsConfig.Account makeAccount(NetflixAmazonCredentials netflixAmazonCredentials, String accountName, String accountType) {
+  public static CredentialsConfig.Account build(NetflixAmazonCredentials netflixAmazonCredentials, String accountName, String accountType) {
     CredentialsConfig.Account account = new CredentialsConfig.Account();
     account.setName(accountName);
     account.setAccountType(accountType);

@@ -70,7 +70,7 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
             NetflixAmazonCredentials netflixAmazonCredentials = (NetflixAmazonCredentials) accountCredentials;
 
             // TODO: accountCredentials should be serializable or somehow cloneable.
-            CredentialsConfig.Account account = EcsAccountMaker.makeAccount(netflixAmazonCredentials, ecsAccount.getName(), "ecs");
+            CredentialsConfig.Account account = EcsAccountBuilder.build(netflixAmazonCredentials, ecsAccount.getName(), "ecs");
 
             CredentialsConfig ecsCopy = new CredentialsConfig();
             ecsCopy.setAccounts(Collections.singletonList(account));
