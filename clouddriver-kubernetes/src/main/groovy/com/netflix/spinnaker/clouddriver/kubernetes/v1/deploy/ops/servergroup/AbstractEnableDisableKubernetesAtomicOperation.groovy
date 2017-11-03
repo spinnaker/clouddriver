@@ -53,7 +53,7 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
 
   @Override
   Void operate(List priorOutputs) {
-    if (checkControllerType()) {
+    if (!supportsEnableDisable()) {
       return
     }
     task.updateStatus basePhase, "Initializing ${basePhase.toLowerCase()} operation..."
@@ -159,21 +159,19 @@ abstract class AbstractEnableDisableKubernetesAtomicOperation implements AtomicO
     null // Return nothing from void
   }
 
-  Boolean checkControllerType() {
+  Boolean supportsEnableDisable() {
     switch(description.kind) {
-    //disable/enable statefulset and daemonset server group operations are not support
+      //disable/enable statefulset and daemonset server group operations are not support
       case KubernetesUtil.CONTROLLERS_STATEFULSET_KIND:
         task.updateStatus basePhase, "Skip disable/enable StatefuSet server group $description.serverGroupName in $description.namespace."
-        return true
+        return false
       case KubernetesUtil.CONTROLLERS_DAEMONSET_KIND:
         task.updateStatus basePhase, "Skip disable/enable DaemonSet server group $description.serverGroupName in $description.namespace."
-        return true
+        return false
       case KubernetesUtil.SERVER_GROUP_KIND:
-        return false
       case KubernetesUtil.DEPRECATED_SERVER_GROUP_KIND:
-        return false
       default:
-        return null
+        return true
     }
   }
 }
