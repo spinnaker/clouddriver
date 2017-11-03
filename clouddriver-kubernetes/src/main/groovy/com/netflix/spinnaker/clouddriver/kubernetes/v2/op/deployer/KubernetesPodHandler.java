@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesPodCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -24,24 +26,29 @@ import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesIngressDeployer extends KubernetesDeployer implements CanDelete {
+public class KubernetesPodHandler extends KubernetesHandler implements CanDelete {
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.INGRESS;
+    return KubernetesKind.POD;
   }
 
   @Override
   public boolean versioned() {
-    return false;
+    return true;
   }
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.LOAD_BALANCER;
+    return SpinnakerKind.INSTANCE;
   }
 
   @Override
   public Status status(KubernetesManifest manifest) {
     return Status.stable();
+  }
+
+  @Override
+  public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
+    return KubernetesPodCachingAgent.class;
   }
 }

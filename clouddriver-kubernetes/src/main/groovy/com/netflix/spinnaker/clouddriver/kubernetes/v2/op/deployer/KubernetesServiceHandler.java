@@ -18,10 +18,11 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesServiceCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import io.kubernetes.client.models.V1Service;
 import org.springframework.stereotype.Component;
@@ -29,7 +30,7 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 @Component
-public class KubernetesServiceDeployer extends KubernetesDeployer implements CanDelete {
+public class KubernetesServiceHandler extends KubernetesHandler implements CanDelete {
   @Override
   public KubernetesKind kind() {
     return KubernetesKind.SERVICE;
@@ -48,6 +49,11 @@ public class KubernetesServiceDeployer extends KubernetesDeployer implements Can
   @Override
   public Status status(KubernetesManifest manifest) {
     return Status.stable();
+  }
+
+  @Override
+  public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
+    return KubernetesServiceCachingAgent.class;
   }
 
   public static Map<String, String> getSelector(KubernetesManifest manifest) {
