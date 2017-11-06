@@ -28,17 +28,20 @@ import com.netflix.spinnaker.clouddriver.model.view.ServerGroupViewModelPostProc
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import com.netflix.spinnaker.moniker.Moniker
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.MessageSource
 import org.springframework.security.access.prepost.PostAuthorize
 import org.springframework.security.access.prepost.PostFilter
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+@Slf4j
 @RestController
 class ServerGroupController {
 
@@ -90,6 +93,30 @@ class ServerGroupController {
       serverGroupViewModelPostProcessor.process(serverGroup)
     }
     serverGroup
+  }
+
+  @RequestMapping(value = "/serverGroupsDetailsForList", method = RequestMethod.POST)
+  List<ServerGroup> getServerGroupsDetailsForList(@RequestBody String serverGroupList) {
+
+    List<ServerGroup> results = [];
+    serverGroupList.split(',').collect {
+      List<String> items = it.split("\\|")
+      return ["application": items[0], "account": items[1], "region": items[2], "name": items[3]]
+    }.every {
+        def map = it
+        def matches = (Set<ServerGroup>) clusterProviders.findResults {
+          provider -> requestQueue.execute(map["application"] as String, { provider.getServerGroup(map["account"] as String, map["region"] as String, map["name"] as String) })
+        }
+        if (matches) {
+          ServerGroup serverGroup = matches.first()
+          if (serverGroupViewModelPostProcessor?.supports(serverGroup)) {
+            serverGroupViewModelPostProcessor.process(serverGroup)
+          }
+          results.add(serverGroup)
+        }
+      };
+
+    return results
   }
 
   List<Map> expandedList(String application, String cloudProvider) {
