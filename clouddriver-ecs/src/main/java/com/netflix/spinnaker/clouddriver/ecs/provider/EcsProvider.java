@@ -99,9 +99,7 @@ public class EcsProvider extends AgentSchedulerAware implements SearchableProvid
   }
 
   public Collection<HealthProvidingCachingAgent> getHealthAgents() {
-    List<HealthProvidingCachingAgent> newHealthAgents = new LinkedList<>();
-    newHealthAgents.addAll(healthAgents);
-    return Collections.unmodifiableCollection(newHealthAgents);
+    return Collections.unmodifiableCollection(healthAgents);
   }
 
 }
