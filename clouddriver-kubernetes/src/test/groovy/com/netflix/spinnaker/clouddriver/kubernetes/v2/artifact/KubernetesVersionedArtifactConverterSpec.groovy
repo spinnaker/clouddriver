@@ -28,7 +28,7 @@ class KubernetesVersionedArtifactConverterSpec extends Specification {
   @Unroll
   def "correctly infer versioned artifact properties"() {
     expect:
-    def type = "kubernetes/$apiVersion|$kind"
+    def type = "kubernetes/$kind"
 
     def artifact = Artifact.builder()
       .type(type)
@@ -37,10 +37,8 @@ class KubernetesVersionedArtifactConverterSpec extends Specification {
       .build()
 
     def converter = new KubernetesVersionedArtifactConverter()
-    converter.getApiVersion(artifact) == apiVersion
     converter.getKind(artifact) == kind
     converter.getDeployedName(artifact) == "$name-$version"
-
 
     where:
     apiVersion                              | kind                       | name             | version
@@ -60,10 +58,9 @@ class KubernetesVersionedArtifactConverterSpec extends Specification {
     artifactProvider.getArtifacts(type, name, location) >> artifacts
 
     def converter = new KubernetesVersionedArtifactConverter()
-    converter.artifactProvider = artifactProvider
 
     then:
-    converter.getVersion(type, name, location) == expected
+    converter.getVersion(artifactProvider, type, name, location) == expected
 
     where:
     versions  | expected
