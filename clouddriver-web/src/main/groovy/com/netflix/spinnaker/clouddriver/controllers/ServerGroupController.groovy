@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.model.view.ServerGroupViewModelPostProc
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import com.netflix.spinnaker.moniker.Moniker
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.MessageSource
 import org.springframework.security.access.prepost.PostAuthorize
@@ -39,6 +40,7 @@ import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+@Slf4j
 @RestController
 class ServerGroupController {
 
@@ -161,16 +163,16 @@ class ServerGroupController {
   @PostAuthorize("@authorizationSupport.filterForAccounts(returnObject)")
   @RequestMapping(value = "/serverGroups", method = RequestMethod.GET)
   List getServerGroups(@RequestParam(required = false, value = 'applications') List<String> applications,
-                       @RequestParam(required = false, value = 'serverGroupNames') List<String> serverGroupNames,
+                       @RequestParam(required = false, value = 'ids') List<String> ids,
                        @RequestParam(required = false, value = 'cloudProvider') String cloudProvider) {
-    if ((applications && serverGroupNames) || (!applications && !serverGroupNames)) {
-      throw new IllegalArgumentException("Provide either 'applications' or 'serverGroupNames' parameter, but not both");
+    if ((applications && ids) || (!applications && !ids)) {
+      throw new IllegalArgumentException("Provide either 'applications' or 'ids' parameter (but not both)");
     }
 
     if (applications) {
       return getServerGroupsForApplications(applications, cloudProvider)
     } else {
-      return getServerGroupsForNames(serverGroupNames)
+      return getServerGroupsForIds(ids)
     }
   }
 
@@ -178,17 +180,25 @@ class ServerGroupController {
     return applications.collectMany { summaryList(it, cloudProvider) }
   }
 
-  private List<ServerGroupViewModel> getServerGroupsForNames(List<String> serverGroupNames) {
-    return serverGroupNames.collect {
-      def segments = it.split(':')
-      if (segments.size() != 3) {
-        throw new IllegalArgumentException("Expected serverGroupNames in the format [account1:region1:name1,account2:region2:name2] but got " + serverGroupNames)
-      }
+  private List<ServerGroupViewModel> getServerGroupsForIds(List<String> serverGroupIds) {
+    String[][] allIdTokens = serverGroupIds.collect { it.split(':') }
 
-      def (account, region, name) = segments;
-      def serverGroup = getServerGroup(account, region, name)
-      return new ServerGroupViewModel(serverGroup, serverGroup.moniker.cluster, account)
+    def invalidIds = allIdTokens.findAll { it.size() != 3 }
+    if (!invalidIds.empty) {
+      throw new IllegalArgumentException("Expected ids in the format <account>:<region>:<name> but got invalid ids: " +
+        invalidIds.collect { it.join(':') }.join(', '))
     }
+
+    allIdTokens.collect { String[] idTokens ->
+      def (account, region, name) = idTokens
+      try {
+        def serverGroup = getServerGroup(account, region, name)
+        return new ServerGroupViewModel(serverGroup, serverGroup.moniker.cluster, account)
+      } catch (ignored) {
+        log.info("Couldn't get server group ${idTokens.join(':')}")
+        return null
+      }
+    }.findAll();
   }
 
   private Collection buildSubsetForClusters(Collection<String> clusters, String application, Boolean isExpanded) {
