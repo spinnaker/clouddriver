@@ -181,10 +181,10 @@ class ServerGroupController {
   }
 
   private List<ServerGroupViewModel> getServerGroupsForIds(List<String> serverGroupIds) {
-    String[][] allIdTokens = serverGroupIds.collect { it.split(':') }
+    List<String[]> allIdTokens = serverGroupIds.collect { it.split(':') }
 
     def invalidIds = allIdTokens.findAll { it.size() != 3 }
-    if (!invalidIds.empty) {
+    if (invalidIds) {
       throw new IllegalArgumentException("Expected ids in the format <account>:<region>:<name> but got invalid ids: " +
         invalidIds.collect { it.join(':') }.join(', '))
     }
@@ -194,8 +194,8 @@ class ServerGroupController {
       try {
         def serverGroup = getServerGroup(account, region, name)
         return new ServerGroupViewModel(serverGroup, serverGroup.moniker.cluster, account)
-      } catch (ignored) {
-        log.info("Couldn't get server group ${idTokens.join(':')}")
+      } catch (e) {
+        log.error("Couldn't get server group ${idTokens.join(':')}", e)
         return null
       }
     }.findAll();
