@@ -12,6 +12,7 @@ RUN apk --no-cache add --update bash wget unzip python=2.7.12-r0 && \
   rm -rf ~/.config/gcloud
 
 RUN wget https://storage.googleapis.com/kubernetes-release/release/stable.txt && wget https://storage.googleapis.com/kubernetes-release/release/$(cat stable.txt)/bin/linux/amd64/kubectl && \
+  rm stable.txt && \
   chmod +x kubectl && \
   mv ./kubectl /usr/local/bin/kubectl
 
