@@ -60,6 +60,8 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
     INFORMATIVE.forType(Keys.Namespace.INSTANCES.ns),
   ] as Set)
 
+  KubernetesControllersCachingAgent controllerAgent
+
   KubernetesServerGroupCachingAgent(KubernetesNamedAccountCredentials<KubernetesV1Credentials> namedAccountCredentials,
                                     ObjectMapper objectMapper,
                                     Registry registry,
@@ -67,6 +69,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
                                     int agentCount) {
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount)
     this.metricsSupport = new OnDemandMetricsSupport(registry, this, "$KubernetesCloudProvider.ID:$OnDemandAgent.OnDemandType.ServerGroup")
+    this.controllerAgent = new KubernetesControllersCachingAgent(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount)
   }
 
   @Override
@@ -107,6 +110,12 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
 
     CacheResult result = metricsSupport.transformData {
       buildCacheResult([new ReplicaSetOrController(replicationController: replicationController, replicaSet: replicaSet)], [:], [], Long.MAX_VALUE)
+    }
+
+    if (result.cacheResults.values().flatten().isEmpty()) {
+      if ( controllerAgent.isControllerAgentSet(namespace, serverGroupName) ) {
+        return controllerAgent.handle(providerCache, data)
+      }
     }
 
     def jsonResult = objectMapper.writeValueAsString(result.cacheResults)

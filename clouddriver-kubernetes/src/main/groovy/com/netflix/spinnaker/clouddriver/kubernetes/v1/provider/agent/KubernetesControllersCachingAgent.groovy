@@ -105,11 +105,11 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
     def serverGroupName = data.serverGroupName.toString()
 
     V1beta1StatefulSet statefulSet = metricsSupport.readData {
-      loadStatefulSets()
+      loadStatefulSet(namespace, serverGroupName)
     }
 
     V1beta1DaemonSet daemonSet = metricsSupport.readData {
-      loadDaemonSets()
+      loadDaemonSet(namespace, serverGroupName)
     }
 
     CacheResult result = metricsSupport.transformData {
@@ -134,13 +134,12 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
           ],
           [:]
         )
-
         providerCache.putCacheData(Keys.Namespace.ON_DEMAND.ns, cacheData)
       }
     }
 
     // Evict this server group if it no longer exists.
-    Map<String, Collection<String>> evictions = statefulSet | daemonSet  ? [:] : [
+    Map<String, Collection<String>> evictions = statefulSet || daemonSet  ? [:] : [
       (Keys.Namespace.SERVER_GROUPS.ns): [
         Keys.getServerGroupKey(accountName, namespace, serverGroupName)
       ]
@@ -221,6 +220,23 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
 
   V1PodList loadPods(KubernetesController serverGroup) {
     credentials.apiClientAdaptor.getPods(serverGroup.namespace, serverGroup.selector)
+  }
+
+  V1beta1StatefulSet loadStatefulSet(String namespace, String name) {
+    credentials.apiClientAdaptor.getStatefulSet(name, namespace)
+  }
+
+  V1beta1DaemonSet loadDaemonSet(String namespace, String name) {
+    credentials.apiClientAdaptor.getDaemonSet(name, namespace)
+  }
+
+  Boolean isControllerAgentSet(namespace, name) {
+    if (loadStatefulSet(namespace, name)) {
+      return true
+    } else if (loadDaemonSet(namespace, name)) {
+      return true
+    }
+    return false
   }
 
   private CacheResult buildCacheResult(List<KubernetesController> serverGroups, Map<String, CacheData> onDemandKeep, List<String> onDemandEvict, Long start) {
@@ -305,7 +321,7 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
           } else if (serverGroup.controller instanceof V1beta1DaemonSet) {
             events = daemonsetEvents[serverGroup.namespace][serverGroupName]
           }
-          attributes.serverGroup = new KubernetesV1ServerGroup(serverGroup.controller, accountName, events)
+          attributes.serverGroup = new KubernetesV1ServerGroup(serverGroup.controller ?: serverGroup.controller1, accountName, events)
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
@@ -346,27 +362,29 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
     }
   }
 
-  class KubernetesController{
+  static class KubernetesController{
 
     def controller
+    def controller1
     String getName() {
-      controller.metadata.name
+      controller ? controller.metadata.name : controller1.metadata.name
     }
 
     String getNamespace() {
-      controller.metadata.namespace
+      controller ? controller.metadata.namespace : controller1.metadata.namespace
     }
 
     Map<String, String> getSelector() {
-      controller.spec.selector.matchLabels
+      controller ? controller.spec.selector.matchLabels : controller1.spec.selector.matchLabels
     }
 
     boolean exists() {
-      controller
+      controller ?: controller1
     }
 
     List<String> getLoadBalancers() {
-      KubernetesUtil.getLoadBalancers(controller.spec?.template?.metadata?.labels ?: [:])
+      controller ? KubernetesUtil.getLoadBalancers(controller.spec?.template?.metadata?.labels ?: [:]) :
+        KubernetesUtil.getLoadBalancers(controller1.spec?.template?.metadata?.labels ?: [:])
     }
   }
 }
