@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
@@ -35,7 +34,6 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Void> 
   private final KubernetesDeleteManifestDescription description;
   private final KubernetesV2Credentials credentials;
   private final KubernetesResourcePropertyRegistry registry;
-  private final ObjectMapper mapper = new ObjectMapper();
   private static final String OP_NAME = "DELETE_KUBERNETES_MANIFEST";
 
   public KubernetesDeleteManifestOperation(KubernetesDeleteManifestDescription description, KubernetesResourcePropertyRegistry registry) {

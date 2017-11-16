@@ -39,6 +39,7 @@ import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
 import org.apache.commons.lang.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class KubernetesDeployManifestOperation implements AtomicOperation<DeploymentResult> {
@@ -72,12 +73,17 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Deploy
     if (StringUtils.isEmpty(manifest.getNamespace())) {
       manifest.setNamespace(credentials.getDefaultNamespace());
     }
+    List<Artifact> artifacts = description.getArtifacts();
+    if (artifacts == null) {
+      artifacts = new ArrayList<>();
+    }
 
     KubernetesResourceProperties properties = findResourceProperties(manifest);
+    boolean versioned = description.getVersioned() == null ? properties.isVersioned() : description.getVersioned();
+    KubernetesArtifactConverter converter = versioned ? properties.getVersionedConverter() : properties.getUnversionedConverter();
     KubernetesHandler deployer = properties.getHandler();
-    KubernetesArtifactConverter converter = properties.getConverter();
 
-    Artifact artifact = properties.getConverter().toArtifact(provider, manifest);
+    Artifact artifact = converter.toArtifact(provider, manifest);
     Moniker moniker = description.getMoniker();
     KubernetesManifestSpinnakerRelationships relationships = description.getRelationships();
 
@@ -89,6 +95,10 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Deploy
     getTask().updateStatus(OP_NAME, "Setting a resource name...");
     manifest.setName(converter.getDeployedName(artifact));
 
+    getTask().updateStatus(OP_NAME, "Swapping out artifacts from context...");
+    manifest = deployer.replaceArtifacts(manifest, artifacts);
+
+    getTask().updateStatus(OP_NAME, "Submitting manifest to kubernetes master...");
     return deployer.deployAugmentedManifest(credentials, manifest);
   }
 

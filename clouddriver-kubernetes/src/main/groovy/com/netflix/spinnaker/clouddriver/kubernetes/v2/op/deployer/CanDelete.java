@@ -24,9 +24,8 @@ import io.kubernetes.client.models.V1DeleteOptions;
 
 public interface CanDelete {
   KubernetesKind kind();
-  KubectlJobExecutor getJobExecutor();
 
-  default void delete(KubernetesV2Credentials credentials, String namespace, String name, V1DeleteOptions deleteOptions) {
-    getJobExecutor().delete(credentials, kind(), namespace, name, deleteOptions);
+  default void delete(KubernetesV2Credentials credentials, String namespace, String name, V1DeleteOptions options) {
+    credentials.delete(kind(), namespace, name, options);
   }
 }

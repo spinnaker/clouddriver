@@ -17,20 +17,27 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesStatefulSetCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup.Capacity;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
 @Component
-public class KubernetesStatefulSetHandler extends KubernetesHandler implements CanResize, CanDelete {
+public class KubernetesStatefulSetHandler extends KubernetesHandler implements
+    CanResize,
+    CanDelete,
+    CanScale,
+    CanPauseRollout,
+    CanResumeRollout,
+    CanUndoRollout {
+
   @Override
   public KubernetesKind kind() {
     return KubernetesKind.STATEFUL_SET;
@@ -43,7 +50,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements C
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.SERVER_GROUP;
+    return SpinnakerKind.SERVER_GROUPS;
   }
 
   @Override
@@ -57,14 +64,17 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements C
     return Status.stable();
   }
 
-  @Override
-  public void resize(KubernetesV2Credentials credentials, String namespace, String name, Capacity capacity) {
-    jobExecutor.scale(credentials, kind(), namespace, name, capacity.getDesired());
-  }
-
   public static String serviceName(KubernetesManifest manifest) {
     // TODO(lwander) perhaps switch on API version if this changes
     Map<String, Object> spec = (Map<String, Object>) manifest.get("spec");
     return (String) spec.get("serviceName");
+  }
+
+  @Override
+  public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
+    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
+    result.put("serverGroup", result.get("name"));
+
+    return result;
   }
 }

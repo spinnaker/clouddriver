@@ -26,7 +26,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import io.kubernetes.client.models.V1ObjectMeta
 import io.kubernetes.client.models.V1beta1ReplicaSet
@@ -63,8 +62,7 @@ class KubernetesReplicaSetCachingAgentSpec extends Specification {
     def credentials = Mock(KubernetesV2Credentials)
     credentials.getDeclaredNamespaces() >> [NAMESPACE]
 
-    def jobExecutor = Mock(KubectlJobExecutor)
-    jobExecutor.getAll(credentials, KubernetesKind.REPLICA_SET, NAMESPACE) >> [new ObjectMapper().convertValue(replicaSet, KubernetesManifest.class)]
+    credentials.list(KubernetesKind.REPLICA_SET, NAMESPACE) >> [new ObjectMapper().convertValue(replicaSet, KubernetesManifest.class)]
 
     def namedAccountCredentials = Mock(KubernetesNamedAccountCredentials)
     namedAccountCredentials.getCredentials() >> credentials
@@ -72,7 +70,7 @@ class KubernetesReplicaSetCachingAgentSpec extends Specification {
 
     def registryMock = Mock(Registry)
     registryMock.timer(_) >> null
-    def cachingAgent = new KubernetesReplicaSetCachingAgent(namedAccountCredentials, jobExecutor, new ObjectMapper(), registryMock, 0, 1)
+    def cachingAgent = new KubernetesReplicaSetCachingAgent(namedAccountCredentials, new ObjectMapper(), registryMock, 0, 1)
     def providerCacheMock = Mock(ProviderCache)
     providerCacheMock.getAll(_, _) >> []
 
@@ -82,8 +80,8 @@ class KubernetesReplicaSetCachingAgentSpec extends Specification {
     then:
     result.cacheResults[KubernetesKind.REPLICA_SET.name].size() == 1
     result.cacheResults[KubernetesKind.REPLICA_SET.name].find { cacheData ->
-      cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == [Keys.cluster(ACCOUNT, APPLICATION, CLUSTER)]
-      cacheData.relationships.get(Keys.LogicalKind.APPLICATION.toString()) == [Keys.application(APPLICATION)]
+      cacheData.relationships.get(Keys.LogicalKind.CLUSTERS.toString()) == [Keys.cluster(ACCOUNT, APPLICATION, CLUSTER)]
+      cacheData.relationships.get(Keys.LogicalKind.APPLICATIONS.toString()) == [Keys.application(APPLICATION)]
       cacheData.attributes.get("name") == NAME
       cacheData.attributes.get("namespace") == NAMESPACE
     } != null

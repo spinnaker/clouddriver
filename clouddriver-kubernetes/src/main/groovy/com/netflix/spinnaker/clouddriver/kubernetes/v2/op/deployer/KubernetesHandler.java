@@ -17,21 +17,28 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
+import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public abstract class KubernetesHandler {
   @Autowired
@@ -40,6 +47,16 @@ public abstract class KubernetesHandler {
   @Getter
   @Autowired
   protected KubectlJobExecutor jobExecutor;
+
+  private ArtifactReplacer artifactReplacer = new ArtifactReplacer();
+
+  protected void registerReplacer(ArtifactReplacer.Replacer replacer) {
+    artifactReplacer.addReplacer(replacer);
+  }
+
+  public KubernetesManifest replaceArtifacts(KubernetesManifest manifest, List<Artifact> artifacts) {
+    return artifactReplacer.replaceAll(manifest, artifacts);
+  }
 
   public DeploymentResult deployAugmentedManifest(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
     deploy(credentials, manifest);
@@ -57,7 +74,14 @@ public abstract class KubernetesHandler {
   abstract public Status status(KubernetesManifest manifest);
   abstract public Class<? extends KubernetesV2CachingAgent> cachingAgentClass();
 
-  void deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
-    jobExecutor.deploy(credentials, manifest);
+  protected void deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+    credentials.deploy(manifest);
+  }
+
+  public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
+    Map<String, Object> result = objectMapper.convertValue(key, new TypeReference<Map<String, Object>>() {});
+    result.put("region", key.getNamespace());
+    result.put("name", KubernetesManifest.getFullResourceName(key.getKubernetesKind(), key.getName()));
+    return result;
   }
 }

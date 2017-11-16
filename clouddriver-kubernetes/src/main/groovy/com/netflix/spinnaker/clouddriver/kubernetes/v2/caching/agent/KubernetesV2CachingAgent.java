@@ -23,12 +23,14 @@ import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
@@ -43,27 +45,28 @@ import java.util.stream.Collectors;
 public abstract class KubernetesV2CachingAgent extends KubernetesCachingAgent<KubernetesV2Credentials> {
   protected KubectlJobExecutor jobExecutor;
 
+  @Getter
+  protected String providerName = KubernetesCloudProvider.getID();
+
   protected KubernetesV2CachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
-      KubectlJobExecutor jobExecutor,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
-    this.jobExecutor = jobExecutor;
   }
 
   protected abstract KubernetesKind primaryKind();
 
   protected List<KubernetesManifest> loadPrimaryResourceList() {
     return namespaces.stream()
-        .map(n -> jobExecutor.getAll(credentials, primaryKind(), n))
+        .map(n -> credentials.list(primaryKind(), n))
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
   }
 
   protected KubernetesManifest loadPrimaryResource(String namespace, String name) {
-    return jobExecutor.get(credentials, primaryKind(), namespace, name);
+    return credentials.get(primaryKind(), namespace, name);
   }
 
   @Override

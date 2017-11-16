@@ -17,22 +17,15 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.fge.jsonpatch.diff.JsonDiff;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
-import io.kubernetes.client.ApiClient;
-import io.kubernetes.client.ApiException;
-import io.kubernetes.client.apis.AppsV1beta1Api;
-import io.kubernetes.client.apis.AppsV1beta2Api;
-import io.kubernetes.client.apis.CoreV1Api;
-import io.kubernetes.client.apis.ExtensionsV1beta1Api;
-import io.kubernetes.client.models.V1Service;
-import io.kubernetes.client.util.Config;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor.KubectlException;
+import io.kubernetes.client.models.V1DeleteOptions;
 import io.kubernetes.client.util.KubeConfig;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
@@ -40,7 +33,6 @@ import org.apache.commons.lang3.StringUtils;
 import javax.validation.constraints.NotNull;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,11 +42,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class KubernetesV2Credentials implements KubernetesCredentials {
-  private final ApiClient client;
-  private final CoreV1Api coreV1Api;
-  private final ExtensionsV1beta1Api extensionsV1beta1Api;
-  private final AppsV1beta1Api appsV1beta1Api;
-  private final AppsV1beta2Api appsV1beta2Api;
+  private final KubectlJobExecutor jobExecutor;
   private final Registry registry;
   private final Clock clock;
   private final String accountName;
@@ -93,6 +81,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     List<String> namespaces = new ArrayList<>();
     List<String> omitNamespaces = new ArrayList<>();
     Registry registry;
+    KubectlJobExecutor jobExecutor;
     boolean debug;
 
     public Builder accountName(String accountName) {
@@ -130,6 +119,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder jobExecutor(KubectlJobExecutor jobExecutor) {
+      this.jobExecutor = jobExecutor;
+      return this;
+    }
+
     public Builder debug(boolean debug) {
       this.debug = debug;
       return this;
@@ -151,18 +145,12 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         kubeconfig.setContext(context);
       }
 
-      ApiClient client = Config.fromConfig(kubeconfig);
-
-      if (!StringUtils.isEmpty(userAgent)) {
-        client.setUserAgent(userAgent);
-      }
-
       namespaces = namespaces == null ? new ArrayList<>() : namespaces;
       omitNamespaces = omitNamespaces == null ? new ArrayList<>() : omitNamespaces;
       
       return new KubernetesV2Credentials(
           accountName,
-          client,
+          jobExecutor,
           namespaces,
           omitNamespaces,
           registry,
@@ -174,7 +162,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   private KubernetesV2Credentials(@NotNull String accountName,
-      @NotNull ApiClient client,
+      @NotNull KubectlJobExecutor jobExecutor,
       @NotNull List<String> namespaces,
       @NotNull List<String> omitNamespaces,
       @NotNull Registry registry,
@@ -186,14 +174,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.accountName = accountName;
     this.namespaces = namespaces;
     this.omitNamespaces = omitNamespaces;
-    this.client = client;
-    this.client.setDebugging(debug);
+    this.jobExecutor = jobExecutor;
     this.debug = debug;
-
-    this.coreV1Api = new CoreV1Api(this.client);
-    this.extensionsV1beta1Api = new ExtensionsV1beta1Api(this.client);
-    this.appsV1beta1Api = new AppsV1beta1Api(this.client);
-    this.appsV1beta2Api = new AppsV1beta2Api(this.client);
 
     this.kubeconfigFile = kubeconfigFile;
     this.context = context;
@@ -202,18 +184,16 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Override
   public List<String> getDeclaredNamespaces() {
     List<String> result;
-    String labelSelector = null;
-    String fieldSelector = null;
     if (!namespaces.isEmpty()) {
       result = namespaces;
     } else {
       try {
-        result = coreV1Api.listNamespace(PRETTY, CONTINUE, fieldSelector, INCLUDE_UNINITIALIZED, labelSelector, LIMIT, DEFAULT_VERSION, TIMEOUT_SECONDS, WATCH)
-            .getItems()
-            .stream()
-            .map(n -> n.getMetadata().getName())
+        List<KubernetesManifest> namespaceManifests = jobExecutor.list(this, KubernetesKind.NAMESPACE, "");
+        result = namespaceManifests.stream()
+            .map(KubernetesManifest::getName)
             .collect(Collectors.toList());
-      } catch (ApiException e) {
+
+      } catch (KubectlException e) {
         throw new RuntimeException(e);
       }
     }
@@ -227,40 +207,57 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return result;
   }
 
-  private boolean notFound(ApiException e) {
-    return e.getCode() == 404;
+  public KubernetesManifest get(KubernetesKind kind, String namespace, String name) {
+    return runAndRecordMetrics("get", kind, namespace, () -> jobExecutor.get(this, kind, namespace, name));
   }
 
-  private Map[] determineJsonPatch(Object current, Object desired) {
-    JsonNode desiredNode = mapper.convertValue(desired, JsonNode.class);
-    JsonNode currentNode = mapper.convertValue(current, JsonNode.class);
-
-    return mapper.convertValue(JsonDiff.asJson(currentNode, desiredNode), Map[].class);
+  public List<KubernetesManifest> list(KubernetesKind kind, String namespace) {
+    return runAndRecordMetrics("list", kind, namespace, () -> jobExecutor.list(this, kind, namespace));
   }
 
-  public KubernetesSelectorList labelSelectorList(V1Service service) {
-    KubernetesSelectorList list = new KubernetesSelectorList();
-    for (Map.Entry<String, String> e : service.getSpec().getSelector().entrySet()) {
-      list.addSelector(KubernetesSelector.equals(e.getKey(), e.getValue()));
-    }
-
-    return list;
+  public String logs(String namespace, String podName, String containerName) {
+    return runAndRecordMetrics("logs", KubernetesKind.POD, namespace, () -> jobExecutor.logs(this, namespace, podName, containerName));
   }
 
-  private <T> T runAndRecordMetrics(String methodName, String namespace, Supplier<T> op) {
+  public void scale(KubernetesKind kind, String namespace, String name, int replicas) {
+    runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.scale(this, kind, namespace, name, replicas));
+  }
+
+  public void delete(KubernetesKind kind, String namespace, String name, V1DeleteOptions options) {
+    runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.delete(this, kind, namespace, name, options));
+  }
+
+  public void deploy(KubernetesManifest manifest) {
+    runAndRecordMetrics("deploy", manifest.getKind(), manifest.getNamespace(), () -> jobExecutor.deploy(this, manifest));
+  }
+
+  public void undoRollout(KubernetesKind kind, String namespace, String name, int revision) {
+    runAndRecordMetrics("undoRollout", kind, namespace, () -> jobExecutor.undoRollout(this, kind, namespace, name, revision));
+  }
+
+  public void pauseRollout(KubernetesKind kind, String namespace, String name) {
+    runAndRecordMetrics("pauseRollout", kind, namespace, () -> jobExecutor.pauseRollout(this, kind, namespace, name));
+  }
+
+  public void resumeRollout(KubernetesKind kind, String namespace, String name) {
+    runAndRecordMetrics("resumeRollout", kind, namespace, () -> jobExecutor.resumeRollout(this, kind, namespace, name));
+  }
+
+  private <T> T runAndRecordMetrics(String action, KubernetesKind kind, String namespace, Supplier<T> op) {
     T result = null;
     Throwable failure = null;
-    KubernetesApiException apiException = null;
+    KubectlException apiException = null;
     long startTime = clock.monotonicTime();
     try {
       result = op.get();
-    } catch (KubernetesApiException e) {
+    } catch (KubectlException e) {
       apiException = e;
     } catch (Exception e) {
       failure = e;
     } finally {
       Map<String, String> tags = new HashMap<>();
-      tags.put("method", methodName);
+      tags.put("action", action);
+      tags.put("kind", kind.toString());
       tags.put("account", accountName);
       tags.put("namespace", StringUtils.isEmpty(namespace) ? "none" : namespace);
       if (failure == null) {
@@ -274,28 +271,12 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           .record(clock.monotonicTime() - startTime, TimeUnit.NANOSECONDS);
 
       if (failure != null) {
-        throw new KubernetesApiException(methodName, failure);
+        throw new KubectlJobExecutor.KubectlException("Failure running " + action + " on " + kind + ": " + failure.getMessage(), failure);
       } else if (apiException != null) {
         throw apiException;
       } else {
         return result;
       }
     }
-  }
-
-  private static <T> List<T> annotateMissingFields(List<T> objs, Class<T> clazz, KubernetesApiVersion apiVersion, KubernetesKind kind) {
-    return objs.stream()
-        .map(obj -> annotateMissingFields(obj, clazz, apiVersion, kind))
-        .collect(Collectors.toList());
-  }
-
-  private static <T> T annotateMissingFields(T obj, Class<T> clazz, KubernetesApiVersion apiVersion, KubernetesKind kind) {
-    try {
-      clazz.getMethod("setApiVersion", String.class).invoke(obj, apiVersion == null ? null : apiVersion.toString());
-      clazz.getMethod("setKind", String.class).invoke(obj, kind == null ? null : kind.toString());
-    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-      throw new RuntimeException("Unable to set missing fields on " + clazz.getSimpleName(), e);
-    }
-    return obj;
   }
 }

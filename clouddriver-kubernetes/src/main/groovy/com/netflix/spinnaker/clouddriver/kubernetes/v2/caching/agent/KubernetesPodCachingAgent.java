@@ -23,7 +23,6 @@ import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -39,12 +38,11 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 @Slf4j
 public class KubernetesPodCachingAgent extends KubernetesV2CachingAgent {
   KubernetesPodCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
-      KubectlJobExecutor jobExecutor,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
-    super(namedAccountCredentials, jobExecutor, objectMapper, registry, agentIndex, agentCount);
+    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
   }
 
   @Override
@@ -55,8 +53,8 @@ public class KubernetesPodCachingAgent extends KubernetesV2CachingAgent {
   @Getter
   final private Collection<AgentDataType> providedDataTypes = Collections.unmodifiableSet(
       new HashSet<>(Arrays.asList(
-          INFORMATIVE.forType(Keys.LogicalKind.APPLICATION.toString()),
-          INFORMATIVE.forType(Keys.LogicalKind.CLUSTER.toString()),
+          INFORMATIVE.forType(Keys.LogicalKind.APPLICATIONS.toString()),
+          INFORMATIVE.forType(Keys.LogicalKind.CLUSTERS.toString()),
           INFORMATIVE.forType(KubernetesKind.DEPLOYMENT.toString()),
           INFORMATIVE.forType(KubernetesKind.REPLICA_SET.toString()),
           AUTHORITATIVE.forType(KubernetesKind.POD.toString())

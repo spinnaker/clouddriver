@@ -17,9 +17,11 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -28,12 +30,31 @@ import java.util.Set;
 @Component
 public class KubernetesSpinnakerKindMap {
   public enum SpinnakerKind {
-    INSTANCE,
-    SERVER_GROUP,
-    LOAD_BALANCER,
-    SECURITY_GROUP,
-    SERVER_GROUP_MANAGER,
-    UNCLASSIFIED
+    INSTANCES("instances"),
+    SERVER_GROUPS("serverGroups"),
+    LOAD_BALANCERS("loadBalancers"),
+    SECURITY_GROUPS("securityGroups"),
+    SERVER_GROUP_MANAGERS("serverGroupManagers"),
+    UNCLASSIFIED("unclassified");
+
+    final private String id;
+
+    SpinnakerKind(String id) {
+      this.id = id;
+    }
+
+    @Override
+    public String toString() {
+      return id;
+    }
+
+    @JsonCreator
+    public static SpinnakerKind fromString(String name) {
+      return Arrays.stream(values())
+          .filter(k -> k.toString().equalsIgnoreCase(name))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("No matching kind with name " + name + " exists"));
+    }
   }
 
   private Map<SpinnakerKind, Set<KubernetesKind>> spinnakerToKubernetes = new HashMap<>();
@@ -51,10 +72,14 @@ public class KubernetesSpinnakerKindMap {
   }
 
   public SpinnakerKind translateKubernetesKind(KubernetesKind kubernetesKind) {
-    return kubernetesToSpinnaker.get(kubernetesKind);
+    return kubernetesToSpinnaker.getOrDefault(kubernetesKind, SpinnakerKind.UNCLASSIFIED);
   }
 
   public Set<KubernetesKind> translateSpinnakerKind(SpinnakerKind spinnakerKind) {
     return spinnakerToKubernetes.get(spinnakerKind);
+  }
+
+  public Set<KubernetesKind> allKubernetesKinds() {
+    return kubernetesToSpinnaker.keySet();
   }
 }
