@@ -83,7 +83,7 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
 
   @Override
   boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    return false
+    OnDemandAgent.OnDemandType.ControllerSet == type && cloudProvider == KubernetesCloudProvider.ID
   }
 
   @Override
@@ -117,10 +117,20 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
     }
 
     def jsonResult = objectMapper.writeValueAsString(result.cacheResults)
-
+    boolean isControllerSetCachingAgentType = false
     if (result.cacheResults.values().flatten().isEmpty()) {
       // Avoid writing an empty onDemand cache record (instead delete any that may have previously existed).
       providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getServerGroupKey(accountName, namespace, serverGroupName)])
+
+      //Determine if this is the correct agent to delete cache which can avoid double deletion
+      CacheData serverGroup = providerCache.get(Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(accountName, namespace, serverGroupName))
+
+      if (serverGroup) {
+        String kind = serverGroup.attributes?.get("serverGroup")?.get("kind")
+        if (kind == "StatefulSet" || kind == "DaemonSet") {
+          isControllerSetCachingAgentType = true
+        }
+      }
     } else {
       metricsSupport.onDemandStore {
         def cacheData = new DefaultCacheData(
@@ -139,11 +149,13 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
     }
 
     // Evict this server group if it no longer exists.
-    Map<String, Collection<String>> evictions = statefulSet || daemonSet  ? [:] : [
-      (Keys.Namespace.SERVER_GROUPS.ns): [
-        Keys.getServerGroupKey(accountName, namespace, serverGroupName)
+    if(isControllerSetCachingAgentType) {
+      Map<String, Collection<String>> evictions = statefulSet || daemonSet ? [:] : [
+        (Keys.Namespace.SERVER_GROUPS.ns): [
+          Keys.getServerGroupKey(accountName, namespace, serverGroupName)
+        ]
       ]
-    ]
+    }
 
     log.info("On demand cache refresh (data: ${data}) succeeded.")
 
