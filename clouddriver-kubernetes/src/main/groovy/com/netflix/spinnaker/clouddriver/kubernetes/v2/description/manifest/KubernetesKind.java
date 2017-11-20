@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class KubernetesKind {
+  public static KubernetesKind CONFIG_MAP = new KubernetesKind("configMap", "cm");
   public static KubernetesKind DAEMON_SET = new KubernetesKind("daemonSet", "ds");
   public static KubernetesKind DEPLOYMENT = new KubernetesKind("deployment", "deploy");
   public static KubernetesKind INGRESS = new KubernetesKind("ingress", "ing");
@@ -31,6 +32,7 @@ public class KubernetesKind {
   public static KubernetesKind REPLICA_SET = new KubernetesKind("replicaSet", "rs");
   public static KubernetesKind NAMESPACE = new KubernetesKind("namespace", "ns");
   public static KubernetesKind NETWORK_POLICY = new KubernetesKind("networkPolicy", "netpol");
+  public static KubernetesKind SECRET = new KubernetesKind("secret");
   public static KubernetesKind SERVICE = new KubernetesKind("service", "svc");
   public static KubernetesKind STATEFUL_SET = new KubernetesKind("statefulSet");
 
@@ -39,7 +41,7 @@ public class KubernetesKind {
 
   private static List<KubernetesKind> values;
 
-  private KubernetesKind(String name, String alias) {
+  protected KubernetesKind(String name, String alias) {
     if (values == null) {
       values = new ArrayList<>();
     }
@@ -49,7 +51,7 @@ public class KubernetesKind {
     values.add(this);
   }
 
-  private KubernetesKind(String name) {
+  protected KubernetesKind(String name) {
     this(name, null);
   }
 
