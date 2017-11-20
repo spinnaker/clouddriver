@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.KubernetesV2SecurityGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +52,7 @@ public class KubernetesV2SecurityGroupProvider implements SecurityGroupProvider<
 
   @Override
   public Set<KubernetesV2SecurityGroup> getAll(boolean includeRules) {
-    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUP)
+    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUPS)
         .stream()
         .map(KubernetesKind::toString)
         .map(cacheUtils::getAllKeys)
@@ -62,7 +63,7 @@ public class KubernetesV2SecurityGroupProvider implements SecurityGroupProvider<
 
   @Override
   public Set<KubernetesV2SecurityGroup> getAllByRegion(boolean includeRules, String namespace) {
-    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUP)
+    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUPS)
         .stream()
         .map(k -> {
           String key = Keys.infrastructure(k, "*", namespace, "*");
@@ -75,7 +76,7 @@ public class KubernetesV2SecurityGroupProvider implements SecurityGroupProvider<
 
   @Override
   public Set<KubernetesV2SecurityGroup> getAllByAccount(boolean includeRules, String account) {
-    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUP)
+    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUPS)
         .stream()
         .map(k -> {
           String key = Keys.infrastructure(k, account, "*", "*");
@@ -87,8 +88,15 @@ public class KubernetesV2SecurityGroupProvider implements SecurityGroupProvider<
   }
 
   @Override
-  public Set<KubernetesV2SecurityGroup> getAllByAccountAndName(boolean includeRules, String account, String name) {
-    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUP)
+  public Set<KubernetesV2SecurityGroup> getAllByAccountAndName(boolean includeRules, String account, String fullName) {
+    String name;
+    try {
+      name = KubernetesManifest.fromFullResourceName(fullName).getRight();
+    } catch (Exception e) {
+      return null;
+    }
+
+    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUPS)
         .stream()
         .map(k -> {
           String key = Keys.infrastructure(k, account, "*", name);
@@ -101,7 +109,7 @@ public class KubernetesV2SecurityGroupProvider implements SecurityGroupProvider<
 
   @Override
   public Set<KubernetesV2SecurityGroup> getAllByAccountAndRegion(boolean includeRule, String account, String namespace) {
-    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUP)
+    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUPS)
         .stream()
         .map(k -> {
           String key = Keys.infrastructure(k, account, namespace, "*");
@@ -113,8 +121,15 @@ public class KubernetesV2SecurityGroupProvider implements SecurityGroupProvider<
   }
 
   @Override
-  public KubernetesV2SecurityGroup get(String account, String namespace, String name, String _unused) {
-    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUP)
+  public KubernetesV2SecurityGroup get(String account, String namespace, String fullName, String _unused) {
+    String name;
+    try {
+      name = KubernetesManifest.fromFullResourceName(fullName).getRight();
+    } catch (Exception e) {
+      return null;
+    }
+
+    return kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.SECURITY_GROUPS)
         .stream()
         .map(k -> {
           String key = Keys.infrastructure(k, account, namespace, name);

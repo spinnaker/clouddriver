@@ -144,7 +144,7 @@ public class KubectlJobExecutor {
     command.add("rollout");
     command.add("undo");
     command.add(kind.toString() + "/" + name);
-    command.add("--revision=" + revision);
+    command.add("--to-revision=" + revision);
 
     String jobId = jobExecutor.startJob(new JobRequest(command),
         System.getenv(),
@@ -158,6 +158,47 @@ public class KubectlJobExecutor {
 
     return null;
   }
+
+  public Void pauseRollout(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+    List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+
+    command.add("rollout");
+    command.add("pause");
+    command.add(kind.toString() + "/" + name);
+
+    String jobId = jobExecutor.startJob(new JobRequest(command),
+        System.getenv(),
+        new ByteArrayInputStream(new byte[0]));
+
+    JobStatus status = backoffWait(jobId, credentials.isDebug());
+
+    if (status.getResult() != JobStatus.Result.SUCCESS) {
+      throw new KubectlException("Failed to pause rollout " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
+    }
+
+    return null;
+  }
+
+  public Void resumeRollout(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+    List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+
+    command.add("rollout");
+    command.add("resume");
+    command.add(kind.toString() + "/" + name);
+
+    String jobId = jobExecutor.startJob(new JobRequest(command),
+        System.getenv(),
+        new ByteArrayInputStream(new byte[0]));
+
+    JobStatus status = backoffWait(jobId, credentials.isDebug());
+
+    if (status.getResult() != JobStatus.Result.SUCCESS) {
+      throw new KubectlException("Failed to resume rollout " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
+    }
+
+    return null;
+  }
+
 
   public KubernetesManifest get(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedGet(credentials, kind, namespace);
@@ -283,7 +324,9 @@ public class KubectlJobExecutor {
     }
 
     String kubeconfigFile = credentials.getKubeconfigFile();
-    if (StringUtils.isNotEmpty(kubeconfigFile)) {
+    if (credentials.getOAuthTokenCommand() != null && !credentials.getOAuthTokenCommand().isEmpty()) {
+      command.add("--token=" + getOAuthToken(credentials));
+    } else if (StringUtils.isNotEmpty(kubeconfigFile)) {
       command.add("--kubeconfig=" + kubeconfigFile);
     }
 
@@ -317,6 +360,19 @@ public class KubectlJobExecutor {
     command.add(kind.toString());
 
     return command;
+  }
+
+  private String getOAuthToken(KubernetesV2Credentials credentials) {
+    String jobId = jobExecutor.startJob(new JobRequest(credentials.getOAuthTokenCommand()),
+      System.getenv(),
+      new ByteArrayInputStream(new byte[0]));
+
+    JobStatus status = backoffWait(jobId, credentials.isDebug());
+
+    if (status.getResult() != JobStatus.Result.SUCCESS) {
+      throw new KubectlException("Could not fetch OAuth token: " + status.getStdErr());
+    }
+    return status.getStdOut();
   }
 
   public static class KubectlException extends RuntimeException {
