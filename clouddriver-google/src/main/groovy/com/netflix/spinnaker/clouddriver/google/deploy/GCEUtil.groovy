@@ -28,6 +28,7 @@ import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.*
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
+import com.netflix.spinnaker.clouddriver.consul.provider.ConsulProviderUtils
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.google.GoogleConfiguration
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
@@ -40,6 +41,7 @@ import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperation
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.google.model.*
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
+import com.netflix.spinnaker.clouddriver.google.model.health.GoogleInstanceHealth
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.*
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
@@ -1062,7 +1064,7 @@ class GCEUtil {
     def balancingMode = policy.balancingMode
     return new Backend(
       balancingMode: balancingMode,
-      maxRatePerInstance: balancingMode == GoogleLoadBalancingPolicy.BalancingMode.RATE ?
+      maxRatePerInstance: balancingMode == GoogleLoadBalancingPolicy.BalancingMode.RATE || balancingMode == GoogleLoadBalancingPolicy.BalancingMode.UTILIZATION ?
         policy.maxRatePerInstance : null,
       maxUtilization: balancingMode == GoogleLoadBalancingPolicy.BalancingMode.UTILIZATION ?
         policy.maxUtilization : null,
@@ -1072,12 +1074,21 @@ class GCEUtil {
     )
   }
 
+  static void updateMetadataWithLoadBalancingPolicy(GoogleHttpLoadBalancingPolicy policy, Map instanceMetadata, ObjectMapper objectMapper) {
+    if (policy.listeningPort) {
+      log.warn("Translated old load balancer instance metadata entry to new format")
+      policy.setNamedPorts([new NamedPort(name: GoogleHttpLoadBalancingPolicy.HTTP_DEFAULT_PORT_NAME, port: policy.listeningPort)])
+      policy.listeningPort = null // Deprecated.
+    }
+    instanceMetadata[(GoogleServerGroup.View.LOAD_BALANCING_POLICY)] = objectMapper.writeValueAsString(policy)
+  }
+
   // Note: namedPorts are not set in this method.
   static GoogleHttpLoadBalancingPolicy loadBalancingPolicyFromBackend(Backend backend) {
     def backendBalancingMode = GoogleLoadBalancingPolicy.BalancingMode.valueOf(backend.balancingMode)
     return new GoogleHttpLoadBalancingPolicy(
       balancingMode: backendBalancingMode,
-      maxRatePerInstance: backendBalancingMode == GoogleLoadBalancingPolicy.BalancingMode.RATE ?
+      maxRatePerInstance: backendBalancingMode == GoogleLoadBalancingPolicy.BalancingMode.RATE || backendBalancingMode == GoogleLoadBalancingPolicy.BalancingMode.UTILIZATION ?
         backend.maxRatePerInstance : null,
       maxUtilization: backendBalancingMode == GoogleLoadBalancingPolicy.BalancingMode.UTILIZATION ?
         backend.maxUtilization : null,
@@ -1099,38 +1110,46 @@ class GCEUtil {
     def foundSslLoadBalancers = googleLoadBalancerProvider.getApplicationLoadBalancers("").findAll {
       it.name in serverGroup.loadBalancers && it.loadBalancerType == GoogleLoadBalancerType.SSL
     }
-    if (!foundSslLoadBalancers) {
+    List<String> backendServicesToDeleteFrom = []
+    if (foundSslLoadBalancers) {
+      backendServicesToDeleteFrom = foundSslLoadBalancers.collect { lb -> lb.backendService.name }
+    } else {
       log.warn("Cache call missed for ssl load balancer, making a call to GCP")
       List<ForwardingRule> projectGlobalForwardingRules = executor.timeExecute(
         compute.globalForwardingRules().list(project),
         "compute.globalForwardingRules.list",
         executor.TAG_SCOPE, executor.SCOPE_GLOBAL
       ).getItems()
-      foundSslLoadBalancers = projectGlobalForwardingRules.findAll { ForwardingRule forwardingRule ->
+      List<TargetSslProxy> projectSslProxies = executor.timeExecute(
+        compute.targetSslProxies().list(project),
+        "compute.targetSslProxies.list",
+        executor.TAG_SCOPE, executor.SCOPE_GLOBAL
+      ).getItems()
+      def matchingSslProxyNames = projectGlobalForwardingRules.findAll { ForwardingRule forwardingRule ->
         forwardingRule.target && Utils.getTargetProxyType(forwardingRule.target) == GoogleTargetProxyType.SSL &&
           forwardingRule.name in serverGroup.loadBalancers
-      }
-    }
-    log.debug("Attempting to delete backends for ${serverGroup.name} from the following global load balancers: ${foundSslLoadBalancers.collect { it.name }}")
+      }.collect { ForwardingRule forwardingRule -> getLocalName(forwardingRule.target) }
 
-    if (foundSslLoadBalancers) {
-      foundSslLoadBalancers.each { GoogleLoadBalancerView loadBalancerView ->
-        def sslView = loadBalancerView as GoogleSslLoadBalancer.View
-        String backendServiceName = sslView.backendService.name
-        BackendService backendService = executor.timeExecute(
-          compute.backendServices().get(project, backendServiceName),
-          "compute.backendServices.get",
-          executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
-        backendService?.backends?.removeAll { Backend backend ->
-          (getLocalName(backend.group) == serverGroupName) &&
-            (Utils.getRegionFromGroupUrl(backend.group) == region)
-        }
-        executor.timeExecute(
-            compute.backendServices().update(project, backendServiceName, backendService),
-            "compute.backendServices.update",
-            executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
-        task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from ssl load balancer backend service ${backendServiceName}."
+      backendServicesToDeleteFrom = projectSslProxies.findAll { TargetSslProxy proxy ->
+        proxy.getName() in matchingSslProxyNames
+      }.collect { TargetSslProxy proxy -> getLocalName(proxy.getService()) }
+    }
+
+    log.debug("Attempting to delete backends for ${serverGroup.name} from the following global load balancers: ${foundSslLoadBalancers.collect { it.name }}")
+    backendServicesToDeleteFrom?.each { backendServiceName ->
+      BackendService backendService = executor.timeExecute(
+        compute.backendServices().get(project, backendServiceName),
+        "compute.backendServices.get",
+        executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      backendService?.backends?.removeAll { Backend backend ->
+        (getLocalName(backend.group) == serverGroupName) &&
+          (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
+      executor.timeExecute(
+        compute.backendServices().update(project, backendServiceName, backendService),
+        "compute.backendServices.update",
+        executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from ssl load balancer backend service ${backendServiceName}."
     }
   }
 
@@ -1146,38 +1165,46 @@ class GCEUtil {
     def foundTcpLoadBalancers = googleLoadBalancerProvider.getApplicationLoadBalancers("").findAll {
       it.name in serverGroup.loadBalancers && it.loadBalancerType == GoogleLoadBalancerType.TCP
     }
-    if (!foundTcpLoadBalancers) {
+    List<String> backendServicesToDeleteFrom = []
+    if (foundTcpLoadBalancers) {
+      backendServicesToDeleteFrom = foundTcpLoadBalancers.collect { lb -> lb.backendService.name }
+    } else {
       log.warn("Cache call missed for tcp load balancer, making a call to GCP")
       List<ForwardingRule> projectGlobalForwardingRules = executor.timeExecute(
         compute.globalForwardingRules().list(project),
         "compute.globalForwardingRules.list",
         executor.TAG_SCOPE, executor.SCOPE_GLOBAL
       ).getItems()
-      foundTcpLoadBalancers = projectGlobalForwardingRules.findAll { ForwardingRule forwardingRule ->
+      List<TargetTcpProxy> projectTcpProxies = executor.timeExecute(
+        compute.targetTcpProxies().list(project),
+        "compute.targetTcpProxies.list",
+        executor.TAG_SCOPE, executor.SCOPE_GLOBAL
+      ).getItems()
+
+      def matchingTcpProxyNames = projectGlobalForwardingRules.findAll { ForwardingRule forwardingRule ->
         forwardingRule.target && Utils.getTargetProxyType(forwardingRule.target) == GoogleTargetProxyType.TCP &&
           forwardingRule.name in serverGroup.loadBalancers
-      }
+      }.collect { ForwardingRule forwardingRule -> getLocalName(forwardingRule.target) }
+      backendServicesToDeleteFrom = projectTcpProxies.findAll { TargetTcpProxy proxy ->
+        proxy.getName() in matchingTcpProxyNames
+      }.collect { TargetTcpProxy proxy -> getLocalName(proxy.getService()) }
     }
-    log.debug("Attempting to delete backends for ${serverGroup.name} from the following global load balancers: ${foundTcpLoadBalancers.collect { it.name }}")
 
-    if (foundTcpLoadBalancers) {
-      foundTcpLoadBalancers.each { GoogleLoadBalancerView loadBalancerView ->
-        def tcpView = loadBalancerView as GoogleTcpLoadBalancer.View
-        String backendServiceName = tcpView.backendService.name
-        BackendService backendService = executor.timeExecute(
-          compute.backendServices().get(project, backendServiceName),
-          "compute.backendServices.get",
-          executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
-        backendService?.backends?.removeAll { Backend backend ->
-          (getLocalName(backend.group) == serverGroupName) &&
-            (Utils.getRegionFromGroupUrl(backend.group) == region)
-        }
-        executor.timeExecute(
-            compute.backendServices().update(project, backendServiceName, backendService),
-            "compute.backendServices.update",
-            executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
-        task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from tcp load balancer backend service ${backendServiceName}."
+    log.debug("Attempting to delete backends for ${serverGroup.name} from the following global load balancers: ${foundTcpLoadBalancers.collect { it.name }}")
+    backendServicesToDeleteFrom?.each { String backendServiceName ->
+      BackendService backendService = executor.timeExecute(
+        compute.backendServices().get(project, backendServiceName),
+        "compute.backendServices.get",
+        executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      backendService?.backends?.removeAll { Backend backend ->
+        (getLocalName(backend.group) == serverGroupName) &&
+          (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
+      executor.timeExecute(
+        compute.backendServices().update(project, backendServiceName, backendService),
+        "compute.backendServices.update",
+        executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from tcp load balancer backend service ${backendServiceName}."
     }
   }
 
@@ -1193,38 +1220,42 @@ class GCEUtil {
     def foundInternalLoadBalancers = googleLoadBalancerProvider.getApplicationLoadBalancers("").findAll {
       it.name in serverGroup.loadBalancers && it.loadBalancerType == GoogleLoadBalancerType.INTERNAL
     }
-    if (!foundInternalLoadBalancers) {
+
+    List<String> backendServicesToDeleteFrom = []
+    if (foundInternalLoadBalancers) {
+      backendServicesToDeleteFrom = foundInternalLoadBalancers.collect { lb -> lb.backendService.name }
+    } else {
       log.warn("Cache call missed for internal load balancer, making a call to GCP")
-      List<ForwardingRule> projectRegionalForwardingRules = executor.timeExecute(
+      List<ForwardingRule> projectForwardingRules = executor.timeExecute(
         compute.forwardingRules().list(project, region),
         "compute.forwardingRules.list",
         executor.TAG_SCOPE, executor.SCOPE_REGIONAL, executor.TAG_REGION, region
       ).getItems()
-      foundInternalLoadBalancers = projectRegionalForwardingRules.findAll {
+
+      def matchingForwardingRules = projectForwardingRules.findAll { ForwardingRule forwardingRule ->
         // TODO(jacobkiefer): Update this check if any other types of loadbalancers support backend services from regional forwarding rules.
-        it.backendService && it.name in serverGroup.loadBalancers
+        forwardingRule.backendService && forwardingRule.name in serverGroup.loadBalancers
+      }
+      backendServicesToDeleteFrom = matchingForwardingRules.collect { ForwardingRule forwardingRule ->
+        getLocalName(forwardingRule.getBackendService())
       }
     }
-    log.debug("Attempting to delete backends for ${serverGroup.name} from the following regional load balancers: ${foundInternalLoadBalancers.collect { it.name }}")
 
-    if (foundInternalLoadBalancers) {
-      foundInternalLoadBalancers.each { GoogleLoadBalancerView loadBalancerView ->
-        def ilbView = loadBalancerView as GoogleInternalLoadBalancer.View
-        String backendServiceName = ilbView.backendService.name
-        BackendService backendService = executor.timeExecute(
-          compute.regionBackendServices().get(project, region, backendServiceName),
-          "compute.regionBackendServices.get",
-          executor.TAG_SCOPE, executor.SCOPE_REGIONAL, executor.TAG_REGION, region)
-        backendService?.backends?.removeAll { Backend backend ->
-          (getLocalName(backend.group) == serverGroupName) &&
-            (Utils.getRegionFromGroupUrl(backend.group) == region)
-        }
-        executor.timeExecute(
-            compute.regionBackendServices().update(project, region, backendServiceName, backendService),
-            "compute.backendServices.update",
-            executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
-        task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from internal load balancer backend service ${backendServiceName}."
+    log.debug("Attempting to delete backends for ${serverGroup.name} from the following backend services: ${backendServicesToDeleteFrom}")
+    backendServicesToDeleteFrom?.each { String backendServiceName ->
+      BackendService backendService = executor.timeExecute(
+        compute.regionBackendServices().get(project, region, backendServiceName),
+        "compute.regionBackendServices.get",
+        executor.TAG_SCOPE, executor.SCOPE_REGIONAL, executor.TAG_REGION, region)
+      backendService?.backends?.removeAll { Backend backend ->
+        (getLocalName(backend.group) == serverGroupName) &&
+          (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
+      executor.timeExecute(
+        compute.regionBackendServices().update(project, region, backendServiceName, backendService),
+        "compute.backendServices.update",
+        executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from internal load balancer backend service ${backendServiceName}."
     }
   }
 
@@ -1690,5 +1721,131 @@ class GCEUtil {
         break
     }
     return newHealthCheck
+  }
+
+  static List<BackendService> fetchBackendServices(GoogleExecutorTraits agent, Compute compute, String project) {
+    return agent.timeExecute(
+      compute.backendServices().list(project),
+      "compute.backendServices.list",
+      agent.TAG_SCOPE, agent.SCOPE_GLOBAL).getItems()
+  }
+
+  static List<BackendService> fetchRegionBackendServices(GoogleExecutorTraits agent, Compute compute, String project, String region) {
+    return agent.timeExecute(
+      compute.regionBackendServices().list(project, region),
+      "compute.regionBackendServices.list",
+      agent.TAG_SCOPE, agent.SCOPE_REGIONAL, agent.TAG_REGION, region).getItems()
+  }
+
+  static List<HttpHealthCheck> fetchHttpHealthChecks(GoogleExecutorTraits agent, Compute compute, String project) {
+    Boolean executedAtLeastOnce = false
+    String nextPageToken = null
+    List<HttpHealthCheck> httpHealthChecks = []
+    while (!executedAtLeastOnce || nextPageToken) {
+      HttpHealthCheckList httpHealthCheckList = agent.timeExecute(
+        compute.httpHealthChecks().list(project).setPageToken(nextPageToken),
+        "compute.httpHealthChecks.list",
+        agent.TAG_SCOPE, agent.SCOPE_GLOBAL)
+
+      executedAtLeastOnce = true
+      nextPageToken = httpHealthCheckList.getNextPageToken()
+      httpHealthChecks.addAll(httpHealthCheckList.getItems() ?: [])
+    }
+    return httpHealthChecks
+  }
+
+  static List<HttpsHealthCheck> fetchHttpsHealthChecks(GoogleExecutorTraits agent, Compute compute, String project) {
+    Boolean executedAtLeastOnce = false
+    String nextPageToken = null
+    List<HttpsHealthCheck> httpsHealthChecks = []
+    while (!executedAtLeastOnce || nextPageToken) {
+      HttpsHealthCheckList httpsHealthCheckList = agent.timeExecute(
+        compute.httpsHealthChecks().list(project).setPageToken(nextPageToken),
+        "compute.httpsHealtchChecks.list",
+        agent.TAG_SCOPE, agent.SCOPE_GLOBAL)
+
+      executedAtLeastOnce = true
+      nextPageToken = httpsHealthCheckList.getNextPageToken()
+      httpsHealthChecks.addAll(httpsHealthCheckList.getItems() ?: [])
+    }
+    return httpsHealthChecks
+  }
+
+  static List<HealthCheck> fetchHealthChecks(GoogleExecutorTraits agent, Compute compute, String project) {
+    Boolean executedAtLeastOnce = false
+    String nextPageToken = null
+    List<HealthCheck> healthChecks = []
+    while (!executedAtLeastOnce || nextPageToken) {
+      HealthCheckList healthCheckList = agent.timeExecute(
+        compute.healthChecks().list(project).setPageToken(nextPageToken),
+        "compute.healtchChecks.list",
+        agent.TAG_SCOPE, agent.SCOPE_GLOBAL)
+
+      executedAtLeastOnce = true
+      nextPageToken = healthCheckList.getNextPageToken()
+      healthChecks.addAll(healthCheckList.getItems() ?: [])
+    }
+    return healthChecks
+  }
+
+  static List<GoogleInstance> fetchInstances(GoogleExecutorTraits agent, GoogleNamedAccountCredentials credentials) {
+    List<GoogleInstance> instances = new ArrayList<GoogleInstance>()
+    String pageToken = null
+
+    while (true) {
+      InstanceAggregatedList instanceAggregatedList = agent.timeExecute(
+        credentials.compute.instances().aggregatedList(credentials.project).setPageToken(pageToken),
+        "compute.instances.aggregatedList",
+        agent.TAG_SCOPE, agent.SCOPE_GLOBAL)
+
+      instances += transformInstances(instanceAggregatedList, credentials)
+      pageToken = instanceAggregatedList.getNextPageToken()
+
+      if (!pageToken) {
+        break
+      }
+    }
+
+    return instances
+  }
+
+  private static List<GoogleInstance> transformInstances(InstanceAggregatedList instanceAggregatedList, GoogleNamedAccountCredentials credentials) throws IOException {
+    List<GoogleInstance> instances = []
+
+    instanceAggregatedList?.items?.each { String zone, InstancesScopedList instancesScopedList ->
+      def localZoneName = Utils.getLocalName(zone)
+      instancesScopedList?.instances?.each { Instance instance ->
+        def consulNode = credentials.consulConfig?.enabled ?
+          ConsulProviderUtils.getHealths(credentials.consulConfig, instance.getName())
+          : null
+        long instanceTimestamp = instance.creationTimestamp ?
+          Utils.getTimeFromTimestamp(instance.creationTimestamp) :
+          Long.MAX_VALUE
+        String instanceName = Utils.getLocalName(instance.name)
+        def googleInstance = new GoogleInstance(
+          name: instanceName,
+          gceId: instance.id,
+          instanceType: Utils.getLocalName(instance.machineType),
+          cpuPlatform: instance.cpuPlatform,
+          launchTime: instanceTimestamp,
+          zone: localZoneName,
+          region: credentials.regionFromZone(localZoneName),
+          networkInterfaces: instance.networkInterfaces,
+          networkName: Utils.decorateXpnResourceIdIfNeeded(credentials.project, instance.networkInterfaces?.getAt(0)?.network),
+          metadata: instance.metadata,
+          disks: instance.disks,
+          serviceAccounts: instance.serviceAccounts,
+          selfLink: instance.selfLink,
+          tags: instance.tags,
+          labels: instance.labels,
+          consulNode: consulNode,
+          instanceHealth: new GoogleInstanceHealth(
+            status: GoogleInstanceHealth.Status.valueOf(instance.getStatus())
+          ))
+        instances << googleInstance
+      }
+    }
+
+    return instances
   }
 }

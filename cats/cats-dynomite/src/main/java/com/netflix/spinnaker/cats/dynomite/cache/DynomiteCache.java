@@ -23,6 +23,8 @@ import com.netflix.dyno.connectionpool.exception.DynoException;
 import com.netflix.dyno.jedis.DynoJedisPipeline;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
+import com.netflix.spinnaker.cats.compression.CompressionStrategy;
+import com.netflix.spinnaker.cats.compression.NoopCompression;
 import com.netflix.spinnaker.cats.dynomite.DynomiteClientDelegate;
 import com.netflix.spinnaker.cats.dynomite.DynomiteClientDelegate.ClientDelegateException;
 import com.netflix.spinnaker.cats.redis.cache.AbstractRedisCache;
@@ -39,7 +41,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -99,9 +100,17 @@ public class DynomiteCache extends AbstractRedisCache {
 
   private final CacheMetrics cacheMetrics;
 
-  public DynomiteCache(String prefix, DynomiteClientDelegate dynomiteClientDelegate, ObjectMapper objectMapper, RedisCacheOptions options, CacheMetrics cacheMetrics) {
+  private final CompressionStrategy compressionStrategy;
+
+  public DynomiteCache(String prefix,
+                       DynomiteClientDelegate dynomiteClientDelegate,
+                       ObjectMapper objectMapper,
+                       RedisCacheOptions options,
+                       CacheMetrics cacheMetrics,
+                       CompressionStrategy compressionStrategy) {
     super(prefix, dynomiteClientDelegate, objectMapper, options);
     this.cacheMetrics = cacheMetrics == null ? new CacheMetrics.NOOP() : cacheMetrics;
+    this.compressionStrategy = compressionStrategy == null ? new NoopCompression() : compressionStrategy;
   }
 
   @Override
@@ -208,9 +217,7 @@ public class DynomiteCache extends AbstractRedisCache {
       .run(() -> redisClientDelegate.withPipeline(pipeline -> {
         DynoJedisPipeline p = (DynoJedisPipeline) pipeline;
 
-        boolean pipelineHasOps = false;
         for (List<String> idPartition : Lists.partition(identifiers, options.getMaxDelSize())) {
-          pipelineHasOps = true;
           String[] ids = idPartition.toArray(new String[idPartition.size()]);
           pipeline.srem(allOfTypeId(type), ids);
           sremOperations.incrementAndGet();
@@ -219,14 +226,13 @@ public class DynomiteCache extends AbstractRedisCache {
         }
 
         for (String id : identifiers) {
-          pipelineHasOps = true;
           pipeline.del(itemId(type, id));
           delOperations.incrementAndGet();
           pipeline.del(itemHashesId(type, id));
           delOperations.incrementAndGet();
         }
 
-        if (pipelineHasOps) {
+        if (!identifiers.isEmpty()) {
           p.sync();
         }
       }));
@@ -243,7 +249,7 @@ public class DynomiteCache extends AbstractRedisCache {
   @Override
   protected Collection<CacheData> getItems(String type, List<String> ids, List<String> knownRels) {
     if (ids.isEmpty()) {
-      return Collections.emptyList();
+      return new ArrayList<>();
     }
 
     AtomicInteger hmgetAllOperations = new AtomicInteger();
@@ -283,7 +289,7 @@ public class DynomiteCache extends AbstractRedisCache {
     try {
       final Map<String, Object> attributes;
       if (values.get("attributes") != null) {
-        attributes = objectMapper.readValue(values.get("attributes"), ATTRIBUTES);
+        attributes = objectMapper.readValue(compressionStrategy.decompress(values.get("attributes")), ATTRIBUTES);
       } else {
         attributes = null;
       }
@@ -295,7 +301,7 @@ public class DynomiteCache extends AbstractRedisCache {
 
         Collection<String> deserializedRel;
         try {
-          deserializedRel = objectMapper.readValue(value.getValue(), RELATIONSHIPS);
+          deserializedRel = objectMapper.readValue(compressionStrategy.decompress(value.getValue()), RELATIONSHIPS);
         } catch (JsonProcessingException e) {
           log.warn("Failed processing property '{}' on item '{}'", value.getKey(), itemId(type, id));
           continue;
@@ -322,8 +328,8 @@ public class DynomiteCache extends AbstractRedisCache {
     }
   }
 
-  private boolean hashCheck(Map<String, String> hashes, String id, String serializedValue, Map<String, String> updatedHashes) {
-    if (options.isHashingEnabled()) {
+  private boolean hashCheck(Map<String, String> hashes, String id, String serializedValue, Map<String, String> updatedHashes, boolean hasTtl) {
+    if (options.isHashingEnabled() && !hasTtl) {
       final String hash = Hashing.sha1().newHasher().putString(serializedValue, UTF_8).hash().toString();
       final String existingHash = hashes.get(id);
       if (hash.equals(existingHash)) {
@@ -336,6 +342,7 @@ public class DynomiteCache extends AbstractRedisCache {
 
   private MergeOp buildHashedMergeOp(String type, CacheData cacheData, Map<String, String> hashes) {
     int skippedWrites = 0;
+    final boolean hasTtl = cacheData.getTtlSeconds() > 0;
     final String serializedAttributes;
     try {
       if (cacheData.getAttributes().isEmpty()) {
@@ -349,10 +356,10 @@ public class DynomiteCache extends AbstractRedisCache {
 
     final Map<String, String> hashesToSet = new HashMap<>();
     final Map<String, String> valuesToSet = new HashMap<>();
-    if (serializedAttributes != null && hashCheck(hashes, attributesId(type, cacheData.getId()), serializedAttributes, hashesToSet)) {
+    if (serializedAttributes != null && hashCheck(hashes, attributesId(type, cacheData.getId()), serializedAttributes, hashesToSet, hasTtl)) {
       skippedWrites++;
     } else if (serializedAttributes != null) {
-      valuesToSet.put("attributes", serializedAttributes);
+      valuesToSet.put("attributes", compressionStrategy.compress(serializedAttributes));
     }
 
     if (!cacheData.getRelationships().isEmpty()) {
@@ -363,10 +370,10 @@ public class DynomiteCache extends AbstractRedisCache {
         } catch (JsonProcessingException serializationException) {
           throw new RuntimeException("Relationship serialization failed", serializationException);
         }
-        if (hashCheck(hashes, relationshipId(type, cacheData.getId(), relationship.getKey()), relationshipValue, hashesToSet)) {
+        if (hashCheck(hashes, relationshipId(type, cacheData.getId(), relationship.getKey()), relationshipValue, hashesToSet, hasTtl)) {
           skippedWrites++;
         } else {
-          valuesToSet.put(relationship.getKey(), relationshipValue);
+          valuesToSet.put(relationship.getKey(), compressionStrategy.compress(relationshipValue));
         }
       }
     }
@@ -376,7 +383,7 @@ public class DynomiteCache extends AbstractRedisCache {
 
   private Map<CacheData, Map<String, String>> getAllHashes(String type, Collection<CacheData> items) {
     if (isHashingDisabled(type)) {
-      return Collections.emptyMap();
+      return new HashMap<>();
     }
 
     return redisClientDelegate.withPipeline(pipeline -> {

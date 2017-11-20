@@ -35,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.model.InstanceProvider
 import com.netflix.spinnaker.clouddriver.model.InstanceTypeProvider
 import com.netflix.spinnaker.clouddriver.model.KeyPairProvider
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
+import com.netflix.spinnaker.clouddriver.model.ManifestProvider
 import com.netflix.spinnaker.clouddriver.model.NetworkProvider
 import com.netflix.spinnaker.clouddriver.model.NoopApplicationProvider
 import com.netflix.spinnaker.clouddriver.model.NoopCloudMetricProvider
@@ -44,12 +45,16 @@ import com.netflix.spinnaker.clouddriver.model.NoopInstanceProvider
 import com.netflix.spinnaker.clouddriver.model.NoopInstanceTypeProvider
 import com.netflix.spinnaker.clouddriver.model.NoopKeyPairProvider
 import com.netflix.spinnaker.clouddriver.model.NoopLoadBalancerProvider
+import com.netflix.spinnaker.clouddriver.model.NoopManifestProvider
 import com.netflix.spinnaker.clouddriver.model.NoopNetworkProvider
 import com.netflix.spinnaker.clouddriver.model.NoopReservationReportProvider
 import com.netflix.spinnaker.clouddriver.model.NoopSecurityGroupProvider
+import com.netflix.spinnaker.clouddriver.model.NoopServerGroupManagerProvider
 import com.netflix.spinnaker.clouddriver.model.NoopSubnetProvider
 import com.netflix.spinnaker.clouddriver.model.ReservationReportProvider
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupProvider
+import com.netflix.spinnaker.clouddriver.model.ServerGroupManager
+import com.netflix.spinnaker.clouddriver.model.ServerGroupManagerProvider
 import com.netflix.spinnaker.clouddriver.model.SubnetProvider
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.search.ApplicationSearchProvider
@@ -162,6 +167,12 @@ class CloudDriverConfig {
   }
 
   @Bean
+  @ConditionalOnMissingBean(ManifestProvider)
+  ManifestProvider noopManifestProvider() {
+    new NoopManifestProvider()
+  }
+
+  @Bean
   @ConditionalOnMissingBean(ClusterProvider)
   ClusterProvider noopClusterProvider() {
     new NoopClusterProvider()
@@ -201,6 +212,12 @@ class CloudDriverConfig {
   @ConditionalOnMissingBean(SecurityGroupProvider)
   SecurityGroupProvider noopSecurityGroupProvider() {
     new NoopSecurityGroupProvider()
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ServerGroupManager)
+  ServerGroupManagerProvider noopServerGroupManagerProvider() {
+    new NoopServerGroupManagerProvider()
   }
 
   @Bean

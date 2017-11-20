@@ -20,6 +20,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
@@ -29,7 +30,6 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.DependsOn
 import org.springframework.context.annotation.Scope
 
 @Slf4j
@@ -38,6 +38,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
   private static final Integer DEFAULT_CACHE_THREADS = 1
 
   @Autowired Registry spectatorRegistry
+  @Autowired KubectlJobExecutor jobExecutor
 
   @Bean
   List<? extends KubernetesNamedAccountCredentials> kubernetesNamedAccountCredentials(
@@ -57,7 +58,6 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
 
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
-  @DependsOn("dockerRegistryNamedAccountCredentials")
   List<? extends KubernetesNamedAccountCredentials> synchronizeKubernetesAccounts(
     String clouddriverUserAgentApplicationName,
     KubernetesConfigurationProperties kubernetesConfigurationProperties,
@@ -82,9 +82,11 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
           .accountType(managedAccount.accountType ?: managedAccount.name)
           .context(managedAccount.context)
           .cluster(managedAccount.cluster)
+          .oAuthTokenCommand(managedAccount.oAuthTokenCommand)
           .user(managedAccount.user)
           .kubeconfigFile(managedAccount.kubeconfigFile)
           .serviceAccount(managedAccount.serviceAccount)
+          .configureImagePullSecrets(managedAccount.configureImagePullSecrets)
           .namespaces(managedAccount.namespaces)
           .omitNamespaces(managedAccount.omitNamespaces)
           .cacheThreads(managedAccount.cacheThreads ?: DEFAULT_CACHE_THREADS)
@@ -92,6 +94,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
           .requiredGroupMembership(managedAccount.requiredGroupMembership)
           .permissions(managedAccount.permissions.build())
           .spectatorRegistry(spectatorRegistry)
+          .jobExecutor(jobExecutor)
           .debug(managedAccount.debug)
           .build()
 

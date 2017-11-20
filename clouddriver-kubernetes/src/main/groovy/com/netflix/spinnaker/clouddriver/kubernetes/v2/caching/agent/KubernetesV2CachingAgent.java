@@ -22,20 +22,32 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public abstract class KubernetesV2CachingAgent<T> extends KubernetesCachingAgent<KubernetesV2Credentials> {
+@Slf4j
+public abstract class KubernetesV2CachingAgent extends KubernetesCachingAgent<KubernetesV2Credentials> {
+  protected KubectlJobExecutor jobExecutor;
+
+  @Getter
+  protected String providerName = KubernetesCloudProvider.getID();
+
   protected KubernetesV2CachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,
@@ -44,19 +56,35 @@ public abstract class KubernetesV2CachingAgent<T> extends KubernetesCachingAgent
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
   }
 
+  protected abstract KubernetesKind primaryKind();
+
+  protected List<KubernetesManifest> loadPrimaryResourceList() {
+    return namespaces.stream()
+        .map(n -> credentials.list(primaryKind(), n))
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList());
+  }
+
+  protected KubernetesManifest loadPrimaryResource(String namespace, String name) {
+    return credentials.get(primaryKind(), namespace, name);
+  }
+
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
+    log.info(getAgentType() + " is starting");
     reloadNamespaces();
     return buildCacheResult(loadPrimaryResourceList());
   }
 
-  protected CacheResult buildCacheResult(T resource) {
+  protected CacheResult buildCacheResult(KubernetesManifest resource) {
     return buildCacheResult(Collections.singletonList(resource));
   }
 
-  protected CacheResult buildCacheResult(List<T> resources) {
+  protected CacheResult buildCacheResult(List<KubernetesManifest> resources) {
+    Map<KubernetesManifest, List<KubernetesManifest>> relationships = loadSecondaryResourceRelationships(resources);
+
     List<CacheData> resourceData = resources.stream()
-        .map(rs -> KubernetesCacheDataConverter.convertAsResource(accountName, objectMapper, rs))
+        .map(rs -> KubernetesCacheDataConverter.convertAsResource(accountName, rs, relationships.get(rs)))
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
 
@@ -66,7 +94,7 @@ public abstract class KubernetesV2CachingAgent<T> extends KubernetesCachingAgent
         .collect(Collectors.toList());
 
     resourceData.addAll(resources.stream()
-        .map(rs -> KubernetesCacheDataConverter.convertAsArtifact(accountName, objectMapper, rs))
+        .map(rs -> KubernetesCacheDataConverter.convertAsArtifact(accountName, rs))
         .filter(Objects::nonNull)
         .collect(Collectors.toList()));
 
@@ -78,5 +106,7 @@ public abstract class KubernetesV2CachingAgent<T> extends KubernetesCachingAgent
     return new DefaultCacheResult(entries);
   }
 
-  protected abstract List<T> loadPrimaryResourceList();
+  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(List<KubernetesManifest> primaryResourceList) {
+    return new HashMap<>();
+  }
 }

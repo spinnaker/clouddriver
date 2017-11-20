@@ -223,37 +223,42 @@ class ClusterController {
       throw new NotFoundException("No server groups found (account: ${account}, cluster: ${clusterName}, type: ${cloudProvider})")
     }
 
-    if (!shouldExpand) {
-      sortedServerGroups = sortedServerGroups.collect {
-        serverGroupController.getServerGroupByApplication(application, account, it.region, it.name)
+    def expandServerGroup = { ServerGroup serverGroup ->
+      if (shouldExpand) {
+        // server group was already expanded on initial load
+        return serverGroup
       }
+
+      return serverGroupController.getServerGroupByApplication(
+        application, account, serverGroup.region, serverGroup.name
+      )
     }
 
     switch (tsg) {
       case TargetServerGroup.CURRENT:
-        return sortedServerGroups.get(0)
+        return expandServerGroup(sortedServerGroups.get(0))
       case TargetServerGroup.PREVIOUS:
         if (sortedServerGroups.size() == 1) {
           throw new NotFoundException("Target not found (target: ${target})")
         }
-        return sortedServerGroups.get(1)
+        return expandServerGroup(sortedServerGroups.get(1))
       case TargetServerGroup.OLDEST:
         // At least two expected, but some cases just want the oldest no matter what.
         if (Boolean.valueOf(validateOldest) && sortedServerGroups.size() == 1) {
           throw new NotFoundException("Target not found (target: ${target})")
         }
-        return sortedServerGroups.last()
+        return expandServerGroup(sortedServerGroups.last())
       case TargetServerGroup.LARGEST:
         // Choose the server group with the most instances, falling back to newest in the case of a tie.
-        return sortedServerGroups.sort { lhs, rhs ->
-          rhs.instances.size() <=> lhs.instances.size() ?:
-              rhs.createdTime <=> lhs.createdTime
-        }.get(0)
+        return expandServerGroup(sortedServerGroups.sort { lhs, rhs ->
+          (rhs.instances?.size() ?: 0) <=> (lhs.instances?.size() ?: 0) ?:
+            rhs.createdTime <=> lhs.createdTime
+        }.get(0))
       case TargetServerGroup.FAIL:
         if (sortedServerGroups.size() > 1) {
           throw new NotFoundException("More than one target found (scope: ${scope}, serverGroups: ${sortedServerGroups*.name})")
         }
-        return sortedServerGroups.get(0)
+        return expandServerGroup(sortedServerGroups.get(0))
     }
   }
 

@@ -22,6 +22,7 @@ import com.google.api.client.googleapis.batch.BatchRequest
 import com.google.api.client.googleapis.batch.json.JsonBatchCallback
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.http.HttpHeaders
+import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.*
 import com.netflix.frigga.Names
 import com.netflix.frigga.ami.AppVersion
@@ -34,6 +35,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance
@@ -41,6 +43,7 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.googlecommon.GoogleExecutor
 import groovy.transform.Canonical
 import groovy.util.logging.Slf4j
 
@@ -51,7 +54,7 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.*
 
 @Slf4j
-class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent {
+class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent, GoogleExecutorTraits {
 
   static final String GLOBAL_LOAD_BALANCER_NAMES = GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES
   static final String REGIONAL_LOAD_BALANCER_NAMES = GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES
@@ -134,7 +137,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     BatchRequest instanceGroupsRequest = buildBatchRequest()
     BatchRequest autoscalerRequest = buildBatchRequest()
 
-    List<InstanceTemplate> instanceTemplates = compute.instanceTemplates().list(project).execute().getItems()
+    List<InstanceTemplate> instanceTemplates = fetchInstanceTemplates(compute, project)
 
     zones?.each { String zone ->
       InstanceGroupManagerCallbacks instanceGroupManagerCallbacks = new InstanceGroupManagerCallbacks(
@@ -158,6 +161,25 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     executeIfRequestsAreQueued(autoscalerRequest, "ZonalServerGroupCaching.autoscaler")
 
     serverGroups
+  }
+
+  static List<InstanceTemplate> fetchInstanceTemplates(Compute compute, String project) {
+    Boolean executedAtLeastOnce = false
+    String nextPageToken = null
+    List<InstanceTemplate> instanceTemplates = []
+    while (!executedAtLeastOnce || nextPageToken) {
+      InstanceTemplateList instanceTemplateList = GoogleExecutor.timeExecute(
+          GoogleExecutor.getRegistry(),
+          compute.instanceTemplates().list(project).setPageToken(nextPageToken),
+          "google.api",
+          "compute.instanceTemplates.list",
+          GoogleExecutor.TAG_SCOPE, GoogleExecutor.SCOPE_GLOBAL)
+
+      executedAtLeastOnce = true
+      nextPageToken = instanceTemplateList.getNextPageToken()
+      instanceTemplates.addAll(instanceTemplateList.getItems())
+    }
+    return instanceTemplates
   }
 
   @Override

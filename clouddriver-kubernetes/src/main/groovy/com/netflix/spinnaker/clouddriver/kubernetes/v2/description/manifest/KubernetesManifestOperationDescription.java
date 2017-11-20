@@ -21,23 +21,23 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
 import lombok.Data;
-import org.apache.commons.lang3.tuple.Triple;
+import lombok.EqualsAndHashCode;
+import org.apache.commons.lang3.tuple.Pair;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 public class KubernetesManifestOperationDescription extends KubernetesAtomicOperationDescription {
   private String name;
-  private String namespace;
+  private String location;
 
   @JsonIgnore
   public KubernetesCoordinates getCoordinates() {
-    Triple<KubernetesApiVersion, KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(name);
+    Pair<KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(name);
 
     return KubernetesCoordinates.builder()
-        .namespace(name)
-        .apiVersion(parsedName.getLeft())
-        .kind(parsedName.getMiddle())
+        .namespace(location)
+        .kind(parsedName.getLeft())
         .name(parsedName.getRight())
         .build();
   }
-
 }

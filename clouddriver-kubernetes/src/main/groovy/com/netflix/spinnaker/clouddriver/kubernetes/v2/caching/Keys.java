@@ -17,7 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import lombok.Data;
@@ -46,6 +47,7 @@ public class Keys {
       return name().toLowerCase();
     }
 
+    @JsonCreator
     public static Kind fromString(String name) {
       return Arrays.stream(values())
           .filter(k -> k.toString().equalsIgnoreCase(name))
@@ -55,11 +57,11 @@ public class Keys {
   }
 
   public enum LogicalKind {
-    APPLICATION,
-    CLUSTER;
+    APPLICATIONS,
+    CLUSTERS;
 
     public static boolean isLogicalGroup(String group) {
-      return group.equals(APPLICATION.toString()) || group.equals(CLUSTER.toString());
+      return group.equals(APPLICATIONS.toString()) || group.equals(CLUSTERS.toString());
     }
 
     @Override
@@ -67,6 +69,12 @@ public class Keys {
       return name().toLowerCase();
     }
 
+    public String singular() {
+      String name = toString();
+      return name.substring(0, name.length() - 1);
+    }
+
+    @JsonCreator
     public static LogicalKind fromString(String name) {
       return Arrays.stream(values())
           .filter(k -> k.toString().equalsIgnoreCase(name))
@@ -90,19 +98,19 @@ public class Keys {
   }
 
   public static String application(String name) {
-    return createKey(Kind.LOGICAL, LogicalKind.APPLICATION, name);
+    return createKey(Kind.LOGICAL, LogicalKind.APPLICATIONS, name);
   }
 
   public static String cluster(String account, String application, String name) {
-    return createKey(Kind.LOGICAL, LogicalKind.CLUSTER, account, application, name);
+    return createKey(Kind.LOGICAL, LogicalKind.CLUSTERS, account, application, name);
   }
 
-  public static String infrastructure(KubernetesApiVersion version, KubernetesKind kind, String account, String namespace, String name) {
-    return createKey(Kind.INFRASTRUCTURE, version, kind, account, namespace, name);
+  public static String infrastructure(KubernetesKind kind, String account, String namespace, String name) {
+    return createKey(Kind.INFRASTRUCTURE, kind, account, namespace, name);
   }
 
   public static String infrastructure(KubernetesManifest manifest, String account) {
-    return infrastructure(manifest.getApiVersion(), manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
+    return infrastructure(manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
   }
 
   public static Optional<CacheKey> parseKey(String key) {
@@ -136,9 +144,9 @@ public class Keys {
     LogicalKind logicalKind = LogicalKind.fromString(parts[2]);
 
     switch (logicalKind) {
-      case APPLICATION:
+      case APPLICATIONS:
         return new ApplicationCacheKey(parts);
-      case CLUSTER:
+      case CLUSTERS:
         return new ClusterCacheKey(parts);
       default:
         throw new IllegalArgumentException("Unknown kind " + logicalKind);
@@ -148,8 +156,17 @@ public class Keys {
   @Data
   public static abstract class CacheKey {
     private Kind kind;
+    private String provider = KubernetesCloudProvider.getID();
+    private String type;
     public abstract String getGroup();
     public abstract String getName();
+  }
+
+  @EqualsAndHashCode(callSuper = true)
+  @Data
+  public static abstract class LogicalKey extends CacheKey {
+    private Kind kind = Kind.LOGICAL;
+    public abstract LogicalKind getLogicalKind();
   }
 
   @EqualsAndHashCode(callSuper = true)
@@ -185,9 +202,8 @@ public class Keys {
 
   @EqualsAndHashCode(callSuper = true)
   @Data
-  public static class ApplicationCacheKey extends CacheKey {
-    private Kind kind = Kind.LOGICAL;
-    private LogicalKind logicalKind = LogicalKind.APPLICATION;
+  public static class ApplicationCacheKey extends LogicalKey {
+    private LogicalKind logicalKind = LogicalKind.APPLICATIONS;
     private String name;
 
     public ApplicationCacheKey(String[] parts) {
@@ -200,7 +216,7 @@ public class Keys {
 
     @Override
     public String toString() {
-      return createKey(kind, logicalKind, name);
+      return createKey(getKind(), logicalKind, name);
     }
 
     @Override
@@ -211,9 +227,8 @@ public class Keys {
 
   @EqualsAndHashCode(callSuper = true)
   @Data
-  public static class ClusterCacheKey extends CacheKey {
-    private Kind kind = Kind.LOGICAL;
-    private LogicalKind logicalKind = LogicalKind.CLUSTER;
+  public static class ClusterCacheKey extends LogicalKey {
+    private LogicalKind logicalKind = LogicalKind.CLUSTERS;
     private String account;
     private String application;
     private String name;
@@ -230,7 +245,7 @@ public class Keys {
 
     @Override
     public String toString() {
-      return createKey(kind, logicalKind, account, name);
+      return createKey(getKind(), logicalKind, account, name);
     }
 
     @Override
@@ -244,26 +259,24 @@ public class Keys {
   public static class InfrastructureCacheKey extends CacheKey {
     private Kind kind = Kind.INFRASTRUCTURE;
     private KubernetesKind kubernetesKind;
-    private KubernetesApiVersion kubernetesApiVersion;
     private String account;
     private String namespace;
     private String name;
 
     public InfrastructureCacheKey(String[] parts) {
-      if (parts.length != 7) {
+      if (parts.length != 6) {
         throw new IllegalArgumentException("Malformed infrastructure key " + Arrays.toString(parts));
       }
 
-      kubernetesApiVersion = KubernetesApiVersion.fromString(parts[2]);
-      kubernetesKind = KubernetesKind.fromString(parts[3]);
-      account = parts[4];
-      namespace = parts[5];
-      name = parts[6];
+      kubernetesKind = KubernetesKind.fromString(parts[2]);
+      account = parts[3];
+      namespace = parts[4];
+      name = parts[5];
     }
 
     @Override
     public String toString() {
-      return createKey(kind, kubernetesKind, kubernetesApiVersion, account, namespace, name);
+      return createKey(kind, kubernetesKind, account, namespace, name);
     }
 
     @Override

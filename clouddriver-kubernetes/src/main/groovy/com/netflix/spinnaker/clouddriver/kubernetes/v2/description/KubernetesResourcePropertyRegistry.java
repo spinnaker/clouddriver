@@ -19,72 +19,46 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesUnversionedArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesVersionedArtifactConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesDeployer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class KubernetesResourcePropertyRegistry {
   @Autowired
-  public KubernetesResourcePropertyRegistry(List<KubernetesDeployer> deployers,
+  public KubernetesResourcePropertyRegistry(List<KubernetesHandler> handlers,
       KubernetesSpinnakerKindMap kindMap,
       KubernetesVersionedArtifactConverter versionedArtifactConverter,
       KubernetesUnversionedArtifactConverter unversionedArtifactConverter) {
-    for (KubernetesDeployer deployer : deployers) {
+    for (KubernetesHandler handler : handlers) {
       KubernetesResourceProperties properties = KubernetesResourceProperties.builder()
-          .deployer(deployer)
-          .converter(deployer.versioned() ? versionedArtifactConverter : unversionedArtifactConverter)
+          .handler(handler)
+          .versioned(handler.versioned())
+          .versionedConverter(versionedArtifactConverter)
+          .unversionedConverter(unversionedArtifactConverter)
           .build();
 
-      kindMap.addRelationship(deployer.spinnakerKind(), deployer.kind());
-      apiVersionLookup.withApiVersion(deployer.apiVersion()).setProperties(deployer.kind(), properties);
+      kindMap.addRelationship(handler.spinnakerKind(), handler.kind());
+      put(handler.kind(), properties);
     }
   }
 
-  public ApiVersionLookup lookup() {
-    return apiVersionLookup;
+  public KubernetesResourceProperties get(KubernetesKind kind) {
+    return map.get(kind);
   }
 
-  public KubernetesResourceProperties lookup(KubernetesCoordinates coordinates) {
-    return lookup()
-        .withApiVersion(coordinates.getApiVersion())
-        .withKind(coordinates.getKind());
+  public void put(KubernetesKind kind, KubernetesResourceProperties properties) {
+    map.put(kind, properties);
   }
 
-  private ApiVersionLookup apiVersionLookup = new ApiVersionLookup();
-
-  public static class KindLookup {
-    private ConcurrentHashMap<KubernetesKind, KubernetesResourceProperties> map = new ConcurrentHashMap<>();
-
-    public KubernetesResourceProperties withKind(KubernetesKind kind) {
-      if (!map.containsKey(kind)) {
-        throw new IllegalArgumentException("No resource properties registered for " + kind);
-      } else {
-        return map.get(kind);
-      }
-    }
-
-    public void setProperties(KubernetesKind kind, KubernetesResourceProperties properties) {
-      map.put(kind, properties);
-    }
+  public Collection<KubernetesResourceProperties> values() {
+    return map.values();
   }
 
-  public static class ApiVersionLookup {
-    private ConcurrentHashMap<KubernetesApiVersion, KindLookup> map = new ConcurrentHashMap<>();
-
-    public KindLookup withApiVersion(KubernetesApiVersion apiVersion) {
-      if (!map.containsKey(apiVersion)) {
-        KindLookup result = new KindLookup();
-        map.put(apiVersion, result);
-        return result;
-      } else {
-        return map.get(apiVersion);
-      }
-    }
-  }
+  private ConcurrentHashMap<KubernetesKind, KubernetesResourceProperties> map = new ConcurrentHashMap<>();
 }

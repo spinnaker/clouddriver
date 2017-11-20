@@ -21,8 +21,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +32,8 @@ import java.util.Map;
 import java.util.Optional;
 
 public class KubernetesManifest extends HashMap<String, Object> {
+  private static ObjectMapper mapper = new ObjectMapper();
+
   private static <T> T getRequiredField(KubernetesManifest manifest, String field) {
     T res = (T) manifest.get(field);
     if (res == null) {
@@ -61,38 +64,39 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
-  private Map<String, Object> getMetatdata() {
+  private Map<String, Object> getMetadata() {
     return getRequiredField(this, "metadata");
   }
 
   @JsonIgnore
   public String getName() {
-    return (String) getMetatdata().get("name");
+    return (String) getMetadata().get("name");
   }
 
   @JsonIgnore
   public void setName(String name) {
-    getMetatdata().put("name", name);
+    getMetadata().put("name", name);
   }
 
   @JsonIgnore
   public String getNamespace() {
-    return (String) getMetatdata().get("namespace");
+    String namespace = (String) getMetadata().get("namespace");
+    return StringUtils.isEmpty(namespace) ? "default" : namespace;
   }
 
   @JsonIgnore
   public void setNamespace(String namespace) {
-    getMetatdata().put("namespace", namespace);
+    getMetadata().put("namespace", namespace);
   }
 
   @JsonIgnore
   public String getCreationTimestamp() {
-    return getMetatdata().get("creationTimestamp").toString();
+    return getMetadata().get("creationTimestamp").toString();
   }
 
   @JsonIgnore
-  public List<OwnerReference> getOwnerReferences(ObjectMapper mapper) {
-    Map<String, Object> metadata = getMetatdata();
+  public List<OwnerReference> getOwnerReferences() {
+    Map<String, Object> metadata = getMetadata();
     Object ownerReferences = metadata.get("ownerReferences");
     if (ownerReferences == null) {
       return new ArrayList<>();
@@ -103,10 +107,10 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   @JsonIgnore
   public Map<String, String> getAnnotations() {
-    Map<String, String> result = (Map<String, String>) getMetatdata().get("annotations");
+    Map<String, String> result = (Map<String, String>) getMetadata().get("annotations");
     if (result == null) {
       result = new HashMap<>();
-      getMetatdata().put("annotations", result);
+      getMetadata().put("annotations", result);
     }
 
     return result;
@@ -139,25 +143,29 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  public Object getStatus() {
+    return get("status");
+  }
+
+  @JsonIgnore
   public String getFullResourceName() {
-    return getFullResourceName(getApiVersion(), getKind(), getName());
+    return getFullResourceName(getKind(), getName());
   }
 
-  public static String getFullResourceName(KubernetesApiVersion apiVersion, KubernetesKind kind, String name) {
-    return String.join("|", apiVersion.toString(), kind.toString(), name);
+  public static String getFullResourceName(KubernetesKind kind, String name) {
+    return String.join(" ", kind.toString(), name);
   }
 
-  public static Triple<KubernetesApiVersion, KubernetesKind, String> fromFullResourceName(String fullResourceName) {
-    String[] split = fullResourceName.split("\\|");
-    if (split.length != 3) {
-      throw new IllegalArgumentException("Expected a full resource name of the form <version>|<kind>|<name>");
+  public static Pair<KubernetesKind, String> fromFullResourceName(String fullResourceName) {
+    String[] split = fullResourceName.split(" ");
+    if (split.length != 2) {
+      throw new IllegalArgumentException("Expected a full resource name of the form <kind> <name>");
     }
 
-    KubernetesApiVersion apiVersion = KubernetesApiVersion.fromString(split[0]);
-    KubernetesKind kind = KubernetesKind.fromString(split[1]);
-    String name = split[2];
+    KubernetesKind kind = KubernetesKind.fromString(split[0]);
+    String name = split[1];
 
-    return new ImmutableTriple<>(apiVersion, kind, name);
+    return new ImmutablePair<>(kind, name);
   }
 
   @Data
@@ -165,6 +173,8 @@ public class KubernetesManifest extends HashMap<String, Object> {
     KubernetesApiVersion apiVersion;
     KubernetesKind kind;
     String name;
+    String uid;
+    boolean blockOwnerDeletion;
     boolean controller;
   }
 }

@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import io.kubernetes.client.models.V1ObjectMeta
 import io.kubernetes.client.models.V1Pod
@@ -56,7 +57,8 @@ class KubernetesPodCachingAgentSpec extends Specification {
 
     def credentials = Mock(KubernetesV2Credentials)
     credentials.getDeclaredNamespaces() >> [NAMESPACE]
-    credentials.listAllPods(NAMESPACE) >> [pod]
+
+    credentials.list(KubernetesKind.POD, NAMESPACE) >> [new ObjectMapper().convertValue(pod, KubernetesManifest.class)]
 
     def namedAccountCredentials = Mock(KubernetesNamedAccountCredentials)
     namedAccountCredentials.getCredentials() >> credentials
@@ -70,8 +72,8 @@ class KubernetesPodCachingAgentSpec extends Specification {
     then:
     result.cacheResults[KubernetesKind.POD.name].size() == 1
     result.cacheResults[KubernetesKind.POD.name].find { cacheData ->
-      cacheData.relationships.get(Keys.LogicalKind.CLUSTER.toString()) == [Keys.cluster(ACCOUNT, APPLICATION, CLUSTER)]
-      cacheData.relationships.get(Keys.LogicalKind.APPLICATION.toString()) == [Keys.application(APPLICATION)]
+      cacheData.relationships.get(Keys.LogicalKind.CLUSTERS.toString()) == [Keys.cluster(ACCOUNT, APPLICATION, CLUSTER)]
+      cacheData.relationships.get(Keys.LogicalKind.APPLICATIONS.toString()) == [Keys.application(APPLICATION)]
       cacheData.attributes.get("name") == NAME
       cacheData.attributes.get("namespace") == NAMESPACE
     } != null

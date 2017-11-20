@@ -24,7 +24,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
-import io.kubernetes.client.models.V1Pod;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,14 +31,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 
 @Slf4j
-public class KubernetesPodCachingAgent extends KubernetesV2CachingAgent<V1Pod> {
+public class KubernetesPodCachingAgent extends KubernetesV2CachingAgent {
   KubernetesPodCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,
@@ -48,22 +45,19 @@ public class KubernetesPodCachingAgent extends KubernetesV2CachingAgent<V1Pod> {
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
   }
 
+  @Override
+  protected KubernetesKind primaryKind() {
+    return KubernetesKind.POD;
+  }
+
   @Getter
   final private Collection<AgentDataType> providedDataTypes = Collections.unmodifiableSet(
       new HashSet<>(Arrays.asList(
-          INFORMATIVE.forType(Keys.LogicalKind.APPLICATION.toString()),
-          INFORMATIVE.forType(Keys.LogicalKind.CLUSTER.toString()),
+          INFORMATIVE.forType(Keys.LogicalKind.APPLICATIONS.toString()),
+          INFORMATIVE.forType(Keys.LogicalKind.CLUSTERS.toString()),
           INFORMATIVE.forType(KubernetesKind.DEPLOYMENT.toString()),
           INFORMATIVE.forType(KubernetesKind.REPLICA_SET.toString()),
           AUTHORITATIVE.forType(KubernetesKind.POD.toString())
       ))
   );
-
-  @Override
-  protected List<V1Pod> loadPrimaryResourceList() {
-    return namespaces.stream()
-        .map(credentials::listAllPods)
-        .flatMap(Collection::stream)
-        .collect(Collectors.toList());
-  }
 }

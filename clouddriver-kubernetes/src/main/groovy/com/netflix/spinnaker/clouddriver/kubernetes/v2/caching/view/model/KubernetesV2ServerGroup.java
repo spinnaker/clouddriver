@@ -21,10 +21,13 @@ import com.google.common.primitives.Ints;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
+import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.clouddriver.model.ServerGroupSummary;
 import io.kubernetes.client.models.V1beta1ReplicaSet;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -35,6 +38,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -72,10 +77,11 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
     return disabled;
   }
 
-  private KubernetesV2ServerGroup(KubernetesManifest manifest, String key, List<KubernetesV2Instance> instances) {
+  private KubernetesV2ServerGroup(KubernetesManifest manifest, String key, List<KubernetesV2Instance> instances, Set<String> loadBalancers) {
     this.manifest = manifest;
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
     this.instances = new HashSet<>(instances);
+    this.loadBalancers = loadBalancers;
 
     V1beta1ReplicaSet replicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta1ReplicaSet.class);
     this.capacity = Capacity.builder()
@@ -83,7 +89,15 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         .build();
   }
 
+  public static KubernetesV2ServerGroup fromCacheData(CacheData cd) {
+    return fromCacheData(cd, new ArrayList<>(), new ArrayList<>());
+  }
+
   public static KubernetesV2ServerGroup fromCacheData(CacheData cd, List<CacheData> instanceData) {
+    return fromCacheData(cd, instanceData, new ArrayList<>());
+  }
+
+  public static KubernetesV2ServerGroup fromCacheData(CacheData cd, List<CacheData> instanceData, List<CacheData> loadBalancerData) {
     if (cd == null) {
       return null;
     }
@@ -101,8 +115,40 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
 
     List<KubernetesV2Instance> instances = instanceData.stream()
         .map(KubernetesV2Instance::fromCacheData)
+        .filter(Objects::nonNull)
         .collect(Collectors.toList());
 
-    return new KubernetesV2ServerGroup(manifest, cd.getId(), instances);
+    Set<String> loadBalancers = loadBalancerData.stream()
+        .map(CacheData::getId)
+        .map(Keys::parseKey)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .map(k -> (Keys.InfrastructureCacheKey) k)
+        .map(k -> KubernetesManifest.getFullResourceName(k.getKubernetesKind(), k.getName()))
+        .collect(Collectors.toSet());
+
+    return new KubernetesV2ServerGroup(manifest, cd.getId(), instances, loadBalancers);
+  }
+
+  public ServerGroupSummary toServerGroupSummary() {
+    return KubernetesV2ServerGroupSummary.builder()
+        .name(getName())
+        .account(getAccount())
+        .namespace(getRegion())
+        .moniker(getMoniker())
+        .build();
+  }
+
+  public LoadBalancerServerGroup toLoadBalancerServerGroup() {
+    return LoadBalancerServerGroup.builder()
+      .account(getAccount())
+      .detachedInstances(new HashSet<>())
+      .instances(instances.stream()
+          .map(i -> ((KubernetesV2Instance) i).toLoadBalancerInstance())
+          .collect(Collectors.toSet()))
+      .name(getName())
+      .region(getRegion())
+      .isDisabled(isDisabled())
+      .build();
   }
 }

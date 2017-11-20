@@ -17,6 +17,7 @@ package com.netflix.spinnaker.clouddriver.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.discovery.DiscoveryClient
+import com.netflix.dyno.connectionpool.ConnectionPoolConfiguration
 import com.netflix.dyno.connectionpool.Host
 import com.netflix.dyno.connectionpool.HostSupplier
 import com.netflix.dyno.connectionpool.TokenMapSupplier
@@ -26,6 +27,9 @@ import com.netflix.dyno.jedis.DynoJedisClient
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AgentScheduler
 import com.netflix.spinnaker.cats.cache.NamedCacheFactory
+import com.netflix.spinnaker.cats.compression.CompressionStrategy
+import com.netflix.spinnaker.cats.compression.GZipCompression
+import com.netflix.spinnaker.cats.compression.NoopCompression
 import com.netflix.spinnaker.cats.dynomite.DynomiteClientDelegate
 import com.netflix.spinnaker.cats.dynomite.cache.DynomiteCache.CacheMetrics
 import com.netflix.spinnaker.cats.dynomite.cache.DynomiteNamedCacheFactory
@@ -37,6 +41,7 @@ import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeIdentity
 import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeStatusProvider
 import com.netflix.spinnaker.cats.redis.cluster.NodeStatusProvider
 import com.netflix.spinnaker.clouddriver.core.RedisConfigurationProperties
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -49,7 +54,7 @@ import java.util.concurrent.TimeUnit
 
 @Configuration
 @ConditionalOnExpression('${dynomite.enabled:false}')
-@EnableConfigurationProperties([DynomiteConfigurationProperties, RedisConfigurationProperties])
+@EnableConfigurationProperties([DynomiteConfigurationProperties, RedisConfigurationProperties, GZipCompressionStrategyProperties])
 class DynomiteCacheConfig {
 
   @Bean
@@ -61,6 +66,18 @@ class DynomiteCacheConfig {
   @ConfigurationProperties("dynomite.connectionPool")
   ConnectionPoolConfigurationImpl connectionPoolConfiguration(DynomiteConfigurationProperties dynomiteConfigurationProperties) {
     new ConnectionPoolConfigurationImpl(dynomiteConfigurationProperties.applicationName)
+  }
+
+  @Bean
+  CompressionStrategy compressionStrategy(ConnectionPoolConfigurationImpl connectionPoolConfiguration,
+                                          GZipCompressionStrategyProperties properties) {
+    if (!properties.enabled) {
+      return new NoopCompression()
+    }
+    return new GZipCompression(
+      properties.thresholdBytesSize,
+      properties.compressEnabled && connectionPoolConfiguration.compressionStrategy != ConnectionPoolConfiguration.CompressionStrategy.THRESHOLD
+    )
   }
 
   @Bean(destroyMethod = "stopClient")
@@ -102,11 +119,13 @@ class DynomiteCacheConfig {
 
   @Bean
   NamedCacheFactory cacheFactory(
+    @Value('${dynomite.keyspace:#{null}}') String keyspace,
     DynomiteClientDelegate dynomiteClientDelegate,
     ObjectMapper objectMapper,
     RedisCacheOptions redisCacheOptions,
-    CacheMetrics cacheMetrics) {
-    new DynomiteNamedCacheFactory(dynomiteClientDelegate, objectMapper, redisCacheOptions, cacheMetrics)
+    CacheMetrics cacheMetrics,
+    CompressionStrategy compressionStrategy) {
+    new DynomiteNamedCacheFactory(Optional.ofNullable(keyspace), dynomiteClientDelegate, objectMapper, redisCacheOptions, cacheMetrics, compressionStrategy)
   }
 
   @Bean

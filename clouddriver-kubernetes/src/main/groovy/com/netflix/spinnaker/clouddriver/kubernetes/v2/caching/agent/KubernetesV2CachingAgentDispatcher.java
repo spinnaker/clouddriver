@@ -22,17 +22,21 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesHandler;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Component
+@Slf4j
 public class KubernetesV2CachingAgentDispatcher implements KubernetesCachingAgentDispatcher {
   @Autowired
   private ObjectMapper objectMapper;
@@ -40,16 +44,52 @@ public class KubernetesV2CachingAgentDispatcher implements KubernetesCachingAgen
   @Autowired
   private Registry registry;
 
+  @Autowired
+  private KubernetesResourcePropertyRegistry propertyRegistry;
+
   @Override
   public List<KubernetesCachingAgent> buildAllCachingAgents(KubernetesNamedAccountCredentials credentials) {
     return IntStream.range(0, credentials.getCacheThreads())
         .boxed()
-        .map(i -> new ArrayList<KubernetesCachingAgent>(Arrays.asList(
-            new KubernetesNetworkPolicyCachingAgent(credentials, objectMapper, registry, i, credentials.getCacheThreads()),
-            new KubernetesPodCachingAgent(credentials, objectMapper, registry, i, credentials.getCacheThreads()),
-            new KubernetesReplicaSetCachingAgent(credentials, objectMapper, registry, i, credentials.getCacheThreads())
-        )))
-        .flatMap(Collection::stream)
+        .map(i -> propertyRegistry.values()
+            .stream()
+            .map(KubernetesResourceProperties::getHandler)
+            .map(KubernetesHandler::cachingAgentClass)
+            .filter(Objects::nonNull)
+            .map(c -> {
+                  try {
+                    return c.getDeclaredConstructor(
+                        KubernetesNamedAccountCredentials.class,
+                        ObjectMapper.class,
+                        Registry.class,
+                        int.class,
+                        int.class
+                    );
+                  } catch (NoSuchMethodException e) {
+                    log.warn("Missing canonical constructor", e);
+                    return null;
+                  }
+                }
+            )
+            .filter(Objects::nonNull)
+            .map(c -> {
+                  try {
+                    return (KubernetesV2CachingAgent) c.newInstance(
+                        credentials,
+                        objectMapper,
+                        registry,
+                        i,
+                        credentials.getCacheThreads()
+                    );
+                  } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                    log.warn("Can't invoke caching agent constructor", e);
+                    return null;
+                  }
+                }
+            )
+            .filter(Objects::nonNull)
+        )
+        .flatMap(s -> s)
         .collect(Collectors.toList());
   }
 }

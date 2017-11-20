@@ -17,31 +17,54 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class KubernetesSpinnakerKindMap {
   public enum SpinnakerKind {
-    INSTANCE,
-    SERVER_GROUP,
-    LOAD_BALANCER,
-    SECURITY_GROUP,
-    UNCLASSIFIED
+    INSTANCES("instances"),
+    CONFIGS("configs"),
+    SERVER_GROUPS("serverGroups"),
+    LOAD_BALANCERS("loadBalancers"),
+    SECURITY_GROUPS("securityGroups"),
+    SERVER_GROUP_MANAGERS("serverGroupManagers"),
+    UNCLASSIFIED("unclassified");
+
+    final private String id;
+
+    SpinnakerKind(String id) {
+      this.id = id;
+    }
+
+    @Override
+    public String toString() {
+      return id;
+    }
+
+    @JsonCreator
+    public static SpinnakerKind fromString(String name) {
+      return Arrays.stream(values())
+          .filter(k -> k.toString().equalsIgnoreCase(name))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("No matching kind with name " + name + " exists"));
+    }
   }
 
-  private Map<SpinnakerKind, List<KubernetesKind>> spinnakerToKubernetes = new HashMap<>();
+  private Map<SpinnakerKind, Set<KubernetesKind>> spinnakerToKubernetes = new HashMap<>();
   private Map<KubernetesKind, SpinnakerKind> kubernetesToSpinnaker = new HashMap<>();
 
   void addRelationship(SpinnakerKind spinnakerKind, KubernetesKind kubernetesKind) {
-    List<KubernetesKind> kinds = spinnakerToKubernetes.get(spinnakerKind);
+    Set<KubernetesKind> kinds = spinnakerToKubernetes.get(spinnakerKind);
     if (kinds == null) {
-      kinds = new ArrayList<>();
+      kinds = new HashSet<>();
     }
 
     kinds.add(kubernetesKind);
@@ -49,15 +72,15 @@ public class KubernetesSpinnakerKindMap {
     kubernetesToSpinnaker.put(kubernetesKind, spinnakerKind);
   }
 
-  public KubernetesSpinnakerKindMap() {
-    addRelationship(SpinnakerKind.INSTANCE, KubernetesKind.POD);
-  }
-
   public SpinnakerKind translateKubernetesKind(KubernetesKind kubernetesKind) {
-    return kubernetesToSpinnaker.get(kubernetesKind);
+    return kubernetesToSpinnaker.getOrDefault(kubernetesKind, SpinnakerKind.UNCLASSIFIED);
   }
 
-  public List<KubernetesKind> translateSpinnakerKind(SpinnakerKind spinnakerKind) {
+  public Set<KubernetesKind> translateSpinnakerKind(SpinnakerKind spinnakerKind) {
     return spinnakerToKubernetes.get(spinnakerKind);
+  }
+
+  public Set<KubernetesKind> allKubernetesKinds() {
+    return kubernetesToSpinnaker.keySet();
   }
 }

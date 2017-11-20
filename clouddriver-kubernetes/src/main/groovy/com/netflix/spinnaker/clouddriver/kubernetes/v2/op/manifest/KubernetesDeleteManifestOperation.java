@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
@@ -25,18 +24,16 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesRes
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeleteManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.CanDelete;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesDeployer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
 import java.util.List;
-import java.util.Map;
 
 public class KubernetesDeleteManifestOperation implements AtomicOperation<Void> {
   private final KubernetesDeleteManifestDescription description;
   private final KubernetesV2Credentials credentials;
   private final KubernetesResourcePropertyRegistry registry;
-  private final ObjectMapper mapper = new ObjectMapper();
   private static final String OP_NAME = "DELETE_KUBERNETES_MANIFEST";
 
   public KubernetesDeleteManifestOperation(KubernetesDeleteManifestDescription description, KubernetesResourcePropertyRegistry registry) {
@@ -55,8 +52,8 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Void> 
     KubernetesCoordinates coordinates = description.getCoordinates();
 
     getTask().updateStatus(OP_NAME, "Looking up resource properties...");
-    KubernetesResourceProperties properties = registry.lookup(coordinates);
-    KubernetesDeployer deployer = properties.getDeployer();
+    KubernetesResourceProperties properties = registry.get(coordinates.getKind());
+    KubernetesHandler deployer = properties.getHandler();
 
     if (!(deployer instanceof CanDelete)) {
       throw new IllegalArgumentException("Resource with " + coordinates + " does not support delete");
@@ -65,12 +62,10 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Void> 
     CanDelete canDelete = (CanDelete) deployer;
 
     getTask().updateStatus(OP_NAME, "Calling delete operation...");
-    Map deleteOptions = description.getDeleteOptions();
-    Object convertedDeleteOptions = deleteOptions == null ? null : mapper.convertValue(deleteOptions, (canDelete).getDeleteOptionsClass());
     canDelete.delete(credentials,
         coordinates.getNamespace(),
         coordinates.getName(),
-        convertedDeleteOptions);
+        description.getOptions());
 
     return null;
   }
