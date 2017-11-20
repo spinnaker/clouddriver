@@ -18,7 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesPodCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesDaemonSetCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
@@ -30,37 +30,45 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 @Component
-public class KubernetesPodHandler extends KubernetesHandler implements CanDelete {
+public class KubernetesDaemonSetHandler extends KubernetesHandler implements
+    CanResize,
+    CanDelete,
+    CanScale,
+    CanPauseRollout,
+    CanResumeRollout,
+    CanUndoRollout {
+
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.POD;
+    return KubernetesKind.DAEMON_SET;
   }
 
   @Override
   public boolean versioned() {
-    return true;
+    return false;
   }
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.INSTANCES;
+    return SpinnakerKind.SERVER_GROUPS;
+  }
+
+  @Override
+  public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
+    return KubernetesDaemonSetCachingAgent.class;
   }
 
   @Override
   public Status status(KubernetesManifest manifest) {
+    // TODO(lwander)
     return new Status();
   }
 
   @Override
   public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
     Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
-    result.put("instanceId", result.get("name"));
+    result.put("serverGroup", result.get("name"));
 
     return result;
-  }
-
-  @Override
-  public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesPodCachingAgent.class;
   }
 }
