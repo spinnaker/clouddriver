@@ -26,11 +26,13 @@ import com.netflix.spinnaker.cats.test.TestAgentSchedulerAwareProvider
 import com.netflix.spinnaker.cats.test.TestProvider
 import com.netflix.spinnaker.cats.test.TestScheduler
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
-import com.netflix.spinnaker.clouddriver.google.security.FakeGoogleCredentials
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
+
+import static com.netflix.spinnaker.clouddriver.security.TestUtils.buildGoogleNamedAccountCredentials
+import static com.netflix.spinnaker.clouddriver.security.TestUtils.buildNetflixAmazonCredentials
 
 class ProviderUtilsSpec extends Specification {
 
@@ -173,32 +175,5 @@ class ProviderUtilsSpec extends Specification {
     then:
       scheduler.scheduled.collect { it.agent } == [testAgent1, testAgent4]
       agentSchedulerAwareProvider.agents == [testAgent1, testAgent4]
-  }
-
-  private static NetflixAmazonCredentials buildNetflixAmazonCredentials(String accountName) {
-    new NetflixAmazonCredentials(accountName,
-                                 "some-env",
-                                 "some-account-type",
-                                 "account-id-123",
-                                 null,
-                                 null,
-                                 null,
-                                 null,
-                                 null,
-                                 null,
-                                 false,
-                                 null,
-                                 null,
-                                 null,
-                                 null,
-                                 null,
-                                 null,
-                                 null,
-                                 null,
-                                 null)
-  }
-
-  private static GoogleNamedAccountCredentials buildGoogleNamedAccountCredentials(String accountName) {
-    new GoogleNamedAccountCredentials.Builder().name(accountName).credentials(new FakeGoogleCredentials()).build()
   }
 }

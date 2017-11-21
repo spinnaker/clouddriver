@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.health
 
 import com.amazonaws.AmazonClientException
 import com.amazonaws.AmazonServiceException
+import com.amazonaws.services.ec2.model.AmazonEC2Exception
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -51,7 +52,7 @@ class AmazonHealthIndicator implements HealthIndicator {
   Health health() {
     def ex = lastException.get()
     if (ex) {
-      throw ex
+      return new Health.Builder().outOfService().withException(ex).build()
     }
 
     new Health.Builder().up().build()
@@ -60,7 +61,7 @@ class AmazonHealthIndicator implements HealthIndicator {
   @Scheduled(fixedDelay = 120000L)
   void checkHealth() {
     try {
-      Set<NetflixAmazonCredentials> amazonCredentials = accountCredentialsProvider.all.findAll {
+      Set<NetflixAmazonCredentials> amazonCredentials = accountCredentialsProvider.getAll(true).findAll {
         it instanceof NetflixAmazonCredentials
       } as Set<NetflixAmazonCredentials>
       for (NetflixAmazonCredentials credentials in amazonCredentials) {
@@ -70,8 +71,24 @@ class AmazonHealthIndicator implements HealthIndicator {
             throw new AmazonClientException("Could not create Amazon client for ${credentials.name}")
           }
           ec2.describeAccountAttributes()
+          if (!credentials.enabled) {
+            LOG.info("The account ${credentials.name} (${credentials.accountId}) is back to healthy")
+            credentials.enabled = true
+          }
+        } catch (AmazonEC2Exception e) {
+          credentials.enabled = false
+          if (e.getErrorCode() == "UnauthorizedOperation") {
+            // Log the error and disable the account credentials, but don't make Clouddriver unhealthy
+            LOG.error("Clouddriver is not authorized to access AWS account ${credentials.name} (${credentials.accountId})", e)
+          } else {
+            throw new AmazonUnreachableException("An error occurred while querying the AWS account ${credentials.name} " +
+              "(${credentials.accountId})", e)
+          }
         } catch (AmazonServiceException e) {
-          throw new AmazonUnreachableException(e)
+          credentials.enabled = false
+          throw new AmazonUnreachableException("An error occurred while querying the AWS account ${credentials.name} " +
+            "(${credentials.accountId})", e)
+
         }
       }
       lastException.set(null)

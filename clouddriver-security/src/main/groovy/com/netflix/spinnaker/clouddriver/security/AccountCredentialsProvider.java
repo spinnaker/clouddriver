@@ -27,11 +27,21 @@ import java.util.Set;
 public interface AccountCredentialsProvider {
 
     /**
-     * Returns all of the accounts known to the repository of this provider.
+     * Returns all of the accounts known to the repository of this provider. Excludes disabled accounts.
      *
      * @return a set of account names
      */
-    Set<? extends AccountCredentials> getAll();
+    default Set<? extends AccountCredentials> getAll() {
+        return getAll(false);
+    }
+
+    /**
+     * Returns all of the accounts known to the repository of this provider.
+     *
+     * @param includeDisabledAccounts if <code>true</code>, disabled accounts will be included in the returned set
+     * @return a set of account names
+     */
+    Set<? extends AccountCredentials> getAll(boolean includeDisabledAccounts);
 
     /**
      * Returns a specific {@link AccountCredentials} object a specified name

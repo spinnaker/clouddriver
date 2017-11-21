@@ -58,7 +58,7 @@ class AmazonSecurityGroupProviderSpec extends Specification {
   final accountCredentialsProvider = new AccountCredentialsProvider() {
 
     @Override
-    Set<? extends AccountCredentials> getAll() {
+    Set<? extends AccountCredentials> getAll(boolean includeDisabled) {
       [credential1, credential2]
     }
 

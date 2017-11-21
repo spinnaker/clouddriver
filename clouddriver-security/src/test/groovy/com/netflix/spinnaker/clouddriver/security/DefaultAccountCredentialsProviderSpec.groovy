@@ -19,6 +19,10 @@ package com.netflix.spinnaker.clouddriver.security
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
+import spock.lang.Unroll
+
+import static com.netflix.spinnaker.clouddriver.security.TestUtils.buildGoogleNamedAccountCredentials
+import static com.netflix.spinnaker.clouddriver.security.TestUtils.buildNetflixAmazonCredentials
 
 class DefaultAccountCredentialsProviderSpec extends Specification {
 
@@ -41,10 +45,45 @@ class DefaultAccountCredentialsProviderSpec extends Specification {
       provider.getAll()
 
     then:
-      1 * repo.getAll()
+      1 * repo.getAll() >> [new TestAccountCredentials(name: "disabledAccount", enabled: true)]
 
     where:
       key = "foo"
   }
 
+  @Unroll
+  def "getAll(#includeAll) should return correct account credentials"() {
+    when:
+    def credentials = provider.getAll(includeAll)
+
+    then:
+      1 * repo.getAll() >> [
+        buildGoogleNamedAccountCredentials("googleAccount"),
+        new TestAccountCredentials(name: "disabledAccount", enabled: false),
+        buildNetflixAmazonCredentials("awsAccount")
+      ]
+
+    expect:
+      credentials*.name as Set == expected as Set
+
+    where:
+      includeAll | expected
+      false      | ["googleAccount", "awsAccount"]
+      true       | ["googleAccount", "awsAccount", "disabledAccount"]
+  }
+
+  private class TestAccountCredentials implements AccountCredentials<TestAccountCredentials> {
+
+    String name
+    String environment
+    String accountType
+    boolean enabled
+    String cloudProvider
+    List<String> requiredGroupMembership
+
+    @Override
+    TestAccountCredentials getCredentials() {
+      return this
+    }
+  }
 }

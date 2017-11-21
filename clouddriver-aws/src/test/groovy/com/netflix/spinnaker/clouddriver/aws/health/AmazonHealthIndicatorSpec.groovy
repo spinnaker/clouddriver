@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.health
 
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.AmazonEC2Exception
 import com.amazonaws.services.ec2.model.DescribeAccountAttributesResult
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
@@ -31,11 +32,10 @@ class AmazonHealthIndicatorSpec extends Specification {
     setup:
     def creds = [TestCredential.named('foo')]
     def holder = Stub(AccountCredentialsProvider) {
-      getAll() >> creds
-      getCredentials("foo") >> creds[0]
+      getAll(true) >> creds
     }
     def mockEc2 = Stub(AmazonEC2) {
-      describeAccountAttributes() >> { throw new AmazonServiceException("fail") }
+      describeAccountAttributes() >> { throw new AmazonServiceException('fail') }
     }
     def mockAmazonClientProvider = Stub(AmazonClientProvider) {
       getAmazonEC2(*_) >> mockEc2
@@ -44,18 +44,18 @@ class AmazonHealthIndicatorSpec extends Specification {
 
     when:
     indicator.checkHealth()
-    indicator.health()
+    def health = indicator.health()
 
     then:
-    thrown AmazonHealthIndicator.AmazonUnreachableException
+    health.status == Status.OUT_OF_SERVICE
+    health.details.error == 'com.netflix.spinnaker.clouddriver.aws.health.AmazonHealthIndicator$AmazonUnreachableException: An error occurred while querying the AWS account foo (123456789012foo)'
   }
 
   def "health succeeds when amazon is reachable"() {
     setup:
     def creds = [TestCredential.named('foo')]
     def holder = Stub(AccountCredentialsProvider) {
-      getAll() >> creds
-      getCredentials("foo") >> creds[0]
+      getAll(true) >> creds
     }
     def mockEc2 = Stub(AmazonEC2) {
       describeAccountAttributes() >> { Mock(DescribeAccountAttributesResult) }
@@ -71,5 +71,56 @@ class AmazonHealthIndicatorSpec extends Specification {
 
     then:
     health.status == Status.UP
+    creds[0].enabled
+  }
+
+  def "health succeeds when account has permission errors, but account is disabled"() {
+    setup:
+    def creds = [TestCredential.named('foo')]
+    def holder = Stub(AccountCredentialsProvider) {
+      getAll(true) >> creds
+    }
+    def mockEc2 = Stub(AmazonEC2) {
+      describeAccountAttributes() >> {
+        def exception = new AmazonEC2Exception('fail')
+        exception.errorCode = "UnauthorizedOperation"
+        throw exception
+      }
+    }
+    def mockAmazonClientProvider = Stub(AmazonClientProvider) {
+      getAmazonEC2(*_) >> mockEc2
+    }
+    def indicator = new AmazonHealthIndicator(accountCredentialsProvider: holder, amazonClientProvider: mockAmazonClientProvider)
+
+    when:
+    indicator.checkHealth()
+    def health = indicator.health()
+
+    then:
+    health.status == Status.UP
+    !creds[0].enabled
+  }
+
+  def "health succeeds when amazon is reachable, and disabled accounts are re-enabled"() {
+    setup:
+    def creds = [TestCredential.named('foo', [enabled: false])]
+    def holder = Stub(AccountCredentialsProvider) {
+      getAll(true) >> creds
+    }
+    def mockEc2 = Stub(AmazonEC2) {
+      describeAccountAttributes() >> { Mock(DescribeAccountAttributesResult) }
+    }
+    def mockAmazonClientProvider = Stub(AmazonClientProvider) {
+      getAmazonEC2(*_) >> mockEc2
+    }
+    def indicator = new AmazonHealthIndicator(accountCredentialsProvider: holder, amazonClientProvider: mockAmazonClientProvider)
+
+    when:
+    indicator.checkHealth()
+    def health = indicator.health()
+
+    then:
+    health.status == Status.UP
+    creds[0].enabled
   }
 }

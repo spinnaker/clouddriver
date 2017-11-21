@@ -95,6 +95,13 @@ public interface AccountCredentials<T> {
     String getCloudProvider();
 
     /**
+     * @return <code>true</code> if the account is enabled, otherwise <code>false</code>.
+     */
+    default boolean isEnabled() {
+      return true;
+    }
+
+    /**
      * A user in ANY required group should be allowed access to this account.
      *
      * @return the group names that govern access to this account, empty indicates a public account accessible by all.
