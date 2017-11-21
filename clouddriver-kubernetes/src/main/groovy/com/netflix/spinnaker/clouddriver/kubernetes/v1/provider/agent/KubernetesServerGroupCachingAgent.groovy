@@ -143,8 +143,9 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
     }
 
     // Evict this server group if it no longer exists.
+    Map<String, Collection<String>> evictions
     if(!isControllerSetCachingAgentType) {
-      Map<String, Collection<String>> evictions = replicationController || replicaSet ? [:] : [
+      evictions = replicationController || replicaSet ? [:] : [
         (Keys.Namespace.SERVER_GROUPS.ns): [
           Keys.getServerGroupKey(accountName, namespace, serverGroupName)
         ]

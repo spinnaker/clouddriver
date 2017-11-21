@@ -35,7 +35,6 @@ public interface OnDemandAgent {
   OnDemandMetricsSupport getMetricsSupport();
 
   enum OnDemandType {
-    ControllerSet,
     ServerGroup,
     SecurityGroup,
     LoadBalancer,

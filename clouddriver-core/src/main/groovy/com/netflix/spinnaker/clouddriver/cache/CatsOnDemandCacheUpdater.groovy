@@ -95,12 +95,16 @@ class CatsOnDemandCacheUpdater implements OnDemandCacheUpdater {
             throw new IllegalStateException("We likely just wrote stale data. If you're seeing this, file a github issue: https://github.com/spinnaker/spinnaker/issues")
           }
           final long elapsed = System.nanoTime() - startTime
-          agent.metricsSupport.recordTotalRunTimeNanos(elapsed)
-          log.info("$agent.providerName/$agent.onDemandAgentType handled $type in ${TimeUnit.NANOSECONDS.toMillis(elapsed)} millis. Payload: $data")
+          if (agent.metricsSupport) {
+            agent.metricsSupport.recordTotalRunTimeNanos(elapsed)
+            log.info("$agent.providerName/$agent?.onDemandAgentType handled $type in ${TimeUnit.NANOSECONDS.toMillis(elapsed)} millis. Payload: $data")
+          }
         }
       } catch (e) {
-        agent.metricsSupport.countError()
-        log.warn("$agent.providerName/$agent.onDemandAgentType failed to handle on demand update for $type", e)
+        if (agent.metricsSupport) {
+          agent.metricsSupport.countError()
+          log.warn("$agent.providerName/$agent.onDemandAgentType failed to handle on demand update for $type", e)
+        }
       }
     }
 
