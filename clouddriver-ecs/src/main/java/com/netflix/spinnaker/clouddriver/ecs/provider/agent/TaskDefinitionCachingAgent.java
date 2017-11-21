@@ -22,6 +22,7 @@ import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsRequest;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -51,10 +52,12 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
   private static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(TASK_DEFINITIONS.toString())
   ));
+  private ObjectMapper mapper;
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  public TaskDefinitionCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  public TaskDefinitionCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry, ObjectMapper mapper) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+    this.mapper = mapper;
   }
 
   public static Map<String, Object> convertTaskDefinitionToAttributes(TaskDefinition taskDefinition) {
@@ -121,7 +124,7 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
 
   private Set<TaskDefinition> retrieveFromCache(Set<String> taskDefArns, ProviderCache providerCache) {
     Set<TaskDefinition> taskDefs = new HashSet<>();
-    TaskDefinitionCacheClient taskDefinitionCacheClient = new TaskDefinitionCacheClient(providerCache);
+    TaskDefinitionCacheClient taskDefinitionCacheClient = new TaskDefinitionCacheClient(providerCache, mapper);
 
     for (String taskDefArn : taskDefArns) {
       String key = Keys.getTaskDefinitionKey(accountName, region, taskDefArn);

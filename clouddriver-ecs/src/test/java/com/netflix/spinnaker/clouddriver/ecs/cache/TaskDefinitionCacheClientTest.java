@@ -33,8 +33,10 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 public class TaskDefinitionCacheClientTest extends CommonCacheClient {
+  ObjectMapper mapper = new ObjectMapper();
+
   @Subject
-  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(cacheView);
+  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(cacheView, mapper);
 
   @Test
   public void shouldConvert() {
