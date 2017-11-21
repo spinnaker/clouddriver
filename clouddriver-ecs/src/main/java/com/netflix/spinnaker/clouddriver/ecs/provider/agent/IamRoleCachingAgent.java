@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
 import com.amazonaws.services.identitymanagement.model.ListRolesRequest;
 import com.amazonaws.services.identitymanagement.model.ListRolesResult;
@@ -50,7 +51,6 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROL
 
 public class IamRoleCachingAgent implements CachingAgent {
 
-  public static final String DEFAULT_IAM_REGION = "us-east-1";
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(IAM_ROLE.toString())
   ));
@@ -82,7 +82,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    AmazonIdentityManagement iam = amazonClientProvider.getIam(accountName, awsCredentialsProvider, DEFAULT_IAM_REGION);
+    AmazonIdentityManagement iam = amazonClientProvider.getIam(accountName, awsCredentialsProvider, Regions.DEFAULT_REGION.getName());
 
     Set<IamRole> cacheableRoles = fetchIamRoles(iam, accountName);
     Map<String, Collection<CacheData>> newDataMap = generateFreshData(cacheableRoles);
