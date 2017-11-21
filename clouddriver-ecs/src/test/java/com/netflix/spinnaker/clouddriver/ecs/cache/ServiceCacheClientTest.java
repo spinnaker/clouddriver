@@ -35,8 +35,9 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 public class ServiceCacheClientTest extends CommonCacheClient {
+  private final ObjectMapper mapper = new ObjectMapper();
   @Subject
-  private final ServiceCacheClient client = new ServiceCacheClient(cacheView);
+  private final ServiceCacheClient client = new ServiceCacheClient(cacheView, mapper);
 
   @Test
   public void shouldConvert() {

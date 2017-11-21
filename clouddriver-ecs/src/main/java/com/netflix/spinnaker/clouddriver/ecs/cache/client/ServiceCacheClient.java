@@ -31,10 +31,12 @@ import java.util.Map;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
 public class ServiceCacheClient extends AbstractCacheClient<Service> {
+  private ObjectMapper mapper;
 
   @Autowired
-  public ServiceCacheClient(Cache cacheView) {
+  public ServiceCacheClient(Cache cacheView, ObjectMapper mapper) {
     super(cacheView, SERVICES.toString());
+    this.mapper = mapper;
   }
 
   @Override
@@ -56,7 +58,6 @@ public class ServiceCacheClient extends AbstractCacheClient<Service> {
     service.setMinimumHealthyPercent((Integer) attributes.get("minimumHealthyPercent"));
 
     if (attributes.containsKey("loadBalancers")) {
-      ObjectMapper mapper = new ObjectMapper();
       List<Map<String, Object>> loadBalancers = (List<Map<String, Object>>) attributes.get("loadBalancers");
       List<LoadBalancer> deserializedLoadbalancers = new ArrayList<>(loadBalancers.size());
 

@@ -24,6 +24,7 @@ import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
@@ -42,9 +43,11 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
 
 public class ServiceCacheTest extends CommonCachingAgent {
+  private final ObjectMapper mapper = new ObjectMapper();
+
   private final ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private final ServiceCacheClient client = new ServiceCacheClient(providerCache);
+  private final ServiceCacheClient client = new ServiceCacheClient(providerCache, mapper);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {
