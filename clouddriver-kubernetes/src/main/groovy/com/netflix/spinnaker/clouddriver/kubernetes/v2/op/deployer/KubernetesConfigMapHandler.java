@@ -17,23 +17,19 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesPodCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesConfigMapCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
-
 @Component
-public class KubernetesPodHandler extends KubernetesHandler implements CanDelete {
+public class KubernetesConfigMapHandler extends KubernetesHandler implements CanDelete {
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.POD;
+    return KubernetesKind.CONFIG_MAP;
   }
 
   @Override
@@ -43,7 +39,7 @@ public class KubernetesPodHandler extends KubernetesHandler implements CanDelete
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.INSTANCES;
+    return SpinnakerKind.CONFIGS;
   }
 
   @Override
@@ -52,15 +48,7 @@ public class KubernetesPodHandler extends KubernetesHandler implements CanDelete
   }
 
   @Override
-  public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
-    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
-    result.put("instanceId", result.get("name"));
-
-    return result;
-  }
-
-  @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesPodCachingAgent.class;
+    return KubernetesConfigMapCachingAgent.class;
   }
 }

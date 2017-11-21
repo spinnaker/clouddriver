@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * Copyright 2017 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,12 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.deploy
+package com.netflix.spinnaker.clouddriver.ecs.cache.model;
 
-import com.netflix.spinnaker.kork.artifacts.model.Artifact
+import lombok.Data;
 
-class DeploymentResult {
-  // TODO(lwander) deprecate in favor of `deployedNames` and `deployedNamesByLocation`
-  List<String> serverGroupNames = []
-  Map<String, String> serverGroupNameByRegion = [:]
-  List<String> messages = []
-
-  List<String> deployedNames = []
-  Map <String, List<String>> deployedNamesByLocation = [:]
-
-  List<Artifact> createdArtifacts = []
+@Data
+public class ContainerInstance {
+  String arn;
+  String ec2InstanceId;
 }
