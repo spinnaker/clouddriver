@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.model;
+package com.netflix.spinnaker.clouddriver.aws.model;
 
 /**
  * A trust relationship allows a user or service to assume that role.
