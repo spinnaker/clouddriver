@@ -23,6 +23,7 @@ import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
 import com.amazonaws.services.ecs.model.ListTasksResult;
 import com.amazonaws.services.ecs.model.Task;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
@@ -41,10 +42,11 @@ import static org.mockito.Mockito.when;
 
 
 public class TaskCacheTest extends CommonCachingAgent {
+  private final ObjectMapper mapper = new ObjectMapper();
   @Subject
   private final TaskCachingAgent agent = new TaskCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private final TaskCacheClient client = new TaskCacheClient(providerCache);
+  private final TaskCacheClient client = new TaskCacheClient(providerCache, mapper);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {

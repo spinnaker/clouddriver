@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.cache;
 
 import com.amazonaws.services.ecs.model.Task;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskCachingAgent;
@@ -32,8 +33,9 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 public class TaskCacheClientTest extends CommonCacheClient {
+  private final ObjectMapper mapper = new ObjectMapper();
   @Subject
-  private final TaskCacheClient client = new TaskCacheClient(cacheView);
+  private final TaskCacheClient client = new TaskCacheClient(cacheView, mapper);
 
   @Test
   public void shouldConvert() {

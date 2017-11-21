@@ -31,9 +31,11 @@ import java.util.Map;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
 public class TaskCacheClient extends AbstractCacheClient<Task> {
+  @Autowired
+  private ObjectMapper mapper;
 
   @Autowired
-  public TaskCacheClient(Cache cacheView) {
+  public TaskCacheClient(Cache cacheView, ObjectMapper mapper) {
     super(cacheView, TASKS.toString());
   }
 
@@ -51,7 +53,6 @@ public class TaskCacheClient extends AbstractCacheClient<Task> {
     task.setStartedAt((Long) attributes.get("startedAt"));
 
     if (attributes.containsKey("containers")) {
-      ObjectMapper mapper = new ObjectMapper();
       List<Map<String, Object>> containers = (List<Map<String, Object>>) attributes.get("containers");
       List<Container> deserializedLoadbalancers = new ArrayList<>(containers.size());
 
