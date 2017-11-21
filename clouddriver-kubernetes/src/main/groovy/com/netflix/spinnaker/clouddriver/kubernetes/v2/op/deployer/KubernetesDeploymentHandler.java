@@ -17,6 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA1;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA2;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
+
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactTypes;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesDeploymentCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
@@ -24,11 +30,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpi
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
-import io.kubernetes.client.models.AppsV1beta1Deployment;
-import io.kubernetes.client.models.AppsV1beta1DeploymentStatus;
-import io.kubernetes.client.models.ExtensionsV1beta1Deployment;
-import io.kubernetes.client.models.ExtensionsV1beta1DeploymentStatus;
 import io.kubernetes.client.models.V1beta2Deployment;
+import io.kubernetes.client.models.V1beta2DeploymentCondition;
 import io.kubernetes.client.models.V1beta2DeploymentStatus;
 import org.springframework.stereotype.Component;
 
@@ -40,6 +43,16 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
     CanPauseRollout,
     CanResumeRollout,
     CanUndoRollout {
+
+  public KubernetesDeploymentHandler() {
+    registerReplacer(
+        ArtifactReplacer.Replacer.builder()
+            .replacePath("$.spec.template.spec.containers.[?( @.image == \"{%name%}\" )].image")
+            .findPath("$.spec.template.spec.containers.*.image")
+            .type(ArtifactTypes.DOCKER_IMAGE)
+            .build()
+    );
+  }
 
   @Override
   public KubernetesKind kind() {
@@ -58,18 +71,13 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    switch (manifest.getApiVersion()) {
-      case EXTENSIONS_V1BETA1:
-        ExtensionsV1beta1Deployment extensionsV1beta1Deployment = KubernetesCacheDataConverter.getResource(manifest, ExtensionsV1beta1Deployment.class);
-        return status(extensionsV1beta1Deployment);
-      case APPS_V1BETA1:
-        AppsV1beta1Deployment appsV1beta1Deployment = KubernetesCacheDataConverter.getResource(manifest, AppsV1beta1Deployment.class);
-        return status(appsV1beta1Deployment);
-      case APPS_V1BETA2:
-        V1beta2Deployment appsV1beta2Deployment = KubernetesCacheDataConverter.getResource(manifest, V1beta2Deployment.class);
-        return status(appsV1beta2Deployment);
-      default:
-        throw new UnsupportedVersionException(manifest);
+    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)
+        || manifest.getApiVersion().equals(APPS_V1BETA1)
+        || manifest.getApiVersion().equals(APPS_V1BETA2)) {
+      V1beta2Deployment appsV1beta2Deployment = KubernetesCacheDataConverter.getResource(manifest, V1beta2Deployment.class);
+      return status(appsV1beta2Deployment);
+    } else {
+      throw new UnsupportedVersionException(manifest);
     }
   }
 
@@ -78,78 +86,51 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
     return KubernetesDeploymentCachingAgent.class;
   }
 
-  private Status status(ExtensionsV1beta1Deployment deployment) {
-    ExtensionsV1beta1DeploymentStatus status = deployment.getStatus();
-    int desiredReplicas = deployment.getSpec().getReplicas();
-    if (status == null) {
-      return Status.unstable("No status reported yet");
-    }
-
-    Integer existing = status.getUpdatedReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be updated");
-    }
-
-    existing = status.getAvailableReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be available");
-    }
-
-    existing = status.getReadyReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be ready");
-    }
-
-    return Status.stable();
-  }
-
-  private Status status(AppsV1beta1Deployment deployment) {
-    AppsV1beta1DeploymentStatus status = deployment.getStatus();
-    int desiredReplicas = deployment.getSpec().getReplicas();
-    if (status == null) {
-      return Status.unstable("No status reported yet");
-    }
-
-    Integer existing = status.getUpdatedReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be updated");
-    }
-
-    existing = status.getAvailableReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be available");
-    }
-
-    existing = status.getReadyReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be ready");
-    }
-
-    return Status.stable();
-  }
-
   private Status status(V1beta2Deployment deployment) {
+    Status result = new Status();
     V1beta2DeploymentStatus status = deployment.getStatus();
-    int desiredReplicas = deployment.getSpec().getReplicas();
     if (status == null) {
-      return Status.unstable("No status reported yet");
+      result.unstable("No status reported yet")
+          .unavailable("No availability reported");
+      return result;
     }
 
+    V1beta2DeploymentCondition paused = status.getConditions()
+        .stream()
+        .filter(c -> c.getReason().equalsIgnoreCase("deploymentpaused"))
+        .findAny()
+        .orElse(null);
+
+    V1beta2DeploymentCondition available = status.getConditions()
+        .stream()
+        .filter(c -> c.getType().equalsIgnoreCase("available"))
+        .findAny()
+        .orElse(null);
+
+    if (paused != null) {
+      result.paused(paused.getMessage());
+    }
+
+    if (available != null && available.getStatus().equalsIgnoreCase("false")) {
+      result.unavailable(available.getMessage());
+    }
+
+    int desiredReplicas = deployment.getSpec().getReplicas();
     Integer existing = status.getUpdatedReplicas();
     if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be updated");
+      return result.unstable("Waiting for all replicas to be updated");
     }
 
     existing = status.getAvailableReplicas();
     if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be available");
+      return result.unstable("Waiting for all replicas to be available");
     }
 
     existing = status.getReadyReplicas();
     if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be ready");
+      return result.unstable("Waiting for all replicas to be ready");
     }
 
-    return Status.stable();
+    return result;
   }
 }

@@ -17,19 +17,30 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesNamespaceCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesDaemonSetCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
-public class KubernetesNamespaceHandler extends KubernetesHandler implements CanDelete {
+public class KubernetesDaemonSetHandler extends KubernetesHandler implements
+    CanResize,
+    CanDelete,
+    CanScale,
+    CanPauseRollout,
+    CanResumeRollout,
+    CanUndoRollout {
+
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.NAMESPACE;
+    return KubernetesKind.DAEMON_SET;
   }
 
   @Override
@@ -39,16 +50,25 @@ public class KubernetesNamespaceHandler extends KubernetesHandler implements Can
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.UNCLASSIFIED;
-  }
-
-  @Override
-  public Status status(KubernetesManifest manifest) {
-    return new Status();
+    return SpinnakerKind.SERVER_GROUPS;
   }
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesNamespaceCachingAgent.class;
+    return KubernetesDaemonSetCachingAgent.class;
+  }
+
+  @Override
+  public Status status(KubernetesManifest manifest) {
+    // TODO(lwander)
+    return new Status();
+  }
+
+  @Override
+  public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
+    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
+    result.put("serverGroup", result.get("name"));
+
+    return result;
   }
 }
