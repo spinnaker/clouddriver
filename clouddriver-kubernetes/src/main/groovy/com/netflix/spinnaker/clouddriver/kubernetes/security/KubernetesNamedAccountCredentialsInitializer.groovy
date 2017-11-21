@@ -31,6 +31,7 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Scope
+import org.springframework.context.annotation.DependsOn
 
 @Slf4j
 @Configuration
@@ -58,6 +59,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
 
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
+  @DependsOn("dockerRegistryNamedAccountCredentials")
   List<? extends KubernetesNamedAccountCredentials> synchronizeKubernetesAccounts(
     String clouddriverUserAgentApplicationName,
     KubernetesConfigurationProperties kubernetesConfigurationProperties,
