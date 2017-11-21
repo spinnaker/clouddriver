@@ -17,6 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA2;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
+
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactTypes;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
@@ -29,7 +32,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import io.kubernetes.client.models.V1beta1ReplicaSet;
-import io.kubernetes.client.models.V1beta1ReplicaSetStatus;
 import io.kubernetes.client.models.V1beta2ReplicaSet;
 import io.kubernetes.client.models.V1beta2ReplicaSetStatus;
 import org.springframework.stereotype.Component;
@@ -45,12 +47,12 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler implements
   public KubernetesReplicaSetHandler() {
     registerReplacer(
         Replacer.builder()
-            .path("$.spec.template.spec.containers.[?( @.image == \"{%name%}\" )].image")
+            .replacePath("$.spec.template.spec.containers.[?( @.image == \"{%name%}\" )].image")
+            .findPath("$.spec.template.spec.containers.*.image")
             .type(ArtifactTypes.DOCKER_IMAGE)
             .build()
     );
   }
-
 
   @Override
   public KubernetesKind kind() {
@@ -74,78 +76,53 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler implements
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    switch (manifest.getApiVersion()) {
-      case EXTENSIONS_V1BETA1:
-        V1beta1ReplicaSet v1beta1ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta1ReplicaSet.class);
-        return status(v1beta1ReplicaSet);
-      case APPS_V1BETA2:
-        V1beta2ReplicaSet v1beta2ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2ReplicaSet.class);
-        return status(v1beta2ReplicaSet);
-      default:
-        throw new UnsupportedVersionException(manifest);
+    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1) || manifest.getApiVersion().equals(APPS_V1BETA2)) {
+      V1beta2ReplicaSet v1beta2ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2ReplicaSet.class);
+      return status(v1beta2ReplicaSet);
+    } else {
+      throw new UnsupportedVersionException(manifest);
     }
-  }
-
-  private Status status(V1beta1ReplicaSet replicaSet) {
-    int desiredReplicas = replicaSet.getSpec().getReplicas();
-    V1beta1ReplicaSetStatus status = replicaSet.getStatus();
-    if (status == null) {
-      return Status.unstable("No status reported yet");
-    }
-
-    Integer existing = status.getFullyLabeledReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be fully-labeled");
-    }
-
-    existing = status.getAvailableReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be available");
-    }
-
-    existing = status.getReadyReplicas();
-    if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be ready");
-    }
-
-    return Status.stable();
   }
 
   private Status status(V1beta2ReplicaSet replicaSet) {
+    Status result = new Status();
     int desiredReplicas = replicaSet.getSpec().getReplicas();
     V1beta2ReplicaSetStatus status = replicaSet.getStatus();
     if (status == null) {
-      return Status.unstable("No status reported yet");
+      result.unstable("No status reported yet")
+          .unavailable("No availability reported");
+      return result;
     }
 
     Integer existing = status.getFullyLabeledReplicas();
     if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be fully-labeled");
+      return result.unstable("Waiting for all replicas to be fully-labeled")
+          .unavailable("Not all replicas have become labeled yet");
     }
 
     existing = status.getAvailableReplicas();
     if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be available");
+      return result.unstable("Waiting for all replicas to be available")
+          .unavailable("Not all replicas have become available yet");
     }
 
     existing = status.getReadyReplicas();
     if (existing == null || desiredReplicas > existing) {
-      return Status.unstable("Waiting for all replicas to be ready");
+      return result.unstable("Waiting for all replicas to be ready");
     }
 
-    return Status.stable();
+    return result;
   }
 
   public static Map<String, String> getPodTemplateLabels(KubernetesManifest manifest) {
-    switch (manifest.getApiVersion()) {
-      case EXTENSIONS_V1BETA1:
-        V1beta1ReplicaSet v1beta1ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta1ReplicaSet.class);
-        return getPodTemplateLabels(v1beta1ReplicaSet);
-      case APPS_V1BETA2:
-        V1beta2ReplicaSet v1beta2ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2ReplicaSet.class);
-        return getPodTemplateLabels(v1beta2ReplicaSet);
-      default:
-        throw new UnsupportedVersionException(manifest);
+    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)) {
+      V1beta1ReplicaSet v1beta1ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta1ReplicaSet.class);
+      return getPodTemplateLabels(v1beta1ReplicaSet);
+    } else if (manifest.getApiVersion().equals(APPS_V1BETA2)) {
+      V1beta2ReplicaSet v1beta2ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2ReplicaSet.class);
+      return getPodTemplateLabels(v1beta2ReplicaSet);
+    } else {
+      throw new UnsupportedVersionException(manifest);
     }
   }
 

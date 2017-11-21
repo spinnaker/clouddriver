@@ -17,7 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesNamespaceCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesSecretCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -26,20 +26,20 @@ import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesNamespaceHandler extends KubernetesHandler implements CanDelete {
+public class KubernetesSecretHandler extends KubernetesHandler implements CanDelete {
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.NAMESPACE;
+    return KubernetesKind.SECRET;
   }
 
   @Override
   public boolean versioned() {
-    return false;
+    return true;
   }
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.UNCLASSIFIED;
+    return SpinnakerKind.CONFIGS;
   }
 
   @Override
@@ -49,6 +49,6 @@ public class KubernetesNamespaceHandler extends KubernetesHandler implements Can
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesNamespaceCachingAgent.class;
+    return KubernetesSecretCachingAgent.class;
   }
 }
