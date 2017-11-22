@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2017 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,24 +12,29 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact;
+package com.netflix.spinnaker.clouddriver.ecs.cache.model;
 
-// TODO(lwander): move to clouddriver-artifacts when ready
-public enum ArtifactTypes {
-  DOCKER_IMAGE("docker/image"),
-  KUBERNETES_CONFIG_MAP("kubernetes/configMap");
+import com.amazonaws.services.ecs.model.LoadBalancer;
+import lombok.Data;
 
-  final private String id;
+import java.util.List;
 
-  ArtifactTypes(String id) {
-    this.id = id;
-  }
-
-  @Override
-  public String toString() {
-    return id;
-  }
+@Data
+public class Service {
+  String account;
+  String region;
+  String applicationName;
+  String serviceName;
+  String serviceArn;
+  String clusterName;
+  String clusterArn;
+  String roleArn;
+  String taskDefinition;
+  int desiredCount;
+  int maximumPercent;
+  int minimumHealthyPercent;
+  List<LoadBalancer> loadBalancers;
+  long createdAt;
 }
