@@ -1,5 +1,5 @@
 [Unit]
-Description=Spinnaker CloudDriver
+Description=Spinnaker Clouddriver
 After=network.target
 
 [Service]
