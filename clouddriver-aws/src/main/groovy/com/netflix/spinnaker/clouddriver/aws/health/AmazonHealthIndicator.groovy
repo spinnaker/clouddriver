@@ -19,7 +19,9 @@ package com.netflix.spinnaker.clouddriver.aws.health
 import com.amazonaws.AmazonClientException
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.ec2.model.AmazonEC2Exception
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import groovy.transform.InheritConstructors
@@ -33,6 +35,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.ResponseStatus
 
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 @Component
@@ -40,13 +43,20 @@ class AmazonHealthIndicator implements HealthIndicator {
 
   private static final Logger LOG = LoggerFactory.getLogger(AmazonHealthIndicator)
 
-  @Autowired
   AccountCredentialsProvider accountCredentialsProvider
+  AmazonClientProvider amazonClientProvider
+  Registry registry
+  // Tracks the number of disabled accounts due to errors
+  private final AtomicInteger numDisabledAccounts = new AtomicInteger(0)
+  private final AtomicReference<Exception> lastException = new AtomicReference<>(null)
 
   @Autowired
-  AmazonClientProvider amazonClientProvider
-
-  private final AtomicReference<Exception> lastException = new AtomicReference<>(null)
+  AmazonHealthIndicator(AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider, Registry registry) {
+    this.accountCredentialsProvider = accountCredentialsProvider
+    this.amazonClientProvider = amazonClientProvider
+    this.registry = registry
+    registry.gauge("credentials.aws.unauthorized.gauge", numDisabledAccounts)
+  }
 
   @Override
   Health health() {
@@ -80,25 +90,43 @@ class AmazonHealthIndicator implements HealthIndicator {
           if (e.getErrorCode() == "UnauthorizedOperation") {
             // Log the error and disable the account credentials, but don't make Clouddriver unhealthy
             LOG.error("Clouddriver is not authorized to access AWS account ${credentials.name} (${credentials.accountId})", e)
+            registry.counter("credentials.aws.unauthorized",
+              "account.name", credentials.name,
+              "account.id", credentials.accountId).increment()
           } else {
-            throw new AmazonUnreachableException("An error occurred while querying the AWS account ${credentials.name} " +
-              "(${credentials.accountId})", e)
+            throw new AmazonUnreachableException(credentials, e)
           }
         } catch (AmazonServiceException e) {
           credentials.enabled = false
-          throw new AmazonUnreachableException("An error occurred while querying the AWS account ${credentials.name} " +
-            "(${credentials.accountId})", e)
-
+          throw new AmazonUnreachableException(credentials, e)
         }
       }
+      numDisabledAccounts.set(amazonCredentials.findAll {!it.enabled }.size())
       lastException.set(null)
     } catch (Exception ex) {
       LOG.error "Unhealthy", ex
+      def credentialsErrorCounter = registry.createId("credentials.aws.error")
+      if (ex instanceof AmazonUnreachableException) {
+        AmazonUnreachableException aue = (AmazonUnreachableException) ex
+        credentialsErrorCounter = credentialsErrorCounter.withTags("account.name", aue.name,
+          "account.id", aue.accountId)
+      }
+      registry.counter(credentialsErrorCounter).increment()
       lastException.set(ex)
+      numDisabledAccounts.set(1)
     }
   }
 
   @ResponseStatus(value = HttpStatus.SERVICE_UNAVAILABLE, reason = 'Could not reach Amazon.')
   @InheritConstructors
-  static class AmazonUnreachableException extends RuntimeException {}
+  static class AmazonUnreachableException extends RuntimeException {
+    String name, accountId
+
+    AmazonUnreachableException(AmazonCredentials credentials, Throwable cause) {
+      super("An error occurred while querying the AWS account ${credentials.name} " +
+        "(${credentials.accountId})", cause)
+      name = credentials.name
+      accountId = credentials.accountId
+    }
+  }
 }

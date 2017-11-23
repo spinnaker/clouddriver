@@ -20,6 +20,8 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.AmazonEC2Exception
 import com.amazonaws.services.ec2.model.DescribeAccountAttributesResult
+import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -27,6 +29,8 @@ import org.springframework.boot.actuate.health.Status
 import spock.lang.Specification
 
 class AmazonHealthIndicatorSpec extends Specification {
+
+  Registry registry = new NoopRegistry()
 
   def "health fails when amazon appears unreachable"() {
     setup:
@@ -40,7 +44,7 @@ class AmazonHealthIndicatorSpec extends Specification {
     def mockAmazonClientProvider = Stub(AmazonClientProvider) {
       getAmazonEC2(*_) >> mockEc2
     }
-    def indicator = new AmazonHealthIndicator(accountCredentialsProvider: holder, amazonClientProvider: mockAmazonClientProvider)
+    def indicator = new AmazonHealthIndicator(holder, mockAmazonClientProvider, registry)
 
     when:
     indicator.checkHealth()
@@ -63,7 +67,7 @@ class AmazonHealthIndicatorSpec extends Specification {
     def mockAmazonClientProvider = Stub(AmazonClientProvider) {
       getAmazonEC2(*_) >> mockEc2
     }
-    def indicator = new AmazonHealthIndicator(accountCredentialsProvider: holder, amazonClientProvider: mockAmazonClientProvider)
+    def indicator = new AmazonHealthIndicator(holder, mockAmazonClientProvider, registry)
 
     when:
     indicator.checkHealth()
@@ -90,7 +94,7 @@ class AmazonHealthIndicatorSpec extends Specification {
     def mockAmazonClientProvider = Stub(AmazonClientProvider) {
       getAmazonEC2(*_) >> mockEc2
     }
-    def indicator = new AmazonHealthIndicator(accountCredentialsProvider: holder, amazonClientProvider: mockAmazonClientProvider)
+    def indicator = new AmazonHealthIndicator(holder, mockAmazonClientProvider, registry)
 
     when:
     indicator.checkHealth()
@@ -113,7 +117,7 @@ class AmazonHealthIndicatorSpec extends Specification {
     def mockAmazonClientProvider = Stub(AmazonClientProvider) {
       getAmazonEC2(*_) >> mockEc2
     }
-    def indicator = new AmazonHealthIndicator(accountCredentialsProvider: holder, amazonClientProvider: mockAmazonClientProvider)
+    def indicator = new AmazonHealthIndicator(holder, mockAmazonClientProvider, registry)
 
     when:
     indicator.checkHealth()
