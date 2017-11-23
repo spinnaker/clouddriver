@@ -113,7 +113,7 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
     }
 
     CacheResult result = metricsSupport.transformData {
-      buildCacheResult([new KubernetesController(controller: statefulSet,controller1: daemonSet)], [:], [], Long.MAX_VALUE)
+      buildCacheResult([new KubernetesController(statefulController: statefulSet, daemonController: daemonSet)], [:], [], Long.MAX_VALUE)
     }
 
     def jsonResult = objectMapper.writeValueAsString(result.cacheResults)
@@ -150,7 +150,7 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
 
     // Evict this server group if it no longer exists.
     Map<String, Collection<String>> evictions
-    if(isControllerSetCachingAgentType) {
+    if (isControllerSetCachingAgentType) {
       evictions = statefulSet || daemonSet ? [:] : [
         (Keys.Namespace.SERVER_GROUPS.ns): [
           Keys.getServerGroupKey(accountName, namespace, serverGroupName)
@@ -185,9 +185,9 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
     List<V1beta1StatefulSet> statefulSet = loadStatefulSets()
     List<V1beta1DaemonSet> daemonSet = loadDaemonSets()
     List<KubernetesController> serverGroups = (statefulSet.collect {
-      it ? new KubernetesController(controller: it) : null
+      it ? new KubernetesController(statefulController: it) : null
     }+ daemonSet.collect {
-      it ? new KubernetesController(controller: it) : null
+      it ? new KubernetesController(statefulController: it) : null
     }
     ) - null
     List<CacheData> evictFromOnDemand = []
@@ -241,15 +241,6 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
 
   V1beta1DaemonSet loadDaemonSet(String namespace, String name) {
     credentials.apiClientAdaptor.getDaemonSet(name, namespace)
-  }
-
-  Boolean isControllerAgentSet(namespace, name) {
-    if (loadStatefulSet(namespace, name)) {
-      return true
-    } else if (loadDaemonSet(namespace, name)) {
-      return true
-    }
-    return false
   }
 
   private CacheResult buildCacheResult(List<KubernetesController> serverGroups, Map<String, CacheData> onDemandKeep, List<String> onDemandEvict, Long start) {
@@ -329,12 +320,12 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
           def events = null
           attributes.name = serverGroupName
 
-          if (serverGroup.controller instanceof V1beta1StatefulSet) {
+          if (serverGroup.statefulController instanceof V1beta1StatefulSet) {
             events = stateFulsetEvents[serverGroup.namespace][serverGroupName]
-          } else if (serverGroup.controller instanceof V1beta1DaemonSet) {
+          } else if (serverGroup.statefulController instanceof V1beta1DaemonSet) {
             events = daemonsetEvents[serverGroup.namespace][serverGroupName]
           }
-          attributes.serverGroup = new KubernetesV1ServerGroup(serverGroup.controller ?: serverGroup.controller1, accountName, events)
+          attributes.serverGroup = new KubernetesV1ServerGroup(serverGroup.statefulController ?: serverGroup.daemonController, accountName, events)
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
@@ -376,28 +367,28 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
   }
 
   static class KubernetesController{
+    def statefulController
+    def daemonController
 
-    def controller
-    def controller1
     String getName() {
-      controller ? controller.metadata.name : controller1.metadata.name
+      statefulController ? statefulController.metadata.name : daemonController.metadata.name
     }
 
     String getNamespace() {
-      controller ? controller.metadata.namespace : controller1.metadata.namespace
+      statefulController ? statefulController.metadata.namespace : daemonController.metadata.namespace
     }
 
     Map<String, String> getSelector() {
-      controller ? controller.spec.selector.matchLabels : controller1.spec.selector.matchLabels
+      statefulController ? statefulController.spec.selector.matchLabels : daemonController.spec.selector.matchLabels
     }
 
     boolean exists() {
-      controller ?: controller1
+      statefulController ?: daemonController
     }
 
     List<String> getLoadBalancers() {
-      controller ? KubernetesUtil.getLoadBalancers(controller.spec?.template?.metadata?.labels ?: [:]) :
-        KubernetesUtil.getLoadBalancers(controller1.spec?.template?.metadata?.labels ?: [:])
+      statefulController ? KubernetesUtil.getLoadBalancers(statefulController.spec?.template?.metadata?.labels ?: [:]) :
+        KubernetesUtil.getLoadBalancers(daemonController.spec?.template?.metadata?.labels ?: [:])
     }
   }
 }
