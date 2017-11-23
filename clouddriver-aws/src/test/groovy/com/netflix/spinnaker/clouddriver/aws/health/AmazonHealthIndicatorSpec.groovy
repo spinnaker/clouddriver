@@ -32,7 +32,7 @@ class AmazonHealthIndicatorSpec extends Specification {
     setup:
     def creds = [TestCredential.named('foo')]
     def holder = Stub(AccountCredentialsProvider) {
-      getAll(true) >> creds
+      getAll() >> creds
     }
     def mockEc2 = Stub(AmazonEC2) {
       describeAccountAttributes() >> { throw new AmazonServiceException('fail') }
@@ -55,7 +55,7 @@ class AmazonHealthIndicatorSpec extends Specification {
     setup:
     def creds = [TestCredential.named('foo')]
     def holder = Stub(AccountCredentialsProvider) {
-      getAll(true) >> creds
+      getAll() >> creds
     }
     def mockEc2 = Stub(AmazonEC2) {
       describeAccountAttributes() >> { Mock(DescribeAccountAttributesResult) }
@@ -78,7 +78,7 @@ class AmazonHealthIndicatorSpec extends Specification {
     setup:
     def creds = [TestCredential.named('foo')]
     def holder = Stub(AccountCredentialsProvider) {
-      getAll(true) >> creds
+      getAll() >> creds
     }
     def mockEc2 = Stub(AmazonEC2) {
       describeAccountAttributes() >> {
@@ -105,7 +105,7 @@ class AmazonHealthIndicatorSpec extends Specification {
     setup:
     def creds = [TestCredential.named('foo', [enabled: false])]
     def holder = Stub(AccountCredentialsProvider) {
-      getAll(true) >> creds
+      getAll() >> creds
     }
     def mockEc2 = Stub(AmazonEC2) {
       describeAccountAttributes() >> { Mock(DescribeAccountAttributesResult) }

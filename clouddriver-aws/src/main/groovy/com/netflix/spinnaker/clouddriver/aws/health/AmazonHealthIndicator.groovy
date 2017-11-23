@@ -61,7 +61,7 @@ class AmazonHealthIndicator implements HealthIndicator {
   @Scheduled(fixedDelay = 120000L)
   void checkHealth() {
     try {
-      Set<NetflixAmazonCredentials> amazonCredentials = accountCredentialsProvider.getAll(true).findAll {
+      Set<NetflixAmazonCredentials> amazonCredentials = accountCredentialsProvider.all.findAll {
         it instanceof NetflixAmazonCredentials
       } as Set<NetflixAmazonCredentials>
       for (NetflixAmazonCredentials credentials in amazonCredentials) {

@@ -59,11 +59,6 @@ class CredentialsController {
     return accountDetail
   }
 
-  @RequestMapping(value = "/disabled", method = RequestMethod.GET)
-  List<Map> getDisabledAccounts() {
-    accountCredentialsProvider.getAll(true).findAll({!it.enabled}).collect(this.&renderSummary)
-  }
-
   Map renderSummary(AccountCredentials accountCredentials) {
     render(false, accountCredentials)
   }

@@ -20,10 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class DefaultAccountCredentialsProvider implements AccountCredentialsProvider {
-
     private static final Logger LOG = LoggerFactory.getLogger(DefaultAccountCredentialsProvider.class);
 
     private final AccountCredentialsRepository repository;
@@ -37,10 +35,8 @@ public class DefaultAccountCredentialsProvider implements AccountCredentialsProv
     }
 
     @Override
-    public Set<? extends AccountCredentials> getAll(boolean includeDisabledAccounts) {
-        return repository.getAll().stream()
-          .filter(accountCredentials -> accountCredentials.isEnabled() || includeDisabledAccounts)
-          .collect(Collectors.toSet());
+    public Set<? extends AccountCredentials> getAll() {
+        return repository.getAll();
     }
 
     @Override
