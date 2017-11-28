@@ -122,7 +122,7 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
       // Avoid writing an empty onDemand cache record (instead delete any that may have previously existed).
       providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getServerGroupKey(accountName, namespace, serverGroupName)])
 
-      //Determine if this is the correct agent to delete cache which can avoid double deletion
+      // Determine if this is the correct agent to delete cache which can avoid double deletion
       CacheData serverGroup = providerCache.get(Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(accountName, namespace, serverGroupName))
 
       if (serverGroup) {
