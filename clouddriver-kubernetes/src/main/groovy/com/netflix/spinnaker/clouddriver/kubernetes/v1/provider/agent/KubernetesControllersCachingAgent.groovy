@@ -169,7 +169,32 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
 
   @Override
   Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
-    return null
+    def keys = providerCache.getIdentifiers(Keys.Namespace.ON_DEMAND.ns)
+    keys = keys.findResults {
+      def parse = Keys.parse(it)
+      if (parse && namespaces.contains(parse.namespace) && parse.account == accountName) {
+        return it
+      } else {
+        return null
+      }
+    }
+
+    def keyCount = keys.size()
+    def be = keyCount == 1 ? "is" : "are"
+    def pluralize = keyCount == 1 ? "" : "s"
+    log.info("There $be $keyCount pending on demand request$pluralize")
+
+    providerCache.getAll(Keys.Namespace.ON_DEMAND.ns, keys).collect {
+      def details = Keys.parse(it.id)
+
+      return [
+        details       : details,
+        moniker       : convertOnDemandDetails(details),
+        cacheTime     : it.attributes.cacheTime,
+        processedCount: it.attributes.processedCount,
+        processedTime : it.attributes.processedTime
+      ]
+    }
   }
 
   /**

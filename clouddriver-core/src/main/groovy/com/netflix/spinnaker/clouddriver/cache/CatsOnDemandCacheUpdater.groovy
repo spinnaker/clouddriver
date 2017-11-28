@@ -78,6 +78,10 @@ class CatsOnDemandCacheUpdater implements OnDemandCacheUpdater {
             hasOnDemandResults = true // force Orca to retry
             continue;
           }
+          if (!agent.metricsSupport) {
+            hasOnDemandResults = false
+            continue;
+          }
           if (result.cacheResult) {
             hasOnDemandResults = !(result.cacheResult.cacheResults ?: [:]).values().flatten().isEmpty() && !agentScheduler.atomic
             agent.metricsSupport.cacheWrite {
@@ -95,16 +99,12 @@ class CatsOnDemandCacheUpdater implements OnDemandCacheUpdater {
             throw new IllegalStateException("We likely just wrote stale data. If you're seeing this, file a github issue: https://github.com/spinnaker/spinnaker/issues")
           }
           final long elapsed = System.nanoTime() - startTime
-          if (agent.metricsSupport) {
-            agent.metricsSupport.recordTotalRunTimeNanos(elapsed)
-            log.info("$agent.providerName/$agent?.onDemandAgentType handled $type in ${TimeUnit.NANOSECONDS.toMillis(elapsed)} millis. Payload: $data")
-          }
+          agent.metricsSupport.recordTotalRunTimeNanos(elapsed)
+          log.info("$agent.providerName/$agent?.onDemandAgentType handled $type in ${TimeUnit.NANOSECONDS.toMillis(elapsed)} millis. Payload: $data")
         }
       } catch (e) {
-        if (agent.metricsSupport) {
           agent.metricsSupport.countError()
           log.warn("$agent.providerName/$agent.onDemandAgentType failed to handle on demand update for $type", e)
-        }
       }
     }
 
