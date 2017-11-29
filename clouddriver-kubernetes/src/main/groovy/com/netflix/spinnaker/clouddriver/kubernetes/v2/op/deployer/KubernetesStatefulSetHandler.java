@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactTypes;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesStatefulSetCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
@@ -37,6 +39,16 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
     CanPauseRollout,
     CanResumeRollout,
     CanUndoRollout {
+
+  public KubernetesStatefulSetHandler() {
+    registerReplacer(
+        ArtifactReplacer.Replacer.builder()
+            .replacePath("$.spec.template.spec.containers.[?( @.image == \"{%name%}\" )].image")
+            .findPath("$.spec.template.spec.containers.*.image")
+            .type(ArtifactTypes.DOCKER_IMAGE)
+            .build()
+    );
+  }
 
   @Override
   public KubernetesKind kind() {
@@ -61,7 +73,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
   @Override
   public Status status(KubernetesManifest manifest) {
     // TODO(lwander)
-    return Status.stable();
+    return new Status();
   }
 
   public static String serviceName(KubernetesManifest manifest) {
