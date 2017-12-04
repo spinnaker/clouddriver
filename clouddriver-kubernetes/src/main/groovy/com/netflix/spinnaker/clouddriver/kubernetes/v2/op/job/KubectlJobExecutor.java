@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestList;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1DeleteOptions;
 import lombok.extern.slf4j.Slf4j;
@@ -55,6 +56,9 @@ public class KubectlJobExecutor {
   @Value("${kubernetes.kubectl.executable:kubectl}")
   String executable;
 
+  @Value("${kubernetes.oAuth.executable:oauth2l}")
+  String oAuthExecutable;
+
   private final JobExecutor jobExecutor;
 
   private final Gson gson = new Gson();
@@ -83,12 +87,12 @@ public class KubectlJobExecutor {
     return status.getStdOut();
   }
 
-  public Void delete(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, V1DeleteOptions deleteOptions) {
+  public Void delete(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, V1DeleteOptions deleteOptions) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("delete");
-    command.add(kind.toString());
-    command.add(name);
+
+    command = kubectlLookupInfo(command, kind, name, labelSelectors);
 
     // spinnaker generally accepts deletes of resources that don't exist
     command.add("--ignore-not-found=true");
@@ -118,11 +122,11 @@ public class KubectlJobExecutor {
     return null;
   }
 
-  public Void scale(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, int replicas) {
+  public Void scale(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, int replicas) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("scale");
-    command.add(kind.toString() + "/" + name);
+    command = kubectlLookupInfo(command, kind, name, labelSelectors);
     command.add("--replicas=" + replicas);
 
     String jobId = jobExecutor.startJob(new JobRequest(command),
@@ -323,16 +327,33 @@ public class KubectlJobExecutor {
       command.add("9");
     }
 
-    String kubeconfigFile = credentials.getKubeconfigFile();
-    if (credentials.getOAuthTokenCommand() != null && !credentials.getOAuthTokenCommand().isEmpty()) {
+    if (credentials.getOAuthServiceAccount() != null && !credentials.getOAuthServiceAccount().isEmpty()) {
       command.add("--token=" + getOAuthToken(credentials));
-    } else if (StringUtils.isNotEmpty(kubeconfigFile)) {
+    }
+
+    String kubeconfigFile = credentials.getKubeconfigFile();
+    if (StringUtils.isNotEmpty(kubeconfigFile)) {
       command.add("--kubeconfig=" + kubeconfigFile);
     }
 
     String context = credentials.getContext();
     if (StringUtils.isNotEmpty(context)) {
       command.add("--context=" + context);
+    }
+
+    return command;
+  }
+
+  private List<String> kubectlLookupInfo(List<String> command, KubernetesKind kind, String name, KubernetesSelectorList labelSelectors) {
+    if (StringUtils.isNotEmpty(name)) {
+      command.add(kind + "/" + name);
+    } else {
+      command.add(kind.toString());
+    }
+
+    if (!labelSelectors.isEmpty()) {
+      command.add("-l");
+      command.add("'" + labelSelectors + "'");
     }
 
     return command;
@@ -363,7 +384,14 @@ public class KubectlJobExecutor {
   }
 
   private String getOAuthToken(KubernetesV2Credentials credentials) {
-    String jobId = jobExecutor.startJob(new JobRequest(credentials.getOAuthTokenCommand()),
+    List<String> command = new ArrayList<>();
+    command.add(oAuthExecutable);
+    command.add("fetch");
+    command.add("--json");
+    command.add(credentials.getOAuthServiceAccount());
+    command.addAll(credentials.getOAuthScopes());
+
+    String jobId = jobExecutor.startJob(new JobRequest(command),
       System.getenv(),
       new ByteArrayInputStream(new byte[0]));
 
