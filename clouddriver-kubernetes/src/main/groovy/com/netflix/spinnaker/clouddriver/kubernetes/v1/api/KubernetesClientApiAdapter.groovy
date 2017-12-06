@@ -172,7 +172,7 @@ class KubernetesClientApiAdapter {
         }
 
         return list.items
-      } catch (ApiException ex) {
+      } catch (ApiException e) {
         log.debug(e.message.toString())
       }
     }
