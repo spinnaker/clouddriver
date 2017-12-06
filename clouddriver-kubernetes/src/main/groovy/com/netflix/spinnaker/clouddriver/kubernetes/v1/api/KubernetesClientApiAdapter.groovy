@@ -272,7 +272,7 @@ class KubernetesClientApiAdapter {
         String value = entry.getValue()
         label = key + "=" + value
       }
-      coreApi.listNamespacedPod(namespace, null, null, null, false, label, null, null, TERMINATION_GRACE_PERIOD_SECONDS, false)
+      coreApi.listNamespacedPod(namespace, null, null, null, false, label, null, null, API_CALL_TIMEOUT_SECONDS,, false)
     }
   }
 
@@ -302,7 +302,7 @@ class KubernetesClientApiAdapter {
     exceptionWrapper("DaemonSet.get", "Get Daemon Set ${name}", namespace) {
       try {
         return extApi.readNamespacedDaemonSet(name, namespace, API_CALL_RESULT_FORMAT, true, false)
-      } catch(Exception e) {
+      } catch (Exception e) {
         log.debug(e.message)
       }
       return null
