@@ -226,7 +226,7 @@ class KubernetesClientApiAdapter {
 
       try {
         apiInstance.deleteNamespacedStatefulSet(name, namespace, deleteOptions ?: new V1DeleteOptions(), API_CALL_RESULT_FORMAT, TERMINATION_GRACE_PERIOD_SECONDS, orphanDependents, propagationPolicy)
-      } catch(Exception e) {
+      } catch (Exception e) {
         log.debug(e.message)
       }
     }
@@ -272,7 +272,7 @@ class KubernetesClientApiAdapter {
         String value = entry.getValue()
         label = key + "=" + value
       }
-      coreApi.listNamespacedPod(namespace, null, null, null, false, label, null, null, API_CALL_TIMEOUT_SECONDS,, false)
+      coreApi.listNamespacedPod(namespace, null, null, null, false, label, null, null, API_CALL_TIMEOUT_SECONDS,false)
     }
   }
 
