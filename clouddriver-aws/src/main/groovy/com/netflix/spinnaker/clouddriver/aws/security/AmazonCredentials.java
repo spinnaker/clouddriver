@@ -53,6 +53,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
     private final List<LifecycleHook> lifecycleHooks;
     private final boolean allowPrivateThirdPartyImages;
     private final AWSCredentialsProvider credentialsProvider;
+    private boolean enabled = true;
 
     public static AmazonCredentials fromAWSCredentials(String name,
                                                        String environment,
@@ -225,6 +226,15 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
       return this.permissions;
     }
 
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     public static class AWSRegion {
 
         private final String name;
@@ -268,7 +278,7 @@ public class AmazonCredentials implements AccountCredentials<AWSCredentials> {
             return deprecated;
         }
 
-      @Override
+        @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;

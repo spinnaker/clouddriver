@@ -28,13 +28,13 @@ import org.springframework.stereotype.Component
 import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.CERTIFICATES
 
 @Component
-class AmazonCertificateProvider implements CertificateProvider<AmazonCertificate> {
+class AmazonServerCertificateProvider implements CertificateProvider<AmazonCertificate> {
 
   private final Cache cacheView
   private final ObjectMapper objectMapper
 
   @Autowired
-  AmazonCertificateProvider(Cache cacheView, ObjectMapper objectMapper) {
+  AmazonServerCertificateProvider(Cache cacheView, ObjectMapper objectMapper) {
     this.cacheView = cacheView
     this.objectMapper = objectMapper
   }

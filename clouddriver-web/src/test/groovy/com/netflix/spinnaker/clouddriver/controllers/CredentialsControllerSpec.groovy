@@ -38,7 +38,6 @@ class CredentialsControllerSpec extends Specification {
 
   void "named credential names are listed"() {
     setup:
-
     def objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
     def credsRepo = new MapBackedAccountCredentialsRepository()
     def credsProvider = new DefaultAccountCredentialsProvider(credsRepo)
@@ -53,7 +52,28 @@ class CredentialsControllerSpec extends Specification {
 
     List<Map> parsedResponse = new JsonSlurper().parseText(result.response.contentAsString) as List
 
-    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: ["test"], challengeDestructiveActions: false, primaryAccount: false, providerVersion: "v1"]]
+    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", enabled: true, type: "testProvider", requiredGroupMembership: ["test"], challengeDestructiveActions: false, primaryAccount: false, providerVersion: "v1"]]
+  }
+
+  void "disabled credentials are listed"() {
+    setup:
+    def objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    def credsRepo = new MapBackedAccountCredentialsRepository()
+    def credsProvider = new DefaultAccountCredentialsProvider(credsRepo)
+    credsRepo.save("test", new TestNamedAccountCredentials())
+    credsRepo.save("disabled", new TestNamedAccountCredentials(name: "disabled", enabled: false))
+    def mvc = MockMvcBuilders.standaloneSetup(new CredentialsController(accountCredentialsProvider: credsProvider, objectMapper: objectMapper, credentialsConfiguration: new CredentialsConfiguration())).build()
+
+    when:
+    def result = mvc.perform(MockMvcRequestBuilders.get("/credentials").accept(MediaType.APPLICATION_JSON)).andReturn()
+
+    then:
+    result.response.status == 200
+
+    List<Map> parsedResponse = new JsonSlurper().parseText(result.response.contentAsString) as List
+
+    parsedResponse as Set == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", enabled: true, type: "testProvider", requiredGroupMembership: ["test"], challengeDestructiveActions: false, primaryAccount: false, providerVersion: "v1"],
+                              [name: "disabled", environment: "env", accountType: "acctType", cloudProvider: "testProvider", enabled: false, type: "testProvider", requiredGroupMembership: ["test"], challengeDestructiveActions: false, primaryAccount: false, providerVersion: "v1"]] as Set
   }
 
   static class TestNamedAccountCredentials implements AccountCredentials<Map> {
@@ -61,6 +81,7 @@ class CredentialsControllerSpec extends Specification {
     String name = "test"
     String environment = "env"
     String accountType = "acctType"
+    boolean enabled = true
 
     @Override
     Map getCredentials() {
@@ -75,6 +96,11 @@ class CredentialsControllerSpec extends Specification {
     @Override
     List<String> getRequiredGroupMembership() {
       ["test"]
+    }
+
+    @Override
+    boolean isEnabled() {
+      return enabled
     }
   }
 

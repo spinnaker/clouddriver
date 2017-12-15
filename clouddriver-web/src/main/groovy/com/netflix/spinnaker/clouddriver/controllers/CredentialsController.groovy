@@ -80,7 +80,8 @@ class CredentialsController {
                                'requiredGroupMembership',
                                'permissions',
                                'providerVersion',
-                               'accountId'])
+                               'accountId',
+                               'enabled'])
     }
 
     cred.type = accountCredentials.cloudProvider

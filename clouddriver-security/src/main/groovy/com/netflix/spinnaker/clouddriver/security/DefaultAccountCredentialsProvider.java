@@ -16,9 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Set;
 
 public class DefaultAccountCredentialsProvider implements AccountCredentialsProvider {
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultAccountCredentialsProvider.class);
+
     private final AccountCredentialsRepository repository;
 
     public DefaultAccountCredentialsProvider() {
@@ -36,6 +41,10 @@ public class DefaultAccountCredentialsProvider implements AccountCredentialsProv
 
     @Override
     public AccountCredentials getCredentials(String name) {
-        return repository.getOne(name);
+        AccountCredentials credentials = repository.getOne(name);
+        if (credentials != null && !credentials.isEnabled()) {
+            LOG.warn("The account '{}' ({}) is disabled because it cannot be accessed.", credentials.getName(), credentials.getAccountId());
+        }
+        return credentials;
     }
 }
