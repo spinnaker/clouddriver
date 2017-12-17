@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup
 
 import com.amazonaws.services.ec2.model.IpPermission
+import com.amazonaws.services.ec2.model.IpRange
+import com.amazonaws.services.ec2.model.Ipv6Range
 import com.amazonaws.services.ec2.model.SecurityGroup
 import com.amazonaws.services.ec2.model.UserIdGroupPair
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertSecurityGroupDescription
@@ -38,8 +40,13 @@ class SecurityGroupIngressConverter {
                                                         UpsertSecurityGroupDescription description) {
     List<SecurityGroupIngress> missing = []
     List<IpPermission> ipPermissions = description.ipIngress.collect { ingress ->
-      new IpPermission(ipProtocol: ingress.ipProtocol, fromPort: ingress.startPort, toPort: ingress.endPort,
-        ipRanges: [ingress.cidr])
+      IpPermission permission = new IpPermission(ipProtocol: ingress.ipProtocol, fromPort: ingress.startPort, toPort: ingress.endPort)
+      if (ingress.cidr?.contains(':')) {
+        permission.ipv6Ranges = [new Ipv6Range().withCidrIpv6(ingress.cidr)]
+      } else {
+        permission.ipv4Ranges = [new IpRange().withCidrIp(ingress.cidr)]
+      }
+      permission
     }
     description.securityGroupIngress.each { ingress ->
       final accountName = ingress.accountName ?: description.credentialAccount
@@ -78,18 +85,21 @@ class SecurityGroupIngressConverter {
         it.groupName = null
         it.peeringStatus = null
         it.vpcPeeringConnectionId = null
+        it.description = null // not passed in via the UI
         new IpPermission()
           .withFromPort(ipPermission.fromPort)
           .withToPort(ipPermission.toPort)
           .withIpProtocol(ipPermission.ipProtocol)
           .withUserIdGroupPairs(it)
       } + ipPermission.ipv4Ranges.collect {
+        it.description = null // not passed in via the UI
         new IpPermission()
           .withFromPort(ipPermission.fromPort)
           .withToPort(ipPermission.toPort)
           .withIpProtocol(ipPermission.ipProtocol)
           .withIpv4Ranges(it)
       } + ipPermission.ipv6Ranges.collect {
+        it.description = null // not passed in via the UI
         new IpPermission()
           .withFromPort(ipPermission.fromPort)
           .withToPort(ipPermission.toPort)

@@ -36,6 +36,7 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesKindAtomicOpe
   List<String> loadBalancers
   List<String> securityGroups
   List<KubernetesContainerDescription> containers
+  List<KubernetesContainerDescription> initContainers
   List<KubernetesVolumeSource> volumeSources
   Capacity capacity
   KubernetesScalingPolicy scalingPolicy
@@ -105,6 +106,7 @@ class KubernetesContainerDescription {
 
   List<KubernetesVolumeMount> volumeMounts
   List<KubernetesEnvVar> envVars
+  List<KubernetesEnvFromSource> envFrom
 
   List<String> command
   List<String> args
@@ -166,6 +168,28 @@ class KubernetesEnvVar {
   String name
   String value
   KubernetesEnvVarSource envSource
+}
+
+@AutoClone
+@Canonical
+class KubernetesEnvFromSource {
+  String prefix
+  KubernetesConfigMapEnvSource configMapRef
+  KubernetesSecretEnvSource secretRef
+}
+
+@AutoClone
+@Canonical
+class KubernetesConfigMapEnvSource {
+  String name
+  boolean optional
+}
+
+@AutoClone
+@Canonical
+class KubernetesSecretEnvSource {
+  String name
+  boolean optional
 }
 
 @AutoClone
