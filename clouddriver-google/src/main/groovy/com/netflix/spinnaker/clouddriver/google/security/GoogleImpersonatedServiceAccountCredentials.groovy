@@ -23,15 +23,15 @@ import com.netflix.spinnaker.clouddriver.google.ComputeVersion
 import groovy.util.logging.Slf4j
 
 @Slf4j
-class GoogleImpersonateServiceAccountCredentials extends GoogleCredentials {
+class GoogleImpersonatedServiceAccountCredentials extends GoogleCredentials {
 
   String serviceAccountId
   String serviceAccountProject
 
-  GoogleImpersonateServiceAccountCredentials(String project,
-                                             ComputeVersion computeVersion,
-                                             String serviceAccountId,
-                                             String serviceAccountProject) {
+  GoogleImpersonatedServiceAccountCredentials(String project,
+                                              ComputeVersion computeVersion,
+                                              String serviceAccountId,
+                                              String serviceAccountProject) {
     super(project, computeVersion)
     this.serviceAccountId = serviceAccountId
     this.serviceAccountProject = serviceAccountProject

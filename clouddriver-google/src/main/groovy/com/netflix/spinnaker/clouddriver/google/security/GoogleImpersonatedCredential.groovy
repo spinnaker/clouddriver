@@ -55,7 +55,9 @@ class GoogleImpersonatedCredential extends GoogleCredential {
    * in a 401 Unauthorized response from the server.
    *
    * This only applies when running Clouddriver on GCP (where Application Default Credentials are
-   * available).
+   * available). You can emulate this environment by setting `GOOGLE_APPLICATION_CREDENTIALS` to
+   * a location of a private key. It's not exactly the same, but works pretty similar. See
+   * https://developers.google.com/identity/protocols/application-default-credentials for more info.
    *
    * @return
    * @throws IOException

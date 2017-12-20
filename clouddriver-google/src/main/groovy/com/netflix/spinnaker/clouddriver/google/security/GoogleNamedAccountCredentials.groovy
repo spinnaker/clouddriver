@@ -230,10 +230,10 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
           credentials = new GoogleJsonCredentials(project, computeVersion, jsonKey)
         } else if (serviceAccountId && serviceAccountProject) {
           credInfo += "Impersonating $serviceAccountProject/$serviceAccountId"
-          credentials = new GoogleImpersonateServiceAccountCredentials(project,
-                                                                       computeVersion,
-                                                                       serviceAccountId,
-                                                                       serviceAccountProject)
+          credentials = new GoogleImpersonatedServiceAccountCredentials(project,
+                                                                        computeVersion,
+                                                                        serviceAccountId,
+                                                                        serviceAccountProject)
         } else {
           credInfo += "Application Default Credentials"
           credentials = new GoogleCredentials(project, computeVersion)
