@@ -36,7 +36,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @Slf4j
@@ -87,7 +89,7 @@ public class KubectlJobExecutor {
     return status.getStdOut();
   }
 
-  public Void delete(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, V1DeleteOptions deleteOptions) {
+  public List<String> delete(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, V1DeleteOptions deleteOptions) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("delete");
@@ -119,14 +121,21 @@ public class KubectlJobExecutor {
       throw new KubectlException("Failed to delete " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
     }
 
-    return null;
+    if (StringUtils.isEmpty(status.getStdOut())) {
+      return new ArrayList<>();
+    }
+
+    return Arrays.stream(status.getStdOut().split("\n"))
+        .map(m -> m.substring(m.indexOf("\"") + 1))
+        .map(m -> m.substring(0, m.lastIndexOf("\"")))
+        .collect(Collectors.toList());
   }
 
-  public Void scale(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, int replicas) {
+  public Void scale(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, int replicas) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("scale");
-    command = kubectlLookupInfo(command, kind, name, labelSelectors);
+    command = kubectlLookupInfo(command, kind, name, null);
     command.add("--replicas=" + replicas);
 
     String jobId = jobExecutor.startJob(new JobRequest(command),
@@ -140,6 +149,50 @@ public class KubectlJobExecutor {
     }
 
     return null;
+  }
+
+  public List<Integer> historyRollout(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+    List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+
+    command.add("rollout");
+    command.add("history");
+    command.add(kind.toString() + "/" + name);
+
+    String jobId = jobExecutor.startJob(new JobRequest(command),
+        System.getenv(),
+        new ByteArrayInputStream(new byte[0]));
+
+    JobStatus status = backoffWait(jobId, credentials.isDebug());
+
+    if (status.getResult() != JobStatus.Result.SUCCESS) {
+      throw new KubectlException("Failed to get rollout history of " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
+    }
+
+    String stdout = status.getStdOut();
+    if (StringUtils.isEmpty(stdout)) {
+      return new ArrayList<>();
+    }
+
+    // <resource> "name"
+    // REVISION CHANGE-CAUSE
+    // #        <change>
+    // #        <change>
+    // #        <change>
+    // ...
+    List<String> splitOutput = Arrays.stream(stdout.split("\n")).collect(Collectors.toList());
+
+    if (splitOutput.size() <= 2) {
+      return new ArrayList<>();
+    }
+
+    splitOutput = splitOutput.subList(2, splitOutput.size());
+
+    return splitOutput.stream()
+        .map(l -> l.split("[ \t]"))
+        .filter(l -> l.length > 0)
+        .map(l -> l[0])
+        .map(Integer::valueOf)
+        .collect(Collectors.toList());
   }
 
   public Void undoRollout(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, int revision) {
@@ -351,9 +404,8 @@ public class KubectlJobExecutor {
       command.add(kind.toString());
     }
 
-    if (!labelSelectors.isEmpty()) {
-      command.add("-l");
-      command.add("'" + labelSelectors + "'");
+    if (labelSelectors == null || !labelSelectors.isEmpty()) {
+      command.add("-l=" + labelSelectors);
     }
 
     return command;
