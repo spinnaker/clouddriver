@@ -204,9 +204,19 @@ class ClusterController {
       log.warn("No cluster provider found for cloud provider (cloudProvider: ${cloudProvider}, account: ${account})")
     }
     def shouldExpand = clusterProvider ? !clusterProvider.supportsMinimalClusters() : true
+    log.info("should expand: $shouldExpand")
+    log.info("only enabled: $onlyEnabled = ${Boolean.valueOf(onlyEnabled)}")
 
     // load all server groups w/o instance details (this is reasonably efficient)
     def sortedServerGroups = getServerGroups(application, account, clusterName, cloudProvider, null /* region */, shouldExpand).findAll {
+      log.info("server group: ${it.toString()}")
+      log.info("  (name: ${it.getName()}")
+      log.info("  (provider: ${it.getCloudProvider()}")
+      log.info("  (lbs: ${it.getLoadBalancers()}")
+      log.info("  (capacity: ${it.getCapacity()}")
+      log.info("  (launch config: ${it.getLaunchConfig()}")
+      log.info("  (disabled: ${it.isDisabled()}")
+      log.info("  (enabled: ${!it.isDisabled()})")
       def scopeMatch = it.region == scope || it.zones?.contains(scope)
 
       def enableMatch
@@ -216,6 +226,8 @@ class ClusterController {
         enableMatch = true
       }
 
+      log.info("scopeMatch $scopeMatch")
+      log.info("enableMatch $enableMatch")
       return scopeMatch && enableMatch
     }.sort { a, b -> b.createdTime <=> a.createdTime }
 
