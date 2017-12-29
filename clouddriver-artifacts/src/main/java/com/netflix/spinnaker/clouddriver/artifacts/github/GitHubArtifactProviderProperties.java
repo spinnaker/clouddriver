@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2017 Armory, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
+package com.netflix.spinnaker.clouddriver.artifacts.github;
 
+import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactProvider;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
-@EqualsAndHashCode(callSuper = true)
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
-public class KubernetesUndoRolloutManifestDescription extends KubernetesManifestOperationDescription {
-  Integer revision;
-  Integer numRevisionsBack;
+public class GitHubArtifactProviderProperties extends ArtifactProvider<GitHubArtifactAccount> {
+  private boolean enabled;
+  private List<GitHubArtifactAccount> accounts = new ArrayList<>();
 }

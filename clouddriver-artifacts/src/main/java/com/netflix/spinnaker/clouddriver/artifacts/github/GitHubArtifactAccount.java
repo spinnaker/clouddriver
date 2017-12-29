@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2017 Armory, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,27 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
+package com.netflix.spinnaker.clouddriver.artifacts.github;
 
+
+import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class KubernetesUndoRolloutManifestDescription extends KubernetesManifestOperationDescription {
-  Integer revision;
-  Integer numRevisionsBack;
+public class GitHubArtifactAccount extends ArtifactAccount {
+  private String name;
+  /*
+    One of the following are required for auth:
+     - username and password
+     - usernamePasswordFile : path to file containing "username:password"
+     - token
+     - tokenFile : path to file containing token
+   */
+  private String username;
+  private String password;
+  private String usernamePasswordFile;
+  private String token;
+  private String tokenFile;
 }

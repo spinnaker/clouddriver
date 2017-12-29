@@ -179,19 +179,11 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
     ConcurrentHashMap<String, OverallReservationDetail> reservations = new ConcurrentHashMap<>()
     ConcurrentHashMap<String, Collection<String>> errorsByRegion = new ConcurrentHashMap<>()
 
-    Map<NetflixAmazonCredentials, Future> tasks = accounts.collectEntries { NetflixAmazonCredentials credential ->
-      [
-        (credential) : reservationReportPool.submit {
-          extractReservations(reservations, errorsByRegion, credential)
-        }
-      ]
-    }
-
-    tasks.each {
+    accounts.each { NetflixAmazonCredentials credential ->
       try {
-        it.value.get()
+        extractReservations(reservations, errorsByRegion, credential)
       } catch (Exception e) {
-        recordError(registry, errorsByRegion, it.key, "*", e)
+        recordError(registry, errorsByRegion, credential, "*", e)
       }
     }
 
@@ -307,12 +299,14 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
           }
 
           startTime = System.currentTimeMillis()
-
           def fetchedInstanceCount = 0
           def describeInstancesRequest = new DescribeInstancesRequest().withMaxResults(500)
           def allowedStates = ["pending", "running"] as Set<String>
           while (true) {
+            log.debug("Describing instances for ${credentials.name}/${region.name}")
             def result = amazonEC2.describeInstances(describeInstancesRequest)
+            log.debug("Described instances for ${credentials.name}/${region.name}")
+
             result.reservations.each {
               it.getInstances().each {
                 if (!allowedStates.contains(it.state.name.toLowerCase())) {

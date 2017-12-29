@@ -29,6 +29,7 @@ import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersRe
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.*;
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroup;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JavaType;
@@ -366,7 +367,14 @@ public class AmazonClientInvocationHandler implements InvocationHandler {
   private InputStream getJsonInputStream(Map<String, String> metricTags, String objectName, String key) throws IOException {
     final String url = edda + "/REST/v2/aws/" + objectName + (key == null ? ";_expand" : "/" + key) + ";_meta";
     final HttpGet get = new HttpGet(url);
-    get.setConfig(RequestConfig.custom().setConnectTimeout(eddaTimeoutConfig.getConnectTimeout()).setSocketTimeout(eddaTimeoutConfig.getSocketTimeout()).build());
+    get.setConfig(
+      RequestConfig
+        .custom()
+        .setConnectTimeout(eddaTimeoutConfig.getConnectTimeout())
+        .setConnectionRequestTimeout(eddaTimeoutConfig.getConnectionRequestTimeout())
+        .setSocketTimeout(eddaTimeoutConfig.getSocketTimeout())
+        .build()
+    );
 
     long retryDelay = eddaTimeoutConfig.getRetryBase();
     int retryAttempts = 0;
