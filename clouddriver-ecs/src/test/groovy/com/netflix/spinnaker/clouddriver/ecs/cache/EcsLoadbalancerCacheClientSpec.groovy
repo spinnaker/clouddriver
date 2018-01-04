@@ -30,6 +30,7 @@ import spock.lang.Subject
 class EcsLoadbalancerCacheClientSpec extends Specification {
   def cacheView = Mock(Cache)
   def objectMapper = new ObjectMapper()
+                          .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   @Subject
   EcsLoadbalancerCacheClient client = new EcsLoadbalancerCacheClient(cacheView, objectMapper)
@@ -66,8 +67,6 @@ class EcsLoadbalancerCacheClientSpec extends Specification {
       targetGroups: [targetGroupName],
       serverGroups: []
     )
-
-    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     def attributes = objectMapper.convertValue(givenEcsLoadbalancer, Map)
     def relations = [targetGroups: [targetGroupKey]]
