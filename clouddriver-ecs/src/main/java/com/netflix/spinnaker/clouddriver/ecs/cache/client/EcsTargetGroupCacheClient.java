@@ -58,7 +58,6 @@ public class EcsTargetGroupCacheClient {
   }
 
   private EcsTargetGroup convertToTargetGroup(Map<String, Object> targetGroupAttributes) {
-    targetGroupAttributes.toString();
     EcsTargetGroup ecsTargetGroup = objectMapper.convertValue(targetGroupAttributes, EcsTargetGroup.class);
     return ecsTargetGroup;
   }
@@ -77,25 +76,25 @@ public class EcsTargetGroupCacheClient {
   private Set<Map<String, Object>> fetchLoadBalancerAttributes(Collection<String> targetGroupKeys) {
     Set<CacheData> targetGroups = fetchTargetGroups(targetGroupKeys);
 
-    Set<CacheData> targetGroupsWithAtLeastOneLoadBalancer = targetGroups
-      .stream()
-      .filter(targetGroup -> targetGroup.getRelationships().get("loadBalancers") != null
-        && targetGroup.getRelationships().get("loadBalancers").size() > 0)
-      .collect(Collectors.toSet());
-
-    Set<Map<String, Object>> targetGroupAttributes = targetGroupsWithAtLeastOneLoadBalancer.stream()
-      .map(lb -> lb.getAttributes())
+    Set<Map<String, Object>> targetGroupAttributes = targetGroups.stream()
+      .filter(this::hashLoadBalancers)
+      .map(CacheData::getAttributes)
       .collect(Collectors.toSet());
 
     return targetGroupAttributes;
   }
 
+  private boolean hashLoadBalancers(CacheData targetGroupCache) {
+    return targetGroupCache.getRelationships().get("loadBalancers") != null
+      && targetGroupCache.getRelationships().get("loadBalancers").size() > 0;
+  }
 
   private Set<Map<String, Object>> retrieveTargetGroups(Set<String> targetGroupsAssociatedWithLoadBalancers) {
     Collection<CacheData> targetGroupCache = cacheView.getAll(TARGET_GROUPS.getNs(), targetGroupsAssociatedWithLoadBalancers);
+
     Set<Map<String, Object>> targetGroupAttributes = targetGroupCache
       .stream()
-      .map(lb -> lb.getAttributes())
+      .map(CacheData::getAttributes)
       .collect(Collectors.toSet());
 
     return targetGroupAttributes;
@@ -108,27 +107,16 @@ public class EcsTargetGroupCacheClient {
     for (CacheData loadBalancer : loadBalancers) {
       Collection<String> relatedTargetGroups = loadBalancer.getRelationships().get("targetGroups");
       if (relatedTargetGroups != null && relatedTargetGroups.size() > 0) {
-        for (String targetGroupArn : relatedTargetGroups) {
-          targetGroupsAssociatedWithLoadBalancers.add(targetGroupArn);
-        }
+        targetGroupsAssociatedWithLoadBalancers.addAll(relatedTargetGroups);
       }
     }
     return targetGroupsAssociatedWithLoadBalancers;
   }
 
   private Set<CacheData> fetchTargetGroups(Collection<String> targetGroupKeys) {
-    return cacheView
-      .getAll(TARGET_GROUPS.getNs(), targetGroupKeys, RelationshipCacheFilter.include(LOAD_BALANCERS.getNs()))
-      .stream()
-      .collect(Collectors.toSet());
+    return new HashSet<>(cacheView.getAll(TARGET_GROUPS.getNs(),
+                                          targetGroupKeys,
+                                          RelationshipCacheFilter.include(LOAD_BALANCERS.getNs())));
   }
 
-
-  private String extractAccount(EcsTargetGroup ecsTargetGroup) {
-    return null; // Implement this based on ecsTargetGroup.getId(); -->  example value: aws:targetGroups:continuous-delivery:us-west-2:clouddriver-dev:vpc-bb8f37dd
-  }
-
-  private String extractRegion(EcsTargetGroup ecsTargetGroup) {
-    return null; // Implement this based on ecsTargetGroup.getId(); -->  example value: aws:targetGroups:continuous-delivery:us-west-2:clouddriver-dev:vpc-bb8f37dd
-  }
 }
