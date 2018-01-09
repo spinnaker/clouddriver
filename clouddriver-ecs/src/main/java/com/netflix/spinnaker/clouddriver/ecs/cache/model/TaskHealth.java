@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Google, Inc.
+ * Copyright 2017 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth
+package com.netflix.spinnaker.clouddriver.ecs.cache.model;
 
-import groovy.transform.ToString
+import lombok.Data;
 
-@ToString(includeNames = true)
-class DockerBearerToken {
-  // One of token, access_token, or bearer_token will be filled by the request.
-  String token
-  String access_token
-  String bearer_token
-  int expires_in
-  String issued_at
+@Data
+public class TaskHealth {
+  String state;
+  String type;
+  String serviceName;
+  String taskArn;
+  String instanceId;
+  String taskId;
 }
