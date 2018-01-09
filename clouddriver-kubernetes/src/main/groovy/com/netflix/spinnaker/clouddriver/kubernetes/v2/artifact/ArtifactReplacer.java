@@ -61,6 +61,7 @@ public class ArtifactReplacer {
   }
 
   public ReplaceResult replaceAll(KubernetesManifest input, List<Artifact> artifacts) {
+    log.info("Doing replacement on {} using {}", input, artifacts);
     DocumentContext document;
     try {
       document = JsonPath.using(configuration).parse(mapper.writeValueAsString(input));
@@ -153,7 +154,7 @@ public class ArtifactReplacer {
       String jsonPath = processPath(replacePath, artifact);
 
       Object get = obj.read(jsonPath);
-      if (get == null) {
+      if (get == null || (get instanceof ArrayNode && ((ArrayNode) get).size() == 0)) {
         return false;
       }
 
