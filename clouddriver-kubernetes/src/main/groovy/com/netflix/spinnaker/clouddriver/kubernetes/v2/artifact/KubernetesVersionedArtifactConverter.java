@@ -17,29 +17,42 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
+@Slf4j
 public class KubernetesVersionedArtifactConverter extends KubernetesArtifactConverter {
+  final private ObjectMapper objectMapper;
+
+  @Autowired
+  public KubernetesVersionedArtifactConverter(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
+
   @Override
   public Artifact toArtifact(ArtifactProvider provider, KubernetesManifest manifest) {
     String type = getType(manifest);
     String name = manifest.getName();
     String location = manifest.getNamespace();
-    String version = getVersion(provider, type, name, location);
+    String version = getVersion(provider, type, name, location, manifest);
     return Artifact.builder()
         .type(type)
         .name(name)
         .location(location)
         .version(version)
+        .reference(getDeployedName(name, version))
         .build();
   }
 
@@ -54,12 +67,27 @@ public class KubernetesVersionedArtifactConverter extends KubernetesArtifactConv
 
   @Override
   public String getDeployedName(Artifact artifact) {
-    return artifact.getName() + "-" + artifact.getVersion();
+    return getDeployedName(artifact.getName(), artifact.getVersion());
   }
 
-  private String getVersion(ArtifactProvider provider, String type, String name, String location) {
+  private String getDeployedName(String name, String version) {
+    return String.join("-", name, version);
+  }
+
+  private String getVersion(ArtifactProvider provider, String type, String name, String location, KubernetesManifest manifest) {
     List<Artifact> priorVersions = provider.getArtifacts(type, name, location);
 
+    Optional<String> maybeVersion = findMatchingVersion(priorVersions, manifest);
+    if (maybeVersion.isPresent()) {
+      String version = maybeVersion.get();
+      log.info("Manifest {} was already deployed at version {} - reusing.", manifest, version);
+      return version;
+    } else {
+      return findGreatestUnusedVersion(priorVersions);
+    }
+  }
+
+  private String findGreatestUnusedVersion(List<Artifact> priorVersions) {
     List<Integer> taken = priorVersions.stream()
         .map(Artifact::getVersion)
         .filter(Objects::nonNull)
@@ -87,6 +115,35 @@ public class KubernetesVersionedArtifactConverter extends KubernetesArtifactConv
       return String.format("v%03d", sequence);
     } else {
       return String.format("v%d", sequence);
+    }
+  }
+
+  private Optional<String> findMatchingVersion(List<Artifact> priorVersions, KubernetesManifest manifest) {
+    return priorVersions.stream()
+        .filter(a -> getLastAppliedConfiguration(a)
+            .map(c -> c.nonMetadataEquals(manifest))
+            .orElse(false))
+        .findFirst()
+        .map(Artifact::getVersion);
+  }
+
+  private Optional<KubernetesManifest> getLastAppliedConfiguration(Artifact artifact) {
+    if (artifact.getMetadata() == null) {
+      return Optional.empty();
+    }
+
+    Object rawLastAppliedConfiguration = artifact.getMetadata().get("lastAppliedConfiguration");
+
+    if (rawLastAppliedConfiguration == null) {
+      return Optional.empty();
+    }
+
+    try {
+      KubernetesManifest manifest = objectMapper.convertValue(rawLastAppliedConfiguration, KubernetesManifest.class);
+      return Optional.of(manifest);
+    } catch (Exception e) {
+      log.warn("Malformed lastAppliedConfiguration entry in {}: ", artifact, e);
+      return Optional.empty();
     }
   }
 }
