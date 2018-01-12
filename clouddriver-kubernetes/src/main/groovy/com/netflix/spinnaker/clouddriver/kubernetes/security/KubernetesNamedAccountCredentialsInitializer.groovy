@@ -91,6 +91,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
           .namespaces(managedAccount.namespaces)
           .omitNamespaces(managedAccount.omitNamespaces)
           .cacheThreads(managedAccount.cacheThreads ?: DEFAULT_CACHE_THREADS)
+          .kinds(managedAccount.kinds)
           .dockerRegistries(managedAccount.dockerRegistries)
           .requiredGroupMembership(managedAccount.requiredGroupMembership)
           .permissions(managedAccount.permissions.build())
