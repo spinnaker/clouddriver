@@ -22,7 +22,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
-import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsInstanceCacheClient
 import spock.lang.Specification
 import spock.lang.Subject
