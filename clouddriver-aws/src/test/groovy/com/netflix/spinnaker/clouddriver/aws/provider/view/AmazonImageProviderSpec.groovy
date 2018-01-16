@@ -52,26 +52,12 @@ class AmazonImageProviderSpec extends Specification {
             "aws:images:test_account:eu-west-1:ami-123321"
     ]
 
-    1 * cache.get(IMAGES.ns, "aws:images:test_account:eu-west-1:ami-123321") >>
-            imageCacheData('aws:images:test_account:eu-west-1:ami-123321', [
+    1 * cache.getAll(IMAGES.ns, ["aws:images:test_account:eu-west-1:ami-123321"]) >>
+            [imageCacheData('aws:images:test_account:eu-west-1:ami-123321', [
                     account: 'test_account',
                     region : 'eu-west-1',
                     name   : 'some_ami',
-                    imageId: 'ami-123321'])
-  }
-
-  void "should return exception because of image not being unique"() {
-    when:
-    provider.getImageById("ami-123321")
-
-    then:
-    thrown(RuntimeException)
-
-    and:
-    1 * cache.filterIdentifiers(IMAGES.ns, _ as String) >> [
-            "aws:images:test_account:eu-west-1:ami-123321",
-            "aws:images:test_account:eu-west-1:ami-123321"
-    ]
+                    imageId: 'ami-123321'])]
   }
 
   void "should not find any image"() {

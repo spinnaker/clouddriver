@@ -59,22 +59,25 @@ public class AmazonImageProvider implements ImageProvider {
 
     if (imageIdList.isEmpty()) {
       return Optional.empty();
-    } else if (imageIdList.size() > 1) {
-      throw new RuntimeException("Image id (" + imageId + ") didn't return an unique image for provider " + getCloudProvider());
     }
 
-    String imageCacheId = imageIdList.get(0);
-    CacheData imageCache = cacheView.get(IMAGES.toString(), imageCacheId);
+    List<CacheData> imageCacheList = new ArrayList<>(cacheView.getAll(IMAGES.toString(), imageIdList));
 
     Artifact image = Artifact.builder()
-        .name((String) imageCache.getAttributes().get("name"))
+        .name((String) imageCacheList.get(0).getAttributes().get("name"))
         .type(AmazonImage.AMAZON_IMAGE_TYPE)
-        .location(imageCacheId.split(":")[2] + "/" + imageCacheId.split(":")[3])
-        .reference((String) imageCache.getAttributes().get("imageId"))
-        .metadata(imageCache.getAttributes())
+        .location(imageCacheList.get(0).getId().split(":")[2] + "/" + imageCacheList.get(0).getId().split(":")[3])
+        .reference((String) imageCacheList.get(0).getAttributes().get("imageId"))
+        .metadata(imageCacheList.get(0).getAttributes())
         .build();
 
-    image.getMetadata().put(SERVER_GROUPS.toString(), getServerGroupsBasedOnInstances(imageCache.getRelationships().get(INSTANCES.toString())));
+    List<String> instancesIdList = imageCacheList.stream()
+        .filter(imageCache -> imageCache.getRelationships().get(INSTANCES.toString()) != null)
+        .map(imageCache -> imageCache.getRelationships().get(INSTANCES.toString()))
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList());
+
+    image.getMetadata().put(SERVER_GROUPS.toString(), getServerGroupsBasedOnInstances(instancesIdList));
     return Optional.of(image);
   }
 
@@ -84,7 +87,7 @@ public class AmazonImageProvider implements ImageProvider {
   }
 
   private List<Map<String, Object>> getServerGroupsBasedOnInstances(Collection<String> instancesIdList) {
-    if (instancesIdList == null) {
+    if (instancesIdList == null || instancesIdList.isEmpty()) {
       return new ArrayList<>();
     }
     return cacheView.getAll(INSTANCES.toString(), instancesIdList)
