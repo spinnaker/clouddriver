@@ -128,10 +128,10 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
           Keys.getServerGroupKey(accountName, namespace, serverGroupName),
           10 * 60, // ttl is 10 minutes
           [
-            cacheTime     : System.currentTimeMillis(),
-            cacheResults  : jsonResult,
+            cacheTime: System.currentTimeMillis(),
+            cacheResults: jsonResult,
             processedCount: 0,
-            processedTime : null
+            processedTime: null
           ],
           [:]
         )
@@ -181,11 +181,11 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
       def details = Keys.parse(it.id)
 
       return [
-        details       : details,
-        moniker       : convertOnDemandDetails(details),
-        cacheTime     : it.attributes.cacheTime,
-        processedCount: it.attributes.processedCount,
-        processedTime : it.attributes.processedTime
+          details       : details,
+          moniker       : convertOnDemandDetails(details),
+          cacheTime     : it.attributes.cacheTime,
+          processedCount: it.attributes.processedCount,
+          processedTime : it.attributes.processedTime
       ]
     }
   }
@@ -261,8 +261,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
     return result
   }
 
-  private
-  static void cache(Map<String, List<CacheData>> cacheResults, String cacheNamespace, Map<String, CacheData> cacheDataById) {
+  private static void cache(Map<String, List<CacheData>> cacheResults, String cacheNamespace, Map<String, CacheData> cacheDataById) {
     cacheResults[cacheNamespace].each {
       def existingCacheData = cacheDataById[it.id]
       if (existingCacheData) {
@@ -311,7 +310,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
       log.warn "Failure fetching autoscalers for all server groups in $namespaces", e
     }
 
-    for (ReplicaSetOrController serverGroup : serverGroups) {
+    for (ReplicaSetOrController serverGroup: serverGroups) {
       if (!serverGroup.exists()) {
         continue
       }
@@ -320,7 +319,7 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
 
       if (onDemandData && onDemandData.attributes.cacheTime >= start) {
         Map<String, List<CacheData>> cacheResults = objectMapper.readValue(onDemandData.attributes.cacheResults as String,
-          new TypeReference<Map<String, List<MutableCacheData>>>() {})
+                                                                           new TypeReference<Map<String, List<MutableCacheData>>>() { })
         cache(cacheResults, Keys.Namespace.APPLICATIONS.ns, cachedApplications)
         cache(cacheResults, Keys.Namespace.CLUSTERS.ns, cachedClusters)
         cache(cacheResults, Keys.Namespace.SERVER_GROUPS.ns, cachedServerGroups)
@@ -404,13 +403,13 @@ class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent impleme
     log.info("Caching ${cachedInstances.size()} instances in ${agentType}")
 
     new DefaultCacheResult([
-      (Keys.Namespace.APPLICATIONS.ns)  : cachedApplications.values(),
+      (Keys.Namespace.APPLICATIONS.ns): cachedApplications.values(),
       (Keys.Namespace.LOAD_BALANCERS.ns): cachedLoadBalancers.values(),
-      (Keys.Namespace.CLUSTERS.ns)      : cachedClusters.values(),
-      (Keys.Namespace.SERVER_GROUPS.ns) : cachedServerGroups.values(),
-      (Keys.Namespace.INSTANCES.ns)     : cachedInstances.values(),
-      (Keys.Namespace.ON_DEMAND.ns)     : onDemandKeep.values()
-    ], [
+      (Keys.Namespace.CLUSTERS.ns): cachedClusters.values(),
+      (Keys.Namespace.SERVER_GROUPS.ns): cachedServerGroups.values(),
+      (Keys.Namespace.INSTANCES.ns): cachedInstances.values(),
+      (Keys.Namespace.ON_DEMAND.ns): onDemandKeep.values()
+    ],[
       (Keys.Namespace.ON_DEMAND.ns): onDemandEvict,
     ])
 
