@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesCachingProperties;
@@ -29,8 +30,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestMetadata;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSpinnakerRelationships;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer;
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
+import com.netflix.spinnaker.moniker.Namer;
 import io.kubernetes.client.JSON;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -90,7 +94,7 @@ public class KubernetesCacheDataConverter {
 
     Map<String, Object> attributes = new ImmutableMap.Builder<String, Object>()
         .put("artifact", artifact)
-        .put("creationTimestamp", manifest.getCreationTimestamp())
+        .put("creationTimestamp", Optional.ofNullable(manifest.getCreationTimestamp()).orElse(""))
         .build();
 
     Map<String, Collection<String>> cacheRelationships = new HashMap<>();
@@ -140,7 +144,10 @@ public class KubernetesCacheDataConverter {
     return new DefaultCacheData(id, ttl, attributes, relationships);
   }
 
-  public static CacheData convertAsResource(String account, KubernetesManifest manifest, List<KubernetesManifest> resourceRelationships) {
+  public static CacheData convertAsResource(String account,
+      KubernetesManifest manifest,
+      List<KubernetesManifest> resourceRelationships,
+      boolean hasClusterRelationship) {
     KubernetesCachingProperties cachingProperties = KubernetesManifestAnnotater.getCachingProperties(manifest);
     if (cachingProperties.isIgnore()) {
       return null;
@@ -152,7 +159,13 @@ public class KubernetesCacheDataConverter {
     KubernetesApiVersion apiVersion = manifest.getApiVersion();
     String name = manifest.getName();
     String namespace = manifest.getNamespace();
-    Moniker moniker = KubernetesManifestAnnotater.getMoniker(manifest);
+    Namer<KubernetesManifest> namer = account == null
+      ? new KubernetesManifestNamer()
+      : NamerRegistry.lookup()
+          .withProvider(KubernetesCloudProvider.getID())
+          .withAccount(account)
+          .withResource(KubernetesManifest.class);
+    Moniker moniker = namer.deriveMoniker(manifest);
 
     Map<String, Object> attributes = new ImmutableMap.Builder<String, Object>()
         .put("kind", kind)
@@ -178,7 +191,7 @@ public class KubernetesCacheDataConverter {
     if (StringUtils.isEmpty(application)) {
       log.debug("Encountered not-spinnaker-owned resource " + namespace + ":" + manifest.getFullResourceName());
     } else {
-      cacheRelationships.putAll(annotatedRelationships(account, namespace, metadata));
+      cacheRelationships.putAll(annotatedRelationships(account, metadata, hasClusterRelationship));
     }
 
     // TODO(lwander) avoid overwriting keys here
@@ -211,31 +224,20 @@ public class KubernetesCacheDataConverter {
     return json.deserialize(json.serialize(manifest), clazz);
   }
 
-  static Map<String, Collection<String>> annotatedRelationships(String account, String namespace, KubernetesManifestMetadata metadata) {
-    KubernetesManifestSpinnakerRelationships relationships = metadata.getRelationships();
+  static Map<String, Collection<String>> annotatedRelationships(String account,
+      KubernetesManifestMetadata metadata,
+      boolean hasClusterRelationship) {
     Moniker moniker = metadata.getMoniker();
+    String application = moniker.getApp();
     Artifact artifact = metadata.getArtifact();
     Map<String, Collection<String>> cacheRelationships = new HashMap<>();
-    String application = moniker.getApp();
 
     cacheRelationships.put(ARTIFACT.toString(), Collections.singletonList(Keys.artifact(artifact.getType(), artifact.getName(), artifact.getLocation(), artifact.getVersion())));
     cacheRelationships.put(APPLICATIONS.toString(), Collections.singletonList(Keys.application(application)));
 
     String cluster = moniker.getCluster();
-    if (!StringUtils.isEmpty(cluster)) {
+    if (StringUtils.isNotEmpty(cluster) && hasClusterRelationship) {
       cacheRelationships.put(CLUSTERS.toString(), Collections.singletonList(Keys.cluster(account, application, cluster)));
-    }
-
-    if (relationships.getLoadBalancers() != null) {
-      for (String loadBalancer : relationships.getLoadBalancers()) {
-        addSingleRelationship(cacheRelationships, account, namespace, loadBalancer);
-      }
-    }
-
-    if (relationships.getSecurityGroups() != null) {
-      for (String securityGroup : relationships.getSecurityGroups()) {
-        addSingleRelationship(cacheRelationships, account, namespace, securityGroup);
-      }
     }
 
     return cacheRelationships;
