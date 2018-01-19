@@ -20,7 +20,6 @@ import com.amazonaws.services.ec2.model.Instance;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.data.Keys;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -35,7 +34,7 @@ public class EcsInstanceCacheClient {
   private final Cache cacheView;
   private final ObjectMapper objectMapper;
 
-  public EcsInstanceCacheClient(Cache cacheView, @Qualifier("objectMapper") ObjectMapper objectMapper) {
+  public EcsInstanceCacheClient(Cache cacheView, ObjectMapper objectMapper) {
     this.cacheView = cacheView;
     this.objectMapper = objectMapper;
   }
