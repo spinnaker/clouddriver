@@ -21,25 +21,24 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SCALABLE_TARGETS;
 
 @Component
 public class ScalableTargetCacheClient extends AbstractCacheClient<ScalableTarget> {
-  private final ObjectMapper mapper;
+  private final ObjectMapper objectMapper;
 
   @Autowired
-  public ScalableTargetCacheClient(Cache cacheView, @Qualifier("objectMapper") ObjectMapper mapper) {
+  public ScalableTargetCacheClient(Cache cacheView, ObjectMapper objectMapper) {
     super(cacheView, SCALABLE_TARGETS.toString());
-    this.mapper = mapper;
+    this.objectMapper = objectMapper;
   }
 
   @Override
   protected ScalableTarget convert(CacheData cacheData) {
     ScalableTarget scalableTarget;
-    scalableTarget = mapper.convertValue(cacheData.getAttributes(), ScalableTarget.class);
+    scalableTarget = objectMapper.convertValue(cacheData.getAttributes(), ScalableTarget.class);
     return scalableTarget;
   }
 
