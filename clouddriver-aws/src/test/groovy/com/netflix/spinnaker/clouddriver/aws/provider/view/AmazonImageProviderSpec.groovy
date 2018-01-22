@@ -42,8 +42,8 @@ class AmazonImageProviderSpec extends Specification {
     result == Optional.of(Artifact.builder()
             .name("some_ami")
             .type(AmazonImage.AMAZON_IMAGE_TYPE)
-            .location("test_account/eu-west-1")
-            .metadata("name": "some_ami", "serverGroups": [], "imageId": "ami-123321", "region": "eu-west-1", "account": "test_account")
+            .location("123456789/eu-west-1")
+            .metadata("name": "some_ami", ownerId: '123456789', "serverGroups": [], "imageId": "ami-123321", "region": "eu-west-1", "account": "test_account")
             .reference("ami-123321")
             .build())
 
@@ -57,6 +57,7 @@ class AmazonImageProviderSpec extends Specification {
                     account: 'test_account',
                     region : 'eu-west-1',
                     name   : 'some_ami',
+                    ownerId: '123456789',
                     imageId: 'ami-123321'])]
   }
 

@@ -66,7 +66,7 @@ public class AmazonImageProvider implements ImageProvider {
     Artifact image = Artifact.builder()
         .name((String) imageCacheList.get(0).getAttributes().get("name"))
         .type(AmazonImage.AMAZON_IMAGE_TYPE)
-        .location(imageCacheList.get(0).getId().split(":")[2] + "/" + imageCacheList.get(0).getId().split(":")[3])
+        .location(imageCacheList.get(0).getAttributes().get("ownerId") + "/" + imageCacheList.get(0).getId().split(":")[3])
         .reference((String) imageCacheList.get(0).getAttributes().get("imageId"))
         .metadata(imageCacheList.get(0).getAttributes())
         .build();
