@@ -94,9 +94,7 @@ public class EcrImageProvider implements ImageRepositoryProvider {
 
     // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
     List<ImageDetail> imagesWithThisIdentifier = imagesResult.getImageDetails().stream()
-      .filter(imageDetail -> isTag ?
-        imageDetail.getImageTags() != null && imageDetail.getImageTags().contains(identifier) :
-        imageDetail.getImageDigest().equals(identifier))
+      .filter(imageDetail -> imageFilter(imageDetail, identifier, isTag))
       .collect(Collectors.toList());
 
     if (imagesWithThisIdentifier.size() > 1) {
@@ -117,6 +115,12 @@ public class EcrImageProvider implements ImageRepositoryProvider {
       region));
 
     return Collections.singletonList(ecsDockerImage);
+  }
+
+  private boolean imageFilter(ImageDetail imageDetail, String identifier, boolean isTag) {
+    return isTag ?
+      imageDetail.getImageTags() != null && imageDetail.getImageTags().contains(identifier) :
+      imageDetail.getImageDigest().equals(identifier);
   }
 
   private NetflixAmazonCredentials getCredentials(String accountId) {
