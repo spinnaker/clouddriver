@@ -35,7 +35,7 @@ public class EcsClusterController {
   }
 
 
-  @RequestMapping(value = {"/ecs/ecsclusters"})
+  @RequestMapping(value = {"/ecs/ecsClusters"})
   public Collection<EcsCluster> getAllEcsClusters() {
     return ecsClusterProvider.getAllEcsClusters();
   }
