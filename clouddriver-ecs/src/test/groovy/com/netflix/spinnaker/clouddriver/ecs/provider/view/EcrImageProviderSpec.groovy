@@ -145,7 +145,7 @@ class EcrImageProviderSpec extends Specification {
     provider.findImage(url)
 
     then:
-    final Error error = thrown()
+    final IllegalArgumentException error = thrown()
     error.message == "The repository URI provided does not contain a proper account ID."
   }
 
@@ -161,7 +161,7 @@ class EcrImageProviderSpec extends Specification {
     provider.findImage(url)
 
     then:
-    final Error error = thrown()
+    final IllegalArgumentException error = thrown()
     error.message == "The repository URI provided does not contain a proper repository name."
   }
 
@@ -177,7 +177,7 @@ class EcrImageProviderSpec extends Specification {
     provider.findImage(url)
 
     then:
-    final Error error = thrown()
+    final IllegalArgumentException error = thrown()
     error.message == "The repository URI provided does not contain a proper region."
   }
 
@@ -195,7 +195,7 @@ class EcrImageProviderSpec extends Specification {
     provider.findImage(url)
 
     then:
-    final Error error = thrown()
-    error.message == "The repository URI provided does not belong to a region that the credentials have access to or is not a valid region."
+    final IllegalArgumentException error = thrown()
+    error.message == "The repository URI provided does not belong to a region that the credentials have access to or the region is not valid."
   }
 }
