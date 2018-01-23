@@ -373,7 +373,7 @@ public class AmazonClientInvocationHandler implements InvocationHandler {
   }
 
   private HttpEntity getHttpEntity(Map<String, String> metricTags, String objectName, String key) throws IOException {
-    final String url = edda + "/REST/v2/aws/" + objectName + (key == null ? ";_expand" : "/" + key) + ";_meta";
+    final String url = edda + "/api/v2/aws/" + objectName + (key == null ? ";_expand" : "/" + key) + ";_meta";
     final HttpGet get = new HttpGet(url);
     get.setConfig(
       RequestConfig

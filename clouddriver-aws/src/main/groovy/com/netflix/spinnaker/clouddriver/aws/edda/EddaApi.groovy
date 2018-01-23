@@ -25,18 +25,18 @@ import retrofit.http.GET
 import retrofit.http.Path
 
 interface EddaApi {
-  @GET('/REST/v2/view/loadBalancerInstances;_expand')
+  @GET('/api/v2/view/loadBalancerInstances;_expand')
   List<LoadBalancerInstanceState> loadBalancerInstances()
 
-  @GET('/REST/v2/view/targetGroupHealth;_expand')
+  @GET('/api/v2/view/targetGroupHealth;_expand')
   List<TargetGroupHealth> targetGroupHealth()
 
-  @GET('/REST/v2/view/targetGroupAttributes;_expand')
+  @GET('/api/v2/view/targetGroupAttributes;_expand')
   List<TargetGroupAttributes> targetGroupAttributes()
 
-  @GET('/REST/v2/view/appLoadBalancerListeners/{loadBalancerName}')
+  @GET('/api/v2/view/appLoadBalancerListeners/{loadBalancerName}')
   List<Listener> listeners(@Path("loadBalancerName") String loadBalancerName)
 
-  @GET('/REST/v2/view/appLoadBalancerRules/{loadBalancerName}')
+  @GET('/api/v2/view/appLoadBalancerRules/{loadBalancerName}')
   List<EddaRule> rules(@Path("loadBalancerName") String loadBalancerName)
 }
