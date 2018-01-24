@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2017 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,24 +12,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
+package com.netflix.spinnaker.clouddriver.ecs.model;
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact;
+import com.netflix.spinnaker.clouddriver.model.Application;
+import lombok.Data;
 
-// TODO(lwander): move to clouddriver-artifacts when ready
-public class ArtifactTypes {
-  public static final ArtifactTypes DOCKER_IMAGE = new ArtifactTypes("docker/image");
-  public static final ArtifactTypes KUBERNETES_CONFIG_MAP = new ArtifactTypes("kubernetes/configMap");
+import java.util.Map;
+import java.util.Set;
 
-  final private String id;
+@Data
+public class EcsApplication implements Application {
 
-  public ArtifactTypes(String id) {
-    this.id = id;
-  }
+  private String name;
+  Map<String, String> attributes;
+  Map<String, Set<String>> clusterNames;
 
-  @Override
-  public String toString() {
-    return id;
+  public EcsApplication(String name, Map<String, String> attributes, Map<String, Set<String>> clusterNames) {
+    this.name = name;
+    this.attributes = attributes;
+    this.clusterNames = clusterNames;
   }
 }

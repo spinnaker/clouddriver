@@ -48,7 +48,7 @@ public class KubernetesReplicaSetCachingAgent extends KubernetesV2OnDemandCachin
   @Getter
   final private Collection<AgentDataType> providedDataTypes = Collections.unmodifiableSet(
       new HashSet<>(Arrays.asList(
-          INFORMATIVE.forType(Keys.LogicalKind.APPLICATIONS.toString()),
+          AUTHORITATIVE.forType(Keys.LogicalKind.APPLICATIONS.toString()),
           INFORMATIVE.forType(Keys.LogicalKind.CLUSTERS.toString()),
           INFORMATIVE.forType(KubernetesKind.DEPLOYMENT.toString()),
           AUTHORITATIVE.forType(KubernetesKind.REPLICA_SET.toString())
@@ -58,5 +58,10 @@ public class KubernetesReplicaSetCachingAgent extends KubernetesV2OnDemandCachin
   @Override
   protected KubernetesKind primaryKind() {
     return KubernetesKind.REPLICA_SET;
+  }
+
+  @Override
+  protected boolean hasClusterRelationship() {
+    return true;
   }
 }
