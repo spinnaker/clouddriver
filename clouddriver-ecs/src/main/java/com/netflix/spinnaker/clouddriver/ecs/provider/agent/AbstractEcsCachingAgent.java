@@ -98,7 +98,8 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
    */
   Set<String> getClusters(AmazonECS ecs, ProviderCache providerCache) {
     Set<String> clusters = providerCache.getAll(ECS_CLUSTERS.toString()).stream()
-      .filter(cacheData ->  cacheData.getAttributes().get("region").equals(region))
+      .filter(cacheData ->  cacheData.getAttributes().get("region").equals(region) &&
+                            cacheData.getAttributes().get("account").equals(accountName))
       .map(cacheData -> (String) cacheData.getAttributes().get("clusterArn"))
       .collect(Collectors.toSet());
 
