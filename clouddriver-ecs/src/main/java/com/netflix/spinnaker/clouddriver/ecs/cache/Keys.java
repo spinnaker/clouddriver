@@ -64,7 +64,7 @@ public class Keys implements KeyParser {
     return canParse(type);
   }
 
-  private static Boolean canParse(String type){
+  private static Boolean canParse(String type) {
     for (Namespace key : Namespace.values()) {
       if (key.toString().equals(type)) {
         return true;

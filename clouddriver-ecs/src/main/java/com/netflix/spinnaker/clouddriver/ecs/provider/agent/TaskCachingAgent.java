@@ -166,7 +166,7 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
     return dataMap;
   }
 
-  public static Map<String, Object> convertTaskToAttributes(Task task){
+  public static Map<String, Object> convertTaskToAttributes(Task task) {
     String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
 
     Map<String, Object> attributes = new HashMap<>();

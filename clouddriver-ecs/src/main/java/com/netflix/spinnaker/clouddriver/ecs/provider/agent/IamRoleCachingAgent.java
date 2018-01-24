@@ -178,6 +178,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
     return cacheableRoles;
   }
+  
   private boolean keyAccountFilter(String key) {
     Map<String, String> keyParts = Keys.parse(key);
     return keyParts != null &&

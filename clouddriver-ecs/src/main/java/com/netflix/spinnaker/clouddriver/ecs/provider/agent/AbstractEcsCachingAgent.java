@@ -193,7 +193,7 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
    * @param evictions The existing eviction map.
    * @return Eviction map with addtional keys.
    */
-  protected Map<String, Collection<String>> addExtraEvictions(Map<String, Collection<String>> evictions){
+  protected Map<String, Collection<String>> addExtraEvictions(Map<String, Collection<String>> evictions) {
     return evictions;
   }
 }
