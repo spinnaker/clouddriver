@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -54,6 +55,10 @@ public class KubernetesV2CachingAgentDispatcher implements KubernetesCachingAgen
         .map(i -> propertyRegistry.values()
             .stream()
             .map(KubernetesResourceProperties::getHandler)
+            .filter(handler -> {
+              List<String> kinds = ((KubernetesV2Credentials)credentials.getCredentials()).getKinds();
+              return kinds.isEmpty() || kinds.stream().anyMatch(kind -> kind.equalsIgnoreCase(handler.kind().toString()));
+            })
             .map(KubernetesHandler::cachingAgentClass)
             .filter(Objects::nonNull)
             .map(c -> {

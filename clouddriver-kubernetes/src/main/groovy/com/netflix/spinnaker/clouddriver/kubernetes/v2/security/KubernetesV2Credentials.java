@@ -53,6 +53,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final List<String> namespaces;
   private final List<String> omitNamespaces;
 
+  @Getter
+  private final List<String> kinds;
+
   // remove when kubectl is no longer a dependency
   @Getter
   private final String kubeconfigFile;
@@ -100,6 +103,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     String userAgent;
     List<String> namespaces = new ArrayList<>();
     List<String> omitNamespaces = new ArrayList<>();
+    List<String> kinds = new ArrayList<>();
     Registry registry;
     KubectlJobExecutor jobExecutor;
     boolean debug;
@@ -131,6 +135,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     public Builder omitNamespaces(List<String> omitNamespaces) {
       this.omitNamespaces = omitNamespaces;
+      return this;
+    }
+
+    public Builder kinds(List<String> kinds) {
+      this.kinds = kinds;
       return this;
     }
 
@@ -188,6 +197,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           context,
           oAuthServiceAccount,
           oAuthScopes,
+          kinds,
           debug
       );
     }
@@ -202,6 +212,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       String context,
       String oAuthServiceAccount,
       List<String> oAuthScopes,
+      List<String> kinds,
       boolean debug) {
     this.registry = registry;
     this.clock = registry.clock();
@@ -215,6 +226,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.context = context;
     this.oAuthServiceAccount = oAuthServiceAccount;
     this.oAuthScopes = oAuthScopes;
+    this.kinds = kinds;
   }
 
   @Override

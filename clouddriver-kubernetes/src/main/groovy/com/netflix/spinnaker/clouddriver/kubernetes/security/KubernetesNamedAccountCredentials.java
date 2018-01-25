@@ -168,6 +168,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     Boolean configureImagePullSecrets;
     List<String> namespaces;
     List<String> omitNamespaces;
+    List<String> kinds;
     int cacheThreads;
     C credentials;
     List<String> requiredGroupMembership;
@@ -272,6 +273,11 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       return this;
     }
 
+    Builder kinds(List<String> kinds) {
+      this.kinds = kinds;
+      return this;
+    }
+
     Builder cacheThreads(int cacheThreads) {
       this.cacheThreads = cacheThreads;
       return this;
@@ -339,6 +345,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
               .userAgent(userAgent)
               .namespaces(namespaces)
               .omitNamespaces(omitNamespaces)
+              .kinds(kinds)
               .registry(spectatorRegistry)
               .debug(debug)
               .jobExecutor(jobExecutor)
