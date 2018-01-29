@@ -32,7 +32,9 @@ public class Keys implements KeyParser {
     ECS_CLUSTERS,
     TASKS,
     CONTAINER_INSTANCES,
-    TASK_DEFINITIONS;
+    TASK_DEFINITIONS,
+    ALARMS,
+    SCALABLE_TARGETS;
 
     public final String ns;
 
@@ -102,8 +104,15 @@ public class Keys implements KeyParser {
       case TASK_DEFINITIONS:
         result.put("taskDefinitionArn", parts[4]);
         break;
+      case ALARMS:
+        result.put("alarmArn", parts[4]);
+        break;
       case IAM_ROLE:
         result.put("roleName", parts[3]);
+        break;
+      case SCALABLE_TARGETS:
+        result.put("resource", parts[4]);
+        break;
       default:
         break;
     }
@@ -138,6 +147,14 @@ public class Keys implements KeyParser {
 
   public static String getTaskDefinitionKey(String account, String region, String taskDefinitionArn) {
     return buildKey(Namespace.TASK_DEFINITIONS.ns, account, region, taskDefinitionArn);
+  }
+
+  public static String getAlarmKey(String account, String region, String alarmArn) {
+    return buildKey(Namespace.ALARMS.ns, account, region, alarmArn);
+  }
+
+  public static String getScalableTargetKey(String account, String region, String resourceId) {
+    return buildKey(Namespace.SCALABLE_TARGETS.ns, account, region, resourceId);
   }
 
   public static String getIamRoleKey(String account, String iamRoleName) {

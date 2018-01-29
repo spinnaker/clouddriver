@@ -50,8 +50,10 @@ public class KubernetesManifestAnnotater {
   private static final String IGNORE_CACHING = CACHING_ANNOTATION_PREFIX + "/ignore";
 
   private static final String KUBERNETES_ANNOTATION = "kubernetes.io";
+  private static final String KUBECTL_ANNOTATION_PREFIX = "kubectl." + KUBERNETES_ANNOTATION;
   private static final String DEPLOYMENT_ANNOTATION_PREFIX = "deployment." + KUBERNETES_ANNOTATION;
   private static final String DEPLOYMENT_REVISION = DEPLOYMENT_ANNOTATION_PREFIX + "/revision";
+  private static final String KUBECTL_LAST_APPLIED_CONFIGURATION = KUBECTL_ANNOTATION_PREFIX + "/last-applied-configuration";
 
   private static ObjectMapper objectMapper = new ObjectMapper();
 
@@ -172,9 +174,9 @@ public class KubernetesManifestAnnotater {
     return Moniker.builder()
         .cluster(getAnnotation(annotations, CLUSTER, new TypeReference<String>() {}, parsed.getCluster()))
         .app(getAnnotation(annotations, APPLICATION, new TypeReference<String>() {}, parsed.getApp()))
-        .stack(getAnnotation(annotations, STACK, new TypeReference<String>() {}, parsed.getStack()))
-        .detail(getAnnotation(annotations, DETAIL, new TypeReference<String>() {}, parsed.getDetail()))
-        .sequence(getAnnotation(annotations, DEPLOYMENT_REVISION, new TypeReference<Integer>() {}, parsed.getSequence()))
+        .stack(getAnnotation(annotations, STACK, new TypeReference<String>() {}, null))
+        .detail(getAnnotation(annotations, DETAIL, new TypeReference<String>() {}, null))
+        .sequence(getAnnotation(annotations, DEPLOYMENT_REVISION, new TypeReference<Integer>() {}, null))
         .build();
   }
 
@@ -184,5 +186,11 @@ public class KubernetesManifestAnnotater {
     return KubernetesCachingProperties.builder()
         .ignore(getAnnotation(annotations, IGNORE_CACHING, new TypeReference<Boolean>() {}, false))
         .build();
+  }
+
+  public static KubernetesManifest getLastAppliedConfiguration(KubernetesManifest manifest) {
+    Map<String, String> annotations = manifest.getAnnotations();
+
+    return getAnnotation(annotations, KUBECTL_LAST_APPLIED_CONFIGURATION, new TypeReference<KubernetesManifest>() { }, null);
   }
 }
