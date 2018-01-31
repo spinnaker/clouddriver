@@ -43,10 +43,10 @@ class EcsLoadBalancerProviderSpec extends Specification {
     def expectedNumberOfLoadbalancers = 2
     def givenList = []
     def accounts = []
-    (0..expectedNumberOfLoadbalancers).forEach() {
+    (1..expectedNumberOfLoadbalancers).forEach() {
       givenList << new EcsLoadBalancerCache(
-        account: 'test-account-' + x,
-        region: 'us-west-' + x,
+        account: 'test-account-' + it,
+        region: 'us-west-' + it,
         loadBalancerArn: 'arn',
         loadBalancerType: 'always-classic',
         cloudProvider: EcsCloudProvider.ID,
@@ -54,20 +54,20 @@ class EcsLoadBalancerProviderSpec extends Specification {
         scheme: 'scheme',
         availabilityZones: [],
         ipAddressType: 'ipv4',
-        loadBalancerName: 'load-balancer-' + x,
+        loadBalancerName: 'load-balancer-' + it,
         canonicalHostedZoneId: 'zone-id',
-        vpcId: 'vpc-id-' + x,
+        vpcId: 'vpc-id-' + it,
         dnsname: 'dns-name',
         createdTime: System.currentTimeMillis(),
         subnets: [],
         securityGroups: [],
-        targetGroups: ['target-group-' + x],
+        targetGroups: ['target-group-' + it],
         serverGroups: []
       )
 
       accounts << new ECSCredentialsConfig.Account(
-        name: 'test-account-' + x,
-        awsAccount: 'test-account-' + x
+        name: 'test-account-' + it,
+        awsAccount: 'test-account-' + it
       )
     }
     ecsCredentialsConfig.getAccounts() >> accounts
