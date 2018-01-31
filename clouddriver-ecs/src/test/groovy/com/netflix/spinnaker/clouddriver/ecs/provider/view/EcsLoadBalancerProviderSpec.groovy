@@ -43,7 +43,7 @@ class EcsLoadBalancerProviderSpec extends Specification {
     def expectedNumberOfLoadbalancers = 2
     def givenList = []
     def accounts = []
-    for (int x = 0; x < expectedNumberOfLoadbalancers; x++) {
+    (0..expectedNumberOfLoadbalancers).forEach() {
       givenList << new EcsLoadBalancerCache(
         account: 'test-account-' + x,
         region: 'us-west-' + x,

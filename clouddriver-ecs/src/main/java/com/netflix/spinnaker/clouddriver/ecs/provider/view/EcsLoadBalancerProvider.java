@@ -71,7 +71,6 @@ public class EcsLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadB
     return new ArrayList<>(map.values());
   }
 
-
   @Override
   public Item get(String name) {
     return null;  //TODO - Implement this.
