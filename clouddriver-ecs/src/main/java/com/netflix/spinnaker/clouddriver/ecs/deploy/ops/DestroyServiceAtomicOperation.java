@@ -37,7 +37,7 @@ public class DestroyServiceAtomicOperation extends AbstractEcsAtomicOperation<Mo
 
   @Override
   public Void operate(List priorOutputs) {
-    updateTaskStatus("Initializing Destroy Amazon ECS Server Group (Service) Operation...");
+    updateTaskStatus("Initializing Destroy Amazon ECS Server Group Operation...");
     AmazonECS ecs = getAmazonEcsClient();
 
     String ecsClusterName = containerInformationService.getClusterName(description.getServerGroupName(), description.getAccount(), description.getRegion());
@@ -51,17 +51,17 @@ public class DestroyServiceAtomicOperation extends AbstractEcsAtomicOperation<Mo
     updateServiceRequest.setDesiredCount(0);
     updateServiceRequest.setCluster(ecsClusterName);
 
-    updateTaskStatus("Scaling " + description.getServerGroupName() + " service down to 0.");
+    updateTaskStatus("Scaling " + description.getServerGroupName() + " server group down to 0.");
     ecs.updateService(updateServiceRequest);
 
     DeleteServiceRequest deleteServiceRequest = new DeleteServiceRequest();
     deleteServiceRequest.setService(description.getServerGroupName());
     deleteServiceRequest.setCluster(ecsClusterName);
 
-    updateTaskStatus("Deleting " + description.getServerGroupName() + " service.");
+    updateTaskStatus("Deleting " + description.getServerGroupName() + " server group.");
     DeleteServiceResult deleteServiceResult = ecs.deleteService(deleteServiceRequest);
 
-    updateTaskStatus("Deleting " + deleteServiceResult.getService().getTaskDefinition() + " task definition belonging to the service.");
+    updateTaskStatus("Deleting " + deleteServiceResult.getService().getTaskDefinition() + " task definition belonging to the server group.");
     ecs.deregisterTaskDefinition(new DeregisterTaskDefinitionRequest().withTaskDefinition(deleteServiceResult.getService().getTaskDefinition()));
 
     return null;
