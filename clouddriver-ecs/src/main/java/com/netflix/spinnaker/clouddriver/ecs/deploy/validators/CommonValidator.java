@@ -55,42 +55,42 @@ abstract class CommonValidator extends DescriptionValidator {
     return true;
   }
 
-  void validateCapacity(Errors errors, ServerGroup.Capacity capacity){
-    if(capacity != null){
+  void validateCapacity(Errors errors, ServerGroup.Capacity capacity) {
+    if (capacity != null) {
       boolean desiredNotNull = capacity.getDesired() != null;
       boolean minNotNull = capacity.getMin() != null;
       boolean maxNotNull = capacity.getMax() != null;
 
-      if(!desiredNotNull){
+      if (!desiredNotNull) {
         rejectValue(errors, "capacity.desired", "not.nullable");
       }
-      if(!minNotNull){
+      if (!minNotNull) {
         rejectValue(errors, "capacity.min", "not.nullable");
       }
-      if(!maxNotNull){
+      if (!maxNotNull) {
         rejectValue(errors, "capacity.max", "not.nullable");
       }
 
-      positivityCheck(desiredNotNull,capacity.getDesired(), "desired", errors);
-      positivityCheck(minNotNull,capacity.getMin(), "min", errors);
-      positivityCheck(maxNotNull,capacity.getMax(), "max", errors);
+      positivityCheck(desiredNotNull, capacity.getDesired(), "desired", errors);
+      positivityCheck(minNotNull, capacity.getMin(), "min", errors);
+      positivityCheck(maxNotNull, capacity.getMax(), "max", errors);
 
 
-      if(minNotNull && maxNotNull){
-        if(capacity.getMin() > capacity.getMax()){
+      if (minNotNull && maxNotNull) {
+        if (capacity.getMin() > capacity.getMax()) {
           rejectValue(errors, "capacity.min.max.range", "invalid");
         }
 
-        if(desiredNotNull && capacity.getDesired() > capacity.getMax()){
+        if (desiredNotNull && capacity.getDesired() > capacity.getMax()) {
           rejectValue(errors, "capacity.desired", "exceeds.max");
         }
 
-        if(desiredNotNull && capacity.getDesired() < capacity.getMin()){
+        if (desiredNotNull && capacity.getDesired() < capacity.getMin()) {
           rejectValue(errors, "capacity.desired", "less.than.min");
         }
       }
 
-    }else{
+    } else {
       rejectValue(errors, "capacity", "not.nullable");
     }
   }
@@ -99,9 +99,9 @@ abstract class CommonValidator extends DescriptionValidator {
     errors.rejectValue(field, errorKey + "." + field + "." + reason);
   }
 
-  private void positivityCheck(boolean isNotNull, Integer capacity, String fieldName, Errors errors){
-    if(isNotNull && capacity < 0){
-      rejectValue(errors, "capacity."+fieldName, "invalid");
+  private void positivityCheck(boolean isNotNull, Integer capacity, String fieldName, Errors errors) {
+    if (isNotNull && capacity < 0) {
+      rejectValue(errors, "capacity." + fieldName, "invalid");
     }
   }
 }
