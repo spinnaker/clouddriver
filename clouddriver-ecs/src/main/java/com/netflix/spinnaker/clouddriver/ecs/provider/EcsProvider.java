@@ -28,8 +28,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -98,7 +96,8 @@ public class EcsProvider extends AgentSchedulerAware implements SearchableProvid
   public void synchronizeHealthAgents() {
     healthAgents = Collections.unmodifiableCollection(agents.stream()
       .filter(a -> a instanceof HealthProvidingCachingAgent)
-      .map(a -> (HealthProvidingCachingAgent) a).collect(Collectors.toList()));
+      .map(a -> (HealthProvidingCachingAgent) a)
+      .collect(Collectors.toList()));
   }
 
   public Collection<HealthProvidingCachingAgent> getHealthAgents() {
