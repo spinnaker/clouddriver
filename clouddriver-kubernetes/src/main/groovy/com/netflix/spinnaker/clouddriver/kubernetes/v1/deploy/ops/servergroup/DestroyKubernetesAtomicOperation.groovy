@@ -52,10 +52,9 @@ class DestroyKubernetesAtomicOperation implements AtomicOperation<Void> {
     def autoscalerName = description.serverGroupName
     def parsedName = Names.parseName(description.serverGroupName)
 
-    if (description.kind) {
-      if (description.kind == KubernetesUtil.CONTROLLERS_STATEFULSET_KIND || description.kind == KubernetesUtil.CONTROLLERS_DAEMONSET_KIND) {
-        return destroyController(credentials, namespace, description.serverGroupName, autoscalerName)
-      }
+    if (destroyController(credentials, namespace, description.serverGroupName, autoscalerName)) {
+      task.updateStatus BASE_PHASE, "Successfully destroyed server group $description.serverGroupName."
+      return
     }
 
     def deploymentName = parsedName.cluster
@@ -100,8 +99,12 @@ class DestroyKubernetesAtomicOperation implements AtomicOperation<Void> {
     task.updateStatus BASE_PHASE, "Successfully destroyed server group $description.serverGroupName."
   }
 
-  void destroyController(KubernetesV1Credentials credentials, String namespace, String serverGroupName, String autoscalerName) {
-    switch(description.kind) {
+  Boolean destroyController(KubernetesV1Credentials credentials, String namespace, String controllerName, String autoscalerName) {
+    def controllerKind = description.kind
+    if (!controllerKind) {
+      controllerKind = credentials.clientApiAdaptor.getControllerKind(controllerName, namespace, null)
+    }
+    switch (controllerKind) {
       case KubernetesUtil.CONTROLLERS_STATEFULSET_KIND:
         if (credentials.apiClientAdaptor.getAutoscaler(namespace, autoscalerName)) {
           task.updateStatus BASE_PHASE, "Destroying autoscaler..."
@@ -109,16 +112,13 @@ class DestroyKubernetesAtomicOperation implements AtomicOperation<Void> {
             throw new KubernetesOperationException("Failed to delete associated autoscaler $autoscalerName in $namespace.")
           }
         }
-        credentials.apiClientAdaptor.hardDestroyStatefulSet(serverGroupName, namespace, null, null, null)
-        break
+        credentials.apiClientAdaptor.hardDestroyStatefulSet(controllerName, namespace, null, null, null)
+        return true
       case KubernetesUtil.CONTROLLERS_DAEMONSET_KIND:
-        credentials.apiClientAdaptor.hardDestroyDaemonSet(serverGroupName, namespace, null, null, null)
-        break
+        credentials.apiClientAdaptor.hardDestroyDaemonSet(controllerName, namespace, null, null, null)
+        return true
       default:
-        throw new KubernetesOperationException("Controller type $description.kind is not support.")
-        break
+        return null
     }
-
-    task.updateStatus BASE_PHASE, "Successfully destroyed server group $description.serverGroupName."
   }
 }
