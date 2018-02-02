@@ -17,29 +17,35 @@
 package com.netflix.spinnaker.clouddriver.ecs.deploy.converters;
 
 import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.CreateServerGroupAtomicOperation;
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.TerminateInstancesDescription;
+import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.TerminateInstancesAtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
-@EcsOperation(AtomicOperations.CREATE_SERVER_GROUP)
-@Component("ecsCreateServerGroup")
-public class EcsCreateServerGroupAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
-
+@EcsOperation(AtomicOperations.TERMINATE_INSTANCES)
+@Component("ecsTerminateInstances")
+public class TerminateInstancesAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
   @Override
   public AtomicOperation convertOperation(Map input) {
-    return new CreateServerGroupAtomicOperation(convertDescription(input));
+    return new TerminateInstancesAtomicOperation(convertDescription(input));
   }
 
   @Override
-  public CreateServerGroupDescription convertDescription(Map input) {
-    CreateServerGroupDescription converted = getObjectMapper().convertValue(input, CreateServerGroupDescription.class);
+  public TerminateInstancesDescription convertDescription(Map input) {
+    TerminateInstancesDescription converted = new TerminateInstancesDescription();
     converted.setCredentials(getCredentialsObject(input.get("credentials").toString()));
-
+    converted.setRegion(input.get("region").toString());
+    List<String> ecsTaskIds = new ArrayList<>();
+    for (Object id : (List) input.get("instanceIds")) {
+      ecsTaskIds.add(id.toString());
+    }
+    converted.setEcsTaskIds(ecsTaskIds);
     return converted;
   }
 }
