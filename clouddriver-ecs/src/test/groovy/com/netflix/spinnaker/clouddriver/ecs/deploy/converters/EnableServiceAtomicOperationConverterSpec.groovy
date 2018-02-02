@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
+package com.netflix.spinnaker.clouddriver.ecs.deploy.converters
 
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.EnableServiceAtomicOperation
+import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 
-@Data
-@EqualsAndHashCode(callSuper = false)
-public class ResizeServiceDescription extends AbstractECSDescription {
-  String serverGroupName;
-
-  ServerGroup.Capacity capacity;
+class EnableServiceAtomicOperationConverterSpec extends ModifyServiceAtomicOperationConverterSpec<EnableServiceAtomicOperation> {
+  @Override
+  AbstractAtomicOperationsCredentialsSupport getConverter() {
+    new EnableServiceAtomicOperationConverter(objectMapper: new ObjectMapper())
+  }
 }

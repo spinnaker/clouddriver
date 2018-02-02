@@ -16,14 +16,35 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
+import com.amazonaws.services.cloudwatch.model.MetricAlarm;
+import com.amazonaws.services.ecs.model.PlacementStrategy;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.List;
+import java.util.Map;
+
 @Data
 @EqualsAndHashCode(callSuper = false)
-public class ResizeServiceDescription extends AbstractECSDescription {
-  String serverGroupName;
+public class CreateServerGroupDescription extends AbstractECSDescription {
+  String ecsClusterName;
+  String iamRole;
+  Integer containerPort;
+  String targetGroup;
+  List<String> securityGroups;
+
+  String portProtocol;
+
+  Integer computeUnits;
+  Integer reservedMemory;
+
+  String dockerImageAddress;
 
   ServerGroup.Capacity capacity;
+
+  Map<String, List<String>> availabilityZones;
+
+  List<MetricAlarm> autoscalingPolicies;
+  List<PlacementStrategy> placementStrategySequence;
 }
