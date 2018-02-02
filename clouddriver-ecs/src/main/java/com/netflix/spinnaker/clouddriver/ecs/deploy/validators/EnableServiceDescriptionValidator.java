@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
+package com.netflix.spinnaker.clouddriver.ecs.deploy.validators;
 
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
+import org.springframework.stereotype.Component;
 
-@Data
-@EqualsAndHashCode(callSuper = false)
-public class ResizeServiceDescription extends AbstractECSDescription {
-  String serverGroupName;
-
-  ServerGroup.Capacity capacity;
+@EcsOperation(AtomicOperations.ENABLE_SERVER_GROUP)
+@Component("enableServiceAtomicOperationValidator")
+public class EnableServiceDescriptionValidator extends ServerGroupDescriptionValidator {
+  public EnableServiceDescriptionValidator() {
+    super("enableServiceDescription");
+  }
 }

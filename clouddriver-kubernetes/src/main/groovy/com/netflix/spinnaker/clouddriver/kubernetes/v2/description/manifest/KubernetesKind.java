@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class KubernetesKind {
@@ -28,6 +29,7 @@ public class KubernetesKind {
   public static KubernetesKind CONTROLLER_REVISION = new KubernetesKind("controllerRevision");
   public static KubernetesKind DAEMON_SET = new KubernetesKind("daemonSet", "ds");
   public static KubernetesKind DEPLOYMENT = new KubernetesKind("deployment", "deploy");
+  public static KubernetesKind HORIZONTAL_POD_AUTOSCALER = new KubernetesKind("horizontalpodautoscaler", "hpa");
   public static KubernetesKind INGRESS = new KubernetesKind("ingress", "ing");
   public static KubernetesKind POD = new KubernetesKind("pod", "po");
   public static KubernetesKind REPLICA_SET = new KubernetesKind("replicaSet", "rs");
@@ -44,7 +46,7 @@ public class KubernetesKind {
 
   protected KubernetesKind(String name, String alias) {
     if (values == null) {
-      values = new ArrayList<>();
+      values = Collections.synchronizedList(new ArrayList<>());
     }
 
     this.name = name;
@@ -67,6 +69,6 @@ public class KubernetesKind {
     return values.stream()
         .filter(v -> v.name.equalsIgnoreCase(name) || (v.alias != null && v.alias.equalsIgnoreCase(name)))
         .findAny()
-        .orElseThrow(() -> new IllegalArgumentException("Kubernetes kind '" + name + "' is not supported."));
+        .orElse(new KubernetesKind(name));
   }
 }
