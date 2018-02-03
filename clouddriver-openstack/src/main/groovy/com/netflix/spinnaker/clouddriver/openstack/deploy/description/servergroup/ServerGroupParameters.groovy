@@ -146,8 +146,14 @@ class ServerGroupParameters {
    * @return
    */
   static Map<String, String> unescapePythonUnicodeJsonMap(String string) {
-    String parsed = string?.replace("u'", "")?.replace("'", "")?.replace("{", "")?.replace("}", "")?.replace("\"", "")?.replaceAll("([ ][ ]*)", "")
-    parsed ? Splitter.on(",").withKeyValueSeparator(":").split(parsed) : [:]
+    String parsed = string?.replace("u'", "\"")?.replaceAll("([ ][ ]*)", "")?.replace("\':", "\":")?.replace(":\'", ":\"")?.replace("\',", "\",")?.replace(",\'", ",\"")?.replace("\'}", "\"}")
+    def m = objectMapper.readValue(parsed, Map)
+    return m.collectEntries {k, v ->
+      if (v instanceof Collection || v instanceof Map) {
+        return [(k): objectMapper.writeValueAsString(v)]
+      }
+      [(k): v]
+    }
   }
 
   /**
