@@ -163,7 +163,7 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
           }
         }
       } catch (Exception e) {
-        log.error("Error building cache for stack ${stack.name} [${stack.id}]", e)
+        log.error("Exception building cache for stack ${stack.name} [${stack.id}]", e)
       }
     }
 

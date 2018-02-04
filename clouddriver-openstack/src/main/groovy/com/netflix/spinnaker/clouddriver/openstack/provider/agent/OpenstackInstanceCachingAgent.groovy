@@ -63,21 +63,25 @@ class OpenstackInstanceCachingAgent extends AbstractOpenstackCachingAgent {
     CacheResultBuilder cacheResultBuilder = new CacheResultBuilder()
 
     clientProvider.getInstances(region)?.each { server ->
-      String instanceKey = Keys.getInstanceKey(server.id, accountName, region)
+      try {
+        String instanceKey = Keys.getInstanceKey(server.id, accountName, region)
 
-      ConsulNode consulNode = null
-      if (account?.consulConfig?.enabled) {
-        try{
-          consulNode = ConsulProviderUtils.getHealths(account.consulConfig, server.name)
-        } catch (RetrofitError e){
-          log.warn(e.message)
+        ConsulNode consulNode = null
+        if (account?.consulConfig?.enabled) {
+          try {
+            consulNode = ConsulProviderUtils.getHealths(account.consulConfig, server.name)
+          } catch (RetrofitError e) {
+            log.warn(e.message)
+          }
         }
-      }
 
-      Map<String, Object> instanceAttributes = objectMapper.convertValue(OpenstackInstance.from(server, consulNode, accountName, region), ATTRIBUTES)
+        Map<String, Object> instanceAttributes = objectMapper.convertValue(OpenstackInstance.from(server, consulNode, accountName, region), ATTRIBUTES)
 
-      cacheResultBuilder.namespace(INSTANCES.ns).keep(instanceKey).with {
-        attributes = instanceAttributes
+        cacheResultBuilder.namespace(INSTANCES.ns).keep(instanceKey).with {
+          attributes = instanceAttributes
+        }
+      } catch (Exception e) {
+        log.error("Exception building cache for instance ${server.name} [${server.id}]", e)
       }
     }
 
