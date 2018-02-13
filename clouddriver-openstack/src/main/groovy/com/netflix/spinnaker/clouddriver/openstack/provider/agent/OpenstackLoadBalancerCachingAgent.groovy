@@ -136,99 +136,103 @@ class OpenstackLoadBalancerCachingAgent extends AbstractOpenstackCachingAgent im
                                Map<String, Port> portMap,
                                CacheResultBuilder cacheResultBuilder) {
     loadBalancers?.each { loadBalancer ->
-      String loadBalancerKey = Keys.getLoadBalancerKey(loadBalancer.name, loadBalancer.id, accountName, region)
-      if (shouldUseOnDemandData(cacheResultBuilder, loadBalancerKey)) {
-        moveOnDemandDataToNamespace(objectMapper, typeReference, cacheResultBuilder, loadBalancerKey)
-      } else {
-        Set<ListenerV2> resultlisteners = [].toSet()
-        LbPoolV2 pool = null
-        HealthMonitorV2 healthMonitor = null
-        if (listeners) {
-          resultlisteners = loadBalancer.listeners.collect { lblistener ->
-            listeners.find { listener -> listener.id == lblistener.id }
-          }
-          if (resultlisteners) {
-            pool = resultlisteners.collect { listener -> pools.find { p -> p.id == listener.defaultPoolId } }.first()
-            if (pool) {
-              healthMonitor = healthMonitors.find { hm -> hm.id == pool.healthMonitorId }
+      try {
+        String loadBalancerKey = Keys.getLoadBalancerKey(loadBalancer.name, loadBalancer.id, accountName, region)
+        if (shouldUseOnDemandData(cacheResultBuilder, loadBalancerKey)) {
+          moveOnDemandDataToNamespace(objectMapper, typeReference, cacheResultBuilder, loadBalancerKey)
+        } else {
+          Set<ListenerV2> resultlisteners = [].toSet()
+          LbPoolV2 pool = null
+          HealthMonitorV2 healthMonitor = null
+          if (listeners) {
+            resultlisteners = loadBalancer.listeners.collect { lblistener ->
+              listeners.find { listener -> listener.id == lblistener.id }
+            }
+            if (resultlisteners) {
+              pool = resultlisteners.collect { listener -> pools.find { p -> p.id == listener.defaultPoolId } }.first()
+              if (pool) {
+                healthMonitor = healthMonitors.find { hm -> hm.id == pool.healthMonitorId }
+              }
             }
           }
-        }
-        //create load balancer. Server group relationships are not cached here as they are cached in the server group caching agent.
-        OpenstackLoadBalancer openstackLoadBalancer = OpenstackLoadBalancer.from(loadBalancer, resultlisteners, pool, healthMonitor, accountName, region)
+          //create load balancer. Server group relationships are not cached here as they are cached in the server group caching agent.
+          OpenstackLoadBalancer openstackLoadBalancer = OpenstackLoadBalancer.from(loadBalancer, resultlisteners, pool, healthMonitor, accountName, region)
 
-        // Populate load balancer healths and find instance ids which are members of the current lb via membership
-        Set<OpenstackLoadBalancerHealth> healths = []
-        Set<String> instanceKeys = []
+          // Populate load balancer healths and find instance ids which are members of the current lb via membership
+          Set<OpenstackLoadBalancerHealth> healths = []
+          Set<String> instanceKeys = []
 
-        Map<String, String> memberStatusMap = statusTreeMap?.get(loadBalancer.id)?.loadBalancerV2Status?.listenerStatuses?.collectEntries { ListenerV2Status listenerStatus ->
-          listenerStatus.lbPoolV2Statuses?.collectEntries { LbPoolV2Status poolStatus ->
-            poolStatus.memberStatuses?.collectEntries { MemberV2Status memberStatus ->
-              [memberStatus.address, memberStatus.operatingStatus]
+          Map<String, String> memberStatusMap = statusTreeMap?.get(loadBalancer.id)?.loadBalancerV2Status?.listenerStatuses?.collectEntries { ListenerV2Status listenerStatus ->
+            listenerStatus.lbPoolV2Statuses?.collectEntries { LbPoolV2Status poolStatus ->
+              poolStatus.memberStatuses?.collectEntries { MemberV2Status memberStatus ->
+                [memberStatus.address, memberStatus.operatingStatus]
+              }
             }
           }
-        }
 
-        // Read instances from cache and create a map indexed by ipv6 address to compare to load balancer member status
-        Collection<String> instanceFilters = providerCache.filterIdentifiers(INSTANCES.ns, Keys.getInstanceKey('*', accountName, region))
-        Collection<CacheData> instancesData = providerCache.getAll(INSTANCES.ns, instanceFilters, RelationshipCacheFilter.none())
-        Map<String, CacheData> addressCacheDataMap = instancesData.collectEntries { data ->
-          [(data.attributes.ipv4): data, (data.attributes.ipv6): data]
-        }
+          // Read instances from cache and create a map indexed by ipv6 address to compare to load balancer member status
+          Collection<String> instanceFilters = providerCache.filterIdentifiers(INSTANCES.ns, Keys.getInstanceKey('*', accountName, region))
+          Collection<CacheData> instancesData = providerCache.getAll(INSTANCES.ns, instanceFilters, RelationshipCacheFilter.none())
+          Map<String, CacheData> addressCacheDataMap = instancesData.collectEntries { data ->
+            [(data.attributes.ipv4): data, (data.attributes.ipv6): data]
+          }
 
-        // Find corresponding instance id, save key for caching below, and add new lb health based upon current member status
-        memberStatusMap.each { String key, String value ->
-          CacheData instanceData = addressCacheDataMap[key] ?: null
-          if (instanceData) {
-            String instanceId = instanceData.attributes.instanceId
-            instanceKeys << Keys.getInstanceKey(instanceId, accountName, region)
-            PlatformStatus status = PlatformStatus.valueOf(value)
-            healths << new OpenstackLoadBalancerHealth(
-              instanceId: instanceId,
-              status: status,
-              lbHealthSummaries: [new OpenstackLoadBalancerHealth.LBHealthSummary(
-                loadBalancerName: loadBalancer.name
-                , instanceId: instanceId
-                , state: status?.toServiceStatus())])
+          // Find corresponding instance id, save key for caching below, and add new lb health based upon current member status
+          memberStatusMap.each { String key, String value ->
+            CacheData instanceData = addressCacheDataMap[key] ?: null
+            if (instanceData) {
+              String instanceId = instanceData.attributes.instanceId
+              instanceKeys << Keys.getInstanceKey(instanceId, accountName, region)
+              PlatformStatus status = PlatformStatus.valueOf(value)
+              healths << new OpenstackLoadBalancerHealth(
+                instanceId: instanceId,
+                status: status,
+                lbHealthSummaries: [new OpenstackLoadBalancerHealth.LBHealthSummary(
+                  loadBalancerName: loadBalancer.name
+                  , instanceId: instanceId
+                  , state: status?.toServiceStatus())])
+            }
+          }
+          openstackLoadBalancer.healths = healths
+
+          //ips cached
+          Collection<String> ipFilters = providerCache.filterIdentifiers(FLOATING_IPS.ns, Keys.getFloatingIPKey('*', accountName, region))
+          Collection<CacheData> ipsData = providerCache.getAll(FLOATING_IPS.ns, ipFilters, RelationshipCacheFilter.none())
+          CacheData ipCacheData = ipsData.find { i -> i.attributes?.fixedIpAddress == loadBalancer.vipAddress }
+          String floatingIpKey = ipCacheData?.id
+
+          //subnets cached
+          String subnetKey = Keys.getSubnetKey(loadBalancer.vipSubnetId, accountName, region)
+
+          //networks cached
+          String networkKey = ipCacheData ? Keys.getNetworkKey(ipCacheData.attributes.networkId.toString(), accountName, region) : null
+
+          //instances cached
+          instanceKeys.each { String instanceKey ->
+            cacheResultBuilder.namespace(INSTANCES.ns).keep(instanceKey).with {
+              relationships[LOAD_BALANCERS.ns].add(loadBalancerKey)
+            }
+          }
+
+          // security groups cached
+          Port vipPort = portMap.get(loadBalancer.vipPortId)
+          Set<String> securityGroupKeys = []
+          if (vipPort) {
+            vipPort.securityGroups?.each {
+              securityGroupKeys << Keys.getSecurityGroupKey('*', it, accountName, region)
+            }
+          }
+
+          cacheResultBuilder.namespace(LOAD_BALANCERS.ns).keep(loadBalancerKey).with {
+            attributes = objectMapper.convertValue(openstackLoadBalancer, ATTRIBUTES)
+            relationships[FLOATING_IPS.ns] = [floatingIpKey]
+            relationships[NETWORKS.ns] = [networkKey]
+            relationships[SUBNETS.ns] = [subnetKey]
+            relationships[SECURITY_GROUPS.ns] = securityGroupKeys
           }
         }
-        openstackLoadBalancer.healths = healths
-
-        //ips cached
-        Collection<String> ipFilters = providerCache.filterIdentifiers(FLOATING_IPS.ns, Keys.getFloatingIPKey('*', accountName, region))
-        Collection<CacheData> ipsData = providerCache.getAll(FLOATING_IPS.ns, ipFilters, RelationshipCacheFilter.none())
-        CacheData ipCacheData = ipsData.find { i -> i.attributes?.fixedIpAddress == loadBalancer.vipAddress }
-        String floatingIpKey = ipCacheData?.id
-
-        //subnets cached
-        String subnetKey = Keys.getSubnetKey(loadBalancer.vipSubnetId, accountName, region)
-
-        //networks cached
-        String networkKey = ipCacheData ? Keys.getNetworkKey(ipCacheData.attributes.networkId.toString(), accountName, region) : null
-
-        //instances cached
-        instanceKeys.each { String instanceKey ->
-          cacheResultBuilder.namespace(INSTANCES.ns).keep(instanceKey).with {
-            relationships[LOAD_BALANCERS.ns].add(loadBalancerKey)
-          }
-        }
-
-        // security groups cached
-        Port vipPort = portMap.get(loadBalancer.vipPortId)
-        Set<String> securityGroupKeys = []
-        if (vipPort) {
-          vipPort.securityGroups?.each {
-            securityGroupKeys << Keys.getSecurityGroupKey('*', it, accountName, region)
-          }
-        }
-
-        cacheResultBuilder.namespace(LOAD_BALANCERS.ns).keep(loadBalancerKey).with {
-          attributes = objectMapper.convertValue(openstackLoadBalancer, ATTRIBUTES)
-          relationships[FLOATING_IPS.ns] = [floatingIpKey]
-          relationships[NETWORKS.ns] = [networkKey]
-          relationships[SUBNETS.ns] = [subnetKey]
-          relationships[SECURITY_GROUPS.ns] = securityGroupKeys
-        }
+      } catch (Exception e) {
+        log.error("Exception building cache for loadbalancer ${loadBalancer.name} [${loadBalancer.id}]", e)
       }
     }
 

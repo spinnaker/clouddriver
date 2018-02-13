@@ -60,12 +60,16 @@ class OpenstackFloatingIPCachingAgent extends AbstractOpenstackCachingAgent {
     def cacheResultBuilder = new CacheResultBuilder()
 
     ips.each { NetFloatingIP ip ->
-      String ipKey = Keys.getFloatingIPKey(ip.id, accountName, region)
+      try {
+        String ipKey = Keys.getFloatingIPKey(ip.id, accountName, region)
 
-      Map<String, Object> ipAttributes = objectMapper.convertValue(OpenstackFloatingIP.from(ip, accountName, region), ATTRIBUTES)
+        Map<String, Object> ipAttributes = objectMapper.convertValue(OpenstackFloatingIP.from(ip, accountName, region), ATTRIBUTES)
 
-      cacheResultBuilder.namespace(FLOATING_IPS.ns).keep(ipKey).with {
-        attributes = ipAttributes
+        cacheResultBuilder.namespace(FLOATING_IPS.ns).keep(ipKey).with {
+          attributes = ipAttributes
+        }
+      } catch (Exception e) {
+        log.error("Exception building cache for floating ip ${ip.id}", e)
       }
     }
 

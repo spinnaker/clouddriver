@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergro
 
 import spock.lang.Ignore
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class ServerGroupParametersSpec extends Specification {
 
@@ -47,6 +48,7 @@ class ServerGroupParametersSpec extends Specification {
     result == expected
   }
 
+  @Unroll
   def "test handle unicode list"() {
     when:
     List<String> result = ServerGroupParameters.unescapePythonUnicodeJsonList(input)
@@ -63,6 +65,7 @@ class ServerGroupParametersSpec extends Specification {
     '[u\'test\',u\'test\',u\'test\']' | ['test', 'test', 'test']
   }
 
+  @Unroll
   def "test handle unicode map"() {
     when:
     Map<String, String> result = ServerGroupParameters.unescapePythonUnicodeJsonMap(input)
@@ -71,10 +74,12 @@ class ServerGroupParametersSpec extends Specification {
     result == expected
 
     where:
-    input                                 | expected
-    '{"test":"test"}'                     | ['test': 'test']
-    '{u\'test\':\'test\'}'                | ['test': 'test']
-    '{u\'test\':u\'test\',u\'a\':u\'a\'}' | ['test': 'test', 'a': 'a']
+    input                                                                            | expected
+    '{"test":"test"}'                                                                | ['test': 'test']
+    '{u\'test\':\'test\'}'                                                           | ['test': 'test']
+    '{u\'test\':u\'test\',u\'a\':u\'a\'}'                                            | ['test': 'test', 'a': 'a']
+    '{u\'health\':{u\'http\':u\'http://localhost:8080\', u\'name\': u\'Liveness\'}}' | ['health': '{"http":"http://localhost:8080","name":"Liveness"}']
+    '{u\'a\': {u\'b\': {u\'c\': \'d\', \'e\': \'f\'}}}'                              | ['a': '{"b":{"c":"d","e":"f"}}']
   }
 
   @Ignore
