@@ -17,11 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest;
 
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.ReplaceResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
@@ -30,7 +28,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSpinnakerRelationships;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
@@ -40,32 +37,36 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeployManifestDescription.Source.text;
-
+@Slf4j
 public class KubernetesDeployManifestOperation implements AtomicOperation<OperationResult> {
   private final KubernetesDeployManifestDescription description;
   private final KubernetesV2Credentials credentials;
-  private final ArtifactDownloader artifactDownloader;
   private final ArtifactProvider provider;
   private final Namer namer;
   private final KubernetesResourcePropertyRegistry registry;
+  private final String accountName;
   private static final String OP_NAME = "DEPLOY_KUBERNETES_MANIFEST";
 
-  public KubernetesDeployManifestOperation(KubernetesDeployManifestDescription description, KubernetesResourcePropertyRegistry registry, ArtifactProvider provider, ArtifactDownloader artifactDownloader) {
+  public KubernetesDeployManifestOperation(KubernetesDeployManifestDescription description, KubernetesResourcePropertyRegistry registry, ArtifactProvider provider) {
     this.description = description;
     this.credentials = (KubernetesV2Credentials) description.getCredentials().getCredentials();
     this.registry = registry;
     this.provider = provider;
-    this.artifactDownloader = artifactDownloader;
+    this.accountName = description.getCredentials().getName();
     this.namer = NamerRegistry.lookup()
         .withProvider(KubernetesCloudProvider.getID())
-        .withAccount(description.getCredentials().getName())
+        .withAccount(accountName)
         .withResource(KubernetesManifest.class);
   }
 
@@ -77,65 +78,87 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
   public OperationResult operate(List _unused) {
     getTask().updateStatus(OP_NAME, "Beginning deployment of manifest...");
 
-    KubernetesManifest manifest;
-    KubernetesDeployManifestDescription.Source source = description.getSource();
-    source = source == null ? text : source;
-    switch (source) {
-      case text:
-        manifest = description.getManifest();
-        break;
-      case artifact:
-        try {
-          manifest = artifactDownloader.downloadAsYaml(description.getManifestArtifact(), KubernetesManifest.class);
-        } catch (IOException e) {
-          throw new IllegalStateException("Failed to fetch artifact '" + description.getManifestArtifact() + "'", e);
-        }
-        break;
-      default:
-        throw new IllegalArgumentException("Unsupported artifact source: " + source);
+    List<KubernetesManifest> inputManifests = description.getManifests();
+    List<KubernetesManifest> deployManifests = new ArrayList<>();
+    if (inputManifests == null || inputManifests.isEmpty()) {
+      log.warn("Relying on deprecated single manifest input: " + description.getManifest());
+      inputManifests = Collections.singletonList(description.getManifest());
     }
 
-    if (StringUtils.isEmpty(manifest.getNamespace())) {
-      manifest.setNamespace(credentials.getDefaultNamespace());
+    inputManifests = inputManifests.stream().filter(Objects::nonNull).collect(Collectors.toList());
+
+    List<Artifact> requiredArtifacts = description.getRequiredArtifacts();
+    if (requiredArtifacts == null) {
+      requiredArtifacts = new ArrayList<>();
     }
-    List<Artifact> artifacts = description.getArtifacts();
-    if (artifacts == null) {
-      artifacts = new ArrayList<>();
+
+    List<Artifact> optionalArtifacts = description.getOptionalArtifacts();
+    if (optionalArtifacts == null) {
+      optionalArtifacts = new ArrayList<>();
     }
 
-    KubernetesResourceProperties properties = findResourceProperties(manifest);
-    boolean versioned = description.getVersioned() == null ? properties.isVersioned() : description.getVersioned();
-    KubernetesArtifactConverter converter = versioned ? properties.getVersionedConverter() : properties.getUnversionedConverter();
-    KubernetesHandler deployer = properties.getHandler();
+    List<Artifact> artifacts = new ArrayList<>();
+    artifacts.addAll(requiredArtifacts);
+    artifacts.addAll(optionalArtifacts);
 
-    Artifact artifact = converter.toArtifact(provider, manifest);
-    Moniker moniker = description.getMoniker();
-    KubernetesManifestSpinnakerRelationships relationships = description.getRelationships();
+    Set<Artifact> boundArtifacts = new HashSet<>();
 
-    getTask().updateStatus(OP_NAME, "Annotating manifest with artifact, relationships & moniker...");
-    KubernetesManifestAnnotater.annotateManifest(manifest, artifact);
-    KubernetesManifestAnnotater.annotateManifest(manifest, relationships);
-    namer.applyMoniker(manifest, moniker);
+    for (KubernetesManifest manifest : inputManifests) {
+      if (StringUtils.isEmpty(manifest.getNamespace())) {
+        manifest.setNamespace(credentials.getDefaultNamespace());
+      }
 
-    getTask().updateStatus(OP_NAME, "Setting a resource name...");
-    manifest.setName(converter.getDeployedName(artifact));
+      KubernetesResourceProperties properties = findResourceProperties(manifest);
+      KubernetesHandler deployer = properties.getHandler();
 
-    getTask().updateStatus(OP_NAME, "Swapping out artifacts from context...");
-    ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, artifacts);
-    manifest = replaceResult.getManifest();
+      getTask().updateStatus(OP_NAME, "Swapping out artifacts in " + manifest.getFullResourceName() + " from context...");
+      ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, artifacts);
+      deployManifests.add(replaceResult.getManifest());
+      boundArtifacts.addAll(replaceResult.getBoundArtifacts());
+    }
 
-    getTask().updateStatus(OP_NAME, "Submitting manifest to kubernetes master...");
-    OperationResult result = deployer.deployAugmentedManifest(credentials, manifest);
+    Set<Artifact> unboundArtifacts = new HashSet<>(requiredArtifacts);
+    unboundArtifacts.removeAll(boundArtifacts);
 
-    result.getCreatedArtifacts().add(artifact);
-    result.getBoundArtifacts().addAll(replaceResult.getBoundArtifacts());
+    getTask().updateStatus(OP_NAME, "Checking if all requested artifacts were bound...");
+    if (!unboundArtifacts.isEmpty()) {
+      throw new IllegalArgumentException("The following artifacts could not be bound: '" + unboundArtifacts + "' . Failing the stage as this is likely a configuration error.");
+    }
 
+    OperationResult result = new OperationResult();
+    for (KubernetesManifest manifest : deployManifests) {
+      KubernetesResourceProperties properties = findResourceProperties(manifest);
+      boolean versioned = description.getVersioned() == null ? properties.isVersioned() : description.getVersioned();
+      KubernetesArtifactConverter converter = versioned ? properties.getVersionedConverter() : properties.getUnversionedConverter();
+      KubernetesHandler deployer = properties.getHandler();
+
+      Moniker moniker = description.getMoniker();
+      Artifact artifact = converter.toArtifact(provider, manifest);
+
+      getTask().updateStatus(OP_NAME, "Annotating manifest " + manifest.getFullResourceName() + " with artifact, relationships & moniker...");
+      KubernetesManifestAnnotater.annotateManifest(manifest, artifact);
+
+      namer.applyMoniker(manifest, moniker);
+      manifest.setName(converter.getDeployedName(artifact));
+
+      getTask().updateStatus(OP_NAME, "Swapping out artifacts in " + manifest.getFullResourceName() + " from other deployments...");
+      ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, new ArrayList<>(result.getCreatedArtifacts()));
+      boundArtifacts.addAll(replaceResult.getBoundArtifacts());
+      manifest = replaceResult.getManifest();
+
+      getTask().updateStatus(OP_NAME, "Submitting manifest " + manifest.getFullResourceName() + " to kubernetes master...");
+      result.merge(deployer.deploy(credentials, manifest));
+
+      result.getCreatedArtifacts().add(artifact);
+    }
+
+    result.getBoundArtifacts().addAll(boundArtifacts);
     return result;
   }
 
   private KubernetesResourceProperties findResourceProperties(KubernetesManifest manifest) {
     KubernetesKind kind = manifest.getKind();
     getTask().updateStatus(OP_NAME, "Finding deployer for " + kind + "...");
-    return registry.get(kind);
+    return registry.get(accountName, kind);
   }
 }

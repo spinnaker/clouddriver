@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.PathNotFoundException;
 import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -42,6 +43,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -61,6 +64,7 @@ public class ArtifactReplacer {
   }
 
   public ReplaceResult replaceAll(KubernetesManifest input, List<Artifact> artifacts) {
+    log.info("Doing replacement on {} using {}", input, artifacts);
     DocumentContext document;
     try {
       document = JsonPath.using(configuration).parse(mapper.writeValueAsString(input));
@@ -103,6 +107,7 @@ public class ArtifactReplacer {
                     .map(s -> Artifact.builder()
                         .type(r.getType().toString())
                         .reference(s)
+                        .name(r.getNameFromReference(s))
                         .build()
                     );
               } catch (Exception e) {
@@ -121,6 +126,8 @@ public class ArtifactReplacer {
   public static class Replacer {
     private final String replacePath;
     private final String findPath;
+    private final Pattern namePattern; // the first group should be the artifact name
+
     @Getter
     private final ArtifactTypes type;
 
@@ -141,6 +148,19 @@ public class ArtifactReplacer {
        return obj.read(findPath);
     }
 
+    String getNameFromReference(String reference) {
+      if (namePattern == null) {
+        return null;
+      }
+
+      Matcher m = namePattern.matcher(reference);
+      if (m.find() && m.groupCount() > 0 && StringUtils.isNotEmpty(m.group(1))) {
+        return m.group(1);
+      } else {
+        return null;
+      }
+    }
+
     boolean replaceIfPossible(DocumentContext obj, Artifact artifact) {
       if (artifact == null || StringUtils.isEmpty(artifact.getType())) {
         throw new IllegalArgumentException("Artifact and artifact type must be set.");
@@ -152,8 +172,13 @@ public class ArtifactReplacer {
 
       String jsonPath = processPath(replacePath, artifact);
 
-      Object get = obj.read(jsonPath);
-      if (get == null) {
+      Object get;
+      try {
+        get = obj.read(jsonPath);
+      } catch (PathNotFoundException e) {
+        return false;
+      }
+      if (get == null || (get instanceof ArrayNode && ((ArrayNode) get).size() == 0)) {
         return false;
       }
 

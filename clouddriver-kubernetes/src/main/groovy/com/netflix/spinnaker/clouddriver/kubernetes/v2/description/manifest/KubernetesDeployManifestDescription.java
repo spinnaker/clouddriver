@@ -28,10 +28,13 @@ import java.util.List;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class KubernetesDeployManifestDescription extends KubernetesAtomicOperationDescription {
+  @Deprecated
   KubernetesManifest manifest;
+  List<KubernetesManifest> manifests;
   Moniker moniker;
   KubernetesManifestSpinnakerRelationships relationships;
-  List<Artifact> artifacts;
+  List<Artifact> requiredArtifacts;
+  List<Artifact> optionalArtifacts;
   Boolean versioned;
   Source source;
   Artifact manifestArtifact;

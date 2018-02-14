@@ -22,6 +22,7 @@ import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,13 +31,14 @@ import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
+@Component
 public class ServiceCacheClient extends AbstractCacheClient<Service> {
-  private ObjectMapper mapper;
+  private ObjectMapper objectMapper;
 
   @Autowired
-  public ServiceCacheClient(Cache cacheView, ObjectMapper mapper) {
+  public ServiceCacheClient(Cache cacheView, ObjectMapper objectMapper) {
     super(cacheView, SERVICES.toString());
-    this.mapper = mapper;
+    this.objectMapper = objectMapper;
   }
 
   @Override
@@ -62,8 +64,8 @@ public class ServiceCacheClient extends AbstractCacheClient<Service> {
       List<LoadBalancer> deserializedLoadbalancers = new ArrayList<>(loadBalancers.size());
 
       for (Map<String, Object> serializedLoadbalancer : loadBalancers) {
-        if(serializedLoadbalancer!=null) {
-          deserializedLoadbalancers.add(mapper.convertValue(serializedLoadbalancer, LoadBalancer.class));
+        if (serializedLoadbalancer != null) {
+          deserializedLoadbalancers.add(objectMapper.convertValue(serializedLoadbalancer, LoadBalancer.class));
         }
       }
 
