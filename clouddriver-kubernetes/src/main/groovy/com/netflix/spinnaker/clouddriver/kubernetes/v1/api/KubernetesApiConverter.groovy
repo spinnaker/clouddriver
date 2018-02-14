@@ -417,6 +417,7 @@ class KubernetesApiConverter {
         return res.withMountPath(mount.mountPath)
             .withName(mount.name)
             .withReadOnly(mount.readOnly)
+            .withSubPath(mount.subPath)
             .build()
       }
 
@@ -432,10 +433,10 @@ class KubernetesApiConverter {
           res = res.withNewValueFrom()
           if (envVar.envSource.configMapSource) {
             def configMap = envVar.envSource.configMapSource
-            res = res.withNewConfigMapKeyRef(configMap.key, configMap.configMapName)
+            res = res.withNewConfigMapKeyRef(configMap.key, configMap.configMapName, configMap.optional)
           } else if (envVar.envSource.secretSource) {
             def secret = envVar.envSource.secretSource
-            res = res.withNewSecretKeyRef(secret.key, secret.secretName)
+            res = res.withNewSecretKeyRef(secret.key, secret.secretName, secret.optional)
           } else if (envVar.envSource.fieldRef) {
             def fieldPath = envVar.envSource.fieldRef.fieldPath
             res = res.withNewFieldRef().withFieldPath(fieldPath).endFieldRef()
@@ -457,6 +458,24 @@ class KubernetesApiConverter {
       } - null
 
       containerBuilder = containerBuilder.withEnv(envVars)
+    }
+
+    if (container.envFrom) {
+      def envFrom = container.envFrom.collect { envFrom ->
+        def res = (new EnvFromSourceBuilder()).withPrefix(envFrom.prefix ?: '')
+        if (envFrom.configMapRef) {
+          def configMapRef = envFrom.configMapRef
+          res = res.withNewConfigMapRef(configMapRef.name, configMapRef.optional)
+        } else if (envFrom.secretRef) {
+          def secretRef = envFrom.secretRef
+          res = res.withNewSecretRef(secretRef.name, secretRef.optional)
+        } else {
+          return null
+        }
+        return res.build()
+      } - null
+
+      containerBuilder.withEnvFrom(envFrom)
     }
 
     if (container.command) {
@@ -583,8 +602,27 @@ class KubernetesApiConverter {
       return result
     } - null
 
+    containerDescription.envFrom = container?.envFrom?.collect { envFrom ->
+      def result = new KubernetesEnvFromSource(prefix: envFrom.prefix)
+      if (envFrom.configMapRef) {
+        def source = envFrom.configMapRef
+        result.configMapRef = new KubernetesConfigMapEnvSource(name: source.name, optional: source.optional ?: false)
+      } else if (envFrom.secretRef) {
+        def source = envFrom.secretRef
+        result.secretRef = new KubernetesSecretEnvSource(name: source.name, optional: source.optional ?: false)
+      } else {
+        return null
+      }
+      return result
+    } - null
+
     containerDescription.volumeMounts = container?.volumeMounts?.collect { volumeMount ->
-      new KubernetesVolumeMount(name: volumeMount.name, readOnly: volumeMount.readOnly, mountPath: volumeMount.mountPath)
+      new KubernetesVolumeMount(
+          name: volumeMount.name,
+          readOnly: volumeMount.readOnly,
+          mountPath: volumeMount.mountPath,
+          subPath: volumeMount.subPath
+      )
     }
 
     containerDescription.args = container?.args ?: []
@@ -661,6 +699,10 @@ class KubernetesApiConverter {
       fromContainer(it)
     } ?: []
 
+    deployDescription.initContainers = replicaSet?.spec?.template?.spec?.initContainers?.collect {
+      fromContainer(it)
+    } ?: []
+
     deployDescription.terminationGracePeriodSeconds = replicaSet?.spec?.template?.spec?.terminationGracePeriodSeconds
     deployDescription.serviceAccountName = replicaSet?.spec?.template?.spec?.serviceAccountName
 
@@ -714,6 +756,10 @@ class KubernetesApiConverter {
     } ?: []
 
     deployDescription.containers = replicationController?.spec?.template?.spec?.containers?.collect {
+      fromContainer(it)
+    } ?: []
+
+    deployDescription.initContainers = replicationController?.spec?.template?.spec?.initContainers?.collect {
       fromContainer(it)
     } ?: []
 
@@ -987,6 +1033,12 @@ class KubernetesApiConverter {
     }
 
     podTemplateSpecBuilder = podTemplateSpecBuilder.withContainers(containers)
+
+    def initContainers = description.initContainers.collect { initContainer ->
+      toContainer(initContainer)
+    }
+
+    podTemplateSpecBuilder = podTemplateSpecBuilder.withInitContainers(initContainers)
 
     return podTemplateSpecBuilder.endSpec().build()
   }

@@ -27,12 +27,12 @@ import org.apache.commons.lang3.tuple.Pair;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class KubernetesManifestOperationDescription extends KubernetesAtomicOperationDescription {
-  private String name;
+  private String manifestName;
   private String location;
 
   @JsonIgnore
-  public KubernetesCoordinates getCoordinates() {
-    Pair<KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(name);
+  public KubernetesCoordinates getPointCoordinates() {
+    Pair<KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(manifestName);
 
     return KubernetesCoordinates.builder()
         .namespace(location)

@@ -19,8 +19,10 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Suppliers;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -29,19 +31,28 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import io.kubernetes.client.models.V1DeleteOptions;
 import io.kubernetes.client.util.KubeConfig;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.validation.constraints.NotNull;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class KubernetesV2Credentials implements KubernetesCredentials {
   private final KubectlJobExecutor jobExecutor;
   private final Registry registry;
@@ -50,15 +61,18 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final ObjectMapper mapper = new ObjectMapper();
   private final List<String> namespaces;
   private final List<String> omitNamespaces;
-  private final String PRETTY = "";
-  private final String CONTINUE = null;
-  private final boolean EXACT = true;
-  private final boolean EXPORT = false;
-  private final boolean INCLUDE_UNINITIALIZED = false;
-  private final Integer LIMIT = null; // TODO(lwander): include paginination
-  private final boolean WATCH = false;
-  private final String DEFAULT_VERSION = "0";
-  private final int TIMEOUT_SECONDS = 10; // TODO(lwander) make configurable
+
+  // TODO(lwander) make configurable
+  private final static int namespaceExpirySeconds = 30;
+
+  private final com.google.common.base.Supplier<List<String>> liveNamespaceSupplier;
+
+  @Getter
+  private final List<CustomKubernetesResource> customResources;
+
+  // remove when kubectl is no longer a dependency
+  @Getter
+  private final String kubectlExecutable;
 
   // remove when kubectl is no longer a dependency
   @Getter
@@ -70,10 +84,42 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @JsonIgnore
   @Getter
-  private final List<String> oAuthTokenCommand;
+  private final String oAuthServiceAccount;
 
+  @JsonIgnore
   @Getter
+  private final List<String> oAuthScopes;
+
   private final String defaultNamespace = "default";
+  private String cachedDefaultNamespace;
+
+  private final Path serviceAccountNamespacePath = Paths.get("/var/run/secrets/kubernetes.io/serviceaccount/namespace");
+
+  public String getDefaultNamespace() {
+    if (StringUtils.isEmpty(cachedDefaultNamespace)) {
+      cachedDefaultNamespace = lookupDefaultNamespace();
+    }
+
+    return cachedDefaultNamespace;
+  }
+
+  public String lookupDefaultNamespace() {
+    String namespace = defaultNamespace;
+    try {
+      Optional<String> serviceAccountNamespace = Files.lines(serviceAccountNamespacePath, StandardCharsets.UTF_8).findFirst();
+      namespace = serviceAccountNamespace.get();
+    } catch (IOException | NoSuchElementException e) {
+      try {
+        namespace = jobExecutor.defaultNamespace(this);
+      } catch (KubectlException ke) {
+        log.warn("Failure looking up desired namespace, defaulting to {}", namespace);
+      }
+    }
+    if (StringUtils.isEmpty(namespace)) {
+      namespace = defaultNamespace;
+    }
+    return namespace;
+  }
 
   @Getter
   private final boolean debug;
@@ -82,12 +128,15 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     String accountName;
     String kubeconfigFile;
     String context;
-    List<String> oAuthTokenCommand;
+    String kubectlExecutable;
+    String oAuthServiceAccount;
+    List<String> oAuthScopes;
     String userAgent;
     List<String> namespaces = new ArrayList<>();
     List<String> omitNamespaces = new ArrayList<>();
     Registry registry;
     KubectlJobExecutor jobExecutor;
+    List<CustomKubernetesResource> customResources;
     boolean debug;
 
     public Builder accountName(String accountName) {
@@ -97,6 +146,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     public Builder kubeconfigFile(String kubeconfigFile) {
       this.kubeconfigFile = kubeconfigFile;
+      return this;
+    }
+
+    public Builder kubectlExecutable(String kubectlExecutable) {
+      this.kubectlExecutable = kubectlExecutable;
       return this;
     }
 
@@ -130,13 +184,23 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder customResources(List<CustomKubernetesResource> customResources) {
+      this.customResources = customResources;
+      return this;
+    }
+
     public Builder debug(boolean debug) {
       this.debug = debug;
       return this;
     }
 
-    public Builder oAuthTokenCommand(List<String> oAuthTokenCommand) {
-      this.oAuthTokenCommand = oAuthTokenCommand;
+    public Builder oAuthServiceAccount(String oAuthServiceAccount) {
+      this.oAuthServiceAccount = oAuthServiceAccount;
+      return this;
+    }
+
+    public Builder oAuthScopes(List<String> oAuthScopes) {
+      this.oAuthScopes = oAuthScopes;
       return this;
     }
 
@@ -158,6 +222,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
       namespaces = namespaces == null ? new ArrayList<>() : namespaces;
       omitNamespaces = omitNamespaces == null ? new ArrayList<>() : omitNamespaces;
+      customResources = customResources == null ? new ArrayList<>() : customResources;
 
       return new KubernetesV2Credentials(
           accountName,
@@ -166,8 +231,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           omitNamespaces,
           registry,
           kubeconfigFile,
+          kubectlExecutable,
           context,
-          oAuthTokenCommand,
+          oAuthServiceAccount,
+          oAuthScopes,
+          customResources,
           debug
       );
     }
@@ -179,8 +247,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       @NotNull List<String> omitNamespaces,
       @NotNull Registry registry,
       String kubeconfigFile,
+      String kubectlExecutable,
       String context,
-      List<String> oAuthTokenCommand,
+      String oAuthServiceAccount,
+      List<String> oAuthScopes,
+      @NotNull List<CustomKubernetesResource> customResources,
       boolean debug) {
     this.registry = registry;
     this.clock = registry.clock();
@@ -189,10 +260,17 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.omitNamespaces = omitNamespaces;
     this.jobExecutor = jobExecutor;
     this.debug = debug;
-
+    this.kubectlExecutable = kubectlExecutable;
     this.kubeconfigFile = kubeconfigFile;
     this.context = context;
-    this.oAuthTokenCommand = oAuthTokenCommand;
+    this.oAuthServiceAccount = oAuthServiceAccount;
+    this.oAuthScopes = oAuthScopes;
+    this.customResources = customResources;
+
+    this.liveNamespaceSupplier = Suppliers.memoizeWithExpiration(() -> jobExecutor.list(this, KubernetesKind.NAMESPACE, "")
+        .stream()
+        .map(KubernetesManifest::getName)
+        .collect(Collectors.toList()), namespaceExpirySeconds, TimeUnit.SECONDS);
   }
 
   @Override
@@ -202,10 +280,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       result = namespaces;
     } else {
       try {
-        List<KubernetesManifest> namespaceManifests = jobExecutor.list(this, KubernetesKind.NAMESPACE, "");
-        result = namespaceManifests.stream()
-            .map(KubernetesManifest::getName)
-            .collect(Collectors.toList());
+        result = liveNamespaceSupplier.get();
 
       } catch (KubectlException e) {
         throw new RuntimeException(e);
@@ -237,12 +312,16 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.scale(this, kind, namespace, name, replicas));
   }
 
-  public void delete(KubernetesKind kind, String namespace, String name, V1DeleteOptions options) {
-    runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.delete(this, kind, namespace, name, options));
+  public List<String> delete(KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, V1DeleteOptions options) {
+    return runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.delete(this, kind, namespace, name, labelSelectors, options));
   }
 
   public void deploy(KubernetesManifest manifest) {
     runAndRecordMetrics("deploy", manifest.getKind(), manifest.getNamespace(), () -> jobExecutor.deploy(this, manifest));
+  }
+
+  public List<Integer> historyRollout(KubernetesKind kind, String namespace, String name) {
+    return runAndRecordMetrics("historyRollout", kind, namespace, () -> jobExecutor.historyRollout(this, kind, namespace, name));
   }
 
   public void undoRollout(KubernetesKind kind, String namespace, String name, int revision) {

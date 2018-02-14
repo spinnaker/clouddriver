@@ -17,18 +17,21 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupSummary;
-import io.kubernetes.client.models.V1beta1ReplicaSet;
+import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +51,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class KubernetesV2ServerGroup extends ManifestBasedModel implements ServerGroup {
   Boolean disabled;
-  Long createdTime;
   Set<String> zones = new HashSet<>();
   Set<Instance> instances = new HashSet<>();
   Set<String> loadBalancers = new HashSet<>();
@@ -60,6 +62,14 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
   KubernetesManifest manifest;
   Keys.InfrastructureCacheKey key;
 
+  @JsonIgnore
+  private static final ArtifactReplacer dockerImageReplacer;
+
+  static {
+    dockerImageReplacer = new ArtifactReplacer();
+    dockerImageReplacer.addReplacer(ArtifactReplacerFactory.dockerImageReplacer());
+  }
+
   @Override
   public ServerGroup.InstanceCounts getInstanceCounts() {
     return ServerGroup.InstanceCounts.builder()
@@ -69,6 +79,15 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         .unknown(Ints.checkedCast(instances.stream().filter(i -> i.getHealthState().equals(HealthState.Unknown)).count()))
         .outOfService(Ints.checkedCast(instances.stream().filter(i -> i.getHealthState().equals(HealthState.OutOfService)).count()))
         .starting(Ints.checkedCast(instances.stream().filter(i -> i.getHealthState().equals(HealthState.Starting)).count()))
+        .build();
+  }
+
+  public Map<String, Object> getBuildInfo() {
+    return new ImmutableMap.Builder<String, Object>()
+        .put("images", dockerImageReplacer.findAll(getManifest())
+            .stream()
+            .map(Artifact::getReference)
+            .collect(Collectors.toSet()))
         .build();
   }
 
@@ -83,9 +102,19 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
     this.instances = new HashSet<>(instances);
     this.loadBalancers = loadBalancers;
 
-    V1beta1ReplicaSet replicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta1ReplicaSet.class);
+    Object odesired = ((Map<String, Object>) manifest
+        .getOrDefault("spec", new HashMap<String, Object>()))
+        .getOrDefault("replicas", 0);
+    Integer desired = 0;
+
+    if (odesired instanceof Number) {
+      desired = ((Number) odesired).intValue();
+    } else {
+      log.warn("Unable to cast replica count from unexpected type: {}", odesired.getClass());
+    }
+
     this.capacity = Capacity.builder()
-        .desired(replicaSet.getSpec().getReplicas())
+        .desired(desired)
         .build();
   }
 

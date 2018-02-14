@@ -23,22 +23,26 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoo
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeleteManifestDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.CanDelete;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
+import java.util.Collections;
 import java.util.List;
 
-public class KubernetesDeleteManifestOperation implements AtomicOperation<Void> {
+public class KubernetesDeleteManifestOperation implements AtomicOperation<OperationResult> {
   private final KubernetesDeleteManifestDescription description;
   private final KubernetesV2Credentials credentials;
   private final KubernetesResourcePropertyRegistry registry;
+  private final String accountName;
   private static final String OP_NAME = "DELETE_KUBERNETES_MANIFEST";
 
   public KubernetesDeleteManifestOperation(KubernetesDeleteManifestDescription description, KubernetesResourcePropertyRegistry registry) {
     this.description = description;
     this.credentials = (KubernetesV2Credentials) description.getCredentials().getCredentials();
+    this.accountName = description.getCredentials().getName();
     this.registry = registry;
   }
 
@@ -47,26 +51,36 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Void> 
   }
 
   @Override
-  public Void operate(List priorOutputs) {
+  public OperationResult operate(List priorOutputs) {
     getTask().updateStatus(OP_NAME, "Starting delete operation...");
-    KubernetesCoordinates coordinates = description.getCoordinates();
+    List<KubernetesCoordinates> coordinates;
 
-    getTask().updateStatus(OP_NAME, "Looking up resource properties...");
-    KubernetesResourceProperties properties = registry.get(coordinates.getKind());
-    KubernetesHandler deployer = properties.getHandler();
-
-    if (!(deployer instanceof CanDelete)) {
-      throw new IllegalArgumentException("Resource with " + coordinates + " does not support delete");
+    if (description.isDynamic()) {
+      coordinates = description.getAllCoordinates();
+    } else {
+      coordinates = Collections.singletonList(description.getPointCoordinates());
     }
 
-    CanDelete canDelete = (CanDelete) deployer;
+    OperationResult result = new OperationResult();
+    coordinates.forEach(c -> {
+      getTask().updateStatus(OP_NAME, "Looking up resource properties for " + c.getKind() + "...");
+      KubernetesResourceProperties properties = registry.get(accountName, c.getKind());
+      KubernetesHandler deployer = properties.getHandler();
 
-    getTask().updateStatus(OP_NAME, "Calling delete operation...");
-    canDelete.delete(credentials,
-        coordinates.getNamespace(),
-        coordinates.getName(),
-        description.getOptions());
+      if (!(deployer instanceof CanDelete)) {
+        throw new IllegalArgumentException("Resource with " + c + " does not support delete");
+      }
 
-    return null;
+      CanDelete canDelete = (CanDelete) deployer;
+
+      getTask().updateStatus(OP_NAME, "Calling delete operation...");
+      result.merge(canDelete.delete(credentials,
+          c.getNamespace(),
+          c.getName(),
+          description.getLabelSelectors(),
+          description.getOptions()));
+    });
+
+    return result;
   }
 }

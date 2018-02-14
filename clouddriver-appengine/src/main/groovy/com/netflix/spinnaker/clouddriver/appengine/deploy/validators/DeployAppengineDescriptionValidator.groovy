@@ -39,20 +39,35 @@ class DeployAppengineDescriptionValidator extends DescriptionValidator<DeployApp
       return
     }
 
-    if (!description.repositoryUrl.startsWith("gs://")) {
-      if (!helper.validateGitCredentials(description.credentials.gitCredentials,
-                                         description.gitCredentialType,
-                                         description.credentials.name,
-                                         "gitCredentialType")) {
-         return
+    boolean isContainerDeployment = description.containerImageUrl?.trim()
+    boolean usesGcs = description.repositoryUrl?.startsWith("gs://")
+
+    if (!description.artifact) {
+      if (isContainerDeployment) {
+        helper.validateNotEmpty(description.containerImageUrl, "containerImageUrl")
+      } else {
+        if (!usesGcs) {
+          if (!helper.validateGitCredentials(description.credentials.gitCredentials,
+                                             description.gitCredentialType,
+                                             description.credentials.name,
+                                             "gitCredentialType")) {
+             return
+          }
+          helper.validateNotEmpty(description.branch, "branch")
+        }
+        helper.validateNotEmpty(description.repositoryUrl, "repositoryUrl")
       }
-      helper.validateNotEmpty(description.branch, "branch")
+    }
+
+    if (isContainerDeployment) {
+      helper.validateNotEmpty(description.containerImageUrl, "containerImageUrl")
+    } else {
+      helper.validateNotEmpty(description.repositoryUrl, "repositoryUrl")
     }
 
     helper.validateApplication(description.application, "application")
     helper.validateStack(description.stack, "stack")
     helper.validateDetails(description.freeFormDetails, "freeFormDetails")
-    helper.validateNotEmpty(description.repositoryUrl, "repositoryUrl")
 
     if (!(description.configFilepaths || description.configFiles)) {
       helper.validateNotEmpty(description.configFilepaths, "configFilepaths")

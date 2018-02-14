@@ -17,8 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.Replacer;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactTypes;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesReplicaSetCachingAgent;
@@ -35,6 +34,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA2;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
+
 @Component
 public class KubernetesReplicaSetHandler extends KubernetesHandler implements
     CanResize,
@@ -42,12 +44,11 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler implements
     CanScale {
 
   public KubernetesReplicaSetHandler() {
-    registerReplacer(
-        Replacer.builder()
-            .path("$.spec.template.spec.containers.[?( @.image == \"{%name%}\" )].image")
-            .type(ArtifactTypes.DOCKER_IMAGE)
-            .build()
-    );
+    registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
   }
 
   @Override
@@ -72,13 +73,11 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler implements
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    switch (manifest.getApiVersion()) {
-      case EXTENSIONS_V1BETA1:
-      case APPS_V1BETA2:
-        V1beta2ReplicaSet v1beta2ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2ReplicaSet.class);
-        return status(v1beta2ReplicaSet);
-      default:
-        throw new UnsupportedVersionException(manifest);
+    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1) || manifest.getApiVersion().equals(APPS_V1BETA2)) {
+      V1beta2ReplicaSet v1beta2ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2ReplicaSet.class);
+      return status(v1beta2ReplicaSet);
+    } else {
+      throw new UnsupportedVersionException(manifest);
     }
   }
 
@@ -113,15 +112,14 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler implements
   }
 
   public static Map<String, String> getPodTemplateLabels(KubernetesManifest manifest) {
-    switch (manifest.getApiVersion()) {
-      case EXTENSIONS_V1BETA1:
-        V1beta1ReplicaSet v1beta1ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta1ReplicaSet.class);
-        return getPodTemplateLabels(v1beta1ReplicaSet);
-      case APPS_V1BETA2:
-        V1beta2ReplicaSet v1beta2ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2ReplicaSet.class);
-        return getPodTemplateLabels(v1beta2ReplicaSet);
-      default:
-        throw new UnsupportedVersionException(manifest);
+    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)) {
+      V1beta1ReplicaSet v1beta1ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta1ReplicaSet.class);
+      return getPodTemplateLabels(v1beta1ReplicaSet);
+    } else if (manifest.getApiVersion().equals(APPS_V1BETA2)) {
+      V1beta2ReplicaSet v1beta2ReplicaSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2ReplicaSet.class);
+      return getPodTemplateLabels(v1beta2ReplicaSet);
+    } else {
+      throw new UnsupportedVersionException(manifest);
     }
   }
 

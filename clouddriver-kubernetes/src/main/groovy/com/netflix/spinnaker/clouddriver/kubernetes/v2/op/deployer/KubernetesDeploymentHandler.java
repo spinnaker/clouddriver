@@ -17,7 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA1;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA2;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
+
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactTypes;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesDeploymentCachingAgent;
@@ -41,12 +46,11 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
     CanUndoRollout {
 
   public KubernetesDeploymentHandler() {
-    registerReplacer(
-        ArtifactReplacer.Replacer.builder()
-            .path("$.spec.template.spec.containers.[?( @.image == \"{%name%}\" )].image")
-            .type(ArtifactTypes.DOCKER_IMAGE)
-            .build()
-    );
+    registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
   }
 
   @Override
@@ -66,14 +70,13 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    switch (manifest.getApiVersion()) {
-      case EXTENSIONS_V1BETA1:
-      case APPS_V1BETA1:
-      case APPS_V1BETA2:
-        V1beta2Deployment appsV1beta2Deployment = KubernetesCacheDataConverter.getResource(manifest, V1beta2Deployment.class);
-        return status(appsV1beta2Deployment);
-      default:
-        throw new UnsupportedVersionException(manifest);
+    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)
+        || manifest.getApiVersion().equals(APPS_V1BETA1)
+        || manifest.getApiVersion().equals(APPS_V1BETA2)) {
+      V1beta2Deployment appsV1beta2Deployment = KubernetesCacheDataConverter.getResource(manifest, V1beta2Deployment.class);
+      return status(appsV1beta2Deployment);
+    } else {
+      throw new UnsupportedVersionException(manifest);
     }
   }
 

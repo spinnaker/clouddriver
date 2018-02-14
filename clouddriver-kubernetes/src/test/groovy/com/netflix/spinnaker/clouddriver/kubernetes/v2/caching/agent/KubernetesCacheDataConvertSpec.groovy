@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
@@ -26,6 +27,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestMetadata
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSpinnakerRelationships
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import com.netflix.spinnaker.moniker.Moniker
 import org.apache.commons.lang3.tuple.Pair
@@ -58,11 +61,18 @@ metadata:
         .cluster(cluster)
         .build()
 
+    if (account != null) {
+      NamerRegistry.lookup()
+        .withProvider(KubernetesCloudProvider.ID)
+        .withAccount(account)
+        .setNamer(KubernetesManifest, new KubernetesManifestNamer())
+    }
+
     def manifest = stringToManifest(rawManifest)
     KubernetesManifestAnnotater.annotateManifest(manifest, moniker)
 
     when:
-    def cacheData = KubernetesCacheDataConverter.convertAsResource(account, manifest, [])
+    def cacheData = KubernetesCacheDataConverter.convertAsResource(account, manifest, [], true)
 
     then:
     if (application == null) {
@@ -142,48 +152,5 @@ metadata:
         return lb.getLeft() == key.getKubernetesKind() && lb.getRight() == key.getName()
       } != null
     }
-  }
-
-  @Unroll
-  def "correctly derive annotated spinnaker relationships"() {
-    setup:
-    def spinnakerRelationships = new KubernetesManifestSpinnakerRelationships()
-      .setLoadBalancers(loadBalancers)
-
-    def moniker = Moniker.builder()
-      .cluster(cluster)
-      .app(application)
-      .build()
-
-    def artifact = new Artifact()
-
-    def metadata = KubernetesManifestMetadata.builder()
-      .relationships(spinnakerRelationships)
-      .moniker(moniker)
-      .artifact(artifact)
-      .build()
-
-    when:
-    def relationships = KubernetesCacheDataConverter.annotatedRelationships(ACCOUNT, NAMESPACE, metadata)
-    def parsedLbs = loadBalancers.collect { lb -> KubernetesManifest.fromFullResourceName(lb) }
-
-    then:
-    relationships.get(Keys.LogicalKind.CLUSTERS.toString()) == [Keys.cluster(ACCOUNT, application, cluster)]
-    relationships.get(Keys.LogicalKind.APPLICATIONS.toString()) == [Keys.application(application)]
-
-    def services = filterRelationships(relationships.get(KubernetesKind.SERVICE.toString()), parsedLbs)
-    def ingresses = filterRelationships(relationships.get(KubernetesKind.INGRESS.toString()), parsedLbs)
-
-    ingresses.size() + services.size() == loadBalancers.size()
-
-    where:
-    cluster | application | loadBalancers
-    "a"     | "b"         | ["service hi"]
-    "a"     | "b"         | ["service hi", "service bye"]
-    "a"     | "b"         | []
-    "a"     | "b"         | ["service hi", "service bye", "ingress into"]
-    "a"     | "b"         | ["ingress into"]
-    "a"     | "b"         | ["ingress into", "ingress outof"]
-    "a"     | "b"         | ["service hi", "service bye", "ingress into", "ingress outof"]
   }
 }

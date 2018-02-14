@@ -1,4 +1,4 @@
-apply plugin: 'spring-boot'
+apply plugin: 'org.springframework.boot'
 // Applying the spring-boot plugin pulls in a newer version of jedis that we can't use yet. The
 // other ways to override versions (namely the subprojects.configurations.all.resolutionStrategy in
 // build.gradle) didn't work.
@@ -30,12 +30,14 @@ dependencies {
   compile project(':clouddriver-ecs')
   compile project(':clouddriver-azure')
   compile project(':clouddriver-appengine')
+  compile project(':clouddriver-artifacts')
   compile project(':clouddriver-google')
   compile project(':clouddriver-kubernetes')
   compile project(':clouddriver-openstack')
   compile project(':clouddriver-docker')
   compile project(':clouddriver-eureka')
   compile project(':clouddriver-elasticsearch')
+  compile project(':clouddriver-elasticsearch-aws')
   compile project(':clouddriver-oracle-bmcs')
   compile project(':clouddriver-dcos')
 

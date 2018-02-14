@@ -34,11 +34,13 @@ public class KubernetesUndoRolloutManifestOperation implements AtomicOperation<V
   private final KubernetesUndoRolloutManifestDescription description;
   private final KubernetesV2Credentials credentials;
   private final KubernetesResourcePropertyRegistry registry;
+  private final String accountName;
   private static final String OP_NAME = "DELETE_KUBERNETES_MANIFEST";
 
   public KubernetesUndoRolloutManifestOperation(KubernetesUndoRolloutManifestDescription description, KubernetesResourcePropertyRegistry registry) {
     this.description = description;
     this.credentials = (KubernetesV2Credentials) description.getCredentials().getCredentials();
+    this.accountName = description.getCredentials().getName();
     this.registry = registry;
   }
 
@@ -49,10 +51,10 @@ public class KubernetesUndoRolloutManifestOperation implements AtomicOperation<V
   @Override
   public Void operate(List priorOutputs) {
     getTask().updateStatus(OP_NAME, "Starting undo rollout operation...");
-    KubernetesCoordinates coordinates = description.getCoordinates();
+    KubernetesCoordinates coordinates = description.getPointCoordinates();
 
     getTask().updateStatus(OP_NAME, "Looking up resource properties...");
-    KubernetesResourceProperties properties = registry.get(coordinates.getKind());
+    KubernetesResourceProperties properties = registry.get(accountName, coordinates.getKind());
     KubernetesHandler deployer = properties.getHandler();
 
     if (!(deployer instanceof CanUndoRollout)) {
@@ -61,11 +63,29 @@ public class KubernetesUndoRolloutManifestOperation implements AtomicOperation<V
 
     CanUndoRollout canUndoRollout = (CanUndoRollout) deployer;
 
+    Integer revision = description.getRevision();
+    if (description.getNumRevisionsBack() != null) {
+      getTask().updateStatus(OP_NAME, "Looking up rollout history...");
+      List<Integer> revisions = canUndoRollout.historyRollout(credentials,
+          coordinates.getNamespace(),
+          coordinates.getName());
+
+      revisions.sort(Integer::compareTo);
+      int numRevisions = revisions.size();
+      int targetRevisionIndex = numRevisions - description.getNumRevisionsBack() - 1;
+      if (targetRevisionIndex < 0) {
+        throw new IllegalArgumentException("There are " + numRevisions + " revision(s) in total, cannot rollback " + description.getNumRevisionsBack());
+      }
+
+      revision = revisions.get(targetRevisionIndex);
+      getTask().updateStatus(OP_NAME, "Picked revision " + revision + "...");
+    }
+
     getTask().updateStatus(OP_NAME, "Calling undo rollout operation...");
     canUndoRollout.undoRollout(credentials,
         coordinates.getNamespace(),
         coordinates.getName(),
-        description.getRevision());
+        revision);
 
     return null;
   }

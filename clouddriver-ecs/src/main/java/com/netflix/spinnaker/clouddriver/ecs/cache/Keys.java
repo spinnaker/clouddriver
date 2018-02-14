@@ -32,7 +32,9 @@ public class Keys implements KeyParser {
     ECS_CLUSTERS,
     TASKS,
     CONTAINER_INSTANCES,
-    TASK_DEFINITIONS;
+    TASK_DEFINITIONS,
+    ALARMS,
+    SCALABLE_TARGETS;
 
     public final String ns;
 
@@ -59,6 +61,10 @@ public class Keys implements KeyParser {
 
   @Override
   public Boolean canParseType(String type) {
+    return canParse(type);
+  }
+
+  private static Boolean canParse(String type) {
     for (Namespace key : Namespace.values()) {
       if (key.toString().equals(type)) {
         return true;
@@ -78,6 +84,12 @@ public class Keys implements KeyParser {
     result.put("provider", parts[0]);
     result.put("type", parts[1]);
     result.put("account", parts[2]);
+
+    if(!canParse(parts[1]) && parts[1].equals(HEALTH.getNs())){
+      result.put("region", parts[3]);
+      result.put("taskId", parts[4]);
+      return result;
+    }
 
 
     Namespace namespace = Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]));
@@ -102,8 +114,15 @@ public class Keys implements KeyParser {
       case TASK_DEFINITIONS:
         result.put("taskDefinitionArn", parts[4]);
         break;
+      case ALARMS:
+        result.put("alarmArn", parts[4]);
+        break;
       case IAM_ROLE:
         result.put("roleName", parts[3]);
+        break;
+      case SCALABLE_TARGETS:
+        result.put("resource", parts[4]);
+        break;
       default:
         break;
     }
@@ -138,6 +157,14 @@ public class Keys implements KeyParser {
 
   public static String getTaskDefinitionKey(String account, String region, String taskDefinitionArn) {
     return buildKey(Namespace.TASK_DEFINITIONS.ns, account, region, taskDefinitionArn);
+  }
+
+  public static String getAlarmKey(String account, String region, String alarmArn) {
+    return buildKey(Namespace.ALARMS.ns, account, region, alarmArn);
+  }
+
+  public static String getScalableTargetKey(String account, String region, String resourceId) {
+    return buildKey(Namespace.SCALABLE_TARGETS.ns, account, region, resourceId);
   }
 
   public static String getIamRoleKey(String account, String iamRoleName) {

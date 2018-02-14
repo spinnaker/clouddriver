@@ -18,21 +18,35 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.PathNotFoundException;
 import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 public class ArtifactReplacer {
@@ -49,7 +63,8 @@ public class ArtifactReplacer {
     return this;
   }
 
-  public KubernetesManifest replaceAll(KubernetesManifest input, List<Artifact> artifacts) {
+  public ReplaceResult replaceAll(KubernetesManifest input, List<Artifact> artifacts) {
+    log.info("Doing replacement on {} using {}", input, artifacts);
     DocumentContext document;
     try {
       document = JsonPath.using(configuration).parse(mapper.writeValueAsString(input));
@@ -58,20 +73,62 @@ public class ArtifactReplacer {
       throw new RuntimeException(e);
     }
 
-    replacers.forEach(r -> artifacts.forEach(a -> r.replaceIfPossible(document, a)));
+    Set<Artifact> replacedArtifacts = replacers.stream()
+        .map(r -> artifacts.stream()
+            .filter(a -> r.replaceIfPossible(document, a))
+            .collect(Collectors.toSet()))
+        .flatMap(Collection::stream)
+        .collect(Collectors.toSet());
 
     try {
-      return mapper.readValue(document.jsonString(), KubernetesManifest.class);
+      return ReplaceResult.builder()
+          .manifest(mapper.readValue(document.jsonString(), KubernetesManifest.class))
+          .boundArtifacts(replacedArtifacts)
+          .build();
     } catch (IOException e) {
       log.error("Malformed Document Context", e);
       throw new RuntimeException(e);
     }
   }
 
+  public Set<Artifact> findAll(KubernetesManifest input) {
+    DocumentContext document;
+    try {
+      document = JsonPath.using(configuration).parse(mapper.writeValueAsString(input));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("Malformed manifest", e);
+    }
+
+    return replacers.stream()
+        .map(r -> {
+              try {
+                return ((List<String>) mapper.convertValue(r.findAll(document), new TypeReference<List<String>>() { }))
+                    .stream()
+                    .map(s -> Artifact.builder()
+                        .type(r.getType().toString())
+                        .reference(s)
+                        .name(r.getNameFromReference(s))
+                        .build()
+                    );
+              } catch (Exception e) {
+                // This happens when a manifest isn't fully defined (e.g. not all properties are there)
+                log.debug("Failure converting artifacts for {} using {} (skipping)", input.getFullResourceName(), r, e);
+                return Stream.<Artifact> empty();
+              }
+            }
+        ).flatMap(x -> x)
+        .collect(Collectors.toSet());
+  }
+
   @Slf4j
   @Builder
+  @AllArgsConstructor
   public static class Replacer {
-    private final String path;
+    private final String replacePath;
+    private final String findPath;
+    private final Pattern namePattern; // the first group should be the artifact name
+
+    @Getter
     private final ArtifactTypes type;
 
     private static String substituteField(String result, String fieldName, String field) {
@@ -87,24 +144,57 @@ public class ArtifactReplacer {
       return result;
     }
 
-    public void replaceIfPossible(DocumentContext obj, Artifact artifact) {
+    ArrayNode findAll(DocumentContext obj) {
+       return obj.read(findPath);
+    }
+
+    String getNameFromReference(String reference) {
+      if (namePattern == null) {
+        return null;
+      }
+
+      Matcher m = namePattern.matcher(reference);
+      if (m.find() && m.groupCount() > 0 && StringUtils.isNotEmpty(m.group(1))) {
+        return m.group(1);
+      } else {
+        return null;
+      }
+    }
+
+    boolean replaceIfPossible(DocumentContext obj, Artifact artifact) {
       if (artifact == null || StringUtils.isEmpty(artifact.getType())) {
         throw new IllegalArgumentException("Artifact and artifact type must be set.");
       }
 
       if (!artifact.getType().equals(type.toString())) {
-        return;
+        return false;
       }
 
-      String jsonPath = processPath(path, artifact);
+      String jsonPath = processPath(replacePath, artifact);
 
-      Object get = obj.read(jsonPath);
-      if (get == null) {
-        return;
+      Object get;
+      try {
+        get = obj.read(jsonPath);
+      } catch (PathNotFoundException e) {
+        return false;
+      }
+      if (get == null || (get instanceof ArrayNode && ((ArrayNode) get).size() == 0)) {
+        return false;
       }
 
       log.info("Found valid swap for " + artifact + " using " + jsonPath + ": " + get);
       obj.set(jsonPath, artifact.getReference());
+
+      return true;
     }
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class ReplaceResult {
+    private KubernetesManifest manifest;
+    private Set<Artifact> boundArtifacts = new HashSet<>();
   }
 }

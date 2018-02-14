@@ -50,6 +50,7 @@ class KubernetesDeployManifestOperationSpec extends Specification {
   def VERSION = "version"
   def NAMESPACE = "my-namespace"
   def DEFAULT_NAMESPACE = "default"
+  def IMAGE = "gcr.io/project/image"
   def KIND = KubernetesKind.REPLICA_SET
   def API_VERSION = KubernetesApiVersion.EXTENSIONS_V1BETA1
 
@@ -81,6 +82,7 @@ metadata:
       .setManifest(stringToManifest(manifest))
       .setMoniker(new Moniker())
       .setRelationships(new KubernetesManifestSpinnakerRelationships())
+      .setSource(KubernetesDeployManifestDescription.Source.text)
 
     def namedCredentialsMock = Mock(KubernetesNamedAccountCredentials)
     namedCredentialsMock.getCredentials() >> credentials
@@ -90,20 +92,19 @@ metadata:
     credentials.deploy(_, _) >> null
 
     def replicaSetDeployer = new KubernetesReplicaSetHandler()
-    replicaSetDeployer.objectMapper = new ObjectMapper()
     replicaSetDeployer.versioned() >> true
     replicaSetDeployer.kind() >> KIND
     def versionedArtifactConverterMock = Mock(KubernetesVersionedArtifactConverter)
     versionedArtifactConverterMock.getDeployedName(_) >> "$NAME-$VERSION"
     versionedArtifactConverterMock.toArtifact(_, _) >> new Artifact()
     def registry = new KubernetesResourcePropertyRegistry(Collections.singletonList(replicaSetDeployer),
-        new KubernetesSpinnakerKindMap(),
-        versionedArtifactConverterMock,
-        new KubernetesUnversionedArtifactConverter())
+        new KubernetesSpinnakerKindMap())
 
     NamerRegistry.lookup().withProvider(KubernetesCloudProvider.ID)
       .withAccount(ACCOUNT)
       .setNamer(KubernetesManifest.class, new KubernetesManifestNamer())
+
+    registry.get("any", KubernetesKind.REPLICA_SET).versionedConverter = versionedArtifactConverterMock
     
     def deployOp = new KubernetesDeployManifestOperation(deployDescription, registry, null)
 
@@ -119,8 +120,8 @@ metadata:
     when:
     def result = deployOp.operate([])
     then:
-    result.deployedNames.size == 1
-    result.deployedNames[0] == "$NAMESPACE:$KIND $NAME-$VERSION"
+    result.manifestNamesByNamespace[NAMESPACE].size() == 1
+    result.manifestNamesByNamespace[NAMESPACE][0] == "$KIND $NAME-$VERSION"
   }
 
   void "replica set deployer uses backup namespace"() {
@@ -133,7 +134,7 @@ metadata:
     def result = deployOp.operate([])
 
     then:
-    result.deployedNames.size == 1
-    result.deployedNames[0] == "$DEFAULT_NAMESPACE:$KIND $NAME-$VERSION"
+    result.manifestNamesByNamespace[DEFAULT_NAMESPACE].size() == 1
+    result.manifestNamesByNamespace[DEFAULT_NAMESPACE][0] == "$KIND $NAME-$VERSION"
   }
 }
