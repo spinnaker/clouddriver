@@ -22,7 +22,7 @@ import com.google.common.collect.Iterables;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.CacheFilter;
 import com.netflix.spinnaker.cats.cache.WriteableCache;
-import com.netflix.spinnaker.cats.redis.RedisClientDelegate;
+import com.netflix.spinnaker.kork.jedis.RedisClientDelegate;
 import redis.clients.jedis.ScanParams;
 import redis.clients.jedis.ScanResult;
 
