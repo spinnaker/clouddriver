@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2018 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,35 +15,31 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesNetworkPolicyCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesPersistentVolumeCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
-
 @Component
-public class KubernetesNetworkPolicyHandler extends KubernetesHandler implements CanDelete {
+public class KubernetesPersistentVolumeHandler extends KubernetesHandler implements CanDelete {
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.NETWORK_POLICY;
+    return KubernetesKind.PERSISTENT_VOLUME;
   }
 
   @Override
   public boolean versioned() {
-    return false;
+    return true;
   }
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.SECURITY_GROUPS;
+    return SpinnakerKind.CONFIGS;
   }
 
   @Override
@@ -53,14 +49,6 @@ public class KubernetesNetworkPolicyHandler extends KubernetesHandler implements
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesNetworkPolicyCachingAgent.class;
-  }
-
-  @Override
-  public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
-    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
-    result.put("id", result.get("name"));
-
-    return result;
+    return KubernetesPersistentVolumeCachingAgent.class;
   }
 }

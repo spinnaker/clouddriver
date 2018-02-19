@@ -32,10 +32,13 @@ public class KubernetesKind {
   public static KubernetesKind DEPLOYMENT = new KubernetesKind("deployment", "deploy");
   public static KubernetesKind HORIZONTAL_POD_AUTOSCALER = new KubernetesKind("horizontalpodautoscaler", "hpa");
   public static KubernetesKind INGRESS = new KubernetesKind("ingress", "ing");
+  public static KubernetesKind JOB = new KubernetesKind("job");
   public static KubernetesKind POD = new KubernetesKind("pod", "po");
   public static KubernetesKind REPLICA_SET = new KubernetesKind("replicaSet", "rs");
   public static KubernetesKind NAMESPACE = new KubernetesKind("namespace", "ns");
   public static KubernetesKind NETWORK_POLICY = new KubernetesKind("networkPolicy", "netpol");
+  public static KubernetesKind PERSISTENT_VOLUME = new KubernetesKind("persistentVolume", "pv");
+  public static KubernetesKind PERSISTENT_VOLUME_CLAIM = new KubernetesKind("persistentVolumeClaim", "pvc");
   public static KubernetesKind SECRET = new KubernetesKind("secret");
   public static KubernetesKind SERVICE = new KubernetesKind("service", "svc");
   public static KubernetesKind STATEFUL_SET = new KubernetesKind("statefulSet");
