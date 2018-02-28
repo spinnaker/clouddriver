@@ -211,7 +211,7 @@ class CloudDriverConfig {
 
   @Bean
   @ConditionalOnMissingBean(ImageProvider)
-  ImageProvider noopImageIdProvider() {
+  ImageProvider noopImageProvider() {
     new NoopImageProvider()
   }
 

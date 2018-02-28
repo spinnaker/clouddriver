@@ -16,11 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.view
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
+import com.netflix.spinnaker.clouddriver.aws.AwsConfiguration
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonImage
-import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -29,36 +30,34 @@ import com.netflix.spinnaker.clouddriver.aws.data.Keys
 
 class AmazonImageProviderSpec extends Specification {
   Cache cache = Mock(Cache)
+  AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider = Mock(AwsConfiguration.AmazonServerGroupProvider)
+  ObjectMapper objectMapper = new ObjectMapper()
 
   @Subject
-  AmazonImageProvider provider = new AmazonImageProvider(cache)
+  AmazonImageProvider provider = new AmazonImageProvider(cache, amazonServerGroupProvider, objectMapper)
 
   void "should return one image"() {
-
     when:
     def result = provider.getImageById("ami-123321")
 
     then:
-    result == Optional.of(Artifact.builder()
-            .name("some_ami")
-            .type(AmazonImage.AMAZON_IMAGE_TYPE)
-            .location("123456789/eu-west-1")
-            .metadata("name": "some_ami", ownerId: '123456789', "serverGroups": [], "imageId": "ami-123321", "region": "eu-west-1", "account": "test_account")
-            .reference("ami-123321")
-            .build())
+    AmazonImage expectedImage = new AmazonImage()
+    expectedImage.setRegion("eu-west-1")
+    expectedImage.setId("ami-123321")
+    expectedImage.setImageId("ami-123321")
+    expectedImage.setOwnerId("1233211233231")
+    result == Optional.of(expectedImage)
 
     and:
     1 * cache.filterIdentifiers(IMAGES.ns, _ as String) >> [
-            "aws:images:test_account:eu-west-1:ami-123321"
+        "aws:images:test_account:eu-west-1:ami-123321"
     ]
 
     1 * cache.getAll(IMAGES.ns, ["aws:images:test_account:eu-west-1:ami-123321"]) >>
-            [imageCacheData('aws:images:test_account:eu-west-1:ami-123321', [
-                    account: 'test_account',
-                    region : 'eu-west-1',
-                    name   : 'some_ami',
-                    ownerId: '123456789',
-                    imageId: 'ami-123321'])]
+        [imageCacheData('aws:images:test_account:eu-west-1:ami-123321', [
+            ownerId: '1233211233231',
+            name   : 'some_ami',
+            imageId: 'ami-123321'])]
   }
 
   void "should not find any image"() {

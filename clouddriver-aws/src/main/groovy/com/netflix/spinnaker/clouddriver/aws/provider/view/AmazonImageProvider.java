@@ -16,24 +16,25 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.view;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider;
+import com.netflix.spinnaker.clouddriver.aws.AwsConfiguration;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonImage;
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonServerGroup;
+import com.netflix.spinnaker.clouddriver.model.Image;
 import com.netflix.spinnaker.clouddriver.model.ImageProvider;
-import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.IMAGES;
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.INSTANCES;
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SERVER_GROUPS;
 
 
@@ -41,15 +42,18 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.SE
 public class AmazonImageProvider implements ImageProvider {
 
   private final Cache cacheView;
-
+  private final AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider;
+  private final ObjectMapper objectMapper;
 
   @Autowired
-  AmazonImageProvider(Cache cacheView) {
+  AmazonImageProvider(Cache cacheView, AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider, ObjectMapper objectMapper) {
     this.cacheView = cacheView;
+    this.amazonServerGroupProvider = amazonServerGroupProvider;
+    this.objectMapper = objectMapper;
   }
 
   @Override
-  public Optional<Artifact> getImageById(String imageId) {
+  public Optional<Image> getImageById(String imageId) {
 
     if (!imageId.startsWith("ami-")) {
       throw new RuntimeException("Image Id provided (" + imageId + ") is not a valid id for the provider " + getCloudProvider());
@@ -63,21 +67,19 @@ public class AmazonImageProvider implements ImageProvider {
 
     List<CacheData> imageCacheList = new ArrayList<>(cacheView.getAll(IMAGES.toString(), imageIdList));
 
-    Artifact image = Artifact.builder()
-        .name((String) imageCacheList.get(0).getAttributes().get("name"))
-        .type(AmazonImage.AMAZON_IMAGE_TYPE)
-        .location(imageCacheList.get(0).getAttributes().get("ownerId") + "/" + imageCacheList.get(0).getId().split(":")[3])
-        .reference((String) imageCacheList.get(0).getAttributes().get("imageId"))
-        .metadata(imageCacheList.get(0).getAttributes())
-        .build();
+    AmazonImage image = objectMapper.convertValue(imageCacheList.get(0).getAttributes(), AmazonImage.class);
+    image.setId(image.getImageId());
+    String[] imageIdSplitKey = imageCacheList.get(0).getId().split(":");
+    image.setRegion(imageIdSplitKey[imageIdSplitKey.length - 2]);
 
-    List<String> instancesIdList = imageCacheList.stream()
-        .filter(imageCache -> imageCache.getRelationships().get(INSTANCES.toString()) != null)
-        .map(imageCache -> imageCache.getRelationships().get(INSTANCES.toString()))
+    List<AmazonServerGroup> serverGroupList = imageCacheList.stream()
+        .filter(imageCache -> imageCache.getRelationships().get(SERVER_GROUPS.toString()) != null)
+        .map(imageCache -> imageCache.getRelationships().get(SERVER_GROUPS.toString()))
         .flatMap(Collection::stream)
+        .map(this::getServerGroupData)
         .collect(Collectors.toList());
 
-    image.getMetadata().put(SERVER_GROUPS.toString(), getServerGroupsBasedOnInstances(instancesIdList));
+    image.setServerGroups(serverGroupList);
     return Optional.of(image);
   }
 
@@ -86,15 +88,13 @@ public class AmazonImageProvider implements ImageProvider {
     return AmazonCloudProvider.ID;
   }
 
-  private List<Map<String, Object>> getServerGroupsBasedOnInstances(Collection<String> instancesIdList) {
-    if (instancesIdList == null || instancesIdList.isEmpty()) {
-      return new ArrayList<>();
-    }
-    return cacheView.getAll(INSTANCES.toString(), instancesIdList)
-        .stream()
-        .map(instanceCache -> instanceCache.getRelationships().get(SERVER_GROUPS.toString()))
-        .flatMap(Collection::stream)
-        .map(serverGroupId -> cacheView.get(SERVER_GROUPS.toString(), serverGroupId).getAttributes())
-        .collect(Collectors.toList());
+  private AmazonServerGroup getServerGroupData(String serverGroupCacheKey) {
+
+    String[] splittedKey = serverGroupCacheKey.split(":");
+    String account = splittedKey[splittedKey.length - 3];
+    String region = splittedKey[splittedKey.length - 2];
+    String serverGroupName = splittedKey[splittedKey.length - 1];
+
+    return amazonServerGroupProvider.getServerGroup(account, region, serverGroupName);
   }
 }

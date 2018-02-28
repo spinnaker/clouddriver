@@ -16,8 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.controllers;
 
+import com.netflix.spinnaker.clouddriver.model.Image;
 import com.netflix.spinnaker.clouddriver.model.ImageProvider;
-import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,7 +37,7 @@ public class ImageController {
   List<ImageProvider> imageProviders;
 
   @RequestMapping(value = "/{provider}/{imageId}", method = RequestMethod.GET)
-  Artifact getImage(@PathVariable String provider, @PathVariable String imageId) {
+  Image getImage(@PathVariable String provider, @PathVariable String imageId) {
 
     List<ImageProvider> imageProviderList = imageProviders.stream()
         .filter(imageProvider -> imageProvider.getCloudProvider().equals(provider))
@@ -46,7 +46,7 @@ public class ImageController {
     if (imageProviderList.isEmpty()) {
       throw new UnsupportedOperationException("ImageProvider for provider " + provider + " not found.");
     } else if (imageProviderList.size() > 1) {
-      throw new UnsupportedOperationException("Found multiple ImageProviders for provider " + provider + ". Multiple ImageProviders for a single provider are not supported.");
+      throw new IllegalStateException("Found multiple ImageProviders for provider " + provider + ". Multiple ImageProviders for a single provider are not supported.");
     } else {
       return imageProviderList.get(0).getImageById(imageId).orElseThrow(() -> new NotFoundException("Image not found (id: " + imageId + ")"));
     }

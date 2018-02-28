@@ -16,6 +16,18 @@
 
 package com.netflix.spinnaker.clouddriver.aws.model;
 
-public class AmazonImage {
+import com.netflix.spinnaker.clouddriver.model.Image;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+public class AmazonImage extends com.amazonaws.services.ec2.model.Image implements Image {
   public static final String AMAZON_IMAGE_TYPE = "aws/image";
+  String id;
+  String region;
+  List<AmazonServerGroup> serverGroups = new ArrayList<>();
 }
