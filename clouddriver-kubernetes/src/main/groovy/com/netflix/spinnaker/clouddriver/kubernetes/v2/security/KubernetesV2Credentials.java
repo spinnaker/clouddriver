@@ -115,6 +115,14 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return cachedDefaultNamespace;
   }
 
+  public List<String> getNamespaces() {
+    return namespaces;
+  }
+
+  public List<String> getOmitNamespaces() {
+    return omitNamespaces;
+  }
+
   public String lookupDefaultNamespace() {
     String namespace = defaultNamespace;
     try {
@@ -131,10 +139,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       namespace = defaultNamespace;
     }
     return namespace;
-  }
-
-  public boolean containsNamespace(String namespace) {
-    return namespaces.contains(namespace) || lookupDefaultNamespace().equals(namespace);
   }
 
   @Getter

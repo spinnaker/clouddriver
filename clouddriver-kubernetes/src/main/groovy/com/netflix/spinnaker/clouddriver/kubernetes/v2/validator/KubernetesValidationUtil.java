@@ -100,11 +100,25 @@ public class KubernetesValidationUtil {
       return false;
     }
 
-    if (!((KubernetesV2Credentials)credentials).containsNamespace(namespace)) {
+    if (!validateNamespace(namespace, (KubernetesV2Credentials)credentials.getCredentials())) {
+      return false;
+    }
+
+    return true;
+  }
+
+  protected boolean validateNamespace(String namespace, KubernetesV2Credentials credentials) {
+    final List<String> configuredNamespaces = credentials.getNamespaces();
+    if (configuredNamespaces != null && !configuredNamespaces.isEmpty() && !configuredNamespaces.contains(namespace)) {
       reject( "wrongNamespace", "namespace");
       return false;
     }
 
+    final List<String> omitNamespaces = credentials.getOmitNamespaces();
+    if (omitNamespaces != null && omitNamespaces.contains(namespace)) {
+      reject( "omittedNamespace", "namespace");
+      return false;
+    }
     return true;
   }
 }
