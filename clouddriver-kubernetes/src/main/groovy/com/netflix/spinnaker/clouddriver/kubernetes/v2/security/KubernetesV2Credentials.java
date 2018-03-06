@@ -133,6 +133,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return namespace;
   }
 
+  public boolean containsNamespace(String namespace) {
+    return namespaces.contains(namespace) || lookupDefaultNamespace().equals(namespace);
+  }
+
   @Getter
   private final boolean debug;
 

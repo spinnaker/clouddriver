@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.validator;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.validation.Errors;
 
@@ -28,6 +29,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 public class KubernetesValidationUtil {
   final private String context;
   final private Errors errors;
@@ -77,8 +79,13 @@ public class KubernetesValidationUtil {
     return true;
   }
 
-  public boolean validateV2Credentials(AccountCredentialsProvider provider, String accountName) {
+  public boolean validateV2Credentials(AccountCredentialsProvider provider, String accountName, String namespace) {
+    log.info("Validating credentials for {} {}", accountName, namespace);
     if (!validateNotEmpty("account", accountName)) {
+      return false;
+    }
+
+    if (!validateNotEmpty("account", namespace)) {
       return false;
     }
 
@@ -90,6 +97,11 @@ public class KubernetesValidationUtil {
 
     if (!(credentials.getCredentials() instanceof KubernetesV2Credentials)) {
       reject("wrongVersion", "account");
+      return false;
+    }
+
+    if (!((KubernetesV2Credentials)credentials).containsNamespace(namespace)) {
+      reject( "wrongNamespace", "namespace");
       return false;
     }
 
