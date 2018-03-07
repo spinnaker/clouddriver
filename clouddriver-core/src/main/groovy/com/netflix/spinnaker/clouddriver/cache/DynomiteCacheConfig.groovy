@@ -30,17 +30,18 @@ import com.netflix.spinnaker.cats.cache.NamedCacheFactory
 import com.netflix.spinnaker.cats.compression.CompressionStrategy
 import com.netflix.spinnaker.cats.compression.GZipCompression
 import com.netflix.spinnaker.cats.compression.NoopCompression
-import com.netflix.spinnaker.cats.dynomite.DynomiteClientDelegate
 import com.netflix.spinnaker.cats.dynomite.cache.DynomiteCache.CacheMetrics
 import com.netflix.spinnaker.cats.dynomite.cache.DynomiteNamedCacheFactory
 import com.netflix.spinnaker.cats.dynomite.cluster.DynoClusteredAgentScheduler
-import com.netflix.spinnaker.cats.redis.RedisClientDelegate
+import com.netflix.spinnaker.cats.dynomite.cluster.DynoClusteredSortAgentScheduler
 import com.netflix.spinnaker.cats.redis.cache.RedisCacheOptions
 import com.netflix.spinnaker.cats.redis.cluster.AgentIntervalProvider
 import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeIdentity
 import com.netflix.spinnaker.cats.redis.cluster.DefaultNodeStatusProvider
 import com.netflix.spinnaker.cats.redis.cluster.NodeStatusProvider
 import com.netflix.spinnaker.clouddriver.core.RedisConfigurationProperties
+import com.netflix.spinnaker.kork.dynomite.DynomiteClientDelegate
+import com.netflix.spinnaker.kork.jedis.RedisClientDelegate
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -50,6 +51,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
+import java.time.Clock
 import java.util.concurrent.TimeUnit
 
 @Configuration
@@ -145,8 +147,23 @@ class DynomiteCacheConfig {
 
   @Bean
   @ConditionalOnProperty(value = "caching.writeEnabled", matchIfMissing = true)
-  AgentScheduler agentScheduler(RedisClientDelegate redisClientDelegate, AgentIntervalProvider agentIntervalProvider, NodeStatusProvider nodeStatusProvider) {
-    new DynoClusteredAgentScheduler(redisClientDelegate, new DefaultNodeIdentity(), agentIntervalProvider, nodeStatusProvider)
+  AgentScheduler agentScheduler(Clock clock,
+                                RedisConfigurationProperties redisConfigurationProperties,
+                                RedisClientDelegate redisClientDelegate,
+                                AgentIntervalProvider agentIntervalProvider,
+                                NodeStatusProvider nodeStatusProvider) {
+    if (redisConfigurationProperties.scheduler.equalsIgnoreCase("default")) {
+      new DynoClusteredAgentScheduler(
+        (DynomiteClientDelegate) redisClientDelegate,
+        new DefaultNodeIdentity(),
+        agentIntervalProvider,
+        nodeStatusProvider
+      );
+    } else if (redisConfigurationProperties.scheduler.equalsIgnoreCase("sort")) {
+      new DynoClusteredSortAgentScheduler(clock, redisClientDelegate, nodeStatusProvider, agentIntervalProvider, redisConfigurationProperties.parallelism ?: -1);
+    } else {
+      throw new IllegalStateException("redis.scheduler must be one of 'default', 'sort', or ''.");
+    }
   }
 
   static class StaticHostSupplier implements HostSupplier {
