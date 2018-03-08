@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.core
 
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
 import com.netflix.spinnaker.cats.agent.NoopExecutionInstrumentation
-import com.netflix.spinnaker.cats.redis.RedisClientDelegate
 import com.netflix.spinnaker.clouddriver.cache.CacheConfig
 import com.netflix.spinnaker.clouddriver.cache.NoopOnDemandCacheUpdater
 import com.netflix.spinnaker.clouddriver.cache.OnDemandCacheUpdater
@@ -68,7 +67,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
 import com.netflix.spinnaker.kork.core.RetrySupport
-import com.netflix.spinnaker.moniker.Namer
+import com.netflix.spinnaker.kork.jedis.RedisClientDelegate
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -80,6 +79,8 @@ import org.springframework.context.annotation.PropertySource
 import org.springframework.core.env.Environment
 import org.springframework.web.client.RestTemplate
 
+import java.time.Clock
+
 @Configuration
 @Import([
   RedisConfig,
@@ -88,6 +89,12 @@ import org.springframework.web.client.RestTemplate
 ])
 @PropertySource(value = "classpath:META-INF/clouddriver-core.properties", ignoreResourceNotFound = true)
 class CloudDriverConfig {
+
+  @Bean
+  @ConditionalOnMissingBean(Clock)
+  Clock clock() {
+    Clock.systemDefaultZone()
+  }
 
   @Bean
   String clouddriverUserAgentApplicationName(Environment environment) {

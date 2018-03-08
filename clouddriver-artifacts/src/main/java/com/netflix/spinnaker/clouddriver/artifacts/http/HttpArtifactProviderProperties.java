@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Target, Inc.
+ * Copyright 2018 Joel Wilsson
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,23 +12,19 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package com.netflix.spinnaker.clouddriver.openstack.model
+package com.netflix.spinnaker.clouddriver.artifacts.http;
 
-import com.netflix.spinnaker.clouddriver.model.Image
-import groovy.transform.builder.Builder
+import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactProvider;
+import lombok.Data;
 
-@Builder
-class OpenstackImage implements Image {
-  String id
-  String name
-  String region
-  String status
-  Long size
-  String location
-  Long createdAt
-  Long updatedAt
-  Long deletedAt
-  Map<String, String> properties
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+public class HttpArtifactProviderProperties extends ArtifactProvider<HttpArtifactAccount> {
+  private boolean enabled;
+  private List<HttpArtifactAccount> accounts = new ArrayList<>();
 }

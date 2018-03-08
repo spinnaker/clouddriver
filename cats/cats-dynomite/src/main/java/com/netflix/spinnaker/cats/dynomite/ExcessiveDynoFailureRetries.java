@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Target, Inc.
+ * Copyright 2018 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,22 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.cats.dynomite;
 
-package com.netflix.spinnaker.clouddriver.openstack.model
-
-import com.netflix.spinnaker.clouddriver.model.Image
-import groovy.transform.builder.Builder
-
-@Builder
-class OpenstackImage implements Image {
-  String id
-  String name
-  String region
-  String status
-  Long size
-  String location
-  Long createdAt
-  Long updatedAt
-  Long deletedAt
-  Map<String, String> properties
+public class ExcessiveDynoFailureRetries extends RuntimeException {
+  public ExcessiveDynoFailureRetries(String message, Throwable cause) {
+    super(message, cause);
+  }
 }
