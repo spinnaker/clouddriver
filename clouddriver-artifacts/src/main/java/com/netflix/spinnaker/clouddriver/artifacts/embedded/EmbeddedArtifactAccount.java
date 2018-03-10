@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Joel Wilsson
+ * Copyright 2018 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,30 +15,14 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.artifacts.http;
+package com.netflix.spinnaker.clouddriver.artifacts.embedded;
 
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.apache.commons.lang3.StringUtils;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class HttpArtifactAccount extends ArtifactAccount {
-  private String name;
-  /*
-    One of the following are required for auth:
-     - username and password
-     - usernamePasswordFile : path to file containing "username:password"
-   */
-  private String username;
-  private String password;
-  private String usernamePasswordFile;
-
-  @JsonIgnore
-  public boolean usesAuth() {
-    return !(StringUtils.isEmpty(username) && StringUtils.isEmpty(password) && StringUtils.isEmpty(usernamePasswordFile));
-  }
+public class EmbeddedArtifactAccount extends ArtifactAccount {
+  private String name = "embedded-artifact";
 }
