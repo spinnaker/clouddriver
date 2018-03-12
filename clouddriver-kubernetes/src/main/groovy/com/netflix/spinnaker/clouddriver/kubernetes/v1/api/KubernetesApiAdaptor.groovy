@@ -21,8 +21,23 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.exception.KubernetesOperationException
 import groovy.util.logging.Slf4j
-import io.fabric8.kubernetes.api.model.*
-import io.fabric8.kubernetes.api.model.extensions.*
+import io.fabric8.kubernetes.api.model.ConfigMap
+import io.fabric8.kubernetes.api.model.DoneableHorizontalPodAutoscaler
+import io.fabric8.kubernetes.api.model.DoneableSecret
+import io.fabric8.kubernetes.api.model.Event
+import io.fabric8.kubernetes.api.model.HasMetadata
+import io.fabric8.kubernetes.api.model.HorizontalPodAutoscaler
+import io.fabric8.kubernetes.api.model.Job
+import io.fabric8.kubernetes.api.model.Namespace
+import io.fabric8.kubernetes.api.model.Pod
+import io.fabric8.kubernetes.api.model.ReplicationController
+import io.fabric8.kubernetes.api.model.Secret
+import io.fabric8.kubernetes.api.model.Service
+import io.fabric8.kubernetes.api.model.ServiceAccount
+import io.fabric8.kubernetes.api.model.extensions.Deployment
+import io.fabric8.kubernetes.api.model.extensions.DoneableDeployment
+import io.fabric8.kubernetes.api.model.extensions.Ingress
+import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
 import io.fabric8.kubernetes.client.DefaultKubernetesClient
 import io.fabric8.kubernetes.client.KubernetesClient
 import io.fabric8.kubernetes.client.KubernetesClientException
@@ -444,6 +459,12 @@ class KubernetesApiAdaptor {
   HorizontalPodAutoscaler createAutoscaler(String namespace, HorizontalPodAutoscaler autoscaler) {
     exceptionWrapper("horizontalPodAutoscalers.create", "Create Autoscaler ${autoscaler?.metadata?.name}", namespace) {
       client.autoscaling().horizontalPodAutoscalers().inNamespace(namespace).create(autoscaler)
+    }
+  }
+
+  DoneableHorizontalPodAutoscaler editAutoscaler(String namespace, String name) {
+    exceptionWrapper("horizontalPodAutoscalers.edit", "Edit Autoscaler $name", namespace) {
+      client.autoscaling().horizontalPodAutoscalers().inNamespace(namespace).withName(name).edit()
     }
   }
 

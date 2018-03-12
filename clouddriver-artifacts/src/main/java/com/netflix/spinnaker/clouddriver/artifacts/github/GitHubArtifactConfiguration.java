@@ -27,6 +27,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -53,13 +54,13 @@ public class GitHubArtifactConfiguration {
   ArtifactCredentialsRepository artifactCredentialsRepository;
 
   @Autowired
-  OkHttpClient okHttpClient;
+  OkHttpClient gitHubOkHttpClient;
 
   @Autowired
   ObjectMapper objectMapper;
 
   @Bean
-  OkHttpClient okHttpClient() {
+  OkHttpClient gitHubOkHttpClient() {
     return new OkHttpClient();
   }
 
@@ -69,7 +70,7 @@ public class GitHubArtifactConfiguration {
       .stream()
       .map(a -> {
         try {
-          GitHubArtifactCredentials c = new GitHubArtifactCredentials(a, okHttpClient, objectMapper);
+          GitHubArtifactCredentials c = new GitHubArtifactCredentials(a, gitHubOkHttpClient, objectMapper);
           artifactCredentialsRepository.save(c);
           return c;
         } catch (Exception e) {

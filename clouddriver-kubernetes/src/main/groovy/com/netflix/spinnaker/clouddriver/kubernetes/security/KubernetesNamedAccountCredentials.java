@@ -22,7 +22,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResou
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
@@ -187,6 +186,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     KubectlJobExecutor jobExecutor;
     Namer namer;
     List<CustomKubernetesResource> customResources;
+    List<String> kinds;
+    List<String> omitKinds;
     boolean debug;
 
     Builder name(String name) {
@@ -327,6 +328,16 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       return this;
     }
 
+    Builder kinds(List<String> kinds) {
+      this.kinds = kinds;
+      return this;
+    }
+
+    Builder omitKinds(List<String> omitKinds) {
+      this.omitKinds = omitKinds;
+      return this;
+    }
+
     private C buildCredentials() {
       switch (providerVersion) {
         case v1:
@@ -362,6 +373,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
               .omitNamespaces(omitNamespaces)
               .registry(spectatorRegistry)
               .customResources(customResources)
+              .kinds(kinds)
+              .omitKinds(omitKinds)
               .debug(debug)
               .jobExecutor(jobExecutor)
               .build();
@@ -377,6 +390,10 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
 
       if ((omitNamespaces != null && !omitNamespaces.isEmpty()) && (namespaces != null && !namespaces.isEmpty())) {
         throw new IllegalArgumentException("At most one of 'namespaces' and 'omitNamespaces' can be specified");
+      }
+
+      if ((omitKinds != null && !omitKinds.isEmpty()) && (kinds != null && !kinds.isEmpty())) {
+        throw new IllegalArgumentException("At most one of 'kinds' and 'omitKinds' can be specified");
       }
 
       if (cacheThreads == 0) {
