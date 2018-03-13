@@ -38,7 +38,8 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     CanDelete,
     CanPauseRollout,
     CanResumeRollout,
-    CanUndoRollout {
+    CanUndoRollout,
+    ServerGroupHandler {
 
   @Override
   public KubernetesKind kind() {
@@ -91,7 +92,7 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     }
 
     existing = status.getUpdatedNumberScheduled();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing != null && desiredReplicas > existing) {
       return result.unstable("Waiting for all updated replicas to be scheduled");
     }
 
