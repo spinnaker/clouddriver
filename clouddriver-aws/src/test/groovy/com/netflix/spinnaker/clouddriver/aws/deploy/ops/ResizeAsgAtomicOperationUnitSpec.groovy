@@ -30,7 +30,6 @@ import spock.lang.Specification
 import spock.lang.Unroll
 
 class ResizeAsgAtomicOperationUnitSpec extends Specification {
-
   def setupSpec() {
     TaskRepository.threadLocalTask.set(Mock(Task))
   }
@@ -45,7 +44,7 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
       asgs: [[
         serverGroupName: "myasg-stack-v000",
         region         : "us-west-1",
-        capacity       : new ResizeAsgDescription.Capacity(
+        capacity       : new ServerGroup.Capacity(
           min    : 1,
           max    : 2,
           desired: 5
@@ -110,8 +109,38 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
     capacity(0, 2, 3)    | 1          | 2          | 3              || true
   }
 
+  void "should support resize requests with only some fields to update"() {
+    def mockAutoScaling = Mock(AmazonAutoScaling)
+    def mockAmazonClientProvider = Mock(AmazonClientProvider)
+    mockAmazonClientProvider.getAutoScaling(_, _, true) >> mockAutoScaling
+    mockAutoScaling.describeAutoScalingGroups(_) >> new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
+      new AutoScalingGroup().withAutoScalingGroupName("myasg-stack-v0001")
+    )
 
-  private static ResizeAsgDescription.Capacity capacity(int min, int max, int desired) {
-    return new ResizeAsgDescription.Capacity(min: min, max: max, desired: desired)
+    def description = new ResizeAsgDescription(
+      asgs: [[
+               serverGroupName: "myasg-stack-v000",
+               region         : "us-west-1",
+               capacity       : new ServerGroup.Capacity(min: 42) // no max or desired specified
+             ]]
+    )
+    def operation = new ResizeAsgAtomicOperation(description)
+    operation.amazonClientProvider = mockAmazonClientProvider
+
+    when:
+    operation.operate([])
+
+    then:
+    1 * mockAutoScaling.updateAutoScalingGroup(_) >> {
+      request ->
+        assert request.size() == 1
+        assert request[0].minSize == 42
+        assert request[0].maxSize == null
+        assert request[0].desiredCapacity == null
+    }
+  }
+
+  private static ServerGroup.Capacity capacity(int min, int max, int desired) {
+    return new ServerGroup.Capacity(min: min, max: max, desired: desired)
   }
 }
