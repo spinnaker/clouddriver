@@ -61,6 +61,12 @@ class ResizeAsgAtomicOperation implements AtomicOperation<Void> {
                          ServerGroup.Capacity capacity,
                          ResizeAsgDescription.Constraints constraints) {
     task.updateStatus PHASE, "Beginning resize of ${asgName} in ${region} to ${capacity}."
+
+    if (capacity.min == null && capacity.max == null && capacity.desired == null) {
+      task.updateStatus PHASE, "Skipping resize of ${asgName} in ${region}, at least one field in ${capacity} needs to be non-null"
+      return
+    }
+
     def autoScaling = amazonClientProvider.getAutoScaling(description.credentials, region, true)
     def describeAutoScalingGroups = autoScaling.describeAutoScalingGroups(
       new DescribeAutoScalingGroupsRequest().withAutoScalingGroupNames(asgName)
