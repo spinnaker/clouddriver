@@ -31,7 +31,7 @@ class AmazonReservationReportBuilderV3Spec extends Specification {
 
   void "should partially cover a shortfall"() {
     given:
-    def regional = overallReservationDetail("m4.xlarge", 5, 0)
+    def regional = overallReservationDetail("m4.fxlarge", 5, 0)
     def shortfall = overallReservationDetail("m4.4xlarge", 0, 2)
 
     when:
@@ -50,7 +50,7 @@ class AmazonReservationReportBuilderV3Spec extends Specification {
 
   void "should fully cover a shortfall"() {
     given:
-    def regional = overallReservationDetail("m4.xlarge", 10, 0)
+    def regional = overallReservationDetail("m4.fxlarge", 10, 0)
     def shortfall = overallReservationDetail("m4.4xlarge", 0, 2)
 
     when:
@@ -69,7 +69,7 @@ class AmazonReservationReportBuilderV3Spec extends Specification {
 
   void "unable to cover any shortfall"() {
     given:
-    def regional = overallReservationDetail("m4.xlarge", 1, 0)
+    def regional = overallReservationDetail("m4.fxlarge", 1, 0)
     def shortfall = overallReservationDetail("m4.4xlarge", 0, 2)
 
     when:
@@ -88,8 +88,11 @@ class AmazonReservationReportBuilderV3Spec extends Specification {
 
   @Unroll
   void "should determine multiplier relative to 'xlarge'"() {
+    given:
+    def support = new AmazonReservationReportBuilder.Support()
+
     expect:
-    reportBuilder.getMultiplier(instanceType) == multiplier
+    support.getMultiplier(instanceType) == multiplier
 
     where:
     instanceType   || multiplier
