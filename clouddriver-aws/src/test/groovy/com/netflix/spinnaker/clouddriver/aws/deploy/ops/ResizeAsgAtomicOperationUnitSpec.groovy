@@ -149,4 +149,8 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
     0       | 0       | 0       | 1 // not the same as (null, null, null)
     null    | null    | null    | 0
   }
+
+  private static ServerGroup.Capacity capacity(int min, int max, int desired) {
+    return new ServerGroup.Capacity(min: min, max: max, desired: desired)
+  }
 }
