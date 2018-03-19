@@ -112,13 +112,13 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
   }
 
   @Unroll
-  void "should support resize requests with only some fields to update (min: #minSize, max: #maxSize, desired: #desiredCapacity)"() {
+  void "should support resize requests with only some fields to update (min: #minSize, max: #maxSize, desired: #desired)"() {
     setup:
     def description = new ResizeAsgDescription(
       asgs: [[
                serverGroupName: "myasg-stack-v000",
                region         : "us-west-1",
-               capacity       : new ServerGroup.Capacity(min: minSize, max: maxSize, desired: desiredCapacity)
+               capacity       : new ServerGroup.Capacity(min: minSize, max: maxSize, desired: desired)
              ]]
     )
     def operation = new ResizeAsgAtomicOperation(description)
@@ -128,48 +128,25 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
     operation.operate([])
 
     then:
-    1 * mockAutoScaling.describeAutoScalingGroups(_) >> new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
+    expectedOps * mockAutoScaling.describeAutoScalingGroups(_) >> new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
       new AutoScalingGroup().withAutoScalingGroupName("myasg-stack-v0001")
     )
 
-    1 * mockAutoScaling.updateAutoScalingGroup(_) >> {
+    expectedOps * mockAutoScaling.updateAutoScalingGroup(_) >> {
       request ->
         assert request.size() == 1
         assert request[0].minSize == minSize
         assert request[0].maxSize == maxSize
-        assert request[0].desiredCapacity == desiredCapacity
+        assert request[0].desiredCapacity == desired
     }
 
     where:
-    minSize | maxSize | desiredCapacity
-    42      | null    | null
-    null    | 42      | null
-    null    | null    | 42
-    0       | null    | null
-    0       | 0       | 0    // not the same as (null, null, null)
-  }
-
-  void "skip resizing if all capacity fields are null"() {
-    setup:
-    def description = new ResizeAsgDescription(
-      asgs: [[
-               serverGroupName: "myasg-stack-v000",
-               region         : "us-west-1",
-               capacity       : new ServerGroup.Capacity(min: null, max: null, desired: null)
-             ]]
-    )
-    def operation = new ResizeAsgAtomicOperation(description)
-    operation.amazonClientProvider = mockAmazonClientProvider
-
-    when:
-    operation.operate([])
-
-    then:
-    0 * mockAutoScaling.describeAutoScalingGroups(_)
-    0 * mockAutoScaling.updateAutoScalingGroup(_)
-  }
-
-  private static ServerGroup.Capacity capacity(int min, int max, int desired) {
-    return new ServerGroup.Capacity(min: min, max: max, desired: desired)
+    minSize | maxSize | desired | expectedOps
+    42      | null    | null    | 1
+    null    | 42      | null    | 1
+    null    | null    | 42      | 1
+    0       | null    | null    | 1
+    0       | 0       | 0       | 1 // not the same as (null, null, null)
+    null    | null    | null    | 0
   }
 }
