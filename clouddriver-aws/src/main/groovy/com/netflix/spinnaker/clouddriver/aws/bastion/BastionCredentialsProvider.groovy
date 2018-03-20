@@ -23,6 +23,7 @@ import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.auth.BasicSessionCredentials
 import com.jcraft.jsch.IdentityRepository
+import com.jcraft.jsch.JSchException
 import com.jcraft.jsch.agentproxy.ConnectorFactory
 import com.jcraft.jsch.agentproxy.RemoteIdentityRepository
 import groovy.json.JsonSlurper
@@ -65,7 +66,14 @@ class BastionCredentialsProvider implements AWSCredentialsProvider {
 
   @Override
   void refresh() {
-    this.credentials = getRemoteCredentials()
+    try {
+      this.credentials = getRemoteCredentials()
+    } catch (JSchException e) {
+      if ("Auth fail".equals(e.getMessage())) {
+        throw new BastionCredentialsAuthFailure(e);
+      }
+      throw e;
+    }
   }
 
   private AWSCredentials getRemoteCredentials() {
@@ -82,5 +90,11 @@ class BastionCredentialsProvider implements AWSCredentialsProvider {
     def json = slurper.parseText(jsonText) as Map
     expiration = format.parse(json.Expiration as String)
     new BasicSessionCredentials(json.AccessKeyId as String, json.SecretAccessKey as String, json.Token as String)
+  }
+
+  private static class BastionCredentialsAuthFailure extends IllegalStateException {
+    BastionCredentialsAuthFailure(Throwable cause) {
+      super("Failed to authenticate: Ensure your ssh agent is running and your key has been added", cause);
+    }
   }
 }
