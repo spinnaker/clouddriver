@@ -368,6 +368,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
               .context(context)
               .oAuthServiceAccount(oAuthServiceAccount)
               .oAuthScopes(oAuthScopes)
+              .serviceAccount(serviceAccount)
               .userAgent(userAgent)
               .namespaces(namespaces)
               .omitNamespaces(omitNamespaces)
@@ -416,6 +417,10 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
 
       if (configureImagePullSecrets == null) {
         configureImagePullSecrets = true;
+      }
+
+      if (serviceAccount == null) {
+        serviceAccount = false;
       }
 
       if (credentials == null) {

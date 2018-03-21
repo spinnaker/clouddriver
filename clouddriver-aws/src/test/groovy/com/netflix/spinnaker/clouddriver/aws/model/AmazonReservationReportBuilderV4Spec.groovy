@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Netflix, Inc.
+ * Copyright 2018 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import spock.lang.Unroll
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-class AmazonReservationReportBuilderV3Spec extends Specification {
+class AmazonReservationReportBuilderV4Spec extends Specification {
   @Shared
-  def reportBuilder = new AmazonReservationReportBuilder.V3()
+  def reportBuilder = new AmazonReservationReportBuilder.V4()
 
   def allocationIndex = new AtomicInteger(0)
 
