@@ -22,6 +22,7 @@ import com.aestasit.infrastructure.ssh.dsl.SshDslEngine
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.auth.BasicSessionCredentials
+import com.google.common.collect.ImmutableMap
 import com.jcraft.jsch.IdentityRepository
 import com.jcraft.jsch.agentproxy.ConnectorFactory
 import com.jcraft.jsch.agentproxy.RemoteIdentityRepository
@@ -73,6 +74,7 @@ class BastionCredentialsProvider implements AWSCredentialsProvider {
       "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
     def engine = new SshDslEngine(new SshOptions(defaultPassword: '', trustUnknownHosts: true, jschProperties: [(SshDslEngine.SSH_PREFERRED_AUTHENTICATIONS): 'publickey']))
     engine.jsch.setIdentityRepository(identityRepository)
+    engine.jsch.setLogger(new VerboseJSchLogger())
     def command = "oq-ssh -r ${proxyRegion} ${proxyCluster},0 'curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/${iamRole}'".toString()
     CommandOutput output
     engine.remoteSession("${user}@${host}:${port}") {
@@ -82,5 +84,24 @@ class BastionCredentialsProvider implements AWSCredentialsProvider {
     def json = slurper.parseText(jsonText) as Map
     expiration = format.parse(json.Expiration as String)
     new BasicSessionCredentials(json.AccessKeyId as String, json.SecretAccessKey as String, json.Token as String)
+  }
+
+  static class VerboseJSchLogger implements com.jcraft.jsch.Logger {
+    static Hashtable name = ImmutableMap.of(
+      new Integer(com.jcraft.jsch.Logger.DEBUG), "JSCH DEBUG: ",
+      new Integer(com.jcraft.jsch.Logger.INFO),  "JSCH INFO: ",
+      new Integer(com.jcraft.jsch.Logger.WARN),  "JSCH WARN: ",
+      new Integer(com.jcraft.jsch.Logger.ERROR), "JSCH ERROR: ",
+      new Integer(com.jcraft.jsch.Logger.FATAL), "JSCH FATAL: ",
+    )
+
+    boolean isEnabled(int level) {
+      return true
+    }
+
+    void log(int level, String message) {
+      System.err.print(name.get(level))
+      System.err.println(message)
+    }
   }
 }
