@@ -1,0 +1,68 @@
+apply plugin: 'com.google.protobuf'
+
+buildscript {
+  repositories {
+    jcenter()
+  }
+
+  dependencies {
+    classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.5'
+  }
+}
+
+ext {
+  protobufVersion = '3.2.+'
+  grpcVersion = '1.9.+'
+}
+
+repositories {
+  maven { url 'https://dl.bintray.com/netflixoss' }
+}
+
+dependencies {
+  protobuf 'com.netflix:titus-api-definitions:0.0.1-rc22'
+
+  compile "com.google.protobuf:protobuf-java:$protobufVersion"
+  compile "io.grpc:grpc-protobuf:$grpcVersion"
+  compile "io.grpc:grpc-stub:$grpcVersion"
+  compile "io.grpc:grpc-netty-shaded:$grpcVersion"
+  compile project(":clouddriver-aws")
+  compile project(":clouddriver-core")
+  compile project(":clouddriver-eureka")
+  compile spinnaker.dependency('bootActuator')
+  compile spinnaker.dependency('bootWeb')
+  compile 'com.squareup.okhttp3:okhttp:3.1.2'
+  testCompile "org.slf4j:slf4j-simple:${spinnaker.version('slf4j')}"
+  spinnaker.group('test')
+}
+
+sourceSets {
+  main {
+    java {
+      srcDir "${protobuf.generatedFilesBaseDir}/main/grpc"
+      srcDir "${protobuf.generatedFilesBaseDir}/main/java"
+    }
+  }
+}
+
+task cleanGenerated(type: Delete) {
+  delete "$projectDir/src/generated"
+}
+
+clean.dependsOn cleanGenerated
+
+protobuf {
+  protoc {
+    artifact = "com.google.protobuf:protoc:$protobufVersion"
+  }
+  plugins {
+    grpc {
+      artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion"
+    }
+  }
+  generateProtoTasks {
+    all()*.plugins {
+      grpc {}
+    }
+  }
+}
