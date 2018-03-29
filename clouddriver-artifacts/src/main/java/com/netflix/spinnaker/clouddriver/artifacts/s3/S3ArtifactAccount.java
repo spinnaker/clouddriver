@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Netflix, Inc.
+ * Copyright 2018 Datadog, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -24,5 +24,5 @@ import lombok.EqualsAndHashCode;
 @Data
 public class S3ArtifactAccount extends ArtifactAccount
 {
-  private String name = "s3-account";
+  private String name;
 }
