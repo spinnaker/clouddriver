@@ -116,7 +116,7 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
         try {
             runAgents();
         } catch (Throwable t) {
-            t.printStackTrace(System.err);
+            logger.error("Error running agents {}", t.getMessage(), t);
         }
     }
 

@@ -17,7 +17,9 @@ package com.netflix.spinnaker.clouddriver.aws.model
 
 import com.google.common.collect.ImmutableMap
 import groovy.transform.Canonical
+import groovy.util.logging.Slf4j
 
+@Slf4j
 @Canonical
 class ResultByZone<T> {
   final ImmutableMap<String, T> successfulResults
@@ -42,7 +44,7 @@ class ResultByZone<T> {
     ResultByZone<T> build() {
       def failureStrings = failures.collectEntries { String key, Exception exception ->
         def stringWriter = new StringWriter()
-        exception.printStackTrace(new PrintWriter(stringWriter))
+        log.error(exception.message, exception)
         [(key): stringWriter.toString()]
       }
       of(ImmutableMap.copyOf(successfulResults), ImmutableMap.copyOf(failureStrings))

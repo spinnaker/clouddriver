@@ -16,9 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.cache;
 
+import com.google.common.primitives.Ints;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.moniker.Moniker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,6 +30,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public interface OnDemandAgent {
+  Logger LOGGER = LoggerFactory.getLogger(OnDemandAgent.class);
+
   String getProviderName();
 
   String getOnDemandAgentType();
@@ -81,10 +86,10 @@ public interface OnDemandAgent {
           .stack(details.get("stack"))
           .detail(details.get("detail"))
           .cluster(details.get("cluster"))
-          .sequence(Integer.valueOf(details.get("sequence")))
+          .sequence(Ints.tryParse(details.get("cluster")))
           .build();
     } catch (Exception e) {
-      e.printStackTrace();
+      LOGGER.error("Error building moniker, details: {}", details, e);
       return null;
     }
   }

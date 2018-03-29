@@ -19,6 +19,8 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -28,7 +30,9 @@ import java.util.Set;
 
 public class IamPolicyReader {
 
-  ObjectMapper mapper;
+  private ObjectMapper mapper;
+
+  private final Logger log = LoggerFactory.getLogger(getClass());
 
   public IamPolicyReader(ObjectMapper objectMapper) {
     this.mapper = objectMapper;
@@ -58,7 +62,7 @@ public class IamPolicyReader {
         }
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      log.error(e.getMessage(), e);
     }
 
     return trustedEntities;
