@@ -177,9 +177,11 @@ class CatsSearchProvider implements SearchProvider {
     String normalizedWord = q.toLowerCase()
     List<String> matches = cachesToQuery.collect { String cache ->
       List<KeyProcessor> keyProcessors = (this.keyProcessors ?: []).findAll { it.canProcess(cache) }
-
+      log.error("WHAT")
       // if the key represented in the cache doesn't actually exist, don't process it
       Closure keyExists = { String key ->
+        log.error("KEY = {}", key)
+        log.error("KEYPROCESSORS = {}", keyProcessors)
         boolean exists = keyProcessors.empty || keyProcessors.any { it.exists(key) }
         if (!exists) {
           log.warn("found ${cache} key that did not exist: ${key}")
@@ -190,14 +192,19 @@ class CatsSearchProvider implements SearchProvider {
       Closure filtersMatch = { String key ->
         try {
           if (!filters) {
+            log.error("NO FILTER")
             return true
           }
 
           if (keyParsers) {
+            log.error("IN KEYPARSERS")
             KeyParser parser = keyParsers.find { it.cloudProvider == filters.cloudProvider && it.canParseType(cache) }
+            log.error("PARSER = {}", parser)
             if (parser) {
               Map<String, String> parsed = parser.parseKey(key)
+              log.error("PARSED = {}", parsed)
               return filters.entrySet().every { filter ->
+                log.error("FILTER = {}", filter)
                 String[] vals = filter.value.split(',')
                 filter.key == 'cloudProvider' || vals.contains(parsed[filter.key]) ||
                   vals.contains(parsed[parser.getNameMapping(cache)])
@@ -216,6 +223,8 @@ class CatsSearchProvider implements SearchProvider {
         .findAll(keyExists)
         .findAll(filtersMatch)
 
+      log.error("IDENTIFIERS = {}", identifiers)
+      log.error("CACHE = {}", cache)
       return identifiers
     }.flatten()
 

@@ -105,18 +105,10 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
             task.addResultObjects([[type: "EXCEPTION", operation: atomicOperation.class.simpleName, cause: e.class.simpleName, message: e.errors.join(", ")]])
             task.fail()
           } catch (e) {
-            def message = e.message
-            def stringWriter = new StringWriter()
-            def printWriter = new PrintWriter(stringWriter)
-            e.printStackTrace(printWriter)
-            def stackTrace = stringWriter.toString()
-            if (!message) {
-              message = stackTrace
-            }
             task.updateStatus TASK_PHASE, "Orchestration failed: ${atomicOperation.class.simpleName} | ${e.class.simpleName}: [${message}]"
-            task.addResultObjects([[type: "EXCEPTION", operation: atomicOperation.class.simpleName, cause: e.class.simpleName, message: message]])
+            task.addResultObjects([[type: "EXCEPTION", operation: atomicOperation.class.simpleName, cause: e.class.simpleName, message: e.message ?: e.getStackTrace().toString()]])
 
-            log.error(stackTrace)
+            log.error("Orchestration Exception {}", e.message, e)
             task.fail()
           }
         }
@@ -128,15 +120,13 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
       } catch (Exception e) {
         registry.counter(tasksId.withTag("success", "false").withTag("cause", e.class.simpleName)).increment()
         if (e instanceof TimeoutException) {
+          log.error("Orchestration timed out")
           task.updateStatus "INIT", "Orchestration timed out."
           task.addResultObjects([[type: "EXCEPTION", cause: e.class.simpleName, message: "Orchestration timed out."]])
           task.fail()
         } else {
-          e.printStackTrace()
-          def stringWriter = new StringWriter()
-          def printWriter = new PrintWriter(stringWriter)
-          e.printStackTrace(printWriter)
-          task.updateStatus("INIT", "Unknown failure -- ${stringWriter.toString()}")
+          log.error("Orchestration failed {}", e.message, e)
+          task.updateStatus("INIT", "Unknown failure -- ${e.message}")
           task.addResultObjects([[type: "EXCEPTION", cause: e.class.simpleName, message: "Failed for unknown reason."]])
           task.fail()
         }

@@ -21,6 +21,8 @@ import com.netflix.spinnaker.clouddriver.model.SecurityGroupProvider
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.security.access.prepost.PostAuthorize
 import org.springframework.security.access.prepost.PreAuthorize
@@ -39,6 +41,8 @@ class SecurityGroupController {
 
   @Autowired
   List<SecurityGroupProvider> securityGroupProviders
+
+  final Logger log = LoggerFactory.getLogger(getClass())
 
   @PreAuthorize("@fiatPermissionEvaluator.storeWholePermission()")
   @PostAuthorize("@authorizationSupport.filterForAccounts(returnObject)")
@@ -61,7 +65,7 @@ class SecurityGroupController {
       objs[obj.accountName][obj.cloudProvider][obj.region] << obj.summary
       objs
     }) doOnError {
-      it.printStackTrace()
+      log.error(it.message, it)
     } toBlocking() first()
   }
 
