@@ -29,4 +29,3 @@ public class S3ArtifactProviderProperties extends ArtifactProvider<S3ArtifactAcc
   private boolean enabled;
   private List<S3ArtifactAccount> accounts = new ArrayList<>();
 }
-

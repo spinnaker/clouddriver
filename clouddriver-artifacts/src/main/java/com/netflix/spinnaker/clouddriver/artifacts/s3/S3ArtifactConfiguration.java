@@ -27,9 +27,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Configuration
 @ConditionalOnProperty("artifacts.s3.enabled")
@@ -48,11 +48,20 @@ public class S3ArtifactConfiguration {
   ArtifactCredentialsRepository artifactCredentialsRepository;
 
   @Bean
-  List<? extends S3ArtifactAccount> s3ArtifactCredentials() {
-    S3ArtifactAccount account = new S3ArtifactAccount();
-    S3ArtifactCredentials creds = new S3ArtifactCredentials(account);
-    artifactCredentialsRepository.save(creds);
-
-    return Collections.singletonList(account);
+  List<? extends S3ArtifactCredentials> s3ArtifactCredentials() {
+    return s3ArtifactProviderProperties.getAccounts()
+      .stream()
+      .map(a -> {
+        try {
+          S3ArtifactCredentials c = new S3ArtifactCredentials(a);
+          artifactCredentialsRepository.save(c);
+          return c;
+        } catch (IllegalArgumentException e) {
+          log.warn("Failure instantiating s3 artifact account {}: ", a, e);
+          return null;
+        }
+      })
+      .filter(Objects::nonNull)
+      .collect(Collectors.toList());
   }
 }
