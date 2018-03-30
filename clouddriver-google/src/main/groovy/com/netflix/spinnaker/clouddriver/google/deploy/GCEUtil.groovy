@@ -21,9 +21,12 @@ import com.google.api.client.googleapis.batch.BatchRequest
 import com.google.api.client.googleapis.batch.json.JsonBatchCallback
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.http.GenericUrl
 import com.google.api.client.http.HttpHeaders
 import com.google.api.client.http.HttpRequest
 import com.google.api.client.http.HttpRequestInitializer
+import com.google.api.client.json.JsonObjectParser
+import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.*
 import com.netflix.spinnaker.cats.cache.Cache
@@ -49,6 +52,7 @@ import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleNetworkProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleSubnetProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import groovy.util.logging.Slf4j
 
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.HTTP_HEALTH_CHECKS
@@ -114,6 +118,55 @@ class GCEUtil {
       return sourceImage
     } else {
       updateStatusAndThrowNotFoundException("Image $imageName not found in any of these projects: $imageProjects.", task, phase)
+    }
+  }
+
+  static Image getImageFromArtifact(Artifact artifact,
+                                    Compute compute,
+                                    Task task,
+                                    String phase) {
+    if(artifact.getType() != "gce/image") {
+      throw new GoogleOperationException("Artifact to deploy to GCE must be of type gce/image")
+    }
+
+    def reference = artifact.getReference()
+    task.updateStatus phase, "Looking up image $reference..."
+
+    def result = compute.getRequestFactory()
+      .buildGetRequest(new GenericUrl(reference))
+      .setParser(new JsonObjectParser(JacksonFactory.getDefaultInstance()))
+      .execute()
+
+    if (result.isSuccessStatusCode()) {
+      return result.parseAs(Image)
+    } else {
+      updateStatusAndThrowNotFoundException("Image $reference not found", task, phase)
+    }
+  }
+
+  static Image getBootImage(BaseGoogleInstanceDescription description,
+                            Task task,
+                            String phase,
+                            String clouddriverUserAgentApplicationName,
+                            List<String> baseImageProjects,
+                            GoogleExecutorTraits executor) {
+    if (description.imageSource == BaseGoogleInstanceDescription.ImageSource.ARTIFACT) {
+      return getImageFromArtifact(
+        description.imageArtifact,
+        description.credentials.compute,
+        task,
+        phase
+      )
+    } else {
+      return queryImage(description.credentials.project,
+        description.image,
+        description.credentials,
+        description.credentials.compute,
+        task,
+        phase,
+        clouddriverUserAgentApplicationName,
+        baseImageProjects,
+        executor)
     }
   }
 
@@ -615,8 +668,6 @@ class GCEUtil {
                                                List<String> baseImageProjects,
                                                GoogleExecutorTraits executor) {
     def credentials = description.credentials
-    def compute = credentials.compute
-    def project = credentials.project
     def disks = description.disks
     def instanceType = description.instanceType
 
@@ -628,22 +679,32 @@ class GCEUtil {
       throw new GoogleOperationException("Unable to determine disks for instance type $instanceType.")
     }
 
-    def firstPersistentDisk = disks.find { it.persistent }
+    def bootImage = getBootImage(description,
+                                 task,
+                                 phase,
+                                 clouddriverUserAgentApplicationName,
+                                 baseImageProjects,
+                                 executor)
 
+    def firstPersistentDisk = disks.find { it.persistent }
     return disks.collect { disk ->
-      def diskType = useDiskTypeUrl ? buildDiskTypeUrl(project, zone, disk.type) : disk.type
-      def sourceImage =
-        disk.persistent
-        ? queryImage(project,
-                     disk.is(firstPersistentDisk) ? description.image : disk.sourceImage,
-                     credentials,
-                     compute,
-                     task,
-                     phase,
-                     clouddriverUserAgentApplicationName,
-                     baseImageProjects,
-                     executor)
-        : null
+      def diskType = useDiskTypeUrl ? buildDiskTypeUrl(credentials.project, zone, disk.type) : disk.type
+
+      def sourceImage
+      if (disk.persistent) {
+        sourceImage =
+          disk.is(firstPersistentDisk)
+          ? bootImage
+          : queryImage(credentials.project,
+                       disk.sourceImage,
+                       credentials,
+                       credentials.compute,
+                       task,
+                       phase,
+                       clouddriverUserAgentApplicationName,
+                       baseImageProjects,
+                       executor)
+      }
 
       if (sourceImage && sourceImage.diskSizeGb > disk.sizeGb) {
         disk.sizeGb = sourceImage.diskSizeGb

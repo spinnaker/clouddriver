@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.description
 
 import com.netflix.spinnaker.clouddriver.google.model.GoogleDisk
+import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
 import groovy.transform.ToString
@@ -25,7 +26,6 @@ import groovy.transform.ToString
 @Canonical
 @ToString(includeNames = true)
 class BaseGoogleInstanceDescription extends AbstractGoogleCredentialsDescription {
-  String image
   String instanceType
   String minCpuPlatform
   List<GoogleDisk> disks
@@ -43,7 +43,17 @@ class BaseGoogleInstanceDescription extends AbstractGoogleCredentialsDescription
   Boolean automaticRestart
   OnHostMaintenance onHostMaintenance
 
+  // We support passing the image to deploy as either a string or an artifact, but default to
+  // the string for backwards-compatibility
+  ImageSource imageSource = ImageSource.STRING
+  String image
+  Artifact imageArtifact
+
   String accountName
+
+  enum ImageSource {
+    ARTIFACT, STRING
+  }
 
   enum OnHostMaintenance {
     MIGRATE, TERMINATE
