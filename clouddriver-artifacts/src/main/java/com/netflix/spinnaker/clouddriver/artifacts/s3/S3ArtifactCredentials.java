@@ -59,7 +59,4 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
   public boolean handlesType(String type) {
     return type.equals("s3/object");
   }
-
-  @Override
-  public String getName() { return name; }
 }
