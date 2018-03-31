@@ -30,11 +30,9 @@ import java.io.InputStream;
 @Slf4j
 @Data
 public class S3ArtifactCredentials implements ArtifactCredentials {
-  private final AmazonS3 s3;
   private final String name;
 
   public S3ArtifactCredentials(S3ArtifactAccount account) throws IllegalArgumentException {
-    s3 = AmazonS3ClientBuilder.defaultClient();
     name = account.getName();
   }
 
@@ -51,7 +49,7 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
     }
     String bucketName = reference.substring(0, slash);
     String path = reference.substring(slash + 1);
-    S3Object s3obj = s3.getObject(bucketName, path);
+    S3Object s3obj = AmazonS3ClientBuilder.defaultClient().getObject(bucketName, path);
     return s3obj.getObjectContent();
   }
 
