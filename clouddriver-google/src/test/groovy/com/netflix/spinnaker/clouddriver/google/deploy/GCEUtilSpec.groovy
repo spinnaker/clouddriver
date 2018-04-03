@@ -68,9 +68,18 @@ class GCEUtilSpec extends Specification {
   @Shared
   def taskMock
 
+  @Shared
+  def safeRetry
+
   def setupSpec() {
     this.taskMock = Mock(Task)
     TaskRepository.threadLocalTask.set(taskMock)
+
+    this.safeRetry = Stub(SafeRetry)
+    safeRetry.doRetry(*_) >> { args ->
+      def operation = args[0] as Closure
+      return operation()
+    }
   }
 
   void "query source images should succeed"() {
@@ -169,7 +178,7 @@ class GCEUtilSpec extends Specification {
   void "getImageFromArtifact"() {
     setup:
     def returnImage
-    def success
+    def executorMock = Mock(GoogleExecutorTraits)
 
     def compute = GroovyMock(Compute)
     compute.getRequestFactory() >> {
@@ -181,11 +190,11 @@ class GCEUtilSpec extends Specification {
         }
         httpRequest.execute() >> {
           def response = GroovyMock(HttpResponse)
-          response.isSuccessStatusCode() >> {
-            return success
-          }
           response.parseAs(_) >> {
             return returnImage
+          }
+          response.asType(HttpResponse) >> {
+            return response
           }
           return response
         }
@@ -203,25 +212,15 @@ class GCEUtilSpec extends Specification {
 
     when:
     returnImage = soughtImage
-    success = true
-    def sourceImage = GCEUtil.getImageFromArtifact(artifact, compute, taskMock, PHASE)
+    def sourceImage = GCEUtil.getImageFromArtifact(artifact, compute, taskMock, PHASE, safeRetry, executorMock)
 
     then:
     sourceImage == soughtImage
 
     when:
-    returnImage = soughtImage
-    success = false
-    GCEUtil.getImageFromArtifact(artifact, compute, taskMock, PHASE)
-
-    then:
-    thrown GoogleResourceNotFoundException
-
-    when:
     artifact = Artifact.builder().type("github/file").build()
     returnImage = soughtImage
-    success = true
-    GCEUtil.getImageFromArtifact(artifact, compute, taskMock, PHASE)
+    GCEUtil.getImageFromArtifact(artifact, compute, taskMock, PHASE, safeRetry, executorMock)
 
     then:
     thrown GoogleOperationException
@@ -244,6 +243,7 @@ class GCEUtilSpec extends Specification {
                          PHASE,
                          GOOGLE_APPLICATION_NAME,
                          [IMAGE_PROJECT_NAME],
+                         safeRetry,
                          executor)
 
     then:
@@ -268,11 +268,12 @@ class GCEUtilSpec extends Specification {
                          PHASE,
                          GOOGLE_APPLICATION_NAME,
                          [IMAGE_PROJECT_NAME],
+                         safeRetry,
                          executor)
 
     then:
     0 * GCEUtil.queryImage(*_)
-    1 * GCEUtil.getImageFromArtifact(artifact, compute, taskMock, PHASE) >> { return new Image() }
+    1 * GCEUtil.getImageFromArtifact(artifact, compute, taskMock, PHASE, safeRetry, executor) >> { return new Image() }
   }
 
   void "instance metadata with zero key-value pairs roundtrips properly"() {

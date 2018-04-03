@@ -25,12 +25,14 @@ import com.google.api.client.http.GenericUrl
 import com.google.api.client.http.HttpHeaders
 import com.google.api.client.http.HttpRequest
 import com.google.api.client.http.HttpRequestInitializer
+import com.google.api.client.http.HttpResponse
 import com.google.api.client.json.JsonObjectParser
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.*
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
+import com.netflix.spinnaker.clouddriver.artifacts.ArtifactUtils
 import com.netflix.spinnaker.clouddriver.consul.provider.ConsulProviderUtils
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.google.GoogleConfiguration
@@ -124,24 +126,33 @@ class GCEUtil {
   static Image getImageFromArtifact(Artifact artifact,
                                     Compute compute,
                                     Task task,
-                                    String phase) {
-    if(artifact.getType() != "gce/image") {
-      throw new GoogleOperationException("Artifact to deploy to GCE must be of type gce/image")
+                                    String phase,
+                                    SafeRetry safeRetry,
+                                    GoogleExecutorTraits executor) {
+    if (artifact.getType() != ArtifactUtils.GCE_IMAGE_TYPE) {
+      throw new GoogleOperationException("Artifact to deploy to GCE must be of type ${ArtifactUtils.GCE_IMAGE_TYPE}")
     }
 
     def reference = artifact.getReference()
     task.updateStatus phase, "Looking up image $reference..."
 
-    def result = compute.getRequestFactory()
-      .buildGetRequest(new GenericUrl(reference))
-      .setParser(new JsonObjectParser(JacksonFactory.getDefaultInstance()))
-      .execute()
+    def result = safeRetry.doRetry(
+      {
+        return compute.getRequestFactory()
+          .buildGetRequest(new GenericUrl(reference))
+          .setParser(new JsonObjectParser(JacksonFactory.getDefaultInstance()))
+          .execute()
+          .parseAs(Image)
+      },
+      "gce/image",
+      task,
+      RETRY_ERROR_CODES,
+      [],
+      [action: "get", phase: phase, operation: "compute.buildGetRequest.execute", (executor.TAG_SCOPE): executor.SCOPE_ZONAL],
+      executor.registry
+    ) as Image
 
-    if (result.isSuccessStatusCode()) {
-      return result.parseAs(Image)
-    } else {
-      updateStatusAndThrowNotFoundException("Image $reference not found", task, phase)
-    }
+    return result
   }
 
   static Image getBootImage(BaseGoogleInstanceDescription description,
@@ -149,13 +160,16 @@ class GCEUtil {
                             String phase,
                             String clouddriverUserAgentApplicationName,
                             List<String> baseImageProjects,
+                            SafeRetry safeRetry,
                             GoogleExecutorTraits executor) {
     if (description.imageSource == BaseGoogleInstanceDescription.ImageSource.ARTIFACT) {
       return getImageFromArtifact(
         description.imageArtifact,
         description.credentials.compute,
         task,
-        phase
+        phase,
+        safeRetry,
+        executor
       )
     } else {
       return queryImage(description.credentials.project,
@@ -666,6 +680,7 @@ class GCEUtil {
                                                String phase,
                                                String clouddriverUserAgentApplicationName,
                                                List<String> baseImageProjects,
+                                               SafeRetry safeRetry,
                                                GoogleExecutorTraits executor) {
     def credentials = description.credentials
     def disks = description.disks
@@ -684,6 +699,7 @@ class GCEUtil {
                                  phase,
                                  clouddriverUserAgentApplicationName,
                                  baseImageProjects,
+                                 safeRetry,
                                  executor)
 
     def firstPersistentDisk = disks.find { it.persistent }
