@@ -410,9 +410,9 @@ class StandardGceAttributeValidatorSpec extends Specification {
       0 * errors._
 
     when:
-    validator.validateImage(null, "Unchecked", null)
+      validator.validateImage(null, "Unchecked", null)
     then:
-    0 * errors._
+      0 * errors._
   }
 
   void "invalid image name"() {
@@ -427,47 +427,47 @@ class StandardGceAttributeValidatorSpec extends Specification {
       0 * errors._
 
     when:
-    validator.validateImage(null, "", null)
+      validator.validateImage(null, "", null)
     then:
-    1 * errors.rejectValue("image", "${DECORATOR}.image.empty")
-    0 * errors._
+      1 * errors.rejectValue("image", "${DECORATOR}.image.empty")
+      0 * errors._
   }
 
   void "valid image artifact"() {
     setup:
-    def errors = Mock(Errors)
-    def validator = new StandardGceAttributeValidator(DECORATOR, errors)
-    def artifact = Artifact.ArtifactBuilder.newInstance().type("gce/image").build()
+      def errors = Mock(Errors)
+      def validator = new StandardGceAttributeValidator(DECORATOR, errors)
+      def artifact = Artifact.ArtifactBuilder.newInstance().type("gce/image").build()
 
     when:
-    validator.validateImage(BaseGoogleInstanceDescription.ImageSource.ARTIFACT, "", artifact)
+      validator.validateImage(BaseGoogleInstanceDescription.ImageSource.ARTIFACT, "", artifact)
     then:
-    0 * errors._
+      0 * errors._
   }
 
   void "missing image artifact"() {
     setup:
-    def errors = Mock(Errors)
-    def validator = new StandardGceAttributeValidator(DECORATOR, errors)
+      def errors = Mock(Errors)
+      def validator = new StandardGceAttributeValidator(DECORATOR, errors)
 
     when:
-    validator.validateImage(BaseGoogleInstanceDescription.ImageSource.ARTIFACT, "", null)
+      validator.validateImage(BaseGoogleInstanceDescription.ImageSource.ARTIFACT, "", null)
     then:
-    1 * errors.rejectValue("imageArtifact", "${DECORATOR}.imageArtifact.empty")
-    0 * errors._
+      1 * errors.rejectValue("imageArtifact", "${DECORATOR}.imageArtifact.empty")
+      0 * errors._
   }
 
   void "invalid image artifact type"() {
     setup:
-    def errors = Mock(Errors)
-    def validator = new StandardGceAttributeValidator(DECORATOR, errors)
-    def artifact = Artifact.ArtifactBuilder.newInstance().type("github/file").build()
+      def errors = Mock(Errors)
+      def validator = new StandardGceAttributeValidator(DECORATOR, errors)
+      def artifact = Artifact.ArtifactBuilder.newInstance().type("github/file").build()
 
     when:
-    validator.validateImage(BaseGoogleInstanceDescription.ImageSource.ARTIFACT, "", artifact)
+      validator.validateImage(BaseGoogleInstanceDescription.ImageSource.ARTIFACT, "", artifact)
     then:
-    1 * errors.rejectValue("imageArtifact.type", "${DECORATOR}.imageArtifact.type.invalid")
-    0 * errors._
+      1 * errors.rejectValue("imageArtifact.type", "${DECORATOR}.imageArtifact.type.invalid")
+      0 * errors._
   }
 
   void "valid instance name"() {
