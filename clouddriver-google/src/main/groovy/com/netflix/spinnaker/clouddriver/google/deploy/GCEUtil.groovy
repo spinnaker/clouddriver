@@ -143,17 +143,16 @@ class GCEUtil {
           .buildGetRequest(new GenericUrl(reference))
           .setParser(new JsonObjectParser(JacksonFactory.getDefaultInstance()))
           .execute()
-          .parseAs(Image)
       },
       "gce/image",
       task,
       RETRY_ERROR_CODES,
       [],
-      [action: "get", phase: phase, operation: "compute.buildGetRequest.execute", (executor.TAG_SCOPE): executor.SCOPE_ZONAL],
+      [action: "get", phase: phase, operation: "compute.buildGetRequest.execute", (executor.TAG_SCOPE): executor.SCOPE_GLOBAL],
       executor.registry
-    ) as Image
+    ) as HttpResponse
 
-    return result
+    return result.parseAs(Image)
   }
 
   static Image getBootImage(BaseGoogleInstanceDescription description,
