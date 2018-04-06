@@ -236,16 +236,16 @@ class AmazonReservationReport implements ReservationReport {
       def r = a.region <=> b.region
 
       if (!r) {
-        r = a.availabilityZone <=> b.availabilityZone
-      }
-
-      if (!r) {
         r = a.instanceFamily() <=> b.instanceFamily()
       }
 
       if (!r) {
         // overall sort is descending but instance type should be ascending
         r = normalizeInstanceType(b.instanceType) <=> normalizeInstanceType(a.instanceType)
+      }
+
+      if (!r) {
+        r = a.availabilityZone <=> b.availabilityZone
       }
 
       if (!r) {

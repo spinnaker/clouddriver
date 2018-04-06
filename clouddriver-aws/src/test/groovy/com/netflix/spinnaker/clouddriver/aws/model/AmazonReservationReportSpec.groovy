@@ -102,14 +102,14 @@ class AmazonReservationReportSpec extends Specification {
     given:
     def comparator = new DescendingOverallReservationDetailComparator()
 
-    def left = new AmazonReservationReport.OverallReservationDetail(
+    def left = new OverallReservationDetail(
       region: lRegion,
       availabilityZone: lAvailabilityZone,
       instanceType: lInstanceType,
       os: lOs
     )
 
-    def right = new AmazonReservationReport.OverallReservationDetail(
+    def right = new OverallReservationDetail(
       region: rRegion,
       availabilityZone: rAvailabilityZone,
       instanceType: rInstanceType,
@@ -127,5 +127,66 @@ class AmazonReservationReportSpec extends Specification {
     "us-west-1" | "us-west-1c"      | "c4.4xlarge"  | LINUX | "us-west-1" | "us-west-1d"      | "c4.4xlarge"  | LINUX   || 1    // us-west-1d > us-west-1c
     "us-west-1" | "us-west-1c"      | "c4.16xlarge" | LINUX | "us-west-1" | "us-west-1c"      | "c4.4xlarge"  | LINUX   || 1    // c4.16xlarge < c4.4xlarge (instance type sort is ascending)
     "us-west-1" | "us-west-1c"      | "c4.4xlarge"  | LINUX | "us-west-1" | "us-west-1c"      | "c4.4xlarge"  | WINDOWS || 1    // windows > linux
+  }
+
+  def "should sort reservations by normalized instance type and then availability zone"() {
+    given:
+    def reservationDetails = [
+      new OverallReservationDetail(
+        availabilityZone: "us-east-1e",
+        instanceType: "r3.8xlarge",
+      ),
+      new OverallReservationDetail(
+        availabilityZone: "us-east-1e",
+        instanceType: "r3.4xlarge",
+      ),
+      new OverallReservationDetail(
+        availabilityZone: "us-east-1e",
+        instanceType: "r3.2xlarge",
+      ),
+      new OverallReservationDetail(
+        availabilityZone: "us-west-2a",
+        instanceType: "r3.8xlarge",
+      ),
+      new OverallReservationDetail(
+        availabilityZone: "us-west-2b",
+        instanceType: "r3.4xlarge",
+      ),
+      new OverallReservationDetail(
+        availabilityZone: "us-west-2c",
+        instanceType: "r3.2xlarge",
+      ),
+      new OverallReservationDetail(
+        availabilityZone: "us-east-1d",
+        instanceType: "r3.8xlarge",
+      ),
+      new OverallReservationDetail(
+        availabilityZone: "us-east-1d",
+        instanceType: "r3.4xlarge",
+      ),
+      new OverallReservationDetail(
+        availabilityZone: "us-east-1d",
+        instanceType: "r3.2xlarge",
+      )
+    ]
+
+    when:
+    reservationDetails.sort(new DescendingOverallReservationDetailComparator())
+    def sortedIdentifiers = reservationDetails.collect {
+      "${it.availabilityZone()}:${it.instanceType}".toString()
+    }
+
+    then:
+    sortedIdentifiers == [
+        "us-west-2c:r3.2xlarge",
+        "us-east-1e:r3.2xlarge",
+        "us-east-1d:r3.2xlarge",
+        "us-west-2b:r3.4xlarge",
+        "us-east-1e:r3.4xlarge",
+        "us-east-1d:r3.4xlarge",
+        "us-west-2a:r3.8xlarge",
+        "us-east-1e:r3.8xlarge",
+        "us-east-1d:r3.8xlarge"
+    ]
   }
 }
