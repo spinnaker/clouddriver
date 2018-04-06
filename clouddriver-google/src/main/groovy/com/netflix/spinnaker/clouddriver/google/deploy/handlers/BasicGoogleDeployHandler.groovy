@@ -200,6 +200,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                    BASE_PHASE,
                                                    clouddriverUserAgentApplicationName,
                                                    googleConfigurationProperties.baseImageProjects,
+                                                   safeRetry,
                                                    this)
 
     def networkInterface = GCEUtil.buildNetworkInterface(network,
@@ -388,8 +389,11 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
 
     // Note: Cache queries for these health checks must occur in this order since queryHealthCheck() will make a live
     // call that fails on a missing health check.
-    def autoHealingHealthCheck = GCEUtil.queryNestedHealthCheck(project, description.accountName, description.autoHealingPolicy.healthCheck, compute, cacheView, task, BASE_PHASE, this) ?:
-      GCEUtil.queryHealthCheck(project, description.accountName, description.autoHealingPolicy.healthCheck, compute, cacheView, task, BASE_PHASE, this)
+    def autoHealingHealthCheck = null
+    if (description.autoHealingPolicy?.healthCheck) {
+      autoHealingHealthCheck = GCEUtil.queryNestedHealthCheck(project, description.accountName, description.autoHealingPolicy.healthCheck, compute, cacheView, task, BASE_PHASE, this) ?:
+        GCEUtil.queryHealthCheck(project, description.accountName, description.autoHealingPolicy.healthCheck, compute, cacheView, task, BASE_PHASE, this)
+    }
 
     List<InstanceGroupManagerAutoHealingPolicy> autoHealingPolicy =
       autoHealingHealthCheck
