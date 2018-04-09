@@ -35,10 +35,12 @@ class KubernetesConfigurationProperties {
     List<String> oAuthScopes
     String user
     String kubeconfigFile
+    String kubectlExecutable
     Boolean serviceAccount
     Boolean configureImagePullSecrets
     List<String> namespaces
     List<String> omitNamespaces
+    String skin
     Integer cacheThreads
     List<LinkedDockerRegistryConfiguration> dockerRegistries
     List<String> requiredGroupMembership
