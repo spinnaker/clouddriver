@@ -45,7 +45,6 @@ class TaskHealthCachingAgentSpec extends Specification {
   def clientProvider = Mock(AmazonClientProvider)
   def providerCache = Mock(ProviderCache)
   def credentialsProvider = Mock(AWSCredentialsProvider)
-  def netflixAmazonCredentials = Mock(NetflixAmazonCredentials)
   ObjectMapper mapper = new ObjectMapper()
 
   @Subject
