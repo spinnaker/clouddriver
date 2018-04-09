@@ -67,11 +67,15 @@ public class CommonCachingAgent {
   final ProviderCache providerCache = mock(ProviderCache.class);
   final AWSCredentialsProvider credentialsProvider = mock(AWSCredentialsProvider.class);
   final Registry registry = mock(Registry.class);
-  static final NetflixAmazonCredentials netflixAmazonCredentials = mock(NetflixAmazonCredentials.class);
+  static final NetflixAmazonCredentials netflixAmazonCredentials;
+
+  static {
+    netflixAmazonCredentials = mock(NetflixAmazonCredentials.class);
+    when(netflixAmazonCredentials.getName()).thenReturn(ACCOUNT);
+  }
 
   @BeforeClass
   public static void setUp() {
-    when(netflixAmazonCredentials.getName()).thenReturn(ACCOUNT);
     when(clientProvider.getAmazonEcs(eq(netflixAmazonCredentials), anyString(), anyBoolean())).thenReturn(ecs);
   }
 
