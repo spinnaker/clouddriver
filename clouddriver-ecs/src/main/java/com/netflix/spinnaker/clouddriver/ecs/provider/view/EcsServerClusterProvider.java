@@ -372,9 +372,16 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public Set<EcsServerCluster> getClusters(String application, String account) {
-    return findClusters(new HashMap<>(), getEcsCredentials(account), application)
-      .get(application);
+    try {
+      AmazonCredentials credentials = getEcsCredentials(account);
+      return findClusters(new HashMap<>(), credentials, application)
+        .get(application);
+    } catch (NoSuchElementException exception) {
+      return null;
+    }
+
   }
+
 
   /**
    * Gets a Spinnaker clusters for a given Spinnaker application, ECS account, and the Spinnaker cluster name.
@@ -413,7 +420,15 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     String application = StringUtils.substringBefore(serverGroupName, "-");
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
-    clusterMap = findClusters(clusterMap, getEcsCredentials(account), application);
+    try {
+      AmazonCredentials credentials = getEcsCredentials(account);
+      clusterMap = findClusters(clusterMap, credentials, application);
+    } catch (NoSuchElementException exception) {
+      /* This is ugly, but not sure how else to do it. If we don't have creds due
+      *  to not being an ECS account, there's nothing to do here, and we should
+      *  just continue on.
+      */
+    }
 
     for (Map.Entry<String, Set<EcsServerCluster>> entry : clusterMap.entrySet()) {
       for (EcsServerCluster ecsServerCluster : entry.getValue()) {
@@ -426,7 +441,9 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       }
     }
 
-    throw new Error(String.format("Server group %s not found", serverGroupName));
+    // I don't think this should throw an error.. other classes (such as the AmazonClusterProvider return null
+    // if it isn't found..)
+    return null;
   }
 
   @Override
