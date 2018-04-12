@@ -4,7 +4,7 @@ jdk:
 sudo: required
 dist: trusty
 install: gradle/installViaTravis.sh
-script: gradle/buildViaTravis.sh
+script: travis_wait 30 gradle/buildViaTravis.sh
 before_cache: gradle/prepCaches.sh
 cache:
   directories:
