@@ -101,6 +101,16 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
       return result;
     }
 
+    if (!daemonSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("rollingupdate")) {
+      return result;
+    }
+
+    Long generation = daemonSet.getMetadata().getGeneration();
+    Long observedGeneration = status.getObservedGeneration();
+    if (observedGeneration == null || (generation != null && generation > observedGeneration)) {
+      return result.unstable("Waiting for daemonset spec update to be observed");
+    }
+
     int desiredReplicas = status.getDesiredNumberScheduled();
     Integer existing = status.getCurrentNumberScheduled();
     if (existing == null || desiredReplicas > existing) {

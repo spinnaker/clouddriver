@@ -119,14 +119,32 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
       result.unavailable(available.getMessage());
     }
 
-    int desiredReplicas = deployment.getSpec().getReplicas();
+    Long generation = deployment.getMetadata().getGeneration();
+    Long observedGeneration = deployment.getStatus().getObservedGeneration();
+    if (observedGeneration == null || (generation != null && generation > observedGeneration)) {
+      return result.unstable("Waiting for deployment spec update to be observed");
+    }
+
+    V1beta2DeploymentCondition condition = status.getConditions()
+      .stream()
+      .filter(c -> c.getType().equalsIgnoreCase("progressing"))
+      .findAny()
+      .orElse(null);
+    if (condition != null && condition.getReason().equalsIgnoreCase("progressdeadlineexceeded")) {
+      return result.failed("Deployment exceeded its progress deadline");
+    }
+
+    Integer desiredReplicas = deployment.getSpec().getReplicas();
     Integer existing = status.getUpdatedReplicas();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
       return result.unstable("Waiting for all replicas to be updated");
     }
 
-    existing = status.getAvailableReplicas();
-    if (existing == null || desiredReplicas > existing) {
+    if (status.getReplicas() > existing) {
+      return result.unstable("Waiting for old replicas to finish termination");
+    }
+
+    if (status.getAvailableReplicas() < existing) {
       return result.unstable("Waiting for all replicas to be available");
     }
 

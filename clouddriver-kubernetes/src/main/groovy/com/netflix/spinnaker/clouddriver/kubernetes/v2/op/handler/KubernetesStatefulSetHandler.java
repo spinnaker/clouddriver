@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpi
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
+import io.kubernetes.client.models.V1beta2RollingUpdateStatefulSetStrategy;
 import io.kubernetes.client.models.V1beta2StatefulSet;
 import io.kubernetes.client.models.V1beta2StatefulSetStatus;
 import org.springframework.stereotype.Component;
@@ -101,6 +102,10 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
   private Status status(V1beta2StatefulSet statefulSet) {
     Status result = new Status();
 
+    if (statefulSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("ondelete")) {
+      return result;
+    }
+
     V1beta2StatefulSetStatus status = statefulSet.getStatus();
     if (status == null) {
       result.unstable("No status reported yet")
@@ -108,9 +113,15 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
       return result;
     }
 
-    int desiredReplicas = statefulSet.getSpec().getReplicas();
+    Long generation = statefulSet.getMetadata().getGeneration();
+    Long observedGeneration = status.getObservedGeneration();
+    if (observedGeneration == null || (generation != null && generation > observedGeneration)) {
+      return result.unstable("Waiting for statefulset spec update to be observed");
+    }
+
+    Integer desiredReplicas = statefulSet.getSpec().getReplicas();
     Integer existing = status.getReplicas();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
       return result.unstable("Waiting for at least the desired replica count to be met");
     }
 
@@ -119,12 +130,12 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
     }
 
     existing = status.getCurrentReplicas();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
       return result.unstable("Waiting for all updated replicas to be scheduled");
     }
 
     existing = status.getReadyReplicas();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
       return result.unstable("Waiting for all updated replicas to be ready");
     }
 
