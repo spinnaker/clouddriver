@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesDaemonSetCachingAgent;
@@ -32,6 +33,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
+
 @Component
 public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     CanResize,
@@ -40,6 +43,19 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     CanResumeRollout,
     CanUndoRollout,
     ServerGroupHandler {
+
+  public KubernetesDaemonSetHandler() {
+    registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
+  }
+
+  @Override
+  public int deployPriority() {
+    return WORKLOAD_CONTROLLER_PRIORITY.getValue();
+  }
 
   @Override
   public KubernetesKind kind() {

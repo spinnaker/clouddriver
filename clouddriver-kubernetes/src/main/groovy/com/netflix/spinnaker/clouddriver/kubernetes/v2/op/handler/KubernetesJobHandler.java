@@ -26,9 +26,14 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import io.kubernetes.client.models.V1Job;
+import io.kubernetes.client.models.V1JobCondition;
 import io.kubernetes.client.models.V1JobSpec;
 import io.kubernetes.client.models.V1JobStatus;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 @Component
 public class KubernetesJobHandler extends KubernetesHandler implements
@@ -41,6 +46,11 @@ public class KubernetesJobHandler extends KubernetesHandler implements
     registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
     registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
     registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
+  }
+
+  @Override
+  public int deployPriority() {
+    return WORKLOAD_CONTROLLER_PRIORITY.getValue();
   }
 
   @Override
@@ -88,9 +98,18 @@ public class KubernetesJobHandler extends KubernetesHandler implements
       succeeded = status.getSucceeded();
     }
     if (succeeded < completions) {
-      return result.unstable("Waiting for jobs to finish");
+      List<V1JobCondition> conditions = status.getConditions();
+      if (conditions != null && conditions.stream().anyMatch(this::jobDeadlineExceeded)) {
+        return result.failed("Job deadline exceeded");
+      } else {
+        return result.unstable("Waiting for jobs to finish");
+      }
     }
 
     return result;
+  }
+
+  private boolean jobDeadlineExceeded(V1JobCondition condition) {
+    return "DeadlineExceeded".equalsIgnoreCase(condition.getReason()) && "True".equalsIgnoreCase(condition.getStatus());
   }
 }

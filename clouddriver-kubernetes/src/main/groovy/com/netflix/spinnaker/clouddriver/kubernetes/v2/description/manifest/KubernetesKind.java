@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,6 +34,7 @@ public class KubernetesKind {
   public static KubernetesKind CONTROLLER_REVISION = new KubernetesKind("controllerRevision");
   public static KubernetesKind DAEMON_SET = new KubernetesKind("daemonSet", "ds");
   public static KubernetesKind DEPLOYMENT = new KubernetesKind("deployment", "deploy");
+  public static KubernetesKind EVENT = new KubernetesKind("event");
   public static KubernetesKind HORIZONTAL_POD_AUTOSCALER = new KubernetesKind("horizontalpodautoscaler", "hpa");
   public static KubernetesKind INGRESS = new KubernetesKind("ingress", "ing");
   public static KubernetesKind JOB = new KubernetesKind("job");
@@ -90,12 +92,18 @@ public class KubernetesKind {
 
   @JsonCreator
   public static KubernetesKind fromString(String name) {
-    Optional<KubernetesKind> kindOptional = values.stream()
-        .filter(v -> v.name.equalsIgnoreCase(name) || (v.alias != null && v.alias.equalsIgnoreCase(name)))
-        .findAny();
+    if (StringUtils.isEmpty(name)) {
+      return null;
+    }
 
-    // separate from the above chain to avoid concurrent modification of the values list
-    return kindOptional.orElseGet(() -> new KubernetesKind(name));
+    synchronized (values) {
+      Optional<KubernetesKind> kindOptional = values.stream()
+          .filter(v -> v.name.equalsIgnoreCase(name) || (v.alias != null && v.alias.equalsIgnoreCase(name)))
+          .findAny();
+
+      // separate from the above chain to avoid concurrent modification of the values list
+      return kindOptional.orElseGet(() -> new KubernetesKind(name));
+    }
   }
 
   public static List<KubernetesKind> fromStringList(List<String> names) {

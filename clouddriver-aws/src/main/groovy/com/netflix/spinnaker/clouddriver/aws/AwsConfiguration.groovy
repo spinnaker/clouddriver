@@ -201,6 +201,12 @@ class AwsConfiguration {
       LOG,
       MODIFY
     }
+
+    public static class LoadBalancerDefaults {
+      Boolean crossZoneBalancingDefault = true
+      Boolean connectionDrainingDefault = false
+      Integer deregistrationDelayDefault = null
+    }
     String iamRole
     String classicLinkSecurityGroupName
     boolean addAppGroupsToClassicLink = false
@@ -212,6 +218,7 @@ class AwsConfiguration {
     ReconcileMode reconcileClassicLinkSecurityGroups = ReconcileMode.NONE
     List<String> reconcileClassicLinkAccounts = []
     String defaultBlockDeviceType = "standard"
+    LoadBalancerDefaults loadBalancing = new LoadBalancerDefaults()
     AmazonBlockDevice unknownInstanceTypeBlockDevice = new AmazonBlockDevice(
       deviceName: "/dev/sdb", size: 20, volumeType: defaultBlockDeviceType
     )
@@ -221,7 +228,7 @@ class AwsConfiguration {
         return false
       }
       List<String> reconcileAccounts = reconcileClassicLinkAccounts ?: []
-      return reconcileAccounts.isEmpty() || reconcileAccounts.contains(credentials.getName());
+      return reconcileAccounts.isEmpty() || reconcileAccounts.contains(credentials.getName())
     }
 
   }
@@ -299,7 +306,11 @@ class AwsConfiguration {
     allAccounts.each { account ->
       if (!scheduledAccounts.contains(account)) {
         account.regions.each { region ->
-          newlyAddedAgents << new ReconcileClassicLinkSecurityGroupsAgent(amazonClientProvider, account, region.name, deployDefaults)
+          if (deployDefaults.isReconcileClassicLinkAccount(account)) {
+            newlyAddedAgents << new ReconcileClassicLinkSecurityGroupsAgent(
+              amazonClientProvider, account, region.name, deployDefaults
+            )
+          }
         }
       }
     }

@@ -234,13 +234,24 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
       Map
     )
 
+
+    def v4 = objectMapper.readValue(
+      objectMapper
+        .writerWithView(AmazonReservationReport.Views.V4.class)
+        .writeValueAsString(
+        new AmazonReservationReportBuilder.V4().build(objectMapper.convertValue(v2, AmazonReservationReport))
+      ),
+      Map
+    )
+
     metricsSupport.registerMetrics(objectMapper.convertValue(v2, AmazonReservationReport))
 
     return new DefaultCacheResult(
       (RESERVATION_REPORTS.ns): [
         new MutableCacheData("v1", ["report": v1], [:]),
         new MutableCacheData("v2", ["report": v2], [:]),
-        new MutableCacheData("v3", ["report": v3], [:])
+        new MutableCacheData("v3", ["report": v3], [:]),
+        new MutableCacheData("v4", ["report": v4], [:])
       ]
     )
   }
@@ -379,6 +390,8 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
         return AmazonReservationReport.OperatingSystemType.RHEL
       case "Windows with SQL Server Standard".toUpperCase():
         return AmazonReservationReport.OperatingSystemType.WINDOWS_SQL_SERVER
+      case "Windows BYOL (Amazon VPC)".toUpperCase():
+        return AmazonReservationReport.OperatingSystemType.WINDOWS_VPC_BYOL
       default:
         log.error("Unknown product description (${productDescription})")
         return AmazonReservationReport.OperatingSystemType.UNKNOWN
@@ -429,12 +442,12 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
       .concurrencyLevel(1)
       .weakKeys()
       .maximumSize(1)
-      .expireAfterWrite(30, TimeUnit.SECONDS)
+      .expireAfterWrite(15, TimeUnit.SECONDS)
       .build(
       new CacheLoader<String, AmazonReservationReport>() {
         public AmazonReservationReport load(String key) {
           return objectMapper.convertValue(
-            cache.call().get(RESERVATION_REPORTS.ns, "v2").attributes["report"] as Map,
+            cache.call().get(RESERVATION_REPORTS.ns, key).attributes["report"] as Map,
             AmazonReservationReport
           )
         }
@@ -457,7 +470,7 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
 
       if (!existingId) {
         registry.gauge(id, reservationReportCache, { LoadingCache<String, AmazonReservationReport> reservationReportCache ->
-          def overallReservationDetail = reservationReportCache.get("v2").reservations.find {
+          def overallReservationDetail = reservationReportCache.get("v3").reservations.find {
             it.availabilityZone == tags.availabilityZone && it.instanceType == tags.instanceType && it.os.name == tags.os
           }
           return metricValueClosure.call(overallReservationDetail)

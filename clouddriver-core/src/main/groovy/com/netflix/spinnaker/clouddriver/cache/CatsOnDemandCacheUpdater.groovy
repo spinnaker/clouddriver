@@ -72,6 +72,7 @@ class CatsOnDemandCacheUpdater implements OnDemandCacheUpdater {
         }
         final long startTime = System.nanoTime()
         def providerCache = catsModule.getProviderRegistry().getProviderCache(agent.providerName)
+        agent.metricsSupport.countOnDemand()
         OnDemandAgent.OnDemandResult result = agent.handle(providerCache, data)
         if (result) {
           if (agentScheduler.atomic && !(agentScheduler.lockValid(lock))) {
@@ -103,7 +104,9 @@ class CatsOnDemandCacheUpdater implements OnDemandCacheUpdater {
           log.info("$agent.providerName/$agent?.onDemandAgentType handled $type in ${TimeUnit.NANOSECONDS.toMillis(elapsed)} millis. Payload: $data")
         }
       } catch (e) {
-        agent.metricsSupport.countError()
+        if (agent.metricsSupport != null) {
+          agent.metricsSupport.countError()
+        }
         log.warn("$agent.providerName/$agent.onDemandAgentType failed to handle on demand update for $type", e)
       }
     }

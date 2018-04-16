@@ -16,18 +16,22 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops
 
+import com.amazonaws.AmazonClientException
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
 import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest
-import com.netflix.config.validation.ValidationException
+import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.TerminateInstancesRequest
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ResizeAsgDescription
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import org.springframework.beans.factory.annotation.Autowired
 
 class ResizeAsgAtomicOperation implements AtomicOperation<Void> {
+  private static final MAX_SIMULTANEOUS_TERMINATIONS = 100
   private static final String PHASE = "RESIZE"
 
   private static Task getTask() {
@@ -57,9 +61,15 @@ class ResizeAsgAtomicOperation implements AtomicOperation<Void> {
 
   private void resizeAsg(String asgName,
                          String region,
-                         ResizeAsgDescription.Capacity capacity,
+                         ServerGroup.Capacity capacity,
                          ResizeAsgDescription.Constraints constraints) {
     task.updateStatus PHASE, "Beginning resize of ${asgName} in ${region} to ${capacity}."
+
+    if (capacity.min == null && capacity.max == null && capacity.desired == null) {
+      task.updateStatus PHASE, "Skipping resize of ${asgName} in ${region}, at least one field in ${capacity} needs to be non-null"
+      return
+    }
+
     def autoScaling = amazonClientProvider.getAutoScaling(description.credentials, region, true)
     def describeAutoScalingGroups = autoScaling.describeAutoScalingGroups(
       new DescribeAutoScalingGroupsRequest().withAutoScalingGroupNames(asgName)
@@ -71,13 +81,49 @@ class ResizeAsgAtomicOperation implements AtomicOperation<Void> {
 
     validateConstraints(constraints, describeAutoScalingGroups.getAutoScalingGroups().get(0))
 
+    // min, max and desired may be null
     def request = new UpdateAutoScalingGroupRequest().withAutoScalingGroupName(asgName)
         .withMinSize(capacity.min)
         .withMaxSize(capacity.max)
         .withDesiredCapacity(capacity.desired)
 
     autoScaling.updateAutoScalingGroup request
+
+
+    if (capacity.desired == 0) {
+      // there is an opportunity to expedite a resize to zero by explicitly terminating instances
+      // (server group _must not_ be attached to a load balancer)
+      terminateInstancesInAutoScalingGroup(
+        amazonClientProvider.getAmazonEC2(description.credentials, region, true),
+        describeAutoScalingGroups.getAutoScalingGroups().get(0) as AutoScalingGroup
+      )
+    }
+
     task.updateStatus PHASE, "Completed resize of ${asgName} in ${region}."
+  }
+
+  static void terminateInstancesInAutoScalingGroup(AmazonEC2 amazonEC2, AutoScalingGroup autoScalingGroup) {
+    if (!autoScalingGroup.loadBalancerNames.isEmpty() || !autoScalingGroup.targetGroupARNs.isEmpty()) {
+      task.updateStatus(
+        PHASE,
+        "Skipping explicit instance termination, server group is attached to one or more load balancers"
+      )
+      return
+    }
+
+    def serverGroupName = autoScalingGroup.autoScalingGroupName
+    def instanceIds = autoScalingGroup.instances.instanceId
+
+    def terminatedCount = 0
+    instanceIds.collate(MAX_SIMULTANEOUS_TERMINATIONS).each {
+      try {
+        terminatedCount += it.size()
+        task.updateStatus PHASE, "Terminating ${terminatedCount} of ${instanceIds.size()} instances in ${serverGroupName}"
+        amazonEC2.terminateInstances(new TerminateInstancesRequest().withInstanceIds(it))
+      } catch (Exception e) {
+        task.updateStatus PHASE, "Unable to terminate instances, reason: '${e.message}'"
+      }
+    }
   }
 
   static void validateConstraints(ResizeAsgDescription.Constraints constraints, AutoScalingGroup autoScalingGroup) {
