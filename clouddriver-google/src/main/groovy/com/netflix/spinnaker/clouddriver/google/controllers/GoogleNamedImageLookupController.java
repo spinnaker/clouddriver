@@ -40,11 +40,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -76,7 +78,7 @@ public class GoogleNamedImageLookupController {
     // Set of accounts for which we should return images: either the supplied account, or default
     // to all accounts
     Set<String> accounts;
-    if (account != null && !account.equals("")) {
+    if (StringUtils.isNotEmpty(account)) {
       accounts = new HashSet<>();
       if (imageMap.containsKey(account)) {
         accounts.add(account);
@@ -103,7 +105,7 @@ public class GoogleNamedImageLookupController {
         glob = "*" + glob + "*";
       }
       Pattern pattern = new InMemoryCache.Glob(glob).toPattern();
-      queryFilter = i-> pattern.matcher(i.imageName).matches();
+      queryFilter = i -> pattern.matcher(i.imageName).matches();
     }
 
     return results.stream()
@@ -142,13 +144,16 @@ public class GoogleNamedImageLookupController {
     Map<String, String> tags = new HashMap<>();
 
     String description = image.getDescription();
+    // For a description of the form:
+    // key1: value1, key2: value2, key3: value3
     if (description != null) {
       tags = Arrays.stream(description.split(","))
         .filter(token -> token.contains(": "))
         .map(token -> token.split(": ", 2))
         .collect(Collectors.toMap(
           token -> token[0].trim(),
-          token -> token[1].trim()
+          token -> token[1].trim(),
+          (a, b) -> b
         ));
     }
 
@@ -183,10 +188,12 @@ public class GoogleNamedImageLookupController {
     List<String> parameterNames = Collections.list(httpServletRequest.getParameterNames());
 
     return parameterNames.stream()
+      .filter(Objects::nonNull)
       .filter(parameter -> parameter.toLowerCase().startsWith("tag:"))
       .collect(Collectors.toMap(
         tagParameter -> tagParameter.replaceAll("tag:", "").toLowerCase(),
-        httpServletRequest::getParameter
+        httpServletRequest::getParameter,
+        (a, b) -> b
       ));
   }
 

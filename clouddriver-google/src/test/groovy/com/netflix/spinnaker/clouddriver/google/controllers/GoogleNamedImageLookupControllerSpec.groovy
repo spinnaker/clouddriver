@@ -77,6 +77,9 @@ class GoogleNamedImageLookupControllerSpec extends Specification {
                                                                                                                           state: "released",
                                                                                                                           engine: "spinnaker"
                                                                                                                         ]
+      "appversion: version1, appversion: version2"                        |  null                                    || [
+                                                                                                                          appversion: "version2"
+                                                                                                                        ]
       null                                                                | [state: "released", engine: "spinnaker"] || [
                                                                                                                           state: "released",
                                                                                                                           engine: "spinnaker"
