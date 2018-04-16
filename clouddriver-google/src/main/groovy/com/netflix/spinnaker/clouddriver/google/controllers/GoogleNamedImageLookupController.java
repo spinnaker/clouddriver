@@ -146,6 +146,8 @@ public class GoogleNamedImageLookupController {
     String description = image.getDescription();
     // For a description of the form:
     // key1: value1, key2: value2, key3: value3
+    // we'll build a map associating each key with
+    // its associated value
     if (description != null) {
       tags = Arrays.stream(description.split(","))
         .filter(token -> token.contains(": "))
