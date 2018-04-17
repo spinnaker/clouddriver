@@ -78,6 +78,9 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
     if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)
         || manifest.getApiVersion().equals(APPS_V1BETA1)
         || manifest.getApiVersion().equals(APPS_V1BETA2)) {
+      if (!manifest.isNewerThanObservedGeneration()) {
+        return (new Status()).unknown();
+      }
       V1beta2Deployment appsV1beta2Deployment = KubernetesCacheDataConverter.getResource(manifest, V1beta2Deployment.class);
       return status(appsV1beta2Deployment);
     } else {
@@ -117,12 +120,6 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
 
     if (available != null && available.getStatus().equalsIgnoreCase("false")) {
       result.unavailable(available.getMessage());
-    }
-
-    Long generation = deployment.getMetadata().getGeneration();
-    Long observedGeneration = deployment.getStatus().getObservedGeneration();
-    if (observedGeneration == null || (generation != null && generation > observedGeneration)) {
-      return result.unstable("Waiting for deployment spec update to be observed");
     }
 
     V1beta2DeploymentCondition condition = status.getConditions()

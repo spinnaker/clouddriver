@@ -81,6 +81,9 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
 
   @Override
   public Status status(KubernetesManifest manifest) {
+    if (!manifest.isNewerThanObservedGeneration()) {
+      return (new Status()).unknown();
+    }
     V1beta2StatefulSet v1beta2StatefulSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2StatefulSet.class);
     return status(v1beta2StatefulSet);
   }
@@ -111,12 +114,6 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
       result.unstable("No status reported yet")
           .unavailable("No availability reported");
       return result;
-    }
-
-    Long generation = statefulSet.getMetadata().getGeneration();
-    Long observedGeneration = status.getObservedGeneration();
-    if (observedGeneration == null || (generation != null && generation > observedGeneration)) {
-      return result.unstable("Waiting for statefulset spec update to be observed");
     }
 
     Integer desiredReplicas = statefulSet.getSpec().getReplicas();

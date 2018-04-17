@@ -79,6 +79,9 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
 
   @Override
   public Status status(KubernetesManifest manifest) {
+    if (!manifest.isNewerThanObservedGeneration()) {
+      return (new Status()).unknown();
+    }
     V1beta2DaemonSet v1beta2DaemonSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2DaemonSet.class);
     return status(v1beta2DaemonSet);
   }
@@ -103,12 +106,6 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
 
     if (!daemonSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("rollingupdate")) {
       return result;
-    }
-
-    Long generation = daemonSet.getMetadata().getGeneration();
-    Long observedGeneration = status.getObservedGeneration();
-    if (observedGeneration == null || (generation != null && generation > observedGeneration)) {
-      return result.unstable("Waiting for daemonset spec update to be observed");
     }
 
     int desiredReplicas = status.getDesiredNumberScheduled();
