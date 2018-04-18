@@ -65,7 +65,21 @@ class AmazonSecurityGroupProvider implements SecurityGroupProvider<AmazonSecurit
 
   @Override
   Set<AmazonSecurityGroup> getAll(boolean includeRules) {
-    getAllMatchingKeyPattern(Keys.getSecurityGroupKey('*', '*', '*', '*', '*'), includeRules)
+    if (!includeRules) {
+      return cacheView.getIdentifiers(SECURITY_GROUPS.ns).findResults { key ->
+        Map parts = Keys.parse(key)
+        new AmazonSecurityGroup(
+          id: parts.id,
+          name: parts.name,
+          vpcId: parts.vpcId,
+          accountName: parts.account,
+          region: parts.region,
+          cloudProvider: AmazonCloudProvider.ID
+        )
+      }
+    } else {
+      return getAllMatchingKeyPattern(Keys.getSecurityGroupKey('*', '*', '*', '*', '*'), includeRules)
+    }
   }
 
   @Override
