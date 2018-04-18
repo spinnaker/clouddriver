@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -30,6 +31,7 @@ import io.kubernetes.client.models.V1ObjectReference;
 import lombok.Getter;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,11 +45,12 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 
 public class KubernetesEventCachingAgent extends KubernetesV2CachingAgent {
   KubernetesEventCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+      KubernetesResourcePropertyRegistry propertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
+    super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount);
   }
 
   @Getter
@@ -68,8 +71,9 @@ public class KubernetesEventCachingAgent extends KubernetesV2CachingAgent {
   }
 
   @Override
-  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(List<KubernetesManifest> primaryResourceList) {
-    Map<KubernetesManifest, List<KubernetesManifest>> result = primaryResourceList.stream()
+  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(Map<KubernetesKind, List<KubernetesManifest>> primaryResourceList) {
+    Map<KubernetesManifest, List<KubernetesManifest>> result = primaryResourceList.getOrDefault(primaryKind(), new ArrayList<>())
+        .stream()
         .map(m -> ImmutablePair.of(m, KubernetesCacheDataConverter.getResource(m, V1Event.class)))
         .collect(Collectors.toMap(ImmutablePair::getLeft, p -> Collections.singletonList(involvedManifest(p.getRight()))));
 

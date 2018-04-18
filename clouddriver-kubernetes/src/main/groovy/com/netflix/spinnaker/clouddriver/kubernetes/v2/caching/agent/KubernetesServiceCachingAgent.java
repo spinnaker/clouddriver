@@ -22,6 +22,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesReplicaSetHandler;
@@ -45,11 +46,12 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 
 public class KubernetesServiceCachingAgent extends KubernetesV2OnDemandCachingAgent {
   protected KubernetesServiceCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+      KubernetesResourcePropertyRegistry propertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
+    super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount);
   }
 
   @Getter
@@ -68,7 +70,7 @@ public class KubernetesServiceCachingAgent extends KubernetesV2OnDemandCachingAg
   }
 
   @Override
-  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(List<KubernetesManifest> services) {
+  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(Map<KubernetesKind, List<KubernetesManifest>> services) {
     Map<String, Set<KubernetesManifest>> mapLabelToManifest = new HashMap<>();
 
     // TODO perf - this might be excessive when only a small number of services are specified. We could consider
@@ -82,7 +84,7 @@ public class KubernetesServiceCachingAgent extends KubernetesV2OnDemandCachingAg
 
     Map<KubernetesManifest, List<KubernetesManifest>> result = new HashMap<>();
 
-    for (KubernetesManifest service : services) {
+    for (KubernetesManifest service : services.getOrDefault(primaryKind(), new ArrayList<>())) {
       result.put(service, getRelatedManifests(service, mapLabelToManifest));
     }
 

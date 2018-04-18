@@ -51,7 +51,7 @@ class TitusInstance implements Instance {
   TitusInstance(Job job, Job.TaskSummary task) {
     id = task.id
     instanceId = task.instanceId
-    securityGroups = job.securityGroupDetails
+    securityGroups = job.securityGroups?.collect { it -> new TitusSecurityGroup(groupId: it, groupName: "n/a") }
     jobId = job.id
     jobName = job.name
     application = Names.parseName(job.name).app

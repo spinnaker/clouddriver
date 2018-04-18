@@ -22,6 +22,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesStatefulSetHandler;
@@ -30,6 +31,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -46,11 +48,12 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 @Slf4j
 public class KubernetesStatefulSetCachingAgent extends KubernetesV2OnDemandCachingAgent {
   KubernetesStatefulSetCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+      KubernetesResourcePropertyRegistry propertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
+    super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount);
   }
 
   @Getter
@@ -69,7 +72,7 @@ public class KubernetesStatefulSetCachingAgent extends KubernetesV2OnDemandCachi
   }
 
   @Override
-  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(List<KubernetesManifest> primaryResourceList) {
+  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(Map<KubernetesKind, List<KubernetesManifest>> primaryResourceList) {
     BiFunction<String, String, String> manifestName = (namespace, name) -> namespace + ":" + name;
 
     Map<String, KubernetesManifest> services = namespaces.stream()
@@ -79,7 +82,7 @@ public class KubernetesStatefulSetCachingAgent extends KubernetesV2OnDemandCachi
 
     Map<KubernetesManifest, List<KubernetesManifest>> result = new HashMap<>();
 
-    for (KubernetesManifest manifest : primaryResourceList) {
+    for (KubernetesManifest manifest : primaryResourceList.getOrDefault(primaryKind(), new ArrayList<>())) {
       String serviceName = KubernetesStatefulSetHandler.serviceName(manifest);
       if (StringUtils.isEmpty(serviceName)) {
         continue;
