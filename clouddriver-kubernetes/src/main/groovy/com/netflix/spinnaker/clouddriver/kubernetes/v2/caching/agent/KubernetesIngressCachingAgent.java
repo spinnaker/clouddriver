@@ -22,6 +22,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesIngressHandler;
@@ -47,11 +48,12 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 @Slf4j
 public class KubernetesIngressCachingAgent extends KubernetesV2OnDemandCachingAgent {
   protected KubernetesIngressCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+      KubernetesResourcePropertyRegistry propertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
+    super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount);
   }
 
   @Getter
@@ -69,7 +71,7 @@ public class KubernetesIngressCachingAgent extends KubernetesV2OnDemandCachingAg
   }
 
   @Override
-  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(List<KubernetesManifest> ingresses) {
+  protected Map<KubernetesManifest, List<KubernetesManifest>> loadSecondaryResourceRelationships(Map<KubernetesKind, List<KubernetesManifest>> ingresses) {
     Map<KubernetesManifest, List<KubernetesManifest>> result = new HashMap<>();
 
     BiFunction<String, String, String> manifestName = (namespace, name) -> namespace + ":" + name;
@@ -79,7 +81,7 @@ public class KubernetesIngressCachingAgent extends KubernetesV2OnDemandCachingAg
         .flatMap(Collection::stream)
         .collect(Collectors.toMap((m) -> manifestName.apply(m.getNamespace(), m.getName()), (m) -> m));
 
-    for (KubernetesManifest ingress : ingresses) {
+    for (KubernetesManifest ingress : ingresses.getOrDefault(primaryKind(), new ArrayList<>())) {
       List<KubernetesManifest> attachedServices = new ArrayList<>();
       try {
         attachedServices = KubernetesIngressHandler.attachedServices(ingress)
