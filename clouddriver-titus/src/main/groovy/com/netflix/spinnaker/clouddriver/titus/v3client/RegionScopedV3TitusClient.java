@@ -69,7 +69,6 @@ public class RegionScopedV3TitusClient implements TitusClient {
 
   private final RetrySupport retrySupport;
 
-
   public RegionScopedV3TitusClient(TitusRegion titusRegion, Registry registry, List<TitusJobCustomizer> titusJobCustomizers, String environment, String eurekaName, GrpcChannelFactory grpcChannelFactory, RetrySupport retrySupport) {
     this(titusRegion, DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT, TitusClientObjectMapper.configure(), registry, titusJobCustomizers, environment, eurekaName, grpcChannelFactory, retrySupport);
   }
@@ -208,9 +207,19 @@ public class RegionScopedV3TitusClient implements TitusClient {
 
   @Override
   public void terminateTasksAndShrink(TerminateTasksAndShrinkJobRequest terminateTasksAndShrinkJob) {
-    terminateTasksAndShrinkJob.getTaskIds().forEach(id ->
-      killTaskWithRetry(id, terminateTasksAndShrinkJob)
+    List<String> failedTasks = new ArrayList<>();
+    terminateTasksAndShrinkJob.getTaskIds().forEach(id -> {
+        try {
+          killTaskWithRetry(id, terminateTasksAndShrinkJob);
+        } catch (Exception e) {
+          failedTasks.add(id);
+          log.error("Failed to terminate and shrink titus task {}. Exception: {}", id, e);
+        }
+      }
     );
+    if (!failedTasks.isEmpty() && failedTasks.size() > 0) {
+      throw new RuntimeException("Failed to terminate and shrink titus tasks: " + StringUtils.join(failedTasks, ","));
+    }
   }
 
   private void killTaskWithRetry(String id, TerminateTasksAndShrinkJobRequest terminateTasksAndShrinkJob) {
