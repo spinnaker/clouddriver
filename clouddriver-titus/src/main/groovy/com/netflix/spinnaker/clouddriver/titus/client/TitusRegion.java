@@ -30,6 +30,7 @@ public class TitusRegion {
   private final String applicationName;
   private final String url;
   private final int port;
+  private final Boolean experimentalFeaturesEnabled;
 
   private <T> T notNull(T val, String name) {
     if (val == null) {
@@ -47,7 +48,8 @@ public class TitusRegion {
                      String apiVersion,
                      String applicationName,
                      String url,
-                     Integer port
+                     Integer port,
+                     Boolean experimentalFeaturesEnabled
   ) {
     this.name = notNull(name, "name");
     this.account = notNull(account, "account");
@@ -63,10 +65,15 @@ public class TitusRegion {
     } else {
       this.port = 7104;
     }
+    if (experimentalFeaturesEnabled == null) {
+      this.experimentalFeaturesEnabled = false;
+    } else {
+      this.experimentalFeaturesEnabled = experimentalFeaturesEnabled;
+    }
   }
 
-  public TitusRegion(String name, String account, String endpoint, Boolean autoscalingEnabled, Boolean loadBalancingEnabled, String apiVersion, String applicationName, String url, Integer port) {
-    this(name, account, endpoint, autoscalingEnabled, loadBalancingEnabled, Collections.emptyList(), apiVersion, applicationName, url, port);
+  public TitusRegion(String name, String account, String endpoint, Boolean autoscalingEnabled, Boolean loadBalancingEnabled, String apiVersion, String applicationName, String url, Integer port, Boolean experimentalFeaturesEnabled) {
+    this(name, account, endpoint, autoscalingEnabled, loadBalancingEnabled, Collections.emptyList(), apiVersion, applicationName, url, port, experimentalFeaturesEnabled);
   }
 
   public String getAccount() {
@@ -104,6 +111,10 @@ public class TitusRegion {
   public Integer getPort() { return port; }
 
   public String getUrl() { return url; }
+
+  public Boolean getExperimentalFeaturesEnabled() {
+    return experimentalFeaturesEnabled;
+  }
 
   @Override
   public boolean equals(Object o) {
