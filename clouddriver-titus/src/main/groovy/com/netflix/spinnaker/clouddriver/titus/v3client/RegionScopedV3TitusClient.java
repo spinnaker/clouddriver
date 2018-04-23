@@ -30,7 +30,7 @@ import com.netflix.spinnaker.clouddriver.titus.client.model.HealthStatus;
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job;
 import com.netflix.spinnaker.clouddriver.titus.client.model.Task;
 import com.netflix.titus.grpc.protogen.*;
-import groovy.util.logging.Log;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Log
+@Slf4j
 public class RegionScopedV3TitusClient implements TitusClient {
 
   /**
@@ -96,6 +96,10 @@ public class RegionScopedV3TitusClient implements TitusClient {
 
     }
     this.grpcBlockingStub = JobManagementServiceGrpc.newBlockingStub(channelFactory.build(titusRegion, environment, eurekaName, DEFAULT_CONNECT_TIMEOUT, registry));
+
+    if (titusRegion.getExperimentalFeaturesEnabled()) {
+      log.info("Experimental Titus V3 client features enabled for account {} and region {}", titusRegion.getAccount(), titusRegion.getName());
+    }
   }
 
   // APIs
