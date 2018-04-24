@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.titus.client;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -30,7 +31,7 @@ public class TitusRegion {
   private final String applicationName;
   private final String url;
   private final int port;
-  private final Boolean experimentalFeaturesEnabled;
+  private final List<String> featureFlags;
 
   private <T> T notNull(T val, String name) {
     if (val == null) {
@@ -49,7 +50,7 @@ public class TitusRegion {
                      String applicationName,
                      String url,
                      Integer port,
-                     Boolean experimentalFeaturesEnabled
+                     List<String> featureFlags
   ) {
     this.name = notNull(name, "name");
     this.account = notNull(account, "account");
@@ -65,15 +66,15 @@ public class TitusRegion {
     } else {
       this.port = 7104;
     }
-    if (experimentalFeaturesEnabled == null) {
-      this.experimentalFeaturesEnabled = false;
+    if (featureFlags == null) {
+      this.featureFlags = new ArrayList<>();
     } else {
-      this.experimentalFeaturesEnabled = experimentalFeaturesEnabled;
+      this.featureFlags = featureFlags;
     }
   }
 
-  public TitusRegion(String name, String account, String endpoint, Boolean autoscalingEnabled, Boolean loadBalancingEnabled, String apiVersion, String applicationName, String url, Integer port, Boolean experimentalFeaturesEnabled) {
-    this(name, account, endpoint, autoscalingEnabled, loadBalancingEnabled, Collections.emptyList(), apiVersion, applicationName, url, port, experimentalFeaturesEnabled);
+  public TitusRegion(String name, String account, String endpoint, Boolean autoscalingEnabled, Boolean loadBalancingEnabled, String apiVersion, String applicationName, String url, Integer port, List<String> featureFlags) {
+    this(name, account, endpoint, autoscalingEnabled, loadBalancingEnabled, Collections.emptyList(), apiVersion, applicationName, url, port, featureFlags);
   }
 
   public String getAccount() {
@@ -112,8 +113,8 @@ public class TitusRegion {
 
   public String getUrl() { return url; }
 
-  public Boolean getExperimentalFeaturesEnabled() {
-    return experimentalFeaturesEnabled;
+  public List<String> getFeatureFlags() {
+    return featureFlags;
   }
 
   @Override
