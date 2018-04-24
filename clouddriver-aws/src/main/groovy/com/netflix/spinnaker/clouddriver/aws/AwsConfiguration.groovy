@@ -18,6 +18,8 @@ package com.netflix.spinnaker.clouddriver.aws
 
 import com.amazonaws.retry.RetryPolicy.BackoffStrategy
 import com.amazonaws.retry.RetryPolicy.RetryCondition
+import com.amazonaws.xray.AWSXRayRecorder
+import com.amazonaws.xray.handlers.TracingHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.awsobjectmapper.AmazonObjectMapper
 import com.netflix.spectator.api.Registry
@@ -98,8 +100,15 @@ class AwsConfiguration {
   }
 
   @Bean
-  AmazonClientProvider amazonClientProvider(AwsConfigurationProperties awsConfigurationProperties, RetryCondition instrumentedRetryCondition, BackoffStrategy instrumentedBackoffStrategy, AWSProxy proxy, EddaTimeoutConfig eddaTimeoutConfig, ServiceLimitConfiguration serviceLimitConfiguration, Registry registry) {
-    new AmazonClientProvider.Builder()
+  AmazonClientProvider amazonClientProvider(AwsConfigurationProperties awsConfigurationProperties,
+                                            RetryCondition instrumentedRetryCondition,
+                                            BackoffStrategy instrumentedBackoffStrategy,
+                                            AWSProxy proxy,
+                                            EddaTimeoutConfig eddaTimeoutConfig,
+                                            ServiceLimitConfiguration serviceLimitConfiguration,
+                                            Registry registry,
+                                            Optional<AWSXRayRecorder> awsxRayRecorder) {
+    def builder = new AmazonClientProvider.Builder()
       .backoffStrategy(instrumentedBackoffStrategy)
       .retryCondition(instrumentedRetryCondition)
       .objectMapper(amazonObjectMapper())
@@ -112,7 +121,10 @@ class AwsConfiguration {
       .serviceLimitConfiguration(serviceLimitConfiguration)
       .registry(registry)
       .addSpinnakerUserToUserAgent(awsConfigurationProperties.client.addSpinnakerUserToUserAgent)
-      .build()
+
+    awsxRayRecorder.ifPresent { builder.requestHandler(new TracingHandler(it)) }
+
+    return builder.build()
   }
 
   @Bean
