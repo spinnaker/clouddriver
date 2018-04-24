@@ -21,6 +21,7 @@ import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
 import com.netflix.frigga.Names;
 import com.netflix.spectator.api.Registry;
+import com.netflix.spinnaker.clouddriver.titus.TitusException;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClientObjectMapper;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusJobCustomizer;
@@ -213,12 +214,12 @@ public class RegionScopedV3TitusClient implements TitusClient {
           killTaskWithRetry(id, terminateTasksAndShrinkJob);
         } catch (Exception e) {
           failedTasks.add(id);
-          log.error("Failed to terminate and shrink titus task {}. Exception: {}", id, e);
+          log.error("Failed to terminate and shrink titus task {} in account {} and region {}", id, titusRegion.getAccount(), titusRegion.getName(), e);
         }
       }
     );
-    if (!failedTasks.isEmpty() && failedTasks.size() > 0) {
-      throw new RuntimeException("Failed to terminate and shrink titus tasks: " + StringUtils.join(failedTasks, ","));
+    if (!failedTasks.isEmpty()) {
+      throw new TitusException("Failed to terminate and shrink titus tasks: " + StringUtils.join(failedTasks, ","));
     }
   }
 
