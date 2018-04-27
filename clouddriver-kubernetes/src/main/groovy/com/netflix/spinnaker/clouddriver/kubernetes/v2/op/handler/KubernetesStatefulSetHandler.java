@@ -51,6 +51,8 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
     registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
     registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
     registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapKeyValueFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretKeyValueFromReplacer());
   }
 
   @Override
