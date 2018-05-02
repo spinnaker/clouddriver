@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2018 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,40 +22,48 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 
 @Slf4j
-public class KubernetesConfigMapCachingAgent extends KubernetesV2CachingAgent {
-  KubernetesConfigMapCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+public class KubernetesCoreCachingAgent extends KubernetesV2OnDemandCachingAgent {
+  KubernetesCoreCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+      KubernetesResourcePropertyRegistry propertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
+    super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount);
+  }
+
+  public Collection<AgentDataType> getProvidedDataTypes() {
+    List<AgentDataType> types = new ArrayList<>();
+    types.add(AUTHORITATIVE.forType(Keys.LogicalKind.APPLICATIONS.toString()));
+    types.add(AUTHORITATIVE.forType(Keys.LogicalKind.CLUSTERS.toString()));
+
+    types.addAll(primaryKinds().stream().map(k -> AUTHORITATIVE.forType(k.toString())).collect(Collectors.toList()));
+
+    return Collections.unmodifiableSet(new HashSet<>(types));
   }
 
   @Override
-  protected KubernetesKind primaryKind() {
-    return KubernetesKind.CONFIG_MAP;
+  protected List<KubernetesKind> primaryKinds() {
+    synchronized (KubernetesKind.getValues()) {
+      return KubernetesKind.getValues().stream()
+          .filter(credentials::isValidKind)
+          .filter(k -> !k.isDynamic())
+          .collect(Collectors.toList());
+    }
   }
-
-  @Getter
-  final private Collection<AgentDataType> providedDataTypes = Collections.unmodifiableSet(
-      new HashSet<>(Arrays.asList(
-          INFORMATIVE.forType(Keys.LogicalKind.APPLICATIONS.toString()),
-          INFORMATIVE.forType(Keys.LogicalKind.CLUSTERS.toString()),
-          AUTHORITATIVE.forType(KubernetesKind.CONFIG_MAP.toString())
-      ))
-  );
 }

@@ -37,18 +37,19 @@ class TitusServerGroup implements ServerGroup, Serializable {
   final String cloudProvider = TitusCloudProvider.ID
   String entryPoint
   String awsAccount
+  String accountId
   String iamProfile
   List<String> securityGroups
   List<String> hardConstraints
   List<String> softConstraints
   List<String> targetGroups = []
-  Set<TitusSecurityGroup> securityGroupDetails
   Map env
   Long submittedAt
   String application
   Map<String, Object> image = [:]
   List<Map> scalingPolicies = []
   Map labels
+  Map containerAttributes
   Set<Instance> instances = [] as Set
   ServerGroup.Capacity capacity
   TitusServerGroupResources resources = new TitusServerGroupResources()
@@ -66,7 +67,6 @@ class TitusServerGroup implements ServerGroup, Serializable {
   TitusServerGroup(Job job, String account, String region) {
     id = job.id
     name = job.name
-    securityGroupDetails = job.securityGroupDetails
     image << [dockerImageName: job.applicationName]
     image << [dockerImageVersion: job.version]
     entryPoint = job.entryPoint
@@ -81,6 +81,7 @@ class TitusServerGroup implements ServerGroup, Serializable {
     capacityGroup = job.capacityGroup
     env = job.environment
     labels = job.labels
+    containerAttributes = job.containerAttributes
     submittedAt = job.submittedAt ? job.submittedAt.time : null
     application = Names.parseName(job.name).app
     placement.account = account

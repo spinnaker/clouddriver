@@ -20,7 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesDaemonSetCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
@@ -50,6 +50,8 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
     registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
     registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapKeyValueFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretKeyValueFromReplacer());
   }
 
   @Override
@@ -74,11 +76,14 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesDaemonSetCachingAgent.class;
+    return KubernetesCoreCachingAgent.class;
   }
 
   @Override
   public Status status(KubernetesManifest manifest) {
+    if (!manifest.isNewerThanObservedGeneration()) {
+      return (new Status()).unknown();
+    }
     V1beta2DaemonSet v1beta2DaemonSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2DaemonSet.class);
     return status(v1beta2DaemonSet);
   }
@@ -98,6 +103,10 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     if (status == null) {
       result.unstable("No status reported yet")
           .unavailable("No availability reported");
+      return result;
+    }
+
+    if (!daemonSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("rollingupdate")) {
       return result;
     }
 

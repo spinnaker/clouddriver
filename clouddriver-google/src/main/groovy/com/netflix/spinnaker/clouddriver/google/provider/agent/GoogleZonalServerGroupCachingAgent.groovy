@@ -38,7 +38,6 @@ import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
-import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
@@ -244,7 +243,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
       evictions[SERVER_GROUPS.ns].addAll(identifiers)
     }
 
-    log.info("On demand cache refresh succeeded. Data: ${data}. Added ${serverGroup ? 1 : 0} items to the cache.")
+    log.info("On demand cache refresh succeeded. Data: ${data}. Added ${serverGroup ? 1 : 0} items to the cache. Evicted ${evictions[SERVER_GROUPS.ns]}.")
 
     return new OnDemandAgent.OnDemandResult(
         sourceAgentType: getOnDemandAgentType(),
@@ -304,6 +303,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
         relationships[APPLICATIONS.ns].add(appKey)
         relationships[SERVER_GROUPS.ns].add(serverGroupKey)
       }
+      log.debug("Writing cache entry for cluster key ${clusterKey} adding relationships for application ${appKey} and server group ${serverGroupKey}")
 
       populateLoadBalancerKeys(serverGroup, loadBalancerKeys, accountName, region)
 
@@ -341,17 +341,18 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     return cacheData ? cacheData.attributes.cacheTime >= cacheResultBuilder.startTime : false
   }
 
-  void moveOnDemandDataToNamespace(CacheResultBuilder cacheResultBuilder, GoogleServerGroup googleServerGroup) {
+  void moveOnDemandDataToNamespace(CacheResultBuilder cacheResultBuilder,
+                                          GoogleServerGroup googleServerGroup) {
     def serverGroupKey = getServerGroupKey(googleServerGroup)
     Map<String, List<MutableCacheData>> onDemandData = objectMapper.readValue(
-        cacheResultBuilder.onDemand.toKeep[serverGroupKey].attributes.cacheResults as String,
-        new TypeReference<Map<String, List<MutableCacheData>>>() {})
+      cacheResultBuilder.onDemand.toKeep[serverGroupKey].attributes.cacheResults as String,
+      new TypeReference<Map<String, List<MutableCacheData>>>() {})
 
     onDemandData.each { String namespace, List<MutableCacheData> cacheDatas ->
       cacheDatas.each { MutableCacheData cacheData ->
-        cacheResultBuilder.namespace(namespace).keep(cacheData.id).with {
-          attributes = cacheData.attributes
-          relationships = cacheData.relationships
+        cacheResultBuilder.namespace(namespace).keep(cacheData.id).with { it ->
+          it.attributes = cacheData.attributes
+          it.relationships = Utils.mergeOnDemandCacheRelationships(cacheData.relationships, it.relationships)
         }
         cacheResultBuilder.onDemand.toKeep.remove(cacheData.id)
       }

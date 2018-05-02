@@ -17,13 +17,28 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesEventCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest;
+import io.kubernetes.client.models.V1Event;
+import io.kubernetes.client.models.V1ObjectReference;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.EVENT;
 
 @Component
 public class KubernetesEventHandler extends KubernetesHandler {
@@ -34,7 +49,7 @@ public class KubernetesEventHandler extends KubernetesHandler {
 
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.EVENT;
+    return EVENT;
   }
 
   @Override
@@ -54,6 +69,40 @@ public class KubernetesEventHandler extends KubernetesHandler {
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesEventCachingAgent.class;
+    return KubernetesCoreCachingAgent.class;
+  }
+
+
+  @Override
+  public void addRelationships(Map<KubernetesKind, List<KubernetesManifest>> allResources, Map<KubernetesManifest, List<KubernetesManifest>> relationshipMap) {
+    relationshipMap.putAll(allResources.getOrDefault(EVENT, new ArrayList<>())
+        .stream()
+        .map(m -> ImmutablePair.of(m, involvedManifest(KubernetesCacheDataConverter.getResource(m, V1Event.class))))
+        .filter(p -> p.getRight() != null)
+        .collect(Collectors.toMap(ImmutablePair::getLeft, p -> Collections.singletonList(p.getRight()))));
+  }
+
+  private KubernetesManifest involvedManifest(V1Event event) {
+    if (event == null) {
+      return null;
+    }
+
+    V1ObjectReference ref = event.getInvolvedObject();
+
+    if (ref == null
+        || StringUtils.isEmpty(ref.getApiVersion())
+        || StringUtils.isEmpty(ref.getKind())
+        || StringUtils.isEmpty(ref.getNamespace())
+        || StringUtils.isEmpty(ref.getName())) {
+      return null;
+    }
+
+    KubernetesManifest result = new KubernetesManifest();
+    result.put("metadata", new HashMap<String, Object>());
+    result.setApiVersion(KubernetesApiVersion.fromString(ref.getApiVersion()));
+    result.setKind(KubernetesKind.fromString(ref.getKind()));
+    result.setNamespace(ref.getNamespace());
+    result.setName(ref.getName());
+    return result;
   }
 }

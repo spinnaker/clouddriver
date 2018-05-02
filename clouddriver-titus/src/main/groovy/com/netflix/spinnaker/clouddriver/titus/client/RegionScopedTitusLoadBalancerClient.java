@@ -49,27 +49,38 @@ public class RegionScopedTitusLoadBalancerClient implements TitusLoadBalancerCli
 
   @Override
   public void addLoadBalancer(String jobId, String loadBalancerId) {
-    loadBalancerServiceBlockingStub.addLoadBalancer(AddLoadBalancerRequest.newBuilder().setJobId(jobId).setLoadBalancerId(LoadBalancerId.newBuilder().setId(loadBalancerId).build()).build());
+    TitusClientAuthenticationUtil.attachCaller(loadBalancerServiceBlockingStub).addLoadBalancer(AddLoadBalancerRequest.newBuilder().setJobId(jobId).setLoadBalancerId(LoadBalancerId.newBuilder().setId(loadBalancerId).build()).build());
   }
 
   @Override
   public void removeLoadBalancer(String jobId, String loadBalancerId) {
-    loadBalancerServiceBlockingStub.removeLoadBalancer(RemoveLoadBalancerRequest.newBuilder().setJobId(jobId).setLoadBalancerId(LoadBalancerId.newBuilder().setId(loadBalancerId).build()).build());
+    TitusClientAuthenticationUtil.attachCaller(loadBalancerServiceBlockingStub).removeLoadBalancer(RemoveLoadBalancerRequest.newBuilder().setJobId(jobId).setLoadBalancerId(LoadBalancerId.newBuilder().setId(loadBalancerId).build()).build());
   }
 
   public Map<String, List<String>> getAllLoadBalancers() {
     Map<String, List<String>> results = new HashMap<>();
-    for (GetJobLoadBalancersResult result : loadBalancerServiceBlockingStub.getAllLoadBalancers(GetAllLoadBalancersRequest.newBuilder().setPage(Page.newBuilder().setPageSize(1000).build()).build()).getJobLoadBalancersList()) {
-      for (LoadBalancerId loadBalancerid : result.getLoadBalancersList()) {
-        if (results.get(result.getJobId()) == null) {
-          List<String> loadBalancers = new ArrayList<>();
-          loadBalancers.add(loadBalancerid.getId());
-          results.put(result.getJobId(), loadBalancers);
-        } else {
-          results.get(result.getJobId()).add(loadBalancerid.getId());
+    String cursor = "";
+    boolean hasMore = true;
+    do {
+      Page.Builder loadBalancerPage = Page.newBuilder().setPageSize(1000);
+      if (!cursor.isEmpty()) {
+        loadBalancerPage.setCursor(cursor);
+      }
+      GetAllLoadBalancersResult getAllLoadBalancersResult = loadBalancerServiceBlockingStub.getAllLoadBalancers(GetAllLoadBalancersRequest.newBuilder().setPage(loadBalancerPage).build());
+      for (GetJobLoadBalancersResult result : getAllLoadBalancersResult.getJobLoadBalancersList()) {
+        for (LoadBalancerId loadBalancerid : result.getLoadBalancersList()) {
+          if (results.get(result.getJobId()) == null) {
+            List<String> loadBalancers = new ArrayList<>();
+            loadBalancers.add(loadBalancerid.getId());
+            results.put(result.getJobId(), loadBalancers);
+          } else {
+            results.get(result.getJobId()).add(loadBalancerid.getId());
+          }
         }
       }
-    }
+      hasMore = getAllLoadBalancersResult.getPagination().getHasMore();
+      cursor = getAllLoadBalancersResult.getPagination().getCursor();
+    } while (hasMore);
     return results;
   }
 

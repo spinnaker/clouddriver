@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.titus.client;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,7 +27,10 @@ public class TitusRegion {
   private final Boolean autoscalingEnabled;
   private final Boolean loadBalancingEnabled;
   private final List<TitusFaultDomain> faultDomains;
-  private final String apiVersion;
+  private final String applicationName;
+  private final String url;
+  private final int port;
+  private final List<String> featureFlags;
 
   private <T> T notNull(T val, String name) {
     if (val == null) {
@@ -41,18 +45,33 @@ public class TitusRegion {
                      Boolean autoscalingEnabled,
                      Boolean loadBalancingEnabled,
                      List<TitusFaultDomain> faultDomains,
-                     String apiVersion) {
+                     String applicationName,
+                     String url,
+                     Integer port,
+                     List<String> featureFlags
+  ) {
     this.name = notNull(name, "name");
     this.account = notNull(account, "account");
     this.endpoint = EndpointValidator.validateEndpoint(endpoint);
     this.autoscalingEnabled = autoscalingEnabled;
     this.loadBalancingEnabled = loadBalancingEnabled;
     this.faultDomains = faultDomains == null ? Collections.emptyList() : Collections.unmodifiableList(faultDomains);
-    this.apiVersion = apiVersion;
+    this.applicationName = applicationName;
+    this.url = url;
+    if (port != null) {
+      this.port = port;
+    } else {
+      this.port = 7104;
+    }
+    if (featureFlags == null) {
+      this.featureFlags = new ArrayList<>();
+    } else {
+      this.featureFlags = featureFlags;
+    }
   }
 
-  public TitusRegion(String name, String account, String endpoint, Boolean autoscalingEnabled, Boolean loadBalancingEnabled, String apiVersion) {
-    this(name, account, endpoint, autoscalingEnabled, loadBalancingEnabled, Collections.emptyList(), apiVersion);
+  public TitusRegion(String name, String account, String endpoint, Boolean autoscalingEnabled, Boolean loadBalancingEnabled, String applicationName, String url, Integer port, List<String> featureFlags) {
+    this(name, account, endpoint, autoscalingEnabled, loadBalancingEnabled, Collections.emptyList(), applicationName, url, port, featureFlags);
   }
 
   public String getAccount() {
@@ -67,10 +86,6 @@ public class TitusRegion {
     return endpoint;
   }
 
-  public String getApiVersion() {
-    return apiVersion;
-  }
-
   public Boolean isAutoscalingEnabled() {
     return autoscalingEnabled;
   }
@@ -81,6 +96,18 @@ public class TitusRegion {
 
   public List<TitusFaultDomain> getFaultDomains() {
     return faultDomains;
+  }
+
+  public String getApplicationName() {
+    return applicationName;
+  }
+
+  public Integer getPort() { return port; }
+
+  public String getUrl() { return url; }
+
+  public List<String> getFeatureFlags() {
+    return featureFlags;
   }
 
   @Override

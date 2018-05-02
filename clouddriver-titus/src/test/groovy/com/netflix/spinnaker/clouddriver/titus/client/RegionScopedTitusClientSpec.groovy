@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.titus.v3client
+package com.netflix.spinnaker.clouddriver.titus.client
 
 import com.netflix.spectator.api.NoopRegistry
-import com.netflix.spinnaker.clouddriver.titus.client.TitusClient
-import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.model.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -26,16 +24,16 @@ import spock.lang.Ignore
 import spock.lang.Specification
 
 @Ignore
-class RegionScopedV3TitusClientSpec extends Specification {
+class RegionScopedTitusClientSpec extends Specification {
 
   // this isn't really a unit test..
   void 'job creation lifecycle'() {
     setup:
     Logger logger = LoggerFactory.getLogger(TitusClient)
     TitusRegion titusRegion = new TitusRegion(
-      "us-east-1", "test", "http://titusapi.mainvpc.us-east-1.dyntest.netflix.net:7001/", "3"
+      "us-east-1", "test", "http://titusapi.mainvpc.us-east-1.dyntest.netflix.net:7001/", "blah", "blah", 7104, []
     );
-    TitusClient titusClient = new RegionScopedV3TitusClient(titusRegion, new NoopRegistry(), Collections.emptyList(), "test", "titusapigrpc-mcetest-mainvpc");
+    TitusClient titusClient = new RegionScopedTitusClient(titusRegion, new NoopRegistry(), Collections.emptyList(), "test", "titusapigrpc-mcetest-mainvpc");
 
     // ******************************************************************************************************************
 
@@ -89,7 +87,7 @@ class RegionScopedV3TitusClientSpec extends Specification {
     logger.info("jobId: {}", jobId);
 
     when:
-    Job job = titusClient.getJob(jobId);
+    Job job = titusClient.getJobAndAllRunningAndCompletedTasks(jobId);
 
     then:
     logger.info("job {}", job);
@@ -130,7 +128,7 @@ class RegionScopedV3TitusClientSpec extends Specification {
     // ******************************************************************************************************************
 
     when:
-    job = titusClient.getJob(jobId);
+    job = titusClient.getJobAndAllRunningAndCompletedTasks(jobId);
     logger.info("Found submitted job in the list of jobs");
 
     then:
@@ -151,7 +149,7 @@ class RegionScopedV3TitusClientSpec extends Specification {
       .withInstancesMax(10)
     )
 
-    job = titusClient.getJob(jobId);
+    job = titusClient.getJobAndAllRunningAndCompletedTasks(jobId);
 
     then:
     job.instancesDesired == 1
@@ -167,7 +165,7 @@ class RegionScopedV3TitusClientSpec extends Specification {
     boolean terminated = false;
     Job terminatedJob = null;
     while (--j > 0) {
-      terminatedJob = titusClient.getJob(jobId);
+      terminatedJob = titusClient.getJobAndAllRunningAndCompletedTasks(jobId);
       Job.TaskSummary task = terminatedJob.getTasks().get(0);
       if (task.getState() == TaskState.DEAD ||
         task.getState() == TaskState.STOPPED ||

@@ -17,13 +17,16 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesSecretCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.stereotype.Component;
+
+import java.util.Collections;
+import java.util.List;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.MOUNTABLE_DATA_PRIORITY;
 
@@ -37,6 +40,11 @@ public class KubernetesSecretHandler extends KubernetesHandler implements CanDel
   @Override
   public KubernetesKind kind() {
     return KubernetesKind.SECRET;
+  }
+
+  @Override
+  public List<String> sensitiveKeys() {
+    return Collections.singletonList("data");
   }
 
   @Override
@@ -56,6 +64,6 @@ public class KubernetesSecretHandler extends KubernetesHandler implements CanDel
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesSecretCachingAgent.class;
+    return KubernetesCoreCachingAgent.class;
   }
 }
