@@ -124,8 +124,8 @@ public class KubernetesCacheDataConverter {
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
     String id = current.getId();
     Map<String, Object> attributes = new HashMap<>();
-    attributes.putAll(added.getAttributes());
     attributes.putAll(current.getAttributes());
+    attributes.putAll(added.getAttributes());
     // Behavior is: if no ttl is set on either, the merged key won't expire
     int ttl = Math.min(current.getTtlSeconds(), added.getTtlSeconds());
 
@@ -146,8 +146,7 @@ public class KubernetesCacheDataConverter {
 
   public static CacheData convertAsResource(String account,
       KubernetesManifest manifest,
-      List<KubernetesManifest> resourceRelationships,
-      boolean hasClusterRelationship) {
+      List<KubernetesManifest> resourceRelationships) {
     KubernetesCachingProperties cachingProperties = KubernetesManifestAnnotater.getCachingProperties(manifest);
     if (cachingProperties.isIgnore()) {
       return null;
@@ -156,6 +155,13 @@ public class KubernetesCacheDataConverter {
     logMalformedManifest(() -> "Converting " + manifest + " to a cached resource", manifest);
 
     KubernetesKind kind = manifest.getKind();
+    boolean hasClusterRelationship = false;
+    boolean isNamespaced = true;
+    if (kind != null) {
+      hasClusterRelationship = kind.hasClusterRelationship();
+      isNamespaced = kind.isNamespaced();
+    }
+
     KubernetesApiVersion apiVersion = manifest.getApiVersion();
     String name = manifest.getName();
     String namespace = manifest.getNamespace();
@@ -198,8 +204,7 @@ public class KubernetesCacheDataConverter {
     cacheRelationships.putAll(ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
     cacheRelationships.putAll(implicitRelationships(manifest, account, resourceRelationships));
 
-    // Namespaces aren't namespaced
-    if (kind != NAMESPACE) {
+    if (isNamespaced) {
       cacheRelationships.putAll(namespaceRelationship(account, namespace));
     }
 
@@ -357,7 +362,7 @@ public class KubernetesCacheDataConverter {
       log.warn("{}: manifest name may not be null, {}", contextMessage.get(), manifest);
     }
 
-    if (StringUtils.isEmpty(manifest.getNamespace()) && manifest.getKind() != KubernetesKind.NAMESPACE) {
+    if (StringUtils.isEmpty(manifest.getNamespace()) && manifest.getKind().isNamespaced()) {
       log.warn("{}: manifest namespace may not be null, {}", contextMessage.get(), manifest);
     }
   }
@@ -380,6 +385,15 @@ public class KubernetesCacheDataConverter {
     for (CacheData cacheData : ungroupedCacheData) {
       String key = cacheData.getId();
       Keys.CacheKey parsedKey = Keys.parseKey(key).orElseThrow(() -> new IllegalStateException("Cache data produced with illegal key format " + key));
+      if (parsedKey instanceof Keys.InfrastructureCacheKey) {
+        // given that we now have large caching agents that are authoritative for huge chunks of the cache,
+        // it's possible that some resources (like events) still point to deleted resources. these won't have
+        // any attributes, but if we add a cache entry here, the deleted item will still be cached
+        if (cacheData.getAttributes() == null || cacheData.getAttributes().isEmpty()) {
+          continue;
+        }
+      }
+
       String group = parsedKey.getGroup();
 
       Collection<CacheData> groupedCacheData = result.get(group);

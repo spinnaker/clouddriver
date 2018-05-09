@@ -17,9 +17,10 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesDaemonSetCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
@@ -32,13 +33,31 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
+
 @Component
 public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     CanResize,
     CanDelete,
     CanPauseRollout,
     CanResumeRollout,
-    CanUndoRollout {
+    CanUndoRollout,
+    ServerGroupHandler {
+
+  public KubernetesDaemonSetHandler() {
+    registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapKeyValueFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretKeyValueFromReplacer());
+  }
+
+  @Override
+  public int deployPriority() {
+    return WORKLOAD_CONTROLLER_PRIORITY.getValue();
+  }
 
   @Override
   public KubernetesKind kind() {
@@ -57,11 +76,14 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesDaemonSetCachingAgent.class;
+    return KubernetesCoreCachingAgent.class;
   }
 
   @Override
   public Status status(KubernetesManifest manifest) {
+    if (!manifest.isNewerThanObservedGeneration()) {
+      return (new Status()).unknown();
+    }
     V1beta2DaemonSet v1beta2DaemonSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2DaemonSet.class);
     return status(v1beta2DaemonSet);
   }
@@ -84,6 +106,10 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
       return result;
     }
 
+    if (!daemonSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("rollingupdate")) {
+      return result;
+    }
+
     int desiredReplicas = status.getDesiredNumberScheduled();
     Integer existing = status.getCurrentNumberScheduled();
     if (existing == null || desiredReplicas > existing) {
@@ -91,7 +117,7 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     }
 
     existing = status.getUpdatedNumberScheduled();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing != null && desiredReplicas > existing) {
       return result.unstable("Waiting for all updated replicas to be scheduled");
     }
 

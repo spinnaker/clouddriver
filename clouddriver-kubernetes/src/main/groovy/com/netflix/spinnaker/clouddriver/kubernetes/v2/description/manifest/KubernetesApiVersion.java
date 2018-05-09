@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.EqualsAndHashCode;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,6 +34,7 @@ public class KubernetesApiVersion {
   public static KubernetesApiVersion NETWORKING_K8S_IO_V1 = new KubernetesApiVersion("network.k8s.io/v1");
   public static KubernetesApiVersion APPS_V1BETA1 = new KubernetesApiVersion("apps/v1beta1");
   public static KubernetesApiVersion APPS_V1BETA2 = new KubernetesApiVersion("apps/v1beta2");
+  public static KubernetesApiVersion BATCH_V1 = new KubernetesApiVersion("batch/v1");
 
   private final String name;
 
@@ -55,11 +57,17 @@ public class KubernetesApiVersion {
 
   @JsonCreator
   public static KubernetesApiVersion fromString(String name) {
-    Optional<KubernetesApiVersion> versionOptional = values.stream()
-        .filter(v -> v.name.equalsIgnoreCase(name))
-        .findAny();
+    if (StringUtils.isEmpty(name)) {
+      return null;
+    }
 
-    // separate from the above chain to avoid concurrent modification of the values list
-    return versionOptional.orElseGet(() -> new KubernetesApiVersion(name));
+    synchronized (values) {
+      Optional<KubernetesApiVersion> versionOptional = values.stream()
+          .filter(v -> v.name.equalsIgnoreCase(name))
+          .findAny();
+
+      // separate from the above chain to avoid concurrent modification of the values list
+      return versionOptional.orElseGet(() -> new KubernetesApiVersion(name));
+    }
   }
 }

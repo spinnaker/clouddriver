@@ -21,6 +21,7 @@ import com.netflix.spectator.api.Registry
 
 import java.util.concurrent.TimeUnit
 import com.netflix.spectator.api.Timer
+import java.util.function.Supplier
 
 class OnDemandMetricsSupport {
   public static final String ON_DEMAND_TOTAL_TIME = "onDemand_total"
@@ -30,6 +31,7 @@ class OnDemandMetricsSupport {
   public static final String CACHE_WRITE = "onDemand_cache"
   public static final String CACHE_EVICT = "onDemand_evict"
   public static final String ON_DEMAND_ERROR = "onDemand_error"
+  public static final String ON_DEMAND_COUNT = "onDemand_count"
 
   private final Timer onDemandTotal
   private final Timer dataRead
@@ -38,6 +40,7 @@ class OnDemandMetricsSupport {
   private final Timer cacheWrite
   private final Timer cacheEvict
   private final Counter onDemandErrors
+  private final Counter onDemandCount
 
   public OnDemandMetricsSupport(Registry registry, OnDemandAgent agent, String onDemandType) {
     final String[] tags = ["providerName", agent.providerName, "agentType", agent.onDemandAgentType, "onDemandType", onDemandType]
@@ -48,40 +51,45 @@ class OnDemandMetricsSupport {
     this.cacheWrite = registry.timer(CACHE_WRITE, tags)
     this.cacheEvict = registry.timer(CACHE_EVICT, tags)
     this.onDemandErrors = registry.counter(ON_DEMAND_ERROR, tags)
+    this.onDemandCount = registry.counter(ON_DEMAND_COUNT, tags)
   }
 
-  private <T> T record(Timer timer, Closure<T> closure) {
+  private <T> T record(Timer timer, Supplier<T> closure) {
     final long start = System.nanoTime()
     try {
-      return closure.call()
+      return closure.get()
     } finally {
       final long elapsed = System.nanoTime() - start
       timer.record(elapsed, TimeUnit.NANOSECONDS)
     }
   }
 
-  public <T> T readData(Closure<T> closure) {
+  public <T> T readData(Supplier<T> closure) {
     record(dataRead, closure)
   }
 
-  public <T> T transformData(Closure<T> closure) {
+  public <T> T transformData(Supplier<T> closure) {
     record(dataTransform, closure)
   }
 
-  public <T> T onDemandStore(Closure<T> closure) {
+  public <T> T onDemandStore(Supplier<T> closure) {
     record(onDemandStore, closure)
   }
 
-  public <T> T cacheWrite(Closure<T> closure) {
+  public <T> T cacheWrite(Supplier<T> closure) {
     record(cacheWrite, closure)
   }
 
-  public <T> T cacheEvict(Closure<T> closure) {
+  public <T> T cacheEvict(Supplier<T> closure) {
     record(cacheEvict, closure)
   }
 
   public void countError() {
     onDemandErrors.increment()
+  }
+
+  public void countOnDemand() {
+    onDemandCount.increment()
   }
 
   public void recordTotalRunTimeNanos(long nanos) {

@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.validator.manifest;
 
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeleteManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.validator.KubernetesValidationUtil;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
@@ -27,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.Errors;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.DELETE_MANIFEST;
@@ -40,8 +42,17 @@ public class KubernetesDeleteManifestValidator extends DescriptionValidator<Kube
   @Override
   public void validate(List priorDescriptions, KubernetesDeleteManifestDescription description, Errors errors) {
     KubernetesValidationUtil util = new KubernetesValidationUtil("deleteKubernetesManifest", errors);
-    if (!util.validateV2Credentials(provider, description.getAccount())) {
-      return;
+    List<KubernetesCoordinates> coordinates;
+    if (description.isDynamic()) {
+      coordinates = description.getAllCoordinates();
+    } else {
+      coordinates = Collections.singletonList(description.getPointCoordinates());
+    }
+
+    for (KubernetesCoordinates coordinate : coordinates) {
+      if (!util.validateV2Credentials(provider, description.getAccount(), coordinate.getNamespace())) {
+        return;
+      }
     }
   }
 

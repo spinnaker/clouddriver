@@ -132,7 +132,6 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
           task.addResultObjects([[type: "EXCEPTION", cause: e.class.simpleName, message: "Orchestration timed out."]])
           task.fail()
         } else {
-          e.printStackTrace()
           def stringWriter = new StringWriter()
           def printWriter = new PrintWriter(stringWriter)
           e.printStackTrace(printWriter)
@@ -166,6 +165,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     try {
       MDC.remove(AuthenticatedRequest.SPINNAKER_USER)
       MDC.remove(AuthenticatedRequest.SPINNAKER_ACCOUNTS)
+      MDC.remove(AuthenticatedRequest.SPINNAKER_EXECUTION_ID)
     } catch (Exception e) {
       log.error("Unable to clear thread locals, reason: ${e.message}")
     }

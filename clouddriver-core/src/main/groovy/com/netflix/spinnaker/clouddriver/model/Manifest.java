@@ -34,6 +34,21 @@ public interface Manifest {
     Condition stable = Condition.builder().state(true).build();
     Condition paused = Condition.builder().state(false).build();
     Condition available = Condition.builder().state(true).build();
+    Condition failed = Condition.builder().state(false).build();
+
+    public Status unknown() {
+      stable = null;
+      failed = null;
+
+      return this;
+    }
+
+    public Status failed(String message) {
+      failed.setMessage(message);
+      failed.setState(true);
+
+      return this;
+    }
 
     public Status unstable(String message) {
       stable.setMessage(message);

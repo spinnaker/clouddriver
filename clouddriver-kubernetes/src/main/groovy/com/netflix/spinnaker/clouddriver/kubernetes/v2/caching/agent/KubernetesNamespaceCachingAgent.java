@@ -22,6 +22,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
@@ -33,6 +34,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -42,23 +44,25 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 @Slf4j
 public class KubernetesNamespaceCachingAgent extends KubernetesV2CachingAgent {
   KubernetesNamespaceCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+      KubernetesResourcePropertyRegistry propertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
+    super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount);
   }
 
   @Override
-  protected List<KubernetesManifest> loadPrimaryResourceList() {
+  protected Map<KubernetesKind, List<KubernetesManifest>> loadPrimaryResourceList() {
     reloadNamespaces();
 
     // TODO perf: Only load desired namespaces rather than filter all.
     Set<String> desired = new HashSet<>(this.namespaces);
-    return super.loadPrimaryResourceList()
+    return Collections.singletonMap(KubernetesKind.NAMESPACE, super.loadPrimaryResourceList()
+        .get(KubernetesKind.NAMESPACE)
         .stream()
         .filter(ns -> desired.contains(ns.getName()))
-        .collect(Collectors.toList());
+        .collect(Collectors.toList()));
   }
 
   @Override

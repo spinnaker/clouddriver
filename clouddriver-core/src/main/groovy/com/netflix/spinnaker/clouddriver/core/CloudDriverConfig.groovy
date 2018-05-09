@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.core
 
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
 import com.netflix.spinnaker.cats.agent.NoopExecutionInstrumentation
+import com.netflix.spinnaker.cats.redis.cache.RedisCacheOptions
 import com.netflix.spinnaker.clouddriver.cache.CacheConfig
 import com.netflix.spinnaker.clouddriver.cache.NoopOnDemandCacheUpdater
 import com.netflix.spinnaker.clouddriver.cache.OnDemandCacheUpdater
@@ -30,6 +31,7 @@ import com.netflix.spinnaker.clouddriver.model.ApplicationProvider
 import com.netflix.spinnaker.clouddriver.model.CloudMetricProvider
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ElasticIpProvider
+import com.netflix.spinnaker.clouddriver.model.ImageProvider
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider
 import com.netflix.spinnaker.clouddriver.model.InstanceTypeProvider
 import com.netflix.spinnaker.clouddriver.model.KeyPairProvider
@@ -40,6 +42,7 @@ import com.netflix.spinnaker.clouddriver.model.NoopApplicationProvider
 import com.netflix.spinnaker.clouddriver.model.NoopCloudMetricProvider
 import com.netflix.spinnaker.clouddriver.model.NoopClusterProvider
 import com.netflix.spinnaker.clouddriver.model.NoopElasticIpProvider
+import com.netflix.spinnaker.clouddriver.model.NoopImageProvider
 import com.netflix.spinnaker.clouddriver.model.NoopInstanceProvider
 import com.netflix.spinnaker.clouddriver.model.NoopInstanceTypeProvider
 import com.netflix.spinnaker.clouddriver.model.NoopKeyPairProvider
@@ -208,6 +211,12 @@ class CloudDriverConfig {
   }
 
   @Bean
+  @ConditionalOnMissingBean(ImageProvider)
+  ImageProvider noopImageProvider() {
+    new NoopImageProvider()
+  }
+
+  @Bean
   @ConditionalOnMissingBean(InstanceTypeProvider)
   InstanceTypeProvider noopInstanceTypeProvider() {
     new NoopInstanceTypeProvider()
@@ -250,9 +259,11 @@ class CloudDriverConfig {
   }
 
   @Bean
-  CoreProvider coreProvider(RedisClientDelegate redisClientDelegate, ApplicationContext applicationContext) {
+  CoreProvider coreProvider(RedisCacheOptions redisCacheOptions,
+                            RedisClientDelegate redisClientDelegate,
+                            ApplicationContext applicationContext) {
     return new CoreProvider([
-      new CleanupPendingOnDemandCachesAgent(redisClientDelegate, applicationContext)
+      new CleanupPendingOnDemandCachesAgent(redisCacheOptions, redisClientDelegate, applicationContext)
     ])
   }
 

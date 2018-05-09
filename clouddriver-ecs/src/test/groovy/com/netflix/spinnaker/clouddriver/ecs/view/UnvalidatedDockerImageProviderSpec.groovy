@@ -10,13 +10,13 @@ class UnvalidatedDockerImageProviderSpec extends Specification {
   void shouldNotHandleEcrRepositoryUrl() {
     given:
     UnvalidatedDockerImageProvider unvalidatedDockerImageProvider = new UnvalidatedDockerImageProvider()
-    String ecrRepositoryUrl = "769716316905.dkr.ecr.us-west-2.amazonaws.com/continuous-delivery:latest"
+    String ecrRepositoryUrl = "123456789012.dkr.ecr.us-west-2.amazonaws.com/continuous-delivery:latest"
 
     when:
     boolean canHandle = unvalidatedDockerImageProvider.handles(ecrRepositoryUrl)
 
     then:
-    canHandle
+    !canHandle
   }
 
   @Test
@@ -29,6 +29,6 @@ class UnvalidatedDockerImageProviderSpec extends Specification {
     boolean canHandle = unvalidatedDockerImageProvider.handles(ecrRepositoryUrl)
 
     then:
-    !canHandle
+    canHandle
   }
 }

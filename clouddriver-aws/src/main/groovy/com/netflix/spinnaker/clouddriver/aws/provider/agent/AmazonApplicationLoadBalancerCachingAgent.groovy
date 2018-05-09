@@ -268,13 +268,16 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
         }
       }
       loadBalancerArnToListeners.put(lb.loadBalancerArn, listenerData)
-
       if (useEdda) {
-        List<EddaRule> rules = eddaApi.rules(lb.loadBalancerName)
-        Map<String, Listener> listenerByListenerArn = listenerData.collectEntries { [(it.listenerArn): it] }
-        for (EddaRule eddaRule : rules) {
-          Listener listener = listenerByListenerArn.get(eddaRule.listenerArn)
-          listenerToRules.put(listener, eddaRule.rules)
+        try {
+          List<EddaRule> rules = eddaApi.rules(lb.loadBalancerName)
+          Map<String, Listener> listenerByListenerArn = listenerData.collectEntries { [(it.listenerArn): it] }
+          for (EddaRule eddaRule : rules) {
+            Listener listener = listenerByListenerArn.get(eddaRule.listenerArn)
+            listenerToRules.put(listener, eddaRule.rules)
+          }
+        } catch (Exception e) {
+          log.error("Failed to load load balancer rules for ${account.name} ${region} ${lb.loadBalancerName}")
         }
       } else {
         for (listener in listenerData) {
@@ -302,7 +305,6 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
     boolean useEdda = account.eddaEnabled && eddaTimeoutConfig.albEnabled
 
     Long start = useEdda ? null : System.currentTimeMillis()
-
 
     // Get all the load balancers
     List<LoadBalancer> allLoadBalancers = []
@@ -338,7 +340,7 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
     def listenerAssociations = this.buildListenerAssociations(loadBalancing, allLoadBalancers, useEdda)
 
     if (!start) {
-      if (useEdda) {
+      if (useEdda && allTargetGroups) {
         log.warn("${agentType} did not receive lastModified value in response metadata")
       }
       start = System.currentTimeMillis()
@@ -374,6 +376,10 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
                                        Collection<CacheData> evictableOnDemandCacheDatas) {
     Map<String, CacheData> loadBalancers = CacheHelpers.cache()
     Map<String, CacheData> targetGroups = CacheHelpers.cache()
+
+    Map<String, String> targetGroupNameToType = allTargetGroups.collectEntries {
+      [(it.targetGroupName): it.targetType]
+    }
 
     for (LoadBalancer lb : allLoadBalancers) {
       String loadBalancerKey = Keys.getLoadBalancerKey(lb.loadBalancerName, account.name, region, lb.vpcId, lb.type)
@@ -420,8 +426,9 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
             String targetGroupName = ArnUtils.extractTargetGroupName(action.targetGroupArn as String).get()
             action.targetGroupName = targetGroupName
             action.remove("targetGroupArn")
+            String type = targetGroupNameToType.get(targetGroupName)
 
-            allTargetGroupKeys.add(Keys.getTargetGroupKey(targetGroupName, account.name, region, vpcId))
+            allTargetGroupKeys.add(Keys.getTargetGroupKey(targetGroupName, account.name, region, type, vpcId))
           }
 
           // add the rules to the listener
@@ -436,8 +443,9 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
               String targetGroupName = ArnUtils.extractTargetGroupName(action.targetGroupArn).get()
               action.targetGroupName = targetGroupName
               action.remove("targetGroupArn")
+              String type = targetGroupNameToType.get(targetGroupName)
 
-              allTargetGroupKeys.add(Keys.getTargetGroupKey(targetGroupName, account.name, region, vpcId))
+              allTargetGroupKeys.add(Keys.getTargetGroupKey(targetGroupName, account.name, region, type, vpcId))
             }
 
             rules.push(ruleAttributes)
@@ -458,7 +466,7 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
 
     List<InstanceTargetGroupState> instanceTargetGroupStates = []
     for (TargetGroup targetGroup : allTargetGroups) {
-      String targetGroupId = Keys.getTargetGroupKey(targetGroup.targetGroupName, account.name, region, targetGroup.vpcId)
+      String targetGroupId = Keys.getTargetGroupKey(targetGroup.targetGroupName, account.name, region, targetGroup.targetType, targetGroup.vpcId)
       // Get associated load balancer keys
       Collection<String> loadBalancerIds = targetGroup.loadBalancerArns.collect {
         String lbName = ArnUtils.extractLoadBalancerName(it).get()

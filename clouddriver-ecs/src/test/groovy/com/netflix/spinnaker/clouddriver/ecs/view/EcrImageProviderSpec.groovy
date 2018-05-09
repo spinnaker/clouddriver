@@ -10,7 +10,7 @@ class EcrImageProviderSpec extends Specification {
   void shouldHandleEcrRepositoryUrl() {
     given:
     EcrImageProvider ecrImageProvider = new EcrImageProvider(null, null)
-    String ecrRepositoryUrl = "769716316905.dkr.ecr.us-west-2.amazonaws.com/continuous-delivery:latest"
+    String ecrRepositoryUrl = "123456789012.dkr.ecr.us-west-2.amazonaws.com/continuous-delivery:latest"
 
     when:
     def canHandle = ecrImageProvider.handles(ecrRepositoryUrl)

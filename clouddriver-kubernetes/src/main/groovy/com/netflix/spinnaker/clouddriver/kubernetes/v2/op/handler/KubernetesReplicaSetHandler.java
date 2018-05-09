@@ -20,7 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesReplicaSetCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
@@ -36,12 +36,14 @@ import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA2;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 @Component
 public class KubernetesReplicaSetHandler extends KubernetesHandler implements
     CanResize,
     CanDelete,
-    CanScale {
+    CanScale,
+    ServerGroupHandler {
 
   public KubernetesReplicaSetHandler() {
     registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
@@ -49,6 +51,13 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler implements
     registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
     registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
     registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapKeyValueFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretKeyValueFromReplacer());
+  }
+
+  @Override
+  public int deployPriority() {
+    return WORKLOAD_CONTROLLER_PRIORITY.getValue();
   }
 
   @Override
@@ -68,7 +77,7 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler implements
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesReplicaSetCachingAgent.class;
+    return KubernetesCoreCachingAgent.class;
   }
 
   @Override
@@ -89,6 +98,11 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler implements
       result.unstable("No status reported yet")
           .unavailable("No availability reported");
       return result;
+    }
+
+    Long observedGeneration = status.getObservedGeneration();
+    if (observedGeneration != null && observedGeneration != replicaSet.getMetadata().getGeneration()) {
+      result.unstable("Waiting for replicaset spec update to be observed");
     }
 
     Integer existing = status.getFullyLabeledReplicas();

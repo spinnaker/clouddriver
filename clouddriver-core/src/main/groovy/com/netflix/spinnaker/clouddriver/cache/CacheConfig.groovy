@@ -20,7 +20,6 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.agent.AgentExecution
 import com.netflix.spinnaker.cats.agent.AgentScheduler
-import com.netflix.spinnaker.cats.agent.CachingAgent
 import com.netflix.spinnaker.cats.agent.DefaultAgentScheduler
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
 import com.netflix.spinnaker.cats.cache.Cache
@@ -29,8 +28,10 @@ import com.netflix.spinnaker.cats.mem.InMemoryNamedCacheFactory
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.Provider
 import com.netflix.spinnaker.clouddriver.search.SearchProvider
+import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
@@ -43,6 +44,7 @@ import java.util.concurrent.TimeUnit
   DynomiteCacheConfig,
   JedisCacheConfig
 ])
+@EnableConfigurationProperties(CatsInMemorySearchProperties)
 class CacheConfig {
   @Bean
   @ConditionalOnMissingBean(NamedCacheFactory)
@@ -65,42 +67,6 @@ class CacheConfig {
       @Override
       void schedule(Agent agent, AgentExecution agentExecution, ExecutionInstrumentation executionInstrumentation) {
         //do nothing
-      }
-    }
-  }
-
-  @Bean
-  @ConditionalOnMissingBean(SearchableProvider)
-  SearchableProvider noopProvider() {
-    new SearchableProvider() {
-      @Override
-      String getProviderName() {
-        "noop"
-      }
-
-      @Override
-      Collection<CachingAgent> getAgents() {
-        Collections.emptySet()
-      }
-
-      @Override
-      Set<String> getDefaultCaches() {
-        Collections.emptySet()
-      }
-
-      @Override
-      Map<String, String> getUrlMappingTemplates() {
-        Collections.emptyMap()
-      }
-
-      @Override
-      Map<String, SearchableProvider.SearchResultHydrator> getSearchResultHydrators() {
-        Collections.emptyMap()
-      }
-
-      @Override
-      Map<String, String> parseKey(String key) {
-        null
       }
     }
   }
@@ -132,8 +98,13 @@ class CacheConfig {
   }
 
   @Bean
-  SearchProvider catsSearchProvider(Cache cacheView, List<SearchableProvider> providers) {
-    new CatsSearchProvider(cacheView, providers)
+  SearchProvider catsSearchProvider(CatsInMemorySearchProperties catsInMemorySearchProperties,
+                                    Cache cacheView,
+                                    List<SearchableProvider> providers,
+                                    Optional<FiatPermissionEvaluator> permissionEvaluator,
+                                    Optional<List<KeyParser>> keyParsers,
+                                    Optional<List<KeyProcessor>> keyProcessors) {
+    new CatsSearchProvider(catsInMemorySearchProperties, cacheView, providers, permissionEvaluator, keyParsers, keyProcessors)
   }
 
 }

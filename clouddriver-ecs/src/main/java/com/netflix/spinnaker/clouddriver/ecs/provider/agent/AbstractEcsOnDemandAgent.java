@@ -22,6 +22,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
@@ -35,8 +36,8 @@ import java.util.Map;
 abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T> implements OnDemandAgent {
   final OnDemandMetricsSupport metricsSupport;
 
-  AbstractEcsOnDemandAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
-    super(accountName, region, amazonClientProvider, awsCredentialsProvider);
+  AbstractEcsOnDemandAgent(NetflixAmazonCredentials account, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+    super(account, region, amazonClientProvider, awsCredentialsProvider);
     this.metricsSupport = new OnDemandMetricsSupport(registry, this, EcsCloudProvider.ID + ":" + EcsCloudProvider.ID + ":${OnDemandAgent.OnDemandType.ServerGroup}");
   }
 
@@ -66,21 +67,13 @@ abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T> im
       return null;
     }
 
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
+    AmazonECS ecs = amazonClientProvider.getAmazonEcs(account, region, false);
 
-    List<T> items = metricsSupport.readData(new Closure<List<T>>(this, this) {
-      public List<T> doCall() {
-        return getItems(ecs, providerCache);
-      }
-    });
+    List<T> items = metricsSupport.readData(() -> getItems(ecs, providerCache));
 
     storeOnDemand(providerCache, data);
 
-    CacheResult cacheResult = metricsSupport.transformData(new Closure<CacheResult>(this, this) {
-      public CacheResult doCall() {
-        return buildCacheResult(getAuthoritativeKeyName(), items, providerCache);
-      }
-    });
+    CacheResult cacheResult = metricsSupport.transformData(() -> buildCacheResult(getAuthoritativeKeyName(), items, providerCache));
 
     return new OnDemandResult(getAgentType(), cacheResult, null); // TODO(Bruno Carrier) - evictions should happen properly instead of having a null here
   }

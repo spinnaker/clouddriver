@@ -51,6 +51,7 @@ class AmazonReservationReport implements ReservationReport {
     WINDOWS("WINDOWS", false),
     WINDOWS_VPC("WINDOWS", true),
     WINDOWS_SQL_SERVER("WINDOWS_SQL_SERVER", false),
+    WINDOWS_VPC_BYOL("WINDOWS", true),
     RHEL("RHEL", false),
     UNKNOWN("UNKNOWN", false)
 
@@ -73,6 +74,10 @@ class AmazonReservationReport implements ReservationReport {
     }
 
     static class V3 extends V2 {
+
+    }
+
+    static class V4 extends V3 {
 
     }
   }
@@ -211,6 +216,18 @@ class AmazonReservationReport implements ReservationReport {
 
     @JsonView(Views.V3.class)
     int index
+
+    @JsonView(Views.V3.class)
+    Integer totalRegionalSurplusForFamily
+
+    @JsonView(Views.V3.class)
+    Integer totalShortfallForFamily
+
+    @JsonView(Views.V3.class)
+    Double percentageOfShortfall
+
+    @JsonView(Views.V3.class)
+    Double portionOfAvailableSurplus
   }
 
   static class DescendingOverallReservationDetailComparator implements Comparator<OverallReservationDetail> {

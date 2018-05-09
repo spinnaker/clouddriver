@@ -44,7 +44,7 @@ public class EcrImageProvider implements ImageRepositoryProvider {
   private static final Pattern REPOSITORY_NAME_PATTERN = Pattern.compile("\\/([a-z0-9._-]+)");
   private static final String IDENTIFIER_PATTERN = "(:([a-z0-9._-]+)|@(sha256:[0-9a-f]{64}))";
   private static final Pattern REGION_PATTERN = Pattern.compile("(\\w+-\\w+-\\d+)");
-  public static final Pattern ECR_REPOSITORY_URI_PATTERN = Pattern.compile(ACCOUNT_ID_PATTERN.toString() + "\\.dkr\\.ecr\\." +
+  static final Pattern ECR_REPOSITORY_URI_PATTERN = Pattern.compile(ACCOUNT_ID_PATTERN.toString() + "\\.dkr\\.ecr\\." +
     REGION_PATTERN.toString() + ".+" +
     REPOSITORY_NAME_PATTERN.toString() +
     IDENTIFIER_PATTERN);
@@ -87,7 +87,7 @@ public class EcrImageProvider implements ImageRepositoryProvider {
       throw new IllegalArgumentException("The repository URI provided does not belong to a region that the credentials have access to or the region is not valid.");
     }
 
-    AmazonECR amazonECR = amazonClientProvider.getAmazonEcr(credentials.getName(), credentials.getCredentialsProvider(), region);
+    AmazonECR amazonECR = amazonClientProvider.getAmazonEcr(credentials, region, false);
 
     ListImagesResult result = amazonECR.listImages(new ListImagesRequest().withRegistryId(accountId).withRepositoryName(repository));
     DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName(repository).withImageIds(result.getImageIds()));

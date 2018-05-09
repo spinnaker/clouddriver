@@ -32,6 +32,7 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
@@ -72,11 +73,12 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
   private final Namer<KubernetesManifest> namer;
 
   protected KubernetesV2OnDemandCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+      KubernetesResourcePropertyRegistry resourcePropertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount) {
-    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
+    super(namedAccountCredentials, resourcePropertyRegistry, objectMapper, registry, agentIndex, agentCount);
     namer = NamerRegistry.lookup()
         .withProvider(KubernetesCloudProvider.getID())
         .withAccount(namedAccountCredentials.getName())
@@ -91,7 +93,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     reloadNamespaces();
 
     Long start = System.currentTimeMillis();
-    List<KubernetesManifest> primaryResource;
+    Map<KubernetesKind, List<KubernetesManifest>> primaryResource;
     try {
       primaryResource = loadPrimaryResourceList();
     } catch (KubectlJobExecutor.NoResourceTypeException e) {
@@ -99,7 +101,9 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
       return new DefaultCacheResult(new HashMap<>());
     }
 
-    List<String> primaryKeys = primaryResource.stream()
+    List<String> primaryKeys = primaryResource.values()
+        .stream()
+        .flatMap(Collection::stream)
         .map(rs -> objectMapper.convertValue(rs, KubernetesManifest.class))
         .map(mf -> Keys.infrastructure(mf, accountName))
         .collect(Collectors.toList());
@@ -125,10 +129,16 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     Map<String, Collection<CacheData>> cacheResults = result.getCacheResults();
 
     for (CacheData onDemandData : keepInOnDemand) {
+      if (!shouldOverwriteUsingOnDemand(start, onDemandData)) {
+        continue;
+      }
+
       String onDemandKey = onDemandData.getId();
-      log.info("On demand entry '{}' is overwriting load data entry", onDemandKey);
+      log.info("{}: On demand entry '{}' is overwriting load data entry", getAgentType(), onDemandKey);
 
       String onDemandResultsJson = (String) onDemandData.getAttributes().get(CACHE_RESULTS_KEY);
+
+      log.debug("{}: On demand entry contents overwriting load data entry: {}", getAgentType(), onDemandResultsJson);
       Map<String, Collection<CacheData>> onDemandResults;
       try {
         onDemandResults = objectMapper.readValue(onDemandResultsJson, new TypeReference<Map<String, List<DefaultCacheData>>>() { });
@@ -171,6 +181,13 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     }
   }
 
+  private boolean shouldOverwriteUsingOnDemand(Long startTime, CacheData onDemandEntry) {
+    Map<String, Object> attributes = onDemandEntry.getAttributes();
+    Long cacheTime = (Long) attributes.get(CACHE_TIME_KEY);
+
+    return cacheTime != null && cacheTime >= startTime;
+  }
+
   private void processOnDemandEntry(CacheData onDemandEntry) {
     Map<String, Object> attributes = onDemandEntry.getAttributes();
     Integer processedCount = (Integer) attributes.get(PROCESSED_COUNT_KEY);
@@ -194,13 +211,13 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     return cacheTime >= lastFullRefresh || processedCount == 0;
   }
 
-  private OnDemandAgent.OnDemandResult evictEntry(ProviderCache providerCache, String key) {
+  private OnDemandAgent.OnDemandResult evictEntry(ProviderCache providerCache, KubernetesKind kind, String key) {
     Map<String, Collection<String>> evictions = new HashMap<>();
     CacheResult cacheResult = new DefaultCacheResult(new HashMap<>());
 
     log.info("Evicting on demand '{}'", key);
     providerCache.evictDeletedItems(ON_DEMAND_TYPE, Collections.singletonList(key));
-    evictions.put(primaryKind().toString(), Collections.singletonList(key));
+    evictions.put(kind.toString(), Collections.singletonList(key));
 
     return new OnDemandAgent.OnDemandResult(getOnDemandAgentType(), cacheResult, evictions);
   }
@@ -209,9 +226,10 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     Map<String, Collection<String>> evictions = new HashMap<>();
     CacheResult cacheResult;
 
-    log.info("Storing on demand '{}'", key);
+    log.info("{}: Storing on demand '{}'", getAgentType(), key);
     cacheResult = buildCacheResult(manifest);
     String jsonResult = objectMapper.writeValueAsString(cacheResult.getCacheResults());
+    log.debug("{}: On demand entry being written: {}", getAgentType(), jsonResult);
 
     Map<String, Object> attributes = new ImmutableMap.Builder<String, Object>()
         .put(CACHE_TIME_KEY, System.currentTimeMillis())
@@ -234,10 +252,15 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     String namespace = (String) data.get("location");
     String fullName = (String) data.get("name");
     String name;
+    KubernetesKind kind;
+
+    // todo(lwander): this can be removed
+    log.debug("Queried for on demand cache refresh of '{}'", data);
 
     try {
       Pair<KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(fullName);
-      if (parsedName.getLeft() != primaryKind()) {
+      kind = parsedName.getLeft();
+      if (!primaryKinds().contains(kind)) {
         return null;
       }
 
@@ -250,17 +273,16 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     reloadNamespaces();
     if (StringUtils.isEmpty(account)
         || StringUtils.isEmpty(name)
-        || StringUtils.isEmpty(namespace)
-        || !namespaces.contains(namespace)) {
+        || (!StringUtils.isEmpty(namespace) && !namespaces.contains(namespace))) {
       return null;
     }
 
     log.info("Accepted on demand refresh of '{}'", data);
     OnDemandAgent.OnDemandResult result;
-    KubernetesManifest manifest = loadPrimaryResource(namespace, name);
-    String resourceKey = Keys.infrastructure(primaryKind(), account, namespace, name);
+    KubernetesManifest manifest = loadPrimaryResource(kind, namespace, name);
+    String resourceKey = Keys.infrastructure(kind, account, namespace, name);
     try {
-      result = manifest == null ? evictEntry(providerCache, resourceKey) : addEntry(providerCache, resourceKey, manifest);
+      result = manifest == null ? evictEntry(providerCache, kind, resourceKey) : addEntry(providerCache, resourceKey, manifest);
     } catch (Exception e) {
       log.error("Failed to process update of '{}'", resourceKey, e);
       return null;
@@ -292,8 +314,8 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
 
     List<String> matchingKeys = infraKeys.stream()
         .filter(i -> i.getAccount().equals(getAccountName())
-            && namespaces.contains(i.getNamespace())
-            && i.getKubernetesKind().equals(primaryKind()))
+            && (StringUtils.isEmpty(i.getNamespace())) || namespaces.contains(i.getNamespace())
+            && primaryKinds().contains(i.getKubernetesKind()))
         .map(Keys.InfrastructureCacheKey::toString)
         .collect(Collectors.toList());
 

@@ -17,18 +17,17 @@
 package com.netflix.spinnaker.clouddriver.aws.provider.view
 
 import com.amazonaws.services.autoscaling.model.LifecycleState
-import com.amazonaws.services.ec2.model.InstanceStateName
 import com.netflix.frigga.ami.AppVersion
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
-import com.netflix.spinnaker.clouddriver.core.provider.agent.ExternalHealthProvider
-import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.aws.model.*
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
+import com.netflix.spinnaker.clouddriver.core.provider.agent.ExternalHealthProvider
+import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -73,7 +72,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster> {
   }
 
   @Override
-  AmazonServerGroup getServerGroup(String account, String region, String name) {
+  AmazonServerGroup getServerGroup(String account, String region, String name, boolean includeDetails) {
     String serverGroupKey = Keys.getServerGroupKey(name, account, region)
     CacheData serverGroupData = cacheView.get(SERVER_GROUPS.ns, serverGroupKey)
     if (serverGroupData == null) {
@@ -94,13 +93,22 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster> {
     serverGroup.image = imageConfigs ? imageConfigs.attributes : null
     serverGroup.buildInfo = imageConfigs ? getBuildInfoFromImage(imageConfigs) : null
 
-    Set<String> asgInstances = getAsgInstanceKeys(asg, account, region)
-    Closure<Boolean> instanceFilter = { rel ->
-      return (asgInstances == null || asgInstances.contains(rel))
+    if (includeDetails) {
+      Set<String> asgInstances = getAsgInstanceKeys(asg, account, region)
+      Closure<Boolean> instanceFilter = { rel ->
+        return (asgInstances == null || asgInstances.contains(rel))
+      }
+      serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns, instanceFilter, RelationshipCacheFilter.none())).values()
+    } else {
+      serverGroup.instances = []
     }
-    serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns, instanceFilter, RelationshipCacheFilter.none())).values()
 
     serverGroup
+  }
+
+  @Override
+  AmazonServerGroup getServerGroup(String account, String region, String name) {
+    return getServerGroup(account, region, name, true)
   }
 
   @Override

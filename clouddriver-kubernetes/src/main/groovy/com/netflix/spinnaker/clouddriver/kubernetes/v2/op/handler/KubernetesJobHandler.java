@@ -19,20 +19,28 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesJobCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import io.kubernetes.client.models.V1Job;
+import io.kubernetes.client.models.V1JobCondition;
 import io.kubernetes.client.models.V1JobSpec;
 import io.kubernetes.client.models.V1JobStatus;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
+
 @Component
 public class KubernetesJobHandler extends KubernetesHandler implements
-  CanDelete {
+  CanDelete,
+  ServerGroupHandler {
 
   public KubernetesJobHandler() {
     registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
@@ -40,6 +48,13 @@ public class KubernetesJobHandler extends KubernetesHandler implements
     registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
     registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
     registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapKeyValueFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretKeyValueFromReplacer());
+  }
+
+  @Override
+  public int deployPriority() {
+    return WORKLOAD_CONTROLLER_PRIORITY.getValue();
   }
 
   @Override
@@ -65,7 +80,7 @@ public class KubernetesJobHandler extends KubernetesHandler implements
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesJobCachingAgent.class;
+    return KubernetesCoreCachingAgent.class;
   }
 
   private Status status(V1Job job) {
@@ -86,10 +101,22 @@ public class KubernetesJobHandler extends KubernetesHandler implements
     if (status.getSucceeded() != null) {
       succeeded = status.getSucceeded();
     }
+
     if (succeeded < completions) {
-      return result.unstable("Waiting for jobs to finish");
+      List<V1JobCondition> conditions = status.getConditions();
+      conditions = conditions != null ? conditions : Collections.emptyList();
+      Optional<V1JobCondition> condition = conditions.stream().filter(this::jobFailed).findAny();
+      if (condition.isPresent()) {
+        return result.failed(condition.get().getMessage());
+      } else {
+        return result.unstable("Waiting for jobs to finish");
+      }
     }
 
     return result;
+  }
+
+  private boolean jobFailed(V1JobCondition condition) {
+    return "Failed".equalsIgnoreCase(condition.getType()) && "True".equalsIgnoreCase(condition.getStatus());
   }
 }

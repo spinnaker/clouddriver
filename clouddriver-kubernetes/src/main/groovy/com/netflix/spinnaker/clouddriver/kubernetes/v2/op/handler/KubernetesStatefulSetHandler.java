@@ -17,11 +17,10 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactTypes;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesStatefulSetCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
@@ -30,9 +29,19 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import io.kubernetes.client.models.V1beta2StatefulSet;
 import io.kubernetes.client.models.V1beta2StatefulSetStatus;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.SERVICE;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.STATEFUL_SET;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 @Component
 public class KubernetesStatefulSetHandler extends KubernetesHandler implements
@@ -41,21 +50,27 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
     CanScale,
     CanPauseRollout,
     CanResumeRollout,
-    CanUndoRollout {
+    CanUndoRollout,
+    ServerGroupHandler {
 
   public KubernetesStatefulSetHandler() {
-    registerReplacer(
-        ArtifactReplacer.Replacer.builder()
-            .replacePath("$.spec.template.spec.containers.[?( @.image == \"{%name%}\" )].image")
-            .findPath("$.spec.template.spec.containers.*.image")
-            .type(ArtifactTypes.DOCKER_IMAGE)
-            .build()
-    );
+    registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretEnvFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.configMapKeyValueFromReplacer());
+    registerReplacer(ArtifactReplacerFactory.secretKeyValueFromReplacer());
+  }
+
+  @Override
+  public int deployPriority() {
+    return WORKLOAD_CONTROLLER_PRIORITY.getValue();
   }
 
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.STATEFUL_SET;
+    return STATEFUL_SET;
   }
 
   @Override
@@ -70,11 +85,14 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesStatefulSetCachingAgent.class;
+    return KubernetesCoreCachingAgent.class;
   }
 
   @Override
   public Status status(KubernetesManifest manifest) {
+    if (!manifest.isNewerThanObservedGeneration()) {
+      return (new Status()).unknown();
+    }
     V1beta2StatefulSet v1beta2StatefulSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2StatefulSet.class);
     return status(v1beta2StatefulSet);
   }
@@ -96,6 +114,10 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
   private Status status(V1beta2StatefulSet statefulSet) {
     Status result = new Status();
 
+    if (statefulSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("ondelete")) {
+      return result;
+    }
+
     V1beta2StatefulSetStatus status = statefulSet.getStatus();
     if (status == null) {
       result.unstable("No status reported yet")
@@ -103,9 +125,9 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
       return result;
     }
 
-    int desiredReplicas = statefulSet.getSpec().getReplicas();
+    Integer desiredReplicas = statefulSet.getSpec().getReplicas();
     Integer existing = status.getReplicas();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
       return result.unstable("Waiting for at least the desired replica count to be met");
     }
 
@@ -114,15 +136,40 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
     }
 
     existing = status.getCurrentReplicas();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
       return result.unstable("Waiting for all updated replicas to be scheduled");
     }
 
     existing = status.getReadyReplicas();
-    if (existing == null || desiredReplicas > existing) {
+    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
       return result.unstable("Waiting for all updated replicas to be ready");
     }
 
     return result;
+  }
+
+  @Override
+  public void addRelationships(Map<KubernetesKind, List<KubernetesManifest>> allResources, Map<KubernetesManifest, List<KubernetesManifest>> relationshipMap) {
+    BiFunction<String, String, String> manifestName = (namespace, name) -> namespace + ":" + name;
+
+    Map<String, KubernetesManifest> services = allResources.getOrDefault(SERVICE, new ArrayList<>())
+        .stream()
+        .collect(Collectors.toMap((m) -> manifestName.apply(m.getNamespace(), m.getName()), (m) -> m));
+
+    for (KubernetesManifest manifest : allResources.getOrDefault(STATEFUL_SET, new ArrayList<>())) {
+      String serviceName = KubernetesStatefulSetHandler.serviceName(manifest);
+      if (StringUtils.isEmpty(serviceName)) {
+        continue;
+      }
+
+      String key = manifestName.apply(manifest.getNamespace(), serviceName);
+
+      if (!services.containsKey(key)) {
+        continue;
+      }
+
+      KubernetesManifest service = services.get(key);
+      relationshipMap.put(manifest, Collections.singletonList(service));
+    }
   }
 }
