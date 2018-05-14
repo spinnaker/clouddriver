@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Netflix, Inc.
+ * Copyright 2018 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.titus
+package com.netflix.spinnaker.clouddriver.model;
 
-import com.netflix.spinnaker.clouddriver.core.CloudProvider
-import org.springframework.stereotype.Component
+import java.util.Collection;
 
-import java.lang.annotation.Annotation
+public interface ServerGroupProvider {
+  String getCloudProviderId();
 
-/**
- * Titus declaration as a {@link CloudProvider}.
- */
-@Component
-class TitusCloudProvider implements CloudProvider {
-  static final String ID = 'titus'
-  final String id = ID
-  final String displayName = "Titus"
-  final Class<Annotation> operationAnnotationType = TitusOperation
+  Collection<String> getServerGroupIdentifiers(String account, String region);
+
+  String buildServerGroupIdentifier(String account, String region, String serverGroupName);
 }
