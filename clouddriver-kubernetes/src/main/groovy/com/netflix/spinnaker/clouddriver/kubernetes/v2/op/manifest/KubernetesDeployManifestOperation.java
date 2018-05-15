@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
@@ -139,11 +140,17 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     OperationResult result = new OperationResult();
     for (KubernetesManifest manifest : deployManifests) {
       KubernetesResourceProperties properties = findResourceProperties(manifest);
-      boolean versioned = description.getVersioned() == null ? properties.isVersioned() : description.getVersioned();
+      KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
+      boolean versioned = isVersioned(properties, strategy);
+
       KubernetesArtifactConverter converter = versioned ? properties.getVersionedConverter() : properties.getUnversionedConverter();
       KubernetesHandler deployer = properties.getHandler();
 
-      Moniker moniker = description.getMoniker();
+      Moniker moniker = cloneMoniker(description.getMoniker());
+      if (StringUtils.isEmpty(moniker.getCluster())) {
+        moniker.setCluster(manifest.getFullResourceName());
+      }
+
       Artifact artifact = converter.toArtifact(provider, manifest);
 
       getTask().updateStatus(OP_NAME, "Annotating manifest " + manifest.getFullResourceName() + " with artifact, relationships & moniker...");
@@ -166,6 +173,29 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     result.getBoundArtifacts().addAll(boundArtifacts);
     result.removeSensitiveKeys(registry, accountName);
     return result;
+  }
+
+  private boolean isVersioned(KubernetesResourceProperties properties, KubernetesManifestStrategy strategy) {
+    if (strategy.getVersioned() != null) {
+      return strategy.getVersioned();
+    }
+
+    if (description.getVersioned() != null) {
+      return description.getVersioned();
+    }
+
+    return properties.isVersioned();
+  }
+
+  // todo(lwander): move to kork
+  private static Moniker cloneMoniker(Moniker inp) {
+    return Moniker.builder()
+        .app(inp.getApp())
+        .cluster(inp.getCluster())
+        .stack(inp.getStack())
+        .detail(inp.getDetail())
+        .sequence(inp.getSequence())
+        .build();
   }
 
   private KubernetesResourceProperties findResourceProperties(KubernetesManifest manifest) {

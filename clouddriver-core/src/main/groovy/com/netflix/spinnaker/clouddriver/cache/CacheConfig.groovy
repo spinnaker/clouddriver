@@ -20,7 +20,6 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.agent.AgentExecution
 import com.netflix.spinnaker.cats.agent.AgentScheduler
-import com.netflix.spinnaker.cats.agent.CachingAgent
 import com.netflix.spinnaker.cats.agent.DefaultAgentScheduler
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
 import com.netflix.spinnaker.cats.cache.Cache
@@ -28,9 +27,12 @@ import com.netflix.spinnaker.cats.cache.NamedCacheFactory
 import com.netflix.spinnaker.cats.mem.InMemoryNamedCacheFactory
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.Provider
+import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import com.netflix.spinnaker.clouddriver.search.SearchProvider
+import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
@@ -43,6 +45,7 @@ import java.util.concurrent.TimeUnit
   DynomiteCacheConfig,
   JedisCacheConfig
 ])
+@EnableConfigurationProperties(CatsInMemorySearchProperties)
 class CacheConfig {
   @Bean
   @ConditionalOnMissingBean(NamedCacheFactory)
@@ -81,6 +84,11 @@ class CacheConfig {
   }
 
   @Bean
+  ProviderRegistry providerRegistry(CatsModule catsModule) {
+    catsModule.providerRegistry
+  }
+
+  @Bean
   ExecutionInstrumentation loggingInstrumentation() {
     new LoggingInstrumentation()
   }
@@ -96,8 +104,13 @@ class CacheConfig {
   }
 
   @Bean
-  SearchProvider catsSearchProvider(Cache cacheView, List<SearchableProvider> providers) {
-    new CatsSearchProvider(cacheView, providers)
+  SearchProvider catsSearchProvider(CatsInMemorySearchProperties catsInMemorySearchProperties,
+                                    Cache cacheView,
+                                    List<SearchableProvider> providers,
+                                    ProviderRegistry providerRegistry,
+                                    Optional<FiatPermissionEvaluator> permissionEvaluator,
+                                    Optional<List<KeyParser>> keyParsers) {
+    new CatsSearchProvider(catsInMemorySearchProperties, cacheView, providers, providerRegistry, permissionEvaluator, keyParsers)
   }
 
 }

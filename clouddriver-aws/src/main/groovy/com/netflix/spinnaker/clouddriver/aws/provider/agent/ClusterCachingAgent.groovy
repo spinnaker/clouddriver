@@ -30,6 +30,7 @@ import com.amazonaws.services.cloudwatch.model.MetricAlarm
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.DescribeSubnetsRequest
 import com.amazonaws.services.ec2.model.Subnet
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetTypeEnum
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.core.type.TypeReference
@@ -404,7 +405,14 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
 
     def evictableOnDemandCacheDatas = []
     def usableOnDemandCacheDatas = []
-    providerCache.getAll(ON_DEMAND.ns, asgs.collect { Keys.getServerGroupKey(it.autoScalingGroupName, account.name, region) }).each {
+
+    def serverGroupKeys = asgs.collect { Keys.getServerGroupKey(it.autoScalingGroupName, account.name, region) } as Set<String>
+    def pendingOnDemandRequestKeys = providerCache
+      .filterIdentifiers(ON_DEMAND.ns, Keys.getServerGroupKey("*", "*", account.name, region))
+      .findAll { serverGroupKeys.contains(it) }
+
+    def pendingOnDemandRequestsForServerGroups = providerCache.getAll(ON_DEMAND.ns, pendingOnDemandRequestKeys)
+    pendingOnDemandRequestsForServerGroups.each {
       if (it.attributes.cacheTime < start && it.attributes.processedCount > 0) {
         if (account.eddaEnabled && !eddaTimeoutConfig.disabledRegions.contains(region)) {
           def asgFromEdda = asgs.find { asg -> it.id.endsWith(":${asg.autoScalingGroupName}") }
@@ -449,22 +457,28 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
 
   @Override
   Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
-    def keys = providerCache.getIdentifiers(ON_DEMAND.ns)
-    keys = keys.findAll {
-      def key = Keys.parse(it)
-      key.type == SERVER_GROUPS.ns && key.account == account.name && key.region == region
-    }
+    def keys = providerCache.filterIdentifiers(ON_DEMAND.ns, Keys.getServerGroupKey("*", "*", account.name, region))
+    return fetchPendingOnDemandRequests(providerCache, keys)
+  }
+
+  @Override
+  Map pendingOnDemandRequest(ProviderCache providerCache, String id) {
+    def pendingOnDemandRequests = fetchPendingOnDemandRequests(providerCache, [id])
+    return pendingOnDemandRequests?.getAt(0)
+  }
+
+  private Collection<Map> fetchPendingOnDemandRequests(ProviderCache providerCache, Collection<String> keys) {
     return providerCache.getAll(ON_DEMAND.ns, keys, RelationshipCacheFilter.none()).collect {
       def details = Keys.parse(it.id)
 
       return [
-          id            : it.id,
-          details       : details,
-          moniker       : convertOnDemandDetails(details),
-          cacheTime     : it.attributes.cacheTime,
-          cacheExpiry   : it.attributes.cacheExpiry,
-          processedCount: it.attributes.processedCount,
-          processedTime : it.attributes.processedTime
+        id            : it.id,
+        details       : details,
+        moniker       : convertOnDemandDetails(details),
+        cacheTime     : it.attributes.cacheTime,
+        cacheExpiry   : it.attributes.cacheExpiry,
+        processedCount: it.attributes.processedCount,
+        processedTime : it.attributes.processedTime
       ]
     }
   }
@@ -710,7 +724,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
       } as Set).asImmutable()
 
       targetGroupKeys = (targetGroupNames.collect {
-        Keys.getTargetGroupKey(it, account, region, vpcId)
+        Keys.getTargetGroupKey(it, account, region, TargetTypeEnum.Instance.toString(), vpcId)
       } as Set).asImmutable()
 
       instanceIds = (asg.instances.instanceId.collect { Keys.getInstanceKey(it, account, region) } as Set).asImmutable()

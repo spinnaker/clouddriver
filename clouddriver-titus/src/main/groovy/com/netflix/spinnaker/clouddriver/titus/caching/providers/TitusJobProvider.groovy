@@ -64,19 +64,19 @@ class TitusJobProvider implements JobProvider<TitusJobStatus> {
   @Override
   TitusJobStatus collectJob(String account, String location, String id) {
     TitusClient titusClient = titusClientProvider.getTitusClient(accountCredentialsProvider.getCredentials(account), location)
-    Job job = titusClient.getJob(id)
+    Job job = titusClient.getJobAndAllRunningAndCompletedTasks(id)
     new TitusJobStatus(job, account, location)
   }
 
   @Override
   Map<String, Object> getFileContents(String account, String location, String id, String fileName) {
     TitusClient titusClient = titusClientProvider.getTitusClient(accountCredentialsProvider.getCredentials(account), location)
-    Job job = titusClient.getJob(id)
+    Job job = titusClient.getJobAndAllRunningAndCompletedTasks(id)
 
     def fileContents
 
     if (job.tasks.last().logLocation != null && job.tasks.last().logLocation.containsKey("s3")) {
-      HashMap s3 = job.tasks.last().logLocation.get("s3")
+      HashMap s3 = job.tasks.sort{it.startedAt}.last().logLocation.get("s3")
       OutputStream outputStream = new ByteArrayOutputStream()
       try {
         amazonS3DataProvider.getAdhocData("titus", "${s3.accountName}:${s3.region}:${s3.bucket}", "${s3.key}/${fileName}", outputStream)

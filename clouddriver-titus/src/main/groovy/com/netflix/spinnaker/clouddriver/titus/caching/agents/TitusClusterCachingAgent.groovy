@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.titus.caching.agents
 
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetTypeEnum
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -32,6 +33,7 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.data.ArnUtils
+import com.netflix.spinnaker.clouddriver.aws.data.Keys as AwsKeys
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
@@ -44,6 +46,7 @@ import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
 import com.netflix.spinnaker.clouddriver.titus.client.TitusAutoscalingClient
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient
 import com.netflix.spinnaker.clouddriver.titus.client.TitusLoadBalancerClient
+import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.client.model.TaskState
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
@@ -59,6 +62,7 @@ import javax.inject.Provider
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.TARGET_GROUPS
 import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*
 
@@ -79,6 +83,7 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
   private final TitusAutoscalingClient titusAutoscalingClient
   private final TitusLoadBalancerClient titusLoadBalancerClient
   private final NetflixTitusCredentials account
+  private final TitusRegion titusRegion
   private final String region
   private final ObjectMapper objectMapper
   private final OnDemandMetricsSupport metricsSupport
@@ -89,14 +94,15 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
   TitusClusterCachingAgent(TitusCloudProvider titusCloudProvider,
                            TitusClientProvider titusClientProvider,
                            NetflixTitusCredentials account,
-                           String region,
+                           TitusRegion titusRegion,
                            ObjectMapper objectMapper,
                            Registry registry,
                            Provider<AwsLookupUtil> awsLookupUtil,
                            pollIntervalMillis,
                            timeoutMillis) {
     this.account = account
-    this.region = region
+    this.titusRegion = titusRegion
+    this.region = titusRegion.name
 
     this.titusCloudProvider = titusCloudProvider
     this.objectMapper = objectMapper
@@ -151,11 +157,22 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
       titusClient.findJobByName(data.serverGroupName as String)
     }
 
-    CacheResult result = metricsSupport.transformData { buildCacheResult([job]) }
-    def cacheResultAsJson = objectMapper.writeValueAsString(result.cacheResults)
-    def serverGroupKey = Keys.getServerGroupKey(job.name, account.name, region)
+    return onDemand(providerCache, job, data)
+  }
 
-    if (result.cacheResults.values().flatten().isEmpty()) {
+  /**
+   * Avoid writing cache results to both ON_DEMAND and SERVER_GROUPS, etc.
+   *
+   * By writing a minimal record to ON_DEMAND only, we eliminate significant overhead (redis and network) at the cost
+   * of an increase in time before a change becomes visible in the UI.
+   *
+   * A change will not be visible until a caching cycle has completed.
+   */
+  private OnDemandResult onDemand(ProviderCache providerCache, Job job, Map<String, ?> data) {
+    def serverGroupKey = Keys.getServerGroupKey(job.name, account.name, region)
+    def cacheResults = [:]
+
+    if (!job) {
       providerCache.evictDeletedItems(ON_DEMAND.ns, [serverGroupKey])
     } else {
       def cacheData = metricsSupport.onDemandStore {
@@ -164,20 +181,21 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
           10 * 60, // ttl is 10 minutes,
           [
             cacheTime   : new Date(),
-            cacheResults: cacheResultAsJson
+            cacheResults: [:]
           ],
           [:]
         )
       }
-      providerCache.putCacheData(ON_DEMAND.ns, cacheData)
+
+      cacheResults[ON_DEMAND.ns.toString()] = [cacheData]
     }
 
     Map<String, Collection<String>> evictions = job ? [:] : [(SERVER_GROUPS.ns): [serverGroupKey]]
 
-    log.info("onDemand cache refresh (data: ${data}, evictions: ${evictions}, cacheResult: ${cacheResultAsJson})")
-    new OnDemandAgent.OnDemandResult(
+    log.info("minimal onDemand cache refresh (data: ${data}, evictions: ${evictions})")
+    return new OnDemandResult(
       sourceAgentType: getOnDemandAgentType(),
-      cacheResult: result,
+      cacheResult: new DefaultCacheResult(cacheResults),
       evictions: evictions
     )
   }
@@ -189,15 +207,13 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
       return key && key.type == SERVER_GROUPS.ns && key.account == account.name && key.region == region
     }
 
-    return providerCache.getAll('onDemand', keys, RelationshipCacheFilter.none()).collect {
-      [
-        id            : it.id,
-        details       : Keys.parse(it.id),
-        cacheTime     : it.attributes.cacheTime,
-        processedCount: it.attributes.processedCount,
-        processedTime : it.attributes.processedTime
-      ]
-    }
+    return fetchPendingOnDemandRequests(providerCache, keys)
+  }
+
+  @Override
+  Map pendingOnDemandRequest(ProviderCache providerCache, String id) {
+    def pendingOnDemandRequests = fetchPendingOnDemandRequests(providerCache, [id])
+    return pendingOnDemandRequests?.getAt(0)
   }
 
   @Override
@@ -249,9 +265,13 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
     List<CacheData> evictFromOnDemand = []
     List<CacheData> keepInOnDemand = []
 
-    def serverGroupKeys = jobs.collect { job -> Keys.getServerGroupKey(job.name, account.name, region) }
+    def serverGroupKeys = jobs.collect { job -> Keys.getServerGroupKey(job.name, account.name, region) } as Set<String>
+    def pendingOnDemandRequestKeys = providerCache
+      .filterIdentifiers(ON_DEMAND.ns, Keys.getServerGroupKey("*", "*", account.name, region))
+      .findAll { serverGroupKeys.contains(it) }
 
-    providerCache.getAll(ON_DEMAND.ns, serverGroupKeys).each { CacheData onDemandEntry ->
+    def pendingOnDemandRequestsForServerGroups = providerCache.getAll(ON_DEMAND.ns, pendingOnDemandRequestKeys)
+    pendingOnDemandRequestsForServerGroups.each { CacheData onDemandEntry ->
       if (onDemandEntry.attributes.cacheTime < start && onDemandEntry.attributes.processedCount > 0) {
         evictFromOnDemand << onDemandEntry
       } else {
@@ -268,6 +288,18 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
     }
 
     return result
+  }
+
+  private Collection<Map> fetchPendingOnDemandRequests(ProviderCache providerCache, Collection<String> keys) {
+    return providerCache.getAll('onDemand', keys, RelationshipCacheFilter.none()).collect {
+      [
+        id            : it.id,
+        details       : Keys.parse(it.id),
+        cacheTime     : it.attributes.cacheTime,
+        processedCount: it.attributes.processedCount,
+        processedTime : it.attributes.processedTime
+      ]
+    }
   }
 
   private CacheResult buildCacheResult(List<Job> jobs,
@@ -380,16 +412,6 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
     }
   }
 
-
-  private void cacheTargetGroups(ServerGroupData data, Map<String, CacheData> targetGroups) {
-    for (String targetGroupKey : data.targetGroupKeys) {
-      targetGroups[targetGroupKey].with {
-        relationships[APPLICATIONS.ns].add(data.appName)
-        relationships[SERVER_GROUPS.ns].add(data.serverGroup)
-      }
-    }
-  }
-
   private void cacheInstance(InstanceData data, Map<String, CacheData> instances) {
     instances[data.instanceId].with {
       Job.TaskSummary task = objectMapper.convertValue(data.task, Job.TaskSummary)
@@ -460,7 +482,7 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
       } as Set).asImmutable()
 
       targetGroupKeys = (targetGroupNames.collect {
-        com.netflix.spinnaker.clouddriver.aws.data.Keys.getTargetGroupKey(it, getAwsAccountId(account, region), region, getAwsVpcId(account, region))
+        AwsKeys.getTargetGroupKey(it, getAwsAccountId(account, region), region, TargetTypeEnum.Ip.toString(), getAwsVpcId(account, region))
       } as Set).asImmutable()
 
     }

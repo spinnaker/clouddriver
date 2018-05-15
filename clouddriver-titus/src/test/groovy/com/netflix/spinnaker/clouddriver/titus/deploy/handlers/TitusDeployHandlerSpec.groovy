@@ -52,7 +52,7 @@ class TitusDeployHandlerSpec extends Specification {
   }
 
   NetflixTitusCredentials testCredentials = new NetflixTitusCredentials(
-    'test', 'test', 'test', [new TitusRegion('us-east-1', 'test', 'http://foo', false, false, '2', "blah", "blah", 7104)], 'test', 'test', 'test', 'test', false, '', 'mainvpc', [], "", false, false
+    'test', 'test', 'test', [new TitusRegion('us-east-1', 'test', 'http://foo', false, false, "blah", "blah", 7104, [])], 'test', 'test', 'test', 'test', false, '', 'mainvpc', [], "", false, false
   )
 
   @Subject
@@ -113,7 +113,7 @@ class TitusDeployHandlerSpec extends Specification {
         it.application == titusDeployDescription.application &&
         it.allocateIpAddress == titusDeployDescription.resources.allocateIpAddress &&
         it.labels.get("interestingHealthProviderNames") == "Titus,Discovery"
-    } as SubmitJobRequest)
+    } as SubmitJobRequest) >> "123456"
   }
 
 }
