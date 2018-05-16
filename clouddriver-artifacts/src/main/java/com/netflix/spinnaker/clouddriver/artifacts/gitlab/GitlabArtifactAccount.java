@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Datadog, Inc.
+ * Copyright 2018 Armory
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.artifacts.s3;
+package com.netflix.spinnaker.clouddriver.artifacts.gitlab;
 
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import lombok.Data;
@@ -22,10 +22,8 @@ import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class S3ArtifactAccount extends ArtifactAccount
-{
+public class GitlabArtifactAccount extends ArtifactAccount {
   private String name;
-  private String apiEndpoint;
-  private String apiRegion;
-  private String region;
+  private String token;
+  private String tokenFile;
 }
