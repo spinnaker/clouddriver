@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Datadog, Inc.
+ * Copyright 2018 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.artifacts.s3;
+package com.netflix.spinnaker.clouddriver.artifacts.gitlab;
 
-import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
+import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactProvider;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
-@EqualsAndHashCode(callSuper = true)
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
-public class S3ArtifactAccount extends ArtifactAccount
-{
-  private String name;
-  private String apiEndpoint;
-  private String apiRegion;
-  private String region;
+public class GitlabArtifactProviderProperties extends ArtifactProvider<GitlabArtifactAccount> {
+  private boolean enabled;
+  private List<GitlabArtifactAccount> accounts = new ArrayList<>();
 }
