@@ -137,7 +137,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
 
       log.info("Refreshed Cached Identifiers (found ${instanceIdentifiers.size()} instances)")
     } catch (Exception e) {
-      log.error("Unable to refresh cached identifiers", e)
+      log.error("Unable to refresh cached identifiers (instances)", e)
     }
   }
 

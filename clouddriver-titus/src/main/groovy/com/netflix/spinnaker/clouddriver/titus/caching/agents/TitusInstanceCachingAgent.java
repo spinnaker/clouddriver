@@ -59,11 +59,13 @@ public class TitusInstanceCachingAgent implements CachingAgent {
   private static final Logger log = LoggerFactory.getLogger(TitusInstanceCachingAgent.class);
   private static final TypeReference<Map<String, Object>> ATTRIBUTES = new TypeReference<Map<String, Object>>() {};
 
-
   private static final java.util.Set<AgentDataType> types = Collections.unmodifiableSet(Stream.of(
     AUTHORITATIVE.forType(INSTANCES.ns),
     INFORMATIVE.forType(SERVER_GROUPS.ns)
   ).collect(Collectors.toSet()));
+
+  private static final List<TaskState> DOWN_TASK_STATES = Arrays.asList(TaskState.STOPPED, TaskState.FAILED, TaskState.CRASHED, TaskState.FINISHED, TaskState.DEAD, TaskState.TERMINATING);
+  private static final List<TaskState> STARTING_TASK_STATES = Arrays.asList(TaskState.STARTING, TaskState.DISPATCHED, TaskState.PENDING, TaskState.QUEUED);
 
   private TitusCloudProvider titusCloudProvider;
   private TitusClient titusClient;
@@ -77,7 +79,6 @@ public class TitusInstanceCachingAgent implements CachingAgent {
   private long timeoutMillis;
   private Id metricId;
   private Registry registry;
-
 
   public TitusInstanceCachingAgent(TitusCloudProvider titusCloudProvider,
                            TitusClientProvider titusClientProvider,
@@ -138,9 +139,11 @@ public class TitusInstanceCachingAgent implements CachingAgent {
     int ttlSeconds = -1;
     final Map<String, Object> attributes = new HashMap<>();
     final Map<String, Collection<String>> relationships = new HashMap<>();
+
     public MutableCacheData(String id) {
       this.id = id;
     }
+
     @Override
     public String getId() {
       return id;
@@ -170,7 +173,6 @@ public class TitusInstanceCachingAgent implements CachingAgent {
   public CacheResult loadData(ProviderCache providerCache) {
     log.info("Describing items in {}", getAgentType());
     Long startTime = System.currentTimeMillis();
-
 
     List<Task> tasks = titusClient.getAllTasks();
 
@@ -239,9 +241,9 @@ public class TitusInstanceCachingAgent implements CachingAgent {
   private Map<String, String> getTitusHealth(Task task) {
     TaskState taskState = task.getState();
     HealthState healthState = HealthState.Unknown;
-    if (Arrays.asList(TaskState.STOPPED, TaskState.FAILED, TaskState.CRASHED, TaskState.FINISHED, TaskState.DEAD, TaskState.TERMINATING).contains(taskState)) {
+    if (DOWN_TASK_STATES.contains(taskState)) {
       healthState = HealthState.Down;
-    } else if (Arrays.asList(TaskState.STARTING, TaskState.DISPATCHED, TaskState.PENDING, TaskState.QUEUED).contains(taskState)) {
+    } else if (STARTING_TASK_STATES.contains(taskState)) {
       healthState = HealthState.Starting;
     }
 

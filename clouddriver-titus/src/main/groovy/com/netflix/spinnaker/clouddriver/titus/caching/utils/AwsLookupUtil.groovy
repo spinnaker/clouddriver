@@ -26,7 +26,6 @@ import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonVpcProvider
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import com.netflix.spinnaker.clouddriver.titus.caching.Keys
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.model.TitusInstance
@@ -36,15 +35,13 @@ import org.springframework.stereotype.Component
 import javax.annotation.PostConstruct
 
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
-import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.CachingSchema.V1
-import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.CachingSchema.V2
 
 @Component
 class AwsLookupUtil {
 
   private Set<AmazonVpc> amazonVpcs
   private List awsAccountLookup
-  private Map<String, Keys.CachingSchema> cachingSchemaForAccounts = [:]
+
 
   @Autowired
   AmazonSecurityGroupProvider awsSecurityGroupProvider
@@ -63,10 +60,6 @@ class AwsLookupUtil {
 
   @Autowired
   AmazonLoadBalancerProvider amazonLoadBalancerProvider
-
-  Keys.CachingSchema getCachingSchemaForAccount(String account) {
-    return cachingSchemaForAccounts.get(account) ?: V1
-  }
 
   Boolean securityGroupIdExists(String account, String region, String securityGroupId) {
     getSecurityGroupDetails(account, region, securityGroupId)?.name != null
@@ -199,8 +192,6 @@ class AwsLookupUtil {
                              awsAccount  : credential.awsAccount,
                              region      : region.name,
                              vpcId       : convertVpcNameToId(credential.awsAccount, region.name, credential.awsVpc)]
-        cachingSchemaForAccounts.put(credential.name, credential.splitCachingEnabled ? V2 : V1)
-        cachingSchemaForAccounts.put(awsAccountId(credential.name, region.name), credential.splitCachingEnabled ? V2 : V1)
       }
     }
   }

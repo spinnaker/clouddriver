@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusClusterCachin
 import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusInstanceCachingAgent
 import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusV2ClusterCachingAgent
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchemaUtil
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -52,14 +53,15 @@ class TitusCachingProviderConfig {
                                             TitusClientProvider titusClientProvider,
                                             ObjectMapper objectMapper,
                                             Registry registry,
-                                            Provider<AwsLookupUtil> awsLookupUtilProvider) {
+                                            Provider<AwsLookupUtil> awsLookupUtilProvider,
+                                            Provider<CachingSchemaUtil> cachingSchemaUtilProvider) {
     List<CachingAgent> agents = []
     def allAccounts = accountCredentialsRepository.all.findAll {
       it instanceof NetflixTitusCredentials
     } as Collection<NetflixTitusCredentials>
     allAccounts.each { NetflixTitusCredentials account ->
       account.regions.each { region ->
-        if (account.splitCachingEnabled == null || !account.splitCachingEnabled) { //default case
+        if (!account.splitCachingEnabled) { //default case
           agents << new TitusClusterCachingAgent(
             titusCloudProvider,
             titusClientProvider,
@@ -97,7 +99,7 @@ class TitusCachingProviderConfig {
         }
       }
     }
-    new TitusCachingProvider(agents, awsLookupUtilProvider)
+    new TitusCachingProvider(agents, cachingSchemaUtilProvider)
   }
 
   @Bean

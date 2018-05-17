@@ -25,6 +25,8 @@ import com.netflix.spinnaker.clouddriver.model.InstanceProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.Keys
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchema
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchemaUtil
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.client.model.Task
 import com.netflix.spinnaker.clouddriver.titus.model.TitusInstance
@@ -43,20 +45,27 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance> {
   private final Cache cacheView
   private final ObjectMapper objectMapper
   private final TitusCloudProvider titusCloudProvider
+  private final CachingSchemaUtil cachingSchemaUtil
+  private final AwsLookupUtil awsLookupUtil
 
   private final Logger log = LoggerFactory.getLogger(getClass())
-
-  @Autowired
-  AwsLookupUtil awsLookupUtil
 
   @Autowired(required = false)
   List<ExternalHealthProvider> externalHealthProviders
 
   @Autowired
-  TitusInstanceProvider(Cache cacheView, TitusCloudProvider titusCloudProvider, ObjectMapper objectMapper) {
+  TitusInstanceProvider(
+    Cache cacheView,
+    TitusCloudProvider titusCloudProvider,
+    ObjectMapper objectMapper,
+    CachingSchemaUtil cachingSchemaUtil,
+    AwsLookupUtil awsLookupUtil
+  ) {
     this.cacheView = cacheView
     this.titusCloudProvider = titusCloudProvider
     this.objectMapper = objectMapper
+    this.cachingSchemaUtil = cachingSchemaUtil
+    this.awsLookupUtil = awsLookupUtil
   }
 
   @Override
@@ -77,9 +86,9 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance> {
       stack = 'mainvpc'
     }
 
-    Keys.CachingSchema cachingSchema = awsLookupUtil.getCachingSchemaForAccount(account)
+    CachingSchema cachingSchema = cachingSchemaUtil.getCachingSchemaForAccount(account)
 
-    String instanceKey = ( cachingSchema == Keys.CachingSchema.V1
+    String instanceKey = ( cachingSchema == CachingSchema.V1
       ? Keys.getInstanceKey(id, awsAccount, stack, region)
       : Keys.getInstanceV2Key(id, account, region))
 
@@ -98,7 +107,7 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance> {
       }
     } else {
       // Instance is cached at the same time as job, V1 schema
-      objectMapper.convertValue(instanceEntry.attributes.job, Job)
+      job = objectMapper.convertValue(instanceEntry.attributes.job, Job)
     }
 
     TitusInstance instance = new TitusInstance(job, task)
@@ -109,8 +118,8 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance> {
       instance.health.addAll(instanceEntry.attributes[HEALTH.ns])
     }
     if (instanceEntry.relationships[SERVER_GROUPS.ns] && !instanceEntry.relationships[SERVER_GROUPS.ns].empty) {
-      instance.serverGroup = (cachingSchema == Keys.CachingSchema.V1
-        ? Keys.parse(instanceEntry.relationships[SERVER_GROUPS.ns].iterator().next())
+      instance.serverGroup = (cachingSchema == CachingSchema.V1
+        ? instanceEntry.relationships[SERVER_GROUPS.ns].iterator().next()
         : Keys.parse(instanceEntry.relationships[SERVER_GROUPS.ns].iterator().next()).serverGroup)
       instance.cluster =  Names.parseName(instance.serverGroup)?.cluster
     }
@@ -128,7 +137,6 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance> {
             // groovy + java means that everything must be explicitly a string
             it.allowMultipleEurekaPerAccount = it.allowMultipleEurekaPerAccount.toString()
           }
-
           instance.health.addAll(health)
         }
       }

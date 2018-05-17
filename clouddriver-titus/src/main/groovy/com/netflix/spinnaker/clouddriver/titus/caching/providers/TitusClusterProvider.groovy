@@ -28,6 +28,8 @@ import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.Keys
 import com.netflix.spinnaker.clouddriver.titus.caching.TitusCachingProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchema
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchemaUtil
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.client.model.Task
 import com.netflix.spinnaker.clouddriver.titus.model.TitusCluster
@@ -51,7 +53,10 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
   private final Logger log = LoggerFactory.getLogger(getClass())
 
   @Autowired
-  AwsLookupUtil awsLookupUtil
+  private final AwsLookupUtil awsLookupUtil
+
+  @Autowired
+  private final CachingSchemaUtil cachingSchemaUtil
 
   @Autowired
   TitusClusterProvider(TitusCloudProvider titusCloudProvider,
@@ -132,7 +137,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
    */
   @Override
   TitusCluster getCluster(String application, String account, String name, boolean includeDetails) {
-    String clusterKey = (awsLookupUtil.getCachingSchemaForAccount(account) == Keys.CachingSchema.V1
+    String clusterKey = (cachingSchemaUtil.getCachingSchemaForAccount(account) == CachingSchema.V1
       ? Keys.getClusterKey(name, application, account)
       : Keys.getClusterV2Key(name, application, account))
     CacheData cluster = cacheView.get(CLUSTERS.ns, clusterKey)
@@ -154,7 +159,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
    */
   @Override
   TitusServerGroup getServerGroup(String account, String region, String name, boolean includeDetails) {
-    String serverGroupKey = (awsLookupUtil.getCachingSchemaForAccount(account) == Keys.CachingSchema.V1
+    String serverGroupKey = (cachingSchemaUtil.getCachingSchemaForAccount(account) == CachingSchema.V1
       ? Keys.getServerGroupKey(name, account, region)
       : Keys.getServerGroupV2Key(name, account, region))
     CacheData serverGroupData = cacheView.get(SERVER_GROUPS.ns, serverGroupKey)
@@ -247,23 +252,11 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
   private Map<String, TitusServerGroup> translateServerGroups(Collection<CacheData> serverGroupData) {
     Collection<CacheData> allInstances = resolveRelationshipDataForCollection(serverGroupData, INSTANCES.ns, RelationshipCacheFilter.include(SERVER_GROUPS.ns))
 
-    def tasksByJobId = allInstances.groupBy { cacheData ->
-      cacheData.getAttributes().jobId
-    }.collectEntries { key, val ->
-      [(key): val.collect { cacheData ->
-        objectMapper.convertValue(cacheData.attributes.task, Task)
-      }]
-    }
-
     Map<String, TitusInstance> instances = translateInstances(allInstances, serverGroupData)
 
     Map<String, TitusServerGroup> serverGroups = serverGroupData.collectEntries { serverGroupEntry ->
       String json = objectMapper.writeValueAsString(serverGroupEntry.attributes.job)
       Job job = objectMapper.readValue(json, Job)
-      if (job.tasks == null || job.tasks.isEmpty()) {
-        // job was cached separately, so we need to resolve the tasks
-        job.tasks = tasksByJobId.get(job.id)
-      }
 
       TitusServerGroup serverGroup = new TitusServerGroup(job, serverGroupEntry.attributes.account, serverGroupEntry.attributes.region)
       serverGroup.instances = serverGroupEntry.relationships[INSTANCES.ns]?.findResults { instances.get(it) } as Set

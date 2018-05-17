@@ -97,14 +97,14 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
   private Id metricId;
 
   public TitusV2ClusterCachingAgent(TitusCloudProvider titusCloudProvider,
-                           TitusClientProvider titusClientProvider,
-                           NetflixTitusCredentials account,
-                           TitusRegion region,
-                           ObjectMapper objectMapper,
-                           Registry registry,
-                           Provider<AwsLookupUtil> awsLookupUtil,
-                           Long pollIntervalMillis,
-                           Long timeoutMillis) {
+                                    TitusClientProvider titusClientProvider,
+                                    NetflixTitusCredentials account,
+                                    TitusRegion region,
+                                    ObjectMapper objectMapper,
+                                    Registry registry,
+                                    Provider<AwsLookupUtil> awsLookupUtil,
+                                    Long pollIntervalMillis,
+                                    Long timeoutMillis) {
     this.account = account;
     this.region = region;
 
@@ -181,7 +181,7 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
       return null;
     }
 
-    if (account.getName() != data.get("account")) {
+    if (!account.getName().equals(data.get("account"))) {
       return null;
     }
 
@@ -245,8 +245,6 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
     log.info("minimal onDemand cache refresh (data: {}, evictions: {})", data, evictions);
     return new OnDemandResult(getOnDemandAgentType(), new DefaultCacheResult(cacheResults), evictions);
   }
-
-
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
@@ -498,19 +496,29 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
   }
 
   static class MutableCacheData implements CacheData {
-
     final String id;
-
     int ttlSeconds = -1;
     final Map<String, Object> attributes = new HashMap<>();
-    final Map<String, Collection<String>> relationships = new HashMap<>(); //default value needs to be empty set!
+    final Map<String, Collection<String>> relationships = new HashMap<>();
+
     public MutableCacheData(String id) {
       this.id = id;
     }
+
+    @JsonCreator
+    public MutableCacheData(@JsonProperty("id") String id,
+                            @JsonProperty("attributes") Map<String, Object> attributes,
+                            @JsonProperty("relationships") Map<String, Collection<String>> relationships) {
+      this(id);
+      this.attributes.putAll(attributes);
+      this.relationships.putAll(relationships);
+    }
+
     @Override
     public String getId() {
       return id;
     }
+
     @Override
     public int getTtlSeconds() {
       return ttlSeconds;
@@ -524,15 +532,6 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
     @Override
     public Map<String, Collection<String>> getRelationships() {
       return relationships;
-    }
-
-    @JsonCreator
-    public MutableCacheData(@JsonProperty("id") String id,
-                            @JsonProperty("attributes") Map<String, Object> attributes,
-                            @JsonProperty("relationships") Map<String, Collection<String>> relationships) {
-      this(id);
-      this.attributes.putAll(attributes);
-      this.relationships.putAll(relationships);
     }
   }
 
@@ -560,10 +559,9 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
       result.put("id", id);
       result.put("status", status);
 
-      String scalingPolicy;
 
       try {
-        scalingPolicy = JsonFormat.printer().print(policy);
+        String scalingPolicy = JsonFormat.printer().print(policy);
         result.put("policy", objectMapper.readValue(scalingPolicy, ANY_MAP));
       } catch (Exception e) {
         log.warn("Failed to serialize scaling policy for scaling policy {}", e);

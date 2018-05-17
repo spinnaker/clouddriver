@@ -296,7 +296,7 @@ public class RegionScopedTitusClient implements TitusClient {
       .addFields("id")
       .addFields("jobDescriptor.attributes.name");
 
-    List<com.netflix.titus.grpc.protogen.Job> grpcJobs = getJobsWithFilter(jobQuery);
+    List<com.netflix.titus.grpc.protogen.Job> grpcJobs = getJobsWithFilter(jobQuery, 10000);
 
     return grpcJobs.stream()
       .collect(Collectors.toMap(
@@ -316,7 +316,7 @@ public class RegionScopedTitusClient implements TitusClient {
       .addFields("id")
       .addFields("jobId");
 
-    List<com.netflix.titus.grpc.protogen.Task> grpcTasks = getTasksWithFilter(taskQueryBuilder);
+    List<com.netflix.titus.grpc.protogen.Task> grpcTasks = getTasksWithFilter(taskQueryBuilder, 10000);
     return grpcTasks.stream().collect(Collectors.groupingBy(com.netflix.titus.grpc.protogen.Task::getJobId, mapping(com.netflix.titus.grpc.protogen.Task::getId, toList())));
   }
 

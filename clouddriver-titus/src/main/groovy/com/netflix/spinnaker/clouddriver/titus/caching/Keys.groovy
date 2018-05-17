@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.titus.caching
 
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.cache.KeyParser
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchema
 import org.springframework.stereotype.Component
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
 
@@ -63,16 +64,6 @@ class Keys implements KeyParser {
   @Override
   Boolean canParseField(String field) {
     return false
-  }
-
-
-  static enum CachingSchema {
-    V1,
-    V2
-
-    String toLowerCase() {
-      return name().toLowerCase()
-    }
   }
 
   static Map<String, String> parse(String key) {
