@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit
 import com.netflix.spectator.api.Timer
 import java.util.function.Supplier
 
+import java.util.function.Supplier
+
 class OnDemandMetricsSupport {
   public static final String ON_DEMAND_TOTAL_TIME = "onDemand_total"
   public static final String DATA_READ = "onDemand_read"

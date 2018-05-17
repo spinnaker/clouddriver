@@ -18,12 +18,14 @@ package com.netflix.spinnaker.clouddriver.titus.caching
 
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.agent.CachingAgent
-import com.netflix.spinnaker.cats.provider.Provider
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.cache.KeyParser
 import com.netflix.spinnaker.clouddriver.cache.SearchableProvider
 import com.netflix.spinnaker.clouddriver.eureka.provider.agent.EurekaAwareProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
+
+import javax.inject.Provider
 
 class TitusCachingProvider implements SearchableProvider, EurekaAwareProvider {
 
@@ -32,8 +34,11 @@ class TitusCachingProvider implements SearchableProvider, EurekaAwareProvider {
   private final Collection<CachingAgent> agents
   private final KeyParser keyParser = new Keys()
 
-  TitusCachingProvider(Collection<CachingAgent> agents) {
+  private Provider<AwsLookupUtil> awsLookupUtil
+
+  TitusCachingProvider(Collection<CachingAgent> agents, Provider<AwsLookupUtil> awsLookupUtil) {
     this.agents = Collections.unmodifiableCollection(agents)
+    this.awsLookupUtil = awsLookupUtil
   }
 
   @Override
@@ -53,7 +58,12 @@ class TitusCachingProvider implements SearchableProvider, EurekaAwareProvider {
 
   @Override
   String getInstanceKey(Map<String, Object> attributes, String region) {
-    Keys.getInstanceKey(attributes.titusTaskId, attributes.accountId, attributes.titusStack, region)
+    Keys.CachingSchema schema = awsLookupUtil.get().getCachingSchemaForAccount(attributes.accountId)
+    if (schema == Keys.CachingSchema.V2) {
+      Keys.getInstanceV2Key(attributes.titusTaskId, attributes.accountId, region)
+    } else {
+      Keys.getInstanceKey(attributes.titusTaskId, attributes.accountId, attributes.titusStack, region)
+    }
   }
 
   @Override

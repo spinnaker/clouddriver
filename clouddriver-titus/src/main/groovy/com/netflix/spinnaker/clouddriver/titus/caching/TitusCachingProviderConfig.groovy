@@ -25,6 +25,8 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusClusterCachingAgent
+import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusInstanceCachingAgent
+import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusV2ClusterCachingAgent
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import org.springframework.beans.factory.annotation.Value
@@ -57,20 +59,45 @@ class TitusCachingProviderConfig {
     } as Collection<NetflixTitusCredentials>
     allAccounts.each { NetflixTitusCredentials account ->
       account.regions.each { region ->
-        agents << new TitusClusterCachingAgent(
-          titusCloudProvider,
-          titusClientProvider,
-          account,
-          region,
-          objectMapper,
-          registry,
-          awsLookupUtilProvider,
-          pollIntervalMillis,
-          timeOutMilis
-        )
+        if (account.splitCachingEnabled == null || !account.splitCachingEnabled) { //default case
+          agents << new TitusClusterCachingAgent(
+            titusCloudProvider,
+            titusClientProvider,
+            account,
+            region,
+            objectMapper,
+            registry,
+            awsLookupUtilProvider,
+            pollIntervalMillis,
+            timeOutMilis
+          )
+        } else { //use new split caching for this whole account
+          agents << new TitusInstanceCachingAgent(
+            titusCloudProvider,
+            titusClientProvider,
+            account,
+            region,
+            objectMapper,
+            registry,
+            awsLookupUtilProvider,
+            pollIntervalMillis,
+            timeOutMilis
+          )
+          agents << new TitusV2ClusterCachingAgent(
+            titusCloudProvider,
+            titusClientProvider,
+            account,
+            region,
+            objectMapper,
+            registry,
+            awsLookupUtilProvider,
+            pollIntervalMillis,
+            timeOutMilis
+          )
+        }
       }
     }
-    new TitusCachingProvider(agents)
+    new TitusCachingProvider(agents, awsLookupUtilProvider)
   }
 
   @Bean
