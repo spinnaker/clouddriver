@@ -81,6 +81,11 @@ class LoadBalancerV2UpsertHandler {
           targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.lb_cookie.duration_seconds", value: attributes.stickinessDuration.toString()))
         }
       }
+      if(loadBalancer.type == 'network' ){
+        if(attributes.proxyProtocolV2 != null){
+          targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: attributes.proxyProtocolV2))
+        }
+      }
     }
 
     try {
