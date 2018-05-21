@@ -57,8 +57,24 @@ public class ArtifactReplacerFactory {
 
   public static Replacer secretVolumeReplacer() {
     return Replacer.builder()
-        .replacePath("$.spec.template.spec.volumes.[?( @.secret.name == \"{%name%}\" )].secret.name")
-        .findPath("$.spec.template.spec.volumes.*.secret.name")
+        .replacePath("$.spec.template.spec.volumes.[?( @.secret.secretName == \"{%name%}\" )].secret.secretName")
+        .findPath("$.spec.template.spec.volumes.*.secret.secretName")
+        .type(ArtifactTypes.KUBERNETES_SECRET)
+        .build();
+  }
+
+  public static Replacer configMapKeyValueFromReplacer() {
+    return Replacer.builder()
+        .replacePath("$.spec.template.spec.containers.*.env.[?( @.valueFrom.configMapKeyRef.name == \"{%name%}\" )].valueFrom.configMapKeyRef.name")
+        .findPath("$.spec.template.spec.containers.*.env.*.valueFrom.configMapKeyRef.name")
+        .type(ArtifactTypes.KUBERNETES_CONFIG_MAP)
+        .build();
+  }
+
+  public static Replacer secretKeyValueFromReplacer() {
+    return Replacer.builder()
+        .replacePath("$.spec.template.spec.containers.*.env.[?( @.valueFrom.secretKeyRef.name == \"{%name%}\" )].valueFrom.secretKeyRef.name")
+        .findPath("$.spec.template.spec.containers.*.env.*.valueFrom.secretKeyRef.name")
         .type(ArtifactTypes.KUBERNETES_SECRET)
         .build();
   }

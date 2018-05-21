@@ -21,9 +21,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.frigga.Names;
+import com.netflix.spinnaker.cats.cache.CacheFilter;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,7 @@ public class KubernetesManifestAnnotater {
   private static final String ARTIFACT_ANNOTATION_PREFIX = "artifact." + SPINNAKER_ANNOTATION;
   private static final String MONIKER_ANNOTATION_PREFIX = "moniker." + SPINNAKER_ANNOTATION;
   private static final String CACHING_ANNOTATION_PREFIX = "caching." + SPINNAKER_ANNOTATION;
+  private static final String STRATEGY_ANNOTATION_PREFIX = "strategy." + SPINNAKER_ANNOTATION;
   private static final String LOAD_BALANCERS = RELATIONSHIP_ANNOTATION_PREFIX + "/loadBalancers";
   private static final String SECURITY_GROUPS = RELATIONSHIP_ANNOTATION_PREFIX + "/securityGroups";
   private static final String CLUSTER = MONIKER_ANNOTATION_PREFIX + "/cluster";
@@ -47,6 +50,7 @@ public class KubernetesManifestAnnotater {
   private static final String LOCATION = ARTIFACT_ANNOTATION_PREFIX + "/location";
   private static final String VERSION = ARTIFACT_ANNOTATION_PREFIX + "/version";
   private static final String IGNORE_CACHING = CACHING_ANNOTATION_PREFIX + "/ignore";
+  private static final String VERSIONED = STRATEGY_ANNOTATION_PREFIX + "/versioned";
 
   private static final String KUBERNETES_ANNOTATION = "kubernetes.io";
   private static final String KUBECTL_ANNOTATION_PREFIX = "kubectl." + KUBERNETES_ANNOTATION;
@@ -61,8 +65,14 @@ public class KubernetesManifestAnnotater {
       return;
     }
 
+
     try {
-      annotations.put(key, objectMapper.writeValueAsString(value));
+      if (value instanceof String) {
+        // The "write value as string" method will attach quotes which are ugly to read
+        annotations.put(key, (String) value);
+      } else {
+        annotations.put(key, objectMapper.writeValueAsString(value));
+      }
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException("Illegal annotation value for '" + key + "': " + e);
     }
@@ -72,6 +82,24 @@ public class KubernetesManifestAnnotater {
     return getAnnotation(annotations, key, typeReference, null);
   }
 
+  private static boolean stringTypeReference(TypeReference typeReference) {
+    if (typeReference.getType() == null || typeReference.getType().getTypeName() == null) {
+      log.warn("Malformed type reference {}", typeReference);
+      return false;
+    }
+
+    return typeReference.getType().getTypeName().equals(String.class.getName());
+  }
+
+  // This is to read values that were annotated with the ObjectMapper with quotes, before we started ignoring the quotes
+  private static boolean looksLikeSerializedString(String value) {
+    if (StringUtils.isEmpty(value) || value.length() == 1) {
+      return false;
+    }
+
+    return value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"';
+  }
+
   private static <T> T getAnnotation(Map<String, String> annotations, String key, TypeReference<T> typeReference, T defaultValue) {
     String value = annotations.get(key);
     if (value == null) {
@@ -79,7 +107,13 @@ public class KubernetesManifestAnnotater {
     }
 
     try {
-      return objectMapper.readValue(value, typeReference);
+      boolean wantsString = stringTypeReference(typeReference);
+
+      if (wantsString && !looksLikeSerializedString(value)) {
+        return (T) value;
+      } else {
+        return objectMapper.readValue(value, typeReference);
+      }
     } catch (Exception e) {
       log.warn("Illegally annotated resource for '" + key + "': " + e);
       return null;
@@ -185,6 +219,14 @@ public class KubernetesManifestAnnotater {
 
     return KubernetesCachingProperties.builder()
         .ignore(getAnnotation(annotations, IGNORE_CACHING, new TypeReference<Boolean>() {}, false))
+        .build();
+  }
+
+  public static KubernetesManifestStrategy getStrategy(KubernetesManifest manifest) {
+    Map<String, String> annotations = manifest.getAnnotations();
+
+    return KubernetesManifestStrategy.builder()
+        .versioned(getAnnotation(annotations, VERSIONED, new TypeReference<Boolean>() {}))
         .build();
   }
 
