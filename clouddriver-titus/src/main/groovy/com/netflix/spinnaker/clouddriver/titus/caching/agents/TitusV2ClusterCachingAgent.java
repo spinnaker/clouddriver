@@ -53,7 +53,6 @@ import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentia
 import com.netflix.titus.grpc.protogen.ScalingPolicy;
 import com.netflix.titus.grpc.protogen.ScalingPolicyResult;
 import com.netflix.titus.grpc.protogen.ScalingPolicyStatus;
-import io.grpc.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -170,7 +169,7 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type == OnDemandType.ServerGroup && cloudProvider == titusCloudProvider.getId();
+    return type == OnDemandType.ServerGroup && cloudProvider.equals(titusCloudProvider.getId());
   }
 
   @Override
@@ -185,7 +184,7 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
       return null;
     }
 
-    if (region.getName() != data.get("region")) {
+    if (!region.getName().equals(data.get("region"))) {
       return null;
     }
 
@@ -193,16 +192,11 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
       try {
         return titusClient.findJobByName(data.get("serverGroupName").toString());
       } catch (io.grpc.StatusRuntimeException e) {
-        if (e.getStatus() == Status.NOT_FOUND) {
-          return null;
-        } else {
-          log.error("Failed to load job {} from titus {}:{}", data.get("serverGroupName").toString(), account.getName(), region.getName(), e);
-        }
+        return null;
       }
-      return null;
     });
 
-    OnDemandResult onDemandResult = minimalOnDemand(providerCache, job, data);
+    OnDemandResult onDemandResult = onDemand(providerCache, job, data);
     PercentileTimer
       .get(registry, metricId.withTag("operation", "handleOnDemand"))
       .record(System.currentTimeMillis() - startTime, MILLISECONDS);
@@ -218,8 +212,8 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
    *
    * A change will not be visible until a caching cycle has completed.
    */
-  private OnDemandResult minimalOnDemand(ProviderCache providerCache, Job job, Map<String, ?> data) {
-    String serverGroupKey = Keys.getServerGroupV2Key(job.getName(), account.getName(), region.getName());
+  private OnDemandResult onDemand(ProviderCache providerCache, Job job, Map<String, ?> data) {
+    String serverGroupKey = Keys.getServerGroupV2Key(data.get("serverGroupName").toString(), account.getName(), region.getName());
     Map<String, Collection<CacheData>> cacheResults = new HashMap<>();
     if (job == null) {
       // avoid writing an empty onDemand cache record (instead delete any that may have previously existed)
@@ -236,9 +230,9 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
         Collections.emptyMap()
       ));
 
-      cacheResults.put(ON_DEMAND.ns, Collections.singletonList(cacheData));
+      cacheResults.computeIfAbsent(ON_DEMAND.ns, key -> new ArrayList<>()).add(cacheData);
     }
-    Map<String, Collection<String>> evictions = job == null
+    Map<String, Collection<String>> evictions = job != null
       ? Collections.emptyMap()
       : Collections.singletonMap(SERVER_GROUPS.ns, Collections.singletonList(serverGroupKey));
 
