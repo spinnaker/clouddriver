@@ -48,6 +48,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler implements
     CanResize,
     CanDelete,
     CanScale,
+    CanPatch,
     CanPauseRollout,
     CanResumeRollout,
     CanUndoRollout,

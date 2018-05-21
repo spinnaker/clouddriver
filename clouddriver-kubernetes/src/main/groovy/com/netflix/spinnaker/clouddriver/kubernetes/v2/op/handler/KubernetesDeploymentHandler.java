@@ -40,6 +40,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler implements
     CanResize,
     CanDelete,
     CanScale,
+    CanPatch,
     CanPauseRollout,
     CanResumeRollout,
     CanUndoRollout,

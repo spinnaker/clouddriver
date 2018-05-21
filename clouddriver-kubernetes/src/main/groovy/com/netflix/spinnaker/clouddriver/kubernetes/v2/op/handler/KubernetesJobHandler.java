@@ -40,6 +40,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.Kuberne
 @Component
 public class KubernetesJobHandler extends KubernetesHandler implements
   CanDelete,
+  CanPatch,
   ServerGroupHandler {
 
   public KubernetesJobHandler() {
