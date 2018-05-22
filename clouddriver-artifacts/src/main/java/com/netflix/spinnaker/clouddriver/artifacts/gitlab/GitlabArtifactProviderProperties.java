@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Netflix, Inc.
+ * Copyright 2018 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.model;
+package com.netflix.spinnaker.clouddriver.artifacts.gitlab;
 
-public enum AmazonLoadBalancerType {
-  CLASSIC,
-  APPLICATION,
-  NETWORK;
+import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactProvider;
+import lombok.Data;
 
-  public static AmazonLoadBalancerType getByValue(String value) {
-    for(AmazonLoadBalancerType lbt: values()) {
-      if (lbt.toString().equals(value)) {
-        return lbt;
-      }
-    }
-    return null;
-  }
+import java.util.ArrayList;
+import java.util.List;
 
-  @Override
-  public String toString() {
-    return this.name().toLowerCase();
-  }
+@Data
+public class GitlabArtifactProviderProperties extends ArtifactProvider<GitlabArtifactAccount> {
+  private boolean enabled;
+  private List<GitlabArtifactAccount> accounts = new ArrayList<>();
 }
