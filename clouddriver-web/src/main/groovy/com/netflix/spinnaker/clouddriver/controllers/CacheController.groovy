@@ -19,11 +19,13 @@ package com.netflix.spinnaker.clouddriver.controllers
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandCacheUpdater
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Slf4j
 @RestController
 @RequestMapping("/cache")
 class CacheController {
@@ -35,7 +37,8 @@ class CacheController {
   ResponseEntity handleOnDemand(@PathVariable String cloudProvider,
                                 @PathVariable String type,
                                 @RequestBody Map<String, ? extends Object> data) {
-    OnDemandAgent.OnDemandType onDemandType = getOnDemandType(type);
+    log.debug("Handling on demand cache refresh with provider {}, type {}, data {}", cloudProvider, type, data)
+    OnDemandAgent.OnDemandType onDemandType = getOnDemandType(type)
 
     def onDemandCacheResult = onDemandCacheUpdaters.find {
       it.handles(onDemandType, cloudProvider)
