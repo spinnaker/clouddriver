@@ -38,8 +38,6 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.Kuberne
 @Component
 public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     CanResize,
-    CanDelete,
-    CanPatch,
     CanPauseRollout,
     CanResumeRollout,
     CanUndoRollout,

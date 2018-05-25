@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_ATTACHMENT_PRIORITY;
 
 @Component
-public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler implements CanDelete, CanPatch {
+public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler {
   @Override
   public int deployPriority() {
     return WORKLOAD_ATTACHMENT_PRIORITY.getValue();
