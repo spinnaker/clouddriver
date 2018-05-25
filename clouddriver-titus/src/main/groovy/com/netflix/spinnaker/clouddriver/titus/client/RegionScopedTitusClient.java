@@ -17,8 +17,6 @@
 package com.netflix.spinnaker.clouddriver.titus.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.protobuf.Message;
-import com.google.protobuf.util.JsonFormat;
 import com.netflix.frigga.Names;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.titus.TitusException;
@@ -272,7 +270,7 @@ public class RegionScopedTitusClient implements TitusClient {
       }
       jobQuery.setPage(jobPage);
       JobQuery criteria = jobQuery.build();
-      JobQueryResult resultPage = grpcBlockingStub.findJobs(criteria);
+      JobQueryResult resultPage = TitusClientCompressionUtil.attachCaller(grpcBlockingStub).findJobs(criteria);
       grpcJobs.addAll(resultPage.getItemsList());
       cursor = resultPage.getPagination().getCursor();
       hasMore = resultPage.getPagination().getHasMore();
@@ -301,7 +299,7 @@ public class RegionScopedTitusClient implements TitusClient {
     String cursor = "";
     boolean hasMore;
     do {
-      Page.Builder taskPage = Page.newBuilder().setPageSize(1000);
+      Page.Builder taskPage = Page.newBuilder().setPageSize(titusRegion.getFeatureFlags().contains("largePages") ? 2000 : 1000);
       if (!cursor.isEmpty()) {
         taskPage.setCursor(cursor);
       }
@@ -318,7 +316,7 @@ public class RegionScopedTitusClient implements TitusClient {
         filterByStates = filterByStates + ",KillInitiated,Finished";
       }
       taskQueryBuilder.putFilteringCriteria("taskStates", filterByStates);
-      taskResults = grpcBlockingStub.findTasks(
+      taskResults = TitusClientCompressionUtil.attachCaller(grpcBlockingStub).findTasks(
         taskQueryBuilder.build()
       );
       tasks.addAll(taskResults.getItemsList());
@@ -326,26 +324,6 @@ public class RegionScopedTitusClient implements TitusClient {
       hasMore = taskResults.getPagination().getHasMore();
     } while (hasMore);
     return tasks.stream().collect(Collectors.groupingBy(task -> task.getJobId()));
-  }
-
-  @Override
-  public Object getJobJson(String jobId) {
-    return toJson(grpcBlockingStub.findJob(JobId.newBuilder().setId(jobId).build()));
-  }
-
-  @Override
-  public Object getTaskJson(String taskId) {
-    return toJson(grpcBlockingStub.findTask(TaskId.newBuilder().setId(taskId).build()));
-  }
-
-  private Object toJson(Message message) {
-    Object job = null;
-    try {
-      job = objectMapper.readValue(JsonFormat.printer().print(message), Object.class);
-    } catch (Exception e) {
-
-    }
-    return job;
   }
 
 }
