@@ -17,7 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesUnregisteredCustomResourceCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -25,18 +25,18 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.stereotype.Component;
 
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.MOUNTABLE_DATA_PRIORITY;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.LOWEST_PRIORITY;
 
 @Component
-public class KubernetesPersistentVolumeClaimHandler extends KubernetesHandler implements CanDelete {
+public class KubernetesUnregisteredCustomResourceHandler extends KubernetesHandler implements CanDelete {
   @Override
   public int deployPriority() {
-    return MOUNTABLE_DATA_PRIORITY.getValue();
+    return LOWEST_PRIORITY.getValue();
   }
 
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.PERSISTENT_VOLUME_CLAIM;
+    return KubernetesKind.NONE;
   }
 
   @Override
@@ -46,7 +46,7 @@ public class KubernetesPersistentVolumeClaimHandler extends KubernetesHandler im
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.CONFIGS;
+    return null;
   }
 
   @Override
@@ -56,6 +56,6 @@ public class KubernetesPersistentVolumeClaimHandler extends KubernetesHandler im
 
   @Override
   public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesCoreCachingAgent.class;
+    return KubernetesUnregisteredCustomResourceCachingAgent.class;
   }
 }
