@@ -80,7 +80,7 @@ class Keys implements KeyParser {
     def result
     result = [provider: parts[0], type: parts[1]]
 
-    if (parts[2] == CachingSchema.V2.toString() || parts[2] == CachingSchema.V2) { // parsing for split caching
+    if (parts[2] == CachingSchema.V2.toString()) { // parsing for split caching
       switch (result.type) {
         case Namespace.IMAGES.ns:
           result << [account: parts[3], region: parts[4], imageId: parts[5]]

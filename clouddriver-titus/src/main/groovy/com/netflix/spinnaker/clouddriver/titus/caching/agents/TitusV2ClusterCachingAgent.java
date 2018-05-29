@@ -81,22 +81,20 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
       INFORMATIVE.forType(TARGET_GROUPS.ns)
     ).collect(Collectors.toSet()));
 
-  private TitusCloudProvider titusCloudProvider;
-  private TitusClient titusClient;
-  private TitusAutoscalingClient titusAutoscalingClient;
-  private TitusLoadBalancerClient titusLoadBalancerClient;
-  private NetflixTitusCredentials account;
-  private TitusRegion region;
-  private ObjectMapper objectMapper;
-  private OnDemandMetricsSupport metricsSupport;
-  private Provider<AwsLookupUtil> awsLookupUtil;
-  private long pollIntervalMillis;
-  private long timeoutMillis;
-  private Registry registry;
-  private Id metricId;
+  private final TitusClient titusClient;
+  private final TitusAutoscalingClient titusAutoscalingClient;
+  private final TitusLoadBalancerClient titusLoadBalancerClient;
+  private final NetflixTitusCredentials account;
+  private final TitusRegion region;
+  private final ObjectMapper objectMapper;
+  private final OnDemandMetricsSupport metricsSupport;
+  private final Provider<AwsLookupUtil> awsLookupUtil;
+  private final long pollIntervalMillis;
+  private final long timeoutMillis;
+  private final Registry registry;
+  private final Id metricId;
 
-  public TitusV2ClusterCachingAgent(TitusCloudProvider titusCloudProvider,
-                                    TitusClientProvider titusClientProvider,
+  public TitusV2ClusterCachingAgent(TitusClientProvider titusClientProvider,
                                     NetflixTitusCredentials account,
                                     TitusRegion region,
                                     ObjectMapper objectMapper,
@@ -107,12 +105,11 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
     this.account = account;
     this.region = region;
 
-    this.titusCloudProvider = titusCloudProvider;
     this.objectMapper = objectMapper;
     this.metricsSupport = new OnDemandMetricsSupport(
       registry,
       this,
-      titusCloudProvider.getId() + ":" + OnDemandType.ServerGroup
+      TitusCloudProvider.ID + ":" + OnDemandType.ServerGroup
     );
     this.titusClient = titusClientProvider.getTitusClient(account, region.getName());
     this.titusAutoscalingClient = titusClientProvider.getTitusAutoscalingClient(account, region.getName());
@@ -169,7 +166,7 @@ public class TitusV2ClusterCachingAgent implements CachingAgent, CustomScheduled
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type == OnDemandType.ServerGroup && cloudProvider.equals(titusCloudProvider.getId());
+    return type == OnDemandType.ServerGroup && cloudProvider.equals(TitusCloudProvider.ID);
   }
 
   @Override

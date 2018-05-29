@@ -67,39 +67,26 @@ public class TitusInstanceCachingAgent implements CachingAgent {
   private static final List<TaskState> DOWN_TASK_STATES = Arrays.asList(TaskState.STOPPED, TaskState.FAILED, TaskState.CRASHED, TaskState.FINISHED, TaskState.DEAD, TaskState.TERMINATING);
   private static final List<TaskState> STARTING_TASK_STATES = Arrays.asList(TaskState.STARTING, TaskState.DISPATCHED, TaskState.PENDING, TaskState.QUEUED);
 
-  private TitusCloudProvider titusCloudProvider;
-  private TitusClient titusClient;
-  private TitusAutoscalingClient titusAutoscalingClient;
-  private TitusLoadBalancerClient titusLoadBalancerClient;
-  private NetflixTitusCredentials account;
-  private TitusRegion region;
-  private ObjectMapper objectMapper;
-  private Provider<AwsLookupUtil> awsLookupUtil;
-  private long pollIntervalMillis;
-  private long timeoutMillis;
-  private Id metricId;
-  private Registry registry;
+  private final TitusClient titusClient;
+  private final NetflixTitusCredentials account;
+  private final TitusRegion region;
+  private final ObjectMapper objectMapper;
+  private final Provider<AwsLookupUtil> awsLookupUtil;
+  private final Id metricId;
+  private final Registry registry;
 
-  public TitusInstanceCachingAgent(TitusCloudProvider titusCloudProvider,
-                           TitusClientProvider titusClientProvider,
+  public TitusInstanceCachingAgent(TitusClientProvider titusClientProvider,
                            NetflixTitusCredentials account,
                            TitusRegion region,
                            ObjectMapper objectMapper,
                            Registry registry,
-                           Provider<AwsLookupUtil> awsLookupUtil,
-                           Long pollIntervalMillis,
-                           Long timeoutMillis) {
+                           Provider<AwsLookupUtil> awsLookupUtil) {
     this.account = account;
     this.region = region;
 
-    this.titusCloudProvider = titusCloudProvider;
     this.objectMapper = objectMapper;
     this.titusClient = titusClientProvider.getTitusClient(account, region.getName());
-    this.titusAutoscalingClient = titusClientProvider.getTitusAutoscalingClient(account, region.getName());
-    this.titusLoadBalancerClient = titusClientProvider.getTitusLoadBalancerClient(account, region.getName());
     this.awsLookupUtil = awsLookupUtil;
-    this.pollIntervalMillis = pollIntervalMillis;
-    this.timeoutMillis = timeoutMillis;
     this.registry = registry;
 
     this.metricId = registry.createId("titus.cache.instance").withTag("account", account.getName()).withTag("region", region.getName());

@@ -75,15 +75,12 @@ class TitusCachingProviderConfig {
           )
         } else { //use new split caching for this whole account
           agents << new TitusInstanceCachingAgent(
-            titusCloudProvider,
             titusClientProvider,
             account,
             region,
             objectMapper,
             registry,
-            awsLookupUtilProvider,
-            pollIntervalMillis,
-            timeOutMilis
+            awsLookupUtilProvider
           )
           agents << new TitusV2ClusterCachingAgent(
             titusCloudProvider,

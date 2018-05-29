@@ -374,7 +374,7 @@ public class RegionScopedTitusClient implements TitusClient {
   }
 
   private List<com.netflix.titus.grpc.protogen.Task> getTasksWithFilter(TaskQuery.Builder taskQueryBuilder) {
-    return getTasksWithFilter(taskQueryBuilder, 1000);
+    return getTasksWithFilter(taskQueryBuilder, titusRegion.getFeatureFlags().contains("largePages") ? 2000 : 1000);
   }
 
   private List<com.netflix.titus.grpc.protogen.Task> getTasksWithFilter(TaskQuery.Builder taskQueryBuilder, Integer pageSize) {
