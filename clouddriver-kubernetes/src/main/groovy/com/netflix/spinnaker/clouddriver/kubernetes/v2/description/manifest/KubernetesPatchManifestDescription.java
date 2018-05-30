@@ -37,7 +37,7 @@ public class KubernetesPatchManifestDescription extends KubernetesAtomicOperatio
   // TODO: change Orca to only send a single manifest.
   private KubernetesManifest patchBody;
   private List<Artifact> requiredArtifacts;
-  private List<Artifact> optionalArtifacts;
+  private List<Artifact> allArtifacts;
   private Artifact manifestArtifact;
   private MergeStrategy mergeStrategy;
 

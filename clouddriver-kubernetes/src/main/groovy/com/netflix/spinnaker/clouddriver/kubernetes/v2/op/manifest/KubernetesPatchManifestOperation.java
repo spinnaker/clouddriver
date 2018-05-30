@@ -20,7 +20,6 @@ import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.ReplaceResult;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesV2ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
@@ -31,10 +30,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Cred
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.ArrayList;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class KubernetesPatchManifestOperation implements AtomicOperation<OperationResult> {
@@ -45,7 +45,7 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
   private static final String OP_NAME = "PATCH_KUBERNETES_MANIFEST";
 
   public KubernetesPatchManifestOperation(KubernetesPatchManifestDescription description,
-    KubernetesResourcePropertyRegistry registry, KubernetesV2ArtifactProvider provider) {
+    KubernetesResourcePropertyRegistry registry) {
     this.description = description;
     this.credentials = (KubernetesV2Credentials) description.getCredentials().getCredentials();
     this.registry = registry;
@@ -83,22 +83,20 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
 
   private ReplaceResult replaceArtifacts(KubernetesCoordinates objToPatch,
     KubernetesHandler patchHandler) {
-    List<Artifact> requiredArtifacts = description.getRequiredArtifacts() == null ? new ArrayList<>() : description.getRequiredArtifacts();
-    List<Artifact> allArtifacts = new ArrayList<>(requiredArtifacts);
-    if (description.getOptionalArtifacts() != null) {
-      allArtifacts.addAll(description.getOptionalArtifacts());
-    }
-
+    List<Artifact> allArtifacts = description.getAllArtifacts() == null ? new ArrayList<>() :
+      description.getAllArtifacts();
+    
     ReplaceResult replaceResult = patchHandler.replaceArtifacts(description.getPatchBody(),
       allArtifacts, objToPatch.getNamespace());
-    Set<Artifact> unboundArtifacts = Sets.difference(new HashSet<>(requiredArtifacts),
-      replaceResult.getBoundArtifacts());
 
-    if (!unboundArtifacts.isEmpty()) {
-      throw new IllegalArgumentException("The following artifacts could not be bound: '" +
-        unboundArtifacts + "' . Failing the stage as this is likely a configuration error.");
+    if (description.getRequiredArtifacts() != null) {
+      Set<Artifact> unboundArtifacts = Sets.difference(new HashSet<>(description.getRequiredArtifacts()),
+        replaceResult.getBoundArtifacts());
+      if (!unboundArtifacts.isEmpty()) {
+        throw new IllegalArgumentException("The following required artifacts could not be bound: '" +
+          unboundArtifacts + "' . Failing the stage as this is likely a configuration error.");
+      }
     }
-
     return replaceResult;
   }
 
