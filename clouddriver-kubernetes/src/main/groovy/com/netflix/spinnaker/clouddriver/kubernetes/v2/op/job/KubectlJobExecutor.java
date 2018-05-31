@@ -523,6 +523,10 @@ public class KubectlJobExecutor {
     command.add(kind.toString());
     command.add(name);
 
+    if (options.isRecord()) {
+      command.add("--record");
+    }
+
     String mergeStrategy = options.getMergeStrategy().toString();
     if (StringUtils.isNotEmpty(mergeStrategy)) {
       command.add("--type");

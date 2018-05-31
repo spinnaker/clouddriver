@@ -49,6 +49,10 @@ public class KubernetesPatchManifestValidator extends DescriptionValidator<Kuber
       return;
     }
 
+    if (!util.validateNotEmpty("options.record", description.getOptions().isRecord())) {
+      return;
+    }
+
     if (!util.validateV2Credentials(provider, description.getAccount(),
       description.getPointCoordinates().getNamespace())) {
       return;
