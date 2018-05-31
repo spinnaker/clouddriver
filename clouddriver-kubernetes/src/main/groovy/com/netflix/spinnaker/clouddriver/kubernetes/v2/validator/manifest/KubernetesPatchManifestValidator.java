@@ -41,11 +41,13 @@ public class KubernetesPatchManifestValidator extends DescriptionValidator<Kuber
     Errors errors) {
     KubernetesValidationUtil util = new KubernetesValidationUtil("patchKubernetesManifest", errors);
 
-    if (!util.validateNotEmpty("manifest", description.getPatchBody())) {
+    if (!util.validateNotEmpty("patchBody", description.getPatchBody())) {
       return;
     }
 
-    if (!util.validateNotEmpty("mergeStrategy", description.getMergeStrategy()));
+    if (!util.validateNotEmpty("options.mergeStrategy", description.getOptions().getMergeStrategy())){
+      return;
+    }
 
     if (!util.validateV2Credentials(provider, description.getAccount(),
       description.getPointCoordinates().getNamespace())) {

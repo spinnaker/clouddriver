@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
@@ -26,8 +27,8 @@ public interface CanPatch {
   KubernetesKind kind();
 
   default OperationResult patch(KubernetesV2Credentials credentials, String namespace, String name,
-    String mergeStrategy, KubernetesManifest manifest) {
-    credentials.patch(kind(), namespace, name, mergeStrategy, manifest);
+    KubernetesPatchOptions options, KubernetesManifest manifest) {
+    credentials.patch(kind(), namespace, name, options, manifest);
 
     KubernetesManifest patchedManifest = manifest.clone();
     patchedManifest.putIfAbsent("metadata", new HashMap<String, Object>()); // Hack: Set mandatory field

@@ -70,7 +70,7 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
     updateStatus("Submitting manifest " + description.getManifestName() + " to Kubernetes master...");
     OperationResult result = new OperationResult();
     result.merge(patchHandler.patch(credentials, objToPatch.getNamespace(), objToPatch.getName(),
-      description.getMergeStrategy().toString(), replaceResult.getManifest()));
+      description.getOptions(), replaceResult.getManifest()));
 
     result.getBoundArtifacts().addAll(replaceResult.getBoundArtifacts());
     result.removeSensitiveKeys(registry, accountName);
@@ -85,7 +85,7 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
     KubernetesHandler patchHandler) {
     List<Artifact> allArtifacts = description.getAllArtifacts() == null ? new ArrayList<>() :
       description.getAllArtifacts();
-    
+
     ReplaceResult replaceResult = patchHandler.replaceArtifacts(description.getPatchBody(),
       allArtifacts, objToPatch.getNamespace());
 

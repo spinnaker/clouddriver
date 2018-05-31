@@ -22,6 +22,7 @@ import com.google.gson.JsonSyntaxException;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestList;
@@ -515,13 +516,14 @@ public class KubectlJobExecutor {
   }
 
   public Void patch(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace,
-    String name, String mergeStrategy, KubernetesManifest manifest) {
+    String name, KubernetesPatchOptions options, KubernetesManifest manifest) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("patch");
     command.add(kind.toString());
     command.add(name);
 
+    String mergeStrategy = options.getMergeStrategy().toString();
     if (StringUtils.isNotEmpty(mergeStrategy)) {
       command.add("--type");
       command.add(mergeStrategy);

@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -39,7 +40,7 @@ public class KubernetesPatchManifestDescription extends KubernetesAtomicOperatio
   private List<Artifact> requiredArtifacts;
   private List<Artifact> allArtifacts;
   private Artifact manifestArtifact;
-  private MergeStrategy mergeStrategy;
+  private KubernetesPatchOptions options;
 
   @JsonIgnore
   public KubernetesCoordinates getPointCoordinates() {
@@ -50,12 +51,6 @@ public class KubernetesPatchManifestDescription extends KubernetesAtomicOperatio
       .kind(parsedName.getLeft())
       .name(parsedName.getRight())
       .build();
-  }
-
-  public enum MergeStrategy {
-    strategic,
-    json,
-    merge
   }
 }
 
