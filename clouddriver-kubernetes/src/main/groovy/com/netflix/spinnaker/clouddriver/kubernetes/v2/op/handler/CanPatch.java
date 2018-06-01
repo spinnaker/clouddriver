@@ -30,7 +30,7 @@ public interface CanPatch {
     KubernetesPatchOptions options, KubernetesManifest manifest) {
     credentials.patch(kind(), namespace, name, options, manifest);
 
-    KubernetesManifest patchedManifest = manifest.clone();
+    KubernetesManifest patchedManifest = new KubernetesManifest();
     patchedManifest.putIfAbsent("metadata", new HashMap<String, Object>()); // Hack: Set mandatory field
     patchedManifest.setNamespace(namespace);
     patchedManifest.setName(name);
