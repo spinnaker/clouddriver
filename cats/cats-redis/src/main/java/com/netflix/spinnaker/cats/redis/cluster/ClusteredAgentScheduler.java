@@ -26,6 +26,7 @@ import com.netflix.spinnaker.cats.module.CatsModuleAware;
 import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +37,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @SuppressFBWarnings
 public class ClusteredAgentScheduler extends CatsModuleAware implements AgentScheduler<AgentLock>, Runnable {
@@ -102,7 +104,10 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
     Set<String> skip = new HashSet<>(activeAgents.keySet());
     Integer availableAgents = maxConcurrentAgents - skip.size();
     if (availableAgents <= 0) {
-      logger.debug("Not acquiring more locks (activeAgents: " + skip.size() + " >= maxConcurrentAgents " + maxConcurrentAgents + ")");
+      logger.debug("Not acquiring more locks (activeAgents: {}, runningAgents: {}",
+        skip.size(),
+        skip.stream().sorted().collect(Collectors.joining(","))
+      );
       return Collections.emptyMap();
     }
     Map<String, NextAttempt> acquired = new HashMap<>(agents.size());
@@ -149,7 +154,7 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
   private static final String SET_IF_NOT_EXIST = "NX";
   private static final String SET_EXPIRE_TIME_MILLIS = "PX";
   private static final String SUCCESS_RESPONSE = "OK";
-  private static final Integer DEL_SUCCESS = 1;
+  private static final Long DEL_SUCCESS = 1L;
 
   private static final String DELETE_LOCK_KEY = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
   private static final String TTL_LOCK_KEY = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('set', KEYS[1], ARGV[1], 'PX', ARGV[2], 'XX') else return nil end";
@@ -180,9 +185,15 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
     final boolean delete = newTtl < MIN_TTL_THRESHOLD;
 
     if (delete) {
-      deleteLock(agentType);
+      boolean success = deleteLock(agentType);
+      if (!success) {
+        logger.debug("Delete lock was unsuccessful for " + agentType);
+      }
     } else {
-      ttlLock(agentType, newTtl);
+      boolean success = ttlLock(agentType, newTtl);
+      if (!success) {
+        logger.debug("Ttl lock was unsuccessful for " + agentType);
+      }
     }
   }
 
@@ -198,7 +209,7 @@ public class ClusteredAgentScheduler extends CatsModuleAware implements AgentSch
   public void schedule(Agent agent,
                        AgentExecution agentExecution,
                        ExecutionInstrumentation executionInstrumentation) {
-    if (!enabledAgentPattern.matcher(agent.getClass().getSimpleName().toLowerCase()).matches()) {
+    if (!enabledAgentPattern.matcher(agent.getAgentType().toLowerCase()).matches()) {
       logger.debug(
         "Agent is not enabled (agent: {}, agentType: {}, pattern: {})",
         agent.getClass().getSimpleName(),
