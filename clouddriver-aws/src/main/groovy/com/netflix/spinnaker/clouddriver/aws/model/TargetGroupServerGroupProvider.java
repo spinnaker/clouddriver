@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Google, Inc.
+ * Copyright 2018 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,15 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.model;
+package com.netflix.spinnaker.clouddriver.aws.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.netflix.spinnaker.cats.cache.CacheData;
 
+import java.util.Collection;
 import java.util.Map;
 
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class LoadBalancerInstance {
-  String id;
-  String zone;
-  Map<String, Object> health;
+public interface TargetGroupServerGroupProvider {
+
+  Map<String, AmazonTargetGroup> getServerGroups(String applicationName, Map<String, AmazonTargetGroup> allTargetGroups, Collection<CacheData> targetGroupData);
+
 }
