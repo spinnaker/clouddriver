@@ -15,18 +15,18 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
+package com.netflix.spinnaker.clouddriver.artifacts.bitbucket;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+
+import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class KubernetesManifestStrategy {
-  Boolean versioned;
-  Integer maxVersionHistory;
+public class BitbucketArtifactAccount extends ArtifactAccount {
+  private String name;
+  private String username;
+  private String password;
+  private String usernamePasswordFile;
 }
