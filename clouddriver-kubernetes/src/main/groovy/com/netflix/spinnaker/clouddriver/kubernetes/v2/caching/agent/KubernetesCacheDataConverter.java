@@ -83,6 +83,7 @@ public class KubernetesCacheDataConverter {
         artifact.setMetadata(new HashMap<>());
       }
       artifact.getMetadata().put("lastAppliedConfiguration", lastAppliedConfiguration);
+      artifact.getMetadata().put("account", account);
     } catch (Exception e) {
       log.warn("Unable to get last applied configuration from {}: ", manifest, e);
     }
@@ -204,7 +205,7 @@ public class KubernetesCacheDataConverter {
     cacheRelationships.putAll(ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
     cacheRelationships.putAll(implicitRelationships(manifest, account, resourceRelationships));
 
-    if (isNamespaced) {
+    if (isNamespaced && StringUtils.isNotEmpty(namespace)) {
       cacheRelationships.putAll(namespaceRelationship(account, namespace));
     }
 

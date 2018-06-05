@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.titus.caching.agents
 
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetTypeEnum
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -32,6 +33,7 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.data.ArnUtils
+import com.netflix.spinnaker.clouddriver.aws.data.Keys as AwsKeys
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
@@ -47,6 +49,7 @@ import com.netflix.spinnaker.clouddriver.titus.client.TitusLoadBalancerClient
 import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.client.model.TaskState
+import com.netflix.spinnaker.clouddriver.titus.client.model.Task
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.model.TitusSecurityGroup
 import com.netflix.titus.grpc.protogen.ScalingPolicy
@@ -60,6 +63,7 @@ import javax.inject.Provider
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.TARGET_GROUPS
 import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*
 
@@ -70,9 +74,9 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
     AUTHORITATIVE.forType(SERVER_GROUPS.ns),
     AUTHORITATIVE.forType(APPLICATIONS.ns),
+    AUTHORITATIVE.forType(INSTANCES.ns),
     INFORMATIVE.forType(CLUSTERS.ns),
-    INFORMATIVE.forType(TARGET_GROUPS.ns),
-    AUTHORITATIVE.forType(INSTANCES.ns)
+    INFORMATIVE.forType(TARGET_GROUPS.ns)
   ] as Set)
 
   private final TitusCloudProvider titusCloudProvider
@@ -154,11 +158,7 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
       titusClient.findJobByName(data.serverGroupName as String)
     }
 
-    if (titusRegion.featureFlags.contains("minimalOnDemand")) {
-      return minimalOnDemand(providerCache, job, data)
-    }
-
-    return legacyOnDemand(providerCache, job, data)
+    return onDemand(providerCache, job, data)
   }
 
   /**
@@ -169,8 +169,8 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
    *
    * A change will not be visible until a caching cycle has completed.
    */
-  private OnDemandResult minimalOnDemand(ProviderCache providerCache, Job job, Map<String, ?> data) {
-    def serverGroupKey = Keys.getServerGroupKey(job.name, account.name, region)
+  private OnDemandResult onDemand(ProviderCache providerCache, Job job, Map<String, ?> data) {
+    def serverGroupKey = Keys.getServerGroupKey(data.serverGroupName as String, account.name, region)
     def cacheResults = [:]
 
     if (!job) {
@@ -197,38 +197,6 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
     return new OnDemandResult(
       sourceAgentType: getOnDemandAgentType(),
       cacheResult: new DefaultCacheResult(cacheResults),
-      evictions: evictions
-    )
-  }
-
-  private OnDemandResult legacyOnDemand(ProviderCache providerCache, Job job, Map<String, ?> data) {
-    CacheResult result = metricsSupport.transformData { buildCacheResult([job]) }
-    def cacheResultAsJson = objectMapper.writeValueAsString(result.cacheResults)
-    def serverGroupKey = Keys.getServerGroupKey(job.name, account.name, region)
-
-    if (result.cacheResults.values().flatten().isEmpty()) {
-      providerCache.evictDeletedItems(ON_DEMAND.ns, [serverGroupKey])
-    } else {
-      def cacheData = metricsSupport.onDemandStore {
-        new DefaultCacheData(
-          serverGroupKey,
-          10 * 60, // ttl is 10 minutes,
-          [
-            cacheTime   : new Date(),
-            cacheResults: cacheResultAsJson
-          ],
-          [:]
-        )
-      }
-      providerCache.putCacheData(ON_DEMAND.ns, cacheData)
-    }
-
-    Map<String, Collection<String>> evictions = job ? [:] : [(SERVER_GROUPS.ns): [serverGroupKey]]
-
-    log.info("legacy onDemand cache refresh (data: ${data}, evictions: ${evictions}, cacheResult: ${cacheResultAsJson})")
-    return new OnDemandResult(
-      sourceAgentType: getOnDemandAgentType(),
-      cacheResult: result,
       evictions: evictions
     )
   }
@@ -293,14 +261,18 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
   @Override
   CacheResult loadData(ProviderCache providerCache) {
     Long start = System.currentTimeMillis()
-    List<Job> jobs = titusClient.getAllJobs()
+    List<Job> jobs = titusClient.getAllJobsWithTasks()
 
     List<CacheData> evictFromOnDemand = []
     List<CacheData> keepInOnDemand = []
 
-    def serverGroupKeys = jobs.collect { job -> Keys.getServerGroupKey(job.name, account.name, region) }
+    def serverGroupKeys = jobs.collect { job -> Keys.getServerGroupKey(job.name, account.name, region) } as Set<String>
+    def pendingOnDemandRequestKeys = providerCache
+      .filterIdentifiers(ON_DEMAND.ns, Keys.getServerGroupKey("*", "*", account.name, region))
+      .findAll { serverGroupKeys.contains(it) }
 
-    providerCache.getAll(ON_DEMAND.ns, serverGroupKeys).each { CacheData onDemandEntry ->
+    def pendingOnDemandRequestsForServerGroups = providerCache.getAll(ON_DEMAND.ns, pendingOnDemandRequestKeys)
+    pendingOnDemandRequestsForServerGroups.each { CacheData onDemandEntry ->
       if (onDemandEntry.attributes.cacheTime < start && onDemandEntry.attributes.processedCount > 0) {
         evictFromOnDemand << onDemandEntry
       } else {
@@ -363,6 +335,7 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
     serverGroupDatas.each { data ->
       cacheApplication(data, applications)
       cacheCluster(data, clusters)
+      cacheTargetGroups(data, targetGroups)
     }
 
     // caching _all_ jobs at once allows us to optimize the security group lookups
@@ -386,6 +359,15 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
       relationships[CLUSTERS.ns].add(data.cluster)
       relationships[SERVER_GROUPS.ns].add(data.serverGroup)
       relationships[TARGET_GROUPS.ns].addAll(data.targetGroupKeys)
+    }
+  }
+
+  private void cacheTargetGroups(ServerGroupData data, Map<String, CacheData> targetGroups) {
+    for (String targetGroupKey : data.targetGroupKeys) {
+      targetGroups[targetGroupKey].with {
+        relationships[APPLICATIONS.ns].add(data.appName)
+        relationships[SERVER_GROUPS.ns].add(data.serverGroup)
+      }
     }
   }
 
@@ -430,7 +412,7 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
           relationships[CLUSTERS.ns].add(data.cluster)
           relationships[INSTANCES.ns].addAll(data.instanceIds)
           relationships[TARGET_GROUPS.ns].addAll(data.targetGroupKeys)
-          for (Job.TaskSummary task : jobTasks) {
+          for (Task task : jobTasks) {
             def instanceData = new InstanceData(job, task, account.name, region, account.stack)
             cacheInstance(instanceData, instances)
           }
@@ -443,7 +425,7 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
 
   private void cacheInstance(InstanceData data, Map<String, CacheData> instances) {
     instances[data.instanceId].with {
-      Job.TaskSummary task = objectMapper.convertValue(data.task, Job.TaskSummary)
+      Task task = objectMapper.convertValue(data.task, Task)
       attributes.task = task
       Map<String, Object> job = objectMapper.convertValue(data.job, Map)
       job.remove('tasks')
@@ -511,7 +493,7 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
       } as Set).asImmutable()
 
       targetGroupKeys = (targetGroupNames.collect {
-        com.netflix.spinnaker.clouddriver.aws.data.Keys.getTargetGroupKey(it, getAwsAccountId(account, region), region, getAwsVpcId(account, region))
+        AwsKeys.getTargetGroupKey(it, getAwsAccountName(account, region), region, TargetTypeEnum.Ip.toString(), getAwsVpcId(account, region))
       } as Set).asImmutable()
 
     }
@@ -521,18 +503,22 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
     awsLookupUtil.get().awsAccountId(account, region)
   }
 
+  private String getAwsAccountName(String account, String region) {
+    awsLookupUtil.get().awsAccountName(account, region)
+  }
+
   private String getAwsVpcId(String account, String region) {
     awsLookupUtil.get().awsVpcId(account, region)
   }
 
   private class InstanceData {
     private final Job job
-    private final Job.TaskSummary task
+    private final Task task
     private final String instanceId
     private final String serverGroup
     private final String imageId
 
-    public InstanceData(Job job, Job.TaskSummary task, String account, String region, String stack) {
+    public InstanceData(Job job, Task task, String account, String region, String stack) {
       this.job = job
       this.task = task
       this.instanceId = Keys.getInstanceKey(task.id, getAwsAccountId(account, region), stack, region)
@@ -541,7 +527,7 @@ class TitusClusterCachingAgent implements CachingAgent, CustomScheduledAgent, On
     }
   }
 
-  private Map<String, String> getTitusHealth(Job.TaskSummary task) {
+  private Map<String, String> getTitusHealth(Task task) {
     TaskState taskState = task.state
     HealthState healthState = HealthState.Unknown
     if (taskState in [TaskState.STOPPED, TaskState.FAILED, TaskState.CRASHED, TaskState.FINISHED, TaskState.DEAD, TaskState.TERMINATING]) {

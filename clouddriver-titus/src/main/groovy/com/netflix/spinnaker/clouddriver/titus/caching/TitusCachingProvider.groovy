@@ -18,17 +18,28 @@ package com.netflix.spinnaker.clouddriver.titus.caching
 
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.agent.CachingAgent
-import com.netflix.spinnaker.cats.provider.Provider
+import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
+import com.netflix.spinnaker.clouddriver.cache.KeyParser
+import com.netflix.spinnaker.clouddriver.cache.SearchableProvider
 import com.netflix.spinnaker.clouddriver.eureka.provider.agent.EurekaAwareProvider
+import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchema
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchemaUtil
 
-class TitusCachingProvider implements Provider, EurekaAwareProvider {
+import javax.inject.Provider
+
+class TitusCachingProvider implements SearchableProvider, EurekaAwareProvider {
 
   public static final String PROVIDER_NAME = TitusCachingProvider.simpleName
 
   private final Collection<CachingAgent> agents
+  private final KeyParser keyParser = new Keys()
 
-  TitusCachingProvider(Collection<CachingAgent> agents) {
+  private Provider<CachingSchemaUtil> cachingSchemaUtil
+
+  TitusCachingProvider(Collection<CachingAgent> agents, Provider<CachingSchemaUtil> cachingSchemaUtil) {
     this.agents = Collections.unmodifiableCollection(agents)
+    this.cachingSchemaUtil = cachingSchemaUtil
   }
 
   @Override
@@ -48,7 +59,12 @@ class TitusCachingProvider implements Provider, EurekaAwareProvider {
 
   @Override
   String getInstanceKey(Map<String, Object> attributes, String region) {
-    Keys.getInstanceKey(attributes.titusTaskId, attributes.accountId, attributes.titusStack, region)
+    CachingSchema schema = cachingSchemaUtil.get().getCachingSchemaForAccount(attributes.accountId)
+    if (schema == CachingSchema.V2) {
+      Keys.getInstanceV2Key(attributes.titusTaskId, attributes.accountId, region)
+    } else {
+      Keys.getInstanceKey(attributes.titusTaskId, attributes.accountId, attributes.titusStack, region)
+    }
   }
 
   @Override
@@ -56,4 +72,38 @@ class TitusCachingProvider implements Provider, EurekaAwareProvider {
     Keys.getInstanceHealthKey(attributes.instanceId, healthId)
   }
 
+  final Set<String> defaultCaches = [
+    Keys.Namespace.CLUSTERS.ns,
+    Keys.Namespace.SERVER_GROUPS.ns,
+    Keys.Namespace.INSTANCES.ns
+  ].asImmutable()
+
+  final Map<String, String> urlMappingTemplates = [
+    (Keys.Namespace.SERVER_GROUPS.ns) : '/applications/${application.toLowerCase()}/clusters/$account/$cluster/$provider/serverGroups/$serverGroup?region=$region',
+    (Keys.Namespace.CLUSTERS.ns)      : '/applications/${application.toLowerCase()}/clusters/$account/$cluster'
+  ].asImmutable()
+
+  @Override
+  Map<SearchableResource, SearchResultHydrator> getSearchResultHydrators() {
+    return Collections.emptyMap()
+  }
+
+  @Override
+  Map<String, String> parseKey(String key) {
+    return Keys.parse(key)
+  }
+
+  @Override
+  Optional<KeyParser> getKeyParser() {
+    return Optional.of(keyParser)
+  }
+
+  @Override
+  boolean supportsSearch(String type, Map<String, String> filters) {
+    //this overrides super because we need to search titus if provider=aws...
+    final Set<String> searchableProviders = [AmazonCloudProvider.ID, TitusCloudProvider.ID]
+    return (
+      filters?.cloudProvider == null || searchableProviders.contains(filters.cloudProvider)
+    ) && hasAgentForType(type, getAgents())
+  }
 }

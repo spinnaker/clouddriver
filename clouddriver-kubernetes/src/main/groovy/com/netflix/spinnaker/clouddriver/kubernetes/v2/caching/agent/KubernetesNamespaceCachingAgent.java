@@ -58,8 +58,7 @@ public class KubernetesNamespaceCachingAgent extends KubernetesV2CachingAgent {
 
     // TODO perf: Only load desired namespaces rather than filter all.
     Set<String> desired = new HashSet<>(this.namespaces);
-    return Collections.singletonMap(KubernetesKind.NAMESPACE, super.loadPrimaryResourceList()
-        .get(KubernetesKind.NAMESPACE)
+    return Collections.singletonMap(KubernetesKind.NAMESPACE, credentials.list(KubernetesKind.NAMESPACE, "")
         .stream()
         .filter(ns -> desired.contains(ns.getName()))
         .collect(Collectors.toList()));

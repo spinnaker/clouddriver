@@ -17,12 +17,12 @@
 package com.netflix.spinnaker.clouddriver.titus.credentials
 
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
-import com.netflix.spinnaker.clouddriver.titus.caching.Keys
+import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
 import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.security.TitusCredentials
 
 class NetflixTitusCredentials implements AccountCredentials<TitusCredentials> {
-  private static final String CLOUD_PROVIDER = Keys.PROVIDER
+  private static final String CLOUD_PROVIDER = TitusCloudProvider.ID
 
   final String name
   final String environment
@@ -38,6 +38,7 @@ class NetflixTitusCredentials implements AccountCredentials<TitusCredentials> {
   final String eurekaName
   final boolean autoscalingEnabled
   final boolean loadBalancingEnabled
+  final boolean splitCachingEnabled
 
   private final List<TitusRegion> regions
 
@@ -55,7 +56,8 @@ class NetflixTitusCredentials implements AccountCredentials<TitusCredentials> {
                           List<String> requiredGroupMembership,
                           String eurekaName,
                           boolean autoscalingEnabled,
-                          boolean loadBalancingEnabled
+                          boolean loadBalancingEnabled,
+                          boolean splitCachingEnabled
   ) {
     this.name = name
     this.environment = environment
@@ -72,6 +74,7 @@ class NetflixTitusCredentials implements AccountCredentials<TitusCredentials> {
     this.eurekaName = eurekaName
     this.autoscalingEnabled = autoscalingEnabled
     this.loadBalancingEnabled = loadBalancingEnabled
+    this.splitCachingEnabled = splitCachingEnabled
   }
 
   @Override
@@ -128,4 +131,7 @@ class NetflixTitusCredentials implements AccountCredentials<TitusCredentials> {
     return loadBalancingEnabled
   }
 
+  boolean getSplitCachingEnabled() {
+    return splitCachingEnabled
+  }
 }

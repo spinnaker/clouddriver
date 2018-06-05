@@ -21,7 +21,9 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.data.task.jedis.RedisTaskRepository
 import com.netflix.spinnaker.kork.jedis.JedisClientDelegate
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate
+import com.netflix.spinnaker.kork.jedis.telemetry.InstrumentedJedis
 import com.netflix.spinnaker.kork.jedis.telemetry.InstrumentedJedisPool
+import org.apache.commons.pool2.impl.GenericObjectPool
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import org.springframework.boot.actuate.health.Health
 import org.springframework.boot.actuate.health.HealthIndicator
@@ -63,7 +65,25 @@ class RedisConfig {
   JedisPool jedisPool(Registry registry,
                       RedisConfigurationProperties redisConfigurationProperties,
                       GenericObjectPoolConfig redisPoolConfig) {
-    return createPool(registry, redisPoolConfig, redisConfigurationProperties.connection, redisConfigurationProperties.timeout, "primaryDefault")
+    def jedisPool = createPool(
+      registry,
+      redisPoolConfig,
+      redisConfigurationProperties.connection,
+      redisConfigurationProperties.timeout,
+      "primaryDefault"
+    )
+
+    if (jedisPool instanceof InstrumentedJedisPool) {
+      GenericObjectPool internalPool = ((InstrumentedJedisPool) jedisPool).delegated.internalPool
+
+      registry.gauge("jedis.pool.maxIdle", internalPool, { GenericObjectPool p -> return p.maxIdle as Double })
+      registry.gauge("jedis.pool.minIdle", internalPool, { GenericObjectPool p -> return p.minIdle as Double })
+      registry.gauge("jedis.pool.numActive", internalPool, { GenericObjectPool p -> return p.numActive as Double })
+      registry.gauge("jedis.pool.numIdle", internalPool, { GenericObjectPool p -> return p.numIdle as Double })
+      registry.gauge("jedis.pool.numWaiters", internalPool, { GenericObjectPool p -> return p.numWaiters as Double })
+    }
+
+    return jedisPool
   }
 
   private static JedisPool createPool(Registry registry,
@@ -115,12 +135,15 @@ class RedisConfig {
         } finally {
           jedis?.close()
         }
-        def internal = jedisPool.internalPool //thx groovy
-        health.withDetail('maxIdle', internal.maxIdle)
-        health.withDetail('minIdle', internal.minIdle)
-        health.withDetail('numActive', internal.numActive)
-        health.withDetail('numIdle', internal.numIdle)
-        health.withDetail('numWaiters', internal.numWaiters)
+
+        if (jedisPool instanceof InstrumentedJedisPool) {
+          GenericObjectPool internalPool = ((InstrumentedJedisPool) jedisPool).delegated.internalPool //thx groovy
+          health.withDetail('maxIdle', internalPool.maxIdle)
+          health.withDetail('minIdle', internalPool.minIdle)
+          health.withDetail('numActive', internalPool.numActive)
+          health.withDetail('numIdle', internalPool.numIdle)
+          health.withDetail('numWaiters', internalPool.numWaiters)
+        }
 
         return health.build()
       }

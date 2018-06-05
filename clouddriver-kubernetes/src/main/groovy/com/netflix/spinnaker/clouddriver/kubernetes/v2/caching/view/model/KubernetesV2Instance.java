@@ -26,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import io.kubernetes.client.models.V1Pod;
+import io.kubernetes.client.models.V1PodStatus;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -42,7 +44,7 @@ import java.util.Map;
 @Slf4j
 public class KubernetesV2Instance extends ManifestBasedModel implements Instance {
   Long launchTime;
-  List<Map<String, String>> health = new ArrayList<>();
+  List<Map<String, Object>> health = new ArrayList<>();
   KubernetesManifest manifest;
   Keys.InfrastructureCacheKey key;
 
@@ -51,7 +53,18 @@ public class KubernetesV2Instance extends ManifestBasedModel implements Instance
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
 
     V1Pod pod = KubernetesCacheDataConverter.getResource(this.manifest, V1Pod.class);
-    health.add(new KubernetesV2Health(pod).toMap());
+    V1PodStatus status = pod.getStatus();
+    if (status != null) {
+      health.add(new KubernetesV2Health(status).toMap());
+      if (status.getContainerStatuses() != null) {
+        health.addAll(status
+            .getContainerStatuses()
+            .stream()
+            .map(KubernetesV2Health::new)
+            .map(KubernetesV2Health::toMap)
+            .collect(Collectors.toList()));
+      }
+    }
   }
 
   public static KubernetesV2Instance fromCacheData(CacheData cd) {
@@ -72,7 +85,7 @@ public class KubernetesV2Instance extends ManifestBasedModel implements Instance
   public LoadBalancerInstance toLoadBalancerInstance() {
     return LoadBalancerInstance.builder()
         .health(health.stream().reduce(new HashMap<>(), (a, b) -> {
-          Map<String, String> result = new HashMap<>();
+          Map<String, Object> result = new HashMap<>();
           result.putAll(a);
           result.putAll(b);
           return result;

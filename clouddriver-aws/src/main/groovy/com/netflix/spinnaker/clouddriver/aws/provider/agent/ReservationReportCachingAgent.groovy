@@ -38,6 +38,7 @@ import com.netflix.spinnaker.cats.agent.CachingAgent
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
+import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonReservationReport
@@ -263,7 +264,10 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
       (RESERVATION_REPORTS.ns): [
         new MutableCacheData("v1", ["report": v1], [:]),
         new MutableCacheData("v2", ["report": v2], [:]),
-        new MutableCacheData("v3", ["report": v3], [:]),
+
+        // temporarily backport the changes from v4 to v3 (leaving v2_5 to be what 'v3' used to be)
+        new MutableCacheData("v2_5", ["report": v3], [:]),
+        new MutableCacheData("v3", ["report": v4], [:]),
         new MutableCacheData("v4", ["report": v4], [:])
       ]
     )
@@ -301,7 +305,8 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
           def cacheView = getCacheView()
           def reservedInstances = cacheView.getAll(
             RESERVED_INSTANCES.ns,
-            cacheView.filterIdentifiers(RESERVED_INSTANCES.ns, Keys.getReservedInstancesKey('*', credentials.name, region.name))
+            cacheView.filterIdentifiers(RESERVED_INSTANCES.ns, Keys.getReservedInstancesKey('*', credentials.name, region.name)),
+            RelationshipCacheFilter.none()
           ).collect {
             objectMapper.convertValue(it.attributes, ReservedInstanceDetails)
           }
@@ -494,7 +499,10 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
       if (!existingId) {
         registry.gauge(id, reservationReportCache, { LoadingCache<String, AmazonReservationReport> reservationReportCache ->
           def overallReservationDetail = reservationReportCache.get("v3").reservations.find {
-            it.availabilityZone == tags.availabilityZone && it.instanceType == tags.instanceType && it.os.name == tags.os
+            it.availabilityZone == tags.availabilityZone &&
+            it.instanceType == tags.instanceType &&
+            it.os.name == tags.os &&
+            it.region() == tags.region
           }
           return metricValueClosure.call(overallReservationDetail)
         } as ToDoubleFunction)

@@ -23,14 +23,20 @@ import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.core.provider.agent.ExternalHealthProvider
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
+import com.netflix.spinnaker.clouddriver.model.ServerGroupProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.Keys
 import com.netflix.spinnaker.clouddriver.titus.caching.TitusCachingProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchema
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchemaUtil
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
+import com.netflix.spinnaker.clouddriver.titus.client.model.Task
 import com.netflix.spinnaker.clouddriver.titus.model.TitusCluster
 import com.netflix.spinnaker.clouddriver.titus.model.TitusInstance
 import com.netflix.spinnaker.clouddriver.titus.model.TitusServerGroup
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
@@ -38,15 +44,19 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HE
 import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*
 
 @Component
-class TitusClusterProvider implements ClusterProvider<TitusCluster> {
+class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroupProvider {
 
   private final TitusCloudProvider titusCloudProvider
   private final Cache cacheView
   private final TitusCachingProvider titusCachingProvider
   private final ObjectMapper objectMapper
+  private final Logger log = LoggerFactory.getLogger(getClass())
 
   @Autowired
-  AwsLookupUtil awsLookupUtil
+  private final AwsLookupUtil awsLookupUtil
+
+  @Autowired
+  private final CachingSchemaUtil cachingSchemaUtil
 
   @Autowired
   TitusClusterProvider(TitusCloudProvider titusCloudProvider,
@@ -127,7 +137,10 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster> {
    */
   @Override
   TitusCluster getCluster(String application, String account, String name, boolean includeDetails) {
-    CacheData cluster = cacheView.get(CLUSTERS.ns, Keys.getClusterKey(name, application, account))
+    String clusterKey = (cachingSchemaUtil.getCachingSchemaForAccount(account) == CachingSchema.V1
+      ? Keys.getClusterKey(name, application, account)
+      : Keys.getClusterV2Key(name, application, account))
+    CacheData cluster = cacheView.get(CLUSTERS.ns, clusterKey)
     TitusCluster titusCluster = cluster ? translateClusters([cluster], includeDetails)[0] : null
     titusCluster
   }
@@ -146,19 +159,31 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster> {
    */
   @Override
   TitusServerGroup getServerGroup(String account, String region, String name, boolean includeDetails) {
-    String serverGroupKey = Keys.getServerGroupKey(name, account, region)
+    String serverGroupKey = (cachingSchemaUtil.getCachingSchemaForAccount(account) == CachingSchema.V1
+      ? Keys.getServerGroupKey(name, account, region)
+      : Keys.getServerGroupV2Key(name, account, region))
     CacheData serverGroupData = cacheView.get(SERVER_GROUPS.ns, serverGroupKey)
     if (serverGroupData == null) {
       return null
     }
     String json = objectMapper.writeValueAsString(serverGroupData.attributes.job)
     Job job = objectMapper.readValue(json, Job)
+
+    if (job.tasks == null || job.tasks.isEmpty()) {
+      // tasks are cached separately from jobs, and we need to construct them
+      Collection<CacheData> data = resolveRelationshipData(serverGroupData, INSTANCES.ns)
+      List<Task> tasks = data.collect{ it ->
+        objectMapper.convertValue(it.attributes.task, Task)
+      }
+      job.tasks = tasks
+    }
+
     TitusServerGroup serverGroup = new TitusServerGroup(job, serverGroupData.attributes.account, serverGroupData.attributes.region)
     serverGroup.placement.account = account
     serverGroup.placement.region = region
     serverGroup.scalingPolicies = serverGroupData.attributes.scalingPolicies
     if (includeDetails) {
-      serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns)).values()
+      serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns), Collections.singletonList(serverGroupData)).values()
     }
     serverGroup.targetGroups = serverGroupData.attributes.targetGroups
     serverGroup.accountId = awsLookupUtil.awsAccountId(account, region)
@@ -179,6 +204,19 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster> {
   @Override
   boolean supportsMinimalClusters() {
     return true
+  }
+
+  @Override
+  Collection<String> getServerGroupIdentifiers(String account, String region) {
+    account = Optional.ofNullable(account).orElse("*")
+    region = Optional.ofNullable(region).orElse("*")
+
+    return cacheView.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey("*", "*", account, region))
+  }
+
+  @Override
+  String buildServerGroupIdentifier(String account, String region, String serverGroupName) {
+    return Keys.getServerGroupKey(serverGroupName, account, region)
   }
 
   // Private methods
@@ -205,19 +243,21 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster> {
       cluster.serverGroups = clusterDataEntry.relationships[SERVER_GROUPS.ns]?.findResults { serverGroups.get(it) }
       cluster
     }
-    clusters
+    return clusters
   }
 
   /**
    * Translate server groups
    */
   private Map<String, TitusServerGroup> translateServerGroups(Collection<CacheData> serverGroupData) {
-    Collection<CacheData> allInstances = resolveRelationshipDataForCollection(serverGroupData, INSTANCES.ns, RelationshipCacheFilter.none())
-    Map<String, TitusInstance> instances = translateInstances(allInstances)
+    Collection<CacheData> allInstances = resolveRelationshipDataForCollection(serverGroupData, INSTANCES.ns, RelationshipCacheFilter.include(SERVER_GROUPS.ns))
+
+    Map<String, TitusInstance> instances = translateInstances(allInstances, serverGroupData)
 
     Map<String, TitusServerGroup> serverGroups = serverGroupData.collectEntries { serverGroupEntry ->
       String json = objectMapper.writeValueAsString(serverGroupEntry.attributes.job)
       Job job = objectMapper.readValue(json, Job)
+
       TitusServerGroup serverGroup = new TitusServerGroup(job, serverGroupEntry.attributes.account, serverGroupEntry.attributes.region)
       serverGroup.instances = serverGroupEntry.relationships[INSTANCES.ns]?.findResults { instances.get(it) } as Set
 
@@ -235,22 +275,33 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster> {
       serverGroup.awsAccount = awsLookupUtil.lookupAccount(serverGroupEntry.attributes.account, serverGroupEntry.attributes.region)?.awsAccount
       [(serverGroupEntry.id): serverGroup]
     }
-    serverGroups
+    return serverGroups
   }
 
   /**
    * Translate instances
    */
-  private Map<String, TitusInstance> translateInstances(Collection<CacheData> instanceData) {
+  private Map<String, TitusInstance> translateInstances(Collection<CacheData> instanceData, Collection<CacheData> serverGroupData) {
+    Map<String, Job> jobData = serverGroupData.collectEntries { cacheData ->
+      Job job = objectMapper.convertValue(cacheData.getAttributes().job, Job)
+      [job.id, job]
+    }
     Map<String, TitusInstance> instances = instanceData.collectEntries { instanceEntry ->
-      Job.TaskSummary task = objectMapper.convertValue(instanceEntry.attributes.task, Job.TaskSummary)
-      Job job = objectMapper.convertValue(instanceEntry.attributes.job, Job)
+      Task task = objectMapper.convertValue(instanceEntry.attributes.task, Task)
+
+      Job job
+      if (instanceEntry.attributes.job == null && instanceEntry.relationships[SERVER_GROUPS.ns] && !instanceEntry.relationships[SERVER_GROUPS.ns].empty) {
+        // job needs to be loaded because it was cached separately
+        job = jobData.get(instanceEntry.attributes.jobId)
+      } else {
+        job = objectMapper.convertValue(instanceEntry.attributes.job, Job)
+      }
+
       TitusInstance instance = new TitusInstance(job, task)
       instance.health = instanceEntry.attributes[HEALTH.ns]
       [(instanceEntry.id): instance]
     }
 
-    // Adding health to instances
     Map<String, String> healthKeysToInstance = [:]
     instanceData.each { instanceEntry ->
       externalHealthProviders.each { externalHealthProvider ->
@@ -266,7 +317,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster> {
       healthEntry.attributes.remove('lastUpdatedTimestamp')
       instances[instanceId].health << healthEntry.attributes
     }
-    instances
+    return instances
   }
 
   // Resolving cache data relationships
@@ -284,5 +335,4 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster> {
     Collection<String> filteredRelationships = source.relationships[relationship]?.findAll(relFilter)
     filteredRelationships ? cacheView.getAll(relationship, filteredRelationships) : []
   }
-
 }

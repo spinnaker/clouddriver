@@ -25,17 +25,24 @@ import com.netflix.spinnaker.cats.cache.WriteableCache;
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.Response;
 import redis.clients.jedis.ScanParams;
 import redis.clients.jedis.ScanResult;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public abstract class AbstractRedisCache implements WriteableCache {
 
+  private static final TypeReference<List<String>> RELATIONSHIPS_LIST = new TypeReference<List<String>>() {
+  };
+  private static final TypeReference<Set<String>> RELATIONSHIPS_SET = new TypeReference<Set<String>>() {
+  };
+
   protected static final TypeReference<Map<String, Object>> ATTRIBUTES = new TypeReference<Map<String, Object>>() {
   };
-  protected static final TypeReference<List<String>> RELATIONSHIPS = new TypeReference<List<String>>() {
-  };
+
 
   private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -44,7 +51,10 @@ public abstract class AbstractRedisCache implements WriteableCache {
   protected final ObjectMapper objectMapper;
   protected final RedisCacheOptions options;
 
-  protected AbstractRedisCache(String prefix, RedisClientDelegate redisClientDelegate, ObjectMapper objectMapper, RedisCacheOptions options) {
+  protected AbstractRedisCache(String prefix,
+                               RedisClientDelegate redisClientDelegate,
+                               ObjectMapper objectMapper,
+                               RedisCacheOptions options) {
     this.prefix = prefix;
     this.redisClientDelegate = redisClientDelegate;
     this.objectMapper = objectMapper.disable(SerializationFeature.WRITE_NULL_MAP_VALUES);
@@ -97,6 +107,23 @@ public abstract class AbstractRedisCache implements WriteableCache {
       return null;
     }
     return result.iterator().next();
+  }
+
+  @Override
+  public Collection<String> existingIdentifiers(String type, Collection<String> identifiers) {
+    final Map<String, Response<Boolean>> responses = new LinkedHashMap<>();
+    redisClientDelegate.withPipeline(p -> {
+      for (String id : identifiers) {
+        responses.put(id, p.exists(attributesId(type, id)));
+      }
+      redisClientDelegate.syncPipeline(p);
+    });
+
+    return responses.entrySet()
+      .stream()
+      .filter(e -> e.getValue().get())
+      .map(Map.Entry::getKey)
+      .collect(Collectors.toList());
   }
 
   @Override
@@ -207,5 +234,9 @@ public abstract class AbstractRedisCache implements WriteableCache {
 
   protected String allOfTypeReindex(String type) {
     return String.format("%s:%s:members.2", prefix, type);
+  }
+
+  protected TypeReference getRelationshipsTypeReference() {
+    return options.isTreatRelationshipsAsSet() ? RELATIONSHIPS_SET : RELATIONSHIPS_LIST;
   }
 }

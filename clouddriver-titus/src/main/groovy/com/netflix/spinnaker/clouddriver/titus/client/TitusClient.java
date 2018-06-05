@@ -31,6 +31,13 @@ public interface TitusClient {
 
   /**
    * @param jobName
+   * @param includeTasks
+   * @return
+   */
+  public Job findJobByName(String jobName, boolean includeTasks);
+
+  /**
+   * @param jobName
    * @return
    */
   public Job findJobByName(String jobName);
@@ -92,10 +99,22 @@ public interface TitusClient {
   /**
    * @return
    */
-  public List<Job> getAllJobs();
+  public List<Job> getAllJobsWithTasks();
 
-  public Object getJobJson(String jobId);
+  /**
+   * For use in TitusV2ClusterCachingAgent
+   * @return all jobs w/o task detail that are managed by Spinnaker
+   */
+  public List<Job> getAllJobsWithoutTasks();
 
-  public Object getTaskJson(String taskId);
+  /**
+   * For use in TitusInstanceCachingAgent
+   * @return all tasks managed by Spinnaker
+   */
+  public List<Task> getAllTasks();
+
+  public Map<String, String> getAllJobNames();
+
+  public Map<String, List<String>> getTaskIdsForJobIds();
 
 }
