@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.elasticsearch;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
@@ -28,18 +27,11 @@ import com.netflix.spinnaker.clouddriver.elasticsearch.descriptions.UpsertEntity
 import com.netflix.spinnaker.clouddriver.elasticsearch.model.ElasticSearchEntityTagsProvider;
 import com.netflix.spinnaker.clouddriver.model.EntityTags;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.tags.EntityTagger;
-import com.netflix.spinnaker.kork.core.RetrySupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class ElasticSearchEntityTagger implements EntityTagger {
   private static final Logger log = LoggerFactory.getLogger(ElasticSearchEntityTagger.class);
@@ -116,7 +108,7 @@ public class ElasticSearchEntityTagger implements EntityTagger {
   public void tag(String cloudProvider,
                   String accountId,
                   String region,
-                  String category,
+                  String namespace,
                   String entityType,
                   String entityId,
                   String tagName,
@@ -127,7 +119,7 @@ public class ElasticSearchEntityTagger implements EntityTagger {
       cloudProvider,
       accountId,
       region,
-      category,
+      namespace,
       entityType,
       entityId,
       value,
@@ -205,22 +197,21 @@ public class ElasticSearchEntityTagger implements EntityTagger {
                                 String key,
                                 String value,
                                 Long timestamp) {
-
-
     upsertEntityTags(
-      upsertEntityTagsDescription(type, prefix, cloudProvider, accountId, region, category, entityType, entityId, key, value, timestamp));
+      upsertCategorizedEntityTagsDescription(type, prefix, cloudProvider, accountId, region, category, entityType, entityId, key, value, timestamp));
   }
 
-   private void upsertEntityTags(String name,
-      String cloudProvider,
-      String accountId,
-      String region,
-      String category,
-      String entityType,
-      String entityId,
-      Object tagValue,
-      Long timestamp) {
-    upsertEntityTags(upsertEntityTagsDescription(name, cloudProvider, accountId, region, category, entityType, entityId, tagValue, timestamp));
+  private void upsertEntityTags(String name,
+                                String cloudProvider,
+                                String accountId,
+                                String region,
+                                String namespace,
+                                String entityType,
+                                String entityId,
+                                Object tagValue,
+                                Long timestamp) {
+    upsertEntityTags(
+      upsertEntityTagsDescription(name, cloudProvider, accountId, region, namespace, null, entityType, entityId, tagValue, timestamp));
   }
 
   private void upsertEntityTags(UpsertEntityTagsDescription description) {
@@ -246,28 +237,29 @@ public class ElasticSearchEntityTagger implements EntityTagger {
     operation.operate(Collections.emptyList());
   }
 
-  private static UpsertEntityTagsDescription upsertEntityTagsDescription(String type,
-                                                                         String prefix,
-                                                                         String cloudProvider,
-                                                                         String accountId,
-                                                                         String region,
-                                                                         String category,
-                                                                         String entityType,
-                                                                         String entityId,
-                                                                         String key,
-                                                                         String value,
-                                                                         Long timestamp) {
-
+  private static UpsertEntityTagsDescription upsertCategorizedEntityTagsDescription(String type,
+                                                                                    String prefix,
+                                                                                    String cloudProvider,
+                                                                                    String accountId,
+                                                                                    String region,
+                                                                                    String category,
+                                                                                    String entityType,
+                                                                                    String entityId,
+                                                                                    String key,
+                                                                                    String value,
+                                                                                    Long timestamp) {
     String name = prefix + key;
     Map<String, String> tagValue = new HashMap<>();
     tagValue.put("message", value);
     tagValue.put("type", type);
-    return upsertEntityTagsDescription(name, cloudProvider, accountId, region, category, entityType, entityId, tagValue, timestamp);
+    return upsertEntityTagsDescription(name, cloudProvider, accountId, region, null, category, entityType, entityId, tagValue, timestamp);
   }
+
   private static UpsertEntityTagsDescription upsertEntityTagsDescription(String name,
                                                                          String cloudProvider,
                                                                          String accountId,
                                                                          String region,
+                                                                         String namespace,
                                                                          String category,
                                                                          String entityType,
                                                                          String entityId,
@@ -282,9 +274,11 @@ public class ElasticSearchEntityTagger implements EntityTagger {
 
     EntityTags.EntityTag entityTag = new EntityTags.EntityTag();
     entityTag.setName(name);
+    entityTag.setNamespace(namespace);
     entityTag.setValue(entityTagValue);
     entityTag.setCategory(category);
     entityTag.setTimestamp(timestamp);
+    entityTag.setValueType(EntityTags.EntityTagValueType.object);
 
     UpsertEntityTagsDescription upsertEntityTagsDescription = new UpsertEntityTagsDescription();
     upsertEntityTagsDescription.setEntityRef(entityRef);

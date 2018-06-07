@@ -64,11 +64,13 @@ public class UpsertEntityTagsAtomicOperationConverter extends AbstractAtomicOper
 
   public AtomicOperation buildOperation(UpsertEntityTagsDescription description) {
     description.getTags().forEach(UpsertEntityTagsAtomicOperationConverter::setTagValueType);
-    return new UpsertEntityTagsAtomicOperation(retrySupport,
+    return new UpsertEntityTagsAtomicOperation(
+      retrySupport,
       front50Service,
       accountCredentialsProvider,
       entityTagsProvider,
-      description);
+      description
+    );
   }
 
   public UpsertEntityTagsDescription convertDescription(Map input) {

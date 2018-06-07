@@ -18,6 +18,9 @@ package com.netflix.spinnaker.clouddriver.tags
 
 import com.netflix.spinnaker.clouddriver.model.EntityTags;
 
+/**
+ * Provides a mechanism for attaching arbitrary metadata to resources within cloud providers.
+ */
 interface EntityTagger {
   public static final String ENTITY_TYPE_SERVER_GROUP = "servergroup"
   public static final String ENTITY_TYPE_CLUSTER = "cluster"
@@ -45,7 +48,7 @@ interface EntityTagger {
   void tag(String cloudProvider,
            String accountId,
            String region,
-           String category,
+           String namespace,
            String entityType,
            String entityId,
            String tagName,
