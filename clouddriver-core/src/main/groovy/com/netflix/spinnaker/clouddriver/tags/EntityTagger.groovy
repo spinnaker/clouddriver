@@ -42,6 +42,16 @@ interface EntityTagger {
               String value,
               Long timestamp)
 
+  void tag(String cloudProvider,
+           String accountId,
+           String region,
+           String category,
+           String entityType,
+           String entityId,
+           String tagName,
+           Object value,
+           Long timestamp)
+
   Collection<EntityTags> taggedEntities(String cloudProvider,
                                         String accountId,
                                         String entityType,

@@ -19,7 +19,9 @@ package com.netflix.spinnaker.clouddriver.elasticsearch
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.elasticsearch.converters.DeleteEntityTagsAtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.elasticsearch.ops.DeleteEntityTagsAtomicOperation
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import spock.lang.Specification
 import spock.lang.Unroll;
 
@@ -79,9 +81,13 @@ class ElasticSearchEntityTaggerSpec extends Specification {
   void "should only mutate threadLocalTask if null"() {
     given:
     Task threadLocalTask = null
-    def serverGroupTagger = new ElasticSearchEntityTagger(null, null, null, null) {
+    def deleteConverter = Stub(DeleteEntityTagsAtomicOperationConverter) {
+      buildOperation(_) >> Stub(AtomicOperation)
+    }
+
+    def serverGroupTagger = new ElasticSearchEntityTagger(null, null, deleteConverter) {
       @Override
-      protected void run(DeleteEntityTagsAtomicOperation deleteEntityTagsAtomicOperation) {
+      protected void run(AtomicOperation<?> operation) {
         threadLocalTask = TaskRepository.threadLocalTask.get()
       }
     }

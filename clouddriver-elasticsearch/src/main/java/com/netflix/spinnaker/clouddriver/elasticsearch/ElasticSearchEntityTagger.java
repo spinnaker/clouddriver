@@ -21,12 +21,13 @@ import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
+import com.netflix.spinnaker.clouddriver.elasticsearch.converters.DeleteEntityTagsAtomicOperationConverter;
+import com.netflix.spinnaker.clouddriver.elasticsearch.converters.UpsertEntityTagsAtomicOperationConverter;
 import com.netflix.spinnaker.clouddriver.elasticsearch.descriptions.DeleteEntityTagsDescription;
 import com.netflix.spinnaker.clouddriver.elasticsearch.descriptions.UpsertEntityTagsDescription;
 import com.netflix.spinnaker.clouddriver.elasticsearch.model.ElasticSearchEntityTagsProvider;
-import com.netflix.spinnaker.clouddriver.elasticsearch.ops.DeleteEntityTagsAtomicOperation;
-import com.netflix.spinnaker.clouddriver.elasticsearch.ops.UpsertEntityTagsAtomicOperation;
 import com.netflix.spinnaker.clouddriver.model.EntityTags;
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.tags.EntityTagger;
 import com.netflix.spinnaker.kork.core.RetrySupport;
@@ -49,19 +50,17 @@ public class ElasticSearchEntityTagger implements EntityTagger {
   private static final String NOTICE_TYPE = "notice";
   private static final String NOTICE_KEY_PREFIX = "spinnaker_ui_notice:";
 
-  private final RetrySupport retrySupport;
-  private final Front50Service front50Service;
-  private final AccountCredentialsProvider accountCredentialsProvider;
   private final ElasticSearchEntityTagsProvider entityTagsProvider;
 
-  public ElasticSearchEntityTagger(RetrySupport retrySupport,
-                                   Front50Service front50Service,
-                                   AccountCredentialsProvider accountCredentialsProvider,
-                                   ElasticSearchEntityTagsProvider entityTagsProvider) {
-    this.retrySupport = retrySupport;
-    this.front50Service = front50Service;
-    this.accountCredentialsProvider = accountCredentialsProvider;
+  private final UpsertEntityTagsAtomicOperationConverter upsertEntityTagsAtomicOperationConverter;
+  private final DeleteEntityTagsAtomicOperationConverter deleteEntityTagsAtomicOperationConverter;
+
+  public ElasticSearchEntityTagger(ElasticSearchEntityTagsProvider entityTagsProvider,
+                                   UpsertEntityTagsAtomicOperationConverter upsertEntityTagsAtomicOperationConverter,
+                                   DeleteEntityTagsAtomicOperationConverter deleteEntityTagsAtomicOperationConverter) {
     this.entityTagsProvider = entityTagsProvider;
+    this.upsertEntityTagsAtomicOperationConverter = upsertEntityTagsAtomicOperationConverter;
+    this.deleteEntityTagsAtomicOperationConverter = deleteEntityTagsAtomicOperationConverter;
   }
 
   @Override
@@ -111,6 +110,28 @@ public class ElasticSearchEntityTagger implements EntityTagger {
       value,
       timestamp
     );
+  }
+
+  @Override
+  public void tag(String cloudProvider,
+                  String accountId,
+                  String region,
+                  String category,
+                  String entityType,
+                  String entityId,
+                  String tagName,
+                  Object value,
+                  Long timestamp) {
+    upsertEntityTags(
+      tagName,
+      cloudProvider,
+      accountId,
+      region,
+      category,
+      entityType,
+      entityId,
+      value,
+      timestamp);
   }
 
   @Override
@@ -168,27 +189,9 @@ public class ElasticSearchEntityTagger implements EntityTagger {
     delete(deleteEntityTagsDescription);
   }
 
-  @VisibleForTesting
-  protected void run(DeleteEntityTagsAtomicOperation deleteEntityTagsAtomicOperation) {
-    deleteEntityTagsAtomicOperation.operate(Collections.emptyList());
-  }
-
   private void delete(DeleteEntityTagsDescription deleteEntityTagsDescription) {
-    DeleteEntityTagsAtomicOperation deleteEntityTagsAtomicOperation = new DeleteEntityTagsAtomicOperation(
-      front50Service,
-      entityTagsProvider,
-      deleteEntityTagsDescription
-    );
-
-    Task originalTask = TaskRepository.threadLocalTask.get();
-    try {
-      TaskRepository.threadLocalTask.set(
-        Optional.ofNullable(originalTask).orElse(new DefaultTask(ElasticSearchEntityTagger.class.getSimpleName()))
-      );
-      run(deleteEntityTagsAtomicOperation);
-    } finally {
-      TaskRepository.threadLocalTask.set(originalTask);
-    }
+    AtomicOperation<?> operation = deleteEntityTagsAtomicOperationConverter.buildOperation(deleteEntityTagsDescription);
+    operate(operation);
   }
 
   private void upsertEntityTags(String type,
@@ -202,22 +205,45 @@ public class ElasticSearchEntityTagger implements EntityTagger {
                                 String key,
                                 String value,
                                 Long timestamp) {
-    UpsertEntityTagsAtomicOperation upsertEntityTagsAtomicOperation = new UpsertEntityTagsAtomicOperation(
-      retrySupport,
-      front50Service,
-      accountCredentialsProvider,
-      entityTagsProvider,
-      upsertEntityTagsDescription(
-        type, prefix, cloudProvider, accountId, region, category, entityType, entityId, key, value, timestamp
-      )
-    );
 
+
+    upsertEntityTags(
+      upsertEntityTagsDescription(type, prefix, cloudProvider, accountId, region, category, entityType, entityId, key, value, timestamp));
+  }
+
+   private void upsertEntityTags(String name,
+      String cloudProvider,
+      String accountId,
+      String region,
+      String category,
+      String entityType,
+      String entityId,
+      Object tagValue,
+      Long timestamp) {
+    upsertEntityTags(upsertEntityTagsDescription(name, cloudProvider, accountId, region, category, entityType, entityId, tagValue, timestamp));
+  }
+
+  private void upsertEntityTags(UpsertEntityTagsDescription description) {
+    AtomicOperation<?> operation = upsertEntityTagsAtomicOperationConverter.buildOperation(description);
+
+    operate(operation);
+  }
+
+  private void operate(AtomicOperation<?> operation) {
+    Task originalTask = TaskRepository.threadLocalTask.get();
     try {
-      TaskRepository.threadLocalTask.set(new DefaultTask(this.getClass().getSimpleName()));
-      upsertEntityTagsAtomicOperation.operate(Collections.emptyList());
+      TaskRepository.threadLocalTask.set(
+        Optional.ofNullable(originalTask).orElse(new DefaultTask(ElasticSearchEntityTagger.class.getSimpleName()))
+      );
+      run(operation);
     } finally {
-      TaskRepository.threadLocalTask.set(null);
+      TaskRepository.threadLocalTask.set(originalTask);
     }
+  }
+
+  @VisibleForTesting
+  protected void run(AtomicOperation<?> operation) {
+    operation.operate(Collections.emptyList());
   }
 
   private static UpsertEntityTagsDescription upsertEntityTagsDescription(String type,
@@ -231,6 +257,22 @@ public class ElasticSearchEntityTagger implements EntityTagger {
                                                                          String key,
                                                                          String value,
                                                                          Long timestamp) {
+
+    String name = prefix + key;
+    Map<String, String> tagValue = new HashMap<>();
+    tagValue.put("message", value);
+    tagValue.put("type", type);
+    return upsertEntityTagsDescription(name, cloudProvider, accountId, region, category, entityType, entityId, tagValue, timestamp);
+  }
+  private static UpsertEntityTagsDescription upsertEntityTagsDescription(String name,
+                                                                         String cloudProvider,
+                                                                         String accountId,
+                                                                         String region,
+                                                                         String category,
+                                                                         String entityType,
+                                                                         String entityId,
+                                                                         Object entityTagValue,
+                                                                         Long timestamp) {
     EntityTags.EntityRef entityRef = new EntityTags.EntityRef();
     entityRef.setEntityType(entityType);
     entityRef.setEntityId(entityId);
@@ -238,16 +280,11 @@ public class ElasticSearchEntityTagger implements EntityTagger {
     entityRef.setAccountId(accountId);
     entityRef.setRegion(region);
 
-    Map<String, String> entityTagValue = new HashMap<>();
-    entityTagValue.put("message", value);
-    entityTagValue.put("type", type);
-
     EntityTags.EntityTag entityTag = new EntityTags.EntityTag();
-    entityTag.setName(prefix + key);
+    entityTag.setName(name);
     entityTag.setValue(entityTagValue);
     entityTag.setCategory(category);
     entityTag.setTimestamp(timestamp);
-    entityTag.setValueType(EntityTags.EntityTagValueType.object);
 
     UpsertEntityTagsDescription upsertEntityTagsDescription = new UpsertEntityTagsDescription();
     upsertEntityTagsDescription.setEntityRef(entityRef);
