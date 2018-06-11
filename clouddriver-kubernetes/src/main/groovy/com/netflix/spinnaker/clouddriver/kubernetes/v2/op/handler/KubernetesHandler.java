@@ -45,7 +45,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Slf4j
-public abstract class KubernetesHandler implements CanDeploy, CanDelete {
+public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatch {
   protected final static ObjectMapper objectMapper = new ObjectMapper();
 
   private final ArtifactReplacer artifactReplacer = new ArtifactReplacer();
@@ -65,7 +65,11 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete {
   }
 
   public ReplaceResult replaceArtifacts(KubernetesManifest manifest, List<Artifact> artifacts) {
-    return artifactReplacer.replaceAll(manifest, artifacts);
+    return artifactReplacer.replaceAll(manifest, artifacts, manifest.getNamespace());
+  }
+
+  public ReplaceResult replaceArtifacts(KubernetesManifest manifest, List<Artifact> artifacts, String namespace) {
+    return artifactReplacer.replaceAll(manifest, artifacts, namespace);
   }
 
   protected Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
@@ -146,6 +150,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete {
     MOUNTABLE_DATA_PRIORITY(50),
     MOUNTABLE_DATA_BACKING_RESOURCE_PRIORITY(40),
     SERVICE_ACCOUNT_PRIORITY(40),
+    RESOURCE_DEFINITION_PRIORITY(30),
     ROLE_BINDING_PRIORITY(30),
     ROLE_PRIORITY(20),
     NAMESPACE_PRIORITY(0);

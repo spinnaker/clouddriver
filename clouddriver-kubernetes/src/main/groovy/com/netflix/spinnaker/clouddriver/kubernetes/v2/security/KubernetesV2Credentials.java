@@ -22,7 +22,9 @@ import com.google.common.base.Suppliers;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
@@ -61,6 +63,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final List<KubernetesKind> kinds;
   private final List<KubernetesKind> omitKinds;
   @Getter private final boolean serviceAccount;
+  @Getter private final List<KubernetesCachingPolicy> cachingPolicies;
 
   // TODO(lwander) make configurable
   private final static int namespaceExpirySeconds = 30;
@@ -153,6 +156,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     Registry registry;
     KubectlJobExecutor jobExecutor;
     List<CustomKubernetesResource> customResources;
+    List<KubernetesCachingPolicy> cachingPolicies;
     List<String> kinds;
     List<String> omitKinds;
     boolean debug;
@@ -203,6 +207,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder cachingPolicies(List<KubernetesCachingPolicy> cachingPolicies) {
+      this.cachingPolicies = cachingPolicies;
+      return this;
+    }
+
     public Builder customResources(List<CustomKubernetesResource> customResources) {
       this.customResources = customResources;
       return this;
@@ -244,6 +253,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       customResources = customResources == null ? new ArrayList<>() : customResources;
       kinds = kinds == null ? new ArrayList<>() : kinds;
       omitKinds = omitKinds == null ? new ArrayList<>() : omitKinds;
+      cachingPolicies = cachingPolicies == null ? new ArrayList<>() : cachingPolicies;
 
       return new KubernetesV2Credentials(
           accountName,
@@ -258,6 +268,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           oAuthScopes,
           serviceAccount,
           customResources,
+          cachingPolicies,
           KubernetesKind.registeredStringList(kinds),
           KubernetesKind.registeredStringList(omitKinds),
           debug
@@ -277,6 +288,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       List<String> oAuthScopes,
       boolean serviceAccount,
       @NotNull List<CustomKubernetesResource> customResources,
+      @NotNull List<KubernetesCachingPolicy> cachingPolicies,
       @NotNull List<KubernetesKind> kinds,
       @NotNull List<KubernetesKind> omitKinds,
       boolean debug) {
@@ -294,6 +306,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.oAuthScopes = oAuthScopes;
     this.serviceAccount = serviceAccount;
     this.customResources = customResources;
+    this.cachingPolicies = cachingPolicies;
     this.kinds = kinds;
     this.omitKinds = omitKinds;
 
@@ -373,6 +386,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   public void resumeRollout(KubernetesKind kind, String namespace, String name) {
     runAndRecordMetrics("resumeRollout", kind, namespace, () -> jobExecutor.resumeRollout(this, kind, namespace, name));
+  }
+
+  public void patch(KubernetesKind kind, String namespace, String name, KubernetesPatchOptions options,
+    KubernetesManifest manifest) {
+    runAndRecordMetrics("patch", kind, namespace, () -> jobExecutor.patch(this, kind, namespace, name, options, manifest));
   }
 
   private <T> T runAndRecordMetrics(String action, KubernetesKind kind, String namespace, Supplier<T> op) {

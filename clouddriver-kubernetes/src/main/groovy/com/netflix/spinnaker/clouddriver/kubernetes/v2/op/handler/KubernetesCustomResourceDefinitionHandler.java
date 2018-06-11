@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2018 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,36 +25,28 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
-import java.util.List;
-
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.MOUNTABLE_DATA_PRIORITY;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.RESOURCE_DEFINITION_PRIORITY;
 
 @Component
-public class KubernetesSecretHandler extends KubernetesHandler {
+public class KubernetesCustomResourceDefinitionHandler extends KubernetesHandler {
   @Override
   public int deployPriority() {
-    return MOUNTABLE_DATA_PRIORITY.getValue();
+    return RESOURCE_DEFINITION_PRIORITY.getValue();
   }
 
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.SECRET;
-  }
-
-  @Override
-  public List<String> sensitiveKeys() {
-    return Collections.singletonList("data");
+    return KubernetesKind.CUSTOM_RESOURCE_DEFINITION;
   }
 
   @Override
   public boolean versioned() {
-    return true;
+    return false;
   }
 
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.CONFIGS;
+    return SpinnakerKind.UNCLASSIFIED;
   }
 
   @Override

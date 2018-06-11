@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2018 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,32 +18,25 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
-import io.kubernetes.client.models.V1beta2DaemonSet;
-import io.kubernetes.client.models.V1beta2DaemonSetStatus;
+import io.kubernetes.client.models.V2alpha1CronJob;
+import io.kubernetes.client.models.V2alpha1CronJobStatus;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 @Component
-public class KubernetesDaemonSetHandler extends KubernetesHandler implements
-    CanResize,
-    CanPauseRollout,
-    CanResumeRollout,
-    CanUndoRollout,
-    ServerGroupHandler {
+public class KubernetesCronJobHandler extends KubernetesHandler implements
+  CanDelete,
+  ServerGroupHandler {
 
-  public KubernetesDaemonSetHandler() {
+  public KubernetesCronJobHandler() {
     registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
     registerReplacer(ArtifactReplacerFactory.configMapVolumeReplacer());
     registerReplacer(ArtifactReplacerFactory.secretVolumeReplacer());
@@ -60,7 +53,7 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
 
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.DAEMON_SET;
+    return KubernetesKind.CRON_JOB;
   }
 
   @Override
@@ -69,8 +62,14 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
   }
 
   @Override
-  public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.SERVER_GROUPS;
+  public KubernetesSpinnakerKindMap.SpinnakerKind spinnakerKind() {
+    return KubernetesSpinnakerKindMap.SpinnakerKind.SERVER_GROUPS;
+  }
+
+  @Override
+  public Status status(KubernetesManifest manifest) {
+    V2alpha1CronJob v2alpha1CronJob = KubernetesCacheDataConverter.getResource(manifest, V2alpha1CronJob.class);
+    return status(v2alpha1CronJob);
   }
 
   @Override
@@ -78,58 +77,20 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     return KubernetesCoreCachingAgent.class;
   }
 
-  @Override
-  public Status status(KubernetesManifest manifest) {
-    if (!manifest.isNewerThanObservedGeneration()) {
-      return (new Status()).unknown();
-    }
-    V1beta2DaemonSet v1beta2DaemonSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2DaemonSet.class);
-    return status(v1beta2DaemonSet);
-  }
-
-  @Override
-  public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
-    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
-    result.put("serverGroup", result.get("name"));
-
-    return result;
-  }
-
-  private Status status(V1beta2DaemonSet daemonSet) {
+  private Status status(V2alpha1CronJob job) {
     Status result = new Status();
-
-    V1beta2DaemonSetStatus status = daemonSet.getStatus();
+    V2alpha1CronJobStatus status = job.getStatus();
     if (status == null) {
       result.unstable("No status reported yet")
           .unavailable("No availability reported");
       return result;
     }
 
-    if (!daemonSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("rollingupdate")) {
-      return result;
-    }
-
-    int desiredReplicas = status.getDesiredNumberScheduled();
-    Integer existing = status.getCurrentNumberScheduled();
-    if (existing == null || desiredReplicas > existing) {
-      return result.unstable("Waiting for all replicas to be scheduled");
-    }
-
-    existing = status.getUpdatedNumberScheduled();
-    if (existing != null && desiredReplicas > existing) {
-      return result.unstable("Waiting for all updated replicas to be scheduled");
-    }
-
-    existing = status.getNumberAvailable();
-    if (existing == null || desiredReplicas > existing) {
-      return result.unstable("Waiting for all replicas to be available");
-    }
-
-    existing = status.getNumberReady();
-    if (existing == null || desiredReplicas > existing) {
-      return result.unstable("Waiting for all replicas to be ready");
+    if (status.getActive() != null) {
+      return result.unstable(String.format("%s job(s) in progress", status.getActive().size()));
     }
 
     return result;
   }
+
 }
