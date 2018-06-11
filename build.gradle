@@ -29,7 +29,6 @@ buildscript {
   dependencies {
     classpath 'com.netflix.spinnaker.gradle:spinnaker-gradle-project:4.0.0'
     classpath "org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}"
-    classpath "org.junit.platform:junit-platform-gradle-plugin:${junitPlatformVersion}"
     classpath "com.netflix.nebula:nebula-kotlin-plugin:${kotlinVersion}"
   }
 }
