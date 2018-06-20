@@ -1,7 +1,6 @@
 tasks.bintrayUpload.enabled = false
 
 subprojects {
-  apply plugin: 'findbugs'
   apply plugin: 'pmd'
 
   dependencies {
@@ -12,10 +11,5 @@ subprojects {
   }
 
   tasks.compileGroovy.enabled = false
-  tasks.findbugsTest.enabled = false
   tasks.pmdTest.enabled = false
-
-  findbugs {
-    ignoreFailures = true
-  }
 }

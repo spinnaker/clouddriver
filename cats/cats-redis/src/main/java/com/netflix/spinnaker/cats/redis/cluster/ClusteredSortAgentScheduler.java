@@ -16,33 +16,16 @@
 
 package com.netflix.spinnaker.cats.redis.cluster;
 
-import com.netflix.spinnaker.cats.agent.Agent;
-import com.netflix.spinnaker.cats.agent.AgentExecution;
-import com.netflix.spinnaker.cats.agent.AgentScheduler;
-import com.netflix.spinnaker.cats.agent.AgentSchedulerAware;
-import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.CachingAgent;
-import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation;
+import com.netflix.spinnaker.cats.agent.*;
 import com.netflix.spinnaker.cats.module.CatsModuleAware;
 import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
 /*
  * The idea behind this scheduler is simple. Every agent it owns is always in one of two sorted sets,
@@ -55,7 +38,6 @@ import java.util.concurrent.TimeUnit;
  * cache interval every key will only be removed from Redis once. If the interval is 60s, and the agent polls every 1s,
  * we already have a (30s / 1) * (# of clouddrivers) factor of improvement.
  */
-@SuppressFBWarnings
 public class ClusteredSortAgentScheduler extends CatsModuleAware implements AgentScheduler<ClusteredSortAgentLock>, Runnable {
   private static enum Status {
     SUCCESS,

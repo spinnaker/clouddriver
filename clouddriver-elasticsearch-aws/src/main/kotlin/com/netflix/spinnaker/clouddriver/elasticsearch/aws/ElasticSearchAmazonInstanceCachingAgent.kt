@@ -60,6 +60,7 @@ class ElasticSearchAmazonInstanceCachingAgent(
   }
 
   override fun run() {
+    return
     val prefix = "aws_instances"
     var previousIndexes = elasticSearchClient.getPreviousIndexes(prefix)
     if (previousIndexes.size > 2) {
