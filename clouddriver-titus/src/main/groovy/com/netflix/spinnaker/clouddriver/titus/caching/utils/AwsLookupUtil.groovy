@@ -29,6 +29,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.model.TitusInstance
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
@@ -37,6 +38,7 @@ import javax.annotation.PostConstruct
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
 
 @Component
+@Slf4j
 class AwsLookupUtil {
 
   private Set<AmazonVpc> amazonVpcs
@@ -144,7 +146,13 @@ class AwsLookupUtil {
   }
 
   String awsVpcId(account, region) {
-    lookupAccount(account, region)?.vpcId
+    String vpcId = lookupAccount(account, region)?.vpcId
+    if (!vpcId) {
+      refreshAwsAccounts()
+      vpcId = lookupAccount(account, region)?.vpcId
+      log.error("got empty vpcId for ${account} ${region}, reloaded value is ${vpcId}")
+    }
+    return vpcId
   }
 
   String stack(account) {
@@ -155,7 +163,7 @@ class AwsLookupUtil {
 
   private String convertVpcNameToId(String awsAccount, String region, String name) {
     if (!amazonVpcs) {
-      amazonVpcs = amazonVpcProvider.all
+      amazonVpcs = amazonVpcProvider.getAll()
     }
     amazonVpcs.find { it.name == name && it.account == awsAccount && it.region == region }?.id
   }
@@ -191,6 +199,7 @@ class AwsLookupUtil {
   }
 
   private void refreshAwsAccounts() {
+    amazonVpcs = amazonVpcProvider.getAll()
     awsAccountLookup = []
     accountCredentialsProvider.all.findAll {
       it instanceof NetflixTitusCredentials
