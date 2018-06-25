@@ -365,10 +365,15 @@ public class KubectlJobExecutor {
     }
   }
 
-  public Void deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+  public Void deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest, String namespace) {
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
+
+    if (StringUtils.isNotEmpty(namespace)) {
+      command.add("--namespace");
+      command.add(namespace);
+    }
 
     // Read from stdin
     command.add("apply");

@@ -38,6 +38,7 @@ public class KubernetesDeployManifestDescription extends KubernetesAtomicOperati
   Boolean versioned;
   Source source;
   Artifact manifestArtifact;
+  String namespace;
 
   public enum Source {
     artifact,

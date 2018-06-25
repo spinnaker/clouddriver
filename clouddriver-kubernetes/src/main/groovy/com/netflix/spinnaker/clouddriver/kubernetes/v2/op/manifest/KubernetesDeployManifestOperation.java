@@ -106,10 +106,6 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     Set<Artifact> boundArtifacts = new HashSet<>();
 
     for (KubernetesManifest manifest : inputManifests) {
-      if (StringUtils.isEmpty(manifest.getNamespace()) && manifest.getKind().isNamespaced()) {
-        manifest.setNamespace(credentials.getDefaultNamespace());
-      }
-
       KubernetesResourceProperties properties = findResourceProperties(manifest);
       if (properties == null) {
         throw new IllegalArgumentException("Unsupported Kubernetes object kind '" + manifest.getKind().toString() + "', unable to continue.");
@@ -131,6 +127,11 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     getTask().updateStatus(OP_NAME, "Checking if all requested artifacts were bound...");
     if (!unboundArtifacts.isEmpty()) {
       throw new IllegalArgumentException("The following artifacts could not be bound: '" + unboundArtifacts + "' . Failing the stage as this is likely a configuration error.");
+    }
+
+    String namespace = description.getNamespace();
+    if (StringUtils.isEmpty(namespace)) {
+      namespace = credentials.getDefaultNamespace();
     }
 
     getTask().updateStatus(OP_NAME, "Sorting manifests by priority...");
@@ -174,7 +175,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       manifest = replaceResult.getManifest();
 
       getTask().updateStatus(OP_NAME, "Submitting manifest " + manifest.getFullResourceName() + " to kubernetes master...");
-      result.merge(deployer.deploy(credentials, manifest));
+      result.merge(deployer.deploy(credentials, manifest, namespace));
 
       result.getCreatedArtifacts().add(artifact);
     }

@@ -22,8 +22,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 
 public interface CanDeploy {
-  default OperationResult deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
-    credentials.deploy(manifest);
+  default OperationResult deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest, String namespace) {
+    credentials.deploy(manifest, namespace);
     return new OperationResult().addManifest(manifest);
   }
 }
