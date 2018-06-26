@@ -483,7 +483,6 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         device.size = volumeSize
         device.volumeType = volumeType
         device.snapshotId = snapshotId
-        device.encrypted = encrypted
       }
       device
     }
