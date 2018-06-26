@@ -69,10 +69,4 @@ class AmazonBlockDevice {
    * The snapshot id to mount as the EBS volume
    */
   String snapshotId
-
-  /**
-   *  When to encrypt the EBS volume
-   */
-  Boolean encrypted
-
 }
