@@ -272,7 +272,7 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
         }
       }
 
-      if (!description.hardConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE) && !description.softConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE)) {
+      if (description.getJobType() == "service" && !description.hardConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE) && !description.softConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE)) {
         submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(SubmitJobRequest.Constraint.ZONE_BALANCE))
       }
 
@@ -332,9 +332,12 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
           }
           if (e.status.code == Status.UNAVAILABLE.code) {
             throw e;
+          } else {
+            log.error("Could not submit job and not retrying for status ${e.status} ", e)
+            task.updateStatus BASE_PHASE, "could not submit job ${e.status} ${e.message}"
           }
         }
-      }, 12, 1000, false)
+      }, 8, 100, true)
 
       if (jobUri == null) {
         throw new TitusException("Could not create job")
