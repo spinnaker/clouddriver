@@ -47,7 +47,10 @@ class CreateAmazonLoadBalancerDescriptionValidator extends AmazonDescriptionVali
       if (action.getType().equals("authenticate-oidc")) {
         AuthenticateOidcActionConfig config = action.getAuthenticateOidcActionConfig();
         if (config.getClientId() == null) {
-          errors.rejectValue("listeners", "createAmazonLoadBalancerDescription.listeners.invalid.oidcConfig");
+          errors.rejectValue("listeners", "createAmazonLoadBalancerDescription.listeners.invalid.oidcConfig.missingClientId");
+        }
+        if (config.getClientSecret() == null || config.getClientSecret().equals("")) {
+          errors.rejectValue("listeners", "createAmazonLoadBalancerDescription.listeners.invalid.oidcConfig.missingClientSecret");
         }
       }
     }
@@ -115,8 +118,7 @@ class CreateAmazonLoadBalancerDescriptionValidator extends AmazonDescriptionVali
             errors.rejectValue("targetGroups", "createAmazonLoadBalancerDescription.targetGroups.port.missing");
           }
         }
-        Set<String> unusedTargetGroupNames = new HashSet<>();
-        unusedTargetGroupNames.addAll(allTargetGroupNames);
+        Set<String> unusedTargetGroupNames = new HashSet<>(allTargetGroupNames);
 
         for (UpsertAmazonLoadBalancerV2Description.Listener listener : albDescription.listeners) {
           if (listener.getDefaultActions().size() == 0) {
