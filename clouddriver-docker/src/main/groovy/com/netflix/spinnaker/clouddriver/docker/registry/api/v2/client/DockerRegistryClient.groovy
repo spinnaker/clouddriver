@@ -23,6 +23,8 @@ import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBeare
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryAuthenticationException
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryOperationException
+import com.netflix.spinnaker.clouddriver.docker.registry.metrics.UrlMetricsInstrumentation
+import com.netflix.spinnaker.clouddriver.docker.registry.metrics.UrlMetricsInterceptor
 import com.netflix.spinnaker.clouddriver.docker.registry.security.TrustAllX509TrustManager
 import com.squareup.okhttp.OkHttpClient
 import groovy.util.logging.Slf4j
@@ -59,6 +61,7 @@ class DockerRegistryClient {
     int paginateSize
     String catalogFile
     boolean insecureRegistry
+    UrlMetricsInstrumentation urlMetricsInstrumentation
 
     Builder address(String address) {
       this.address = address
@@ -115,17 +118,22 @@ class DockerRegistryClient {
       return this
     }
 
+    Builder urlMetricsInstrumentation(UrlMetricsInstrumentation urlMetricsInstrumentation) {
+      this.urlMetricsInstrumentation = urlMetricsInstrumentation
+      return this
+    }
+
     DockerRegistryClient build() {
 
       if (password && passwordFile || password && passwordCommand || passwordFile && passwordCommand) {
         throw new IllegalArgumentException('Error, at most one of "password", "passwordFile", "passwordCommand" or "dockerconfigFile" can be specified')
       }
       if (password || passwordCommand) {
-        return new DockerRegistryClient(address, email, username, password, passwordCommand, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
+        return new DockerRegistryClient(address, email, username, password, passwordCommand, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, urlMetricsInstrumentation)
       } else if (passwordFile) {
-        return new DockerRegistryClient(address, email, username, passwordFile, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
+        return new DockerRegistryClient(address, email, username, passwordFile, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, urlMetricsInstrumentation)
       } else {
-        return new DockerRegistryClient(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
+        return new DockerRegistryClient(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, urlMetricsInstrumentation)
       }
     }
 
@@ -148,10 +156,11 @@ class DockerRegistryClient {
     return tokenService?.basicAuth
   }
 
-  DockerRegistryClient(String address, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry) {
+  DockerRegistryClient(String address, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry, UrlMetricsInstrumentation urlMetricsInstrumentation) {
     this.paginateSize = paginateSize
     this.tokenService = new DockerBearerTokenService()
     OkHttpClient client = new OkHttpClient()
+    client.interceptors().add(new UrlMetricsInterceptor(urlMetricsInstrumentation))
     client.setReadTimeout(clientTimeoutMillis, TimeUnit.MILLISECONDS)
 
     if (insecureRegistry) {
@@ -172,14 +181,14 @@ class DockerRegistryClient {
     this.catalogFile = catalogFile
   }
 
-  DockerRegistryClient(String address, String email, String username, String password, String passwordCommand, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry) {
-    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
+  DockerRegistryClient(String address, String email, String username, String password, String passwordCommand, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry, UrlMetricsInstrumentation urlMetricsInstrumentation) {
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, urlMetricsInstrumentation)
     this.tokenService = new DockerBearerTokenService(username, password, passwordCommand)
     this.email = email
   }
 
-  DockerRegistryClient(String address, String email, String username, File passwordFile, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry) {
-    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry)
+  DockerRegistryClient(String address, String email, String username, File passwordFile, long clientTimeoutMillis, int paginateSize, String catalogFile, boolean insecureRegistry, UrlMetricsInstrumentation urlMetricsInstrumentation) {
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, urlMetricsInstrumentation)
     this.tokenService = new DockerBearerTokenService(username, passwordFile)
     this.email = email
   }

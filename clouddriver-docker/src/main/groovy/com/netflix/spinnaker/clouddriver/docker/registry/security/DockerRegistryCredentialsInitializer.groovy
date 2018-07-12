@@ -19,10 +19,12 @@ package com.netflix.spinnaker.clouddriver.docker.registry.security
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.docker.registry.config.DockerRegistryConfigurationProperties
+import com.netflix.spinnaker.clouddriver.docker.registry.metrics.UrlMetricsInstrumentation
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import groovy.util.logging.Slf4j
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -34,6 +36,9 @@ import org.springframework.stereotype.Component
 @Component
 @Configuration
 class DockerRegistryCredentialsInitializer implements CredentialsInitializerSynchronizable {
+
+  @Autowired
+  UrlMetricsInstrumentation urlMetricsInstrumentation
 
   @Bean
   List<? extends DockerRegistryNamedAccountCredentials> dockerRegistryNamedAccountCredentials(DockerRegistryConfigurationProperties dockerRegistryConfigurationProperties,
@@ -80,6 +85,7 @@ class DockerRegistryCredentialsInitializer implements CredentialsInitializerSync
           .trackDigests(managedAccount.trackDigests)
           .sortTagsByDate(managedAccount.sortTagsByDate)
           .repositories(managedAccount.repositories)
+          .urlMetricsInstrumentation(urlMetricsInstrumentation)
           .skip(managedAccount.skip)
           .build()
 
