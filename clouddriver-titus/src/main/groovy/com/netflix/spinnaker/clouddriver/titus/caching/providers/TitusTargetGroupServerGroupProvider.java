@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.titus.caching.providers;
 
+import com.netflix.spectator.api.Id;
+import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonTargetGroup;
@@ -38,14 +40,22 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*;
 public class TitusTargetGroupServerGroupProvider implements TargetGroupServerGroupProvider {
 
   private final Cache cacheView;
-
-  @Autowired
-  public TitusTargetGroupServerGroupProvider(Cache cacheView) {
-    this.cacheView = cacheView;
-  }
-
-  @Autowired
   AwsLookupUtil awsLookupUtil;
+  private final Registry registry;
+
+  private final Id inconsistentCacheId;
+
+  @Autowired
+  public TitusTargetGroupServerGroupProvider(Cache cacheView,
+                                             AwsLookupUtil awsLookupUtil,
+                                             Registry registry) {
+    this.cacheView = cacheView;
+    this.awsLookupUtil = awsLookupUtil;
+    this.registry = registry;
+
+    inconsistentCacheId = registry.createId("cache.inconsistentData")
+      .withTag("location", TitusTargetGroupServerGroupProvider.class.getSimpleName());
+  }
 
   @Override
   public Map<String, AmazonTargetGroup> getServerGroups(String applicationName,
@@ -85,22 +95,18 @@ public class TitusTargetGroupServerGroupProvider implements TargetGroupServerGro
           if (serverGroup.getRelationships().containsKey(INSTANCES.ns)) {
             for (String instanceKey : serverGroup.getRelationships().get(INSTANCES.ns)) {
               Map instanceDetails = instances.get(instanceKey);
-              String healthKey = com.netflix.spinnaker.clouddriver.aws.data.Keys.getInstanceHealthKey(
-                ((Map) instanceDetails.get("task")).get("containerIp").toString(),
-                targetGroupDetails.get("account"),
-                targetGroupDetails.get("region"),
-                "aws-load-balancer-v2-target-group-instance-health"
-              );
 
-              CacheData healthData = cacheView.get(HEALTH.ns, healthKey);
-              Map<String, Object> health = getTargetGroupHealth(instanceKey, targetGroupDetails, healthData);
-
-              LoadBalancerInstance instance = new LoadBalancerInstance(
-                ((Map) instanceDetails.get("task")).get("id").toString(),
-                null,
-                health
-              );
-              targetGroupInstances.add(instance);
+              Optional<LoadBalancerInstance> instance = getInstanceHealth(instanceKey, instanceDetails, targetGroupDetails);
+              if (instance.isPresent()) {
+                targetGroupInstances.add(instance.get());
+              } else {
+                registry.counter(inconsistentCacheId).increment();
+                log.error(
+                  "Detected potentially inconsistent instance cache data (targetGroup: {}, serverGroup: {})",
+                  targetGroup,
+                  serverGroup.getId()
+                );
+              }
             }
           }
 
@@ -129,7 +135,33 @@ public class TitusTargetGroupServerGroupProvider implements TargetGroupServerGro
     return source.getRelationships().get(relationship) != null ? cacheView.getAll(relationship, source.getRelationships().get(relationship)) : Collections.emptyList();
   }
 
-  private Map<String, Object> getTargetGroupHealth(String instanceKey,
+  private Optional<LoadBalancerInstance> getInstanceHealth(String instanceKey,
+                                                          Map instanceDetails,
+                                                          Map<String, String> targetGroupDetails) {
+    String healthKey;
+    try {
+      healthKey = com.netflix.spinnaker.clouddriver.aws.data.Keys.getInstanceHealthKey(
+        ((Map) instanceDetails.get("task")).get("containerIp").toString(),
+        targetGroupDetails.get("account"),
+        targetGroupDetails.get("region"),
+        "aws-load-balancer-v2-target-group-instance-health"
+      );
+    } catch (NullPointerException e) {
+      return Optional.empty();
+    }
+
+    CacheData healthData = cacheView.get(HEALTH.ns, healthKey);
+
+    Map<String, Object> health = getTargetGroupHealth(instanceKey, targetGroupDetails, healthData);
+
+    return Optional.of(new LoadBalancerInstance(
+      ((Map) instanceDetails.get("task")).get("id").toString(),
+      null,
+      health
+    ));
+  }
+
+  private static Map<String, Object> getTargetGroupHealth(String instanceKey,
                                                    Map<String, String> targetGroupDetails,
                                                    CacheData healthData) {
     try {
