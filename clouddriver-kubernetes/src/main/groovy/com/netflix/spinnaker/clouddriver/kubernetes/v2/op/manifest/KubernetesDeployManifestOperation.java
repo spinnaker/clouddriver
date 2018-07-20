@@ -165,6 +165,8 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       getTask().updateStatus(OP_NAME, "Annotating manifest " + manifest.getFullResourceName() + " with artifact, relationships & moniker...");
       KubernetesManifestAnnotater.annotateManifest(manifest, artifact);
 
+      KubernetesManifestAnnotater.useSourceCapacity(deployer, manifest, credentials);
+
       namer.applyMoniker(manifest, moniker);
       manifest.setName(converter.getDeployedName(artifact));
 

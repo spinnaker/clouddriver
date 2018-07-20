@@ -23,12 +23,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanScale;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.lang.Double;
 
 @Slf4j
 public class KubernetesManifestAnnotater {
@@ -52,6 +57,7 @@ public class KubernetesManifestAnnotater {
   private static final String IGNORE_CACHING = CACHING_ANNOTATION_PREFIX + "/ignore";
   private static final String VERSIONED = STRATEGY_ANNOTATION_PREFIX + "/versioned";
   private static final String MAX_VERSION_HISTORY = STRATEGY_ANNOTATION_PREFIX + "/max-version-history";
+  private static final String USE_SOURCE_CAPACITY = STRATEGY_ANNOTATION_PREFIX + "/useSourceCapacity";
 
   private static final String KUBERNETES_ANNOTATION = "kubernetes.io";
   private static final String KUBECTL_ANNOTATION_PREFIX = "kubectl." + KUBERNETES_ANNOTATION;
@@ -226,6 +232,21 @@ public class KubernetesManifestAnnotater {
     return KubernetesCachingProperties.builder()
         .ignore(getAnnotation(annotations, IGNORE_CACHING, new TypeReference<Boolean>() {}, false))
         .build();
+  }
+
+  public static void useSourceCapacity(KubernetesHandler deployer, KubernetesManifest manifest, KubernetesV2Credentials credentials) {
+    Map<String, String> annotations = manifest.getAnnotations();
+    if (deployer instanceof CanScale &&
+        annotations.containsKey(USE_SOURCE_CAPACITY) &&
+        annotations.get(USE_SOURCE_CAPACITY).equals("true")) {
+      KubernetesManifest deployment = credentials.get(manifest.getKind(), manifest.getNamespace(), manifest.getName());
+      if (deployment != null) {
+        Double replicas = deployment.getReplicas();
+        if ( replicas != null) {
+          manifest.setReplicas(replicas);
+        }
+      }
+    }
   }
 
   public static KubernetesManifestStrategy getStrategy(KubernetesManifest manifest) {
