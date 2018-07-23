@@ -211,6 +211,10 @@ class DockerBearerTokenService {
     return token
   }
 
+  public void clearToken(String repository) {
+    cachedTokens.remove(repository)
+  }
+
   private interface TokenService {
     @GET("/{path}")
     @Headers([
