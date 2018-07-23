@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Netflix, Inc.
+ * Copyright 2018 Bol.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.docker.registry.metrics
 
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryClient
 import com.squareup.okhttp.Response
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -43,8 +44,8 @@ class UrlMetricsInstrumentation {
   @Autowired
   UrlMetricsInstrumentation(Registry registry) {
     this.registry = registry
-    timingId = registry.createId('UrlRequestTime').withTag('className', UrlMetricsInstrumentation.simpleName)
-    counterId = registry.createId('UrlCount').withTag('className', UrlMetricsInstrumentation.simpleName)
+    timingId = registry.createId('httpClient.url.requestTime').withTag('className', DockerRegistryClient.simpleName)
+    counterId = registry.createId('httpClient.url.count').withTag('className', DockerRegistryClient.simpleName)
   }
 
   Id getTimingId() {

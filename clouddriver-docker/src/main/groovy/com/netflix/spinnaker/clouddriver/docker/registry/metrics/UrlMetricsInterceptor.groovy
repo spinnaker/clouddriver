@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Netflix, Inc.
+ * Copyright 2018 Bol.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import java.time.Instant
 
 class UrlMetricsInterceptor implements Interceptor {
 
-  private UrlMetricsInstrumentation urlMetricsInstrumentation;
+  private UrlMetricsInstrumentation urlMetricsInstrumentation
 
   UrlMetricsInterceptor(UrlMetricsInstrumentation urlMetricsInstrumentation) {
     this.urlMetricsInstrumentation = urlMetricsInstrumentation
