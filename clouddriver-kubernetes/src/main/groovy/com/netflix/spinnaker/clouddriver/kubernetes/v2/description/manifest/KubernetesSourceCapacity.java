@@ -23,29 +23,23 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.lang.Double;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanScale;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
+
+import java.lang.Double;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class KubernetesManifestStrategy {
-  Boolean versioned;
-  Integer maxVersionHistory;
+public class KubernetesSourceCapacity {
 
-  public static void useSourceCapacity(KubernetesHandler deployer, KubernetesManifest manifest, KubernetesV2Credentials credentials) {
-    Map<String, String> annotations = manifest.getAnnotations();
-    if (deployer instanceof CanScale &&
-        annotations.containsKey(KubernetesManifestAnnotater.USE_SOURCE_CAPACITY) &&
-        annotations.get(KubernetesManifestAnnotater.USE_SOURCE_CAPACITY).equals("true")) {
-      Double replicas = KubernetesSourceCapacity.getSourceCapacity(manifest, credentials);
-      if (replicas != null) {
-        manifest.setReplicas(replicas);
+  public static Double getSourceCapacity(KubernetesManifest manifest, KubernetesV2Credentials credentials) {
+      KubernetesManifest manifest = credentials.get(manifest.getKind(), manifest.getNamespace(), manifest.getName());
+      if (manifest != null) {
+        return manifest.getReplicas();
       }
+      return null;
     }
   }
 }
