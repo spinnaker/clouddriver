@@ -29,7 +29,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesUseSourceCapacity;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesSourceCapacity;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanScale;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;

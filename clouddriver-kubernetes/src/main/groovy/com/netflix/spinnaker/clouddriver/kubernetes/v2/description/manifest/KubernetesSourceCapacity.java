@@ -25,15 +25,12 @@ import java.lang.Double;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class KubernetesSourceCapacity {
 
   public static Double getSourceCapacity(KubernetesManifest manifest, KubernetesV2Credentials credentials) {
-    KubernetesManifest manifest = credentials.get(manifest.getKind(), manifest.getNamespace(), manifest.getName());
-    if (manifest != null) {
-      return manifest.getReplicas();
+    KubernetesManifest currentManifest = credentials.get(manifest.getKind(), manifest.getNamespace(), manifest.getName());
+    if (currentManifest != null) {
+      return currentManifest.getReplicas();
     }
     return null;
   }
