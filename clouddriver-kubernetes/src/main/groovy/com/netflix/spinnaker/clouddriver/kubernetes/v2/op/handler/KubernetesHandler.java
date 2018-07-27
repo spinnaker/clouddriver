@@ -32,6 +32,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
+import com.netflix.spinnaker.clouddriver.model.Manifest.Warning;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +57,10 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
   abstract public SpinnakerKind spinnakerKind();
   abstract public Status status(KubernetesManifest manifest);
 
+  public List<Warning> listWarnings(KubernetesManifest manifest) {
+    return new ArrayList<>();
+  }
+
   public List<String> sensitiveKeys() {
     return new ArrayList<>();
   }
@@ -64,12 +69,12 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
     artifactReplacer.addReplacer(replacer);
   }
 
-  public ReplaceResult replaceArtifacts(KubernetesManifest manifest, List<Artifact> artifacts) {
-    return artifactReplacer.replaceAll(manifest, artifacts, manifest.getNamespace());
+  public ReplaceResult replaceArtifacts(KubernetesManifest manifest, List<Artifact> artifacts, String account) {
+    return artifactReplacer.replaceAll(manifest, artifacts, manifest.getNamespace(), account);
   }
 
-  public ReplaceResult replaceArtifacts(KubernetesManifest manifest, List<Artifact> artifacts, String namespace) {
-    return artifactReplacer.replaceAll(manifest, artifacts, namespace);
+  public ReplaceResult replaceArtifacts(KubernetesManifest manifest, List<Artifact> artifacts, String namespace, String account) {
+    return artifactReplacer.replaceAll(manifest, artifacts, namespace, account);
   }
 
   protected Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
@@ -146,6 +151,8 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
     WORKLOAD_ATTACHMENT_PRIORITY(110),
     WORKLOAD_CONTROLLER_PRIORITY(100),
     WORKLOAD_PRIORITY(100),
+    PDB_PRIORITY(90),
+    API_SERVICE_PRIORITY(80),
     NETWORK_RESOURCE_PRIORITY(70),
     MOUNTABLE_DATA_PRIORITY(50),
     MOUNTABLE_DATA_BACKING_RESOURCE_PRIORITY(40),

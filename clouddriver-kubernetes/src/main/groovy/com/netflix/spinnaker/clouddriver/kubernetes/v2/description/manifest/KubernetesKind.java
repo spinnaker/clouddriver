@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class KubernetesKind {
+  public static KubernetesKind API_SERVICE = new KubernetesKind("apiService", false);
   public static KubernetesKind CLUSTER_ROLE = new KubernetesKind("clusterRole", false);
   public static KubernetesKind CLUSTER_ROLE_BINDING = new KubernetesKind("clusterRoleBinding", false);
   public static KubernetesKind CONFIG_MAP = new KubernetesKind("configMap", "cm");
@@ -44,6 +45,7 @@ public class KubernetesKind {
   public static KubernetesKind INGRESS = new KubernetesKind("ingress", "ing");
   public static KubernetesKind JOB = new KubernetesKind("job");
   public static KubernetesKind POD = new KubernetesKind("pod", "po", true, true);
+  public static KubernetesKind POD_DISRUPTION_BUDGET = new KubernetesKind("podDisruptionBudget");
   public static KubernetesKind REPLICA_SET = new KubernetesKind("replicaSet", "rs", true, true);
   public static KubernetesKind ROLE = new KubernetesKind("role", false);
   public static KubernetesKind ROLE_BINDING = new KubernetesKind("roleBinding", false);

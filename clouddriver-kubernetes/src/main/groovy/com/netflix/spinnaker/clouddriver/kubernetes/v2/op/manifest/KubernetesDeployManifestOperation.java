@@ -29,6 +29,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesSourceCapacity;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanScale;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
@@ -120,7 +122,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       }
 
       getTask().updateStatus(OP_NAME, "Swapping out artifacts in " + manifest.getFullResourceName() + " from context...");
-      ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, artifacts);
+      ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, artifacts, description.getAccount());
       deployManifests.add(replaceResult.getManifest());
       boundArtifacts.addAll(replaceResult.getBoundArtifacts());
     }
@@ -142,6 +144,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       KubernetesResourceProperties properties = findResourceProperties(manifest);
       KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
       boolean versioned = isVersioned(properties, strategy);
+      boolean useSourceCapacity = isUseSourceCapacity(strategy);
 
       KubernetesArtifactConverter converter = versioned ? properties.getVersionedConverter() : properties.getUnversionedConverter();
       KubernetesHandler deployer = properties.getHandler();
@@ -151,7 +154,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
         moniker.setCluster(manifest.getFullResourceName());
       }
 
-      Artifact artifact = converter.toArtifact(provider, manifest);
+      Artifact artifact = converter.toArtifact(provider, manifest, description.getAccount());
 
       String version = artifact.getVersion();
       if (StringUtils.isNotEmpty(version) && version.startsWith("v")) {
@@ -165,11 +168,18 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       getTask().updateStatus(OP_NAME, "Annotating manifest " + manifest.getFullResourceName() + " with artifact, relationships & moniker...");
       KubernetesManifestAnnotater.annotateManifest(manifest, artifact);
 
+      if (useSourceCapacity && deployer instanceof CanScale) { 
+        Double replicas = KubernetesSourceCapacity.getSourceCapacity(manifest, credentials);
+        if (replicas != null) {
+          manifest.setReplicas(replicas);
+        } 
+      }
+ 
       namer.applyMoniker(manifest, moniker);
       manifest.setName(converter.getDeployedName(artifact));
 
       getTask().updateStatus(OP_NAME, "Swapping out artifacts in " + manifest.getFullResourceName() + " from other deployments...");
-      ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, new ArrayList<>(result.getCreatedArtifacts()));
+      ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, new ArrayList<>(result.getCreatedArtifacts()), description.getAccount());
       boundArtifacts.addAll(replaceResult.getBoundArtifacts());
       manifest = replaceResult.getManifest();
 
@@ -194,6 +204,14 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     }
 
     return properties.isVersioned();
+  }
+
+  private boolean isUseSourceCapacity(KubernetesManifestStrategy strategy) {
+    if (strategy.getUseSourceCapacity() != null) {
+      return strategy.getUseSourceCapacity();
+    }
+
+    return false;
   }
 
   // todo(lwander): move to kork
