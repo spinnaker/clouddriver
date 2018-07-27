@@ -39,28 +39,40 @@ class UrlMetricsInstrumentation {
   private final Registry registry
 
   private final Id timingId
-  private final Id counterId
 
   @Autowired
   UrlMetricsInstrumentation(Registry registry) {
     this.registry = registry
     timingId = registry.createId('httpClient.url.requestTime').withTag('className', DockerRegistryClient.simpleName)
-    counterId = registry.createId('httpClient.url.count').withTag('className', DockerRegistryClient.simpleName)
   }
 
   Id getTimingId() {
     return timingId
   }
 
-  Id getCounterId() {
-    return counterId
-  }
-
   void interceptorCompleted(Response response, Instant start, Instant end) {
     Duration duration = Duration.between(start, end)
     URL url = response.request().url()
-    registry.timer(timingId.withTag('host', url.getHost()).withTag('path', url.getPath())).record(duration.toMillis(), TimeUnit.MILLISECONDS)
-    registry.counter(counterId.withTag('host', url.getHost()).withTag('path', url.getPath()).withTag('successful', response.isSuccessful())).increment()
+    String path = url.getPath()
+    String statusCode = Integer.toString(response.code()).substring(0,1) + "xx"
+    Map<String, String> tags = new HashMap<>()
+
+    tags.put('registry', url.getHost())
+    tags.put('statusCode', statusCode)
+    tags.put('success', Boolean.toString(response.isSuccessful()))
+
+    if (path.toLowerCase().contains("/tags/list")) {
+      String[] pathSegments= path.split("/")
+      String repository = pathSegments[2]
+      String image = pathSegments[3]
+      tags.put("repository", repository)
+      tags.put("image", image)
+      tags.put("operation", "tags/list")
+    } else {
+      tags.put("operation", "other")
+    }
+
+    registry.timer(timingId.withTags(tags)).record(duration.toMillis(), TimeUnit.MILLISECONDS)
     log.info format("Received %d response for %s in %dms", response.code(), url, duration.toMillis())
   }
 }
