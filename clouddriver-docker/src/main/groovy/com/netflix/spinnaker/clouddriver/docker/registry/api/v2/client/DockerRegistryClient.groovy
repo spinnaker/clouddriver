@@ -103,7 +103,7 @@ class DockerRegistryClient {
       this.catalogFile = catalogFile
       return this
     }
-    
+
     Builder insecureRegistry(boolean insecureRegistry) {
       this.insecureRegistry = insecureRegistry
       return this
@@ -403,7 +403,7 @@ class DockerRegistryClient {
         }
       } catch (RetrofitError error) {
         def status = error.response?.status
-        // note, this is a workaround for registries that should be returning 
+        // note, this is a workaround for registries that should be returning
         // 401 when a token expires
         if ([400, 401].contains(status)) {
           String authenticateHeader = null
@@ -415,6 +415,8 @@ class DockerRegistryClient {
           }
 
           if (!authenticateHeader) {
+            log.warn "Registry $address returned status $status for request '$target' without a WWW-Authenticate header"
+            tokenService.clearToken(target)
             throw error
           }
 
@@ -427,8 +429,10 @@ class DockerRegistryClient {
             response = withToken(token)
           } else if (basicPrefix.equalsIgnoreCase(authenticateHeader.substring(0, basicPrefix.length()))) {
             // If we got a 401 and the request requires basic auth, there's no point in trying again
+            tokenService.clearToken(target)
             throw error
           } else {
+            tokenService.clearToken(target)
             throw new DockerRegistryAuthenticationException("Docker registry must support 'Bearer' or 'Basic' authentication.")
           }
         } else {
