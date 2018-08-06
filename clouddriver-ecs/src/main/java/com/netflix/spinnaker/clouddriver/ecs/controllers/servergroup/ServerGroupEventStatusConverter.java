@@ -5,7 +5,7 @@ import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroupEventStatus;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ServerGroupEventStatusJudge {
+public class ServerGroupEventStatusConverter {
 
   private static final String ERROR_TYPE_1 = "unable to place a task";
   private static final String ERROR_TYPE_2 = "is unhealthy";

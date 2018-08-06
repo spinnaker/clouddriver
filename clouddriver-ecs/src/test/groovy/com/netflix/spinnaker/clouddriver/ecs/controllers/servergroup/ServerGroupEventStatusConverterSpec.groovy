@@ -4,9 +4,9 @@ import com.amazonaws.services.ecs.model.ServiceEvent;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroupEventStatus;
 import spock.lang.Specification;
 
-class ServerGroupEventStatusJudgeSpec extends Specification {
+class ServerGroupEventStatusConverterSpec extends Specification {
 
-  def judge = new ServerGroupEventStatusJudge()
+  def judge = new ServerGroupEventStatusConverter()
 
   def 'should infer successful status on successful messages'() {
     given:
