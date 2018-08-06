@@ -29,10 +29,10 @@ public class EcsServerGroupController {
 
   private final ServiceCacheClient serviceCacheClient;
 
-  private final ServerGroupEventStatusJudge judge;
+  private final ServerGroupEventStatusConverter judge;
 
   @Autowired
-  public EcsServerGroupController(AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider, ServiceCacheClient serviceCacheClient, ServerGroupEventStatusJudge judge) {
+  public EcsServerGroupController(AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider, ServiceCacheClient serviceCacheClient, ServerGroupEventStatusConverter judge) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.serviceCacheClient = serviceCacheClient;
