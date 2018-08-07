@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RestController
-@RequestMapping("/applications/{application}/{account}/{serverGroupName}")
+@RequestMapping("/applications/{application}/serverGroups/{account}/{serverGroupName}")
 public class EcsServerGroupController {
 
   private final AccountCredentialsProvider accountCredentialsProvider;
@@ -29,18 +29,23 @@ public class EcsServerGroupController {
 
   private final ServiceCacheClient serviceCacheClient;
 
-  private final ServerGroupEventStatusConverter judge;
+  private final ServerGroupEventStatusConverter statusConverter;
 
   @Autowired
-  public EcsServerGroupController(AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider, ServiceCacheClient serviceCacheClient, ServerGroupEventStatusConverter judge) {
+  public EcsServerGroupController(AccountCredentialsProvider accountCredentialsProvider,
+                                  AmazonClientProvider amazonClientProvider,
+                                  ServiceCacheClient serviceCacheClient,
+                                  ServerGroupEventStatusConverter statusConverter) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.serviceCacheClient = serviceCacheClient;
-    this.judge = judge;
+    this.statusConverter = statusConverter;
   }
 
   @RequestMapping(value = "/events", method = RequestMethod.GET)
-  ResponseEntity getServerGroupEvents(@PathVariable String account, @PathVariable String serverGroupName, @RequestParam(value = "region", required = true) String region) {
+  ResponseEntity getServerGroupEvents(@PathVariable String account,
+                                      @PathVariable String serverGroupName,
+                                      @RequestParam(value = "region", required = true) String region) {
     NetflixAmazonCredentials credentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(account);
 
     if (!(credentials instanceof NetflixECSCredentials)) {
@@ -60,6 +65,12 @@ public class EcsServerGroupController {
         .withCluster(cachedService.getClusterArn())
     );
 
+    if (describeServicesResult.getServices().size() == 0) {
+      return new ResponseEntity(
+        String.format("Server group %s was not found in account ", serverGroupName, account),
+        HttpStatus.NOT_FOUND);
+    }
+
     List<ServiceEvent> rawEvents = describeServicesResult.getServices().get(0).getEvents();
 
     List<EcsServerGroupEvent> events = new ArrayList<>();
@@ -69,11 +80,10 @@ public class EcsServerGroupController {
         rawEvent.getMessage(),
         rawEvent.getCreatedAt(),
         rawEvent.getId(),
-        judge.inferEventStatus(rawEvent)
+        statusConverter.inferEventStatus(rawEvent)
         );
       events.add(newEvent);
     }
-
 
     return new ResponseEntity(events, HttpStatus.OK);
   }
