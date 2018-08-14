@@ -344,8 +344,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     List<String> namespaces = getDeclaredNamespaces();
 
     if (namespaces.isEmpty()) {
-      throw new IllegalArgumentException("There are no namespaces configured -- please check that the list of 'omitNamespaces' for account '"
-          + accountName +"' doesn't prevent access from all namespaces in this cluster.");
+      log.warn("There are no namespaces configured (or loadable) -- please check that the list of 'omitNamespaces' for account '"
+          + accountName +"' doesn't prevent access from all namespaces in this cluster, or that the cluster is reachable.");
+      return;
     }
 
     // we are making the assumption that the roles granted to spinnaker for this account in all namespaces are identical.
@@ -355,7 +356,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     log.info("Checking permissions on configured kinds... {}", allKinds);
     for (KubernetesKind kind : allKinds) {
-      if (kind == KubernetesKind.NONE) {
+      if (kind == KubernetesKind.NONE || omitKinds.contains(kind)) {
         continue;
       }
 

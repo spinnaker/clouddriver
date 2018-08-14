@@ -54,6 +54,11 @@ public class DeleteEntityTagsAtomicOperation implements AtomicOperation<Void> {
       currentTags = front50Service.getEntityTags(entityTagsDescription.getId());
     } catch (RetrofitError e) {
       getTask().updateStatus(BASE_PHASE, format("Did not find %s in Front50", entityTagsDescription.getId()));
+
+      getTask().updateStatus(BASE_PHASE, format("Deleting %s from ElasticSearch", entityTagsDescription.getId()));
+      entityTagsProvider.delete(entityTagsDescription.getId());
+      getTask().updateStatus(BASE_PHASE, format("Deleted %s from ElasticSearch", entityTagsDescription.getId()));
+
       return null;
     }
 
@@ -72,6 +77,10 @@ public class DeleteEntityTagsAtomicOperation implements AtomicOperation<Void> {
       return null;
     }
 
+    getTask().updateStatus(
+      BASE_PHASE,
+      format("Removing tags from %s (tags: %s)", entityTagsDescription.getId(), entityTagsDescription.getTags())
+    );
     entityTagsDescription.getTags().forEach(currentTags::removeEntityTag);
 
     EntityTags durableEntityTags = front50Service.saveEntityTags(currentTags);
