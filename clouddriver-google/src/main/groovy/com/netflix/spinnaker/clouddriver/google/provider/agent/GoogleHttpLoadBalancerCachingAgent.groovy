@@ -256,6 +256,8 @@ class GoogleHttpLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerCachi
         def urlMapCallback = new UrlMapCallback(
             googleLoadBalancer: googleLoadBalancer,
             groupHealthRequest: groupHealthRequest,
+            subject: googleLoadBalancer.name,
+            failedSubjects: failedSubjects,
             projectBackendServices: projectBackendServices,
             projectHttpHealthChecks: projectHttpHealthChecks,
             projectHttpsHealthChecks: projectHttpsHealthChecks,

@@ -21,10 +21,10 @@ import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.description.servergroup.KubernetesImageDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.exception.KubernetesIllegalArgumentException
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
-import io.fabric8.kubernetes.api.model.Job
+import io.fabric8.kubernetes.api.model.batch.Job
 import io.fabric8.kubernetes.api.model.Pod
 import io.fabric8.kubernetes.api.model.ReplicationController
-import io.fabric8.kubernetes.api.model.extensions.ReplicaSet
+import io.fabric8.kubernetes.api.model.apps.ReplicaSet
 import org.springframework.beans.factory.annotation.Value
 
 class KubernetesUtil {
@@ -63,43 +63,61 @@ class KubernetesUtil {
     rc.spec?.template?.spec?.imagePullSecrets?.collect({ it.name })
   }
 
-  static KubernetesImageDescription buildImageDescription(String image) {
-    def sIndex = image.indexOf('/')
-    def result = new KubernetesImageDescription()
-
+  private static String extractRegistry(String image, KubernetesImageDescription description) {
+    def index = image.indexOf('/')
     // No slash means we only provided a repository name & optional tag.
-    if (sIndex < 0) {
-      result.repository = image
-    } else {
-      def sPrefix = image.substring(0, sIndex)
+    if (index >= 0) {
+      def sPrefix = image.substring(0, index)
 
       // Check if the content before the slash is a registry (either localhost, or a URL)
       if (sPrefix.startsWith('localhost') || sPrefix.contains('.')) {
-        result.registry = sPrefix
-
-        image = image.substring(sIndex + 1)
+        description.registry = sPrefix
+        image = image.substring(index + 1)
       }
     }
+    image
+  }
 
-    def cIndex = image.indexOf(':')
-
-    if (cIndex < 0) {
-      result.repository = image
+  private static String extractDigestOrTag(String image, KubernetesImageDescription description) {
+    def digestIndex = image.indexOf('@')
+    if (digestIndex >= 0) {
+      description.digest = image.substring(digestIndex + 1)
+      image = image.substring(0, digestIndex)
     } else {
-      result.tag = image.substring(cIndex + 1)
-      result.repository = image.subSequence(0, cIndex)
+      def tagIndex = image.indexOf(':')
+      if (tagIndex >= 0) {
+        description.tag = image.substring(tagIndex + 1)
+        image = image.substring(0, tagIndex)
+      }
     }
+    image
+  }
 
+  private static void populateFieldsFromUri(KubernetesImageDescription image) {
+    def uri = image.uri
+    if (uri) {
+      uri = extractRegistry(uri, image)
+      uri = extractDigestOrTag(uri, image)
+      // The repository is what's left after extracting the registry, and digest/tag
+      image.repository = uri
+    }
+  }
+
+  static KubernetesImageDescription buildImageDescription(String image) {
+    def result = new KubernetesImageDescription()
+    result.uri = image
     normalizeImageDescription(result)
     result
   }
 
   static Void normalizeImageDescription(KubernetesImageDescription image) {
+    populateFieldsFromUri(image)
+
     if (!image.registry) {
       image.registry = DEFAULT_REGISTRY
     }
 
-    if (!image.tag) {
+    if (!image.tag && !image.digest) {
       image.tag = "latest"
     }
 
@@ -109,19 +127,21 @@ class KubernetesUtil {
   }
 
   static String getImageId(KubernetesImageDescription image) {
-    return getImageId(image.registry, image.repository, image.tag)
+    return getImageId(image.registry, image.repository, image.tag, image.digest)
   }
 
-  static String getImageId(String registry, String repository, String tag) {
+  static String getImageId(String registry, String repository, String tag, String digest) {
+    def tagSuffix = digest ? "@$digest" : ":$tag"
     if (registry) {
-      return "$registry/$repository:$tag".toString()
+      return "$registry/$repository$tagSuffix".toString()
     } else {
-      return "$repository:$tag".toString()
+      return "$repository$tagSuffix".toString()
     }
   }
 
   static getImageIdWithoutRegistry(KubernetesImageDescription image) {
-    "$image.repository:$image.tag".toString()
+    def tagSuffix = image.digest ? "@$image.digest" : ":$image.tag"
+    "$image.repository$tagSuffix".toString()
   }
 
   static String validateNamespace(KubernetesV1Credentials credentials, String namespace) {

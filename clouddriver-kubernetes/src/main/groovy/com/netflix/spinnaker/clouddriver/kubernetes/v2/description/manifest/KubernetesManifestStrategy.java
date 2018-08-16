@@ -29,4 +29,5 @@ import lombok.NoArgsConstructor;
 public class KubernetesManifestStrategy {
   Boolean versioned;
   Integer maxVersionHistory;
+  Boolean useSourceCapacity;
 }

@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class KubernetesKind {
+  public static KubernetesKind API_SERVICE = new KubernetesKind("apiService", false);
   public static KubernetesKind CLUSTER_ROLE = new KubernetesKind("clusterRole", false);
   public static KubernetesKind CLUSTER_ROLE_BINDING = new KubernetesKind("clusterRoleBinding", false);
   public static KubernetesKind CONFIG_MAP = new KubernetesKind("configMap", "cm");
@@ -44,6 +45,7 @@ public class KubernetesKind {
   public static KubernetesKind INGRESS = new KubernetesKind("ingress", "ing");
   public static KubernetesKind JOB = new KubernetesKind("job");
   public static KubernetesKind POD = new KubernetesKind("pod", "po", true, true);
+  public static KubernetesKind POD_DISRUPTION_BUDGET = new KubernetesKind("podDisruptionBudget");
   public static KubernetesKind REPLICA_SET = new KubernetesKind("replicaSet", "rs", true, true);
   public static KubernetesKind ROLE = new KubernetesKind("role", false);
   public static KubernetesKind ROLE_BINDING = new KubernetesKind("roleBinding", false);
@@ -52,16 +54,17 @@ public class KubernetesKind {
   public static KubernetesKind PERSISTENT_VOLUME = new KubernetesKind("persistentVolume", "pv", false, false);
   public static KubernetesKind PERSISTENT_VOLUME_CLAIM = new KubernetesKind("persistentVolumeClaim", "pvc");
   public static KubernetesKind SECRET = new KubernetesKind("secret");
-  public static KubernetesKind SERVICE = new KubernetesKind("service", "svc");
+  public static KubernetesKind SERVICE = new KubernetesKind("service", "svc", true, true);
   public static KubernetesKind SERVICE_ACCOUNT = new KubernetesKind("serviceAccount", "sa");
   public static KubernetesKind STATEFUL_SET = new KubernetesKind("statefulSet", null, true, true);
+  public static KubernetesKind STORAGE_CLASS = new KubernetesKind("storageClass", "sc", false, false);
 
   // special kind that should never be assigned to a manifest, used only to represent objects whose kind is not in spinnaker's registry
   public static KubernetesKind NONE = new KubernetesKind("none", null, true, false);
 
   private final String name;
   private final String alias;
-  private final boolean isNamespaced;
+  private boolean isNamespaced;
   // generally reserved for workloads, can be read as "does this belong to a spinnaker cluster?"
   private final boolean hasClusterRelationship;
   // was this kind found after spinnaker started?
@@ -141,10 +144,11 @@ public class KubernetesKind {
 
       // separate from the above chain to avoid concurrent modification of the values list
       return kindOptional.orElseGet(() -> {
-        log.info("Dynamically registering {}", name);
+        log.info("Dynamically registering {}, (namespaced: {}, registered: {})", name, namespaced, registered);
         KubernetesKind result = new KubernetesKind(name);
         result.isDynamic = true;
         result.isRegistered = registered;
+        result.isNamespaced = namespaced;
         return result;
       });
     }
