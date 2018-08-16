@@ -57,12 +57,12 @@ class TaskController {
   @PreDestroy
   public void destroy() {
     long start = System.currentTimeMillis()
-    def tasks = list()
+    def tasks = taskRepository.listByThisInstance()
     while (tasks && !tasks.isEmpty() &&
         (System.currentTimeMillis() - start) / TimeUnit.SECONDS.toMillis(1) < shutdownWaitSeconds) {
       log.info("There are {} task(s) still running... sleeping before shutting down", tasks.size())
       sleep(1000)
-      tasks = list()
+      tasks = taskRepository.listByThisInstance()
     }
 
     if (tasks && !tasks.isEmpty()) {
