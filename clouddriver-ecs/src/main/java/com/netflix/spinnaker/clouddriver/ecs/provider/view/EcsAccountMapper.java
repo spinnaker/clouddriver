@@ -40,13 +40,11 @@ public class EcsAccountMapper {
     for (NetflixAssumeRoleEcsCredentials ecsAccount : ecsAccounts) {
       ecsCredentialsMap.put(ecsAccount.getAwsAccount(), ecsAccount);
 
-      Optional<NetflixAmazonCredentials> awsCredentials = (Optional<NetflixAmazonCredentials>) allAccounts
+      allAccounts
         .stream()
         .filter(credentials -> credentials.getName().equals(ecsAccount.getAwsAccount()))
-        .findFirst();
-      if (awsCredentials.isPresent()) {
-        awsCredentialsMap.put(ecsAccount.getName(), awsCredentials.get());
-      }
+        .findFirst()
+        .ifPresent(v -> awsCredentialsMap.put(ecsAccount.getName(), (NetflixAmazonCredentials) v));
     }
   }
 

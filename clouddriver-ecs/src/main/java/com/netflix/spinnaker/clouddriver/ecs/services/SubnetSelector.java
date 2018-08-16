@@ -53,12 +53,11 @@ public class SubnetSelector {
 
     Set<EcsSubnet> ecsSubnets = converter.convertToEcsSubnet(amazonSubnets);
 
-      Set<EcsSubnet> filteredSubnets = ecsSubnets
-      .stream()
-      .filter(subnet -> subnetType.equals(subnet.getPurpose()))
-      .collect(Collectors.toSet());
-
-    Set<String> filteredSubnetIds = filteredSubnets.stream().map(AmazonSubnet::getId).collect(Collectors.toSet());
+      Set<String> filteredSubnetIds = ecsSubnets
+        .stream()
+        .filter(subnet -> subnetType.equals(subnet.getPurpose()))
+        .map(AmazonSubnet::getId)
+        .collect(Collectors.toSet());
 
     return filteredSubnetIds;
   }

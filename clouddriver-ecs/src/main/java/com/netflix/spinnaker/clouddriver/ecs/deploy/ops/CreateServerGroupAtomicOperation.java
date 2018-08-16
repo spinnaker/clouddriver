@@ -80,6 +80,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
   @Autowired
   SubnetSelector subnetSelector;
 
+
   public CreateServerGroupAtomicOperation(CreateServerGroupDescription description) {
     super(description, "CREATE_ECS_SERVER_GROUP");
   }
@@ -142,9 +143,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withPortMappings(portMappings)
       .withCpu(description.getComputeUnits())
       .withMemoryReservation(description.getReservedMemory())
-      .withImage(description.getDockerImageAddress())
-      ;
-
+      .withImage(description.getDockerImageAddress());
 
     Collection<ContainerDefinition> containerDefinitions = new LinkedList<>();
     containerDefinitions.add(containerDefinition);
