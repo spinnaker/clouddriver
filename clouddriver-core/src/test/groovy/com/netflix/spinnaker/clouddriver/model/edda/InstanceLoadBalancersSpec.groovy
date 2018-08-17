@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.model.edda
+package com.netflix.spinnaker.clouddriver.model.edda
 
 import com.netflix.spinnaker.clouddriver.model.HealthState
+import com.netflix.spinnaker.clouddriver.model.edda.InstanceLoadBalancers
+import com.netflix.spinnaker.clouddriver.model.edda.LoadBalancerInstance
+import com.netflix.spinnaker.clouddriver.model.edda.LoadBalancerInstanceState
 import spock.lang.Specification
 import spock.lang.Unroll
 

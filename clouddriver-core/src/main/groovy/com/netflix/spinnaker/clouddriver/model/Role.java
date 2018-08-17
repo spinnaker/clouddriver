@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * Copyright 2017 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.model.edda
+package com.netflix.spinnaker.clouddriver.model;
 
-import groovy.transform.Canonical
+import java.util.Collection;
 
-@Canonical
-class LoadBalancerInstanceState {
-  String name
-  String loadBalancerType = 'classic'
-  List<LoadBalancerInstance> instances
+public interface Role {
+
+  String getName();
+  String getId();
+  Collection<? extends TrustRelationship> getTrustRelationships();
 }

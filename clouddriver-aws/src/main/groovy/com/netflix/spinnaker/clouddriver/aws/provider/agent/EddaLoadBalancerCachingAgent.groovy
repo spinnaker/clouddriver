@@ -29,8 +29,8 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.edda.EddaApi
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
-import com.netflix.spinnaker.clouddriver.aws.model.edda.InstanceLoadBalancers
-import com.netflix.spinnaker.clouddriver.aws.model.edda.LoadBalancerInstanceState
+import com.netflix.spinnaker.clouddriver.model.edda.InstanceLoadBalancers
+import com.netflix.spinnaker.clouddriver.model.edda.LoadBalancerInstanceState
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH

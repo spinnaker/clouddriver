@@ -46,8 +46,8 @@ import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.data.ArnUtils
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.aws.edda.EddaApi
-import com.netflix.spinnaker.clouddriver.aws.model.InstanceTargetGroupState
-import com.netflix.spinnaker.clouddriver.aws.model.InstanceTargetGroups
+import com.netflix.spinnaker.clouddriver.model.InstanceTargetGroupState
+import com.netflix.spinnaker.clouddriver.model.InstanceTargetGroups
 import com.netflix.spinnaker.clouddriver.aws.model.edda.EddaRule
 import com.netflix.spinnaker.clouddriver.aws.model.edda.TargetGroupAttributes
 import com.netflix.spinnaker.clouddriver.aws.model.edda.TargetGroupHealth
@@ -56,7 +56,6 @@ import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent
-import retrofit.RetrofitError
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
