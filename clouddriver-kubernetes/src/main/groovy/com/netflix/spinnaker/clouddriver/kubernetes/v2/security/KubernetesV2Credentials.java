@@ -77,6 +77,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter
   private final String kubectlExecutable;
 
+  @Getter
+  private final Integer kubectlRequestTimeoutSeconds;
+
   // remove when kubectl is no longer a dependency
   @Getter
   private final String kubeconfigFile;
@@ -101,9 +104,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   public boolean isValidKind(KubernetesKind kind) {
     if (kind == KubernetesKind.NONE) {
       return false;
-    }
-
-    if (!this.kinds.isEmpty()) {
+    } else if (!this.kinds.isEmpty()) {
       return kinds.contains(kind);
     } else if (!this.omitKinds.isEmpty()) {
       return !omitKinds.contains(kind);
@@ -148,6 +149,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     String kubeconfigFile;
     String context;
     String kubectlExecutable;
+    Integer kubectlRequestTimeoutSeconds;
     String oAuthServiceAccount;
     List<String> oAuthScopes;
     String userAgent;
@@ -174,6 +176,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     public Builder kubectlExecutable(String kubectlExecutable) {
       this.kubectlExecutable = kubectlExecutable;
+      return this;
+    }
+
+    public Builder kubectlRequestTimeoutSeconds(Integer kubectlRequestTimeoutSeconds) {
+      this.kubectlRequestTimeoutSeconds = kubectlRequestTimeoutSeconds;
       return this;
     }
 
@@ -263,6 +270,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           registry,
           kubeconfigFile,
           kubectlExecutable,
+          kubectlRequestTimeoutSeconds,
           context,
           oAuthServiceAccount,
           oAuthScopes,
@@ -283,6 +291,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       @NotNull Registry registry,
       String kubeconfigFile,
       String kubectlExecutable,
+      Integer kubectlRequestTimeoutSeconds,
       String context,
       String oAuthServiceAccount,
       List<String> oAuthScopes,
@@ -300,6 +309,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.jobExecutor = jobExecutor;
     this.debug = debug;
     this.kubectlExecutable = kubectlExecutable;
+    this.kubectlRequestTimeoutSeconds = kubectlRequestTimeoutSeconds;
     this.kubeconfigFile = kubeconfigFile;
     this.context = context;
     this.oAuthServiceAccount = oAuthServiceAccount;
@@ -314,6 +324,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         .stream()
         .map(KubernetesManifest::getName)
         .collect(Collectors.toList()), namespaceExpirySeconds, TimeUnit.SECONDS);
+
+    determineOmitKinds();
   }
 
   @Override
@@ -338,6 +350,40 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
 
     return result;
+  }
+
+  private void determineOmitKinds() {
+    List<String> namespaces = getDeclaredNamespaces();
+
+    if (namespaces.isEmpty()) {
+      log.warn("There are no namespaces configured (or loadable) -- please check that the list of 'omitNamespaces' for account '"
+          + accountName +"' doesn't prevent access from all namespaces in this cluster, or that the cluster is reachable.");
+      return;
+    }
+
+    // we are making the assumption that the roles granted to spinnaker for this account in all namespaces are identical.
+    // otherwise, checking all namespaces for all kinds is too expensive in large clusters (imagine a cluster with 100s of namespaces).
+    String checkNamespace = namespaces.get(0);
+    List<KubernetesKind> allKinds = KubernetesKind.getValues();
+
+    log.info("Checking permissions on configured kinds... {}", allKinds);
+    for (KubernetesKind kind : allKinds) {
+      if (kind == KubernetesKind.NONE || omitKinds.contains(kind)) {
+        continue;
+      }
+
+      try {
+        if (kind.isNamespaced()) {
+          list(kind, checkNamespace);
+        } else {
+          list(kind, null);
+        }
+      } catch (Exception e) {
+        log.info("Kind '{}' will not be cached in account '{}' for reason: '{}'", kind, accountName, e.getMessage());
+        log.debug("Reading kind '{}' failed with exception: ", kind, e);
+        omitKinds.add(kind);
+      }
+    }
   }
 
   public KubernetesManifest get(KubernetesKind kind, String namespace, String name) {

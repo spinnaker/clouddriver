@@ -54,7 +54,7 @@ public class KubernetesKind {
   public static KubernetesKind PERSISTENT_VOLUME = new KubernetesKind("persistentVolume", "pv", false, false);
   public static KubernetesKind PERSISTENT_VOLUME_CLAIM = new KubernetesKind("persistentVolumeClaim", "pvc");
   public static KubernetesKind SECRET = new KubernetesKind("secret");
-  public static KubernetesKind SERVICE = new KubernetesKind("service", "svc");
+  public static KubernetesKind SERVICE = new KubernetesKind("service", "svc", true, true);
   public static KubernetesKind SERVICE_ACCOUNT = new KubernetesKind("serviceAccount", "sa");
   public static KubernetesKind STATEFUL_SET = new KubernetesKind("statefulSet", null, true, true);
   public static KubernetesKind STORAGE_CLASS = new KubernetesKind("storageClass", "sc", false, false);
@@ -64,7 +64,7 @@ public class KubernetesKind {
 
   private final String name;
   private final String alias;
-  private final boolean isNamespaced;
+  private boolean isNamespaced;
   // generally reserved for workloads, can be read as "does this belong to a spinnaker cluster?"
   private final boolean hasClusterRelationship;
   // was this kind found after spinnaker started?
@@ -144,10 +144,11 @@ public class KubernetesKind {
 
       // separate from the above chain to avoid concurrent modification of the values list
       return kindOptional.orElseGet(() -> {
-        log.info("Dynamically registering {}", name);
+        log.info("Dynamically registering {}, (namespaced: {}, registered: {})", name, namespaced, registered);
         KubernetesKind result = new KubernetesKind(name);
         result.isDynamic = true;
         result.isRegistered = registered;
+        result.isNamespaced = namespaced;
         return result;
       });
     }
