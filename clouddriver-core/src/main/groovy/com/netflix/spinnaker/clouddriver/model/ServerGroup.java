@@ -26,6 +26,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -100,7 +101,7 @@ public interface ServerGroup {
    * @return set of instances or an empty set if none exist
    */
   @Empty
-  Set<Instance> getInstances();
+  Set<? extends Instance> getInstances();
 
   /**
    * The names of the load balancers associated with this server group
@@ -165,6 +166,10 @@ public interface ServerGroup {
   @JsonIgnore
   @Deprecated
   ImageSummary getImageSummary();
+
+  default List<ServerGroupManager.ServerGroupManagerSummary> getServerGroupManagers() {
+    return new ArrayList<>();
+  }
 
   @Builder
   @NoArgsConstructor
