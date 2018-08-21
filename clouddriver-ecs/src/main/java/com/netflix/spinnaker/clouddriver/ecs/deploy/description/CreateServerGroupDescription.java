@@ -51,6 +51,8 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   String subnetType;
   Integer healthCheckGracePeriodSeconds;
 
+  String launchType;
+
   @Override
   public String getRegion() {
     //CreateServerGroupDescription does not contain a region. Instead it has AvailabilityZones
