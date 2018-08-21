@@ -78,7 +78,8 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
       String address = containerInformationService.getTaskPrivateAddress(account, region, task);
 
       NetworkInterface networkInterface =
-        !task.getContainers().isEmpty()
+        task.getContainers() != null
+          && !task.getContainers().isEmpty()
           && !task.getContainers().get(0).getNetworkInterfaces().isEmpty()
           ? task.getContainers().get(0).getNetworkInterfaces().get(0) : null;
       ecsInstance = new EcsTask(id, launchTime, task.getLastStatus(), task.getDesiredStatus(), containerInstance.getAvailabilityZone(), healthStatus, address, networkInterface);
