@@ -19,7 +19,11 @@ import com.amazonaws.services.autoscaling.AmazonAutoScaling
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
+import com.amazonaws.services.autoscaling.model.DescribeLifecycleHooksResult
+import com.amazonaws.services.autoscaling.model.Instance
+import com.amazonaws.services.autoscaling.model.LifecycleHook
 import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest
+import com.amazonaws.services.ec2.AmazonEC2
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ResizeAsgDescription
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
@@ -28,6 +32,8 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import spock.lang.Specification
 import spock.lang.Unroll
+
+import static java.util.Collections.emptyList
 
 class ResizeAsgAtomicOperationUnitSpec extends Specification {
   def mockAutoScaling = Mock(AmazonAutoScaling)
@@ -40,7 +46,7 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
   }
 
   @Unroll
-  void "should update ASG iff it exists and is not in the process of being deleted"() {
+  void "should update ASG if it exists and is not in the process of being deleted"() {
     setup:
     def description = new ResizeAsgDescription(
       asgs: [[
@@ -132,6 +138,8 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
       new AutoScalingGroup().withAutoScalingGroupName("myasg-stack-v0001")
     )
 
+    mockAutoScaling.describeLifecycleHooks(_) >> new DescribeLifecycleHooksResult().withLifecycleHooks(emptyList())
+
     expectedOps * mockAutoScaling.updateAutoScalingGroup(_) >> {
       request ->
         assert request.size() == 1
@@ -148,6 +156,59 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
     0       | null    | null    | 1
     0       | 0       | 0       | 1 // not the same as (null, null, null)
     null    | null    | null    | 0
+  }
+
+  void "should not forcibly terminate instances if at least a termination hook is present"() {
+    setup:
+
+    def mockAutoScaling = Mock(AmazonAutoScaling)
+    def mockEC2 = Mock(AmazonEC2)
+    def mockAmazonClientProvider = Mock(AmazonClientProvider) {
+      getAutoScaling(_, _, true) >> { return mockAutoScaling }
+      getAmazonEC2(_, _, true) >> { return mockEC2 }
+    }
+
+    def description = new ResizeAsgDescription(
+      asgs: [[
+               serverGroupName: "myasg-stack-v000",
+               region         : "us-west-1",
+               capacity       : new ServerGroup.Capacity(min: minSize, max: maxSize, desired: desired)
+             ]]
+    )
+
+    def operation = new ResizeAsgAtomicOperation(description)
+    operation.amazonClientProvider = mockAmazonClientProvider
+
+    when:
+    operation.operate([])
+
+    then:
+    expectedOps * mockAutoScaling.describeAutoScalingGroups(_) >> new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
+      new AutoScalingGroup()
+        .withAutoScalingGroupName("myasg-stack-v0001")
+        .withInstances(new Instance().withInstanceId("i-test-id"))
+    )
+
+    expectedOps * mockAutoScaling.describeLifecycleHooks(_) >> new DescribeLifecycleHooksResult().withLifecycleHooks(
+      new LifecycleHook().withLifecycleTransition("autoscaling:EC2_INSTANCE_TERMINATING")
+    )
+
+    expectedOps * mockAutoScaling.updateAutoScalingGroup(_) >> {
+      request ->
+        assert request.size() == 1
+        assert request[0].minSize == minSize
+        assert request[0].maxSize == maxSize
+        assert request[0].desiredCapacity == desired
+    }
+
+    expectedInstancesTerminated * mockEC2.terminateInstances(_)
+
+    where:
+    minSize = 0
+    maxSize = 0
+    desired = 0
+    expectedOps = 1
+    expectedInstancesTerminated = 0
   }
 
   private static ServerGroup.Capacity capacity(int min, int max, int desired) {
