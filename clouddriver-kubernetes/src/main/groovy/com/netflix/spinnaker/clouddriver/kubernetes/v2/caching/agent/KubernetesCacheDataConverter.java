@@ -17,12 +17,14 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesCachingProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -58,6 +60,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.Kind.
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.NAMESPACE;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.POD;
 import static java.lang.Math.toIntExact;
 
 @Slf4j
@@ -150,6 +153,25 @@ public class KubernetesCacheDataConverter {
     return new DefaultCacheData(id, ttl, attributes, relationships);
   }
 
+  public static CacheData convertPodMetric(String account,
+      String namespace,
+      KubernetesPodMetric podMetric) {
+    String podName = podMetric.getPodName();
+    Map<String, Object> attributes = new ImmutableMap.Builder<String, Object>()
+        .put("name", podName)
+        .put("namespace", namespace)
+        .put("metrics", podMetric.getContainerMetrics())
+        .build();
+
+    Map<String, Collection<String>> relationships = new ImmutableMap.Builder<String, Collection<String>>()
+        .put(POD.toString(), Collections.singletonList(Keys.infrastructure(POD, account, namespace, podName)))
+        .build();
+
+    String id = Keys.metric(POD, account, namespace, podName);
+
+    return new DefaultCacheData(id, infrastructureTtlSeconds, attributes, relationships);
+  }
+
   public static CacheData convertAsResource(String account,
       KubernetesManifest manifest,
       List<KubernetesManifest> resourceRelationships) {
@@ -212,6 +234,10 @@ public class KubernetesCacheDataConverter {
 
     String key = Keys.infrastructure(kind, account, namespace, name);
     return new DefaultCacheData(key, infrastructureTtlSeconds, attributes, cacheRelationships);
+  }
+
+  public static List<Map> getMetrics(CacheData cacheData) {
+    return mapper.convertValue(cacheData.getAttributes().get("metrics"), new TypeReference<List<Map>>() { });
   }
 
   public static KubernetesManifest getManifest(CacheData cacheData) {
