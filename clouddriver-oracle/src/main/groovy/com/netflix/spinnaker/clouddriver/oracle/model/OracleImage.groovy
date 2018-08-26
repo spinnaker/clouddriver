@@ -9,7 +9,9 @@
 
 package com.netflix.spinnaker.clouddriver.oracle.model
 
-class OracleImage {
+import com.netflix.spinnaker.clouddriver.model.Image
+
+class OracleImage implements Image {
   String cloudProvider
   String id
   String name
@@ -17,4 +19,5 @@ class OracleImage {
   String region
   List<String> compatibleShapes
   Map<String, String> freeformTags
+  String timeCreated
 }

@@ -65,7 +65,8 @@ class OracleImageProvider {
       account: parts.account,
       region: parts.region,
       compatibleShapes: cacheData.attributes.compatibleShapes,
-      freeformTags: cacheData.attributes.freeformTags
+      freeformTags: cacheData.attributes.freeformTags,
+      timeCreated: cacheData.attributes.timeCreated
     )
   }
 }
