@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy
 
-import com.netflix.spinnaker.clouddriver.aws.AwsConfiguration.DeployDefaults
+import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 
 class BlockDeviceConfig {
@@ -177,6 +177,14 @@ class BlockDeviceConfig {
       "t2.xlarge"   : [],
       "t2.2xlarge"  : [],
       
+      "t3.nano"     : [],
+      "t3.micro"    : [],
+      "t3.small"    : [],
+      "t3.medium"   : [],
+      "t3.large"    : [],
+      "t3.xlarge"   : [],
+      "t3.2xlarge"  : [],
+
       "t3.nano"     : [],
       "t3.micro"    : [],
       "t3.small"    : [],
