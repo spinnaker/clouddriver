@@ -1,0 +1,15 @@
+# halconfig
+
+admin.tasks.shutdownWaitSeconds: 600 # 10 minutes
+
+server:
+  port: ${services.clouddriver-rw.port:7002}
+  address: ${services.clouddriver-rw.host:localhost}
+
+redis:
+  connection: ${services.redis.baseUrl:redis://localhost:6379}
+
+caching:
+  redis:
+    hashingEnabled: false
+  writeEnabled: false
