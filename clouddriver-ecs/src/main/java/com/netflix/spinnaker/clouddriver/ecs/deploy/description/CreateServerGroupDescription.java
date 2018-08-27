@@ -52,6 +52,10 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Boolean associatePublicIpAddress;
   Integer healthCheckGracePeriodSeconds;
 
+  String logDriver;
+  Map<String, String> logOptions;
+  Map<String, String> dockerLabels;
+
   @Override
   public String getRegion() {
     //CreateServerGroupDescription does not contain a region. Instead it has AvailabilityZones
