@@ -49,7 +49,10 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   List<PlacementStrategy> placementStrategySequence;
   String networkMode;
   String subnetType;
+  Boolean associatePublicIpAddress;
   Integer healthCheckGracePeriodSeconds;
+
+  String launchType;
 
   @Override
   public String getRegion() {
