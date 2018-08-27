@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
-import com.netflix.spinnaker.clouddriver.aws.model.TrustRelationship;
+import com.netflix.spinnaker.clouddriver.model.TrustRelationship;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

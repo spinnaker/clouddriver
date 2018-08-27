@@ -16,8 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.controllers;
 
-import com.netflix.spinnaker.clouddriver.aws.model.Role;
-import com.netflix.spinnaker.clouddriver.aws.model.RoleProvider;
+import com.netflix.spinnaker.clouddriver.model.Role;
+import com.netflix.spinnaker.clouddriver.model.RoleProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,7 +42,7 @@ public class RoleController {
     if (roleProviders == null) {
       return Collections.emptyList();
     }
-    
+
     Set<Role> roles = roleProviders.stream()
       .filter(roleProvider -> roleProvider.getCloudProvider().equals(cloudProvider))
       .flatMap(roleProvider -> roleProvider.getAll().stream())

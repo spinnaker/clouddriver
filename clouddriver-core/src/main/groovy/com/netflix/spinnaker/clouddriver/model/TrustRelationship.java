@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.model;
+package com.netflix.spinnaker.clouddriver.model;
 
-import java.util.Collection;
+/**
+ * A trust relationship allows a user or service to assume that role.
+ */
+public interface TrustRelationship {
 
-public interface RoleProvider {
+  String getType();
 
-  String getCloudProvider();
-
-  Collection<? extends Role> getAll();
+  /*
+  The value represents an ID, ARN, or any other way of identifying the principal
+   */
+  String getValue();
 }

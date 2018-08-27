@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2014 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,13 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.model;
+package com.netflix.spinnaker.clouddriver.model.edda
 
-/**
- * A trust relationship allows a user or service to assume that role.
- */
-public interface TrustRelationship {
+import groovy.transform.Canonical
 
-  String getType();
-
-  /*
-  The value represents an ID, ARN, or any other way of identifying the principal
-   */
-  String getValue();
+@Canonical
+class LoadBalancerInstanceState {
+  String name
+  String loadBalancerType = 'classic'
+  List<LoadBalancerInstance> instances
 }

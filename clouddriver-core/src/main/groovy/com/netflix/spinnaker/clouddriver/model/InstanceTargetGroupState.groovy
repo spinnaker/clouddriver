@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.model
+package com.netflix.spinnaker.clouddriver.model
 
 import com.netflix.spinnaker.clouddriver.model.HealthState
 

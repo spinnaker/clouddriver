@@ -18,8 +18,8 @@ package com.netflix.spinnaker.clouddriver.controllers
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.frigga.Names
-import com.netflix.spinnaker.clouddriver.aws.model.InstanceTargetGroups
-import com.netflix.spinnaker.clouddriver.aws.model.edda.InstanceLoadBalancers
+import com.netflix.spinnaker.clouddriver.model.InstanceTargetGroups
+import com.netflix.spinnaker.clouddriver.model.edda.InstanceLoadBalancers
 import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.Instance

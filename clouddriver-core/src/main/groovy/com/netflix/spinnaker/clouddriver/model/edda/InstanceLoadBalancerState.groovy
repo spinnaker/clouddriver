@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.model.edda
+package com.netflix.spinnaker.clouddriver.model.edda
 
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import groovy.transform.CompileStatic
