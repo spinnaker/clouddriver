@@ -66,11 +66,19 @@ public class ElasticSearchConfigProperties {
     this.connectionTimeout = connectionTimeout;
   }
 
-  public void setSingleMappingType(boolean singleMappingType) { this.singleMappingType = singleMappingType; }
+  public void setSingleMappingType(boolean singleMappingType) {
+    this.singleMappingType = singleMappingType;
+  }
 
-  public boolean isSingleMappingType() { return singleMappingType; }
+  public boolean isSingleMappingType() {
+    return singleMappingType;
+  }
 
-  public void setMappingTypeName(String mappingTypeName) { this.mappingTypeName = mappingTypeName; }
+  public void setMappingTypeName(String mappingTypeName) {
+    this.mappingTypeName = mappingTypeName;
+  }
 
-  public String getMappingTypeName() { return mappingTypeName; }
+  public String getMappingTypeName() {
+    return mappingTypeName;
+  }
 }
