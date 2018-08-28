@@ -51,7 +51,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
 
 
 
-  private final AtomicReference<Map<String, Collection<Map<String, String>>>> cachedIdentifiersByType = new AtomicReference(
+  private final AtomicReference<Map<String, Collection<String>>> cachedIdentifiersByType = new AtomicReference(
     [:]
   )
 
@@ -119,16 +119,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
         provider.supportsSearch('instances', Collections.emptyMap())
       }.collect { provider ->
         def cache = providerRegistry.getProviderCache(provider.getProviderName())
-        return cache.getIdentifiers("instances").findResults { key ->
-          def v = provider.parseKey(key)
-          if (v) {
-            v["_id"] = key
-          }
-
-          return v?.collectEntries {
-            [it.key, it.value.toLowerCase()]
-          }
-        }
+        return cache.getIdentifiers("instances").findResults { key -> key?.toLowerCase() }
       }.flatten()
 
       if (instanceIdentifiers) {
@@ -283,9 +274,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
          * should be sufficient.
          */
         def identifiersForCache = cached.get(cache)
-        identifiers = identifiersForCache.findAll { identifier ->
-          identifier.values().contains(normalizedWord)
-        }.collect { it["_id"] }
+        identifiers = identifiersForCache.findAll { it.contains(normalizedWord) }
       } else {
         List<SearchableProvider> validProviders = providers.findAll { it.supportsSearch(cache, filters) }
         identifiers = new HashSet<>()
