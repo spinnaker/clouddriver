@@ -274,6 +274,7 @@ class EcsServerClusterProviderSpec extends Specification {
     containerInformationService.getTaskPrivateAddress(_, _, _) >> "${ip}:1337"
     containerInformationService.getHealthStatus(_, _, _, _) >> [healthStatus]
     containerInformationService.getEc2Instance(_, _, _) >> ec2Instance
+    containerInformationService.getTaskZone(_, _, _) >> availabilityZone
     taskDefinitionCacheClient.get(_) >> taskDefinition
     scalableTargetCacheClient.get(_) >> scalableTarget
     ecsCloudWatchAlarmCacheClient.getMetricAlarms(_, _, _) >> []
