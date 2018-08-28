@@ -119,7 +119,11 @@ class CatsSearchProvider implements SearchProvider, Runnable {
         provider.supportsSearch('instances', Collections.emptyMap())
       }.collect { provider ->
         def cache = providerRegistry.getProviderCache(provider.getProviderName())
-        return cache.getIdentifiers("instances").findResults { key -> key?.toLowerCase() }
+        return cache.getIdentifiers("instances").findResults { key ->
+          // Even though we don't need the parsed Map, we should still allow the provider to reject invalid keys
+          if (provider.parseKey(key))
+            return key?.toLowerCase()
+        }
       }.flatten()
 
       if (instanceIdentifiers) {
