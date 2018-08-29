@@ -67,25 +67,29 @@ class EcsServerClusterProviderSpec extends Specification {
     taskDefinitionCacheClient,
     ecsCloudWatchAlarmCacheClient)
 
-  def 'should produce an ecs cluster'() {
-    given:
-    def applicationName = 'myapp'
+  Service cachedService
+  Instance ec2Instance
+  EcsServerCluster expectedCluster
+
+  private static final FAMILY_NAME = 'myapp-kcats-liated'
+  private static final CREDS_NAME = 'test'
+
+  def setup() {
     def taskId = 'task-id'
     def ip = '127.0.0.0'
     def region = 'us-west-1'
     def availabilityZone = "${region}a"
-    def familyName = "${applicationName}-kcats-liated"
-    def serviceName = "${familyName}-v007"
+    def serviceName = "${FAMILY_NAME}-v007"
     def startedAt = new Date()
 
     def creds = Mock(AmazonCredentials)
     creds.getCloudProvider() >> 'ecs'
-    creds.getName() >> 'test'
+    creds.getName() >> CREDS_NAME
     creds.getRegions() >> [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1b', 'us-east-1c', 'us-east-1d']),
                            new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1b', 'us-west-1c', 'us-west-1d'])]
 
 
-    def cachedService = new Service(
+    cachedService = new Service(
       serviceName: serviceName,
       deploymentConfiguration: new DeploymentConfiguration(minimumHealthyPercent: 0, maximumPercent: 100),
       createdAt: startedAt,
@@ -111,7 +115,7 @@ class EcsServerClusterProviderSpec extends Specification {
       type      : 'loadbalancer'
     ]
 
-    def ec2Instance = new Instance(
+    ec2Instance = new Instance(
       placement: new Placement(
         availabilityZone: availabilityZone
       ),
@@ -142,10 +146,10 @@ class EcsServerClusterProviderSpec extends Specification {
     def ecsServerGroupEast = makeEcsServerGroup(serviceName, 'us-east-1', startedAt.getTime(), taskId, healthStatus, ip)
     def ecsServerGroupWest = makeEcsServerGroup(serviceName, 'us-west-1', startedAt.getTime(), taskId, healthStatus, ip)
 
-    def expectedCluster = new EcsServerCluster()
+    expectedCluster = new EcsServerCluster()
     expectedCluster.setAccountName(creds.getName())
-    expectedCluster.setName(familyName)
-    expectedCluster.setServerGroups(new HashSet([ecsServerGroupEast, ecsServerGroupWest]))
+    expectedCluster.setName(FAMILY_NAME)
+    expectedCluster.setServerGroups(new LinkedHashSet([ecsServerGroupEast, ecsServerGroupWest]))
     expectedCluster.setLoadBalancers(Collections.singleton(loadbalancer))
 
 
@@ -160,121 +164,7 @@ class EcsServerClusterProviderSpec extends Specification {
     containerInformationService.getTaskPrivateAddress(_, _, _) >> "${ip}:1337"
     containerInformationService.getHealthStatus(_, _, _, _) >> [healthStatus]
     containerInformationService.getEc2Instance(_, _, _) >> ec2Instance
-    taskDefinitionCacheClient.get(_) >> taskDefinition
-    scalableTargetCacheClient.get(_) >> scalableTarget
-    ecsCloudWatchAlarmCacheClient.getMetricAlarms(_, _, _) >> []
-
-    cacheView.filterIdentifiers(_, _) >> ['key']
-    cacheView.getAll(Keys.Namespace.SERVICES.ns, _) >> [serviceCacheData]
-    cacheView.getAll(Keys.Namespace.TASKS.ns, _) >> [taskCacheData]
-
-    when:
-    def retrievedCluster = provider.getCluster("myapp", creds.getName(), familyName)
-
-    then:
-    retrievedCluster == expectedCluster
-  }
-
-  def 'should produce an ecs cluster with VPC network configuration'() {
-    given:
-    def applicationName = 'myapp'
-    def taskId = 'task-id'
-    def ip = '127.0.0.0'
-    def region = 'us-west-1'
-    def availabilityZone = "${region}a"
-    def familyName = "${applicationName}-kcats-liated"
-    def serviceName = "${familyName}-v007"
-    def startedAt = new Date()
-
-    def creds = Mock(AmazonCredentials)
-    creds.getCloudProvider() >> 'ecs'
-    creds.getName() >> 'test'
-    creds.getRegions() >> [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1b', 'us-east-1c', 'us-east-1d']),
-                           new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1b', 'us-west-1c', 'us-west-1d'])]
-
-
-    def cachedService = new Service(
-      serviceName: serviceName,
-      deploymentConfiguration: new DeploymentConfiguration(minimumHealthyPercent: 0, maximumPercent: 100),
-      createdAt: startedAt,
-      desiredCount: 1,
-      networkConfiguration: new NetworkConfiguration(
-        awsvpcConfiguration: new AwsVpcConfiguration(
-          subnets: ['subnet-1234'],
-          securityGroups: ['sg-1234']
-        )
-      )
-    )
-
-    def task = new Task(
-      taskArn: "task-arn/${taskId}",
-      clusterArn: 'cluster-arn',
-      containerInstanceArn: 'container-instance-arn',
-      group: 'service:' + serviceName,
-      lastStatus: 'RUNNING',
-      desiredStatus: 'RUNNING',
-      startedAt: startedAt,
-      containers: []
-    )
-
-    def loadbalancer = new EcsLoadBalancerCache()
-
-    Map healthStatus = [
-      instanceId: taskId,
-      state     : 'RUNNING',
-      type      : 'loadbalancer'
-    ]
-
-    def ec2Instance = new Instance(
-      placement: new Placement(
-        availabilityZone: availabilityZone
-      ),
-      vpcId: 'vpc-wrong',
-      securityGroups: [new GroupIdentifier (
-        groupId: 'sg-wrong'
-      )]
-    )
-
-    def taskDefinition = new TaskDefinition(
-      containerDefinitions: [
-        new ContainerDefinition(
-          image: 'my-image',
-          memoryReservation: 256,
-          cpu: 123,
-          environment: [],
-          portMappings: [new PortMapping(containerPort: 1337)]
-        )
-      ]
-    )
-
-    def scalableTarget = new ScalableTarget(
-      minCapacity: 1,
-      maxCapacity: 2,
-      resourceId: "service:/mycluster/${serviceName}"
-    )
-
-    def ecsServerGroupEast = makeEcsServerGroup(serviceName, 'us-east-1', startedAt.getTime(), taskId, healthStatus, ip)
-    def ecsServerGroupWest = makeEcsServerGroup(serviceName, 'us-west-1', startedAt.getTime(), taskId, healthStatus, ip)
-
-    def expectedCluster = new EcsServerCluster()
-    expectedCluster.setAccountName(creds.getName())
-    expectedCluster.setName(familyName)
-    expectedCluster.setServerGroups(new HashSet([ecsServerGroupEast, ecsServerGroupWest]))
-    expectedCluster.setLoadBalancers(Collections.singleton(loadbalancer))
-
-
-    def serviceAttributes = ServiceCachingAgent.convertServiceToAttributes(creds.getName(), creds.getRegions()[0].getName(), cachedService)
-    def taskAttributes = TaskCachingAgent.convertTaskToAttributes(task)
-
-    def serviceCacheData = new DefaultCacheData('', serviceAttributes, [:])
-    def taskCacheData = new DefaultCacheData('', taskAttributes, [:])
-
-    accountCredentialsProvider.getAll() >> [creds]
-    ecsLoadbalancerCacheClient.find(_, _) >> [loadbalancer]
-    containerInformationService.getTaskPrivateAddress(_, _, _) >> "${ip}:1337"
-    containerInformationService.getHealthStatus(_, _, _, _) >> [healthStatus]
-    containerInformationService.getEc2Instance(_, _, _) >> ec2Instance
-    containerInformationService.getTaskZone(_, _, _) >> availabilityZone
+    containerInformationService.getTaskZone(_, _, _) >> 'us-west-1a'
     taskDefinitionCacheClient.get(_) >> taskDefinition
     scalableTargetCacheClient.get(_) >> scalableTarget
     ecsCloudWatchAlarmCacheClient.getMetricAlarms(_, _, _) >> []
@@ -283,11 +173,71 @@ class EcsServerClusterProviderSpec extends Specification {
     cacheView.filterIdentifiers(_, _) >> ['key']
     cacheView.getAll(Keys.Namespace.SERVICES.ns, _) >> [serviceCacheData]
     cacheView.getAll(Keys.Namespace.TASKS.ns, _) >> [taskCacheData]
+  }
 
+  def 'should produce an ecs cluster'() {
     when:
-    def retrievedCluster = provider.getCluster("myapp", creds.getName(), familyName)
+    def retrievedCluster = provider.getCluster("myapp", CREDS_NAME, FAMILY_NAME)
 
     then:
+    retrievedCluster == expectedCluster
+  }
+
+  def 'should produce an ecs cluster with VPC network configuration'() {
+    given:
+    cachedService.networkConfiguration = new NetworkConfiguration(
+      awsvpcConfiguration: new AwsVpcConfiguration(
+        subnets: ['subnet-1234'],
+        securityGroups: ['sg-1234']
+      )
+    )
+    def serviceAttributes = ServiceCachingAgent.convertServiceToAttributes(CREDS_NAME, 'us-east-1', cachedService)
+    def serviceCacheData = new DefaultCacheData('', serviceAttributes, [:])
+
+    ec2Instance.vpcId = 'vpc-wrong'
+    ec2Instance.securityGroups = [new GroupIdentifier (groupId: 'sg-wrong')]
+
+    when:
+    def retrievedCluster = provider.getCluster("myapp", CREDS_NAME, FAMILY_NAME)
+
+    then:
+    cacheView.getAll(Keys.Namespace.SERVICES.ns, _) >> [serviceCacheData]
+    retrievedCluster == expectedCluster
+  }
+
+  def 'should produce an ecs cluster using Fargate'() {
+    given:
+    cachedService.networkConfiguration = new NetworkConfiguration(
+      awsvpcConfiguration: new AwsVpcConfiguration(
+        subnets: ['subnet-1234'],
+        securityGroups: ['sg-1234']
+      )
+    )
+    def serviceAttributes = ServiceCachingAgent.convertServiceToAttributes(CREDS_NAME, 'us-east-1', cachedService)
+    def serviceCacheData = new DefaultCacheData('', serviceAttributes, [:])
+
+    when:
+    def retrievedCluster = provider.getCluster("myapp", CREDS_NAME, FAMILY_NAME)
+
+    then:
+    cacheView.getAll(Keys.Namespace.SERVICES.ns, _) >> [serviceCacheData]
+    containerInformationService.getEc2Instance(_, _, _) >> null
+    retrievedCluster == expectedCluster
+  }
+
+  def 'should produce an ecs cluster with unknown VPC'() {
+    given:
+    for (serverGroup in expectedCluster.serverGroups) {
+      EcsServerGroup ecsServerGroup = serverGroup
+      ecsServerGroup.vpcId = 'None'
+      ecsServerGroup.securityGroups = []
+    }
+
+    when:
+    def retrievedCluster = provider.getCluster("myapp", CREDS_NAME, FAMILY_NAME)
+
+    then:
+    containerInformationService.getEc2Instance(_, _, _) >> null
     retrievedCluster == expectedCluster
   }
 
