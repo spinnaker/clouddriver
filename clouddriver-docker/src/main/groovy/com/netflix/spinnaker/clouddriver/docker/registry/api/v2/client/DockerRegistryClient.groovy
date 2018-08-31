@@ -430,6 +430,8 @@ class DockerRegistryClient {
           }
 
           if (!authenticateHeader) {
+            log.warn "Registry $address returned status $status for request '$target' without a WWW-Authenticate header"
+            tokenService.clearToken(target)
             throw error
           }
 
@@ -442,8 +444,10 @@ class DockerRegistryClient {
             response = withToken(token)
           } else if (basicPrefix.equalsIgnoreCase(authenticateHeader.substring(0, basicPrefix.length()))) {
             // If we got a 401 and the request requires basic auth, there's no point in trying again
+            tokenService.clearToken(target)
             throw error
           } else {
+            tokenService.clearToken(target)
             throw new DockerRegistryAuthenticationException("Docker registry must support 'Bearer' or 'Basic' authentication.")
           }
         } else {

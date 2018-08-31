@@ -30,8 +30,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesSourceCapacity;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanScale;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanScale;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
@@ -184,6 +184,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       manifest = replaceResult.getManifest();
 
       getTask().updateStatus(OP_NAME, "Submitting manifest " + manifest.getFullResourceName() + " to kubernetes master...");
+      log.debug("Manifest in {} to be deployed: {}", accountName, manifest);
       result.merge(deployer.deploy(credentials, manifest));
 
       result.getCreatedArtifacts().add(artifact);
@@ -191,6 +192,8 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
     result.getBoundArtifacts().addAll(boundArtifacts);
     result.removeSensitiveKeys(registry, accountName);
+
+    getTask().updateStatus(OP_NAME, "Deploy manifest task completed successfully.");
     return result;
   }
 

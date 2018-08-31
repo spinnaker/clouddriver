@@ -23,6 +23,7 @@ import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
 import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.cloudwatch.model.MetricAlarm;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.AwsVpcConfiguration;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.amazonaws.services.ecs.model.CreateServiceRequest;
 import com.amazonaws.services.ecs.model.DeploymentConfiguration;
@@ -30,6 +31,7 @@ import com.amazonaws.services.ecs.model.KeyValuePair;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.LoadBalancer;
+import com.amazonaws.services.ecs.model.NetworkConfiguration;
 import com.amazonaws.services.ecs.model.PortMapping;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionResult;
@@ -52,6 +54,8 @@ import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamPolicyReader;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamTrustRelationship;
 import com.netflix.spinnaker.clouddriver.ecs.security.NetflixAssumeRoleEcsCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.services.EcsCloudMetricService;
+import com.netflix.spinnaker.clouddriver.ecs.services.SecurityGroupSelector;
+import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -67,11 +71,19 @@ import java.util.stream.Collectors;
 public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation<CreateServerGroupDescription, DeploymentResult> {
 
   private static final String NECESSARY_TRUSTED_SERVICE = "ecs-tasks.amazonaws.com";
+  public static final String AWSVPC_NETWORK_MODE = "awsvpc";
+  public static final String FARGATE_LAUNCH_TYPE = "FARGATE";
 
   @Autowired
   EcsCloudMetricService ecsCloudMetricService;
   @Autowired
   IamPolicyReader iamPolicyReader;
+
+  @Autowired
+  SubnetSelector subnetSelector;
+
+  @Autowired
+  SecurityGroupSelector securityGroupSelector;
 
   public CreateServerGroupAtomicOperation(CreateServerGroupDescription description) {
     super(description, "CREATE_ECS_SERVER_GROUP");
@@ -87,11 +99,12 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
 
     String serverGroupVersion = inferNextServerGroupVersion(ecs);
 
+    String ecsServiceRole = inferAssumedRoleArn(credentials);
+
     updateTaskStatus("Creating Amazon ECS Task Definition...");
-    TaskDefinition taskDefinition = registerTaskDefinition(ecs, serverGroupVersion);
+    TaskDefinition taskDefinition = registerTaskDefinition(ecs, ecsServiceRole, serverGroupVersion);
     updateTaskStatus("Done creating Amazon ECS Task Definition...");
 
-    String ecsServiceRole = inferAssumedRoleArn(credentials);
     Service service = createService(ecs, taskDefinition, ecsServiceRole, serverGroupVersion);
 
     String resourceId = registerAutoScalingGroup(credentials, service);
@@ -106,7 +119,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     return makeDeploymentResult(service);
   }
 
-  private TaskDefinition registerTaskDefinition(AmazonECS ecs, String version) {
+  private TaskDefinition registerTaskDefinition(AmazonECS ecs, String ecsServiceRole, String version) {
 
     Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
     containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(version));
@@ -114,9 +127,17 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     containerEnvironment.add(new KeyValuePair().withName("CLOUD_DETAIL").withValue(description.getFreeFormDetails()));
 
     PortMapping portMapping = new PortMapping()
-      .withHostPort(0)
-      .withContainerPort(description.getContainerPort())
       .withProtocol(description.getPortProtocol() != null ? description.getPortProtocol() : "tcp");
+
+    if (AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
+      portMapping
+        .withHostPort(description.getContainerPort())
+        .withContainerPort(description.getContainerPort());
+    } else {
+      portMapping
+        .withHostPort(0)
+        .withContainerPort(description.getContainerPort());
+    }
 
     Collection<PortMapping> portMappings = new LinkedList<>();
     portMappings.add(portMapping);
@@ -135,10 +156,23 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     RegisterTaskDefinitionRequest request = new RegisterTaskDefinitionRequest()
       .withContainerDefinitions(containerDefinitions)
       .withFamily(getFamilyName());
+    if (description.getNetworkMode() != null && !description.getNetworkMode().equals("default")) {
+      request.withNetworkMode(description.getNetworkMode());
+    }
 
     if (!description.getIamRole().equals("None (No IAM role)")) {
       checkRoleTrustRelations(description.getIamRole());
       request.setTaskRoleArn(description.getIamRole());
+    }
+
+    if (!StringUtils.isEmpty(description.getLaunchType())) {
+      request.setRequiresCompatibilities(Arrays.asList(description.getLaunchType()));
+    }
+
+    if (FARGATE_LAUNCH_TYPE.equals(description.getLaunchType())) {
+      request.setExecutionRoleArn(ecsServiceRole);
+      request.setCpu(description.getComputeUnits().toString());
+      request.setMemory(description.getReservedMemory().toString());
     }
 
     RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(request);
@@ -162,11 +196,42 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withServiceName(serviceName)
       .withDesiredCount(desiredCount)
       .withCluster(description.getEcsClusterName())
-      .withRole(ecsServiceRole)
       .withLoadBalancers(loadBalancers)
       .withTaskDefinition(taskDefinitionArn)
       .withPlacementStrategy(description.getPlacementStrategySequence())
       .withDeploymentConfiguration(deploymentConfiguration);
+
+    if (!AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
+      request.withRole(ecsServiceRole);
+    }
+
+    if (AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
+      Collection<String> subnetIds = subnetSelector.resolveSubnetsIds(description.getAccount(), description.getRegion(), description.getSubnetType());
+      Collection<String> vpcIds = subnetSelector.getSubnetVpcIds(description.getAccount(), description.getRegion(), subnetIds);
+      Collection<String> securityGroupIds = securityGroupSelector.resolveSecurityGroupNames(
+        description.getAccount(),
+        description.getRegion(),
+        description.getSecurityGroupNames(),
+        vpcIds);
+
+      AwsVpcConfiguration awsvpcConfiguration = new AwsVpcConfiguration()
+        .withSecurityGroups(securityGroupIds)
+        .withSubnets(subnetIds);
+
+      if (description.getAssociatePublicIpAddress() != null) {
+        awsvpcConfiguration.withAssignPublicIp(description.getAssociatePublicIpAddress() ? "ENABLED" : "DISABLED");
+      }
+
+      request.withNetworkConfiguration(new NetworkConfiguration().withAwsvpcConfiguration(awsvpcConfiguration));
+    }
+
+    if (!StringUtils.isEmpty(description.getLaunchType())) {
+      request.withLaunchType(description.getLaunchType());
+    }
+
+    if (description.getHealthCheckGracePeriodSeconds() != null) {
+      request.withHealthCheckGracePeriodSeconds(description.getHealthCheckGracePeriodSeconds());
+    }
 
     updateTaskStatus(String.format("Creating %s of %s with %s for %s.",
       desiredCount, serviceName, taskDefinitionArn, description.getCredentialAccount()));
