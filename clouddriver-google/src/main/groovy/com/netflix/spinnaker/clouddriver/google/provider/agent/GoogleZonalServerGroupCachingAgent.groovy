@@ -180,22 +180,22 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
   }
 
   static List<InstanceTemplate> fetchInstanceTemplates(Compute compute, String project) {
-    Boolean executedAtLeastOnce = false
-    String nextPageToken = null
-    List<InstanceTemplate> instanceTemplates = []
-    while (!executedAtLeastOnce || nextPageToken) {
-      InstanceTemplateList instanceTemplateList = GoogleExecutor.timeExecute(
-          GoogleExecutor.getRegistry(),
-          compute.instanceTemplates().list(project).setPageToken(nextPageToken),
-          "google.api",
-          "compute.instanceTemplates.list",
-          GoogleExecutor.TAG_SCOPE, GoogleExecutor.SCOPE_GLOBAL,
-          "account", AccountForClient.getAccount(compute))
+    List<InstanceTemplate> instanceTemplates = new PaginatedRequest<InstanceTemplateList>(this) {
+      @Override
+      protected AbstractGoogleJsonClientRequest<InstanceTemplateList> request (String pageToken) {
+        return compute.instanceTemplates().list(project).setPageToken(pageToken)
+      }
 
-      executedAtLeastOnce = true
-      nextPageToken = instanceTemplateList.getNextPageToken()
-      instanceTemplates.addAll(instanceTemplateList.getItems() ?: [])
-    }
+      @Override
+      String getNextPageToken(InstanceTemplateList t) {
+        return t.getNextPageToken();
+      }
+    }.timeExecute(
+      { InstanceTemplateList list -> list.getItems() },
+      "compute.instanceTemplates.list", GoogleExecutor.TAG_SCOPE, GoogleExecutor.SCOPE_GLOBAL,
+      "account", AccountForClient.getAccount(compute)
+    )
+
     return instanceTemplates
   }
 
