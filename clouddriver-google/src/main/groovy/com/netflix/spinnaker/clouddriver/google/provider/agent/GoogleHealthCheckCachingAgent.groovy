@@ -81,7 +81,8 @@ class GoogleHealthCheckCachingAgent extends AbstractGoogleCachingAgent {
       String getNextPageToken(HttpHealthCheckList t) {
         return t.getNextPageToken();
       }
-    }.timeExecute(
+    }
+    .timeExecute(
       { HttpHealthCheckList list -> list.getItems() },
       "compute.httpHealthChecks.list", TAG_SCOPE, SCOPE_GLOBAL
     )
@@ -110,7 +111,8 @@ class GoogleHealthCheckCachingAgent extends AbstractGoogleCachingAgent {
       String getNextPageToken(HttpsHealthCheckList t) {
         return t.getNextPageToken();
       }
-    }.timeExecute(
+    }
+    .timeExecute(
       { HttpsHealthCheckList list -> list.getItems() },
       "compute.httpsHealthChecks.list", TAG_SCOPE, SCOPE_GLOBAL
     )
@@ -139,7 +141,8 @@ class GoogleHealthCheckCachingAgent extends AbstractGoogleCachingAgent {
       String getNextPageToken(HealthCheckList t) {
         return t.getNextPageToken();
       }
-    }.timeExecute(
+    }
+    .timeExecute(
       { HealthCheckList list -> list.getItems() },
       "compute.healthChecks.list", TAG_SCOPE, SCOPE_GLOBAL
     )

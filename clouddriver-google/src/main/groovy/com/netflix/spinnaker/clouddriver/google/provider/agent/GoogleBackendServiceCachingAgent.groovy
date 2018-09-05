@@ -73,7 +73,8 @@ class GoogleBackendServiceCachingAgent extends AbstractGoogleCachingAgent {
       String getNextPageToken(BackendServiceList t) {
         return t.getNextPageToken();
       }
-    }.timeExecute(
+    }
+    .timeExecute(
       { BackendServiceList list -> list.getItems() },
       "compute.backendServices.list",
       TAG_SCOPE, SCOPE_GLOBAL
@@ -93,7 +94,8 @@ class GoogleBackendServiceCachingAgent extends AbstractGoogleCachingAgent {
         String getNextPageToken(BackendServiceList t) {
           return t.getNextPageToken();
         }
-      }.timeExecute(
+      }
+      .timeExecute(
         { BackendServiceList list -> list.getItems()},
         "compute.regionBackendServices.list",
         TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region

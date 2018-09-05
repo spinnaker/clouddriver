@@ -69,7 +69,8 @@ class GoogleGlobalAddressCachingAgent extends AbstractGoogleCachingAgent {
       String getNextPageToken(AddressList t) {
         return t.getNextPageToken();
       }
-    }.timeExecute(
+    }
+    .timeExecute(
       { AddressList list -> list.getItems() },
       "compute.globalAddresses.list", TAG_SCOPE, SCOPE_GLOBAL
     )
