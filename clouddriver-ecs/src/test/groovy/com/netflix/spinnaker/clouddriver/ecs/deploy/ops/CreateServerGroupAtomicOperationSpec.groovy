@@ -242,7 +242,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
 
     then:
     def labels = request.getContainerDefinitions().get(0).getDockerLabels()
@@ -263,7 +263,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
 
     then:
     def labels = request.getContainerDefinitions().get(0).getDockerLabels()
@@ -286,7 +286,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
 
     then:
     def labels = request.getContainerDefinitions().get(0).getDockerLabels()
@@ -302,7 +302,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
 
     then:
     request.getContainerDefinitions().get(0).getLogConfiguration().getLogDriver() == 'some-log-driver'
@@ -315,7 +315,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
 
     then:
     request.getContainerDefinitions().get(0).getLogConfiguration().getOptions() == null
@@ -331,7 +331,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new CreateServerGroupAtomicOperation(description)
 
     when:
-    def request = operation.makeTaskDefinitionRequest('v0011')
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
 
     then:
     request.getContainerDefinitions().get(0).getLogConfiguration().getOptions() == logOptions
