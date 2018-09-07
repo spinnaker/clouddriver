@@ -131,7 +131,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
     BatchRequest instanceGroupsRequest = buildBatchRequest()
     BatchRequest autoscalerRequest = buildBatchRequest()
 
-    List<InstanceTemplate> instanceTemplates = GoogleZonalServerGroupCachingAgent.fetchInstanceTemplates(compute, project)
+    List<InstanceTemplate> instanceTemplates = GoogleZonalServerGroupCachingAgent.fetchInstanceTemplates(this, compute, project)
     List<GoogleInstance> instances = GCEUtil.fetchInstances(this, credentials)
 
     InstanceGroupManagerCallbacks instanceGroupManagerCallbacks = new InstanceGroupManagerCallbacks(
