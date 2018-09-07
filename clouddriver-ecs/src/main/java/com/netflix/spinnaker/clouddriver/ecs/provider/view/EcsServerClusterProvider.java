@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
 import com.amazonaws.services.ec2.model.GroupIdentifier;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
+import com.amazonaws.services.ecs.model.NetworkInterface;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
@@ -37,6 +38,7 @@ import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
+import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
@@ -70,12 +72,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private final EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient;
   private final AccountCredentialsProvider accountCredentialsProvider;
   private final ContainerInformationService containerInformationService;
+  private final SubnetSelector subnetSelector;
 
   private final Logger log = LoggerFactory.getLogger(getClass());
 
   @Autowired
   public EcsServerClusterProvider(AccountCredentialsProvider accountCredentialsProvider,
                                   ContainerInformationService containerInformationService,
+                                  SubnetSelector subnetSelector,
                                   TaskCacheClient taskCacheClient,
                                   ServiceCacheClient serviceCacheClient,
                                   ScalableTargetCacheClient scalableTargetCacheClient,
@@ -84,6 +88,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                   EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.containerInformationService = containerInformationService;
+    this.subnetSelector = subnetSelector;
     this.taskCacheClient = taskCacheClient;
     this.serviceCacheClient = serviceCacheClient;
     this.scalableTargetCacheClient = scalableTargetCacheClient;
@@ -138,7 +143,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
       EcsServerGroup ecsServerGroup = buildEcsServerGroup(credentials.getName(), awsRegion.getName(),
         serviceName, service.getDesiredCount(), instances, service.getCreatedAt(),
-        service.getClusterName(), taskDefinition);
+        service.getClusterName(), taskDefinition, service.getSubnets(), service.getSecurityGroups());
 
       if (ecsServerGroup == null) {
         continue;
@@ -175,11 +180,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
     String address = containerInformationService.getTaskPrivateAddress(account, region, task);
     List<Map<String, Object>> healthStatus = containerInformationService.getHealthStatus(taskId, serviceName, account, region);
+    String availabilityZone = containerInformationService.getTaskZone(account, region, task);
 
-    com.amazonaws.services.ec2.model.Instance ec2Instance = containerInformationService.getEc2Instance(account, region, task);
-    String availabilityZone = ec2Instance.getPlacement().getAvailabilityZone();
+    NetworkInterface networkInterface =
+      !task.getContainers().isEmpty()
+        && !task.getContainers().get(0).getNetworkInterfaces().isEmpty()
+        ? task.getContainers().get(0).getNetworkInterfaces().get(0) : null;
 
-    return new EcsTask(taskId, launchTime, task.getLastStatus(), task.getDesiredStatus(), availabilityZone, healthStatus, address);
+    return new EcsTask(taskId, launchTime, task.getLastStatus(), task.getDesiredStatus(), availabilityZone, healthStatus, address, networkInterface);
   }
 
   private TaskDefinition buildTaskDefinition(com.amazonaws.services.ecs.model.TaskDefinition taskDefinition) {
@@ -228,7 +236,9 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                              Set<Instance> instances,
                                              long creationTime,
                                              String ecsCluster,
-                                             com.amazonaws.services.ecs.model.TaskDefinition taskDefinition) {
+                                             com.amazonaws.services.ecs.model.TaskDefinition taskDefinition,
+                                             List<String> eniSubnets,
+                                             List<String> eniSecurityGroups) {
     ServerGroup.InstanceCounts instanceCounts = buildInstanceCount(instances);
     TaskDefinition ecsTaskDefinition = buildTaskDefinition(taskDefinition);
 
@@ -241,19 +251,34 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
     ServerGroup.Capacity capacity = buildServerGroupCapacity(desiredCount, scalableTarget);
 
-    String vpcId = "None"; //ENI will change the way VPCs are handled.
+    String vpcId = "None";
     Set<String> securityGroups = new HashSet<>();
 
     if (!instances.isEmpty()) {
       String taskId = instances.iterator().next().getName();
       String taskKey = Keys.getTaskKey(account, region, taskId);
       Task task = taskCacheClient.get(taskKey);
+
       com.amazonaws.services.ec2.model.Instance ec2Instance = containerInformationService.getEc2Instance(account, region, task);
 
-      vpcId = ec2Instance.getVpcId();
-      securityGroups = ec2Instance.getSecurityGroups().stream()
-        .map(GroupIdentifier::getGroupId)
-        .collect(Collectors.toSet());
+      if (eniSubnets != null && !eniSubnets.isEmpty() && eniSecurityGroups != null && !eniSecurityGroups.isEmpty()) {
+        securityGroups = eniSecurityGroups.stream().collect(Collectors.toSet());
+
+        Collection<String> vpcIds = subnetSelector.getSubnetVpcIds(account, region, eniSubnets);
+
+        if (!vpcIds.isEmpty()) {
+          if (vpcIds.size() > 1) {
+            throw new IllegalArgumentException("Services with multiple VPCs are not supported");
+          }
+
+          vpcId = vpcIds.iterator().next();
+        }
+      } else if (ec2Instance != null) {
+        vpcId = ec2Instance.getVpcId();
+        securityGroups = ec2Instance.getSecurityGroups().stream()
+          .map(GroupIdentifier::getGroupId)
+          .collect(Collectors.toSet());
+      }
     }
 
 

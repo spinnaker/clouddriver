@@ -1,13 +1,12 @@
 dependencies {
   compile project(":clouddriver-core")
 
-  spinnaker.group('amazon')
-
   compile spinnaker.dependency("frigga")
   compile spinnaker.dependency("bootActuator")
   compile spinnaker.dependency("bootWeb")
   compile spinnaker.dependency("korkArtifacts")
 
   compile spinnaker.dependency("googleStorage")
+  compile spinnaker.dependency("awsS3")
   compile "org.apache.commons:commons-compress:1.14"
 }
