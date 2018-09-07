@@ -142,7 +142,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     BatchRequest instanceGroupsRequest = buildBatchRequest()
     BatchRequest autoscalerRequest = buildBatchRequest()
 
-    List<InstanceTemplate> instanceTemplates = fetchInstanceTemplates(this, compute, project)
+    List<InstanceTemplate> instanceTemplates = fetchInstanceTemplates(cachingAgent, compute, project)
     List<GoogleInstance> instances = GCEUtil.fetchInstances(this, credentials)
 
     zones?.each { String zone ->
