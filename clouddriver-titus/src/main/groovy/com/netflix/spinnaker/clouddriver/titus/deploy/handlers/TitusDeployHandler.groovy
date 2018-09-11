@@ -255,7 +255,7 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
         }
       }
 
-      if (description.jobType != 'batch' && deployDefaults.addAppGroupToServerGroup && securityGroups.size() < deployDefaults.maxSecurityGroups && description.useApplicationDefaultSecurityGroup != false) {
+      if (description.jobType == 'service' && deployDefaults.addAppGroupToServerGroup && securityGroups.size() < deployDefaults.maxSecurityGroups && description.useApplicationDefaultSecurityGroup != false) {
         String applicationSecurityGroup = awsLookupUtil.convertSecurityGroupNameToId(account, region, description.application)
         if (!applicationSecurityGroup) {
           applicationSecurityGroup = OperationPoller.retryWithBackoff({ o -> awsLookupUtil.createSecurityGroupForApplication(account, region, description.application) }, 1000, 5)
@@ -326,16 +326,18 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
           jobUri = titusClient.submitJob(submitJobRequest)
         } catch (io.grpc.StatusRuntimeException e) {
           task.updateStatus BASE_PHASE, "Error encountered submitting job request to Titus ${e.message} for ${nextServerGroupName} ${System.currentTimeMillis()}"
-          if ((e.status.code == Status.RESOURCE_EXHAUSTED.code || e.status.code == Status.INVALID_ARGUMENT.code) && (e.status.description.contains("Job sequence id reserved by another pending job") || e.status.description.contains("Constraint violation - job with group sequence"))) {
+          if (description.getJobType == 'service' && (e.status.code == Status.RESOURCE_EXHAUSTED.code || e.status.code == Status.INVALID_ARGUMENT.code) && (e.status.description.contains("Job sequence id reserved by another pending job") || e.status.description.contains("Constraint violation - job with group sequence"))) {
             if (e.status.description.contains("Job sequence id reserved by another pending job")) {
               sleep 1000 ^ pow(2, retryCount)
               retryCount++
             }
             nextServerGroupName = resolveJobName(description, submitJobRequest, task, titusClient)
-            task.updateStatus BASE_PHASE, "Retrying with ${nextServerGroupName} after ${tries} attempts ${System.currentTimeMillis()}"
+            task.updateStatus BASE_PHASE, "Retrying with ${nextServerGroupName} after ${retryCount} attempts ${System.currentTimeMillis()}"
             throw e;
           }
-          if (e.status.code == Status.UNAVAILABLE.code) {
+          if (e.status.code == Status.UNAVAILABLE.code || e.status.code == Status.DEADLINE_EXCEEDED.code) {
+            retryCount++
+            task.updateStatus BASE_PHASE, "Retrying after ${retryCount} attempts ${System.currentTimeMillis()}"
             throw e;
           } else {
             log.error("Could not submit job and not retrying for status ${e.status} ", e)
@@ -360,11 +362,10 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
           deployedNamesByLocation: [(description.region): [jobUri]],
           jobUri                 : jobUri
         ])
+      } else {
+        copyScalingPolicies(description, jobUri, nextServerGroupName)
+        addLoadBalancers(description, targetGroupLookupResult, jobUri)
       }
-
-      copyScalingPolicies(description, jobUri, nextServerGroupName)
-
-      addLoadBalancers(description, targetGroupLookupResult, jobUri)
 
       deploymentResult.messages = task.history.collect { "${it.phase} : ${it.status}".toString() }
 
@@ -382,6 +383,9 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
   }
 
   private String resolveJobName(TitusDeployDescription description, SubmitJobRequest submitJobRequest, Task task, TitusClient titusClient) {
+    if(submitJobRequest.getJobType() == 'batch'){
+      return description.application
+    }
     TitusServerGroupNameResolver serverGroupNameResolver = new TitusServerGroupNameResolver(titusClient, description.region)
     String nextServerGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.freeFormDetails, false)
     submitJobRequest.withJobName(nextServerGroupName)
