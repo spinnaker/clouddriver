@@ -277,7 +277,7 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
         }
       }
 
-      if (description.getJobType() != "batch" && !description.hardConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE) && !description.softConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE)) {
+      if (description.getJobType() == "service" && !description.hardConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE) && !description.softConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE)) {
         submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(SubmitJobRequest.Constraint.ZONE_BALANCE))
       }
 
@@ -303,8 +303,6 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
 
       if (description.jobType) {
         submitJobRequest.withJobType(description.jobType)
-      } else {
-        submitJobRequest.withJobType("service")
       }
 
       TargetGroupLookupResult targetGroupLookupResult
@@ -386,6 +384,7 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
 
   private String resolveJobName(TitusDeployDescription description, SubmitJobRequest submitJobRequest, Task task, TitusClient titusClient) {
     if(submitJobRequest.getJobType() == 'batch'){
+      submitJobRequest.withJobName(description.application)
       return description.application
     }
     TitusServerGroupNameResolver serverGroupNameResolver = new TitusServerGroupNameResolver(titusClient, description.region)
