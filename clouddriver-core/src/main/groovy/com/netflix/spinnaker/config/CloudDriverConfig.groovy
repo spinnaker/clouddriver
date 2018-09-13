@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.config
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
 import com.netflix.spinnaker.cats.agent.NoopExecutionInstrumentation
 import com.netflix.spinnaker.cats.redis.cache.RedisCacheOptions
@@ -26,8 +27,10 @@ import com.netflix.spinnaker.clouddriver.core.CloudProvider
 import com.netflix.spinnaker.clouddriver.core.DynomiteConfig
 import com.netflix.spinnaker.clouddriver.core.NoopAtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.core.NoopCloudProvider
+import com.netflix.spinnaker.clouddriver.core.ProjectClustersService
 import com.netflix.spinnaker.clouddriver.core.RedisConfig
 import com.netflix.spinnaker.clouddriver.core.agent.CleanupPendingOnDemandCachesAgent
+import com.netflix.spinnaker.clouddriver.core.agent.ProjectClustersCachingAgent
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider
@@ -76,9 +79,13 @@ import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvi
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
 import com.netflix.spinnaker.kork.core.RetrySupport
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.boot.context.properties.ConfigurationPropertiesBinding
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.cglib.beans.BeanMap
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -87,6 +94,7 @@ import org.springframework.context.annotation.PropertySource
 import org.springframework.core.env.Environment
 import org.springframework.web.client.RestTemplate
 
+import javax.inject.Provider
 import java.time.Clock
 
 @Configuration
@@ -96,6 +104,7 @@ import java.time.Clock
   CacheConfig
 ])
 @PropertySource(value = "classpath:META-INF/clouddriver-core.properties", ignoreResourceNotFound = true)
+@EnableConfigurationProperties(ProjectClustersCachingAgentProperties)
 class CloudDriverConfig {
 
   @Bean
@@ -264,11 +273,24 @@ class CloudDriverConfig {
   }
 
   @Bean
+  ProjectClustersService projectClustersService(Front50Service front50Service,
+                                                ObjectMapper objectMapper,
+                                                Provider<List<ClusterProvider>> clusterProviders) {
+    return new ProjectClustersService(front50Service, objectMapper, clusterProviders)
+  }
+
+  @Bean
   CoreProvider coreProvider(RedisCacheOptions redisCacheOptions,
                             RedisClientDelegate redisClientDelegate,
-                            ApplicationContext applicationContext) {
+                            ApplicationContext applicationContext,
+                            ProjectClustersService projectClustersService,
+                            ProjectClustersCachingAgentProperties projectClustersCachingAgentProperties) {
     return new CoreProvider([
-      new CleanupPendingOnDemandCachesAgent(redisCacheOptions, redisClientDelegate, applicationContext)
+      new CleanupPendingOnDemandCachesAgent(redisCacheOptions, redisClientDelegate, applicationContext),
+      new ProjectClustersCachingAgent(
+        projectClustersService,
+        projectClustersCachingAgentProperties
+      )
     ])
   }
 
