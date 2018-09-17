@@ -24,7 +24,16 @@ import com.google.api.client.http.HttpRequestFactory
 import com.google.api.client.http.HttpResponse
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.compute.Compute
-import com.google.api.services.compute.model.*
+import com.google.api.services.compute.model.BackendService
+import com.google.api.services.compute.model.ForwardingRuleList
+import com.google.api.services.compute.model.Image
+import com.google.api.services.compute.model.ImageList
+import com.google.api.services.compute.model.Instance
+import com.google.api.services.compute.model.InstanceAggregatedList
+import com.google.api.services.compute.model.InstanceTemplate
+import com.google.api.services.compute.model.InstancesScopedList
+import com.google.api.services.compute.model.Metadata
+import com.google.api.services.compute.model.ServiceAccount
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.data.task.Task

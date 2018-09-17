@@ -27,10 +27,12 @@ import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.*
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
+import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.Canonical
 
 @Canonical
-class GoogleServerGroup {
+class GoogleServerGroup implements GoogleLabeledResource {
 
   static final String REGIONAL_LOAD_BALANCER_NAMES = "load-balancer-names"
   static final String GLOBAL_LOAD_BALANCER_NAMES = "global-load-balancer-names"
@@ -41,6 +43,7 @@ class GoogleServerGroup {
 
   String name
   String region
+  String account
   Boolean regional = false
   String zone
   Set<String> zones = new HashSet<>()
@@ -82,12 +85,18 @@ class GoogleServerGroup {
     new View()
   }
 
+  @Override
+  @JsonIgnore
+  Map<String, String> getLabels() {
+    return instanceTemplateLabels
+  }
+
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @Canonical
   class View implements ServerGroup {
     final String type = GoogleCloudProvider.ID
     final String cloudProvider = GoogleCloudProvider.ID
-    
+
     String name = GoogleServerGroup.this.name
     String region = GoogleServerGroup.this.region
     Boolean regional = GoogleServerGroup.this.regional
@@ -112,6 +121,15 @@ class GoogleServerGroup {
     InstanceGroupManagerAutoHealingPolicy autoHealingPolicy = GoogleServerGroup.this.autoHealingPolicy
     GoogleDistributionPolicy distributionPolicy = GoogleServerGroup.this.distributionPolicy
     Boolean selectZones = GoogleServerGroup.this.selectZones
+
+    @Override
+    Moniker getMoniker() {
+      return NamerRegistry.lookup()
+        .withProvider(GoogleCloudProvider.ID)
+        .withAccount(account)
+        .withResource(GoogleLabeledResource)
+        .deriveMoniker(GoogleServerGroup.this)
+    }
 
     @Override
     Boolean isDisabled() { // Because groovy isn't smart enough to generate this method :-(
@@ -206,7 +224,7 @@ class GoogleServerGroup {
       ]
     }
 
-    static Collection<Instance> filterInstancesByHealthState(Set<Instance> instances, HealthState healthState) {
+     Collection<Instance> filterInstancesByHealthState(Set<Instance> instances, HealthState healthState) {
       instances.findAll { Instance it -> it.getHealthState() == healthState }
     }
   }

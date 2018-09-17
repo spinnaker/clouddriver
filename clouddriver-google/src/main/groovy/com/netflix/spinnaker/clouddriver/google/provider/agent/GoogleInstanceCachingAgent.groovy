@@ -28,6 +28,7 @@ import groovy.util.logging.Slf4j
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
+import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.CLUSTERS
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.INSTANCES
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.SERVER_GROUPS
 
@@ -51,9 +52,12 @@ class GoogleInstanceCachingAgent extends AbstractGoogleCachingAgent {
     CacheResultBuilder cacheResultBuilder = new CacheResultBuilder()
 
     googleInstances.each { GoogleInstance instance ->
+      def moniker = instance.view.moniker
+      def clusterKey = Keys.getClusterKey(accountName, moniker.app, moniker.cluster)
       def instanceKey = Keys.getInstanceKey(accountName, instance.region, instance.name)
       cacheResultBuilder.namespace(INSTANCES.ns).keep(instanceKey).with {
         attributes = objectMapper.convertValue(instance, ATTRIBUTES)
+        relationships[CLUSTERS.ns].add(clusterKey)
       }
     }
 

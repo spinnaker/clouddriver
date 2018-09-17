@@ -21,11 +21,19 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.http.HttpHeaders
 import com.google.api.client.http.HttpResponseException
 import com.google.api.services.compute.Compute
-import com.google.api.services.compute.model.*
+import com.google.api.services.compute.model.Backend
+import com.google.api.services.compute.model.BackendService
+import com.google.api.services.compute.model.ForwardingRuleList
+import com.google.api.services.compute.model.InstanceTemplate
+import com.google.api.services.compute.model.Metadata
+import com.google.api.services.compute.model.Operation
+import com.google.api.services.compute.model.TargetSslProxyList
+import com.google.api.services.compute.model.TargetTcpProxyList
 import com.netflix.frigga.Names
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.GoogleApiTestUtils
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
@@ -38,8 +46,6 @@ import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleIntern
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.google.GoogleApiTestUtils
-
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject

@@ -108,7 +108,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
   def setup() {
     computeMock = Mock(Compute)
-    credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
+    credentials = new GoogleNamedAccountCredentials.Builder().name("gce").project(PROJECT_NAME).compute(computeMock).build()
 
     sourceImage = new Image(selfLink: IMAGE)
     network = new GoogleNetwork(selfLink: DEFAULT_NETWORK_URL)

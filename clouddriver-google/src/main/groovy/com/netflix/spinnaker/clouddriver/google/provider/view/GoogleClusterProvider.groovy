@@ -178,10 +178,11 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
 
       def securityGroups = securityGroupProvider.getAllByAccount(false, clusterView.accountName)
 
-      // TODO(duftler): De-frigga this.
-      def clusterInstancePattern = Keys.getInstanceKey(clusterView.accountName, ".*", "$clusterView.name-.*")
-      def instanceKeys = instanceKeySuperSet.findAll { it ==~ clusterInstancePattern }
-      def instances = instanceProvider.getInstances(clusterView.accountName, instanceKeys as List, securityGroups)
+      def instanceCacheData = instanceProvider.getInstanceCacheData(instanceKeySuperSet as List).findAll { instance ->
+        instance.relationships.get(CLUSTERS.ns)?.collect { Keys.parse(it).cluster }?.contains(clusterView.name)
+      }
+
+      def instances = instanceProvider.getInstancesFromCacheData(clusterView.accountName, instanceCacheData, securityGroups)
 
       def loadBalancerKeys = serverGroupData.collect { serverGroup ->
         serverGroup.relationships[LOAD_BALANCERS.ns] as List<String>
@@ -232,6 +233,7 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
                                              Set<GoogleSecurityGroup> securityGroups,
                                              Set<GoogleLoadBalancer> loadBalancers) {
     GoogleServerGroup serverGroup = objectMapper.convertValue(cacheData.attributes, GoogleServerGroup)
+    serverGroup.account = account
 
     def loadBalancerKeys = cacheData.relationships[LOAD_BALANCERS.ns]
     loadBalancers = loadBalancers.findAll { loadBalancer ->

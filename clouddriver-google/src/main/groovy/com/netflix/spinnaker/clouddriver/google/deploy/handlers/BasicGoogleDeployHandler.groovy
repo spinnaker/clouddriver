@@ -18,7 +18,19 @@ package com.netflix.spinnaker.clouddriver.google.deploy.handlers
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.api.services.compute.Compute
-import com.google.api.services.compute.model.*
+import com.google.api.services.compute.model.AcceleratorConfig
+import com.google.api.services.compute.model.Autoscaler
+import com.google.api.services.compute.model.Backend
+import com.google.api.services.compute.model.BackendService
+import com.google.api.services.compute.model.DistributionPolicy
+import com.google.api.services.compute.model.DistributionPolicyZoneConfiguration
+import com.google.api.services.compute.model.FixedOrPercent
+import com.google.api.services.compute.model.InstanceGroupManager
+import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPolicy
+import com.google.api.services.compute.model.InstanceProperties
+import com.google.api.services.compute.model.InstanceTemplate
+import com.google.api.services.compute.model.NamedPort
+import com.netflix.frigga.Names
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.clouddriver.data.task.Task
@@ -26,6 +38,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
+import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEServerGroupNameResolver
@@ -34,7 +47,7 @@ import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDeployDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.ops.GoogleUserDataProvider
-import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
+import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancingPolicy
@@ -43,10 +56,19 @@ import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleNetworkProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleSubnetProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.config.GoogleConfiguration
+import com.netflix.spinnaker.moniker.Moniker
+import com.netflix.spinnaker.moniker.Namer
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+
+import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.BACKEND_SERVICE_NAMES
+import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.LOAD_BALANCING_POLICY
+import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.SELECT_ZONES
 
 @Component
 @Slf4j
@@ -133,8 +155,12 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     def instanceMetadata = description.instanceMetadata
     def labels = description.labels
     def canIpForward = description.canIpForward
+    Namer<GoogleLabeledResource> namer = NamerRegistry.lookup()
+      .withProvider(GoogleCloudProvider.getID())
+      .withAccount(accountName)
+      .withResource(GoogleLabeledResource.class)
 
-    def serverGroupNameResolver = new GCEServerGroupNameResolver(project, region, credentials, safeRetry, this)
+    def serverGroupNameResolver = new GCEServerGroupNameResolver(project, region, credentials, googleClusterProvider, safeRetry, this)
     def clusterName = serverGroupNameResolver.combineAppStackDetail(description.application, description.stack, description.freeFormDetails)
 
     task.updateStatus BASE_PHASE, "Initializing creation of server group for cluster $clusterName in $location..."
@@ -341,6 +367,18 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     // Used to group instances when querying for metrics from kayenta.
     labels['spinnaker-region'] = region
     labels['spinnaker-server-group'] = serverGroupName
+
+    def sequence = Names.parseName(serverGroupName).sequence
+
+    def moniker = Moniker.builder()
+      .app(description.application)
+      .cluster(clusterName)
+      .detail(description.freeFormDetails)
+      .stack(description.stack)
+      .sequence(sequence)
+      .build()
+
+    namer.applyMoniker(description, moniker)
 
     // Accelerators are supported for zonal server groups only.
     List<AcceleratorConfig> acceleratorConfigs = description.regional ? [] : description.acceleratorConfigs
@@ -598,6 +636,20 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           TAG_SCOPE, SCOPE_GLOBAL)
       null
     }
+  }
+
+  // todo(lwander): move to kork
+  private static Moniker cloneMoniker(Moniker inp) {
+    if (inp == null) {
+      return new Moniker()
+    }
+    return Moniker.builder()
+      .app(inp.getApp())
+      .cluster(inp.getCluster())
+      .stack(inp.getStack())
+      .detail(inp.getDetail())
+      .sequence(inp.getSequence())
+      .build()
   }
 
   Map getUserData(BasicGoogleDeployDescription description, String serverGroupName,
