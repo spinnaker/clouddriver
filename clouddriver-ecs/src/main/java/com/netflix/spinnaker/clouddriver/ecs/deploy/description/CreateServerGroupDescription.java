@@ -39,6 +39,8 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Integer computeUnits;
   Integer reservedMemory;
 
+  Map<String, String> environmentVariables;
+
   String dockerImageAddress;
 
   ServerGroup.Capacity capacity;
@@ -53,6 +55,10 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Integer healthCheckGracePeriodSeconds;
 
   String launchType;
+
+  String logDriver;
+  Map<String, String> logOptions;
+  Map<String, String> dockerLabels;
 
   @Override
   public String getRegion() {
