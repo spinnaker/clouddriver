@@ -25,9 +25,11 @@ import com.google.api.client.http.HttpHeaders
 import com.google.api.services.compute.model.*
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.provider.ProviderCache
+import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.model.GoogleHealthCheck
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
+import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.*
 import com.netflix.spinnaker.clouddriver.google.provider.agent.util.GroupHealthRequest
 import com.netflix.spinnaker.clouddriver.google.provider.agent.util.LoadBalancerHealthResolution
@@ -120,6 +122,15 @@ class GoogleTcpLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerCachin
     }
 
     return loadBalancers.findAll { !(it.name in failedSubjects) }
+  }
+
+  @Override
+  String determineInstanceKey(GoogleLoadBalancer loadBalancer, GoogleLoadBalancerHealth health) {
+    // Tcp load balancers' region is "global", so we have to determine the instance region from its zone.
+    def instanceZone = health.instanceZone
+    def instanceRegion = credentials.regionFromZone(instanceZone)
+
+    return Keys.getInstanceKey(accountName, instanceRegion, health.instanceName)
   }
 
   class ForwardingRuleCallbacks {
