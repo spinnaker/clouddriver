@@ -14,11 +14,21 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.model;
+package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model;
 
-import lombok.RequiredArgsConstructor;
+import lombok.Data;
 
-@RequiredArgsConstructor
-class CloudFoundryRegion {
-  private final String name;
+@Data
+public class Token {
+  private String accessToken;
+
+  /**
+   * Dimensioned in seconds
+   */
+  private long expiresIn;
+
+  /**
+   * A globally unique identifier for this token
+   */
+  private String jti;
 }
