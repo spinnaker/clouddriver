@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.googlecommon.deploy
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.clouddriver.data.task.Task
 import groovy.util.logging.Slf4j
 
 import java.util.concurrent.TimeUnit
@@ -28,7 +27,7 @@ abstract class GoogleCommonSafeRetry {
   public static class SafeRetryState {
     Object finalResult
     Exception lastSeenException
-    int tries = 1
+    int tries = 0
     boolean success = false
   }
 
@@ -38,7 +37,6 @@ abstract class GoogleCommonSafeRetry {
    * @param operation - The operation.
    * @param action - String describing the operation.
    * @param resource - Resource we are operating on.
-   * @param task - Spinnaker task. Can be null.
    * @param phase
    * @param retryCodes - GoogleJsonResponseException codes we retry on.
    * @param successfulErrorCodes - GoogleJsonException codes we treat as success.
@@ -47,7 +45,6 @@ abstract class GoogleCommonSafeRetry {
    */
   public Object doRetry(Closure operation,
                         String resource,
-                        Task task,
                         List<Integer> retryCodes,
                         List<Integer> successfulErrorCodes,
                         Long maxWaitInterval,
@@ -58,7 +55,7 @@ abstract class GoogleCommonSafeRetry {
                         Registry registry) {
     long startTime = registry.clock().monotonicTime()
     SafeRetryState state = performOperation(
-        operation, tags.action, resource, task, tags.phase,
+        operation, tags.action, resource, tags.phase,
         retryCodes, successfulErrorCodes,
         maxWaitInterval, retryIntervalBase, jitterMultiplier, maxRetries)
 
@@ -75,7 +72,6 @@ abstract class GoogleCommonSafeRetry {
   protected SafeRetryState performOperation(Closure operation,
                                             String action,
                                             String resource,
-                                            Task task,
                                             String phase,
                                             List<Integer> retryCodes,
                                             List<Integer> successfulErrorCodes,
@@ -83,46 +79,43 @@ abstract class GoogleCommonSafeRetry {
                                             Long retryIntervalBase,
                                             Long jitterMultiplier,
                                             Long maxRetries) {
+    def maxAttempts = Math.max(1, maxRetries)
     SafeRetryState state = new SafeRetryState()
-    try {
-      task?.updateStatus phase, "Attempting $action of $resource..."
-      state.finalResult = operation()
-      state.success = true
-      return state
-    } catch (GoogleJsonResponseException | SocketTimeoutException | SocketException e) {
-      // Don't retry if we don't have to.
-      if (e instanceof GoogleJsonResponseException && e.statusCode in successfulErrorCodes) {
-        state.success = true
-        return state
-      } else if (!isRetryable(e, retryCodes)) {
-        throw e
-      }
-      log.warn "Initial $action of $resource failed, retrying..."
 
-      while (state.tries < maxRetries) {
-        try {
-          def tries = ++state.tries
+    while (state.tries < maxAttempts) {
+      def tries = ++state.tries
+      try {
+        if (tries != 1) {
           // Sleep with exponential backoff based on the number of retries. Add retry jitter with Math.random() to
           // prevent clients syncing up and bursting at regular intervals. Don't wait longer than a minute.
-          Long thisIntervalWait = TimeUnit.SECONDS.toMillis(Math.pow(retryIntervalBase, tries) as Integer)
-          sleep(Math.min(thisIntervalWait, maxWaitInterval) + Math.round(Math.random() * jitterMultiplier))
-          log.warn "$action $resource attempt #$tries..."
-          state.finalResult = operation()
-          state.success = true
-          return state
-        } catch (GoogleJsonResponseException jsonException) {
-          if (jsonException.statusCode in retryCodes) {
-            log.warn "Retry $action of $resource encountered ${jsonException.statusCode} with error message: ${jsonException.message}. Trying again..."
-          } else {
-            throw jsonException
-          }
-          state.lastSeenException = jsonException
-        } catch (SocketTimeoutException toEx) {
-          log.warn "Retry $action timed out again, trying again..."
-          state.lastSeenException = toEx
+          Long thisIntervalWait = TimeUnit.SECONDS.toMillis(Math.pow(retryIntervalBase, tries - 1) as Integer)
+          def sleepMillis = Math.min(thisIntervalWait, maxWaitInterval) + Math.round(Math.random() * jitterMultiplier)
+          log.warn "Waiting $sleepMillis ms to retry $action."
+          sleep(sleepMillis)
+          log.warn "Retrying $action $resource attempt #$tries..."
         }
+        state.finalResult = operation()
+        state.success = true
+        return state
+      } catch (GoogleJsonResponseException jsonException) {
+        if (jsonException.statusCode in successfulErrorCodes) {
+           state.success = true
+           return state
+        }
+
+        if (jsonException.statusCode in retryCodes) {
+          log.warn "$action of $resource attempt #$tries encountered retryable statusCode=${jsonException.statusCode} with error message: ${jsonException.message}."
+        } else {
+          throw jsonException
+        }
+        state.lastSeenException = jsonException
+      } catch (SocketTimeoutException toEx) {
+        log.warn "Retryable $action attempt #$tries timed out."
+        state.lastSeenException = toEx
       }
     }
+    log.warn "$action of $resource giving up after $maxAttempts tries with ${state.lastSeenException.message}"
+
     return state
   }
 
