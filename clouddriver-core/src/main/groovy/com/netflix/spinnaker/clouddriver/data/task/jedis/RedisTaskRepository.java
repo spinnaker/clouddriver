@@ -69,6 +69,8 @@ public class RedisTaskRepository implements TaskRepository {
   public RedisTaskRepository(RedisClientDelegate redisClientDelegate, Optional<RedisClientDelegate> redisClientDelegatePrevious) {
     this.redisClientDelegate = redisClientDelegate;
     this.redisClientDelegatePrevious = redisClientDelegatePrevious;
+
+    log.info("Using {}", RedisTaskRepository.class.getSimpleName());
   }
 
   @Override

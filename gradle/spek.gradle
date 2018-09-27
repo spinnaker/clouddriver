@@ -14,22 +14,27 @@
  * limitations under the License.
  */
 
-apply plugin: "org.junit.platform.gradle.plugin"
-
 repositories {
   jcenter()
-  maven { url "http://dl.bintray.com/jetbrains/spek" }
 }
 
 dependencies {
-  spinnaker.group('spek')
+  testCompile "org.junit.platform:junit-platform-runner:${spinnaker.version("junit5")}"
+  testCompile "org.jetbrains.spek:spek-api:${spinnaker.version("spek")}"
+  testCompile "org.jetbrains.spek:spek-subject-extension:${spinnaker.version("spek")}"
+  testCompile "com.nhaarman:mockito-kotlin:1.5.0"
+  testCompile "org.assertj:assertj-core:3.9.0"
+  testCompile "org.junit.jupiter:junit-jupiter-api:${spinnaker.version("jupiter")}"
+
+  testRuntime "org.junit.platform:junit-platform-launcher:${spinnaker.version("junit5")}"
+  testRuntime "org.junit.jupiter:junit-jupiter-engine:${spinnaker.version("jupiter")}"
+  testRuntime "org.junit.vintage:junit-vintage-engine:${spinnaker.version("junitVintage")}"
+  testRuntime "org.jetbrains.spek:spek-junit-platform-engine:${spinnaker.version("spek")}"
+  testCompile "io.strikt:strikt-core:0.11.5"
 }
 
-junitPlatform {
-  platformVersion junitVersion
-  filters {
-    engines {
-      include "spek", "junit-vintage", "junit-jupiter"
-    }
+test {
+  useJUnitPlatform {
+    includeEngines "spek", "junit-vintage", "junit-jupiter"
   }
 }

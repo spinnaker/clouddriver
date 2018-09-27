@@ -16,11 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.data.task
 
+import groovy.util.logging.Slf4j
+
 import java.util.concurrent.ConcurrentHashMap
 
+@Slf4j
 class InMemoryTaskRepository implements TaskRepository {
+
   private final Map<String, Task> repository = new ConcurrentHashMap<>()
   private final Map<String, Task> clientRequestRepository = new ConcurrentHashMap<>()
+
+  InMemoryTaskRepository() {
+    log.info("Using ${getClass().simpleName}")
+  }
 
   @Override
   Task create(String phase, String status, String clientRequestId) {

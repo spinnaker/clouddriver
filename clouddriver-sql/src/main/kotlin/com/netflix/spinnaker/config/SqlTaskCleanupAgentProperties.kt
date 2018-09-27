@@ -1,11 +1,11 @@
 /*
  * Copyright 2018 Netflix, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License")
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,23 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.config
 
-apply plugin: "nebula.kotlin"
-apply plugin: "kotlin-spring"
+import org.springframework.boot.context.properties.ConfigurationProperties
+import java.util.concurrent.TimeUnit
 
-configurations.all {
-  resolutionStrategy {
-    eachDependency { details ->
-      if (details.requested.group == "org.jetbrains.kotlin") {
-        details.useVersion kotlinVersion
-      }
-    }
-  }
-}
-
-compileKotlin {
-  kotlinOptions {
-    languageVersion = "1.2"
-    jvmTarget = "1.8"
-  }
-}
+@ConfigurationProperties("sql.agent.taskCleanup")
+data class SqlTaskCleanupAgentProperties(
+  var completedTtlMs: Long = TimeUnit.MINUTES.toMillis(30)
+)
