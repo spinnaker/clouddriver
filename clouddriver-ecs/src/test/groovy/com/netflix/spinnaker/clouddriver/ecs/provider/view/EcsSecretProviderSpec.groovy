@@ -52,8 +52,7 @@ class EcsSecretProviderSpec extends Specification {
     def secretArn = "arn:aws:secretsmanager:" + REGION + ":012345678910:secret:" + secretName
     def key = Keys.getSecretKey(ACCOUNT, REGION, secretName)
 
-    def keys = new HashSet()
-    keys.add(key)
+    HashSet keys = [key]
 
     SecretListEntry secretEntry = new SecretListEntry(
       name: secretName,
@@ -81,7 +80,7 @@ class EcsSecretProviderSpec extends Specification {
     Collection<CacheData> cacheData = new HashSet<>()
     Set<String> keys = new HashSet<>()
 
-    for (int x = 0; x < numberOfSecrets; x++) {
+    numberOfSecrets.times { x ->
       String secretName = "test-secret-" + x
       String secretArn = "arn:aws:secretsmanager:" + REGION + ":012345678910:secret:" + secretName
       String key = Keys.getSecretKey(ACCOUNT, REGION, secretName)
