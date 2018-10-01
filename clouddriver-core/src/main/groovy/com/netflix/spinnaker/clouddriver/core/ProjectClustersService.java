@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.core;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.frigga.Names;
@@ -24,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import retrofit.RetrofitError;
 
 import javax.annotation.Nonnull;
 import javax.inject.Provider;
@@ -51,23 +53,27 @@ public class ProjectClustersService {
     Map<String, List<ProjectClustersService.ClusterModel>> projectClusters = new HashMap<>();
 
     for (String projectName : projectNames) {
-      Map projectMap = front50Service.getProject(projectName);
-
-      Project project;
       try {
-        project = objectMapper.convertValue(projectMap, Project.class);
-      } catch (IllegalArgumentException e) {
-        log.error("Could not marshal project '{}' to internal model", projectName, e);
-        continue;
-      }
+        Map projectMap = front50Service.getProject(projectName);
 
-      if (project.config.clusters.isEmpty()) {
-        projectClusters.put(project.name, Collections.emptyList());
-        log.debug("Project '{}' does not have any clusters", projectName);
-        continue;
-      }
+        Project project;
+        try {
+          project = objectMapper.convertValue(projectMap, Project.class);
+        } catch (IllegalArgumentException e) {
+          log.error("Could not marshal project '{}' to internal model", projectName, e);
+          continue;
+        }
 
-      projectClusters.put(project.name, getProjectClusters(project));
+        if (project.config.clusters.isEmpty()) {
+          projectClusters.put(project.name, Collections.emptyList());
+          log.debug("Project '{}' does not have any clusters", projectName);
+          continue;
+        }
+
+        projectClusters.put(project.name, getProjectClusters(project));
+      } catch (Exception e) {
+        log.error("Unable to fetch clusters for project '{}'", projectName, e);
+      }
     }
 
     return projectClusters;
@@ -265,6 +271,7 @@ public class ProjectClustersService {
       clusters.addAll(regionClusters.values());
     }
 
+    @JsonProperty
     Long getLastPush() {
       long lastPush = 0;
       for (RegionClusterModel cluster : clusters) {
@@ -285,6 +292,7 @@ public class ProjectClustersService {
       this.region = region;
     }
 
+    @JsonProperty
     Long getLastPush() {
       long max = 0;
       for (DeployedBuild build : builds) {

@@ -124,24 +124,35 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return cachedDefaultNamespace;
   }
 
-  public String lookupDefaultNamespace() {
-    String namespace = defaultNamespace;
+  private Optional<String> serviceAccountNamespace() {
     try {
-      Optional<String> serviceAccountNamespace = Files.lines(serviceAccountNamespacePath, StandardCharsets.UTF_8).findFirst();
-      namespace = serviceAccountNamespace.orElse("");
+      return Files.lines(serviceAccountNamespacePath, StandardCharsets.UTF_8).findFirst();
     } catch (IOException e) {
-      try {
-        namespace = jobExecutor.defaultNamespace(this);
-      } catch (KubectlException ke) {
-        log.debug("Failure looking up desired namespace, defaulting to {}", defaultNamespace, ke);
+      log.debug("Failure looking up desired namespace", e);
+      return Optional.empty();
+    }
+  }
+
+  private Optional<String> kubectlNamespace() {
+    try {
+      return Optional.of(jobExecutor.defaultNamespace(this));
+    } catch (KubectlException e) {
+      log.debug("Failure looking up desired namespace", e);
+      return Optional.empty();
+    }
+  }
+
+  public String lookupDefaultNamespace() {
+    try {
+      if (serviceAccount) {
+        return serviceAccountNamespace().orElse(defaultNamespace);
+      } else {
+        return kubectlNamespace().orElse(defaultNamespace);
       }
     } catch (Exception e) {
       log.debug("Error encountered looking up default namespace, defaulting to {}", defaultNamespace, e);
+      return defaultNamespace;
     }
-    if (StringUtils.isEmpty(namespace)) {
-      namespace = defaultNamespace;
-    }
-    return namespace;
   }
 
   @Getter
@@ -165,6 +176,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     List<String> kinds;
     List<String> omitKinds;
     boolean debug;
+    boolean checkPermissionsOnStartup;
     boolean serviceAccount;
     boolean metrics;
 
@@ -233,6 +245,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder checkPermissionsOnStartup(boolean checkPermissionsOnStartup) {
+      this.checkPermissionsOnStartup = checkPermissionsOnStartup;
+      return this;
+    }
+
     public Builder serviceAccount(boolean serviceAccount) {
       this.serviceAccount = serviceAccount;
       return this;
@@ -289,6 +306,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           KubernetesKind.registeredStringList(kinds),
           KubernetesKind.registeredStringList(omitKinds),
           metrics,
+          checkPermissionsOnStartup,
           debug
       );
     }
@@ -311,6 +329,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       @NotNull List<KubernetesKind> kinds,
       @NotNull List<KubernetesKind> omitKinds,
       boolean metrics,
+      boolean checkPermissionsOnStartup,
       boolean debug) {
     this.registry = registry;
     this.clock = registry.clock();
@@ -337,7 +356,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         .map(KubernetesManifest::getName)
         .collect(Collectors.toList()), namespaceExpirySeconds, TimeUnit.SECONDS);
 
-    determineOmitKinds();
+    if (checkPermissionsOnStartup) {
+      determineOmitKinds();
+    }
   }
 
   @Override
