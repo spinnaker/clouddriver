@@ -39,7 +39,10 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Integer computeUnits;
   Integer reservedMemory;
 
+  Map<String, String> environmentVariables;
+
   String dockerImageAddress;
+  String dockerImageCredentialsSecret;
 
   ServerGroup.Capacity capacity;
 
