@@ -138,7 +138,7 @@ public abstract class KubernetesV2CachingAgent extends KubernetesCachingAgent<Ku
         .peek(m -> RegistryUtils.removeSensitiveKeys(propertyRegistry, accountName, m))
         .map(rs -> {
           try {
-            return KubernetesCacheDataConverter.convertAsResource(accountName, rs, relationships.get(rs));
+            return KubernetesCacheDataConverter.convertAsResource(accountName, rs, relationships.get(rs), credentials.getOnlySpinnakerManaged());
           } catch (Exception e) {
             log.warn("Failure converting {} as resource", rs, e);
             return null;
@@ -155,7 +155,7 @@ public abstract class KubernetesV2CachingAgent extends KubernetesCachingAgent<Ku
     resourceData.addAll(resources.values()
         .stream()
         .flatMap(Collection::stream)
-        .map(rs -> KubernetesCacheDataConverter.convertAsArtifact(accountName, rs))
+        .map(rs -> KubernetesCacheDataConverter.convertAsArtifact(accountName, rs, credentials.getOnlySpinnakerManaged()))
         .filter(Objects::nonNull)
         .collect(Collectors.toList()));
 

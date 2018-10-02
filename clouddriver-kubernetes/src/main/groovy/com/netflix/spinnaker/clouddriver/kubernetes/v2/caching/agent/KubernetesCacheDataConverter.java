@@ -68,8 +68,8 @@ public class KubernetesCacheDataConverter {
   private static final int logicalTtlSeconds = toIntExact(TimeUnit.MINUTES.toSeconds(10));
   private static final int infrastructureTtlSeconds = -1;
 
-  public static CacheData convertAsArtifact(String account, KubernetesManifest manifest) {
-    KubernetesCachingProperties cachingProperties = KubernetesManifestAnnotater.getCachingProperties(manifest);
+  public static CacheData convertAsArtifact(String account, KubernetesManifest manifest, boolean onlySpinnakerManaged) {
+    KubernetesCachingProperties cachingProperties = KubernetesManifestAnnotater.getCachingProperties(manifest, onlySpinnakerManaged);
     if (cachingProperties.isIgnore()) {
       return null;
     }
@@ -171,8 +171,8 @@ public class KubernetesCacheDataConverter {
 
   public static CacheData convertAsResource(String account,
       KubernetesManifest manifest,
-      List<KubernetesManifest> resourceRelationships) {
-    KubernetesCachingProperties cachingProperties = KubernetesManifestAnnotater.getCachingProperties(manifest);
+      List<KubernetesManifest> resourceRelationships, boolean onlySpinnakerManaged) {
+    KubernetesCachingProperties cachingProperties = KubernetesManifestAnnotater.getCachingProperties(manifest, onlySpinnakerManaged);
     if (cachingProperties.isIgnore()) {
       return null;
     }

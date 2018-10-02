@@ -70,6 +70,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   private final Registry spectatorRegistry;
   private final AccountCredentialsRepository accountCredentialsRepository;
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+  private final Boolean onlySpinnakerManaged;
 
   KubernetesNamedAccountCredentials(String name,
                                     ProviderVersion providerVersion,
@@ -93,7 +94,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
                                     Permissions permissions,
                                     Registry spectatorRegistry,
                                     KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
-                                    C credentials) {
+                                    C credentials,
+                                    Boolean onlySpinnakerManaged) {
     this.name = name;
     this.providerVersion = providerVersion;
     this.environment = environment;
@@ -117,6 +119,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     this.spectatorRegistry = spectatorRegistry;
     this.credentials = credentials;
     this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
+    this.onlySpinnakerManaged = onlySpinnakerManaged;
   }
 
   public List<String> getNamespaces() {
@@ -188,6 +191,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     return kindMap;
   }
 
+  public Boolean getOnlySpinnakerManaged() { return onlySpinnakerManaged; }
+
   @Override
   public List<String> getRequiredGroupMembership() {
     return requiredGroupMembership;
@@ -230,6 +235,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     boolean debug;
     boolean checkPermissionsOnStartup;
     KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+    boolean onlySpinnakerManaged;
 
     Builder kubernetesSpinnakerKindMap(KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
       this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
@@ -414,6 +420,11 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       return this;
     }
 
+    Builder onlySpinnakerManaged(Boolean onlySpinnakerManaged) {
+      this.onlySpinnakerManaged = onlySpinnakerManaged;
+      return this;
+    }
+
     private C buildCredentials() {
       switch (providerVersion) {
         case v1:
@@ -458,6 +469,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
               .debug(debug)
               .checkPermissionsOnStartup(checkPermissionsOnStartup)
               .jobExecutor(jobExecutor)
+              .onlySpinnakerManaged(onlySpinnakerManaged)
               .build();
         default:
           throw new IllegalArgumentException("Unknown provider type: " + providerVersion);
@@ -547,7 +559,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
           permissions,
           spectatorRegistry,
           kubernetesSpinnakerKindMap,
-          credentials
+          credentials,
+          onlySpinnakerManaged
       );
     }
   }
