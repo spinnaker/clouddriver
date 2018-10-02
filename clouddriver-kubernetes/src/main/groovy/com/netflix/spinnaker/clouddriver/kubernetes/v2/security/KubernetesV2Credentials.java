@@ -66,6 +66,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final List<KubernetesKind> omitKinds;
   @Getter private final boolean serviceAccount;
   @Getter private boolean metrics;
+  private boolean onlySpinnakerManaged;
   @Getter private final List<KubernetesCachingPolicy> cachingPolicies;
 
   // TODO(lwander) make configurable
@@ -94,6 +95,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @JsonIgnore
   @Getter
   private final String oAuthServiceAccount;
+
+  public boolean getOnlySpinnakerManaged() {
+    return onlySpinnakerManaged;
+  }
 
   @JsonIgnore
   @Getter
@@ -179,6 +184,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     boolean checkPermissionsOnStartup;
     boolean serviceAccount;
     boolean metrics;
+    boolean onlySpinnakerManaged;
 
     public Builder accountName(String accountName) {
       this.accountName = accountName;
@@ -280,6 +286,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder onlySpinnakerManaged(boolean onlySpinnakerManaged) {
+      this.onlySpinnakerManaged = onlySpinnakerManaged;
+      return this;
+    }
+
     public KubernetesV2Credentials build() {
       namespaces = namespaces == null ? new ArrayList<>() : namespaces;
       omitNamespaces = omitNamespaces == null ? new ArrayList<>() : omitNamespaces;
@@ -306,6 +317,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           KubernetesKind.registeredStringList(kinds),
           KubernetesKind.registeredStringList(omitKinds),
           metrics,
+          onlySpinnakerManaged,
           checkPermissionsOnStartup,
           debug
       );
@@ -329,6 +341,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       @NotNull List<KubernetesKind> kinds,
       @NotNull List<KubernetesKind> omitKinds,
       boolean metrics,
+      boolean onlySpinnakerManaged,
       boolean checkPermissionsOnStartup,
       boolean debug) {
     this.registry = registry;
@@ -349,6 +362,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.cachingPolicies = cachingPolicies;
     this.kinds = kinds;
     this.metrics = metrics;
+    this.onlySpinnakerManaged = onlySpinnakerManaged;
     this.omitKinds = omitKinds;
 
     this.liveNamespaceSupplier = Suppliers.memoizeWithExpiration(() -> jobExecutor.list(this, Collections.singletonList(KubernetesKind.NAMESPACE), "")

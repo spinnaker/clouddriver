@@ -208,12 +208,13 @@ public class KubernetesManifestAnnotater {
         .build();
   }
 
-  public static KubernetesCachingProperties getCachingProperties(KubernetesManifest manifest) {
+  public static KubernetesCachingProperties getCachingProperties(KubernetesManifest manifest, boolean onlySpinnakerManaged) {
     Map<String, String> annotations = manifest.getAnnotations();
-
+    boolean shouldIgnore = getAnnotation(annotations, IGNORE_CACHING, new TypeReference<Boolean>() {}, false) ||
+      (onlySpinnakerManaged  && getAnnotation(annotations, APPLICATION, new TypeReference<String>() {}, "").equals(""));
     return KubernetesCachingProperties.builder()
-        .ignore(getAnnotation(annotations, IGNORE_CACHING, new TypeReference<Boolean>() {}, false))
-        .build();
+      .ignore(shouldIgnore)
+      .build();
   }
 
   public static KubernetesManifestStrategy getStrategy(KubernetesManifest manifest) {
