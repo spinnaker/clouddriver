@@ -140,7 +140,7 @@ public abstract class KubernetesV2CachingAgent extends KubernetesCachingAgent<Ku
         .map(rs -> {
           try {
             CacheData cacheData = KubernetesCacheDataConverter.convertAsResource(accountName, rs, relationships.get(rs));
-            if (credentials.getOnlySpinnakerManaged() && !StringUtils.isNotEmpty((String) cacheData.getAttributes().get("application"))) {
+            if (credentials.getOnlySpinnakerManaged() && StringUtils.isEmpty((String) cacheData.getAttributes().get("application"))) {
               return null;
             } else {
               return cacheData;
