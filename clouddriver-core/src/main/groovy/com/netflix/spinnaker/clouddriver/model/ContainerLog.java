@@ -1,11 +1,11 @@
 /*
- * Copyright 2018 Pivotal, Inc.
+ * Copyright 2018 Google, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
+package com.netflix.spinnaker.clouddriver.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
-import java.util.Map;
-
+@AllArgsConstructor
 @Data
-public class Application {
+@NoArgsConstructor
+public class ContainerLog {
   private String name;
-  private String guid;
-  private String state;
-  private ZonedDateTime createdAt;
-  private Map<String, Link> links;
+  private String output;
 }
