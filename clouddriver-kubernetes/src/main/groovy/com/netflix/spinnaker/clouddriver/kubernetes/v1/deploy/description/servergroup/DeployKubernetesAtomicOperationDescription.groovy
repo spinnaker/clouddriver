@@ -22,7 +22,7 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.description.KubernetesKindAtomicOperationDescription
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
-import lombok.Builder
+import groovy.transform.builder.Builder
 
 @AutoClone
 @Canonical
