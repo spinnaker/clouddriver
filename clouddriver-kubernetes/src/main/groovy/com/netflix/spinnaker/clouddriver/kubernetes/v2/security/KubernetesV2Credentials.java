@@ -67,6 +67,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter private final boolean serviceAccount;
   @Getter private boolean metrics;
   @Getter private final List<KubernetesCachingPolicy> cachingPolicies;
+  private final boolean onlySpinnakerManaged;
 
   // TODO(lwander) make configurable
   private final static int namespaceExpirySeconds = 30;
@@ -99,6 +100,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter
   private final List<String> oAuthScopes;
 
+  public boolean getOnlySpinnakerManaged() {
+    return onlySpinnakerManaged;
+  }
+
   private final String defaultNamespace = "default";
   private String cachedDefaultNamespace;
 
@@ -124,24 +129,35 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return cachedDefaultNamespace;
   }
 
-  public String lookupDefaultNamespace() {
-    String namespace = defaultNamespace;
+  private Optional<String> serviceAccountNamespace() {
     try {
-      Optional<String> serviceAccountNamespace = Files.lines(serviceAccountNamespacePath, StandardCharsets.UTF_8).findFirst();
-      namespace = serviceAccountNamespace.orElse("");
+      return Files.lines(serviceAccountNamespacePath, StandardCharsets.UTF_8).findFirst();
     } catch (IOException e) {
-      try {
-        namespace = jobExecutor.defaultNamespace(this);
-      } catch (KubectlException ke) {
-        log.debug("Failure looking up desired namespace, defaulting to {}", defaultNamespace, ke);
+      log.debug("Failure looking up desired namespace", e);
+      return Optional.empty();
+    }
+  }
+
+  private Optional<String> kubectlNamespace() {
+    try {
+      return Optional.of(jobExecutor.defaultNamespace(this));
+    } catch (KubectlException e) {
+      log.debug("Failure looking up desired namespace", e);
+      return Optional.empty();
+    }
+  }
+
+  public String lookupDefaultNamespace() {
+    try {
+      if (serviceAccount) {
+        return serviceAccountNamespace().orElse(defaultNamespace);
+      } else {
+        return kubectlNamespace().orElse(defaultNamespace);
       }
     } catch (Exception e) {
       log.debug("Error encountered looking up default namespace, defaulting to {}", defaultNamespace, e);
+      return defaultNamespace;
     }
-    if (StringUtils.isEmpty(namespace)) {
-      namespace = defaultNamespace;
-    }
-    return namespace;
   }
 
   @Getter
@@ -165,8 +181,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     List<String> kinds;
     List<String> omitKinds;
     boolean debug;
+    boolean checkPermissionsOnStartup;
     boolean serviceAccount;
     boolean metrics;
+    boolean onlySpinnakerManaged;
 
     public Builder accountName(String accountName) {
       this.accountName = accountName;
@@ -233,6 +251,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder checkPermissionsOnStartup(boolean checkPermissionsOnStartup) {
+      this.checkPermissionsOnStartup = checkPermissionsOnStartup;
+      return this;
+    }
+
     public Builder serviceAccount(boolean serviceAccount) {
       this.serviceAccount = serviceAccount;
       return this;
@@ -263,6 +286,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder onlySpinnakerManaged(boolean onlySpinnakerManaged) {
+      this.onlySpinnakerManaged = onlySpinnakerManaged;
+      return this;
+    }
+
     public KubernetesV2Credentials build() {
       namespaces = namespaces == null ? new ArrayList<>() : namespaces;
       omitNamespaces = omitNamespaces == null ? new ArrayList<>() : omitNamespaces;
@@ -289,7 +317,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           KubernetesKind.registeredStringList(kinds),
           KubernetesKind.registeredStringList(omitKinds),
           metrics,
-          debug
+          checkPermissionsOnStartup,
+          debug,
+          onlySpinnakerManaged
       );
     }
   }
@@ -311,7 +341,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       @NotNull List<KubernetesKind> kinds,
       @NotNull List<KubernetesKind> omitKinds,
       boolean metrics,
-      boolean debug) {
+      boolean checkPermissionsOnStartup,
+      boolean debug,
+      boolean onlySpinnakerManaged) {
     this.registry = registry;
     this.clock = registry.clock();
     this.accountName = accountName;
@@ -331,13 +363,16 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.kinds = kinds;
     this.metrics = metrics;
     this.omitKinds = omitKinds;
+    this.onlySpinnakerManaged = onlySpinnakerManaged;
 
     this.liveNamespaceSupplier = Suppliers.memoizeWithExpiration(() -> jobExecutor.list(this, Collections.singletonList(KubernetesKind.NAMESPACE), "")
         .stream()
         .map(KubernetesManifest::getName)
         .collect(Collectors.toList()), namespaceExpirySeconds, TimeUnit.SECONDS);
 
-    determineOmitKinds();
+    if (checkPermissionsOnStartup) {
+      determineOmitKinds();
+    }
   }
 
   @Override

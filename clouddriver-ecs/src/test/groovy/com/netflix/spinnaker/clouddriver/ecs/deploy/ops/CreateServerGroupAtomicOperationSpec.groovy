@@ -36,6 +36,9 @@ import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.fiat.model.resources.Permissions
 
+import static com.netflix.spinnaker.clouddriver.ecs.deploy.ops.CreateServerGroupAtomicOperation.DOCKER_LABEL_KEY_SERVERGROUP
+import static com.netflix.spinnaker.clouddriver.ecs.deploy.ops.CreateServerGroupAtomicOperation.NO_IAM_ROLE
+
 class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
   def iamClient = Mock(AmazonIdentityManagement)
   def iamPolicyReader = Mock(IamPolicyReader)
@@ -63,7 +66,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
   def targetGroup = new TargetGroup().withLoadBalancerArns("loadbalancer-arn").withTargetGroupArn('target-group-arn')
 
   def service = new Service(serviceName: "${serviceName}")
-
 
   def 'should create a service'() {
     given:
@@ -225,5 +227,217 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     result.getServerGroupNames().contains("us-west-1:" + serviceName)
     result.getServerGroupNameByRegion().containsKey('us-west-1')
     result.getServerGroupNameByRegion().get('us-west-1').contains(serviceName)
+  }
+
+  def 'should create default Docker labels'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getDockerLabels() >> null
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
+
+    then:
+    def labels = request.getContainerDefinitions().get(0).getDockerLabels()
+    labels.get(DOCKER_LABEL_KEY_SERVERGROUP) == 'mygreatapp-stack1-details2-v0011'
+    labels.get(CreateServerGroupAtomicOperation.DOCKER_LABEL_KEY_STACK) == 'stack1'
+    labels.get(CreateServerGroupAtomicOperation.DOCKER_LABEL_KEY_DETAIL) == 'details2'
+  }
+
+  def 'should create custom Docker labels'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getDockerLabels() >> ['label1': 'value1', 'fruit':'tomato']
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
+
+    then:
+    def labels = request.getContainerDefinitions().get(0).getDockerLabels()
+    labels.get('label1') == 'value1'
+    labels.get('fruit') == 'tomato'
+  }
+
+  def 'should not allow overwriting Spinnaker Docker labels'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    def dockerLabels = [:]
+    dockerLabels.put(DOCKER_LABEL_KEY_SERVERGROUP, 'some-value-we-dont-want-to-see')
+
+    description.getApplication() >> 'mygreatapp'
+    description.getStack() >> 'stack1'
+    description.getFreeFormDetails() >> 'details2'
+    description.getDockerLabels() >> dockerLabels
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
+
+    then:
+    def labels = request.getContainerDefinitions().get(0).getDockerLabels()
+    labels.get(DOCKER_LABEL_KEY_SERVERGROUP) == 'mygreatapp-stack1-details2-v0011'
+    labels.get(DOCKER_LABEL_KEY_SERVERGROUP) != 'some-value-we-dont-want-to-see'
+  }
+
+
+  def 'should allow selecting the logDriver'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+    description.getLogDriver() >> 'some-log-driver'
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
+
+    then:
+    request.getContainerDefinitions().get(0).getLogConfiguration().getLogDriver() == 'some-log-driver'
+  }
+
+  def 'should allow empty logOptions'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+    description.getLogDriver() >> 'some-log-driver'
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
+
+    then:
+    request.getContainerDefinitions().get(0).getLogConfiguration().getOptions() == null
+  }
+
+  def 'should allow registering logOptions'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+    description.getLogDriver() >> 'some-log-driver'
+    def logOptions = ['key1': '1value', 'key2': 'value2']
+    description.getLogOptions() >> logOptions
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
+
+    then:
+    request.getContainerDefinitions().get(0).getLogConfiguration().getOptions() == logOptions
+  }
+
+  def 'should allow using secret credentials for the docker image'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+    description.getDockerImageCredentialsSecret() >> 'my-secret'
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
+
+    then:
+    request.getContainerDefinitions().get(0).getRepositoryCredentials().getCredentialsParameter() == 'my-secret'
+  }
+
+  def 'should allow not specifying secret credentials for the docker image'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    def request = operation.makeTaskDefinitionRequest('arn:aws:iam::test:test-role', 'v0011')
+
+    then:
+    request.getContainerDefinitions().get(0).getRepositoryCredentials() == null
+  }
+
+  def 'should generate a RegisterTaskDefinitionRequest object'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+    description.getApplication() >> 'v1'
+    description.getStack() >> 'kcats'
+    description.getFreeFormDetails() >> 'liated'
+    description.ecsClusterName = 'test-cluster'
+    description.iamRole = 'None (No IAM role)'
+    description.getContainerPort() >> 1337
+    description.targetGroup = 'target-group-arn'
+    description.getPortProtocol() >> 'tcp'
+    description.getComputeUnits() >> 9001
+    description.getReservedMemory() >> 9001
+    description.getDockerImageAddress() >> 'docker-image-url'
+    description.capacity = new ServerGroup.Capacity(1, 1, 1)
+    description.availabilityZones = ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']]
+    description.autoscalingPolicies = []
+    description.placementStrategySequence = []
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    RegisterTaskDefinitionRequest result = operation.makeTaskDefinitionRequest("test-role", "v1")
+
+    then:
+    result.getTaskRoleArn() == null
+    result.getFamily() == "v1-kcats-liated"
+
+    result.getContainerDefinitions().size() == 1
+    def containerDefinition = result.getContainerDefinitions().first()
+    containerDefinition.name == 'v1'
+    containerDefinition.image == 'docker-image-url'
+    containerDefinition.cpu == 9001
+    containerDefinition.memoryReservation == 9001
+
+    containerDefinition.portMappings.size() == 1
+    def portMapping = containerDefinition.portMappings.first()
+    portMapping.getHostPort() == 0
+    portMapping.getContainerPort() == 1337
+    portMapping.getProtocol() == 'tcp'
+
+    containerDefinition.environment.size() == 3
+    def environments = [:]
+    for(elem in containerDefinition.environment){
+      environments.put(elem.getName(), elem.getValue())
+    }
+    environments.get("SERVER_GROUP") == "v1"
+    environments.get("CLOUD_STACK") == "kcats"
+    environments.get("CLOUD_DETAIL") == "liated"
+  }
+
+  def 'should set additional environment variables'() {
+    given:
+    def description = Mock(CreateServerGroupDescription)
+    description.getApplication() >> 'v1'
+    description.getStack() >> 'kcats'
+    description.getFreeFormDetails() >> 'liated'
+    description.getEnvironmentVariables() >> ["ENVIRONMENT_1" : "test1", "ENVIRONMENT_2" : "test2"]
+    def operation = new CreateServerGroupAtomicOperation(description)
+
+    when:
+    RegisterTaskDefinitionRequest result = operation.makeTaskDefinitionRequest("test-role", "v1")
+
+    then:
+    result.getContainerDefinitions().size() == 1
+    def containerDefinition = result.getContainerDefinitions().first()
+    containerDefinition.environment.size() == 5
+    def environments = [:]
+    for(elem in containerDefinition.environment){
+      environments.put(elem.getName(), elem.getValue())
+    }
+    environments.get("SERVER_GROUP") == "v1"
+    environments.get("CLOUD_STACK") == "kcats"
+    environments.get("CLOUD_DETAIL") == "liated"
+    environments.get("ENVIRONMENT_1") == "test1"
+    environments.get("ENVIRONMENT_2") == "test2"
   }
 }

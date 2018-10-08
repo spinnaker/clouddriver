@@ -50,10 +50,12 @@ class KubernetesConfigurationProperties {
     String namingStrategy = "kubernetesAnnotations"
     Boolean debug = false
     Boolean metrics = true
+    Boolean checkPermissionsOnStartup = true
     List<CustomKubernetesResource> customResources;
     List<KubernetesCachingPolicy> cachingPolicies;
     List<String> kinds
     List<String> omitKinds
+    Boolean onlySpinnakerManaged
   }
 
   List<ManagedAccount> accounts = []
@@ -71,6 +73,7 @@ class CustomKubernetesResource {
   String spinnakerKind = KubernetesSpinnakerKindMap.SpinnakerKind.UNCLASSIFIED.toString()
   String deployPriority = "100"
   boolean versioned = false
+  boolean namespaced = true
 }
 
 @ToString(includeNames = true)
