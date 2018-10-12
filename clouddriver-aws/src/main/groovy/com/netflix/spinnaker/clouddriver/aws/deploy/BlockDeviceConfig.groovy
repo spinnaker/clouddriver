@@ -78,6 +78,11 @@ class BlockDeviceConfig {
       "g3.8xlarge"  : sizedBlockDevicesForEbs(120),
       "g3.16xlarge" : sizedBlockDevicesForEbs(120),
 
+      "g3s.xlarge"  : sizedBlockDevicesForEbs(80),
+      "g3s.4xlarge" : sizedBlockDevicesForEbs(120),
+      "g3s.8xlarge" : sizedBlockDevicesForEbs(120),
+      "g3s.16xlarge": sizedBlockDevicesForEbs(120),
+
       "h1.2xlarge"  : enumeratedBlockDevicesWithVirtualName(1),
       "h1.4xlarge"  : enumeratedBlockDevicesWithVirtualName(2),
       "h1.8xlarge"  : enumeratedBlockDevicesWithVirtualName(4),
