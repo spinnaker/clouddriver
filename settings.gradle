@@ -28,6 +28,7 @@ include 'cats:cats-core',
   'clouddriver-cloudfoundry',
   'clouddriver-consul',
   'clouddriver-core',
+  'clouddriver-core-tck',
   'clouddriver-dcos',
   'clouddriver-docker',
   'clouddriver-ecs',
@@ -40,9 +41,9 @@ include 'cats:cats-core',
   'clouddriver-openstack',
   'clouddriver-oracle',
   'clouddriver-security',
+  'clouddriver-sql',
   'clouddriver-titus',
-  'clouddriver-web',
-  'clouddriver-core-tck'
+  'clouddriver-web'
 
 def cloudProviderProjects = [
   'appengine':  [':clouddriver-appengine', ':clouddriver-google-common'],
