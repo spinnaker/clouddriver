@@ -16,10 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.search.executor;
 
+import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.search.SearchProvider;
 import com.netflix.spinnaker.clouddriver.search.SearchQueryCommand;
 import com.netflix.spinnaker.clouddriver.search.SearchResultSet;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Collections;
 import java.util.List;
@@ -32,6 +34,9 @@ public class SearchExecutor {
   private Integer timeout;
   private ExecutorService executor;
 
+  @Autowired
+  Registry registry;
+
   SearchExecutor(SearchExecutorConfigProperties configProperties) {
     this.timeout = configProperties.getTimeout();
     this.executor = Executors.newFixedThreadPool(configProperties.getThreadPoolSize());
@@ -40,7 +45,7 @@ public class SearchExecutor {
   public List<SearchResultSet> searchAllProviders(List<SearchProvider> providers,
                                                   SearchQueryCommand searchQuery) {
     List<Callable<SearchResultSet>> searchTasks = providers.stream().
-      map(p -> new SearchTask(p, searchQuery)).
+      map(p -> new SearchTask(p, searchQuery, registry)).
       collect(Collectors.toList());
     List<Future<SearchResultSet>> resultFutures = null;
     try {
@@ -53,10 +58,10 @@ public class SearchExecutor {
     if (resultFutures == null) {
       return Collections.EMPTY_LIST;
     }
-    return resultFutures.stream().map(f -> getFuture(f)).collect(Collectors.toList());
+    return resultFutures.stream().map(f -> getFuture(f, registry, searchQuery.getQ())).collect(Collectors.toList());
   }
 
-  private static SearchResultSet getFuture(Future<SearchResultSet> f) {
+  private static SearchResultSet getFuture(Future<SearchResultSet> f, Registry registry, String q) {
     SearchResultSet resultSet = null;
     try {
       resultSet = f.get();
@@ -64,6 +69,8 @@ public class SearchExecutor {
       log.error(String.format("Retrieving future %s failed", f), e);
     } catch (CancellationException _) {
       log.error(String.format("Retrieving result failed due to cancelled task: %s", f));
+      String counterId = String.format("searchExecutor.%s.failures", q != null ? q : "*");
+      registry.counter(registry.createId(counterId)).increment(1);
     }
 
     if (resultSet == null) {
@@ -75,10 +82,12 @@ public class SearchExecutor {
   private static class SearchTask implements Callable<SearchResultSet> {
     private SearchProvider provider;
     private SearchQueryCommand searchQuery;
+    private Registry registry;
 
-    SearchTask(SearchProvider provider, SearchQueryCommand searchQuery) {
+    SearchTask(SearchProvider provider, SearchQueryCommand searchQuery, Registry registry) {
       this.provider = provider;
       this.searchQuery = searchQuery;
+      this.registry = registry;
     }
 
     public SearchResultSet call() {
@@ -89,16 +98,18 @@ public class SearchExecutor {
         .filter(e -> !provider.excludedFilters().contains(e.getKey()))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+      String q = searchQuery.getQ();
       try {
         if (searchQuery.getType() != null && !searchQuery.getType().isEmpty()) {
-          return provider.search(searchQuery.getQ(), searchQuery.getType(), searchQuery.getPage(),
+          return provider.search(q, searchQuery.getType(), searchQuery.getPage(),
                                  searchQuery.getPageSize(), filters);
         } else {
-          return provider.search(searchQuery.getQ(), searchQuery.getPage(), searchQuery.getPageSize(), filters);
+          return provider.search(q, searchQuery.getPage(), searchQuery.getPageSize(), filters);
         }
       } catch (Exception e) {
-        log.error(String.format("Search for '%s' in '%s' failed",
-          searchQuery.getQ(), searchQuery.getPlatform()), e);
+        log.error(String.format("Search for '%s' in '%s' failed", q, searchQuery.getPlatform()), e);
+        String counterId = String.format("searchExecutor.%s.failures", q != null ? q : "*");
+        registry.counter(registry.createId(counterId)).increment(1);
         return new SearchResultSet().setTotalMatches(0).setResults(Collections.EMPTY_LIST);
       }
     }
