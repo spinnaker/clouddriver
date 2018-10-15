@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,17 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.model;
+package com.netflix.spinnaker.clouddriver.search.executor;
 
-public enum EcsServerGroupEventStatus {
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
-  Success,
-  Failure,
-  Transition
+@Data
+@NoArgsConstructor
+@ConfigurationProperties("search.executor")
+class SearchExecutorConfigProperties {
+  private Boolean enabled;
+  private Integer threadPoolSize;
+  private Integer timeout;
 }

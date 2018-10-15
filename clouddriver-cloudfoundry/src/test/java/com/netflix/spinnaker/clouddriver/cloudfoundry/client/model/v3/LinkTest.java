@@ -1,11 +1,11 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Pivotal, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,11 +14,17 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.model;
+package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
-public enum EcsServerGroupEventStatus {
+import org.junit.jupiter.api.Test;
 
-  Success,
-  Failure,
-  Transition
+import static org.assertj.core.api.Assertions.assertThat;
+
+class LinkTest {
+  @Test
+  void getGuid() {
+    Link link = new Link();
+    link.setHref("https://api.sys.calabasas.cf-app.com/v3/spaces/72d50cd9-434e-4738-9349-cb146987b963");
+    assertThat(link.getGuid()).isEqualTo("72d50cd9-434e-4738-9349-cb146987b963");
+  }
 }
