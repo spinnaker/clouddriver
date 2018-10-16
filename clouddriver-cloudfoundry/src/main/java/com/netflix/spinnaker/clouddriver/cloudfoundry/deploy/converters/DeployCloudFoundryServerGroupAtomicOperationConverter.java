@@ -102,10 +102,7 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
 
     Map manifest = (Map) input.get("manifest");
     if ("direct".equals(manifest.get("type"))) {
-      CloudFoundryAttributesForm form = getObjectMapper().convertValue(manifest, CloudFoundryAttributesForm.class);
-      DeployCloudFoundryServerGroupDescription.ApplicationAttributes attrs = convertBaseAttributes(form);
-      attrs.setRoutes(form.getRoutes());
-      attrs.setEnv(form.getEnv() == null ? null : form.getEnv().stream().collect(toMap((Map keyMap) -> keyMap.get("key").toString(), (Map keyMap) -> keyMap.get("value").toString())));
+      DeployCloudFoundryServerGroupDescription.ApplicationAttributes attrs = getObjectMapper().convertValue(manifest, DeployCloudFoundryServerGroupDescription.ApplicationAttributes.class);
       converted.setApplicationAttributes(attrs);
     } else if ("artifact".equals(manifest.get("type"))) {
       Artifact manifestArtifact = convertToArtifact(manifest.get("account").toString(), manifest.get("reference").toString());
@@ -126,7 +123,12 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
           });
 
         manifestApps.stream().findFirst().ifPresent(app -> {
-          DeployCloudFoundryServerGroupDescription.ApplicationAttributes attrs = convertBaseAttributes(app);
+          DeployCloudFoundryServerGroupDescription.ApplicationAttributes attrs = new DeployCloudFoundryServerGroupDescription.ApplicationAttributes();
+          attrs.setInstances(app.getInstances() == null ? 1 : app.getInstances());
+          attrs.setMemory(app.getMemory() == null ? "1024" : app.getMemory());
+          attrs.setDiskQuota(app.getDiskQuota() == null ? "1024" : app.getDiskQuota());
+          attrs.setBuildpack(app.getBuildpack());
+          attrs.setServices(app.getServices());
           attrs.setRoutes(app.getRoutes() == null ? null : app.getRoutes().stream().flatMap(route -> route.values().stream()).collect(toList()));
           attrs.setEnv(app.getEnv() == null ? null : app.getEnv().stream().flatMap(env -> env.entrySet().stream()).collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
           converted.setApplicationAttributes(attrs);
@@ -138,19 +140,8 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
     return converted;
   }
 
-  private DeployCloudFoundryServerGroupDescription.ApplicationAttributes convertBaseAttributes(CloudFoundryBaseManifest app) {
-    DeployCloudFoundryServerGroupDescription.ApplicationAttributes attrs = new DeployCloudFoundryServerGroupDescription.ApplicationAttributes();
-    attrs.setInstances(app.getInstances() == null ? 1 : app.getInstances());
-    attrs.setMemory(app.getMemory() == null ? "1024" : app.getMemory());
-    attrs.setDiskQuota(app.getDiskQuota() == null ? "1024" : app.getDiskQuota());
-    attrs.setBuildpack(app.getBuildpack());
-    attrs.setServices(app.getServices());
-
-    return attrs;
-  }
-
   @Data
-  private static class CloudFoundryBaseManifest {
+  private static class CloudFoundryManifest {
     @Nullable
     private Integer instances;
 
@@ -165,21 +156,9 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
 
     @Nullable
     private List<String> services;
-  }
 
-  @Data
-  private static class CloudFoundryManifest extends CloudFoundryBaseManifest {
     @Nullable
     private List<Map<String, String>> routes;
-
-    @Nullable
-    private List<Map<String, String>> env;
-  }
-
-  @Data
-  private static class CloudFoundryAttributesForm extends CloudFoundryBaseManifest {
-    @Nullable
-    private List<String> routes;
 
     @Nullable
     private List<Map<String, String>> env;
