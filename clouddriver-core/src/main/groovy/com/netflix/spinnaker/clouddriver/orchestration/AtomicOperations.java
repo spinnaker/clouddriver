@@ -88,4 +88,15 @@ public final class AtomicOperations {
 
   // Image operations
   public static final String DEREGISTER_IMAGE = "deleteImage";
+
+  // AWS Lambda Operations
+
+  public static final String INVOKE_AWSLAMBDA = "invokeAwsLambda";
+  public static final String CREATE_AWSLAMBDA = "createAwsLambda";
+  public static final String UPDATE_AWSLAMBDA_CONFIGURATION = "updateAwsLambdaConfiguration";
+  public static final String UPDATE_AWSLAMBDA_CODE = "updateAwsLambdaCode";
+  public static final String DELETE_AWSLAMBDA = "deleteAwsLambda";
+  public static final String UPSERT_AWSLAMBDA_ALIAS = "upsertAwsLambdaAlias";
+  public static final String UPSERT_AWSLAMBDA_EVENTMAPPING = "upsertAwsLambdaEventMapping";
+  public static final String DELETE_AWSLAMBDA_EVENTMAPPING = "deleteAwsLambdaEventMapping";
 }
