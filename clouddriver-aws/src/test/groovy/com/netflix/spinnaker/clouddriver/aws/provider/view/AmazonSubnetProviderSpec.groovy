@@ -27,6 +27,9 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.clouddriver.aws.cache.Keys
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonSubnet
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
+import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -35,8 +38,33 @@ class AmazonSubnetProviderSpec extends Specification {
   Cache cache = Mock(Cache)
   ObjectMapper mapper = new AmazonObjectMapper()
 
+
+
+  final credential1 = Stub(NetflixAmazonCredentials) {
+    getName() >> "test"
+    getAccountId() >> "accountId1"
+  }
+
+  final credential2 = Stub(NetflixAmazonCredentials) {
+    getName() >> "prod"
+    getAccountId() >> "prodAccountId"
+  }
+  final accountCredentialsProvider = new AccountCredentialsProvider() {
+
+    @Override
+    Set<? extends AccountCredentials> getAll() {
+      [credential1, credential2]
+    }
+
+    @Override
+    AccountCredentials getCredentials(String name) {
+      return null
+    }
+  }
+
   @Subject
-  AmazonSubnetProvider provider = new AmazonSubnetProvider(cache, mapper)
+  AmazonSubnetProvider provider = new AmazonSubnetProvider(accountCredentialsProvider, cache, mapper)
+
 
   void "should retrieve all subnets"() {
     when:
@@ -52,6 +80,7 @@ class AmazonSubnetProviderSpec extends Specification {
         cidrBlock: '10',
         availableIpAddressCount: 1,
         account: 'test',
+        accountId: 'accountId1',
         region: 'us-east-1',
         availabilityZone: 'us-east-1a',
         purpose: 'internal',
@@ -66,6 +95,7 @@ class AmazonSubnetProviderSpec extends Specification {
         cidrBlock: '11',
         availableIpAddressCount: 2,
         account: 'prod',
+        accountId: 'prodAccountId',
         region: 'us-west-1',
         availabilityZone: 'us-west-1a',
         purpose: 'external',
@@ -112,6 +142,7 @@ class AmazonSubnetProviderSpec extends Specification {
         cidrBlock: '10',
         availableIpAddressCount: 1,
         account: 'test',
+        accountId: 'accountId1',
         region: 'us-east-1',
         availabilityZone: 'us-east-1a',
         purpose: 'external (vpc0)',
@@ -149,6 +180,7 @@ class AmazonSubnetProviderSpec extends Specification {
             cidrBlock: '10',
             availableIpAddressCount: 1,
             account: 'test',
+            accountId: 'accountId1',
             region: 'us-east-1',
             availabilityZone: 'us-east-1a',
             purpose: 'external (vpc0)',
@@ -196,6 +228,7 @@ class AmazonSubnetProviderSpec extends Specification {
         cidrBlock: '10',
         availableIpAddressCount: 1,
         account: 'test',
+        accountId: 'accountId1',
         region: 'us-east-1',
         availabilityZone: 'us-east-1a',
         purpose: 'external (vpc0)',
