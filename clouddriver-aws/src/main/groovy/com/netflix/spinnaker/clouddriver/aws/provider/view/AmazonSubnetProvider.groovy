@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.aws.provider.view
 import com.amazonaws.services.ec2.model.Subnet
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.common.collect.ImmutableSet
 import com.netflix.awsobjectmapper.AmazonObjectMapper
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
@@ -26,7 +27,9 @@ import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.cache.Keys
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonSubnet
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
 import com.netflix.spinnaker.clouddriver.model.SubnetProvider
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -42,13 +45,20 @@ class AmazonSubnetProvider implements SubnetProvider<AmazonSubnet> {
 
   private final Cache cacheView
   private final AmazonObjectMapper objectMapper
+  final AccountCredentialsProvider accountCredentialsProvider
+  final Set<AmazonCredentials> accounts
 
   final String cloudProvider = AmazonCloudProvider.ID
 
   @Autowired
-  AmazonSubnetProvider(Cache cacheView, AmazonObjectMapper objectMapper) {
+  AmazonSubnetProvider(AccountCredentialsProvider accountCredentialsProvider, Cache cacheView, AmazonObjectMapper objectMapper) {
     this.cacheView = cacheView
     this.objectMapper = objectMapper
+    this.accountCredentialsProvider = accountCredentialsProvider
+    final allAmazonCredentials = (Set<AmazonCredentials>) accountCredentialsProvider.all.findAll {
+      it instanceof AmazonCredentials
+    }
+    accounts = ImmutableSet.copyOf(allAmazonCredentials)
   }
 
   @Override
@@ -96,6 +106,7 @@ class AmazonSubnetProvider implements SubnetProvider<AmazonSubnet> {
         purpose = "${splits[1]} (${splits[0]})"
       }
     }
+    def accountId = accounts.find{ account -> account.name.equals(parts.account)}.accountId
 
     new AmazonSubnet(
       type: AmazonCloudProvider.ID,
@@ -105,6 +116,7 @@ class AmazonSubnetProvider implements SubnetProvider<AmazonSubnet> {
       cidrBlock: subnet.cidrBlock,
       availableIpAddressCount: subnet.availableIpAddressCount,
       account: parts.account,
+      accountId: accountId,
       region: parts.region,
       availabilityZone: subnet.availabilityZone,
       purpose: purpose,
