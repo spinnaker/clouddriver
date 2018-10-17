@@ -15,18 +15,25 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.List;
-
-@EqualsAndHashCode(callSuper = true)
 @Data
-public class KubernetesDisableManifestDescription extends KubernetesManifestOperationDescription {
-  int targetPercentage = 100;
-  // optional: can be inferred from the annotations as well
-  List<String> loadBalancers = new ArrayList<>();
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class JsonPatch {
+  Op op;
+  String path;
+  Object value;
+
+  public enum Op {
+    replace,
+    add,
+    remove
+  }
 }
