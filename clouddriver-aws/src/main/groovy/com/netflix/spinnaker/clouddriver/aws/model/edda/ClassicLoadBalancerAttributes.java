@@ -23,11 +23,11 @@ public class ClassicLoadBalancerAttributes {
   private String name;
   private LoadBalancerAttributes attributes;
 
-  public String setName() {
+  public String getName() {
     return name;
   }
 
-  public void getName(String name) {
+  public void setName(String name) {
     this.name = name;
   }
 
