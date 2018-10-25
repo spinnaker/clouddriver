@@ -63,7 +63,9 @@ public class S3ArtifactCredentials implements ArtifactCredentials {
       builder.setPathStyleAccessEnabled(true);
     } else if (!StringUtils.isEmpty(region)) {
       builder.setRegion(region);
-    } else if (!StringUtils.isEmpty(awsAccessKeyId) && !StringUtils.isEmpty(awsSecretAccessKey)) {
+    }
+
+    if (!StringUtils.isEmpty(awsAccessKeyId) && !StringUtils.isEmpty(awsSecretAccessKey)) {
       BasicAWSCredentials awsStaticCreds = new BasicAWSCredentials(awsAccessKeyId, awsSecretAccessKey);
       builder.withCredentials(new AWSStaticCredentialsProvider(awsStaticCreds));
     }
