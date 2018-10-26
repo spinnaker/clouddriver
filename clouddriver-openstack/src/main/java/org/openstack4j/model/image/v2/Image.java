@@ -1,4 +1,3 @@
-package org.openstack4j.model.image.v2;
 /**
  * This file is licensed under the Apache 2 license, quoted below.
  *
@@ -16,6 +15,8 @@ package org.openstack4j.model.image.v2;
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+
+package org.openstack4j.model.image.v2;
 
 import java.util.Date;
 import java.util.List;
