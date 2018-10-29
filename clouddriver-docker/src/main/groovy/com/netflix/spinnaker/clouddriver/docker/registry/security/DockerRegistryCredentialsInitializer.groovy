@@ -18,12 +18,15 @@ package com.netflix.spinnaker.clouddriver.docker.registry.security
 
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
+import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DefaultDockerOkClientProvider
+import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerOkClientProvider
 import com.netflix.spinnaker.clouddriver.docker.registry.config.DockerRegistryConfigurationProperties
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -39,13 +42,20 @@ class DockerRegistryCredentialsInitializer implements CredentialsInitializerSync
   List<? extends DockerRegistryNamedAccountCredentials> dockerRegistryNamedAccountCredentials(DockerRegistryConfigurationProperties dockerRegistryConfigurationProperties,
                                                                                               AccountCredentialsRepository accountCredentialsRepository,
                                                                                               ApplicationContext applicationContext,
-                                                                                              List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
-    synchronizeDockerRegistryAccounts(dockerRegistryConfigurationProperties, accountCredentialsRepository, null, applicationContext, providerSynchronizerTypeWrappers)
+                                                                                              List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers,
+                                                                                              DockerOkClientProvider dockerOkClientProvider) {
+    synchronizeDockerRegistryAccounts(dockerRegistryConfigurationProperties, accountCredentialsRepository, null, applicationContext, providerSynchronizerTypeWrappers, dockerOkClientProvider)
   }
 
   @Override
   String getCredentialsSynchronizationBeanName() {
     return "synchronizeDockerRegistryAccounts"
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(DockerOkClientProvider)
+  DockerOkClientProvider defaultDockerOkClientProvider() {
+    new DefaultDockerOkClientProvider()
   }
 
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
@@ -54,7 +64,8 @@ class DockerRegistryCredentialsInitializer implements CredentialsInitializerSync
                                                                                           AccountCredentialsRepository accountCredentialsRepository,
                                                                                           CatsModule catsModule,
                                                                                           ApplicationContext applicationContext,
-                                                                                          List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
+                                                                                          List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers,
+                                                                                          DockerOkClientProvider dockerOkClientProvider) {
     def (ArrayList<DockerRegistryConfigurationProperties.ManagedAccount> accountsToAdd, List<String> namesOfDeletedAccounts) =
     ProviderUtils.calculateAccountDeltas(accountCredentialsRepository, DockerRegistryNamedAccountCredentials,
       dockerRegistryConfigurationProperties.accounts)
@@ -81,6 +92,7 @@ class DockerRegistryCredentialsInitializer implements CredentialsInitializerSync
           .sortTagsByDate(managedAccount.sortTagsByDate)
           .repositories(managedAccount.repositories)
           .skip(managedAccount.skip)
+          .dockerOkClientProvider(dockerOkClientProvider)
           .build()
 
         accountCredentialsRepository.save(managedAccount.name, dockerRegistryAccount)
