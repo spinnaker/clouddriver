@@ -75,7 +75,7 @@ class AmazonNamedImageLookupController {
 
     // Wrap in '*' if there are no glob-style characters in the query string
     if (!isAmi && !glob.contains('*') && !glob.contains('?') && !glob.contains('[') && !glob.contains('\\')) {
-      glob = "*${glob}*"
+      glob = "${glob}*"
     }
 
     def namedImageSearch = Keys.getNamedImageKey(lookupOptions.account ?: '*', glob)
