@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Pivotal, Inc.
+ * Copyright 2018 Mirantis, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,15 +12,18 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.servicebroker;
+package com.netflix.spinnaker.clouddriver.artifacts.helm;
 
+import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactProvider;
+import lombok.Data;
+import java.util.ArrayList;
+import java.util.List;
 
-import java.util.Collection;
-
-public interface ServiceProvider {
-  String getCloudProvider();
-
-  Collection<? extends Service> getServices(String account, String region);
+@Data
+public class HelmArtifactProviderProperties extends ArtifactProvider<HelmArtifactAccount> {
+  private boolean enabled;
+  private List<HelmArtifactAccount> accounts = new ArrayList<>();
 }
