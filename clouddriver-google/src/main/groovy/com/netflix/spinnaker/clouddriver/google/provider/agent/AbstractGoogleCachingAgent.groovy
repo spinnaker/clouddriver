@@ -18,9 +18,6 @@ package com.netflix.spinnaker.clouddriver.google.provider.agent
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.api.client.googleapis.batch.BatchRequest
-import com.google.api.client.http.HttpRequest
-import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.services.compute.Compute
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spectator.api.Registry
@@ -69,27 +66,6 @@ abstract class AbstractGoogleCachingAgent implements CachingAgent, AccountAware,
 
   String getAccountName() {
     credentials?.name
-  }
-
-  // TODO(jacobkiefer): Remove.
-  def executeIfRequestsAreQueued(BatchRequest batch, String instrumentationContext) {
-    if (batch.size()) {
-      timeExecuteBatch(batch, instrumentationContext)
-    }
-  }
-
-  // TODO(jacobkiefer): Remove.
-  BatchRequest buildBatchRequest() {
-    return compute.batch(
-      new HttpRequestInitializer() {
-        @Override
-        void initialize(HttpRequest request) throws IOException {
-          request.headers.setUserAgent(clouddriverUserAgentApplicationName)
-          request.setConnectTimeout(2 * 60000)  // 2 minutes connect timeout
-          request.setReadTimeout(2 * 60000)  // 2 minutes read timeout
-        }
-      }
-    )
   }
 
   GoogleBatchRequest buildGoogleBatchRequest() {

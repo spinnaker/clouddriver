@@ -147,7 +147,6 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
       InstanceGroupManagerCallbacks.InstanceGroupManagerSingletonCallback igmCallback =
         instanceGroupManagerCallbacks.newInstanceGroupManagerSingletonCallback(instanceTemplates, instances)
       igmRequest.queue(compute.regionInstanceGroupManagers().get(project, region, onDemandServerGroupName), igmCallback)
-//      compute.regionInstanceGroupManagers().get(project, region, onDemandServerGroupName).queue(igmRequest, igmCallback)
     } else {
       InstanceGroupManagerCallbacks.InstanceGroupManagerListCallback igmlCallback =
         instanceGroupManagerCallbacks.newInstanceGroupManagerListCallback(instanceTemplates, instances)
@@ -391,7 +390,6 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
 
           def autoscalerCallback = new AutoscalerSingletonCallback(serverGroup: serverGroup)
           autoscalerRequest.queue(compute.regionAutoscalers().get(project, region, serverGroup.name), autoscalerCallback)
-//          compute.regionAutoscalers().get(project, region, serverGroup.name).queue(autoscalerRequest, autoscalerCallback)
         }
       }
     }
@@ -414,7 +412,6 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
 
         def autoscalerCallback = new AutoscalerAggregatedListCallback(serverGroups: serverGroups)
         autoscalerRequest.queue(compute.autoscalers().aggregatedList(project), autoscalerCallback)
-//        compute.autoscalers().aggregatedList(project).queue(autoscalerRequest, autoscalerCallback)
       }
     }
 
