@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.google
 import com.google.api.client.googleapis.batch.BatchRequest
 import com.google.api.client.googleapis.services.AbstractGoogleClientRequest
 import com.google.api.client.http.HttpResponseException
+import com.netflix.spinnaker.clouddriver.google.provider.agent.util.GoogleBatchRequest
 import com.netflix.spinnaker.clouddriver.googlecommon.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.security.AccountForClient
 
@@ -30,14 +31,13 @@ import java.util.concurrent.TimeUnit
 
 /**
  * This class is syntactic sugar atop the static GoogleExecutor.
- * By making it a traite, we can wrap the calls with less in-line syntax.
+ * By making it a trait, we can wrap the calls with less in-line syntax.
  */
 trait GoogleExecutorTraits {
   final String TAG_BATCH_CONTEXT = GoogleExecutor.TAG_BATCH_CONTEXT
   final String TAG_REGION = GoogleExecutor.TAG_REGION
   final String TAG_SCOPE = GoogleExecutor.TAG_SCOPE
   final String TAG_ZONE = GoogleExecutor.TAG_ZONE
-  final String SCOPE_BATCH = GoogleExecutor.SCOPE_BATCH
   final String SCOPE_GLOBAL = GoogleExecutor.SCOPE_GLOBAL
   final String SCOPE_REGIONAL = GoogleExecutor.SCOPE_REGIONAL
   final String SCOPE_ZONAL = GoogleExecutor.SCOPE_ZONAL
@@ -46,6 +46,29 @@ trait GoogleExecutorTraits {
 
   public <T> T timeExecuteBatch(BatchRequest batch, String batchContext, String... tags) throws IOException {
      return GoogleExecutor.timeExecuteBatch(getRegistry(), batch, batchContext, tags)
+  }
+
+  // TODO(jacobkiefer): Implement this like Eric has it for some reason.
+  public <T> T timeExecuteBatch(GoogleBatchRequest googleBatchRequest, String batchContext, String... tags) throws IOException {
+//    def batchSize = googleBatchRequest.size()
+    def success = "false"
+//    Clock clock = spectator_registry.clock()
+//    long startTime = clock.monotonicTime()
+    int statusCode = 200
+
+    try {
+      googleBatchRequest.execute()
+      success = "true"
+    } catch (HttpResponseException e) {
+      statusCode = e.getStatusCode()
+    } finally {
+      def status = statusCode.toString()[0] + "xx"
+
+      def tagDetails = [(TAG_BATCH_CONTEXT): batchContext, "success": success, "status": status, "statusCode": statusCode.toString()]
+//      long nanos = clock.monotonicTime() - startTime
+//      spectator_registry.timer(spectator_registry.createId("google.batchExecute", tags).withTags(tagDetails)).record(nanos, TimeUnit.NANOSECONDS)
+//      spectator_registry.counter(spectator_registry.createId("google.batchSize", tags).withTags(tagDetails)).increment(batchSize)
+    }
   }
 
   public <T> T timeExecute(AbstractGoogleClientRequest<T> request, String api, String... tags) throws IOException {

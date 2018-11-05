@@ -20,8 +20,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.api.client.googleapis.batch.BatchRequest
 import com.google.api.client.googleapis.batch.json.JsonBatchCallback
 import com.google.api.client.googleapis.json.GoogleJsonError
-import com.google.api.client.googleapis.services.json.AbstractGoogleJsonClientRequest
 import com.google.api.client.http.HttpHeaders
+import com.google.api.services.compute.ComputeRequest
 import com.google.api.services.compute.model.*
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.provider.ProviderCache
@@ -101,7 +101,7 @@ class GoogleInternalLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerC
       ForwardingRuleCallbacks.ForwardingRuleListCallback frlCallback = forwardingRuleCallbacks.newForwardingRuleListCallback()
       new PaginatedRequest<ForwardingRuleList>(this) {
         @Override
-        AbstractGoogleJsonClientRequest<ForwardingRuleList> request(String pageToken) {
+        ComputeRequest<ForwardingRuleList> request(String pageToken) {
           return compute.forwardingRules().list(project, region).setPageToken(pageToken)
         }
 

@@ -24,6 +24,7 @@ import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.services.json.AbstractGoogleJsonClientRequest
 import com.google.api.client.http.HttpHeaders
 import com.google.api.services.compute.Compute
+import com.google.api.services.compute.ComputeRequest
 import com.google.api.services.compute.model.*
 import com.netflix.frigga.Names
 import com.netflix.frigga.ami.AppVersion
@@ -162,7 +163,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
           instanceGroupManagerCallbacks.newInstanceGroupManagerListCallback(instanceTemplates, instances)
         new PaginatedRequest<InstanceGroupManagerList>(cachingAgent) {
           @Override
-          AbstractGoogleJsonClientRequest<InstanceGroupManagerList> request(String pageToken) {
+          ComputeRequest<InstanceGroupManagerList> request(String pageToken) {
             return compute.instanceGroupManagers().list(project, zone).setMaxResults(maxMIGPageSize).setPageToken(pageToken)
           }
 
@@ -183,7 +184,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
   static List<InstanceTemplate> fetchInstanceTemplates(AbstractGoogleCachingAgent cachingAgent, Compute compute, String project) {
     List<InstanceTemplate> instanceTemplates = new PaginatedRequest<InstanceTemplateList>(cachingAgent) {
       @Override
-      protected AbstractGoogleJsonClientRequest<InstanceTemplateList> request (String pageToken) {
+      protected ComputeRequest<InstanceTemplateList> request (String pageToken) {
         return compute.instanceTemplates().list(project).setPageToken(pageToken)
       }
 

@@ -28,6 +28,7 @@ import com.netflix.spinnaker.cats.agent.AccountAware
 import com.netflix.spinnaker.cats.agent.CachingAgent
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
 import com.netflix.spinnaker.clouddriver.google.provider.GoogleInfrastructureProvider
+import com.netflix.spinnaker.clouddriver.google.provider.agent.util.GoogleBatchRequest
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 
 abstract class AbstractGoogleCachingAgent implements CachingAgent, AccountAware, GoogleExecutorTraits {
@@ -70,22 +71,34 @@ abstract class AbstractGoogleCachingAgent implements CachingAgent, AccountAware,
     credentials?.name
   }
 
+  // TODO(jacobkiefer): Remove.
   def executeIfRequestsAreQueued(BatchRequest batch, String instrumentationContext) {
     if (batch.size()) {
       timeExecuteBatch(batch, instrumentationContext)
     }
   }
 
+  // TODO(jacobkiefer): Remove.
   BatchRequest buildBatchRequest() {
     return compute.batch(
-        new HttpRequestInitializer() {
-          @Override
-          void initialize(HttpRequest request) throws IOException {
-            request.headers.setUserAgent(clouddriverUserAgentApplicationName);
-            request.setConnectTimeout(2 * 60000)  // 2 minutes connect timeout
-            request.setReadTimeout(2 * 60000)  // 2 minutes read timeout
-          }
+      new HttpRequestInitializer() {
+        @Override
+        void initialize(HttpRequest request) throws IOException {
+          request.headers.setUserAgent(clouddriverUserAgentApplicationName)
+          request.setConnectTimeout(2 * 60000)  // 2 minutes connect timeout
+          request.setReadTimeout(2 * 60000)  // 2 minutes read timeout
         }
+      }
     )
+  }
+
+  GoogleBatchRequest buildGoogleBatchRequest() {
+    return new GoogleBatchRequest(compute, clouddriverUserAgentApplicationName)
+  }
+
+  def executeIfRequestsAreQueued(GoogleBatchRequest googleBatchRequest, String instrumentationContext) {
+    if (googleBatchRequest.size()) {
+      timeExecuteBatch(googleBatchRequest, instrumentationContext)
+    }
   }
 }
