@@ -22,14 +22,17 @@ import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.ComputeRequest;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Helper class for sending batch requests to GCE.
@@ -37,11 +40,11 @@ import java.util.List;
 @Slf4j
 public class GoogleBatchRequest {
 
-  private static final Integer MAX_BATCH_SIZE = 100; // Platform specified max to not overwhelm batch backends.
-  private static final Integer DEFAULT_CONNECT_TIMEOUT_MILLIS = 2 * 60000;
-  private static final Integer DEFAULT_READ_TIMEOUT_MILLIS = 2 * 60000;
+  private static final int MAX_BATCH_SIZE = 100; // Platform specified max to not overwhelm batch backends.
+  private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = (int) TimeUnit.MINUTES.toMillis(2);
+  private static final int DEFAULT_READ_TIMEOUT_MILLIS = (int) TimeUnit.MINUTES.toMillis(2);
 
-  private ArrayList<QueuedRequest> queuedRequests;
+  private List<QueuedRequest> queuedRequests;
   private String clouddriverUserAgentApplicationName;
   private Compute compute;
 
@@ -51,44 +54,51 @@ public class GoogleBatchRequest {
     this.queuedRequests = new ArrayList<>();
   }
 
-  public void execute() throws IOException {
-    if (queuedRequests.size() <= 0) {
+  public void execute() {
+    if (queuedRequests.size() == 0) {
       log.debug("No requests queued in batch, exiting.");
       return;
     }
 
     List<BatchRequest> queuedBatches = new ArrayList<>();
-    Iterable<List<QueuedRequest>> requestPartitions = Iterables.partition(queuedRequests, MAX_BATCH_SIZE);
-    for (List<QueuedRequest> requestPart : requestPartitions) {
+    List<List<QueuedRequest>> requestPartitions = Lists.partition(queuedRequests, MAX_BATCH_SIZE);
+    requestPartitions.forEach(requestPart -> {
       BatchRequest newBatch = newBatch();
       requestPart.forEach(qr -> {
-          try {
-            qr.getRequest().queue(newBatch, qr.getCallback());
-          } catch (IOException ioe) {
-            log.error("Queueing request {} in batch failed.", qr, ioe);
-          }
-        });
-      queuedBatches.add(newBatch);
-    }
-
-    queuedBatches.parallelStream()
-      .forEach(b -> {
         try {
-          b.execute();
-        } catch (IOException ioe) {
-          log.error("Executing batch request {} failed.", b, ioe);
+          qr.getRequest().queue(newBatch, qr.getCallback());
+        } catch (Exception ioe) {
+          log.error("Queueing request {} in batch failed.", qr, ioe);
         }
       });
+      queuedBatches.add(newBatch);
+    });
+
+    ExecutorService threadPool = new ForkJoinPool(10);
+    try {
+      threadPool.submit(() -> queuedBatches.stream().parallel().forEach(this::executeInternalBatch)).get();
+    } catch (Exception e) {
+      log.error("Executing queued batches failed.", e);
+    }
+    threadPool.shutdown();
+  }
+
+  private void executeInternalBatch(BatchRequest b) {
+    try {
+      b.execute();
+    } catch (Exception e) {
+      log.error("Executing batch {} failed.", b, e);
+    }
   }
 
   private BatchRequest newBatch() {
     return compute.batch(
       new HttpRequestInitializer() {
         @Override
-        public void initialize(HttpRequest request) throws IOException {
+        public void initialize(HttpRequest request) {
           request.getHeaders().setUserAgent(clouddriverUserAgentApplicationName);
-          request.setConnectTimeout(DEFAULT_CONNECT_TIMEOUT_MILLIS); // 2 minutes connect timeout
-          request.setReadTimeout(DEFAULT_READ_TIMEOUT_MILLIS); // 2 minutes read timeout
+          request.setConnectTimeout(DEFAULT_CONNECT_TIMEOUT_MILLIS);
+          request.setReadTimeout(DEFAULT_READ_TIMEOUT_MILLIS);
         }
       }
     );
