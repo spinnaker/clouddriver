@@ -69,5 +69,14 @@ dependencies {
   compile "org.apache.commons:commons-compress:1.14"
   compile "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.6"
 
+  compile group: 'org.eclipse.aether', name:'aether-api', version: '1.1.0'
+  compile group: 'org.eclipse.aether', name:'aether-util', version: '1.1.0'
+  compile group: 'org.eclipse.aether', name:'aether-impl', version: '1.1.0'
+  compile group: 'org.eclipse.aether', name:'aether-connector-basic', version: '1.1.0'
+  compile group: 'org.eclipse.aether', name:'aether-transport-file', version: '1.1.0'
+  compile group: 'org.eclipse.aether', name:'aether-transport-http', version: '1.1.0'
+  compile group: 'org.eclipse.aether', name:'aether-transport-wagon', version: '1.1.0'
+  compile group: 'org.apache.maven', name:'maven-aether-provider', version: '3.3.9'
+
   compile fileTree(sdkLocation)
 }
