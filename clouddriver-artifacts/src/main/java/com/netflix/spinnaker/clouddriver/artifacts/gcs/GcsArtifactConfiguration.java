@@ -18,8 +18,8 @@
 package com.netflix.spinnaker.clouddriver.artifacts.gcs;
 
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -34,13 +34,11 @@ import java.util.stream.Collectors;
 @Configuration
 @ConditionalOnProperty("artifacts.gcs.enabled")
 @EnableConfigurationProperties(GcsArtifactProviderProperties.class)
+@RequiredArgsConstructor
 @Slf4j
 public class GcsArtifactConfiguration {
-  @Autowired
-  GcsArtifactProviderProperties gcsArtifactProviderProperties;
-
-  @Autowired
-  ArtifactCredentialsRepository artifactCredentialsRepository;
+  private final GcsArtifactProviderProperties gcsArtifactProviderProperties;
+  private final ArtifactCredentialsRepository artifactCredentialsRepository;
 
   @Bean
   List<? extends GcsArtifactCredentials> gcsArtifactCredentials(String clouddriverUserAgentApplicationName) {

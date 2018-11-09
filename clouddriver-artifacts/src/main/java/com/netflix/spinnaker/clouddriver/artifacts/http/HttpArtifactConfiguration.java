@@ -19,8 +19,8 @@ package com.netflix.spinnaker.clouddriver.artifacts.http;
 
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
 import com.squareup.okhttp.OkHttpClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -33,13 +33,11 @@ import java.util.stream.Collectors;
 @Configuration
 @ConditionalOnProperty("artifacts.http.enabled")
 @EnableConfigurationProperties(HttpArtifactProviderProperties.class)
+@RequiredArgsConstructor
 @Slf4j
 public class HttpArtifactConfiguration {
-  @Autowired
-  HttpArtifactProviderProperties httpArtifactProviderProperties;
-
-  @Autowired
-  ArtifactCredentialsRepository artifactCredentialsRepository;
+  private final HttpArtifactProviderProperties httpArtifactProviderProperties;
+  private final ArtifactCredentialsRepository artifactCredentialsRepository;
 
   @Bean
   OkHttpClient httpOkHttpClient() {

@@ -10,8 +10,8 @@
 package com.netflix.spinnaker.clouddriver.artifacts.oracle;
 
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -26,13 +26,11 @@ import java.util.stream.Collectors;
 @Configuration
 @ConditionalOnProperty("artifacts.oracle.enabled")
 @EnableConfigurationProperties(OracleArtifactProviderProperties.class)
+@RequiredArgsConstructor
 @Slf4j
 public class OracleArtifactConfiguration {
-  @Autowired
-  OracleArtifactProviderProperties oracleArtifactProviderProperties;
-
-  @Autowired
-  ArtifactCredentialsRepository artifactCredentialsRepository;
+  private  final OracleArtifactProviderProperties oracleArtifactProviderProperties;
+  private final ArtifactCredentialsRepository artifactCredentialsRepository;
 
   @Bean
   List<? extends OracleArtifactCredentials> oracleArtifactCredentials(String clouddriverUserAgentApplicationName) {

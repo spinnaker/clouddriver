@@ -20,8 +20,8 @@ package com.netflix.spinnaker.clouddriver.artifacts.bitbucket;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
 import com.squareup.okhttp.OkHttpClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -34,16 +34,12 @@ import java.util.stream.Collectors;
 @Configuration
 @ConditionalOnProperty("artifacts.bitbucket.enabled")
 @EnableConfigurationProperties(BitbucketArtifactProviderProperties.class)
+@RequiredArgsConstructor
 @Slf4j
 public class BitbucketArtifactConfiguration {
-  @Autowired
-  BitbucketArtifactProviderProperties bitbucketArtifactProviderProperties;
-
-  @Autowired
-  ArtifactCredentialsRepository artifactCredentialsRepository;
-
-  @Autowired
-  ObjectMapper objectMapper;
+  private final BitbucketArtifactProviderProperties bitbucketArtifactProviderProperties;
+  private final ArtifactCredentialsRepository artifactCredentialsRepository;
+  private final ObjectMapper objectMapper;
 
   @Bean
   OkHttpClient bitbucketOkHttpClient() {
