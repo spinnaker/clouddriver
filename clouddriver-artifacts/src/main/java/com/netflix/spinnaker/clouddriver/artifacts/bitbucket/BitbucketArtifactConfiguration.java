@@ -22,14 +22,10 @@ import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository
 import com.squareup.okhttp.OkHttpClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.context.annotation.Scope;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,16 +33,9 @@ import java.util.stream.Collectors;
 
 @Configuration
 @ConditionalOnProperty("artifacts.bitbucket.enabled")
-@EnableScheduling
+@EnableConfigurationProperties(BitbucketArtifactProviderProperties.class)
 @Slf4j
 public class BitbucketArtifactConfiguration {
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  @Bean
-  @ConfigurationProperties("artifacts.bitbucket")
-  BitbucketArtifactProviderProperties bitbucketArtifactProviderProperties() {
-    return new BitbucketArtifactProviderProperties();
-  }
-
   @Autowired
   BitbucketArtifactProviderProperties bitbucketArtifactProviderProperties;
 
