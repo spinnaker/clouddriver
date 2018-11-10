@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 public class GoogleBatchRequest {
 
   private static final int MAX_BATCH_SIZE = 100; // Platform specified max to not overwhelm batch backends.
+  private static final int DEFAULT_EXECUTE_TIMEOUT_MINUTES = 10;
   private static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = (int) TimeUnit.MINUTES.toMillis(2);
   private static final int DEFAULT_READ_TIMEOUT_MILLIS = (int) TimeUnit.MINUTES.toMillis(2);
 
@@ -81,6 +82,14 @@ public class GoogleBatchRequest {
       log.error("Executing queued batches failed.", e);
     }
     threadPool.shutdown();
+
+    try {
+      if (!threadPool.awaitTermination(DEFAULT_EXECUTE_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
+        throw new IllegalStateException("Timed out waiting for GoogleBatchRequest.");
+      }
+    } catch (InterruptedException intex) {
+      throw new IllegalStateException(intex);
+    }
   }
 
   private void executeInternalBatch(BatchRequest b) {
