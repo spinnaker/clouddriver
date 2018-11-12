@@ -51,6 +51,8 @@ class TitusDeployDescription extends AbstractTitusCredentialsDescription impleme
   Boolean useApplicationDefaultSecurityGroup = true
   List<String> interestingHealthProviderNames
   MigrationPolicy migrationPolicy
+  Boolean copySourceScalingPoliciesAndActions = true
+  Integer sequence
 
   /**
    * If false, the newly created server group will not pick up scaling policies and actions from an ancestor group

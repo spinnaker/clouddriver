@@ -31,6 +31,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.Errors;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,23 +69,33 @@ public class DescriptionAuthorizer<T> {
 
     String account = null;
     List<String> applications = new ArrayList<>();
+    boolean requiresApplicationRestriction = true;
+
 
     if (description instanceof AccountNameable) {
       AccountNameable accountNameable = (AccountNameable) description;
       account = accountNameable.getAccount();
+
+      requiresApplicationRestriction = accountNameable.requiresApplicationRestriction();
     }
 
     if (description instanceof ApplicationNameable) {
       ApplicationNameable applicationNameable = (ApplicationNameable) description;
       applications.addAll(
-        applicationNameable.getApplications().stream().filter(Objects::nonNull).collect(Collectors.toList())
+        Optional.ofNullable(applicationNameable.getApplications()).orElse(Collections.emptyList())
+          .stream()
+          .filter(Objects::nonNull)
+          .collect(Collectors.toList())
       );
     }
 
     if (description instanceof ResourcesNameable) {
       ResourcesNameable resourcesNameable = (ResourcesNameable) description;
       applications.addAll(
-        resourcesNameable.getResourceApplications().stream().filter(Objects::nonNull).collect(Collectors.toList())
+        Optional.ofNullable(resourcesNameable.getResourceApplications()).orElse(Collections.emptyList())
+          .stream()
+          .filter(Objects::nonNull)
+          .collect(Collectors.toList())
       );
     }
 
@@ -107,7 +118,7 @@ public class DescriptionAuthorizer<T> {
     }
 
 
-    if (account != null && applications.isEmpty()) {
+    if (requiresApplicationRestriction && account != null && applications.isEmpty()) {
       registry.counter(
           missingApplicationId
             .withTag("descriptionClass", description.getClass().getSimpleName())
