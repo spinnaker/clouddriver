@@ -17,8 +17,22 @@
 package com.netflix.spinnaker.clouddriver.lambda.provider.agent;
 
 import com.amazonaws.services.lambda.AWSLambda;
-import com.amazonaws.services.lambda.model.*;
-import com.netflix.spinnaker.cats.agent.*;
+import com.amazonaws.services.lambda.model.AliasConfiguration;
+import com.amazonaws.services.lambda.model.EventSourceMappingConfiguration;
+import com.amazonaws.services.lambda.model.FunctionConfiguration;
+import com.amazonaws.services.lambda.model.ListAliasesRequest;
+import com.amazonaws.services.lambda.model.ListAliasesResult;
+import com.amazonaws.services.lambda.model.ListEventSourceMappingsRequest;
+import com.amazonaws.services.lambda.model.ListEventSourceMappingsResult;
+import com.amazonaws.services.lambda.model.ListFunctionsRequest;
+import com.amazonaws.services.lambda.model.ListFunctionsResult;
+import com.amazonaws.services.lambda.model.ListVersionsByFunctionRequest;
+import com.amazonaws.services.lambda.model.ListVersionsByFunctionResult;
+import com.netflix.spinnaker.cats.agent.AccountAware;
+import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
@@ -26,18 +40,21 @@ import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
-import groovy.util.logging.Slf4j;
+import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.amazonaws.services.lambda.model.ListEventSourceMappingsResult;
-import com.amazonaws.services.lambda.model.ListEventSourceMappingsRequest;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.lambda.cache.Keys.Namespace.LAMBDA_NAME;
-import static com.netflix.spinnaker.clouddriver.lambda.cache.Keys.Namespace.IAM_ROLE;
 
 @Slf4j
 public class AmazonLambdaFunctionCachingAgent implements CachingAgent, AccountAware {
@@ -46,7 +63,6 @@ public class AmazonLambdaFunctionCachingAgent implements CachingAgent, AccountAw
   private final NetflixAmazonCredentials account;
   private final String region;
   private static final Set<AgentDataType> types = Collections.unmodifiableSet(DefaultGroovyMethods.asType(new ArrayList<AgentDataType>(Arrays.asList(AUTHORITATIVE.forType(LAMBDA_NAME.ns))), Set.class));
-  private final Logger log = LoggerFactory.getLogger(getClass());
 
   public AmazonLambdaFunctionCachingAgent(AmazonClientProvider amazonClientProvider, NetflixAmazonCredentials account, String region) {
     this.amazonClientProvider = amazonClientProvider;
@@ -76,7 +92,7 @@ public class AmazonLambdaFunctionCachingAgent implements CachingAgent, AccountAw
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    log.info("Describing items in " + getAgentType());
+    log.info("Describing items in {}", getAgentType());
 
     AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
     String nextMarker = null;
@@ -96,11 +112,6 @@ public class AmazonLambdaFunctionCachingAgent implements CachingAgent, AccountAw
 
     Collection<CacheData> data = new LinkedList<>();
     for (FunctionConfiguration x : lstFunction) {
-      //AwsLambdaCacheModel objLambdaCacheModel = new AwsLambdaCacheModel();
-//      objLambdaCacheModel.setFunctionName(x.getFunctionName());
-//      objLambdaCacheModel.setFunctionArn(x.getFunctionArn());
-//      objLambdaCacheModel.setMemorySize(x.getMemorySize());
-//      objLambdaCacheModel.setRevisionids(lstFunctionRevisions(x.getFunctionArn()));
 
       Map<String, Object> attributes = new HashMap<>();
       attributes.put("functionname", x.getFunctionName());
@@ -112,7 +123,7 @@ public class AmazonLambdaFunctionCachingAgent implements CachingAgent, AccountAw
       attributes.put("lastmodified",x.getLastModified());
       attributes.put("revisionid",x.getRevisionId());
       attributes.put("runtime",x.getRuntime());
-      attributes.put("revisionids",lstFunctionRevisions(x.getFunctionArn()));
+      attributes.put("revisionids",listFunctionRevisions(x.getFunctionArn()));
       attributes.put("aliasconfiguration",listAliasConfiguration(x.getFunctionArn()));
       attributes.put("eventsourcemappings",listEventSourceMappingConfiguration(x.getFunctionArn()));
 
@@ -120,7 +131,7 @@ public class AmazonLambdaFunctionCachingAgent implements CachingAgent, AccountAw
       data.add(item);
     }
 
-    log.info("Caching " + String.valueOf(data.size()) + " items in " + getAgentType());
+    log.info("Caching {} items in {}", String.valueOf(data.size()), getAgentType());
 
     Map<String, Collection<CacheData>> map =new HashMap<>();
     map.put(LAMBDA_NAME.ns, data);
@@ -128,7 +139,7 @@ public class AmazonLambdaFunctionCachingAgent implements CachingAgent, AccountAw
 
   }
 
-  private Map<String,String> lstFunctionRevisions (String FunctionArn){
+  private Map<String,String> listFunctionRevisions(String FunctionArn){
 
     AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
     String nextMarker = null;
@@ -209,4 +220,4 @@ public class AmazonLambdaFunctionCachingAgent implements CachingAgent, AccountAw
     return types;
   }
 
-  }
+}

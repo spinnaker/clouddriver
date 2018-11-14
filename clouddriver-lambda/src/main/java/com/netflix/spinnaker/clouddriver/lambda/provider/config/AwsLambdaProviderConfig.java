@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.lambda.provider.LambdaProvider;
 import com.netflix.spinnaker.clouddriver.lambda.provider.agent.AmazonLambdaFunctionCachingAgent;
 import com.netflix.spinnaker.clouddriver.lambda.provider.agent.IamPolicyReader;
 import com.netflix.spinnaker.clouddriver.lambda.provider.agent.IamRoleCachingAgent;
-//import com.netflix.spinnaker.clouddriver.lambda.provider.agent.AwsLambdaFunctionCachingAgent;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;

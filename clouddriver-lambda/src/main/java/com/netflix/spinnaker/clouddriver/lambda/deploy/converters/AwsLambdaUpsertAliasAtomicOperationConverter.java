@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-@Component("upsertAwsLambdaAlias")
-@LambdaOperation(AtomicOperations.UPSERT_AWSLAMBDA_ALIAS)
+@Component("upsertFunctionAlias")
+@LambdaOperation(AtomicOperations.UPSERT_FUNCTION_ALIAS)
 public class AwsLambdaUpsertAliasAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
   @Override

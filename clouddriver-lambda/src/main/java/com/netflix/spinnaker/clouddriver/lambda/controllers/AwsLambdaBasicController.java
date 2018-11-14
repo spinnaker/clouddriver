@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 
 @RestController
 @RequestMapping("/awslambda")
@@ -39,21 +38,22 @@ public class AwsLambdaBasicController {
     this.awsLambdaProvider = awsLambdaProvider;
   }
 
-
   @RequestMapping(value = "/getfunction", method = RequestMethod.GET)
   public Collection<AwsLambdaCacheModel> getFunction(@RequestParam(value="functionname",required = false) String functionname,
                                                      @RequestParam(value="accountname",required = false) String accountname,
                                                      @RequestParam(value="region",required = false) String region) {
-    if (functionname == null)
+    if (functionname == null && accountname == null && region == null) {
       return awsLambdaProvider.getAllAwsLambdaFunctions();
+    }
+    else if (functionname == null && accountname != null && region != null) {
+      return awsLambdaProvider.getAllAwsLambdaFunctions(accountname, region);
+    }
     else {
       ArrayList<AwsLambdaCacheModel> cache = new ArrayList<>();
       cache.add(awsLambdaProvider.getAwsLambdaFunction(functionname,region,accountname));
       return cache;
     }
 
-
   }
-
 
 }

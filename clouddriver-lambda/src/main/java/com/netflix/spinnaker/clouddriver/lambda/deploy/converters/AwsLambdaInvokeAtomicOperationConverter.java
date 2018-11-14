@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-@Component("invokeawslambda")
-@LambdaOperation(AtomicOperations.INVOKE_AWSLAMBDA)
+@Component("invokeFunction")
+@LambdaOperation(AtomicOperations.INVOKE_FUNCTION)
 public class AwsLambdaInvokeAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
   @Override

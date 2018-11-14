@@ -26,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.lambda.cache.model.AwsLambdaCacheModel;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaAliasDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.amazonaws.services.lambda.model.AliasConfiguration;
+import org.apache.commons.lang.StringUtils;
 
 import java.util.*;
 
@@ -73,7 +74,10 @@ public class UpsertLambdaAliasAtomicOperation extends AbstractAwsLambdaAtomicOpe
     updateTaskStatus("Initializing Updating of AWS Lambda Function Alias Operation...");
 
     Map<String,Double> routingconfig = new LinkedHashMap<>();
-    if (description.getProperty("minorfunctionversion") !="" && description.getProperty("weighttominorfunctionversion")!=""){
+    String minorFunctionVersion = description.getProperty("minorfunctionversion").toString();
+    String weightToMinorFunctionVersion = description.getProperty("weighttominorfunctionversion").toString();
+
+    if (StringUtils.isNotEmpty(minorFunctionVersion) && StringUtils.isNotEmpty(weightToMinorFunctionVersion)) {
       routingconfig.put(description.getProperty("minorfunctionversion").toString(),Double.parseDouble(description.getProperty("weighttominorfunctionversion").toString()));
     }
 

@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-@Component("createAwsLambda")
-@LambdaOperation(AtomicOperations.CREATE_AWSLAMBDA)
+@Component("createFunction")
+@LambdaOperation(AtomicOperations.CREATE_FUNCTION)
 public class AwsLambdaCreateAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
   @Override

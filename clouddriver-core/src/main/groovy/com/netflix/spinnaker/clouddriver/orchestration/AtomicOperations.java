@@ -91,12 +91,12 @@ public final class AtomicOperations {
 
   // AWS Lambda Operations
 
-  public static final String INVOKE_AWSLAMBDA = "invokeAwsLambda";
-  public static final String CREATE_AWSLAMBDA = "createAwsLambda";
-  public static final String UPDATE_AWSLAMBDA_CONFIGURATION = "updateAwsLambdaConfiguration";
-  public static final String UPDATE_AWSLAMBDA_CODE = "updateAwsLambdaCode";
-  public static final String DELETE_AWSLAMBDA = "deleteAwsLambda";
-  public static final String UPSERT_AWSLAMBDA_ALIAS = "upsertAwsLambdaAlias";
-  public static final String UPSERT_AWSLAMBDA_EVENTMAPPING = "upsertAwsLambdaEventMapping";
-  public static final String DELETE_AWSLAMBDA_EVENTMAPPING = "deleteAwsLambdaEventMapping";
+  public static final String INVOKE_FUNCTION = "invokeFunction";
+  public static final String CREATE_FUNCTION = "createFunction";
+  public static final String UPDATE_FUNCTION_CONFIGURATION = "updateFunctionConfiguration";
+  public static final String UPDATE_FUNCTION_CODE = "updateFunctionCode";
+  public static final String DELETE_FUNCTION = "deleteFunction";
+  public static final String UPSERT_FUNCTION_ALIAS = "upsertFunctionAlias";
+  public static final String UPSERT_FUNCTION_EVENTMAPPING = "upsertFunctionEventMapping";
+  public static final String DELETE_FUNCTION_EVENTMAPPING = "deleteFunctionEventMapping";
 }

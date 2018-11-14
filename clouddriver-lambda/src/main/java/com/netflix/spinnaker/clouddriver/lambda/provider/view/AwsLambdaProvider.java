@@ -39,6 +39,10 @@ public class AwsLambdaProvider {
     return awslambdaCacheClient.getAll();
   }
 
+  public Collection<AwsLambdaCacheModel> getAllAwsLambdaFunctions(String accountname, String region) {
+    return awslambdaCacheClient.getAll(accountname, region);
+  }
+
   public AwsLambdaCacheModel getAwsLambdaFunction(String name, String region, String accountName) {
     String key = Keys.getLambdaFunctionKey(accountName, region, name);
     return awslambdaCacheClient.get(key);

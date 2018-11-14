@@ -49,12 +49,4 @@ public class AwsLambdaFunctionInformationService {
     return null;
   }
 
-//  private String getAwsAccountName(String ecsAccountName) {
-//    for (AwsLambdaCredentialsConfig.Account awsLambdaAccount : awsLambdaCredentialsConfig.getAccount()) {
-//      if (awsLambdaAccount.getName().equals(ecsAccountName)) {
-//        return awsLambdaAccount.getAwsAccount();
-//      }
-//    }
-//    return null;
-//  }
 }

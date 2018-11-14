@@ -30,4 +30,4 @@ public class UpsertLambdaAliasDescription extends AbstractAwsLambdaDescription {
   String minorfunctionversion;
   Double weighttominorfunctionversion;
 
-  }
+}

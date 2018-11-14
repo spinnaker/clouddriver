@@ -115,7 +115,6 @@ public class Keys implements KeyParser {
     return buildKey("arn:aws:lambda", account, region, "function",awsLambdaFunctionName);
   }
 
-
   public static String getIamRoleKey(String account, String iamRoleName) {
     return ID + SEPARATOR + Namespace.IAM_ROLE + SEPARATOR + account + SEPARATOR + iamRoleName;
   }

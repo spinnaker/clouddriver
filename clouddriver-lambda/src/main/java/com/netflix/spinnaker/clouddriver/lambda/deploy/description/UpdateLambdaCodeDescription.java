@@ -28,4 +28,4 @@ public class UpdateLambdaCodeDescription extends AbstractAwsLambdaDescription {
   String s3bucket;
   String s3key;
   Boolean publish;
-  }
+}

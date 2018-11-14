@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-@Component("deleteAwsLambdaEventMapping")
-@LambdaOperation(AtomicOperations.DELETE_AWSLAMBDA_EVENTMAPPING)
+@Component("deleteFunction")
+@LambdaOperation(AtomicOperations.DELETE_FUNCTION_EVENTMAPPING)
 public class AwsLambdaDeleteEventMappingAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
   @Override
@@ -43,4 +43,4 @@ public class AwsLambdaDeleteEventMappingAtomicOperationConverter extends Abstrac
     return converted;
   }
 
-  }
+}

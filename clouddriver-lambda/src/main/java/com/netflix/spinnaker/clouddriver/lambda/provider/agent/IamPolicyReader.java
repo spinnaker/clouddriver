@@ -31,7 +31,7 @@ import java.util.Set;
 public class IamPolicyReader {
   private static final Logger logger = LoggerFactory.getLogger(IamPolicyReader.class);
 
-  ObjectMapper mapper;
+  private final ObjectMapper mapper;
 
   public IamPolicyReader(ObjectMapper objectMapper) {
     this.mapper = objectMapper;

@@ -25,8 +25,6 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
 import java.util.List;
 
-;
-
 public class DeleteLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperation<DeleteLambdaDescription, DeleteFunctionResult> implements AtomicOperation<DeleteFunctionResult> {
 
 
@@ -41,7 +39,10 @@ public class DeleteLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperatio
   }
 
   private DeleteFunctionResult deleteFunctionResult (){
-    AwsLambdaCacheModel cache = awsLambdaProvider.getAwsLambdaFunction(description.getProperty("application").toString(),description.getProperty("region").toString(),description.getAccount());
+    String application = description.getProperty("application").toString();
+    String region = description.getProperty("region").toString();
+    String account = description.getAccount();
+    AwsLambdaCacheModel cache = awsLambdaProvider.getAwsLambdaFunction(application, region, account);
 
 
     AWSLambda client = getAwsLambdaClient();
@@ -53,8 +54,5 @@ public class DeleteLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperatio
 
     return result;
   }
-
-
-
 
 }

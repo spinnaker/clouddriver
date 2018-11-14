@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-@Component("deleteAwsLambda")
-@LambdaOperation(AtomicOperations.DELETE_AWSLAMBDA)
+@Component("deleteFunction")
+@LambdaOperation(AtomicOperations.DELETE_FUNCTION)
 public class AwsLambdaDeleteAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
   @Override

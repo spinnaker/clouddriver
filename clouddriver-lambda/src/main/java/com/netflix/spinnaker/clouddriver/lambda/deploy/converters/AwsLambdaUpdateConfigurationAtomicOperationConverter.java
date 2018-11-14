@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-@Component("updateAwsLambdaConfiguration")
-@LambdaOperation(AtomicOperations.UPDATE_AWSLAMBDA_CONFIGURATION)
+@Component("updateFunctionConfiguration")
+@LambdaOperation(AtomicOperations.UPDATE_FUNCTION_CONFIGURATION)
 public class AwsLambdaUpdateConfigurationAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
   @Override

@@ -15,16 +15,14 @@
  */
 
 package com.netflix.spinnaker.clouddriver.lambda.cache.model;
-import com.amazonaws.services.lambda.model.FunctionConfiguration;
+
 import com.amazonaws.services.lambda.model.AliasConfiguration;
 import com.amazonaws.services.lambda.model.EventSourceMappingConfiguration;
+import com.amazonaws.services.lambda.model.FunctionConfiguration;
+import lombok.Data;
 
-import java.awt.*;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import lombok.Data;
 
 @Data
 public class AwsLambdaCacheModel extends FunctionConfiguration{
@@ -59,7 +57,6 @@ public class AwsLambdaCacheModel extends FunctionConfiguration{
 
   public void setAliasConfigurations (Object listaliasesresult){
     this.aliasConfigurations = (List<AliasConfiguration>) listaliasesresult;
-
   }
 
   public List<AliasConfiguration> getAliasConfigurations(){

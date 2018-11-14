@@ -50,11 +50,6 @@ public abstract class AbstractAwsLambdaAtomicOperation<T extends AbstractAwsLamb
     return TaskRepository.threadLocalTask.get();
   }
 
-//  String getCluster(String service, String account) {
-//    String region = getRegion();
-//    return containerInformationService.getClusterName(service, account, region);
-//  }
-
   AWSLambda getAwsLambdaClient() {
     AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
     String region = getRegion();
