@@ -132,7 +132,7 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperation extends GoogleAtomi
     def properties = [:] + description.properties
 
     // Remove the properties we don't want to compare or override.
-    properties.keySet().removeAll(["class", "serverGroupName", "region", "accountName", "credentials"])
+    properties.keySet().removeAll(["class", "serverGroupName", "region", "accountName", "credentials", "applications"])
 
     // Collect all of the map entries with non-null values into a new map.
     def overriddenProperties = properties.findResults { key, value ->
@@ -167,6 +167,7 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperation extends GoogleAtomi
 
         clonedDescription.disks = overriddenProperties.disks
 
+        clonedDescription.baseDeviceName = description.serverGroupName
         def attachedDisks = GCEUtil.buildAttachedDisks(clonedDescription,
                                                        null,
                                                        false,
