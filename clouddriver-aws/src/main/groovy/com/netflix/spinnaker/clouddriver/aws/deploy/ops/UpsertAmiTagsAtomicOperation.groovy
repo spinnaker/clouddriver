@@ -49,31 +49,36 @@ class UpsertAmiTagsAtomicOperation implements AtomicOperation<Void> {
     def descriptor = "${description.credentials.name}/${description.amiName}"
     task.updateStatus BASE_PHASE, "Initializing Upsert AMI Tags operation for ${descriptor}..."
 
+    boolean allRegionsSuccessful = true
+
     description.regions.each { String region ->
-      def amazonEC2 = amazonClientProvider.getAmazonEC2(description.credentials, region, true)
-      def describeImagesRequest = new DescribeImagesRequest().withFilters(
-        new Filter("name", [description.amiName])
-      )
+      def amazonEC2 = amazonClientProvider.getAmazonEC2(description.credentials, region)
+
+      def describeImagesRequest = new DescribeImagesRequest()
+      if (!description.credentials.eddaEnabled) {
+        describeImagesRequest = describeImagesRequest.withFilters(new Filter("name", [description.amiName]))
+      }
       def images = amazonEC2.describeImages(describeImagesRequest).images
+      if (description.credentials.eddaEnabled) {
+        images = images.findAll { it.name == description.amiName }
+      }
       if (!images) {
         task.updateStatus BASE_PHASE, "No AMI found for ${descriptor} in ${region}."
-        task.fail()
+        allRegionsSuccessful = false
         return
       }
-
-      boolean wasSuccessful = true
 
       images.each {
         if (upsertAmiTags(region, it.imageId, buildTags(description))) {
           task.updateStatus BASE_PHASE, "Finished Upsert AMI Tags operation for ${descriptor} (${it.imageId}) in ${region}."
         } else {
-          wasSuccessful = false
+          allRegionsSuccessful = false
         }
       }
+    }
 
-      if (!wasSuccessful) {
-        task.fail()
-      }
+    if (!allRegionsSuccessful) {
+      task.fail()
     }
 
     null
