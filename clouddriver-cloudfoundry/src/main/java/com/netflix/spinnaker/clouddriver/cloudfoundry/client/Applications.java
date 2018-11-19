@@ -248,12 +248,12 @@ public class Applications {
     safelyCall(() -> api.deleteAppInstance(guid, index));
   }
 
-  public CloudFoundryServerGroup createApplication(String appName, CloudFoundrySpace space, @Nullable String buildpack,
+  public CloudFoundryServerGroup createApplication(String appName, CloudFoundrySpace space, List<String> buildpacks,
                                                    @Nullable Map<String, String> environmentVariables) throws CloudFoundryApiException {
     Map<String, ToOneRelationship> relationships = new HashMap<>();
     relationships.put("space", new ToOneRelationship(new Relationship(space.getId())));
 
-    return safelyCall(() -> api.createApplication(new CreateApplication(appName, relationships, environmentVariables, buildpack)))
+    return safelyCall(() -> api.createApplication(new CreateApplication(appName, relationships, environmentVariables, buildpacks)))
       .map(this::map)
       .orElseThrow(() -> new CloudFoundryApiException("Cloud Foundry signaled that application creation succeeded but failed to provide a response."));
   }
@@ -265,6 +265,14 @@ public class Applications {
       return;
     }
     safelyCall(() -> api.scaleApplication(guid, new ScaleApplication(instances, memInMb, diskInMb)));
+  }
+
+  public void updateProcess(String guid, @Nullable String command, @Nullable String healthCheckType, @Nullable String healthCheckEndpoint) throws CloudFoundryApiException {
+    final UpdateProcess.HealthCheck healthCheck = healthCheckType == null && healthCheckEndpoint == null ? null :
+      new UpdateProcess.HealthCheck(healthCheckType, healthCheckEndpoint == null ? null :
+        new UpdateProcess.HealthCheckData(null, null, healthCheckEndpoint)
+      );
+    safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
   }
 
   public String createPackage(String appGuid) throws CloudFoundryApiException {

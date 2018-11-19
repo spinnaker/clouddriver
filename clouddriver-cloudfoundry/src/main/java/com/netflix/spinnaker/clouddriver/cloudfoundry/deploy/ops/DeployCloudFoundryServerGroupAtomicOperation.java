@@ -71,6 +71,9 @@ public class DeployCloudFoundryServerGroupAtomicOperation implements AtomicOpera
 
     buildDroplet(packageId, serverGroup.getId(), description);
     scaleApplication(serverGroup.getId(), description);
+    if (description.getApplicationAttributes().getHealthCheckType() != null) {
+      updateProcess(serverGroup.getId(), description);
+    }
 
     client.getServiceInstances().createServiceBindingsByName(serverGroup, description.getApplicationAttributes().getServices());
 
@@ -110,7 +113,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation implements AtomicOpera
     getTask().updateStatus(PHASE, "Creating Cloud Foundry application '" + description.getServerGroupName() + "'");
 
     CloudFoundryServerGroup serverGroup = client.getApplications().createApplication(description.getServerGroupName(),
-      description.getSpace(), description.getApplicationAttributes().getBuildpack(), description.getApplicationAttributes().getEnv());
+      description.getSpace(), description.getApplicationAttributes().getBuildpacks(), description.getApplicationAttributes().getEnv());
     getTask().updateStatus(PHASE, "Created Cloud Foundry application '" + description.getServerGroupName() + "'");
 
     return serverGroup;
@@ -171,6 +174,15 @@ public class DeployCloudFoundryServerGroupAtomicOperation implements AtomicOpera
 
     client.getApplications().scaleApplication(serverGroupId, description.getApplicationAttributes().getInstances(), memoryAmount, diskSizeAmount);
     getTask().updateStatus(PHASE, "Scaled application '" + description.getServerGroupName() + "'");
+  }
+
+  private void updateProcess(String serverGroupId, DeployCloudFoundryServerGroupDescription description) {
+    final CloudFoundryClient client = description.getClient();
+    getTask().updateStatus(PHASE, "Updating process '" + description.getServerGroupName() + "'");
+    client.getApplications().updateProcess(serverGroupId, null,
+      description.getApplicationAttributes().getHealthCheckType(),
+      description.getApplicationAttributes().getHealthCheckHttpEndpoint());
+    getTask().updateStatus(PHASE, "Updated process '" + description.getServerGroupName() + "'");
   }
 
   // VisibleForTesting

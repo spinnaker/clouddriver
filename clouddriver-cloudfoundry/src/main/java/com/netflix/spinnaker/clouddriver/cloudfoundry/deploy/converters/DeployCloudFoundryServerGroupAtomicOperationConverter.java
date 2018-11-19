@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,6 +36,7 @@ import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import io.vavr.collection.Stream;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -44,10 +46,12 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.vavr.API.*;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
@@ -131,17 +135,26 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
   @VisibleForTesting
   Optional<DeployCloudFoundryServerGroupDescription.ApplicationAttributes> convertManifest(Map manifestMap) {
     List<CloudFoundryManifest> manifestApps = new ObjectMapper()
-      .setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE)
+      .setPropertyNamingStrategy(PropertyNamingStrategy.KEBAB_CASE)
       .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
       .convertValue(manifestMap.get("applications"), new TypeReference<List<CloudFoundryManifest>>() {
       });
 
     return manifestApps.stream().findFirst().map(app -> {
+      final List<String> buildpacks = Match(app).of(
+        Case($(a -> a.getBuildpacks() != null), app.getBuildpacks()),
+        Case($(a -> a.getBuildpack() != null && a.getBuildpack().length() > 0),
+          Collections.singletonList(app.getBuildpack())),
+        Case($(), Collections.emptyList())
+      );
+
       DeployCloudFoundryServerGroupDescription.ApplicationAttributes attrs = new DeployCloudFoundryServerGroupDescription.ApplicationAttributes();
       attrs.setInstances(app.getInstances() == null ? 1 : app.getInstances());
       attrs.setMemory(app.getMemory() == null ? "1024" : app.getMemory());
       attrs.setDiskQuota(app.getDiskQuota() == null ? "1024" : app.getDiskQuota());
-      attrs.setBuildpack(app.getBuildpack());
+      attrs.setHealthCheckHttpEndpoint(app.getHealthCheckHttpEndpoint());
+      attrs.setHealthCheckType(app.getHealthCheckType());
+      attrs.setBuildpacks(buildpacks);
       attrs.setServices(app.getServices());
       attrs.setRoutes(app.getRoutes() == null ? null : app.getRoutes().stream().flatMap(route -> route.values().stream()).collect(toList()));
       attrs.setEnv(app.getEnv() == null ? null : app.getEnv().stream().flatMap(env -> env.entrySet().stream()).collect(toMap(Map.Entry::getKey, Map.Entry::getValue)));
@@ -158,10 +171,20 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
     private String memory;
 
     @Nullable
+    @JsonProperty("disk_quota")
     private String diskQuota;
 
     @Nullable
+    private String healthCheckType;
+
+    @Nullable
+    private String healthCheckHttpEndpoint;
+
+    @Nullable
     private String buildpack;
+
+    @Nullable
+    private List<String> buildpacks;
 
     @Nullable
     private List<String> services;
