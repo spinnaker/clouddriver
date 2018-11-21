@@ -16,19 +16,13 @@
 package com.netflix.spinnaker.clouddriver.scattergather.client
 
 import okhttp3.Call
-import okhttp3.MediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody
 import javax.servlet.http.HttpServletRequest
 
 /**
  * Creates a collection of OkHttp3 [Call] objects from a map of targets and
  * an originating [HttpServletRequest].
  */
-class ScatteredOkHttpCallFactory(
-  private val okClient: OkHttpClient
-) {
+interface ScatteredOkHttpCallFactory {
 
   /**
    * Creates a collection of [Call] objects for a particular scatter request.
@@ -40,41 +34,5 @@ class ScatteredOkHttpCallFactory(
    */
   fun createCalls(workId: String,
                   targets: Map<String, String>,
-                  originalRequest: HttpServletRequest): List<Call> {
-    val requestBody = getRequestBody(originalRequest)
-
-    return targets.map { (targetName, baseUrl) ->
-      val okRequest = Request.Builder()
-        .tag("$workId:$targetName")
-        .url(originalRequest.toUrl(baseUrl))
-        .header(SCATTER_HEADER, "1")
-
-      originalRequest.headerNames.asSequence().forEach {
-        okRequest.header(it, originalRequest.getHeader(it))
-      }
-
-      okRequest.method(originalRequest.method, requestBody)
-
-      okClient.newCall(okRequest.build())
-    }
-  }
-
-  private fun getRequestBody(request: HttpServletRequest): RequestBody? =
-    if (request.contentLength == -1) {
-      null
-    } else {
-      RequestBody.create(
-        MediaType.parse(request.contentType),
-        request.reader.readText()
-      )
-    }
-
-  private fun HttpServletRequest.toUrl(baseUrl: String): String {
-    val url = "$baseUrl$requestURI"
-    return if (queryString == null) url else "$url?$queryString"
-  }
-
-  companion object {
-    const val SCATTER_HEADER = "X-Spinnaker-ScatteredRequest"
-  }
+                  originalRequest: HttpServletRequest): List<Call>
 }

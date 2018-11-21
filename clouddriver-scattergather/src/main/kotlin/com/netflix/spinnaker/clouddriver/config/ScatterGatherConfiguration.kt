@@ -15,12 +15,12 @@
  */
 package com.netflix.spinnaker.clouddriver.config
 
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.scattergather.ScatterGather
+import com.netflix.spinnaker.clouddriver.scattergather.client.DefaultScatteredOkHttpCallFactory
 import com.netflix.spinnaker.clouddriver.scattergather.client.ScatteredOkHttpCallFactory
-import com.netflix.spinnaker.clouddriver.scattergather.naive.NaiveScatterGather
+import com.netflix.spinnaker.clouddriver.scattergather.coroutine.CoroutineScatterGather
 import com.netflix.spinnaker.config.OkHttp3ClientConfiguration
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -29,11 +29,11 @@ open class ScatterGatherConfiguration {
 
   @Bean
   open fun scatteredOkHttpCallFactory(okHttp3ClientConfiguration: OkHttp3ClientConfiguration): ScatteredOkHttpCallFactory {
-    return ScatteredOkHttpCallFactory(okHttp3ClientConfiguration.create().build())
+    return DefaultScatteredOkHttpCallFactory(okHttp3ClientConfiguration.create().build())
   }
 
   @Bean
-  open fun scatterGather(callFactory: ScatteredOkHttpCallFactory): ScatterGather {
-    return NaiveScatterGather(callFactory)
+  open fun coroutineScatterGather(callFactory: ScatteredOkHttpCallFactory): ScatterGather {
+    return CoroutineScatterGather(callFactory)
   }
 }

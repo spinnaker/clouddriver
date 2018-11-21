@@ -27,12 +27,11 @@ import java.util.UUID
  *
  * This should be used only for development purposes, as it'll be crazy slow.
  * An async implementation should be used for non-development purposes.
- *
- * TODO(rz): Add CoroutinesScatterGather
  */
 class NaiveScatterGather(
   private val callFactory: ScatteredOkHttpCallFactory
 ) : ScatterGather {
+
   override fun request(request: ServletScatterGatherRequest, reducer: ResponseReducer): ReducedResponse {
     val calls = callFactory.createCalls(
       UUID.randomUUID().toString(),

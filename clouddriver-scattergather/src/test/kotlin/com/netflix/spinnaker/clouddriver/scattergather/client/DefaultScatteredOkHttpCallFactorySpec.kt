@@ -15,7 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.scattergather.client
 
-import com.netflix.spinnaker.clouddriver.scattergather.client.ScatteredOkHttpCallFactory.Companion.SCATTER_HEADER
+import com.netflix.spinnaker.clouddriver.scattergather.client.DefaultScatteredOkHttpCallFactory.Companion.SCATTER_HEADER
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.Buffer
@@ -29,7 +29,7 @@ import strikt.assertions.get
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNull
 
-internal object ScatteredOkHttpCallFactorySpec : Spek({
+internal object DefaultScatteredOkHttpCallFactorySpec : Spek({
 
   describe("creating a scattered request") {
     val okClient = OkHttpClient()
@@ -44,7 +44,7 @@ internal object ScatteredOkHttpCallFactorySpec : Spek({
       }
 
       it("creates two requests") {
-        val result = ScatteredOkHttpCallFactory(okClient).createCalls("workid", targets, servletRequest)
+        val result = DefaultScatteredOkHttpCallFactory(okClient).createCalls("workid", targets, servletRequest)
 
         expectThat(result) {
           get { size }.isEqualTo(2)
@@ -76,7 +76,7 @@ internal object ScatteredOkHttpCallFactorySpec : Spek({
       }
 
       it("creates two requests with bodies") {
-        val result = ScatteredOkHttpCallFactory(okClient).createCalls("workid", targets, servletRequest)
+        val result = DefaultScatteredOkHttpCallFactory(okClient).createCalls("workid", targets, servletRequest)
 
         expectThat(result) {
           get { size }.isEqualTo(2)
