@@ -32,11 +32,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DiskFreeingInputStreamTest {
   @Test
   void onlyFreeResourcesOnce(@TempDirectory.TempDir Path tempDir) throws IOException {
-    Path test = tempDir.resolve("test.txt");
+    Path temp = tempDir.resolve("temp");
+    Files.createDirectories(temp);
+    Path test = temp.resolve("test.txt");
     Files.write(test, "hello world".getBytes());
     FileInputStream fis = new FileInputStream(test.toFile());
-
-    assertThat(fis).hasSameContentAs(new ByteArrayInputStream("hello world".getBytes())); // closes once
-    fis.close();
+    DiskFreeingInputStream dfis = new DiskFreeingInputStream(fis, temp);
+    assertThat(dfis).hasSameContentAs(new ByteArrayInputStream("hello world".getBytes())); // closes once
+    dfis.close();
   }
 }
