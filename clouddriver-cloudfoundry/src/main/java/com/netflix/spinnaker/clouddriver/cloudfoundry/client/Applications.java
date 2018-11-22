@@ -50,6 +50,7 @@ import static java.util.stream.Collectors.toSet;
 @Slf4j
 public class Applications {
   private final String account;
+  private final String appsManagerUri;
   private final ApplicationService api;
   private final Spaces spaces;
 
@@ -209,6 +210,7 @@ public class Applications {
 
     return CloudFoundryServerGroup.builder()
       .account(account)
+      .appsManagerUri(appsManagerUri)
       .name(application.getName())
       .id(application.getGuid())
       .memory(process != null ? process.getMemoryInMb() : null)
@@ -265,6 +267,14 @@ public class Applications {
       return;
     }
     safelyCall(() -> api.scaleApplication(guid, new ScaleApplication(instances, memInMb, diskInMb)));
+  }
+
+  public void updateProcess(String guid, @Nullable String command, @Nullable String healthCheckType, @Nullable String healthCheckEndpoint) throws CloudFoundryApiException {
+    final UpdateProcess.HealthCheck healthCheck = healthCheckType == null && healthCheckEndpoint == null ? null :
+      new UpdateProcess.HealthCheck(healthCheckType, healthCheckEndpoint == null ? null :
+        new UpdateProcess.HealthCheckData(null, null, healthCheckEndpoint)
+      );
+    safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
   }
 
   public String createPackage(String appGuid) throws CloudFoundryApiException {

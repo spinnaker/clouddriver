@@ -42,11 +42,11 @@ import static org.mockito.Mockito.*;
 class ApplicationsTest {
   private ApplicationService applicationService = mock(ApplicationService.class);
   private Spaces spaces = mock(Spaces.class);
-  private Applications apps = new Applications("pws", applicationService, spaces);
+  private Applications apps = new Applications("pws", "some-apps-man-uri", applicationService, spaces);
 
   @Test
   void errorHandling() {
-    CloudFoundryClient client = new HttpCloudFoundryClient("pws", "api.run.pivotal.io",
+    CloudFoundryClient client = new HttpCloudFoundryClient("pws", "some.api.uri.example.com", "api.run.pivotal.io",
       "baduser", "badpassword");
 
     assertThatThrownBy(() -> client.getApplications().all())
@@ -123,7 +123,29 @@ class ApplicationsTest {
     assertThat(cloudFoundryServerGroup).isNotNull();
     assertThat(cloudFoundryServerGroup.getId()).isEqualTo("some-app-guid");
     assertThat(cloudFoundryServerGroup.getName()).isEqualTo("some-app-name");
+    assertThat(cloudFoundryServerGroup.getAppsManagerUri()).isEqualTo("some-apps-man-uri");
     assertThat(cloudFoundryServerGroup.getServiceInstances().size()).isEqualTo(1);
     assertThat(cloudFoundryServerGroup.getServiceInstances().get(0).getTags()).containsExactly("tag1", "tag2");
   }
+
+  @Test
+  void updateProcess() {
+    when(applicationService.updateProcess(any(), any())).thenReturn(new Process());
+
+    apps.updateProcess("guid1", "command1", "http", "/endpoint");
+    verify(applicationService).updateProcess("guid1", new UpdateProcess("command1",
+      new UpdateProcess.HealthCheck("http",
+        new UpdateProcess.HealthCheckData(null, null, "/endpoint")
+      )
+    ));
+
+    apps.updateProcess("guid1", "command1", "http", null);
+    verify(applicationService).updateProcess("guid1", new UpdateProcess("command1",
+      new UpdateProcess.HealthCheck("http", null)
+    ));
+
+    apps.updateProcess("guid1", "command1", null, null);
+    verify(applicationService).updateProcess("guid1", new UpdateProcess("command1", null));
+  }
+
 }
