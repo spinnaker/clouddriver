@@ -50,6 +50,7 @@ import static java.util.stream.Collectors.toSet;
 @Slf4j
 public class Applications {
   private final String account;
+  private final String appsManagerUri;
   private final ApplicationService api;
   private final Spaces spaces;
 
@@ -156,9 +157,9 @@ public class Applications {
         .map(packages ->
           packages.getResources().stream().findFirst()
             .map(pkg -> CloudFoundryPackage.builder()
-              .downloadUrl(pkg.getLinks().get("download").getHref())
-              .checksumType(pkg.getData().getChecksum().getType())
-              .checksum(pkg.getData().getChecksum().getValue())
+              .downloadUrl(pkg.getLinks().containsKey("download") ? pkg.getLinks().get("download").getHref(): null)
+              .checksumType(pkg.getData().getChecksum() == null ? null : pkg.getData().getChecksum().getType())
+              .checksum(pkg.getData().getChecksum() == null ? null : pkg.getData().getChecksum().getValue())
               .build()
             )
             .orElse(null)
@@ -209,6 +210,7 @@ public class Applications {
 
     return CloudFoundryServerGroup.builder()
       .account(account)
+      .appsManagerUri(appsManagerUri)
       .name(application.getName())
       .id(application.getGuid())
       .memory(process != null ? process.getMemoryInMb() : null)
