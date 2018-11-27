@@ -1,11 +1,11 @@
 /*
- * Copyright 2018 Pivotal, Inc.
+ * Copyright 2018 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.clouddriver.scattergather
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
+import javax.servlet.http.HttpServletRequest
 
-import lombok.Data;
-
-import javax.annotation.Nullable;
-
-@Data
-public class PackageData {
-  @Nullable
-  private PackageChecksum checksum;
-}
+/**
+ * @param targets Target name (shard, etc) to base URL mapping
+ * @param original The original servlet request that is initiating the scatter/gather operation
+ */
+data class ServletScatterGatherRequest(
+  val targets: Map<String, String>,
+  val original: HttpServletRequest
+)
