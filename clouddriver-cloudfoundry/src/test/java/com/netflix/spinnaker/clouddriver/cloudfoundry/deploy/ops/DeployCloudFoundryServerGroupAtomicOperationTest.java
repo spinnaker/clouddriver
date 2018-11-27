@@ -173,10 +173,10 @@ class DeployCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoun
       HashMap.of(
         "token", "ASDF"
       ).toJavaMap());
+    inOrder.verify(apps).updateProcess("serverGroupId", null, "http", "/health");
     inOrder.verify(apps).uploadPackageBits(eq("serverGroupId_package"), any());
     inOrder.verify(apps).createBuild("serverGroupId_package");
     inOrder.verify(apps).scaleApplication("serverGroupId", 7, 1024, 2048);
-    inOrder.verify(apps).updateProcess("serverGroupId", null, "http", "/health");
     inOrder.verify(cloudFoundryClient.getServiceInstances()).createServiceBindingsByName(any(), eq(Collections.singletonList("service1")));
     inOrder.verify(apps).startApplication("serverGroupId");
 

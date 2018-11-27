@@ -67,13 +67,13 @@ public class DeployCloudFoundryServerGroupAtomicOperation implements AtomicOpera
       description.getStack(), description.getDetail(), false));
 
     final CloudFoundryServerGroup serverGroup = createApplication(description);
+    if (description.getApplicationAttributes().getHealthCheckType() != null) {
+      updateProcess(serverGroup.getId(), description);
+    }
     String packageId = buildPackage(serverGroup.getId(), description);
 
     buildDroplet(packageId, serverGroup.getId(), description);
     scaleApplication(serverGroup.getId(), description);
-    if (description.getApplicationAttributes().getHealthCheckType() != null) {
-      updateProcess(serverGroup.getId(), description);
-    }
 
     client.getServiceInstances().createServiceBindingsByName(serverGroup, description.getApplicationAttributes().getServices());
 
