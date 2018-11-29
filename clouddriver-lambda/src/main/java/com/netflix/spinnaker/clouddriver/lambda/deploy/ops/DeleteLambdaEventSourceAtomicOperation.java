@@ -18,66 +18,48 @@ package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.*;
-import com.netflix.spinnaker.clouddriver.lambda.cache.model.AwsLambdaCacheModel;
-import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaEventMappingDescription;
+import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaFunctionEventMappingDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
 import java.util.HashMap;
 import java.util.List;
 
-public class DeleteLambdaEventSourceAtomicOperation extends AbstractAwsLambdaAtomicOperation<UpsertLambdaEventMappingDescription, Object> implements AtomicOperation<Object> {
+public class DeleteLambdaEventSourceAtomicOperation
+  extends AbstractLambdaAtomicOperation<UpsertLambdaFunctionEventMappingDescription, Object>
+  implements AtomicOperation<Object> {
 
-
-  public DeleteLambdaEventSourceAtomicOperation(UpsertLambdaEventMappingDescription description) {
+  public DeleteLambdaEventSourceAtomicOperation(UpsertLambdaFunctionEventMappingDescription description) {
     super(description, "DELETE_LAMBDA_FUNCTION_EVENT_MAPPING");
   }
 
   @Override
   public Object operate(List priorOutputs) {
-    String application = description.getProperty("application").toString();
-    String region = description.getProperty("region").toString();
-    String account = description.getAccount();
-    AwsLambdaCacheModel cache = awsLambdaProvider.getAwsLambdaFunction(application, region, account);
-    boolean flagexists = false;
+    LambdaFunction lambdaFunction = (LambdaFunction) lambdaFunctionProvider.getFunction(
+      description.getAccount(), description.getRegion(), description.getFunctionName()
+    );
 
-    List<EventSourceMappingConfiguration> eventmappings = cache.getEventSourceMappingConfigurationList();
-    for (Object x : eventmappings){
-      /*
-      anshrma@amazon.com : This is not ideal, but intentional. Ideally, we know that x is not POJO, but AliasConfiguration. However,
-      if we iterate though AliasConfiguration instead, we get an exception java.util.LinkedHashMap cannot be cast to com.amazonaws.services.lambda.model.AliasConfiguration.
-      Hence this workaround
-      */
+    List<EventSourceMappingConfiguration> eventSourceMappingConfigurations = lambdaFunction.getEventSourceMappings();
 
-      HashMap<String,String> eventmap = (HashMap<String, String>) x;
-      if (eventmap.get("eventSourceArn").toLowerCase().equals(description.getProperty("eventsourcearn").toString().toLowerCase())) {
-        flagexists = true;
-        description.setProperty("uuid",eventmap.get("uuid"));
+    for (EventSourceMappingConfiguration eventSourceMappingConfiguration : eventSourceMappingConfigurations) {
+      if (eventSourceMappingConfiguration.getEventSourceArn().equalsIgnoreCase(description.getEventSourceArn())) {
+        description.setUuid(eventSourceMappingConfiguration.getUUID());
+        return deleteEventSourceMappingResult();
       }
-
     }
 
-
-    if (flagexists==true){
-      return deleteEventSourceMappingResult(cache);
-    }
-    else{
-      return null;
-    }
-
+    return null;
   }
 
-
-  private DeleteEventSourceMappingResult deleteEventSourceMappingResult (AwsLambdaCacheModel cache){
+  private DeleteEventSourceMappingResult deleteEventSourceMappingResult() {
     updateTaskStatus("Initializing Deleting of AWS Lambda Function Event Mapping Operation...");
 
-    AWSLambda client = getAwsLambdaClient();
-    DeleteEventSourceMappingRequest request = new DeleteEventSourceMappingRequest()
-      .withUUID(description.getProperty("uuid").toString());
+    AWSLambda client = getLambdaClient();
+    DeleteEventSourceMappingRequest request = new DeleteEventSourceMappingRequest().withUUID(description.getUuid());
 
     DeleteEventSourceMappingResult result = client.deleteEventSourceMapping(request);
     updateTaskStatus("Finished Deleting of AWS Lambda Function Event Mapping Operation...");
 
     return result;
   }
-
 }

@@ -16,12 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.lambda.provider.agent;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
 import com.amazonaws.services.identitymanagement.model.ListRolesRequest;
 import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import com.amazonaws.services.identitymanagement.model.Role;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Sets;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
@@ -29,51 +30,72 @@ import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
+import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
 import com.netflix.spinnaker.clouddriver.lambda.cache.model.IamRole;
-import com.netflix.spinnaker.clouddriver.lambda.provider.LambdaProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.net.URLDecoder;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.lambda.cache.Keys.Namespace.IAM_ROLE;
 
-public class IamRoleCachingAgent implements CachingAgent {
+public class IamRoleCachingAgent implements CachingAgent, CustomScheduledAgent {
+  private static final long POLL_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(30);
+  private static final long DEFAULT_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
-  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
-    AUTHORITATIVE.forType(IAM_ROLE.toString())
-  ));
   private final Logger log = LoggerFactory.getLogger(getClass());
+  private final Collection<AgentDataType> types = Collections.singletonList(
+    AUTHORITATIVE.forType(IAM_ROLE.toString())
+  );
+
+  private final ObjectMapper objectMapper;
+
   private AmazonClientProvider amazonClientProvider;
-  private AWSCredentialsProvider awsCredentialsProvider;
   private NetflixAmazonCredentials account;
   private String accountName;
-  private IamPolicyReader iamPolicyReader;
 
+  IamRoleCachingAgent(ObjectMapper objectMapper,
+                      NetflixAmazonCredentials account,
+                      AmazonClientProvider amazonClientProvider) {
+    this.objectMapper = objectMapper;
 
-  public IamRoleCachingAgent(NetflixAmazonCredentials account,
-                             AmazonClientProvider amazonClientProvider,
-                             AWSCredentialsProvider awsCredentialsProvider,
-                             IamPolicyReader iamPolicyReader) {
     this.account = account;
     this.accountName = account.getName();
     this.amazonClientProvider = amazonClientProvider;
-    this.awsCredentialsProvider = awsCredentialsProvider;
-    this.iamPolicyReader = iamPolicyReader;
   }
 
-  public static Map<String, Object> convertIamRoleToAttributes(IamRole iamRole) {
-    Map<String, Object> attributes = new HashMap<>();
-    attributes.put("name", iamRole.getName());
-    attributes.put("accountName", iamRole.getAccountName());
-    attributes.put("arn", iamRole.getId());
-    attributes.put("trustRelationships", iamRole.getTrustRelationships());
-    return attributes;
+  @Override
+  public String getAgentType() {
+    return accountName + "/" + getClass().getSimpleName();
+  }
+
+  @Override
+  public String getProviderName() {
+    return AwsProvider.PROVIDER_NAME;
+  }
+
+  @Override
+  public Collection<AgentDataType> getProvidedDataTypes() {
+    return types;
+  }
+
+  @Override
+  public long getPollIntervalMillis() {
+    return POLL_INTERVAL_MILLIS;
+  }
+
+  @Override
+  public long getTimeoutMillis() {
+    return DEFAULT_TIMEOUT_MILLIS;
   }
 
   @Override
@@ -128,7 +150,7 @@ public class IamRoleCachingAgent implements CachingAgent {
     return evictionsByKey;
   }
 
-  Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
+  private Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
     Collection<CacheData> dataPoints = new HashSet<>();
     Map<String, Collection<CacheData>> newDataMap = new HashMap<>();
 
@@ -144,7 +166,7 @@ public class IamRoleCachingAgent implements CachingAgent {
     return newDataMap;
   }
 
-  Set<IamRole> fetchIamRoles(AmazonIdentityManagement iam, String accountName) {
+  private Set<IamRole> fetchIamRoles(AmazonIdentityManagement iam, String accountName) {
     Set<IamRole> cacheableRoles = new HashSet<>();
     String marker = null;
     do {
@@ -160,7 +182,7 @@ public class IamRoleCachingAgent implements CachingAgent {
           new IamRole(role.getArn(),
             role.getRoleName(),
             accountName,
-            iamPolicyReader.getTrustedEntities(role.getAssumeRolePolicyDocument()))
+            getTrustedEntities(role.getAssumeRolePolicyDocument()))
         );
       }
 
@@ -181,18 +203,42 @@ public class IamRoleCachingAgent implements CachingAgent {
       keyParts.get("account").equals(accountName);
   }
 
-  @Override
-  public String getAgentType() {
-    return accountName + "/" + getClass().getSimpleName();
+  private Set<IamTrustRelationship> getTrustedEntities(String urlEncodedPolicyDocument) {
+    Set<IamTrustRelationship> trustedEntities = Sets.newHashSet();
+
+    String decodedPolicyDocument = URLDecoder.decode(urlEncodedPolicyDocument);
+
+    Map<String, Object> policyDocument;
+    try {
+      policyDocument = objectMapper.readValue(decodedPolicyDocument, Map.class);
+      List<Map<String, Object>> statementItems = (List<Map<String, Object>>) policyDocument.get("Statement");
+      for (Map<String, Object> statementItem : statementItems) {
+        if ("sts:AssumeRole".equals(statementItem.get("Action"))) {
+          Map<String, Object> principal = (Map<String, Object>) statementItem.get("Principal");
+
+          for (Map.Entry<String, Object> principalEntry : principal.entrySet()) {
+            if (principalEntry.getValue() instanceof List) {
+              ((List) principalEntry.getValue()).stream()
+                .forEach(o -> trustedEntities.add(new IamTrustRelationship(principalEntry.getKey(), o.toString())));
+            } else {
+              trustedEntities.add(new IamTrustRelationship(principalEntry.getKey(), principalEntry.getValue().toString()));
+            }
+          }
+        }
+      }
+    } catch (IOException e) {
+      log.error("Unable to extract trusted entities (policyDocument: {})", urlEncodedPolicyDocument, e);
+    }
+
+    return trustedEntities;
   }
 
-  @Override
-  public String getProviderName() {
-    return LambdaProvider.NAME;
-  }
-
-  @Override
-  public Collection<AgentDataType> getProvidedDataTypes() {
-    return types;
+  private static Map<String, Object> convertIamRoleToAttributes(IamRole iamRole) {
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("name", iamRole.getName());
+    attributes.put("accountName", iamRole.getAccountName());
+    attributes.put("arn", iamRole.getId());
+    attributes.put("trustRelationships", iamRole.getTrustRelationships());
+    return attributes;
   }
 }

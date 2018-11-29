@@ -19,16 +19,17 @@ package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.DeleteFunctionRequest;
 import com.amazonaws.services.lambda.model.DeleteFunctionResult;
-import com.netflix.spinnaker.clouddriver.lambda.cache.model.AwsLambdaCacheModel;
-import com.netflix.spinnaker.clouddriver.lambda.deploy.description.DeleteLambdaDescription;
+import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.description.DeleteLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
 import java.util.List;
 
-public class DeleteLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperation<DeleteLambdaDescription, DeleteFunctionResult> implements AtomicOperation<DeleteFunctionResult> {
+public class DeleteLambdaAtomicOperation
+  extends AbstractLambdaAtomicOperation<DeleteLambdaFunctionDescription, DeleteFunctionResult>
+  implements AtomicOperation<DeleteFunctionResult> {
 
-
-  public DeleteLambdaAtomicOperation(DeleteLambdaDescription description) {
+  public DeleteLambdaAtomicOperation(DeleteLambdaFunctionDescription description) {
     super(description, "DELETE_LAMBDA_FUNCTION_CODE");
   }
 
@@ -38,14 +39,14 @@ public class DeleteLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperatio
     return deleteFunctionResult();
   }
 
-  private DeleteFunctionResult deleteFunctionResult (){
-    String application = description.getProperty("application").toString();
-    String region = description.getProperty("region").toString();
+  private DeleteFunctionResult deleteFunctionResult() {
+    String functionName = description.getFunctionName();
+    String region = description.getRegion();
     String account = description.getAccount();
-    AwsLambdaCacheModel cache = awsLambdaProvider.getAwsLambdaFunction(application, region, account);
 
+    LambdaFunction cache = (LambdaFunction) lambdaFunctionProvider.getFunction(account, region, functionName);
 
-    AWSLambda client = getAwsLambdaClient();
+    AWSLambda client = getLambdaClient();
     DeleteFunctionRequest request = new DeleteFunctionRequest()
       .withFunctionName(cache.getFunctionArn());
 
@@ -54,5 +55,4 @@ public class DeleteLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperatio
 
     return result;
   }
-
 }

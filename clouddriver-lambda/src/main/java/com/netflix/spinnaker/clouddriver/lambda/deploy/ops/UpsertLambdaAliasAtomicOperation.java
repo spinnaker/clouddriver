@@ -22,73 +22,57 @@ import com.amazonaws.services.lambda.model.CreateAliasRequest;
 import com.amazonaws.services.lambda.model.CreateAliasResult;
 import com.amazonaws.services.lambda.model.UpdateAliasRequest;
 import com.amazonaws.services.lambda.model.UpdateAliasResult;
-import com.netflix.spinnaker.clouddriver.lambda.cache.model.AwsLambdaCacheModel;
-import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaAliasDescription;
+import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaFunctionAliasDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.amazonaws.services.lambda.model.AliasConfiguration;
 import org.apache.commons.lang.StringUtils;
 
 import java.util.*;
 
-public class UpsertLambdaAliasAtomicOperation extends AbstractAwsLambdaAtomicOperation<UpsertLambdaAliasDescription, Object> implements AtomicOperation<Object> {
+public class UpsertLambdaAliasAtomicOperation
+  extends AbstractLambdaAtomicOperation<UpsertLambdaFunctionAliasDescription, Object>
+  implements AtomicOperation<Object> {
 
-
-  public UpsertLambdaAliasAtomicOperation(UpsertLambdaAliasDescription description) {
+  public UpsertLambdaAliasAtomicOperation(UpsertLambdaFunctionAliasDescription description) {
     super(description, "UPSERT_LAMBDA_FUNCTION_ALIAS");
   }
 
   @Override
   public Object operate(List priorOutputs) {
+    LambdaFunction lambdaFunction = (LambdaFunction) lambdaFunctionProvider.getFunction(
+      description.getAccount(), description.getRegion(), description.getFunctionName()
+    );
 
-    AwsLambdaCacheModel cache = awsLambdaProvider.getAwsLambdaFunction(description.getProperty("application").toString(),description.getProperty("region").toString(),description.getAccount());
-    boolean flagexists = false;
+    boolean aliasExists = false;
 
-    List<AliasConfiguration> aliases = cache.getAliasConfigurations();
-
-    for (Object x : aliases){
-      /*
-      anshrma@amazon.com : This is not ideal, but intentional. Ideally, we know that x is not POJO, but AliasConfiguration. However,
-      if we iterate though AliasConfiguration instead, we get an exception java.util.LinkedHashMap cannot be cast to com.amazonaws.services.lambda.model.AliasConfiguration.
-      Hence this workaround
-      */
-
-      HashMap<String,String> aliasmap = (HashMap<String, String>) x;
-      if (aliasmap.get("name").toLowerCase().equals(description.getProperty("aliasname").toString().toLowerCase())) {
-        flagexists = true;
+    for (AliasConfiguration aliasConfiguration : lambdaFunction.getAliasConfigurations()) {
+      if (aliasConfiguration.getName().equalsIgnoreCase(description.getAliasname())) {
+        aliasExists = true;
       }
-
     }
 
-
-    if (flagexists==true){
-      return updateAliasResult(cache);
-    }
-    else{
-      return createAliasResult(cache);
-    }
-
+    return aliasExists ? updateAliasResult(lambdaFunction) : createAliasResult(lambdaFunction);
   }
 
-
-  private UpdateAliasResult updateAliasResult (AwsLambdaCacheModel cache){
+  private UpdateAliasResult updateAliasResult(LambdaFunction cache) {
     updateTaskStatus("Initializing Updating of AWS Lambda Function Alias Operation...");
 
-    Map<String,Double> routingconfig = new LinkedHashMap<>();
-    String minorFunctionVersion = description.getProperty("minorfunctionversion").toString();
-    String weightToMinorFunctionVersion = description.getProperty("weighttominorfunctionversion").toString();
+    Map<String, Double> routingConfig = new LinkedHashMap<>();
+    String minorFunctionVersion = description.getMinorfunctionversion();
+    Double weightToMinorFunctionVersion = description.getWeighttominorfunctionversion();
 
-    if (StringUtils.isNotEmpty(minorFunctionVersion) && StringUtils.isNotEmpty(weightToMinorFunctionVersion)) {
-      routingconfig.put(description.getProperty("minorfunctionversion").toString(),Double.parseDouble(description.getProperty("weighttominorfunctionversion").toString()));
+    if (StringUtils.isNotEmpty(minorFunctionVersion) && weightToMinorFunctionVersion != null) {
+      routingConfig.put(description.getMinorfunctionversion(), description.getWeighttominorfunctionversion());
     }
 
-    AWSLambda client = getAwsLambdaClient();
+    AWSLambda client = getLambdaClient();
     UpdateAliasRequest request = new UpdateAliasRequest()
       .withFunctionName(cache.getFunctionArn())
-      .withDescription(description.getProperty("aliasdescription").toString())
-      .withFunctionVersion(description.getProperty("majorfunctionversion").toString())
-      .withName(description.getProperty("aliasname").toString())
-      .withRoutingConfig(new AliasRoutingConfiguration()
-        .withAdditionalVersionWeights(routingconfig));
+      .withDescription(description.getAliasdescription())
+      .withFunctionVersion(description.getMajorfunctionversion())
+      .withName(description.getAliasname())
+      .withRoutingConfig(new AliasRoutingConfiguration().withAdditionalVersionWeights(routingConfig));
 
     UpdateAliasResult result = client.updateAlias(request);
     updateTaskStatus("Finished Updating of AWS Lambda Function Alias Operation...");
@@ -96,26 +80,28 @@ public class UpsertLambdaAliasAtomicOperation extends AbstractAwsLambdaAtomicOpe
     return result;
   }
 
-  private CreateAliasResult createAliasResult (AwsLambdaCacheModel cache){
+  private CreateAliasResult createAliasResult(LambdaFunction cache) {
     updateTaskStatus("Initializing Creation of AWS Lambda Function Alias Operation...");
-    Map<String,Double> routingconfig = new LinkedHashMap<>();
-    if (description.getProperty("minorfunctionversion") !="" && description.getProperty("weighttominorfunctionversion")!=""){
-      routingconfig.put(description.getProperty("minorfunctionversion").toString(),Double.parseDouble(description.getProperty("weighttominorfunctionversion").toString()));
+
+    Map<String, Double> routingConfig = new LinkedHashMap<>();
+    String minorFunctionVersion = description.getMinorfunctionversion();
+    Double weightToMinorFunctionVersion = description.getWeighttominorfunctionversion();
+
+    if (StringUtils.isNotEmpty(minorFunctionVersion) && weightToMinorFunctionVersion != null) {
+      routingConfig.put(description.getMinorfunctionversion(), description.getWeighttominorfunctionversion());
     }
 
-    AWSLambda client = getAwsLambdaClient();
+    AWSLambda client = getLambdaClient();
     CreateAliasRequest request = new CreateAliasRequest()
       .withFunctionName(cache.getFunctionArn())
-      .withDescription(description.getProperty("aliasdescription").toString())
-      .withFunctionVersion(description.getProperty("majorfunctionversion").toString())
-      .withName(description.getProperty("aliasname").toString())
-      .withRoutingConfig(new AliasRoutingConfiguration()
-      .withAdditionalVersionWeights(routingconfig));
+      .withDescription(description.getAliasdescription())
+      .withFunctionVersion(description.getMajorfunctionversion())
+      .withName(description.getAliasname())
+      .withRoutingConfig(new AliasRoutingConfiguration().withAdditionalVersionWeights(routingConfig));
 
     CreateAliasResult result = client.createAlias(request);
     updateTaskStatus("Finished Creation of AWS Lambda Function Alias Operation...");
 
     return result;
   }
-
 }

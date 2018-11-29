@@ -16,42 +16,43 @@
 
 package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.InvokeRequest;
 import com.amazonaws.services.lambda.model.InvokeResult;;
 import com.amazonaws.services.lambda.model.LogType;
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaDescription;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.description.InvokeLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
-public class InvokeLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperation<InvokeLambdaDescription, InvokeResult> implements AtomicOperation<InvokeResult> {
+public class InvokeLambdaAtomicOperation
+  extends AbstractLambdaAtomicOperation<InvokeLambdaFunctionDescription, InvokeResult>
+  implements AtomicOperation<InvokeResult> {
 
-
-  public InvokeLambdaAtomicOperation(InvokeLambdaDescription description) {
+  public InvokeLambdaAtomicOperation(InvokeLambdaFunctionDescription description) {
     super(description, "INVOKE_LAMBDA_FUNCTION");
   }
 
   @Override
   public InvokeResult operate(List priorOutputs) {
     updateTaskStatus("Initializing Invoking AWS Lambda Function Operation...");
-    return invokeFunction(description.getProperty("application").toString(),description.getProperty("freeFormDetails").toString());
+    return invokeFunction(
+      description.getFunctionName(),
+      description.getPayload()
+    );
   }
 
 
-  private InvokeResult invokeFunction (String functionname, String payload){
-    AWSLambda client = getAwsLambdaClient();
+  private InvokeResult invokeFunction(String functionName, String payload) {
+    AWSLambda client = getLambdaClient();
     InvokeRequest req = new InvokeRequest()
-      .withFunctionName(functionname)
+      .withFunctionName(functionName)
       .withLogType(LogType.Tail)
       .withPayload(payload);
 
-    String aliasnameregex = "|[a-zA-Z0-9$_-]+";
-    if (description.getProperty("aliasname").toString().matches(aliasnameregex) && description.getProperty("aliasname").toString() !=""){
-      req.setQualifier(description.getProperty("aliasname").toString());
+    String qualifierRegex = "|[a-zA-Z0-9$_-]+";
+    if (description.getQualifier().matches(qualifierRegex)) {
+      req.setQualifier(description.getQualifier());
     }
 
     InvokeResult result = client.invoke(req);

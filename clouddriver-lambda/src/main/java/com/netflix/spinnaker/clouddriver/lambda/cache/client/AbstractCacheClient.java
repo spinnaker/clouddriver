@@ -95,7 +95,7 @@ abstract class AbstractCacheClient<T> {
     String accountFilter = account != null ? account + Keys.SEPARATOR : "*" + Keys.SEPARATOR;
     String regionFilter = region != null ? region + Keys.SEPARATOR : "*" + Keys.SEPARATOR;
     Set<String> keys = new HashSet<>();
-    String pattern = "awslambda" + Keys.SEPARATOR + keyNamespace + Keys.SEPARATOR + accountFilter + regionFilter + "*";
+    String pattern = "aws" + Keys.SEPARATOR + keyNamespace + Keys.SEPARATOR + accountFilter + regionFilter + "*";
     Collection<String> nameMatches = cacheView.filterIdentifiers(keyNamespace, pattern);
 
     keys.addAll(nameMatches);

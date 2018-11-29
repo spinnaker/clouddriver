@@ -18,64 +18,50 @@ package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.*;
-import com.netflix.spinnaker.clouddriver.lambda.cache.model.AwsLambdaCacheModel;
-import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaEventMappingDescription;
+import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaFunctionEventMappingDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
-public class UpsertLambdaEventSourceAtomicOperation extends AbstractAwsLambdaAtomicOperation<UpsertLambdaEventMappingDescription, Object> implements AtomicOperation<Object> {
+public class UpsertLambdaEventSourceAtomicOperation
+  extends AbstractLambdaAtomicOperation<UpsertLambdaFunctionEventMappingDescription, Object>
+  implements AtomicOperation<Object> {
 
-
-  public UpsertLambdaEventSourceAtomicOperation(UpsertLambdaEventMappingDescription description) {
+  public UpsertLambdaEventSourceAtomicOperation(UpsertLambdaFunctionEventMappingDescription description) {
     super(description, "UPSERT_LAMBDA_FUNCTION_EVENT_MAPPING");
   }
 
   @Override
   public Object operate(List priorOutputs) {
+    String functionName = description.getFunctionName();
+    String region = description.getRegion();
+    String account = description.getAccount();
 
-    AwsLambdaCacheModel cache = awsLambdaProvider.getAwsLambdaFunction(description.getProperty("application").toString(),description.getProperty("region").toString(),description.getAccount());
-    boolean flagexists = false;
+    LambdaFunction cache = (LambdaFunction) lambdaFunctionProvider.getFunction(account, region, functionName);
 
-    List<EventSourceMappingConfiguration> eventmappings = cache.getEventSourceMappingConfigurationList();
-    for (Object x : eventmappings){
-      /*
-      anshrma@amazon.com : This is not ideal, but intentional. Ideally, we know that x is not POJO, but AliasConfiguration. However,
-      if we iterate though AliasConfiguration instead, we get an exception java.util.LinkedHashMap cannot be cast to com.amazonaws.services.lambda.model.AliasConfiguration.
-      Hence this workaround
-      */
-
-      HashMap<String,String> eventmap = (HashMap<String, String>) x;
-      if (eventmap.get("eventSourceArn").toLowerCase().equals(description.getProperty("eventsourcearn").toString().toLowerCase())) {
-        flagexists = true;
-        description.setProperty("uuid",eventmap.get("uuid"));
+    List<EventSourceMappingConfiguration> eventSourceMappingConfigurations = cache.getEventSourceMappings();
+    for (EventSourceMappingConfiguration eventSourceMappingConfiguration : eventSourceMappingConfigurations) {
+      if (eventSourceMappingConfiguration.getEventSourceArn().equalsIgnoreCase(description.getEventSourceArn())) {
+        description.setProperty("uuid", eventSourceMappingConfiguration.getUUID());
+        return updateEventSourceMappingResult(cache);
       }
-
     }
 
-
-    if (flagexists==true){
-      return updateEventSourceMappingResult(cache);
-    }
-    else{
-      return createEventSourceMapping(cache);
-    }
-
+    return createEventSourceMapping(cache);
   }
 
 
-  private UpdateEventSourceMappingResult updateEventSourceMappingResult (AwsLambdaCacheModel cache){
+  private UpdateEventSourceMappingResult updateEventSourceMappingResult(LambdaFunction cache) {
     updateTaskStatus("Initializing Updating of AWS Lambda Function Event Mapping Operation...");
 
-    AWSLambda client = getAwsLambdaClient();
+    AWSLambda client = getLambdaClient();
     UpdateEventSourceMappingRequest request = new UpdateEventSourceMappingRequest()
       .withFunctionName(cache.getFunctionArn())
-      .withBatchSize(Integer.parseInt(description.getProperty("batchsize").toString()))
-      .withEnabled(Boolean.parseBoolean(description.getProperty("enabled").toString()))
-      .withUUID(description.getProperty("uuid").toString());
+      .withBatchSize(description.getBatchsize())
+      .withEnabled(description.getEnabled())
+      .withUUID(description.getUuid());
 
     UpdateEventSourceMappingResult result = client.updateEventSourceMapping(request);
     updateTaskStatus("Finished Updating of AWS Lambda Function Event Mapping Operation...");
@@ -83,16 +69,16 @@ public class UpsertLambdaEventSourceAtomicOperation extends AbstractAwsLambdaAto
     return result;
   }
 
-  private CreateEventSourceMappingResult createEventSourceMapping (AwsLambdaCacheModel cache){
+  private CreateEventSourceMappingResult createEventSourceMapping(LambdaFunction cache) {
     updateTaskStatus("Initializing Creation of AWS Lambda Function Event Source Mapping...");
 
-    AWSLambda client = getAwsLambdaClient();
+    AWSLambda client = getLambdaClient();
     CreateEventSourceMappingRequest request = new CreateEventSourceMappingRequest()
       .withFunctionName(cache.getFunctionArn())
-      .withBatchSize(Integer.parseInt(description.getProperty("batchsize").toString()))
-      .withEnabled(Boolean.parseBoolean(description.getProperty("enabled").toString()))
+      .withBatchSize(description.getBatchsize())
+      .withEnabled(description.getEnabled())
       .withStartingPosition("LATEST")
-      .withEventSourceArn(description.getProperty("eventsourcearn").toString());
+      .withEventSourceArn(description.getEventSourceArn());
 
     CreateEventSourceMappingResult result = client.createEventSourceMapping(request);
     updateTaskStatus("Finished Creation of AWS Lambda Function Event Mapping Operation...");

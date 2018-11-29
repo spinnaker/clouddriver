@@ -19,18 +19,17 @@ package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.UpdateFunctionCodeRequest;
 import com.amazonaws.services.lambda.model.UpdateFunctionCodeResult;
-import com.netflix.spinnaker.clouddriver.lambda.cache.model.AwsLambdaCacheModel;
-import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpdateLambdaCodeDescription;
+import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpdateLambdaFunctionCodeDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
 import java.util.List;
 
-;
+public class UpdateLambdaCodeAtomicOperation
+  extends AbstractLambdaAtomicOperation<UpdateLambdaFunctionCodeDescription, UpdateFunctionCodeResult>
+  implements AtomicOperation<UpdateFunctionCodeResult> {
 
-public class UpdateLambdaCodeAtomicOperation extends AbstractAwsLambdaAtomicOperation<UpdateLambdaCodeDescription, UpdateFunctionCodeResult> implements AtomicOperation<UpdateFunctionCodeResult> {
-
-
-  public UpdateLambdaCodeAtomicOperation(UpdateLambdaCodeDescription description) {
+  public UpdateLambdaCodeAtomicOperation(UpdateLambdaFunctionCodeDescription description) {
     super(description, "UPDATE_LAMBDA_FUNCTION_CODE");
   }
 
@@ -41,23 +40,21 @@ public class UpdateLambdaCodeAtomicOperation extends AbstractAwsLambdaAtomicOper
   }
 
   private UpdateFunctionCodeResult updateFunctionConfigurationResult (){
-    AwsLambdaCacheModel cache = awsLambdaProvider.getAwsLambdaFunction(description.getProperty("application").toString(),description.getProperty("region").toString(),description.getAccount());
+    LambdaFunction lambdaFunction = (LambdaFunction) lambdaFunctionProvider.getFunction(
+      description.getAccount(), description.getRegion(), description.getFunctionName()
+    );
 
+    AWSLambda client = getLambdaClient();
 
-    AWSLambda client = getAwsLambdaClient();
     UpdateFunctionCodeRequest request = new UpdateFunctionCodeRequest()
-      .withFunctionName(cache.getFunctionArn())
-      .withPublish(Boolean.parseBoolean(description.getProperty("publish").toString()))
-      .withS3Bucket(description.getProperty("s3bucket").toString())
-      .withS3Key(description.getProperty("s3key").toString());
+      .withFunctionName(lambdaFunction.getFunctionArn())
+      .withPublish(description.getPublish())
+      .withS3Bucket(description.getS3Bucket())
+      .withS3Key(description.getS3Key());
 
     UpdateFunctionCodeResult result = client.updateFunctionCode(request);
     updateTaskStatus("Finished Updating of AWS Lambda Function Code Operation...");
 
     return result;
   }
-
-
-
-
 }

@@ -20,20 +20,19 @@ import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.CreateFunctionRequest;
 import com.amazonaws.services.lambda.model.CreateFunctionResult;
 import com.amazonaws.services.lambda.model.FunctionCode;
-import com.amazonaws.services.lambda.model.LogType;
-import com.netflix.spinnaker.clouddriver.lambda.deploy.description.CreateLambdaDescription;
+import com.netflix.spinnaker.clouddriver.lambda.deploy.description.CreateLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
 import java.util.HashMap;
-import java.util.stream.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-public class CreateLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperation<CreateLambdaDescription, CreateFunctionResult> implements AtomicOperation<CreateFunctionResult> {
+public class CreateLambdaAtomicOperation
+  extends AbstractLambdaAtomicOperation<CreateLambdaFunctionDescription, CreateFunctionResult>
+  implements AtomicOperation<CreateFunctionResult> {
 
-
-  public CreateLambdaAtomicOperation(CreateLambdaDescription description) {
+  public CreateLambdaAtomicOperation(CreateLambdaFunctionDescription description) {
     super(description, "CREATE_LAMBDA_FUNCTION");
   }
 
@@ -44,30 +43,31 @@ public class CreateLambdaAtomicOperation extends AbstractAwsLambdaAtomicOperatio
   }
 
 
-  private CreateFunctionResult createFunction (){
+  private CreateFunctionResult createFunction() {
     FunctionCode code = new FunctionCode()
       .withS3Bucket(description.getProperty("s3bucket").toString())
       .withS3Key(description.getProperty("s3key").toString());
 
-    Map<String,String> objTag = new HashMap<String,String>();
-    List<Map<String,String>>  lstTag = (List<Map<String, String>>) description.getProperty("tags");
-    for (Map<String,String> x: lstTag) {
-      for (Entry<String,String> entry : x.entrySet()){
-        objTag.put(entry.getKey().toString(),entry.getValue().toString());
+    Map<String, String> objTag = new HashMap<>();
+    for (Map<String, String> tags : description.getTags()) {
+      for (Entry<String, String> entry : tags.entrySet()) {
+        objTag.put(entry.getKey(), entry.getValue());
       }
     }
 
 
-    AWSLambda client = getAwsLambdaClient();
+    AWSLambda client = getLambdaClient();
+
     CreateFunctionRequest request = new CreateFunctionRequest();
-    request.setFunctionName(description.getProperty("application").toString());
-    request.setDescription(description.getProperty("description").toString());
-    request.setHandler(description.getProperty("handler").toString());
-    request.setMemorySize(Integer.parseInt(description.getProperty("memory").toString()));
-    request.setPublish(Boolean.parseBoolean(description.getProperty("publish").toString()));
-    request.setRole(description.getProperty("role").toString());
-    request.setRuntime(description.getProperty("runtime").toString());
-    request.setTimeout(Integer.parseInt(description.getProperty("timeout").toString()));
+    request.setFunctionName(description.getFunctionName());
+    request.setDescription(description.getDescription());
+    request.setHandler(description.getHandler());
+    request.setMemorySize(description.getMemory());
+    request.setPublish(description.getPublish());
+    request.setRole(description.getRole());
+    request.setRuntime(description.getRuntime());
+    request.setTimeout(description.getTimeout());
+
     request.setCode(code);
     request.setTags(objTag);
 

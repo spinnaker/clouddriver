@@ -23,12 +23,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH;
-import static com.netflix.spinnaker.clouddriver.lambda.LambdaCloudProvider.ID;
+
+import static com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider.ID;
 
 public class Keys implements KeyParser {
   public enum Namespace {
     IAM_ROLE,
-    LAMBDA_NAME;
+    LAMBDA_FUNCTIONS;
 
     public final String ns;
 
@@ -79,21 +80,11 @@ public class Keys implements KeyParser {
     result.put("type", parts[1]);
     result.put("account", parts[2]);
 
-    if(!canParse(parts[1]) && parts[1].equals(HEALTH.getNs())){
-      result.put("region", parts[3]);
-      result.put("taskId", parts[4]);
-      return result;
-    }
-
-
     Namespace namespace = Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]));
 
-    if (!namespace.equals(Namespace.IAM_ROLE)) {
-      result.put("region", parts[3]);
-    }
-
     switch (namespace) {
-      case LAMBDA_NAME:
+      case LAMBDA_FUNCTIONS:
+        result.put("region", parts[3]);
         result.put("AwsLambdaName", parts[4]);
         break;
       case IAM_ROLE:
@@ -111,15 +102,15 @@ public class Keys implements KeyParser {
     return false;
   }
 
-  public static String getLambdaFunctionKey(String account, String region, String awsLambdaFunctionName) {
-    return buildKey("arn:aws:lambda", account, region, "function",awsLambdaFunctionName);
+  public static String getLambdaFunctionKey(String account, String region, String functionName) {
+    return String.format(
+      "%s:%s:%s:%s:%s", ID, Namespace.LAMBDA_FUNCTIONS, account, region, functionName
+    );
   }
 
   public static String getIamRoleKey(String account, String iamRoleName) {
-    return ID + SEPARATOR + Namespace.IAM_ROLE + SEPARATOR + account + SEPARATOR + iamRoleName;
-  }
-
-  private static String buildKey(String namespace,String account, String region, String type, String identifier){
-    return namespace + SEPARATOR + region + SEPARATOR + account + SEPARATOR  + type + SEPARATOR + identifier;
+    return String.format(
+      "%s:%s:%s:%s", ID, Namespace.IAM_ROLE, account, iamRoleName
+    );
   }
 }

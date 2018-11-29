@@ -1,4 +1,4 @@
-# Spinnaker Lambda CloudDriver
+# AWS Lambda Support
 
 ### **Background **
 
@@ -7,34 +7,30 @@ Spinnaker CloudDriver has been enhanced to add support for AWS Lambda. Below lis
 ## clouddriver.yml override ##
 
 ```yaml
-awslambda:
-  enabled: true
+aws:
+  lambda:
+    enabled: true
   accounts:
-  - name: spinnaker-lambda
-    requiredGroupMembership: []
-    providerVersion: V1
-    permissions: {}
-    awsAccount: spinnaker-ec2
-  primaryAccount: spinnaker-lambda
-
+    - name: test
+      lambdaEnabled: true
 ```
+
 # Controller calls
 
 ## Get all lambda functions
 
 ### Purpose
 
-Retrieves information about all the functions in cache. Response is based on cache model
+Retrieves all cached lambda functions.
 
 ***Sample Request***
 
 ```
 curl -X GET --header 'Accept: application/json'
-'http://localhost:7002/awslambda/getfunction'
+'http://localhost:7002/functions'
 ```
 
 ***Sample Response***
-
 
 ```
 `[
@@ -60,153 +56,9 @@ curl -X GET --header 'Accept: application/json'
     "tracingConfig": null,
     "version": null,
     "vpcConfig": null
-  },
-  {
-    "accountName": "spinnaker-lambda",
-    "codeSha256": null,
-    "codeSize": null,
-    "deadLetterConfig": null,
-    "description": "",
-    "environment": null,
-    "functionArn": "arn:aws:lambda:us-west-2:123456789012:function:lambda-deployer-anuj",
-    "functionName": "lambda-deployer-anuj",
-    "handler": "lambda_function.lambda_handler",
-    "kmskeyArn": null,
-    "lastModified": "2018-04-09T17:49:07.684+0000",
-    "masterArn": null,
-    "memorySize": null,
-    "region": "us-west-2",
-    "revisionId": "9a8f60b7-7926-4b5b-8c0c-64f06ca963fd",
-    "role": null,
-    "runtime": "python3.6",
-    "timeout": null,
-    "tracingConfig": null,
-    "version": null,
-    "vpcConfig": null
-  },
-  {
-    "accountName": "spinnaker-lambda",
-    "codeSha256": null,
-    "codeSize": null,
-    "deadLetterConfig": null,
-    "description": "THIS IS THE SAMPLE DESCRIPTION MODIFIED",
-    "environment": null,
-    "functionArn": "arn:aws:lambda:us-west-2:123456789012:function:SAMPLE-LAMBDA-PRINT-FUNCTION",
-    "functionName": "SAMPLE-LAMBDA-PRINT-FUNCTION",
-    "handler": "lambda_function.lambda_handler",
-    "kmskeyArn": null,
-    "lastModified": "2018-09-13T01:38:19.583+0000",
-    "masterArn": null,
-    "memorySize": null,
-    "region": "us-west-2",
-    "revisionId": "76379e01-6802-4a6b-81e5-f840fcfe7fda",
-    "role": null,
-    "runtime": "python3.6",
-    "timeout": null,
-    "tracingConfig": null,
-    "version": null,
-    "vpcConfig": null
-  },
-  {
-    "accountName": "spinnaker-lambda",
-    "codeSha256": null,
-    "codeSize": null,
-    "deadLetterConfig": null,
-    "description": "Prints the inputs",
-    "environment": null,
-    "functionArn": "arn:aws:lambda:us-west-2:123456789012:function:PrintFunction",
-    "functionName": "PrintFunction",
-    "handler": "lambda_function.lambda_handler",
-    "kmskeyArn": null,
-    "lastModified": "2018-09-12T06:57:19.435+0000",
-    "masterArn": null,
-    "memorySize": null,
-    "region": "us-west-2",
-    "revisionId": "2eda255a-6069-44a1-910e-c7b4846e7ea5",
-    "role": null,
-    "runtime": "python2.7",
-    "timeout": null,
-    "tracingConfig": null,
-    "version": null,
-    "vpcConfig": null
-  },
-  {
-    "accountName": "spinnaker-lambda",
-    "codeSha256": null,
-    "codeSize": null,
-    "deadLetterConfig": null,
-    "description": "",
-    "environment": null,
-    "functionArn": "arn:aws:lambda:us-west-2:123456789012:function:Java-Sample-API",
-    "functionName": "Java-Sample-API",
-    "handler": "com.example.HealthCheck::getHealthCheck",
-    "kmskeyArn": null,
-    "lastModified": "2017-01-16T02:07:22.418+0000",
-    "masterArn": null,
-    "memorySize": null,
-    "region": "us-west-2",
-    "revisionId": "fe928dfc-8723-4d58-83fd-993d4b9d34f0",
-    "role": null,
-    "runtime": "java8",
-    "timeout": null,
-    "tracingConfig": null,
-    "version": null,
-    "vpcConfig": null
   }
 ]`
 ```
-
-
-
-## Get specific lambda function
-
-### Purpose
-
-Retrieves information about the specific function in cache. Subset of previous call.
-
-***Sample Request***
-
-
-```
-curl -X GET --header 'Accept: application/json'
-'http://localhost:7002/awslambda/getfunction?
-functionname=SAMPLE-LAMBDA-PRINT-FUNCTION&accountname=spinnaker-lambda
-&region=us-west-2'
-```
-
-
-***Sample Response***
-
-
-```
-`[
-  {
-    "accountName": "spinnaker-lambda",
-    "codeSha256": null,
-    "codeSize": null,
-    "deadLetterConfig": null,
-    "description": "THIS IS THE SAMPLE DESCRIPTION MODIFIED",
-    "environment": null,
-    "functionArn": "arn:aws:lambda:us-west-2:123456789012:function:SAMPLE-LAMBDA-PRINT-FUNCTION",
-    "functionName": "SAMPLE-LAMBDA-PRINT-FUNCTION",
-    "handler": "lambda_function.lambda_handler",
-    "kmskeyArn": null,
-    "lastModified": "2018-09-13T01:38:19.583+0000",
-    "masterArn": null,
-    "memorySize": null,
-    "region": "us-west-2",
-    "revisionId": "76379e01-6802-4a6b-81e5-f840fcfe7fda",
-    "role": null,
-    "runtime": "python3.6",
-    "timeout": null,
-    "tracingConfig": null,
-    "version": null,
-    "vpcConfig": null
-  }
-]`
-```
-
-
 
 # Operations
 
