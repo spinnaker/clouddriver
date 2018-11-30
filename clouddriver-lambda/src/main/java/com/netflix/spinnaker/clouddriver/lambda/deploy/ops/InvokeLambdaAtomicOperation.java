@@ -42,7 +42,6 @@ public class InvokeLambdaAtomicOperation
     );
   }
 
-
   private InvokeResult invokeFunction(String functionName, String payload) {
     AWSLambda client = getLambdaClient();
     InvokeRequest req = new InvokeRequest()
@@ -59,5 +58,4 @@ public class InvokeLambdaAtomicOperation
     updateTaskStatus("Finished Invoking of AWS Lambda Function Operation...");
     return result;
   }
-
 }

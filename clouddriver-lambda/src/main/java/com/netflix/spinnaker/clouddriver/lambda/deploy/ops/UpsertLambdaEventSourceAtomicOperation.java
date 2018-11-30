@@ -52,7 +52,6 @@ public class UpsertLambdaEventSourceAtomicOperation
     return createEventSourceMapping(cache);
   }
 
-
   private UpdateEventSourceMappingResult updateEventSourceMappingResult(LambdaFunction cache) {
     updateTaskStatus("Initializing Updating of AWS Lambda Function Event Mapping Operation...");
 
@@ -85,5 +84,4 @@ public class UpsertLambdaEventSourceAtomicOperation
 
     return result;
   }
-
 }

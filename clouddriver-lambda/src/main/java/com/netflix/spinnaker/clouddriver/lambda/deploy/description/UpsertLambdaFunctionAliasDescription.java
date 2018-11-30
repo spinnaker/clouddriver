@@ -19,16 +19,15 @@ package com.netflix.spinnaker.clouddriver.lambda.deploy.description;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-
 @Data
 @EqualsAndHashCode(callSuper = false)
 public class UpsertLambdaFunctionAliasDescription extends AbstractLambdaFunctionDescription {
   String functionName;
 
-  String aliasdescription;
-  String majorfunctionversion;
-  String aliasname;
-  String minorfunctionversion;
-  Double weighttominorfunctionversion;
+  String majorFunctionVersion;
+  String minorFunctionVersion;
+  Double weightToMinorFunctionVersion;
 
+  String aliasDescription;
+  String aliasName;
 }

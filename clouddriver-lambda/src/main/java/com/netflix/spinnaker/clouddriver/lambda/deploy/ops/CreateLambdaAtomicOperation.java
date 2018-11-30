@@ -42,7 +42,6 @@ public class CreateLambdaAtomicOperation
     return createFunction();
   }
 
-
   private CreateFunctionResult createFunction() {
     FunctionCode code = new FunctionCode()
       .withS3Bucket(description.getProperty("s3bucket").toString())
@@ -54,7 +53,6 @@ public class CreateLambdaAtomicOperation
         objTag.put(entry.getKey(), entry.getValue());
       }
     }
-
 
     AWSLambda client = getLambdaClient();
 
@@ -76,5 +74,4 @@ public class CreateLambdaAtomicOperation
 
     return result;
   }
-
 }

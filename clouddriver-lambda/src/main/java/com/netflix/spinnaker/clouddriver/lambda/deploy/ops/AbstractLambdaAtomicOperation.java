@@ -45,7 +45,6 @@ public abstract class AbstractLambdaAtomicOperation<T extends AbstractLambdaFunc
   AbstractLambdaAtomicOperation(T description, String basePhase) {
     this.description = description;
     this.basePhase = basePhase;
-
   }
 
   private static Task getTask() {
