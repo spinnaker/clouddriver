@@ -14,25 +14,25 @@ import com.netflix.spinnaker.clouddriver.oracle.deploy.OracleWorkRequestPoller;
 import com.netflix.spinnaker.clouddriver.oracle.deploy.description.UpsertLoadBalancerDescription;
 import com.netflix.spinnaker.clouddriver.oracle.model.Details;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.oracle.bmc.loadbalancer.model.Certificate;
-import com.oracle.bmc.loadbalancer.model.CertificateDetails;
-import com.oracle.bmc.loadbalancer.model.CreateCertificateDetails;
 import com.oracle.bmc.loadbalancer.model.BackendDetails;
 import com.oracle.bmc.loadbalancer.model.BackendSet;
 import com.oracle.bmc.loadbalancer.model.BackendSetDetails;
+import com.oracle.bmc.loadbalancer.model.Certificate;
+import com.oracle.bmc.loadbalancer.model.CertificateDetails;
 import com.oracle.bmc.loadbalancer.model.CreateBackendSetDetails;
+import com.oracle.bmc.loadbalancer.model.CreateCertificateDetails;
 import com.oracle.bmc.loadbalancer.model.CreateListenerDetails;
 import com.oracle.bmc.loadbalancer.model.CreateLoadBalancerDetails;
 import com.oracle.bmc.loadbalancer.model.ListenerDetails;
 import com.oracle.bmc.loadbalancer.model.LoadBalancer;
 import com.oracle.bmc.loadbalancer.model.UpdateBackendSetDetails;
 import com.oracle.bmc.loadbalancer.model.UpdateListenerDetails;
+import com.oracle.bmc.loadbalancer.requests.CreateBackendSetRequest;
 import com.oracle.bmc.loadbalancer.requests.CreateCertificateRequest;
 import com.oracle.bmc.loadbalancer.requests.CreateListenerRequest;
 import com.oracle.bmc.loadbalancer.requests.CreateLoadBalancerRequest;
-import com.oracle.bmc.loadbalancer.requests.CreateBackendSetRequest;
-import com.oracle.bmc.loadbalancer.requests.DeleteCertificateRequest;
 import com.oracle.bmc.loadbalancer.requests.DeleteBackendSetRequest;
+import com.oracle.bmc.loadbalancer.requests.DeleteCertificateRequest;
 import com.oracle.bmc.loadbalancer.requests.DeleteListenerRequest;
 import com.oracle.bmc.loadbalancer.requests.GetLoadBalancerRequest;
 import com.oracle.bmc.loadbalancer.requests.UpdateBackendSetRequest;
@@ -47,13 +47,11 @@ import com.oracle.bmc.loadbalancer.responses.DeleteListenerResponse;
 import com.oracle.bmc.loadbalancer.responses.UpdateBackendSetResponse;
 import com.oracle.bmc.loadbalancer.responses.UpdateListenerResponse;
 import com.oracle.bmc.model.BmcException;
-import groovy.util.logging.Slf4j;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Slf4j
 public class UpsertOracleLoadBalancerAtomicOperation implements AtomicOperation<Map> {
 
   private final UpsertLoadBalancerDescription description;
@@ -157,11 +155,11 @@ public class UpsertOracleLoadBalancerAtomicOperation implements AtomicOperation<
     }
     return builder.build();
   }
-  
+
   void updateBackendSets(LoadBalancer lb, Task task) {
     if (lb.getBackendSets() != null) {
       lb.getBackendSets().forEach( (name, existingBackendSet) -> {
-        BackendSetDetails backendSetUpdate = (description.getBackendSets() != null)? 
+        BackendSetDetails backendSetUpdate = (description.getBackendSets() != null)?
           description.getBackendSets().get(name) : null;
         if (backendSetUpdate != null) {
           // Update existing BackendSets
@@ -193,10 +191,10 @@ public class UpsertOracleLoadBalancerAtomicOperation implements AtomicOperation<
       });
     }
   }
-  
+
   void updateCertificates(LoadBalancer lb, Task task) {
     if (lb.getCertificates() != null) {
-      lb.getCertificates().forEach( (name, existingCert) -> { 
+      lb.getCertificates().forEach( (name, existingCert) -> {
         CertificateDetails cert = (description.getCertificates() != null)?
             description.getCertificates().get(name) : null;
         if (cert == null) {
@@ -223,12 +221,12 @@ public class UpsertOracleLoadBalancerAtomicOperation implements AtomicOperation<
       });
     }
   }
-  
+
   void update(LoadBalancer lb, Task task) {
     task.updateStatus(UPDATE, "UpdateLoadBalancer: $lb.displayName");
     // Delete Listeners
     if (lb.getListeners() != null) {
-      lb.getListeners().forEach( (name, existingListener) -> { 
+      lb.getListeners().forEach( (name, existingListener) -> {
         ListenerDetails listenerUpdate = (description.getListeners() != null)?
           description.getListeners().get(name) : null;
         if (listenerUpdate != null) {
@@ -245,7 +243,7 @@ public class UpsertOracleLoadBalancerAtomicOperation implements AtomicOperation<
     updateCertificates(lb, task);
     //Update Listeners
     if (lb.getListeners() != null) {
-      lb.getListeners().forEach( (name, existingListener) -> { 
+      lb.getListeners().forEach( (name, existingListener) -> {
         ListenerDetails listenerUpdate = (description.getListeners() != null)?
             description.getListeners().get(name) : null;
         if (listenerUpdate !=null) {
@@ -270,8 +268,8 @@ public class UpsertOracleLoadBalancerAtomicOperation implements AtomicOperation<
         }
       });
     }
-  } 
-  
+  }
+
   void create(Task task) {
     String clusterName = description.qualifiedName();
     task.updateStatus(CREATE, "Create LB: ${description.qualifiedName()}");
@@ -297,7 +295,7 @@ public class UpsertOracleLoadBalancerAtomicOperation implements AtomicOperation<
     task.updateStatus(CREATE, "Create LB rq submitted - work request id: ${rs.getOpcWorkRequestId()}");
     OracleWorkRequestPoller.poll(res.getOpcWorkRequestId(), CREATE, task, description.getCredentials().getLoadBalancerClient());
   }
-   
+
   @Override
   public Map operate(List priorOutputs) {
     Task task = getTask();
