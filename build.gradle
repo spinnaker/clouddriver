@@ -112,6 +112,9 @@ subprojects { project ->
           if (it.requested.group == 'org.apache.xbean') {
             it.useVersion '4.3'
           }
+          if (it.requested.group == 'ch.qos.logback') {
+            it.useVersion '1.2.3'
+          }
         }
       }
     }
