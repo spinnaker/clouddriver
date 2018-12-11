@@ -167,7 +167,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
           .withTargets(
             new TargetDescription()
               .withId(networkInterface.getPrivateIpv4Address())
-              .withPort(taskDefinition.getContainerDefinitions().get(0).getPortMappings().get(0).getHostPort())
+              .withPort(taskDefinition.getContainerDefinitions().get(0).getPortMappings().get(0).getContainerPort())
           )
       );
 
