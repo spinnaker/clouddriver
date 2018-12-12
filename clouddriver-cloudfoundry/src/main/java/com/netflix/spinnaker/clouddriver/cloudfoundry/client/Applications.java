@@ -51,6 +51,7 @@ import static java.util.stream.Collectors.toSet;
 public class Applications {
   private final String account;
   private final String appsManagerUri;
+  private final String metricsUri;
   private final ApplicationService api;
   private final Spaces spaces;
 
@@ -216,9 +217,20 @@ public class Applications {
       }
     }
 
+    String serverGroupAppManagerUri = appsManagerUri;
+    if (StringUtils.isNotEmpty(appsManagerUri)){
+      serverGroupAppManagerUri = appsManagerUri + "/organizations/" + space.getOrganization().getId() + "/spaces/" + space.getId() + "/applications/" + application.getGuid();
+    }
+
+    String serverGroupMetricsUri = metricsUri;
+    if (StringUtils.isNotEmpty(metricsUri)){
+      serverGroupMetricsUri = metricsUri + "/apps/" + application.getGuid();
+    }
+
     return CloudFoundryServerGroup.builder()
       .account(account)
-      .appsManagerUri(appsManagerUri)
+      .appsManagerUri(serverGroupAppManagerUri)
+      .metricsUri(serverGroupMetricsUri)
       .name(application.getName())
       .id(application.getGuid())
       .memory(process != null ? process.getMemoryInMb() : null)
