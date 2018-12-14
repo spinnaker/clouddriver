@@ -91,15 +91,18 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
   public CacheResult loadData(ProviderCache providerCache) {
     log.info(getAgentType() + " is starting");
     reloadNamespaces();
+    Map<String, Object> details = defaultIntrospectionDetails();
 
     Long start = System.currentTimeMillis();
     Map<KubernetesKind, List<KubernetesManifest>> primaryResource;
     try {
       primaryResource = loadPrimaryResourceList();
     } catch (KubectlJobExecutor.NoResourceTypeException e) {
-      log.warn(getAgentType() + ": resource for this caching agent is not supported for this cluster");
+      log.error(getAgentType() + ": resource for this caching agent is not supported for this cluster. This will cause problems, please remove it from caching using the `omitKinds` config parameter.");
       return new DefaultCacheResult(new HashMap<>());
     }
+
+    details.put("timeSpentInKubectlMs", System.currentTimeMillis() - start);
 
     List<String> primaryKeys = primaryResource.values()
         .stream()
@@ -157,7 +160,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
         .put(ON_DEMAND_TYPE, evictFromOnDemand.stream().map(CacheData::getId).collect(Collectors.toList()))
         .build();
 
-    return new DefaultCacheResult(cacheResults, evictionResults);
+    return new DefaultCacheResult(cacheResults, evictionResults, details);
   }
 
   protected void mergeCacheResults(Map<String, Collection<CacheData>> current, Map<String, Collection<CacheData>> added) {
@@ -210,7 +213,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     cacheTime = cacheTime == null ? 0L : cacheTime;
     processedCount = processedCount == null ? 0 : processedCount;
 
-    return cacheTime >= lastFullRefresh || processedCount == 0;
+    return cacheTime >= lastFullRefresh || processedCount < 2;
   }
 
   private OnDemandAgent.OnDemandResult evictEntry(ProviderCache providerCache, KubernetesKind kind, String key) {

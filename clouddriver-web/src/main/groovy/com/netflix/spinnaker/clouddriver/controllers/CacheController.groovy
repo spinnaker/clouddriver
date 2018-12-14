@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.controllers
 
+import com.netflix.spinnaker.cats.cache.AgentIntrospection
+import com.netflix.spinnaker.cats.cache.CacheIntrospectionStore
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandCacheUpdater
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
@@ -50,6 +52,14 @@ class CacheController {
       ],
       httpStatus
     )
+  }
+
+
+  @RequestMapping(method = RequestMethod.GET, value = "/introspection")
+  Collection <AgentIntrospection> getAgentIntrospections() {
+    return CacheIntrospectionStore.getStore().listAgentIntrospections()
+        // sort by descending start time, so newest executions are first
+        .toSorted { a, b -> b.getLastExecutionStartMs() <=> a.getLastExecutionStartMs() }
   }
 
   @RequestMapping(method = RequestMethod.GET, value = "/{cloudProvider}/{type}")

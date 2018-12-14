@@ -22,7 +22,9 @@
             "certificates" : {
               "myCert1": { "certificateName": "myCert1" },
               "myCert2": { "privateKey": "myPrivateKey" },
-              "myCert3": { "wrong_name": "foo" }
+              "myCert3": { "wrong_name": "foo" },
+              "myCert4": { "certificateName": "myCert4",  "publicCertificate": ""},
+              "myCert5": { "certificateName": "myCert5",  "publicCertificate": "x"}
             },
             "listeners": {
                 "httpListener": { "port": "8080", "protocol": "HTTP", "defaultBackendSetName" : "myBackendSet" }

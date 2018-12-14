@@ -51,6 +51,7 @@ import static java.util.stream.Collectors.toSet;
 public class Applications {
   private final String account;
   private final String appsManagerUri;
+  private final String metricsUri;
   private final ApplicationService api;
   private final Spaces spaces;
 
@@ -120,10 +121,8 @@ public class Applications {
                   healthState = HealthState.Up;
                   break;
                 case DOWN:
-                  healthState = HealthState.Down;
-                  break;
                 case CRASHED:
-                  healthState = HealthState.OutOfService;
+                  healthState = HealthState.Down;
                   break;
                 case STARTING:
                   healthState = HealthState.Starting;
@@ -208,15 +207,38 @@ public class Applications {
 
     Map<String, String> environmentVars = applicationEnv == null || applicationEnv.getEnvironmentJson() == null ? emptyMap() : applicationEnv.getEnvironmentJson();
 
+    String healthCheckType = null;
+    String healthCheckHttpEndpoint = null;
+    if (process != null && process.getHealthCheck() != null) {
+      final Process.HealthCheck healthCheck = process.getHealthCheck();
+      healthCheckType = healthCheck.getType();
+      if (healthCheck.getData() != null) {
+        healthCheckHttpEndpoint = healthCheck.getData().getEndpoint();
+      }
+    }
+
+    String serverGroupAppManagerUri = appsManagerUri;
+    if (StringUtils.isNotEmpty(appsManagerUri)){
+      serverGroupAppManagerUri = appsManagerUri + "/organizations/" + space.getOrganization().getId() + "/spaces/" + space.getId() + "/applications/" + application.getGuid();
+    }
+
+    String serverGroupMetricsUri = metricsUri;
+    if (StringUtils.isNotEmpty(metricsUri)){
+      serverGroupMetricsUri = metricsUri + "/apps/" + application.getGuid();
+    }
+
     return CloudFoundryServerGroup.builder()
       .account(account)
-      .appsManagerUri(appsManagerUri)
+      .appsManagerUri(serverGroupAppManagerUri)
+      .metricsUri(serverGroupMetricsUri)
       .name(application.getName())
       .id(application.getGuid())
       .memory(process != null ? process.getMemoryInMb() : null)
       .instances(emptySet())
       .droplet(droplet)
       .diskQuota(process != null ? process.getDiskInMb() : null)
+      .healthCheckType(healthCheckType)
+      .healthCheckHttpEndpoint(healthCheckHttpEndpoint)
       .space(space)
       .createdTime(application.getCreatedAt().toInstant().toEpochMilli())
       .serviceInstances(cloudFoundryServices)
@@ -270,10 +292,11 @@ public class Applications {
   }
 
   public void updateProcess(String guid, @Nullable String command, @Nullable String healthCheckType, @Nullable String healthCheckEndpoint) throws CloudFoundryApiException {
-    final UpdateProcess.HealthCheck healthCheck = healthCheckType == null && healthCheckEndpoint == null ? null :
-      new UpdateProcess.HealthCheck(healthCheckType, healthCheckEndpoint == null ? null :
-        new UpdateProcess.HealthCheckData(null, null, healthCheckEndpoint)
-      );
+    final Process.HealthCheck healthCheck = healthCheckType != null ?
+      new Process.HealthCheck().setType(healthCheckType) : null;
+    if (healthCheckEndpoint != null) {
+      healthCheck.setData(new Process.HealthCheckData().setEndpoint(healthCheckEndpoint));
+    }
     safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
   }
 
@@ -352,6 +375,6 @@ public class Applications {
   public ProcessStats.State getProcessState(String appGuid) throws CloudFoundryApiException {
     return safelyCall(() -> this.api.findProcessStatsById(appGuid))
       .flatMap(pr -> pr.getResources().stream().findAny().map(ProcessStats::getState))
-      .orElse(null);
+      .orElse(ProcessStats.State.DOWN);
   }
 }

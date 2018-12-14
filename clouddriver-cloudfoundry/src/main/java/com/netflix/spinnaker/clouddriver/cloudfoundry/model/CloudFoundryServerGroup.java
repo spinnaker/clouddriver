@@ -58,6 +58,9 @@ public class CloudFoundryServerGroup extends CloudFoundryModel implements Server
   String appsManagerUri;
 
   @JsonView(Views.Cache.class)
+  String metricsUri;
+
+  @JsonView(Views.Cache.class)
   String name;
 
   @JsonView(Views.Cache.class)
@@ -72,6 +75,14 @@ public class CloudFoundryServerGroup extends CloudFoundryModel implements Server
 
   @JsonView(Views.Cache.class)
   Integer diskQuota;
+
+  @JsonView(Views.Cache.class)
+  @Nullable
+  private String healthCheckType;
+
+  @JsonView(Views.Cache.class)
+  @Nullable
+  private String healthCheckHttpEndpoint;
 
   @JsonView(Views.Cache.class)
   State state;
@@ -151,6 +162,7 @@ public class CloudFoundryServerGroup extends CloudFoundryModel implements Server
   public Map getBuildInfo() {
     return HashMap.<Object, Object>of(
       "appsManagerUri", appsManagerUri,
+      "metricsUri", metricsUri,
       "droplet", droplet,
       "id", id,
       "serviceInstances", serviceInstances)
