@@ -114,11 +114,15 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
         String serviceName = StringUtils.substringAfter(task.getGroup(), "service:");
         String serviceKey = Keys.getServiceKey(accountName, region, serviceName);
         Service service = serviceCacheClient.get(serviceKey);
+
         if (service == null) {
           String taskEvictionKey = Keys.getTaskKey(accountName, region, task.getTaskId());
           taskEvicitions.add(taskEvictionKey);
           continue;
         }
+
+        String taskDefinitionCacheKey = Keys.getTaskDefinitionKey(accountName, region, service.getTaskDefinition());
+        TaskDefinition taskDefinition = taskDefinitionCacheClient.get(taskDefinitionCacheKey);
 
         if (isContainerMissingNetworking(task)) {
           continue;
