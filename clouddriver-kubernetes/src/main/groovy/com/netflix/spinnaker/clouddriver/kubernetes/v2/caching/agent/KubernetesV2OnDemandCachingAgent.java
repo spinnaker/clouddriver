@@ -262,6 +262,15 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     // todo(lwander): this can be removed
     log.debug("Queried for on demand cache refresh of '{}'", data);
 
+    if (!getAccountName().equals(account)) {
+      return null;
+    }
+    
+    // No on-demand updates needed when live calls are used to check for status during orchestration
+    if (credentials.isLiveManifestCalls()) {
+      return null;
+    }
+
     try {
       Pair<KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(fullName);
       kind = parsedName.getLeft();
