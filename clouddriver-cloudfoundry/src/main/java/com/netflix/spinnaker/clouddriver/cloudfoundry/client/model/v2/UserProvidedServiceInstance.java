@@ -14,17 +14,12 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.artifacts.maven;
+package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2;
 
 import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
-import java.util.ArrayList;
-import java.util.List;
+import lombok.EqualsAndHashCode;
 
 @Data
-@ConfigurationProperties("artifacts.maven")
-public class MavenArtifactProviderProperties {
-  private boolean enabled;
-  private List<MavenArtifactAccount> accounts = new ArrayList<>();
+@EqualsAndHashCode(callSuper = true)
+public class UserProvidedServiceInstance extends AbstractServiceInstance {
 }
