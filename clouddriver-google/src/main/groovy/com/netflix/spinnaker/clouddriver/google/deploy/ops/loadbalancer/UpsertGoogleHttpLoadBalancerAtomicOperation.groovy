@@ -573,17 +573,17 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
 
       def instanceMetadata = templateOpMap?.instanceMetadata
       if (instanceMetadata) {
-        List<String> globalLbs = instanceMetadata.(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES)?.split(',') ?: []
+        List<String> globalLbs = instanceMetadata.(GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES)?.split(',') ?: []
         globalLbs = globalLbs  ? globalLbs + loadBalancerName : [loadBalancerName]
-        instanceMetadata.(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES) = globalLbs.unique().join(',')
+        instanceMetadata.(GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES) = globalLbs.unique().join(',')
 
-        List<String> bsNames = instanceMetadata.(GoogleServerGroup.View.BACKEND_SERVICE_NAMES)?.split(',') ?: []
+        List<String> bsNames = instanceMetadata.(GoogleServerGroup.BACKEND_SERVICE_NAMES)?.split(',') ?: []
         bsNames = bsNames ? bsNames + backendService.name : [backendService.name]
-        instanceMetadata.(GoogleServerGroup.View.BACKEND_SERVICE_NAMES) = bsNames.unique().join(',')
+        instanceMetadata.(GoogleServerGroup.BACKEND_SERVICE_NAMES) = bsNames.unique().join(',')
       } else {
         templateOpMap.instanceMetadata = [
-          (GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerName,
-          (GoogleServerGroup.View.BACKEND_SERVICE_NAMES)     : backendService.name,
+          (GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerName,
+          (GoogleServerGroup.BACKEND_SERVICE_NAMES)     : backendService.name,
         ]
       }
 

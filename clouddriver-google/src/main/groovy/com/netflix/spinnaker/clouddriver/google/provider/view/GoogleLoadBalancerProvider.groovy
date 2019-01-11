@@ -114,7 +114,7 @@ class GoogleLoadBalancerProvider implements LoadBalancerProvider<GoogleLoadBalan
       switch (loadBalancer.type) {
         case GoogleLoadBalancerType.HTTP:
           def isDisabledFromHttp = Utils.determineHttpLoadBalancerDisabledState(loadBalancer, serverGroup)
-          isDisabled = serverGroup.asg.get(GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES) ? // We assume these are L4 load balancers, and the state has been calculated on the way to the cache.
+          isDisabled = serverGroup.asg.get(GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES) ? // We assume these are L4 load balancers, and the state has been calculated on the way to the cache.
             isDisabledFromHttp && serverGroup.disabled : isDisabledFromHttp
           break
         case GoogleLoadBalancerType.INTERNAL:
@@ -126,12 +126,12 @@ class GoogleLoadBalancerProvider implements LoadBalancerProvider<GoogleLoadBalan
           break
         case GoogleLoadBalancerType.SSL:
           def isDisabledFromSsl = Utils.determineSslLoadBalancerDisabledState(loadBalancer, serverGroup)
-          isDisabled = serverGroup.asg.get(GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES) ? // We assume these are L4 load balancers, and the state has been calculated on the way to the cache.
+          isDisabled = serverGroup.asg.get(GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES) ? // We assume these are L4 load balancers, and the state has been calculated on the way to the cache.
             isDisabledFromSsl && serverGroup.disabled : isDisabledFromSsl
           break
         case GoogleLoadBalancerType.TCP:
           def isDisabledFromTcp = Utils.determineTcpLoadBalancerDisabledState(loadBalancer, serverGroup)
-          isDisabled = serverGroup.asg.get(GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES) ? // We assume these are L4 load balancers, and the state has been calculated on the way to the cache.
+          isDisabled = serverGroup.asg.get(GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES) ? // We assume these are L4 load balancers, and the state has been calculated on the way to the cache.
             isDisabledFromTcp && serverGroup.disabled : isDisabledFromTcp
           break
         default:

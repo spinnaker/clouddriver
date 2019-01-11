@@ -356,10 +356,10 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
 
     def instanceMetadata = templateOpMap?.instanceMetadata
     if (instanceMetadata && autoscaler) {
-      instanceMetadata.(GoogleServerGroup.View.AUTOSCALING_POLICY) = objectMapper.writeValueAsString(autoscaler)
+      instanceMetadata.(GoogleServerGroup.AUTOSCALING_POLICY) = objectMapper.writeValueAsString(autoscaler)
     } else if (autoscaler) {
       templateOpMap.instanceMetadata = [
-        (GoogleServerGroup.View.AUTOSCALING_POLICY): objectMapper.writeValueAsString(autoscaler)
+        (GoogleServerGroup.AUTOSCALING_POLICY): objectMapper.writeValueAsString(autoscaler)
       ]
     }
 

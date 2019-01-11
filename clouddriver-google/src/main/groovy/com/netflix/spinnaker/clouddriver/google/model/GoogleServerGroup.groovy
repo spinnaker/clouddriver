@@ -32,6 +32,13 @@ import groovy.transform.Canonical
 @Canonical
 class GoogleServerGroup {
 
+  static final String REGIONAL_LOAD_BALANCER_NAMES = "load-balancer-names"
+  static final String GLOBAL_LOAD_BALANCER_NAMES = "global-load-balancer-names"
+  static final String BACKEND_SERVICE_NAMES = "backend-service-names"
+  static final String LOAD_BALANCING_POLICY = "load-balancing-policy"
+  static final String SELECT_ZONES = 'select-zones'
+  static final String AUTOSCALING_POLICY = 'autoscaling-policy'
+
   String name
   String region
   Boolean regional = false
@@ -80,13 +87,7 @@ class GoogleServerGroup {
   class View implements ServerGroup {
     final String type = GoogleCloudProvider.ID
     final String cloudProvider = GoogleCloudProvider.ID
-    static final String REGIONAL_LOAD_BALANCER_NAMES = "load-balancer-names"
-    static final String GLOBAL_LOAD_BALANCER_NAMES = "global-load-balancer-names"
-    static final String BACKEND_SERVICE_NAMES = "backend-service-names"
-    static final String LOAD_BALANCING_POLICY = "load-balancing-policy"
-    static final String SELECT_ZONES = 'select-zones'
-    static final String AUTOSCALING_POLICY = 'autoscaling-policy'
-
+    
     String name = GoogleServerGroup.this.name
     String region = GoogleServerGroup.this.region
     Boolean regional = GoogleServerGroup.this.regional

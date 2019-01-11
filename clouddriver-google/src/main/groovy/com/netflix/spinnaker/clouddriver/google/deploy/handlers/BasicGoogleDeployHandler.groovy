@@ -212,7 +212,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                          ACCESS_CONFIG_TYPE)
 
     def hasBackendServices = (instanceMetadata &&
-      instanceMetadata.containsKey(GoogleServerGroup.View.BACKEND_SERVICE_NAMES)) || sslLoadBalancers || tcpLoadBalancers
+      instanceMetadata.containsKey(BACKEND_SERVICE_NAMES)) || sslLoadBalancers || tcpLoadBalancers
 
     // Resolve and queue the backend service updates, but don't execute yet.
     // We need to resolve this information to set metadata in the template so enable can know about the
@@ -220,15 +220,15 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     // If we try to execute the update, GCP will fail since the MIG is not created yet.
     List<BackendService> backendServicesToUpdate = []
     if (hasBackendServices) {
-      List<String> backendServices = instanceMetadata[GoogleServerGroup.View.BACKEND_SERVICE_NAMES]?.split(",") ?: []
+      List<String> backendServices = instanceMetadata[BACKEND_SERVICE_NAMES]?.split(",") ?: []
       backendServices.addAll(sslLoadBalancers.collect { it.backendService.name })
       backendServices.addAll(tcpLoadBalancers.collect { it.backendService.name })
 
       // Set the load balancer name metadata.
       def globalLbNames = sslLoadBalancers.collect { it.name } + tcpLoadBalancers.collect { it.name } + GCEUtil.resolveHttpLoadBalancerNamesMetadata(backendServices, compute, project, this)
-      instanceMetadata[GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES] = globalLbNames.join(",")
+      instanceMetadata[GLOBAL_LOAD_BALANCER_NAMES] = globalLbNames.join(",")
 
-      String sourcePolicyJson = instanceMetadata[GoogleServerGroup.View.LOAD_BALANCING_POLICY]
+      String sourcePolicyJson = instanceMetadata[LOAD_BALANCING_POLICY]
       def loadBalancingPolicy = description.loadBalancingPolicy
 
       backendServices.each { String backendServiceName ->
@@ -272,7 +272,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     // Update the instance metadata for ILBs and queue up region backend service calls.
     List<BackendService> regionBackendServicesToUpdate = []
     if (internalLoadBalancers) {
-      List<String> existingRegionalLbs = instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
+      List<String> existingRegionalLbs = instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
       def ilbServices = internalLoadBalancers.collect { it.backendService.name }
       def ilbNames = internalLoadBalancers.collect { it.name }
 
@@ -281,7 +281,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           existingRegionalLbs << ilbName
         }
       }
-      instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES] = existingRegionalLbs.join(",")
+      instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES] = existingRegionalLbs.join(",")
 
       ilbServices.each { String backendServiceName ->
         BackendService backendService = timeExecute(
@@ -319,7 +319,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     }
 
     if (isRegional && description.selectZones) {
-      instanceMetadata[GoogleServerGroup.View.SELECT_ZONES] = true
+      instanceMetadata[SELECT_ZONES] = true
     }
 
     def metadata = GCEUtil.buildMetadataFromMap(instanceMetadata)

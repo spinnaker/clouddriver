@@ -267,8 +267,8 @@ class Utils {
 
   static boolean determineHttpLoadBalancerDisabledState(GoogleHttpLoadBalancer loadBalancer,
                                                         GoogleServerGroup serverGroup) {
-    def httpLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES)
-    def backendServicesFromMetadata = serverGroup.asg.get(GoogleServerGroup.View.BACKEND_SERVICE_NAMES)
+    def httpLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES)
+    def backendServicesFromMetadata = serverGroup.asg.get(GoogleServerGroup.BACKEND_SERVICE_NAMES)
     List<List<GoogleLoadBalancedBackend>> serviceBackends = getBackendServicesFromHttpLoadBalancerView(loadBalancer.view)
         .findAll { it && it.name in backendServicesFromMetadata }
         .collect { it.backends }
@@ -295,7 +295,7 @@ class Utils {
 
   static boolean determineInternalLoadBalancerDisabledState(GoogleInternalLoadBalancer loadBalancer,
                                                             GoogleServerGroup serverGroup) {
-    def regionalLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES)
+    def regionalLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES)
 
     if (loadBalancer.backendService == null) {
       log.warn("Malformed internal load balancer encountered: ${loadBalancer}")
@@ -309,7 +309,7 @@ class Utils {
 
   static boolean determineSslLoadBalancerDisabledState(GoogleSslLoadBalancer loadBalancer,
                                                        GoogleServerGroup serverGroup) {
-    def globalLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES)
+    def globalLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES)
 
     if (loadBalancer.backendService == null) {
       log.warn("Malformed ssl load balancer encountered: ${loadBalancer}")
@@ -323,7 +323,7 @@ class Utils {
 
   static boolean determineTcpLoadBalancerDisabledState(GoogleTcpLoadBalancer loadBalancer,
                                                        GoogleServerGroup serverGroup) {
-    def globalLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES)
+    def globalLoadBalancersFromMetadata = serverGroup.asg.get(GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES)
 
     if (loadBalancer.backendService == null) {
       log.warn("Malformed tcp load balancer encountered: ${loadBalancer}")
