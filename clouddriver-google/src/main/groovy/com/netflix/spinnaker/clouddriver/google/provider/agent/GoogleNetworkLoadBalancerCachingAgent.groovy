@@ -30,11 +30,11 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleHealthCheck
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleNetworkLoadBalancer
-import com.netflix.spinnaker.clouddriver.googlecommon.batch.GoogleBatchRequest
 import com.netflix.spinnaker.clouddriver.google.provider.agent.util.LoadBalancerHealthResolution
 import com.netflix.spinnaker.clouddriver.google.provider.agent.util.PaginatedRequest
 import com.netflix.spinnaker.clouddriver.google.provider.agent.util.TargetPoolHealthRequest
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.googlecommon.batch.GoogleBatchRequest
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -100,7 +100,7 @@ class GoogleNetworkLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerCa
         protected String getNextPageToken(ForwardingRuleList forwardingRuleList) {
           return forwardingRuleList.getNextPageToken()
         }
-      }.queue(forwardingRulesRequest, frlCallback, "NetworkLoadBalancerCaching.forwardingRules");
+      }.queue(forwardingRulesRequest, frlCallback, "NetworkLoadBalancerCaching.forwardingRules")
     }
 
     executeIfRequestsAreQueued(forwardingRulesRequest, "NetworkLoadBalancerCaching.forwardingRules")

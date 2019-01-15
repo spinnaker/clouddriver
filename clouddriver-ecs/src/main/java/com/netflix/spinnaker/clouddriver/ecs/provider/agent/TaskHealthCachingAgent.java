@@ -20,6 +20,7 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.NetworkInterface;
+import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
@@ -37,6 +38,7 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.ContainerInstance;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
@@ -66,9 +68,9 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
   private final static String HEALTH_ID = "ecs-task-instance-health";
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  private Collection<String> taskEvicitions;
-  private Collection<String> serviceEvicitions;
-  private Collection<String> taskDefEvicitions;
+  private Collection<String> taskEvictions;
+  private Collection<String> serviceEvictions;
+  private Collection<String> taskDefEvictions;
   private ObjectMapper objectMapper;
 
   public TaskHealthCachingAgent(NetflixAmazonCredentials account, String region,
@@ -94,6 +96,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
   @Override
   protected List<TaskHealth> getItems(AmazonECS ecs, ProviderCache providerCache) {
     TaskCacheClient taskCacheClient = new TaskCacheClient(providerCache, objectMapper);
+    TaskDefinitionCacheClient taskDefinitionCacheClient = new TaskDefinitionCacheClient(providerCache, objectMapper);
     ServiceCacheClient serviceCacheClient = new ServiceCacheClient(providerCache, objectMapper);
 
     AmazonElasticLoadBalancing amazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(account, region, false);
@@ -101,9 +104,9 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
     ContainerInstanceCacheClient containerInstanceCacheClient = new ContainerInstanceCacheClient(providerCache);
 
     List<TaskHealth> taskHealthList = new LinkedList<>();
-    taskEvicitions = new LinkedList<>();
-    serviceEvicitions = new LinkedList<>();
-    taskDefEvicitions = new LinkedList<>();
+    taskEvictions = new LinkedList<>();
+    serviceEvictions = new LinkedList<>();
+    taskDefEvictions = new LinkedList<>();
 
     Collection<Task> tasks = taskCacheClient.getAll(accountName, region);
     if (tasks != null) {
@@ -114,21 +117,25 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
         String serviceName = StringUtils.substringAfter(task.getGroup(), "service:");
         String serviceKey = Keys.getServiceKey(accountName, region, serviceName);
         Service service = serviceCacheClient.get(serviceKey);
+
         if (service == null) {
           String taskEvictionKey = Keys.getTaskKey(accountName, region, task.getTaskId());
-          taskEvicitions.add(taskEvictionKey);
+          taskEvictions.add(taskEvictionKey);
           continue;
         }
+
+        String taskDefinitionCacheKey = Keys.getTaskDefinitionKey(accountName, region, service.getTaskDefinition());
+        TaskDefinition taskDefinition = taskDefinitionCacheClient.get(taskDefinitionCacheKey);
 
         if (isContainerMissingNetworking(task)) {
           continue;
         }
 
         TaskHealth taskHealth;
-        if (task.getContainers().get(0).getNetworkBindings().size() == 1) {
+        if (task.getContainers().get(0).getNetworkBindings().size() >= 1) {
           taskHealth = inferHealthNetworkBindedContainer(amazonloadBalancing, task, containerInstance, serviceName, service);
         } else {
-          taskHealth = inferHealthNetworkInterfacedContainer(amazonloadBalancing, task, serviceName, service);
+          taskHealth = inferHealthNetworkInterfacedContainer(amazonloadBalancing, task, serviceName, service, taskDefinition);
         }
 
         if (taskHealth != null) {
@@ -143,7 +150,8 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
   private TaskHealth inferHealthNetworkInterfacedContainer(AmazonElasticLoadBalancing amazonloadBalancing,
                                                            Task task,
                                                            String serviceName,
-                                                           Service loadBalancerService) {
+                                                           Service loadBalancerService,
+                                                           TaskDefinition taskDefinition) {
 
     List<LoadBalancer> loadBalancers = loadBalancerService.getLoadBalancers();
 
@@ -159,6 +167,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
           .withTargets(
             new TargetDescription()
               .withId(networkInterface.getPrivateIpv4Address())
+              .withPort(taskDefinition.getContainerDefinitions().get(0).getPortMappings().get(0).getContainerPort())
           )
       );
 
@@ -178,13 +187,13 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
 
   private void evictStaleData(Task task, Service loadBalancerService) {
     String serviceEvictionKey = Keys.getTaskDefinitionKey(accountName, region, loadBalancerService.getServiceName());
-    serviceEvicitions.add(serviceEvictionKey);
+    serviceEvictions.add(serviceEvictionKey);
     String taskEvictionKey = Keys.getTaskKey(accountName, region, task.getTaskId());
-    taskEvicitions.add(taskEvictionKey);
+    taskEvictions.add(taskEvictionKey);
 
     String taskDefArn = loadBalancerService.getTaskDefinition();
     String taskDefKey = Keys.getTaskDefinitionKey(accountName, region, taskDefArn);
-    taskDefEvicitions.add(taskDefKey);
+    taskDefEvictions.add(taskDefKey);
   }
 
   private TaskHealth makeTaskHealth(Task task, String serviceName, TargetHealthDescription healthDescription) {
@@ -280,25 +289,25 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
 
   @Override
   protected Map<String, Collection<String>> addExtraEvictions(Map<String, Collection<String>> evictions) {
-    if (!taskEvicitions.isEmpty()) {
+    if (!taskEvictions.isEmpty()) {
       if (evictions.containsKey(TASKS.toString())) {
-        evictions.get(TASKS.toString()).addAll(taskEvicitions);
+        evictions.get(TASKS.toString()).addAll(taskEvictions);
       } else {
-        evictions.put(TASKS.toString(), taskEvicitions);
+        evictions.put(TASKS.toString(), taskEvictions);
       }
     }
-    if (!serviceEvicitions.isEmpty()) {
+    if (!serviceEvictions.isEmpty()) {
       if (evictions.containsKey(SERVICES.toString())) {
-        evictions.get(SERVICES.toString()).addAll(serviceEvicitions);
+        evictions.get(SERVICES.toString()).addAll(serviceEvictions);
       } else {
-        evictions.put(SERVICES.toString(), serviceEvicitions);
+        evictions.put(SERVICES.toString(), serviceEvictions);
       }
     }
-    if (!taskDefEvicitions.isEmpty()) {
+    if (!taskDefEvictions.isEmpty()) {
       if (evictions.containsKey(TASK_DEFINITIONS.toString())) {
-        evictions.get(TASK_DEFINITIONS.toString()).addAll(taskDefEvicitions);
+        evictions.get(TASK_DEFINITIONS.toString()).addAll(taskDefEvictions);
       } else {
-        evictions.put(TASK_DEFINITIONS.toString(), taskDefEvicitions);
+        evictions.put(TASK_DEFINITIONS.toString(), taskDefEvictions);
       }
     }
     return evictions;

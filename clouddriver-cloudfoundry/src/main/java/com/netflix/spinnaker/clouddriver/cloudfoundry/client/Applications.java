@@ -50,6 +50,8 @@ import static java.util.stream.Collectors.toSet;
 @Slf4j
 public class Applications {
   private final String account;
+  private final String appsManagerUri;
+  private final String metricsUri;
   private final ApplicationService api;
   private final Spaces spaces;
 
@@ -119,10 +121,8 @@ public class Applications {
                   healthState = HealthState.Up;
                   break;
                 case DOWN:
-                  healthState = HealthState.Down;
-                  break;
                 case CRASHED:
-                  healthState = HealthState.OutOfService;
+                  healthState = HealthState.Down;
                   break;
                 case STARTING:
                   healthState = HealthState.Starting;
@@ -156,9 +156,9 @@ public class Applications {
         .map(packages ->
           packages.getResources().stream().findFirst()
             .map(pkg -> CloudFoundryPackage.builder()
-              .downloadUrl(pkg.getLinks().get("download").getHref())
-              .checksumType(pkg.getData().getChecksum().getType())
-              .checksum(pkg.getData().getChecksum().getValue())
+              .downloadUrl(pkg.getLinks().containsKey("download") ? pkg.getLinks().get("download").getHref(): null)
+              .checksumType(pkg.getData().getChecksum() == null ? null : pkg.getData().getChecksum().getType())
+              .checksum(pkg.getData().getChecksum() == null ? null : pkg.getData().getChecksum().getValue())
               .build()
             )
             .orElse(null)
@@ -207,14 +207,38 @@ public class Applications {
 
     Map<String, String> environmentVars = applicationEnv == null || applicationEnv.getEnvironmentJson() == null ? emptyMap() : applicationEnv.getEnvironmentJson();
 
+    String healthCheckType = null;
+    String healthCheckHttpEndpoint = null;
+    if (process != null && process.getHealthCheck() != null) {
+      final Process.HealthCheck healthCheck = process.getHealthCheck();
+      healthCheckType = healthCheck.getType();
+      if (healthCheck.getData() != null) {
+        healthCheckHttpEndpoint = healthCheck.getData().getEndpoint();
+      }
+    }
+
+    String serverGroupAppManagerUri = appsManagerUri;
+    if (StringUtils.isNotEmpty(appsManagerUri)){
+      serverGroupAppManagerUri = appsManagerUri + "/organizations/" + space.getOrganization().getId() + "/spaces/" + space.getId() + "/applications/" + application.getGuid();
+    }
+
+    String serverGroupMetricsUri = metricsUri;
+    if (StringUtils.isNotEmpty(metricsUri)){
+      serverGroupMetricsUri = metricsUri + "/apps/" + application.getGuid();
+    }
+
     return CloudFoundryServerGroup.builder()
       .account(account)
+      .appsManagerUri(serverGroupAppManagerUri)
+      .metricsUri(serverGroupMetricsUri)
       .name(application.getName())
       .id(application.getGuid())
       .memory(process != null ? process.getMemoryInMb() : null)
       .instances(emptySet())
       .droplet(droplet)
       .diskQuota(process != null ? process.getDiskInMb() : null)
+      .healthCheckType(healthCheckType)
+      .healthCheckHttpEndpoint(healthCheckHttpEndpoint)
       .space(space)
       .createdTime(application.getCreatedAt().toInstant().toEpochMilli())
       .serviceInstances(cloudFoundryServices)
@@ -248,12 +272,12 @@ public class Applications {
     safelyCall(() -> api.deleteAppInstance(guid, index));
   }
 
-  public CloudFoundryServerGroup createApplication(String appName, CloudFoundrySpace space, @Nullable String buildpack,
+  public CloudFoundryServerGroup createApplication(String appName, CloudFoundrySpace space, List<String> buildpacks,
                                                    @Nullable Map<String, String> environmentVariables) throws CloudFoundryApiException {
     Map<String, ToOneRelationship> relationships = new HashMap<>();
     relationships.put("space", new ToOneRelationship(new Relationship(space.getId())));
 
-    return safelyCall(() -> api.createApplication(new CreateApplication(appName, relationships, environmentVariables, buildpack)))
+    return safelyCall(() -> api.createApplication(new CreateApplication(appName, relationships, environmentVariables, buildpacks)))
       .map(this::map)
       .orElseThrow(() -> new CloudFoundryApiException("Cloud Foundry signaled that application creation succeeded but failed to provide a response."));
   }
@@ -265,6 +289,15 @@ public class Applications {
       return;
     }
     safelyCall(() -> api.scaleApplication(guid, new ScaleApplication(instances, memInMb, diskInMb)));
+  }
+
+  public void updateProcess(String guid, @Nullable String command, @Nullable String healthCheckType, @Nullable String healthCheckEndpoint) throws CloudFoundryApiException {
+    final Process.HealthCheck healthCheck = healthCheckType != null ?
+      new Process.HealthCheck().setType(healthCheckType) : null;
+    if (healthCheckEndpoint != null) {
+      healthCheck.setData(new Process.HealthCheckData().setEndpoint(healthCheckEndpoint));
+    }
+    safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
   }
 
   public String createPackage(String appGuid) throws CloudFoundryApiException {
@@ -342,6 +375,6 @@ public class Applications {
   public ProcessStats.State getProcessState(String appGuid) throws CloudFoundryApiException {
     return safelyCall(() -> this.api.findProcessStatsById(appGuid))
       .flatMap(pr -> pr.getResources().stream().findAny().map(ProcessStats::getState))
-      .orElse(null);
+      .orElse(ProcessStats.State.DOWN);
   }
 }

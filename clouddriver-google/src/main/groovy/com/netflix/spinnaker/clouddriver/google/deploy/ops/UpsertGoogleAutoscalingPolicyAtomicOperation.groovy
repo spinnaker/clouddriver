@@ -180,18 +180,20 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     // TODO(jacobkiefer): Update metadata for autoHealingPolicy when 'mode' support lands.
     // NOTE: This block is here intentionally, we should wait until all the modifications are done before
     // updating the instance template metadata.
-    if (isRegional) {
-      updatePolicyMetadata(compute,
-                           credentials,
-                           project,
-                           GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName),
-                           autoscaler)
-    } else {
-      updatePolicyMetadata(compute,
-                           credentials,
-                           project,
-                           GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName),
-                           autoscaler)
+    if (description.writeMetadata == null || description.writeMetadata) {
+      if (isRegional) {
+        updatePolicyMetadata(compute,
+          credentials,
+          project,
+          GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName),
+          autoscaler)
+      } else {
+        updatePolicyMetadata(compute,
+          credentials,
+          project,
+          GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName),
+          autoscaler)
+      }
     }
 
     return null
@@ -331,7 +333,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
       compute.instanceTemplates().get(project, Utils.getLocalName(templateUrl)),
       "compute.instancesTemplates.get",
       TAG_SCOPE, SCOPE_GLOBAL)
-    def instanceDescription = GCEUtil.buildInstanceDescriptionFromTemplate(template)
+    def instanceDescription = GCEUtil.buildInstanceDescriptionFromTemplate(project, template)
 
     def templateOpMap = [
       image              : instanceDescription.image,

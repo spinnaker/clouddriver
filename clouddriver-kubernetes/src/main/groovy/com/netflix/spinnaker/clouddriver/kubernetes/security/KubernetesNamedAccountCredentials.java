@@ -71,6 +71,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   private final AccountCredentialsRepository accountCredentialsRepository;
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final Boolean onlySpinnakerManaged;
+  private final Boolean liveManifestCalls;
+  private final Long cacheIntervalSeconds;
   KubernetesNamedAccountCredentials(String name,
                                     ProviderVersion providerVersion,
                                     AccountCredentialsRepository accountCredentialsRepository,
@@ -94,7 +96,9 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
                                     Registry spectatorRegistry,
                                     KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
                                     C credentials,
-                                    Boolean onlySpinnakerManaged) {
+                                    Boolean onlySpinnakerManaged,
+                                    Boolean liveManifestCalls,
+                                    Long cacheIntervalSeconds) {
     this.name = name;
     this.providerVersion = providerVersion;
     this.environment = environment;
@@ -119,6 +123,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     this.credentials = credentials;
     this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
     this.onlySpinnakerManaged = onlySpinnakerManaged;
+    this.liveManifestCalls = liveManifestCalls;
+    this.cacheIntervalSeconds = cacheIntervalSeconds;
   }
 
   public List<String> getNamespaces() {
@@ -174,6 +180,10 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
 
   public Permissions getPermissions() {
     return permissions;
+  }
+
+  public Long getCacheIntervalSeconds() {
+    return cacheIntervalSeconds;
   }
 
   public Map<String, String> getSpinnakerKindMap() {
@@ -235,6 +245,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     boolean checkPermissionsOnStartup;
     KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
     Boolean onlySpinnakerManaged;
+    Boolean liveManifestCalls;
+    Long cacheIntervalSeconds;
 
     Builder kubernetesSpinnakerKindMap(KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
       this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
@@ -424,6 +436,16 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       return this;
     }
 
+    Builder liveManifestCalls(boolean liveManifestCalls) {
+      this.liveManifestCalls = liveManifestCalls;
+      return this;
+    }
+
+    Builder cacheIntervalSeconds(Long cacheIntervalSeconds) {
+      this.cacheIntervalSeconds = cacheIntervalSeconds;
+      return this;
+    }
+
     private C buildCredentials() {
       switch (providerVersion) {
         case v1:
@@ -469,6 +491,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
               .checkPermissionsOnStartup(checkPermissionsOnStartup)
               .jobExecutor(jobExecutor)
               .onlySpinnakerManaged(onlySpinnakerManaged)
+              .liveManifestCalls(liveManifestCalls)
               .build();
         default:
           throw new IllegalArgumentException("Unknown provider type: " + providerVersion);
@@ -559,7 +582,9 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
           spectatorRegistry,
           kubernetesSpinnakerKindMap,
           credentials,
-          onlySpinnakerManaged
+          onlySpinnakerManaged,
+          liveManifestCalls,
+          cacheIntervalSeconds
       );
     }
   }

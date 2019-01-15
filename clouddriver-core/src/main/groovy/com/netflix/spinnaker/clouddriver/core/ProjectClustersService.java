@@ -222,12 +222,14 @@ public class ProjectClustersService {
     public String stack;
     public String detail;
     public List<ApplicationClusterModel> applications;
+    public ServerGroup.InstanceCounts instanceCounts;
 
     public ClusterModel(String account, String stack, String detail, List<ApplicationClusterModel> applications) {
       this.account = account;
       this.stack = stack;
       this.detail = detail;
       this.applications = applications;
+      this.instanceCounts = getInstanceCounts();
     }
 
     ServerGroup.InstanceCounts getInstanceCounts() {
@@ -262,7 +264,9 @@ public class ProjectClustersService {
           );
           incrementInstanceCounts(serverGroup, regionCluster.instanceCounts);
 
-          JenkinsBuildInfo buildInfo = extractJenkinsBuildInfo(serverGroup.getImagesSummary().getSummaries());
+          ServerGroup.ImagesSummary imagesSummary = serverGroup.getImagesSummary();
+          List<? extends ServerGroup.ImageSummary> imageSummaries = imagesSummary == null ? new ArrayList() : imagesSummary.getSummaries();
+          JenkinsBuildInfo buildInfo = extractJenkinsBuildInfo(imageSummaries);
           Optional<DeployedBuild> existingBuild = regionCluster.builds.stream()
             .filter(b -> b.buildNumber.equals(buildInfo.number) &&
               Optional.ofNullable(b.host).equals(Optional.ofNullable(buildInfo.host)) &&
@@ -276,7 +280,7 @@ public class ProjectClustersService {
               buildInfo.name,
               buildInfo.number,
               serverGroup.getCreatedTime(),
-              getServerGroupBuildInfoImages(serverGroup.getImagesSummary().getSummaries())
+              getServerGroupBuildInfoImages(imageSummaries)
             ))
           ).accept(existingBuild);
         });

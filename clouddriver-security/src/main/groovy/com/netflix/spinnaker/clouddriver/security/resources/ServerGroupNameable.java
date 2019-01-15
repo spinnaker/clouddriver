@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Google, Inc.
+ * Copyright 2018 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.security.resources;
 
+import com.google.common.collect.ImmutableList;
 import com.netflix.frigga.Names;
 
 import java.util.Collection;
@@ -23,17 +24,13 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * Convenience trait for parsing application names out of a description with one or more server group names.
+ * Convenience trait for parsing application name out of a description with one server group name.
  */
 public interface ServerGroupNameable extends ApplicationNameable {
-  Collection<String> getServerGroupNames();
+  String getServerGroupName();
 
   @Override
   default Collection<String> getApplications() {
-    return getServerGroupNames()
-      .stream()
-      .filter(Objects::nonNull)
-      .map(n -> Names.parseName(n).getApp())
-      .collect(Collectors.toList());
+    return ImmutableList.of(Names.parseName(getServerGroupName()).getApp());
   }
 }

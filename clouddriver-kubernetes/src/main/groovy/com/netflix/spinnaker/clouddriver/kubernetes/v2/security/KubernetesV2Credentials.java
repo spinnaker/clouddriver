@@ -72,11 +72,18 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter
   private final List<KubernetesCachingPolicy> cachingPolicies;
   private final boolean onlySpinnakerManaged;
+  @Getter
+  private final boolean liveManifestCalls;
 
   // TODO(lwander) make configurable
   private final static int namespaceExpirySeconds = 30;
 
   private final com.google.common.base.Supplier<List<String>> liveNamespaceSupplier;
+
+  // TODO(lwander) make configurable
+  private final static int crdExpirySeconds = 30;
+
+  private final com.google.common.base.Supplier<List<KubernetesKind>> liveCrdSupplier;
 
   @Getter
   private final List<CustomKubernetesResource> customResources;
@@ -189,6 +196,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     boolean serviceAccount;
     boolean metrics;
     boolean onlySpinnakerManaged;
+    boolean liveManifestCalls;
 
     public Builder accountName(String accountName) {
       this.accountName = accountName;
@@ -295,6 +303,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return this;
     }
 
+    public Builder liveManifestCalls(boolean liveManifestCalls) {
+      this.liveManifestCalls = liveManifestCalls;
+      return this;
+    }
+
     public KubernetesV2Credentials build() {
       namespaces = namespaces == null ? new ArrayList<>() : namespaces;
       omitNamespaces = omitNamespaces == null ? new ArrayList<>() : omitNamespaces;
@@ -323,7 +336,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           metrics,
           checkPermissionsOnStartup,
           debug,
-          onlySpinnakerManaged
+          onlySpinnakerManaged,
+          liveManifestCalls
       );
     }
   }
@@ -347,7 +361,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       boolean metrics,
       boolean checkPermissionsOnStartup,
       boolean debug,
-      boolean onlySpinnakerManaged) {
+      boolean onlySpinnakerManaged,
+      boolean liveManifestCalls) {
     this.registry = registry;
     this.clock = registry.clock();
     this.accountName = accountName;
@@ -368,6 +383,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.metrics = metrics;
     this.omitKinds = omitKinds;
     this.onlySpinnakerManaged = onlySpinnakerManaged;
+    this.liveManifestCalls = liveManifestCalls;
 
     this.liveNamespaceSupplier = Suppliers.memoizeWithExpiration(() -> jobExecutor.list(this, Collections.singletonList(KubernetesKind.NAMESPACE), "", new KubernetesSelectorList())
         .stream()
@@ -377,6 +393,32 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     if (checkPermissionsOnStartup) {
       determineOmitKinds();
     }
+
+    this.liveCrdSupplier = Suppliers.memoizeWithExpiration(() -> {
+      try {
+        return this.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "")
+            .stream()
+            .map(c -> {
+              Map<String, Object> spec = (Map) c.getOrDefault("spec", new HashMap<>());
+              String scope = (String) spec.getOrDefault("scope", "");
+              Map<String, String> names = (Map) spec.getOrDefault("names", new HashMap<>());
+              String name = names.get("kind");
+
+              return KubernetesKind.fromString(name, false, scope.equalsIgnoreCase("namespaced"));
+            })
+            .collect(Collectors.toList());
+      } catch (KubectlException e) {
+        // not logging here -- it will generate a lot of noise in cases where crds aren't available/registered in the first place
+        return new ArrayList<>();
+      }
+    }, crdExpirySeconds, TimeUnit.SECONDS);
+
+    // ensure this is called at least once before the credentials object is created to ensure all crds are registered
+    this.liveCrdSupplier.get();
+  }
+
+  public List<KubernetesKind> getCrds() {
+    return liveCrdSupplier.get();
   }
 
   @Override
@@ -467,6 +509,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     } else {
       return runAndRecordMetrics("list", kinds, namespace, () -> jobExecutor.list(this, kinds, namespace, new KubernetesSelectorList()));
     }
+  }
+
+  public List<KubernetesManifest> eventsFor(KubernetesKind kind, String namespace, String name) {
+    return runAndRecordMetrics("list", KubernetesKind.EVENT, namespace, () -> jobExecutor.eventsFor(this, kind, namespace, name));
   }
 
   public String logs(String namespace, String podName, String containerName) {

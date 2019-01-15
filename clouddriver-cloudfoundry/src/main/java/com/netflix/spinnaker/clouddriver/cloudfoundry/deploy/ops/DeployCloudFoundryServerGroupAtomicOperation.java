@@ -71,6 +71,9 @@ public class DeployCloudFoundryServerGroupAtomicOperation implements AtomicOpera
 
     buildDroplet(packageId, serverGroup.getId(), description);
     scaleApplication(serverGroup.getId(), description);
+    if (description.getApplicationAttributes().getHealthCheckType() != null) {
+      updateProcess(serverGroup.getId(), description);
+    }
 
     client.getServiceInstances().createServiceBindingsByName(serverGroup, description.getApplicationAttributes().getServices());
 
@@ -110,7 +113,7 @@ public class DeployCloudFoundryServerGroupAtomicOperation implements AtomicOpera
     getTask().updateStatus(PHASE, "Creating Cloud Foundry application '" + description.getServerGroupName() + "'");
 
     CloudFoundryServerGroup serverGroup = client.getApplications().createApplication(description.getServerGroupName(),
-      description.getSpace(), description.getApplicationAttributes().getBuildpack(), description.getApplicationAttributes().getEnv());
+      description.getSpace(), description.getApplicationAttributes().getBuildpacks(), description.getApplicationAttributes().getEnv());
     getTask().updateStatus(PHASE, "Created Cloud Foundry application '" + description.getServerGroupName() + "'");
 
     return serverGroup;
@@ -173,6 +176,15 @@ public class DeployCloudFoundryServerGroupAtomicOperation implements AtomicOpera
     getTask().updateStatus(PHASE, "Scaled application '" + description.getServerGroupName() + "'");
   }
 
+  private void updateProcess(String serverGroupId, DeployCloudFoundryServerGroupDescription description) {
+    final CloudFoundryClient client = description.getClient();
+    getTask().updateStatus(PHASE, "Updating process '" + description.getServerGroupName() + "'");
+    client.getApplications().updateProcess(serverGroupId, null,
+      description.getApplicationAttributes().getHealthCheckType(),
+      description.getApplicationAttributes().getHealthCheckHttpEndpoint());
+    getTask().updateStatus(PHASE, "Updated process '" + description.getServerGroupName() + "'");
+  }
+
   // VisibleForTesting
   @Nullable
   static Integer convertToMb(String field, @Nullable String size) {
@@ -226,9 +238,11 @@ public class DeployCloudFoundryServerGroupAtomicOperation implements AtomicOpera
     }
 
     for (RouteId routeId : routeIds) {
-      CloudFoundryLoadBalancer loadBalancer = client.getRoutes().find(routeId, space.getId());
+      CloudFoundryLoadBalancer loadBalancer = client.getRoutes().createRoute(routeId, space.getId());
       if (loadBalancer == null) {
-        loadBalancer = client.getRoutes().createRoute(routeId, space.getId());
+        getTask().updateStatus(PHASE, "Load balancer already exists in another organization and space");
+        getTask().fail();
+        return false;
       }
       getTask().updateStatus(PHASE, "Mapping load balancer '" + loadBalancer.getName() + "' to " + description.getServerGroupName());
       client.getApplications().mapRoute(serverGroupId, loadBalancer.getId());

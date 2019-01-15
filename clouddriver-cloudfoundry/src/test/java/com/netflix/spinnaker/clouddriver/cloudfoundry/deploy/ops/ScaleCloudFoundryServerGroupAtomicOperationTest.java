@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.ScaleCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +43,7 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFound
   void before() {
     desc.setClient(client);
     desc.setServerGroupName("myapp");
-    desc.setInstanceCount(2);
+    desc.setCapacity(ServerGroup.Capacity.builder().desired(2).build());
   }
 
   @Test
@@ -71,5 +72,20 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFound
     assertThat(runOperation(op).getHistory())
       .has(status("Resizing 'myapp'"), atIndex(1))
       .has(status("Failed to start 'myapp' which instead crashed"), atIndex(2));
+  }
+
+  @Test
+  void scaleDownToZero() {
+    desc.setCapacity(new ServerGroup.Capacity(1, 1, 0));
+    OperationPoller poller = mock(OperationPoller.class);
+
+    //noinspection unchecked
+    when(poller.waitForOperation(any(Supplier.class), any(), anyLong(), any(), any(), any())).thenReturn(ProcessStats.State.DOWN);
+
+    ScaleCloudFoundryServerGroupAtomicOperation op = new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
+
+    assertThat(runOperation(op).getHistory())
+      .has(status("Resizing 'myapp'"), atIndex(1))
+      .has(status("Resized 'myapp'"), atIndex(2));
   }
 }

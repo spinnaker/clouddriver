@@ -22,10 +22,12 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.ScaleCl
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops.CloudFoundryOperationUtils.describeProcessState;
 
@@ -46,20 +48,28 @@ public class ScaleCloudFoundryServerGroupAtomicOperation implements AtomicOperat
 
     final CloudFoundryClient client = description.getClient();
 
-    client.getApplications().scaleApplication(description.getServerGroupId(), description.getInstanceCount(), description.getMemoryInMb(), description.getDiskInMb());
+    ServerGroup.Capacity capacity = description.getCapacity();
+    client.getApplications().scaleApplication(
+      description.getServerGroupId(),
+      capacity == null ? null : capacity.getDesired(),
+      description.getMemory(),
+      description.getDiskQuota());
 
     ProcessStats.State state = operationPoller.waitForOperation(
       () -> client.getApplications().getProcessState(description.getServerGroupId()),
-      inProgressState -> (inProgressState == ProcessStats.State.RUNNING || inProgressState == ProcessStats.State.CRASHED),
+      inProgressState -> (
+        inProgressState == ProcessStats.State.RUNNING
+          || inProgressState == ProcessStats.State.CRASHED
+          || inProgressState == ProcessStats.State.DOWN),
       null, getTask(), description.getServerGroupName(), PHASE);
 
-    if (state != ProcessStats.State.RUNNING) {
+    if (state == ProcessStats.State.RUNNING ||
+      (state == ProcessStats.State.DOWN && description.getCapacity().getDesired() == 0)) {
+      getTask().updateStatus(PHASE, "Resized '" + description.getServerGroupName() + "'");
+    } else {
       getTask().updateStatus(PHASE, "Failed to start '" + description.getServerGroupName() + "' which instead " + describeProcessState(state));
       getTask().fail();
-      return null;
     }
-
-    getTask().updateStatus(PHASE, "Resized '" + description.getServerGroupName() + "'");
 
     return null;
   }

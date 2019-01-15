@@ -525,7 +525,7 @@ class GCEUtil {
     }
   }
 
-  static BaseGoogleInstanceDescription buildInstanceDescriptionFromTemplate(InstanceTemplate instanceTemplate) {
+  static BaseGoogleInstanceDescription buildInstanceDescriptionFromTemplate(String project, InstanceTemplate instanceTemplate) {
     def instanceTemplateProperties = instanceTemplate?.properties
 
     if (instanceTemplateProperties == null) {
@@ -569,7 +569,8 @@ class GCEUtil {
         [it.key, it.value]
       },
       tags: instanceTemplateProperties.tags?.items,
-      network: getLocalName(networkInterface.network),
+      network: Utils.decorateXpnResourceIdIfNeeded(project, networkInterface.network),
+      subnet: Utils.decorateXpnResourceIdIfNeeded(project, networkInterface.subnet),
       serviceAccountEmail: serviceAccountEmail,
       authScopes: retrieveScopesFromServiceAccount(serviceAccountEmail, instanceTemplateProperties.serviceAccounts)
     )
@@ -709,6 +710,12 @@ class GCEUtil {
                                  safeRetry,
                                  executor)
 
+    disks.findAll { it.isPersistent() }
+      .eachWithIndex { disk, i ->
+      def baseDeviceName = description.baseDeviceName ?: 'device'
+      disk.deviceName = "$baseDeviceName-$i"
+    }
+
     def firstPersistentDisk = disks.find { it.persistent }
     return disks.collect { disk ->
       def diskType = useDiskTypeUrl ? buildDiskTypeUrl(credentials.project, zone, disk.type) : disk.type
@@ -740,6 +747,7 @@ class GCEUtil {
 
       new AttachedDisk(boot: disk.is(firstPersistentDisk),
                        autoDelete: disk.autoDelete,
+                       deviceName: disk.deviceName,
                        type: disk.persistent ? DISK_TYPE_PERSISTENT : DISK_TYPE_SCRATCH,
                        initializeParams: attachedDiskInitializeParams)
     }

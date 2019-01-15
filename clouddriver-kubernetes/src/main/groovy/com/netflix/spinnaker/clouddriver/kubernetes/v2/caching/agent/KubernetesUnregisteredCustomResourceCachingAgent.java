@@ -46,33 +46,11 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
-      int agentCount) {
-    super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount);
+      int agentCount,
+      Long agentInterval) {
+    super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount, agentInterval);
 
-    this.liveCrdSupplier = Suppliers.memoizeWithExpiration(() -> {
-      try {
-        return credentials.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "")
-            .stream()
-            .map(c -> {
-              Map<String, Object> spec = (Map) c.getOrDefault("spec", new HashMap<>());
-              String scope = (String) spec.getOrDefault("scope", "");
-              Map<String, String> names = (Map) spec.getOrDefault("names", new HashMap<>());
-              String name = names.get("kind");
-
-              return KubernetesKind.fromString(name, false, scope.equalsIgnoreCase("namespaced"));
-            })
-            .collect(Collectors.toList());
-      } catch (KubectlException e) {
-        // not logging here -- it will generate a lot of noise in cases where crds aren't available/registered in the first place
-        return new ArrayList<>();
-      }
-    }, crdExpirySeconds, TimeUnit.SECONDS);
   }
-
-  // TODO(lwander) make configurable
-  private final static int crdExpirySeconds = 30;
-
-  private final com.google.common.base.Supplier<List<KubernetesKind>> liveCrdSupplier;
 
   public Collection<AgentDataType> getProvidedDataTypes() {
     return Collections.unmodifiableSet(
@@ -85,6 +63,6 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
 
   @Override
   protected List<KubernetesKind> primaryKinds() {
-    return liveCrdSupplier.get();
+    return credentials.getCrds();
   }
 }

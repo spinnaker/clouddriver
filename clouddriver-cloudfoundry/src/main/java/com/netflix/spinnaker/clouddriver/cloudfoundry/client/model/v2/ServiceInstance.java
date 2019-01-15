@@ -18,13 +18,9 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2;
 
 import lombok.Data;
 
-import java.util.Set;
-
 @Data
-public class ServiceInstance {
-  private String name;
+public class ServiceInstance extends AbstractServiceInstance{
   private String plan;
   private String servicePlanGuid;
   private LastOperation lastOperation;
-  private Set<String> tags;
 }

@@ -20,7 +20,6 @@ import com.google.api.services.compute.model.InstanceGroupManagersSetInstanceTem
 import com.google.api.services.compute.model.RegionInstanceGroupManagersSetTemplateRequest
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.config.GoogleConfiguration
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
@@ -31,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceN
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleNetworkProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleSubnetProvider
+import com.netflix.spinnaker.config.GoogleConfiguration
 import org.springframework.beans.factory.annotation.Autowired
 
 /**
@@ -126,13 +126,13 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperation extends GoogleAtomi
         TAG_SCOPE, SCOPE_GLOBAL)
 
     // Create a description to represent the current instance template.
-    def originalDescription = GCEUtil.buildInstanceDescriptionFromTemplate(instanceTemplate)
+    def originalDescription = GCEUtil.buildInstanceDescriptionFromTemplate(project, instanceTemplate)
 
     // Collect the properties of the description passed to the operation.
     def properties = [:] + description.properties
 
     // Remove the properties we don't want to compare or override.
-    properties.keySet().removeAll(["class", "serverGroupName", "region", "accountName", "credentials"])
+    properties.keySet().removeAll(["class", "serverGroupName", "region", "accountName", "credentials", "applications"])
 
     // Collect all of the map entries with non-null values into a new map.
     def overriddenProperties = properties.findResults { key, value ->
@@ -167,6 +167,7 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperation extends GoogleAtomi
 
         clonedDescription.disks = overriddenProperties.disks
 
+        clonedDescription.baseDeviceName = description.serverGroupName
         def attachedDisks = GCEUtil.buildAttachedDisks(clonedDescription,
                                                        null,
                                                        false,

@@ -27,10 +27,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
@@ -67,8 +68,9 @@ public class GoogleBatchRequest {
       requestPart.forEach(qr -> {
         try {
           qr.getRequest().queue(newBatch, qr.getCallback());
-        } catch (Exception ioe) {
-          log.error("Queueing request {} in batch failed.", qr, ioe);
+        } catch (IOException ioe) {
+          log.error("Queueing request {} in batch failed.", qr);
+          throw new RuntimeException(ioe);
         }
       });
       queuedBatches.add(newBatch);
@@ -77,8 +79,8 @@ public class GoogleBatchRequest {
     ExecutorService threadPool = new ForkJoinPool(10);
     try {
       threadPool.submit(() -> queuedBatches.stream().parallel().forEach(this::executeInternalBatch)).get();
-    } catch (Exception e) {
-      log.error("Executing queued batches failed.", e);
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException(e);
     }
     threadPool.shutdown();
   }
@@ -86,8 +88,9 @@ public class GoogleBatchRequest {
   private void executeInternalBatch(BatchRequest b) {
     try {
       b.execute();
-    } catch (Exception e) {
-      log.error("Executing batch {} failed.", b, e);
+    } catch (IOException ioe) {
+      log.error("Executing batch {} failed.", b);
+      throw new RuntimeException(ioe);
     }
   }
 
