@@ -24,6 +24,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
+import org.springframework.data.rest.webmvc.ResourceNotFoundException
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.MockMvc
 import spock.lang.Specification
@@ -75,7 +76,7 @@ class CloudFormationControllerSpec extends Specification {
   def "requesting a single stack by stackId"() {
     given:
     def stackId = "arn:cloudformation:stack/name"
-    cloudFormationProvider.get(stackId) >> new CloudFormationTest(stackId: stackId)
+    cloudFormationProvider.get(stackId) >> Optional.of(new CloudFormationTest(stackId: stackId))
 
     when:
     def results = mvc.perform(get("/cloudFormation/get?stackId=$stackId"))
@@ -83,6 +84,18 @@ class CloudFormationControllerSpec extends Specification {
     then:
     results.andExpect(status().is2xxSuccessful())
     results.andExpect(jsonPath('$.stackId').value(stackId))
+  }
+
+  def "requesting a non existing stack returns a 404"() {
+    given:
+    def stackId = "arn:cloudformation:non-existing"
+    cloudFormationProvider.get(stackId) >> { throw new ResourceNotFoundException() }
+
+    when:
+    def results = mvc.perform(get("/cloudFormation/get?stackId=$stackId"))
+
+    then:
+    results.andExpect(status().is(404))
   }
 
   @Immutable
