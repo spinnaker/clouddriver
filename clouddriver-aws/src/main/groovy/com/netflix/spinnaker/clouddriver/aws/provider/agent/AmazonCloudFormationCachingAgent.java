@@ -16,9 +16,8 @@
 package com.netflix.spinnaker.clouddriver.aws.provider.agent;
 
 import com.amazonaws.services.cloudformation.AmazonCloudFormation;
-import com.amazonaws.services.cloudformation.model.DescribeStackEventsRequest;
+import com.amazonaws.services.cloudformation.model.*;
 import com.amazonaws.services.cloudformation.model.Stack;
-import com.amazonaws.services.cloudformation.model.StackEvent;
 import com.netflix.spinnaker.cats.agent.*;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -30,6 +29,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.CLOUDFORMATION;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
@@ -84,8 +84,10 @@ public class AmazonCloudFormationCachingAgent implements CachingAgent, AccountAw
     for (Stack stack : stacks) {
       Map<String, Object> stackAttributes = new HashMap<>();
       stackAttributes.put("stackId", stack.getStackId());
-      stackAttributes.put("tags", stack.getTags());
-      stackAttributes.put("outputs", stack.getOutputs());
+      stackAttributes.put("tags",
+        stack.getTags().stream().collect(Collectors.toMap(Tag::getKey, Tag::getValue)));
+      stackAttributes.put("outputs",
+        stack.getOutputs().stream().collect(Collectors.toMap(Output::getOutputKey, Output::getOutputValue)));
       stackAttributes.put("stackName", stack.getStackName());
       stackAttributes.put("region", region);
       stackAttributes.put("accountName", account.getName());

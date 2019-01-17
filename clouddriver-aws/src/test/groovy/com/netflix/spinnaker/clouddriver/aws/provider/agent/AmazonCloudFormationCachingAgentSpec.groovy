@@ -71,8 +71,8 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1, stack2 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") } == stack1
-    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") } == stack2
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackId' == stack1.stackId
+    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") }.attributes.'stackId' == stack2.stackId
   }
 
   void "should evict cloudformations when not found on subsequent runs"() {
@@ -91,8 +91,8 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1, stack2 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") } == stack1
-    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") } == stack2
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackId' == stack1.stackId
+    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") }.attributes.'stackId' == stack2.stackId
 
     when:
     cache = agent.loadData(providerCache)
@@ -103,7 +103,7 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") } == stack1
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackId' == stack1.stackId
     results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") } == null
   }
 

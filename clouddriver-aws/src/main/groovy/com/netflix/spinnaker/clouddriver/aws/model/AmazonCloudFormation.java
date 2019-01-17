@@ -19,15 +19,14 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.netflix.spinnaker.clouddriver.model.CloudFormation;
 
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class AmazonCloudFormation implements CloudFormation {
   final String type = "aws";
   private String stackId;
-  private List<String> tags;
-  private List<Map> outputs;
+  private Map<String, String> tags;
+  private Map<String, String> outputs;
   private String stackName;
   private String region;
   private String stackStatus;
@@ -42,12 +41,12 @@ public class AmazonCloudFormation implements CloudFormation {
   }
 
   @Override
-  public List<String> getTags() {
+  public Map<String, String> getTags() {
     return tags;
   }
 
   @Override
-  public List<Map> getOutputs() {
+  public Map<String, String> getOutputs() {
     return outputs;
   }
 

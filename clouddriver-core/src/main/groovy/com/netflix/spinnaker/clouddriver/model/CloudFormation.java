@@ -26,9 +26,9 @@ public interface CloudFormation {
 
   String getStackId();
 
-  List<String> getTags();
+  Map<String, String> getTags();
 
-  List<Map> getOutputs();
+  Map<String, String> getOutputs();
 
   String getStackName();
 
