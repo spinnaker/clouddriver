@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A representation of a CloudDriver stack
+ * A representation of a CloudFormation stack
  */
 public interface CloudFormation {
 

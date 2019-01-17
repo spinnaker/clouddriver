@@ -74,7 +74,7 @@ public class AmazonCloudFormationCachingAgent implements CachingAgent, AccountAw
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    log.info(String.format("Describing items in %s", getAgentType()));
+    log.info("Describing items in {}", getAgentType());
     AmazonCloudFormation cloudformation = amazonClientProvider.getAmazonCloudFormation(account, region);
 
     List<Stack> stacks = cloudformation.describeStacks().getStacks();
@@ -108,7 +108,7 @@ public class AmazonCloudFormationCachingAgent implements CachingAgent, AccountAw
       stackCacheData.add(new DefaultCacheData(stackCacheKey, stackAttributes, relationships));
     }
 
-    log.info(String.format("Caching %s items in %s", stackCacheData.size(), getAgentType()));
+    log.info("Caching {} items in {}", stackCacheData.size(), getAgentType());
     HashMap<String, Collection<CacheData>> result = new HashMap<>();
     result.put(CLOUDFORMATION.getNs(), stackCacheData);
     return new DefaultCacheResult(result);

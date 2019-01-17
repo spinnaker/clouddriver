@@ -47,14 +47,14 @@ class AmazonCloudFormationProvider implements CloudFormationProvider<AmazonCloud
 
   public List<AmazonCloudFormation> list(String account, String region) {
     String filter = Keys.getCloudFormationKey("*", region, account);
-    log.debug(String.format("List all stacks with filter %s", filter));
+    log.debug("List all stacks with filter {}", filter);
     return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter));
   }
 
   @Override
   public AmazonCloudFormation get(String stackId) {
     String filter = Keys.getCloudFormationKey(stackId, "*", "*");
-    log.debug(String.format("Get stack with filter %s", filter));
+    log.debug("Get stack with filter {}", filter);
     return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter)).stream().findFirst().get();
   }
 
@@ -62,7 +62,7 @@ class AmazonCloudFormationProvider implements CloudFormationProvider<AmazonCloud
     return cacheView.getAll(CLOUDFORMATION.getNs(), identifiers, RelationshipCacheFilter.none())
       .stream()
       .map(data -> {
-        log.debug(String.format("Cloud formation cached properties %s", data.getAttributes()));
+        log.debug("Cloud formation cached properties {}", data.getAttributes());
         return objectMapper.convertValue(data.getAttributes(), AmazonCloudFormation.class);
       })
       .collect(Collectors.toList());
