@@ -42,15 +42,17 @@ class AmazonCloudFormationSpec extends Specification {
 
     then:
     assert cf instanceof AmazonCloudFormation
-    cf.stackId == "stackId"
-    cf.tags == [tag1: "tag1", tag2: "tag2"]
-    cf.outputs == [out1: "out1", out2: "out2"]
-    cf.stackName == "stackName"
-    cf.region == "region"
-    cf.accountName == "accountName"
-    cf.accountId == "accountId"
-    cf.stackStatus == "stackStatus"
-    cf.stackStatusReason == "stackStatusReason"
+    with(cf) {
+      stackId == "stackId"
+      tags == [tag1: "tag1", tag2: "tag2"]
+      outputs == [out1: "out1", out2: "out2"]
+      stackName == "stackName"
+      region == "region"
+      accountName == "accountName"
+      accountId == "accountId"
+      stackStatus == "stackStatus"
+      stackStatusReason == "stackStatusReason"
+    }
   }
 
   def "should deserialize object with missing fields"() {
@@ -62,15 +64,17 @@ class AmazonCloudFormationSpec extends Specification {
 
     then:
     assert cf instanceof AmazonCloudFormation
-    cf.stackId == "stackId"
-    cf.tags == null
-    cf.outputs == null
-    cf.stackName == null
-    cf.region == null
-    cf.accountName == null
-    cf.accountId == null
-    cf.stackStatus == null
-    cf.stackStatusReason == null
+    with(cf) {
+      stackId == "stackId"
+      tags == null
+      outputs == null
+      stackName == null
+      region == null
+      accountName == null
+      accountId == null
+      stackStatus == null
+      stackStatusReason == null
+    }
   }
 
 }
