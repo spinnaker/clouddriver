@@ -61,20 +61,18 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     def stackResults = Mock(DescribeStacksResult)
     def stack1 = new Stack().withStackId("stack1").withStackStatus("CREATE_SUCCESS")
     def stack2 = new Stack().withStackId("stack2").withStackStatus("CREATE_SUCCESS")
-    def cache
-    def results
 
     when:
-    cache = agent.loadData(providerCache)
-    results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
+    def cache = agent.loadData(providerCache)
+    def results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
 
     then:
     1 * acp.getAmazonCloudFormation(_, _) >> amazonCloudFormation
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1, stack2 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }
-    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") }
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") } == stack1
+    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") } == stack2
   }
 
   void "should evict cloudformations when not found on subsequent runs"() {
@@ -83,21 +81,18 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     def stackResults = Mock(DescribeStacksResult)
     def stack1 = new Stack().withStackId("stack1").withStackStatus("CREATE_SUCCESS")
     def stack2 = new Stack().withStackId("stack2").withStackStatus("CREATE_SUCCESS")
-    def cache
-    def results
 
     when:
-    cache = agent.loadData(providerCache)
-    println("CACHE! ${cache.cacheResults[0]}")
-    results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
+    def cache = agent.loadData(providerCache)
+    def results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
 
     then:
     1 * acp.getAmazonCloudFormation(_, _) >> amazonCloudFormation
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1, stack2 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }
-    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") }
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") } == stack1
+    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") } == stack2
 
     when:
     cache = agent.loadData(providerCache)
@@ -108,7 +103,7 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") } == stack1
     results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") } == null
   }
 
@@ -119,12 +114,10 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     def stackResults = Mock(DescribeStacksResult)
     def stackEvent = new StackEvent().withResourceStatus("CREATE_FAILED").withResourceStatusReason("who knows")
     def stackEventResults = Mock(DescribeStackEventsResult)
-    def cache
-    def results
 
     when:
-    cache = agent.loadData(providerCache)
-    results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
+    def cache = agent.loadData(providerCache)
+    def results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
 
     then:
     1 * acp.getAmazonCloudFormation(_, _) >> amazonCloudFormation

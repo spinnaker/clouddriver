@@ -53,14 +53,14 @@ class AmazonCloudFormationProviderSpec extends Specification {
     def result = provider.list(accountId, '*') as Set
 
     then:
-    result == cloudFormations.findAll { it.accountId == accountId } as Set
+    result == expected
 
     where:
-    accountId  || count
-    "account1" || 2
-    "account2" || 1
-    "unknown"  || 0
-    null       || 0
+    accountId  || expected
+    "account1" || [ stack1, stack2 ] as Set
+    "account2" || [ stack3 ] as Set
+    "unknown"  || [] as Set
+    null       || [] as Set
   }
 
   @Unroll
@@ -69,16 +69,16 @@ class AmazonCloudFormationProviderSpec extends Specification {
     def result = provider.list(account, region) as Set
 
     then:
-    result == cloudFormations.findAll { it.accountId == account && it.region == region} as Set
+    result == expected
 
     where:
-    account     | region      || count
-    "account1"  | "region1"   || 1
-    "account1"  | "region2"   || 1
-    "account1"  | "region3"   || 0
-    "account1"  | null        || 0
-    "account2"  | "region1"   || 1
-    "unknown"   | "unknown"   || 0
+    account     | region      || expected
+    "account1"  | "region1"   || [ stack1 ] as Set
+    "account1"  | "region2"   || [ stack2 ] as Set
+    "account1"  | "region3"   || [] as Set
+    "account1"  | null        || [] as Set
+    "account2"  | "region1"   || [ stack3 ] as Set
+    "unknown"   | "unknown"   || [] as Set
   }
 
   @Unroll
@@ -87,13 +87,13 @@ class AmazonCloudFormationProviderSpec extends Specification {
     def result = provider.get(stackId)
 
     then:
-    result == cloudFormations.find { it.stackId == stackId }
+    result ==  expected
 
     where:
-    stackId    || count
-    "stack1"   || 1
-    "stack2"   || 1
-    "stack3"   || 1
+    stackId   || expected
+    "stack1"  || stack1
+    "stack2"  || stack2
+    "stack3"  || stack3
   }
 
   void "throws a NoSuchElementException if stackId doesn't exist"() {
@@ -110,11 +110,14 @@ class AmazonCloudFormationProviderSpec extends Specification {
   }
 
   @Shared
-  Set<AmazonCloudFormation> cloudFormations = [
-          new AmazonCloudFormation(stackId: "stack1", region: "region1", accountId: "account1"),
-          new AmazonCloudFormation(stackId: "stack2", region: "region2", accountId: "account1"),
-          new AmazonCloudFormation(stackId: "stack3", region: "region1", accountId: "account2")
-  ]
+  def stack1 = new AmazonCloudFormation(stackId: "stack1", region: "region1", accountId: "account1")
+  @Shared
+  def stack2 = new AmazonCloudFormation(stackId: "stack2", region: "region2", accountId: "account1")
+  @Shared
+  def stack3 = new AmazonCloudFormation(stackId: "stack3", region: "region1", accountId: "account2")
+
+  @Shared
+  Set<AmazonCloudFormation> cloudFormations = [stack1, stack2, stack3]
 
   private static String makeKey(AmazonCloudFormation stack) {
     Keys.getCloudFormationKey(stack.stackId, stack.region, stack.accountId)
