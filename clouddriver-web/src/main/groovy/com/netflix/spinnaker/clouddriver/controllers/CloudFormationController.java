@@ -21,7 +21,11 @@ import com.netflix.spinnaker.clouddriver.model.CloudFormationProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collection;
 import java.util.List;
@@ -39,7 +43,7 @@ class CloudFormationController {
   @RequestMapping(method = RequestMethod.GET, value = "/list/{accountId}")
   List<CloudFormation> list(@PathVariable String accountId,
                             @RequestParam(required = false, defaultValue = "*") String region) {
-    log.debug("Cloud formation list stacks for account $accountId");
+    log.debug("Cloud formation list stacks for account {}", accountId);
     return cloudFormationProviders
       .stream()
       .map(p -> p.list(accountId, region))
@@ -49,7 +53,7 @@ class CloudFormationController {
 
   @RequestMapping(method = RequestMethod.GET, value = "/get")
   CloudFormation get(@RequestParam String stackId) {
-    log.debug("Cloud formation get stack with id $stackId");
+    log.debug("Cloud formation get stack with id {}", stackId);
     return cloudFormationProviders
       .stream()
       .map(p -> p.get(stackId))
