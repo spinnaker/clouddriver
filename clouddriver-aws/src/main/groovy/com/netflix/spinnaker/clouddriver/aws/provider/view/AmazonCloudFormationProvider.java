@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.CLOUDFORMATION;
@@ -52,10 +53,10 @@ class AmazonCloudFormationProvider implements CloudFormationProvider<AmazonCloud
   }
 
   @Override
-  public AmazonCloudFormation get(String stackId) {
+  public Optional<AmazonCloudFormation> get(String stackId) {
     String filter = Keys.getCloudFormationKey(stackId, "*", "*");
     log.debug("Get stack with filter {}", filter);
-    return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter)).stream().findFirst().get();
+    return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter)).stream().findFirst();
   }
 
   List<AmazonCloudFormation> loadResults(Collection<String> identifiers) {

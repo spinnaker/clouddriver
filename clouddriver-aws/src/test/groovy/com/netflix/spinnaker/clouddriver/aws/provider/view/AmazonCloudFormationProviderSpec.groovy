@@ -91,22 +91,11 @@ class AmazonCloudFormationProviderSpec extends Specification {
 
     where:
     stackId   || expected
-    "stack1"  || stack1
-    "stack2"  || stack2
-    "stack3"  || stack3
-  }
-
-  void "throws a NoSuchElementException if stackId doesn't exist"() {
-    when:
-    provider.get(stackId)
-
-    then:
-    thrown(expectedException)
-
-    where:
-    stackId   || expectedException
-    "unknown" || NoSuchElementException
-    null      || NoSuchElementException
+    "stack1"  || Optional.of(stack1)
+    "stack2"  || Optional.of(stack2)
+    "stack3"  || Optional.of(stack3)
+    "unkown"  || Optional.empty()
+    null      || Optional.empty()
   }
 
   @Shared

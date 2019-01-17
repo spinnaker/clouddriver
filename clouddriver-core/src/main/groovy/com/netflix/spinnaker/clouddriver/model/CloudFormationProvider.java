@@ -16,11 +16,12 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CloudFormationProvider<T extends CloudFormation> {
 
   List<T> list(String account, String region);
 
-  T get(String stackId);
+  Optional<T> get(String stackId);
 
 }
