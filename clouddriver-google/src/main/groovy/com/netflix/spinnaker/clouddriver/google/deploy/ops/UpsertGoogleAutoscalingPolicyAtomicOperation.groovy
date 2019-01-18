@@ -180,18 +180,20 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     // TODO(jacobkiefer): Update metadata for autoHealingPolicy when 'mode' support lands.
     // NOTE: This block is here intentionally, we should wait until all the modifications are done before
     // updating the instance template metadata.
-    if (isRegional) {
-      updatePolicyMetadata(compute,
-                           credentials,
-                           project,
-                           GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName),
-                           autoscaler)
-    } else {
-      updatePolicyMetadata(compute,
-                           credentials,
-                           project,
-                           GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName),
-                           autoscaler)
+    if (description.writeMetadata == null || description.writeMetadata) {
+      if (isRegional) {
+        updatePolicyMetadata(compute,
+          credentials,
+          project,
+          GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName),
+          autoscaler)
+      } else {
+        updatePolicyMetadata(compute,
+          credentials,
+          project,
+          GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName),
+          autoscaler)
+      }
     }
 
     return null
@@ -247,7 +249,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
       return newDescription
     }
 
-    ["healthCheck", "initialDelaySec"].each {
+    ["healthCheck", "initialDelaySec", "healthCheckKind"].each {
       if (update[it] != null) {
         newDescription[it] = update[it]
       }
@@ -276,10 +278,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
   }
 
   private buildAutoHealingPolicyFromAutoHealingPolicyDescription(GoogleAutoHealingPolicy autoHealingPolicyDescription, String project, Compute compute) {
-    // Note: Cache queries for these health checks must occur in this order since queryHealthCheck() will make a live
-    // call that fails on a missing health check.
-    def autoHealingHealthCheck = GCEUtil.queryNestedHealthCheck(project, description.accountName, autoHealingPolicyDescription.healthCheck, compute, cacheView, task, BASE_PHASE, this) ?:
-      GCEUtil.queryHealthCheck(project, description.accountName, autoHealingPolicyDescription.healthCheck, compute, cacheView, task, BASE_PHASE, this)
+    def autoHealingHealthCheck = GCEUtil.queryHealthCheck(project, description.accountName, autoHealingPolicyDescription.healthCheck, autoHealingPolicyDescription.healthCheckKind, compute, cacheView, task, BASE_PHASE, this)
 
     List<InstanceGroupManagerAutoHealingPolicy> autoHealingPolicy = autoHealingPolicyDescription?.healthCheck
       ? [new InstanceGroupManagerAutoHealingPolicy(
