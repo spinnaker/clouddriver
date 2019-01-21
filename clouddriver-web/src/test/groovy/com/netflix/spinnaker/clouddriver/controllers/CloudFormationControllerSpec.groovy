@@ -102,8 +102,8 @@ class CloudFormationControllerSpec extends Specification {
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
   class CloudFormationTest implements CloudFormation {
     final String stackId
-    final List tags
-    final List<Map> outputs
+    final Map<String, String> tags
+    final Map<String, String> outputs
     final String stackName
     final String region
     final String stackStatus
