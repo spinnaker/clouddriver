@@ -16,9 +16,7 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops;
 
 import com.amazonaws.services.cloudformation.AmazonCloudFormation;
-import com.amazonaws.services.cloudformation.model.CreateStackRequest;
-import com.amazonaws.services.cloudformation.model.CreateStackResult;
-import com.amazonaws.services.cloudformation.model.Parameter;
+import com.amazonaws.services.cloudformation.model.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.DeployCloudFormationDescription;
@@ -55,27 +53,65 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
   @Override
   public Map operate(List priorOutputs) {
     Task task = TaskRepository.threadLocalTask.get();
-    task.updateStatus(BASE_PHASE, "Configurting cloudformation");
+    task.updateStatus(BASE_PHASE, "Configuring cloudformation");
     AmazonCloudFormation amazonCloudFormation = amazonClientProvider.getAmazonCloudFormation(
-        description.getCredentials(), description.getRegion());
+      description.getCredentials(), description.getRegion());
+    String template;
+    try {
+      template = objectMapper.writeValueAsString(description.getTemplateBody());
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("Could not deserialize template body", e);
+    }
+    List<Parameter> parameters = description.getParameters().entrySet().stream()
+      .map(entry -> new Parameter()
+        .withParameterKey(entry.getKey())
+        .withParameterValue(entry.getValue()))
+      .collect(Collectors.toList());
+    try {
+      String stackId = createStack(amazonCloudFormation, template, parameters);
+      return Collections.singletonMap("stackId", stackId);
+    } catch (AlreadyExistsException e) {
+      String stackId = updateStack(amazonCloudFormation, template, parameters);
+      return Collections.singletonMap("stackId", stackId);
+    }
+  }
+
+  private String createStack(AmazonCloudFormation amazonCloudFormation, String template, List<Parameter> parameters) {
+    Task task = TaskRepository.threadLocalTask.get();
     task.updateStatus(BASE_PHASE, "Preparing cloudformation");
     CreateStackRequest createStackRequest = new CreateStackRequest()
-        .withStackName(description.getStackName())
-        .withParameters(description.getParameters().entrySet().stream()
-            .map(entry -> new Parameter()
-                .withParameterKey(entry.getKey())
-                .withParameterValue(entry.getValue()))
-            .collect(Collectors.toList()));
-    try {
-      task.updateStatus(BASE_PHASE, "Generating cloudformation");
-      createStackRequest = createStackRequest.withTemplateBody(
-          objectMapper.writeValueAsString(description.getTemplateBody()));
-    } catch (JsonProcessingException e) {
-      log.warn("Could not serialize templateBody: {}", description, e);
-    }
+      .withStackName(description.getStackName())
+      .withParameters(parameters)
+      .withTemplateBody(template);
     task.updateStatus(BASE_PHASE, "Uploading cloudformation");
     CreateStackResult createStackResult = amazonCloudFormation.createStack(createStackRequest);
-    return Collections.singletonMap("stackId", createStackResult.getStackId());
+    return createStackResult.getStackId();
+  }
+
+  private String updateStack(AmazonCloudFormation amazonCloudFormation, String template, List<Parameter> parameters) {
+    Task task = TaskRepository.threadLocalTask.get();
+    task.updateStatus(BASE_PHASE, "Cloudformation stack exists. Updating it");
+    UpdateStackRequest updateStackRequest = new UpdateStackRequest()
+      .withStackName(description.getStackName())
+      .withParameters(parameters)
+      .withTemplateBody(template);
+    task.updateStatus(BASE_PHASE, "Uploading cloudformation");
+    try {
+      UpdateStackResult updateStackResult = amazonCloudFormation.updateStack(updateStackRequest);
+      return updateStackResult.getStackId();
+    } catch (AmazonCloudFormationException e) {
+      // No changes on the stack, ignore failure
+      return amazonCloudFormation
+        .describeStacks(new DescribeStacksRequest().withStackName(description.getStackName()))
+        .getStacks()
+        .stream()
+        .findFirst()
+        .<IllegalArgumentException>orElseThrow(() -> {
+          throw new IllegalArgumentException("No stack found with stack name " + description.getStackName());
+        })
+        .getStackId();
+    }
+
   }
 
 }
