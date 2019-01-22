@@ -43,6 +43,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,6 +59,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.Kind.
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.POD;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.SERVICE;
 import static java.lang.Math.toIntExact;
 
 @Slf4j
@@ -67,6 +69,13 @@ public class KubernetesCacheDataConverter {
   // TODO(lwander): make configurable
   private static final int logicalTtlSeconds = toIntExact(TimeUnit.MINUTES.toSeconds(10));
   private static final int infrastructureTtlSeconds = -1;
+  // These are kinds which are are frequently added/removed from other resources, and can sometimes
+  // persist in the cache when no relationships are found.
+  // todo(lwander) investigate if this can cause flapping in UI for on demand updates -- no consensus on this yet.
+  private static final List<KubernetesKind> stickyKinds = Arrays.asList(
+      SERVICE,
+      POD
+  );
 
   public static CacheData convertAsArtifact(String account, KubernetesManifest manifest) {
     KubernetesCachingProperties cachingProperties = KubernetesManifestAnnotater.getCachingProperties(manifest);
@@ -111,7 +120,7 @@ public class KubernetesCacheDataConverter {
     String owner = Keys.infrastructure(manifest, account);
     cacheRelationships.put(manifest.getKind().toString(), Collections.singletonList(owner));
 
-    return new DefaultCacheData(key, logicalTtlSeconds, attributes, cacheRelationships);
+    return defaultCacheData(key, logicalTtlSeconds, attributes, cacheRelationships);
   }
 
   public static Collection<CacheData> dedupCacheData(Collection<CacheData> input) {
@@ -147,7 +156,7 @@ public class KubernetesCacheDataConverter {
               return res;
             }));
 
-    return new DefaultCacheData(id, ttl, attributes, relationships);
+    return defaultCacheData(id, ttl, attributes, relationships);
   }
 
   public static CacheData convertPodMetric(String account,
@@ -160,13 +169,13 @@ public class KubernetesCacheDataConverter {
         .put("metrics", podMetric.getContainerMetrics())
         .build();
 
-    Map<String, Collection<String>> relationships = new ImmutableMap.Builder<String, Collection<String>>()
+    Map<String, Collection<String>> relationships = new HashMap<>(new ImmutableMap.Builder<String, Collection<String>>()
         .put(POD.toString(), Collections.singletonList(Keys.infrastructure(POD, account, namespace, podName)))
-        .build();
+        .build());
 
     String id = Keys.metric(POD, account, namespace, podName);
 
-    return new DefaultCacheData(id, infrastructureTtlSeconds, attributes, relationships);
+    return defaultCacheData(id, infrastructureTtlSeconds, attributes, relationships);
   }
 
   public static CacheData convertAsResource(String account,
@@ -228,7 +237,7 @@ public class KubernetesCacheDataConverter {
     cacheRelationships.putAll(implicitRelationships(manifest, account, resourceRelationships));
 
     String key = Keys.infrastructure(kind, account, namespace, name);
-    return new DefaultCacheData(key, infrastructureTtlSeconds, attributes, cacheRelationships);
+    return defaultCacheData(key, infrastructureTtlSeconds, attributes, cacheRelationships);
   }
 
   public static List<Map> getMetrics(CacheData cacheData) {
@@ -250,6 +259,14 @@ public class KubernetesCacheDataConverter {
   public static <T> T getResource(KubernetesManifest manifest, Class<T> clazz) {
     // A little hacky, but the only way to deserialize any timestamps using string constructors
     return json.deserialize(json.serialize(manifest), clazz);
+  }
+
+  private static CacheData defaultCacheData(String id, int ttlSeconds, Map<String, Object> attributes, Map<String, Collection<String>> relationships) {
+    // when no relationship exists, and `null` is written in place of a value, the old value of the relationship
+    // (whatever was picked up the prior cache cycle) is persisted, leaving sticky relationship data in the cache.
+    // we don't zero out all non existing relationships because it winds up causing far more writes to redis.
+    stickyKinds.forEach(k -> relationships.computeIfAbsent(k.toString(), (s) -> new ArrayList<>()));
+    return new DefaultCacheData(id, ttlSeconds, attributes, relationships);
   }
 
   static Map<String, Collection<String>> annotatedRelationships(String account,
@@ -353,6 +370,27 @@ public class KubernetesCacheDataConverter {
     return result;
   }
 
+  static CacheData getClusterRelationships(String account, CacheData cacheData) {
+    Moniker moniker = getMoniker(cacheData);
+
+    if (moniker == null) {
+      return null;
+    }
+
+    String cluster = moniker.getCluster();
+    String application = moniker.getApp();
+
+    if (cluster == null || application == null) {
+      return null;
+    }
+
+    Map<String, Object> attributes = new HashMap<>();
+    Map<String, Collection<String>> relationships = new HashMap<>();
+    relationships.put(CLUSTERS.toString(), Collections.singletonList(Keys.cluster(account, application, cluster)));
+    CacheData appToCluster = defaultCacheData(Keys.application(application), logicalTtlSeconds, attributes, relationships);
+    return appToCluster;
+  }
+
   static void logStratifiedCacheData(String agentType, Map<String, Collection<CacheData>> stratifiedCacheData) {
     for (Map.Entry<String, Collection<CacheData>> entry : stratifiedCacheData.entrySet()) {
       log.info(agentType + ": grouping " + entry.getKey() + " has " + entry.getValue().size() + " entries and " + relationshipCount(entry.getValue()) + " relationships");
@@ -424,7 +462,7 @@ public class KubernetesCacheDataConverter {
   /*
    * Worth noting the strange behavior here. If we are inverting a relationship to create a cache data for
    * either a cluster or an application we need to insert attributes to ensure the cache data gets entered into
-   * the cache. If we are caching anything else, we don't want competing agents to overrwrite attributes, so
+   * the cache. If we are caching anything else, we don't want competing agents to overwrite attributes, so
    * we leave them blank.
    */
   private static Optional<CacheData> invertSingleRelationship(String group, String key, String relationship) {
@@ -442,7 +480,7 @@ public class KubernetesCacheDataConverter {
         ttl = infrastructureTtlSeconds;
         attributes = new HashMap<>();
       }
-      return new DefaultCacheData(relationship, ttl, attributes, relationships);
+      return defaultCacheData(relationship, ttl, attributes, relationships);
     });
   }
 }
