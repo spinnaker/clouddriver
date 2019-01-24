@@ -316,18 +316,18 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
               regional: isRegional,
               zone: ZONE,
               asg: [
-                  (GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
+                  (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
               ],
               launchConfig: [
                   instanceTemplate: new InstanceTemplate(name: INSTANCE_TEMPLATE_NAME,
                       properties: [
                           'metadata': new Metadata(items: [
                               new Metadata.Items(
-                                  key: (GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES),
+                                  key: (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES),
                                   value: 'spinnaker-http-load-balancer'
                               ),
                               new Metadata.Items(
-                                  key: (GoogleServerGroup.BACKEND_SERVICE_NAMES),
+                                  key: (GCEUtil.BACKEND_SERVICE_NAMES),
                                   value: 'backend-service'
                               )
                           ])
@@ -411,14 +411,14 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
           regional: isRegional,
           zone: ZONE,
           asg: [
-            (GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
+            (GCEUtil.REGIONAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
           ],
           launchConfig: [
             instanceTemplate: new InstanceTemplate(name: INSTANCE_TEMPLATE_NAME,
               properties: [
                 'metadata': new Metadata(items: [
                   new Metadata.Items(
-                    key: (GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES),
+                    key: (GCEUtil.REGIONAL_LOAD_BALANCER_NAMES),
                     value: 'spinnaker-int-load-balancer'
                   )
                 ])
@@ -507,18 +507,18 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
               regional: isRegional,
               zone: ZONE,
               asg: [
-                  (GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES): lbNames,
+                  (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES): lbNames,
               ],
               launchConfig: [
                   instanceTemplate: new InstanceTemplate(name: INSTANCE_TEMPLATE_NAME,
                       properties: [
                           'metadata': new Metadata(items: [
                               new Metadata.Items(
-                                  key: (GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES),
+                                  key: (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES),
                                   value: 'spinnaker-http-load-balancer'
                               ),
                               new Metadata.Items(
-                                  key: (GoogleServerGroup.BACKEND_SERVICE_NAMES),
+                                  key: (GCEUtil.BACKEND_SERVICE_NAMES),
                                   value: 'backend-service'
                               )
                           ])

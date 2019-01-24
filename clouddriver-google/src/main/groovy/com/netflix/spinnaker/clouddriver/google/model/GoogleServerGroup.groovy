@@ -23,7 +23,8 @@ import com.google.api.services.compute.model.AutoscalingPolicy
 import com.google.api.services.compute.model.InstanceGroupManagerActionsSummary
 import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPolicy
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.*
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerView
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
@@ -31,15 +32,12 @@ import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.Canonical
 
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.LOAD_BALANCING_POLICY
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES
+
 @Canonical
 class GoogleServerGroup implements GoogleLabeledResource {
-
-  static final String REGIONAL_LOAD_BALANCER_NAMES = "load-balancer-names"
-  static final String GLOBAL_LOAD_BALANCER_NAMES = "global-load-balancer-names"
-  static final String BACKEND_SERVICE_NAMES = "backend-service-names"
-  static final String LOAD_BALANCING_POLICY = "load-balancing-policy"
-  static final String SELECT_ZONES = 'select-zones'
-  static final String AUTOSCALING_POLICY = 'autoscaling-policy'
 
   String name
   String region

@@ -64,11 +64,11 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.BACKEND_SERVICE_NAMES
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.LOAD_BALANCING_POLICY
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.SELECT_ZONES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.LOAD_BALANCING_POLICY
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.SELECT_ZONES
 
 @Component
 @Slf4j

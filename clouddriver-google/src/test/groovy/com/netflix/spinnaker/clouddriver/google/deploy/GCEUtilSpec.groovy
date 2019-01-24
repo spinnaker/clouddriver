@@ -531,18 +531,18 @@ class GCEUtilSpec extends Specification {
           regional: isRegional,
           zone: ZONE,
           asg: [
-            (GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
+            (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
           ],
           launchConfig: [
             instanceTemplate: new InstanceTemplate(name: "irrelevant-instance-template-name",
               properties: [
                 'metadata': new Metadata(items: [
                   new Metadata.Items(
-                    key: (GoogleServerGroup.LOAD_BALANCING_POLICY),
+                    key: (GCEUtil.LOAD_BALANCING_POLICY),
                     value: "{\"balancingMode\": \"UTILIZATION\",\"maxUtilization\": 0.80, \"namedPorts\": [{\"name\": \"http\", \"port\": 8080}], \"capacityScaler\": 0.77}"
                   ),
                   new Metadata.Items(
-                    key: (GoogleServerGroup.BACKEND_SERVICE_NAMES),
+                    key: (GCEUtil.BACKEND_SERVICE_NAMES),
                     value: backendServiceNames
                   )
                 ])
@@ -565,7 +565,7 @@ class GCEUtilSpec extends Specification {
       if (lbNames) {
         serverGroup.launchConfig.instanceTemplate.properties.metadata.items.add(
           new Metadata.Items(
-            key: (GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES),
+            key: (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES),
             value: lbNames.join(",").trim()
           )
         )

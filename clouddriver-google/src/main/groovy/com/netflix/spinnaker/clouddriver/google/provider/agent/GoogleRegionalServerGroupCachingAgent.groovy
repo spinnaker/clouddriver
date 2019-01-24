@@ -468,7 +468,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
       def instanceMetadata = template?.properties?.metadata
       if (instanceMetadata) {
         def metadataMap = Utils.buildMapFromMetadata(instanceMetadata)
-        serverGroup.selectZones = metadataMap?.get(GoogleServerGroup.SELECT_ZONES) ?: false
+        serverGroup.selectZones = metadataMap?.get(GCEUtil.SELECT_ZONES) ?: false
       }
     }
   }

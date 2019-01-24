@@ -37,9 +37,9 @@ import org.springframework.util.ClassUtils
 
 import java.text.SimpleDateFormat
 
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.BACKEND_SERVICE_NAMES
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES
 
 @Slf4j
 class Utils {

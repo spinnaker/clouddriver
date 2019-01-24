@@ -57,23 +57,21 @@ import groovy.util.logging.Slf4j
 
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.HEALTH_CHECKS
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.HTTP_HEALTH_CHECKS
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.BACKEND_SERVICE_NAMES
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.GLOBAL_LOAD_BALANCER_NAMES
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.LOAD_BALANCING_POLICY
-import static com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup.REGIONAL_LOAD_BALANCER_NAMES
 
 @Slf4j
 class GCEUtil {
   private static final String DISK_TYPE_PERSISTENT = "PERSISTENT"
   private static final String DISK_TYPE_SCRATCH = "SCRATCH"
   private static final String GCE_API_PREFIX = "https://compute.googleapis.com/compute/v1/projects/"
-  static final String REGIONAL_LOAD_BALANCER_NAMES = "load-balancer-names"
-  static final String GLOBAL_LOAD_BALANCER_NAMES = "global-load-balancer-names"
-  static final String BACKEND_SERVICE_NAMES = "backend-service-names"
-  static final String LOAD_BALANCING_POLICY = "load-balancing-policy"
   private static final List<Integer> RETRY_ERROR_CODES = [400, 403, 412]
 
   public static final String TARGET_POOL_NAME_PREFIX = "tp"
+  public static final String REGIONAL_LOAD_BALANCER_NAMES = "load-balancer-names"
+  public static final String GLOBAL_LOAD_BALANCER_NAMES = "global-load-balancer-names"
+  public static final String BACKEND_SERVICE_NAMES = "backend-service-names"
+  public static final String LOAD_BALANCING_POLICY = "load-balancing-policy"
+  public static final String SELECT_ZONES = 'select-zones'
+  public static final String AUTOSCALING_POLICY = 'autoscaling-policy'
 
   static String queryMachineType(String instanceType, String location, GoogleNamedAccountCredentials credentials, Task task, String phase) {
     task.updateStatus phase, "Looking up machine type $instanceType..."

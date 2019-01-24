@@ -72,7 +72,7 @@ class GoogleInfrastructureProvider extends AgentSchedulerAware implements Search
 
     @Override
     Map<String, String> hydrateResult(Cache cacheView, Map<String, String> result, String id) {
-      CacheData addressCacheData  = cacheView.get(ADDRESSES.ns, id)
+      CacheData addressCacheData = cacheView.get(ADDRESSES.ns, id)
       return result + [
           address: JsonOutput.toJson(addressCacheData.attributes.address)
       ]
@@ -83,7 +83,7 @@ class GoogleInfrastructureProvider extends AgentSchedulerAware implements Search
 
     @Override
     Map<String, String> hydrateResult(Cache cacheView, Map<String, String> result, String id) {
-      CacheData backendService  = cacheView.get(BACKEND_SERVICES.ns, id)
+      CacheData backendService = cacheView.get(BACKEND_SERVICES.ns, id)
       return result + [
           healthCheckLink: backendService.attributes.healthCheckLink as String,
           sessionAffinity: backendService.attributes.sessionAffinity as String,
