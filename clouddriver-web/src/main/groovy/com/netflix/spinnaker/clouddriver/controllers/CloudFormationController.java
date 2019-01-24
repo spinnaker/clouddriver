@@ -60,9 +60,9 @@ class CloudFormationController {
       .filter(Optional::isPresent)
       .map(Optional<CloudFormation>::get)
       .findFirst()
-      .<ResourceNotFoundException>orElseThrow(() -> {
-        throw new ResourceNotFoundException(String.format("Cloud Formation stackId %s not found.", stackId));
-      });
+      .orElseThrow(
+        () -> new ResourceNotFoundException(String.format("Cloud Formation stackId %s not found.", stackId))
+      );
   }
 
 }
