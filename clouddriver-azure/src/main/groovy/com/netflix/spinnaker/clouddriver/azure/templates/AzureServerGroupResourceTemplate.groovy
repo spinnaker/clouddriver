@@ -33,6 +33,7 @@ package com.netflix.spinnaker.clouddriver.azure.templates
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription.AzureInboundPortConfig
+import com.netflix.spinnaker.clouddriver.model.Image
 import groovy.util.logging.Slf4j
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
@@ -103,7 +104,7 @@ class AzureServerGroupResourceTemplate {
   interface TemplateVariables {}
 
   static class CoreServerGroupTemplateVariables implements TemplateVariables {
-    final String apiVersion = "2015-06-15"
+    final String apiVersion = "2018-10-01"
     String publicIPAddressName
     String publicIPAddressID
     String publicIPAddressType
@@ -547,7 +548,7 @@ class AzureServerGroupResourceTemplate {
 
     ScaleSetVMProfileProperty(AzureServerGroupDescription description) {
       storageProfile = description.image.isCustom ?
-        new ScaleSetCustomImageStorageProfile(description) :
+        new ScaleSetCustomManagedImageStorageProfile(description) :
         new ScaleSetStorageProfile(description)
       osProfile = description.osConfig.customData ?
         new ScaleSetOsProfileCustomDataProperty(description) :
@@ -592,18 +593,26 @@ class AzureServerGroupResourceTemplate {
     }
   }
 
+  static class ImageReference {
+    String id
+
+    ImageReference(AzureServerGroupDescription description) {
+      id = description.image.uri
+    }
+  }
+
   /**
    *
    */
-  static class ScaleSetCustomImageStorageProfile implements StorageProfile {
+  static class ScaleSetCustomManagedImageStorageProfile implements StorageProfile {
 
-    OSDisk osDisk
+    ImageReference imageReference
     /**
      *
      * @param serverGroupDescription
      */
-    ScaleSetCustomImageStorageProfile(AzureServerGroupDescription description) {
-      osDisk = new VirtualMachineCustomImageOSDisk(description)
+    ScaleSetCustomManagedImageStorageProfile(AzureServerGroupDescription description) {
+      imageReference = new ImageReference(description)
     }
   }
 
@@ -624,23 +633,6 @@ class AzureServerGroupResourceTemplate {
           idx,
           ExtendedServerGroupTemplateVariables.vhdContainerNameVar))
       }
-    }
-  }
-
-  static class VirtualMachineCustomImageOSDisk implements OSDisk {
-
-    String name
-    String caching
-    String createOption
-    String osType
-    Map<String, String> image = [:]
-
-    VirtualMachineCustomImageOSDisk(AzureServerGroupDescription description) {
-      name = "osdisk-${description.name}"
-      caching = "ReadOnly"
-      createOption = "FromImage"
-      osType = description.image.ostype
-      image.uri = description.image.uri
     }
   }
 
