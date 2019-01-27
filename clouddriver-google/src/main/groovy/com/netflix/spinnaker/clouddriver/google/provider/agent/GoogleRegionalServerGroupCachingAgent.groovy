@@ -205,7 +205,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
       buildCacheResult(cacheResultBuilder, serverGroup ? [serverGroup] : [])
     }
 
-    def serverGroupKey = Keys.getServerGroupKey(data.serverGroupName as String, accountName, region)
+    def serverGroupKey = Keys.getServerGroupKey(data.serverGroupName as String, serverGroup?.view?.moniker?.cluster, accountName, region)
 
     if (result.cacheResults.values().flatten().empty) {
       // Avoid writing an empty onDemand cache record (instead delete any that may have previously existed).
@@ -349,7 +349,8 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
   }
 
   String getServerGroupKey(GoogleServerGroup googleServerGroup) {
-    return Keys.getServerGroupKey(googleServerGroup.name, accountName, region)
+    def moniker = googleServerGroup.view.moniker
+    return Keys.getServerGroupKey(googleServerGroup.name, moniker.cluster, accountName, region)
   }
 
   // TODO(lwander) this was taken from the netflix cluster caching, and should probably be shared between all providers.
@@ -440,6 +441,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
       instanceGroupManager.namedPorts.each { namedPorts[(it.name)] = it.port }
       return new GoogleServerGroup(
           name: instanceGroupManager.name,
+          account: accountName,
           instances: groupInstances,
           regional: true,
           region: region,

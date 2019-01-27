@@ -239,7 +239,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     if (serverGroup) {
       serverGroupKey = getServerGroupKey(serverGroup)
     } else {
-      serverGroupKey = Keys.getServerGroupKey(data.serverGroupName as String, accountName, region, "*")
+      serverGroupKey = Keys.getServerGroupKey(data.serverGroupName as String, null, accountName, region, "*")
 
       // No server group was found, so need to find identifiers for all zonal server groups in the region.
       identifiers = providerCache.filterIdentifiers(SERVER_GROUPS.ns, serverGroupKey)
@@ -397,7 +397,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
   }
 
   String getServerGroupKey(GoogleServerGroup googleServerGroup) {
-    return Keys.getServerGroupKey(googleServerGroup.name, accountName, region, googleServerGroup.zone)
+    return Keys.getServerGroupKey(googleServerGroup.name, googleServerGroup.view.moniker.cluster, accountName, region, googleServerGroup.zone)
   }
 
   // TODO(lwander) this was taken from the netflix cluster caching, and should probably be shared between all providers.
@@ -483,6 +483,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
       instanceGroupManager.namedPorts.each { namedPorts[(it.name)] = it.port }
       return new GoogleServerGroup(
           name: instanceGroupManager.name,
+          account: accountName,
           instances: groupInstances,
           region: region,
           zone: zone,

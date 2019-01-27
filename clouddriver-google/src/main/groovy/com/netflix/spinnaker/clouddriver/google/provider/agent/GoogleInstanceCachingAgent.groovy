@@ -38,6 +38,7 @@ class GoogleInstanceCachingAgent extends AbstractGoogleCachingAgent {
   final Set<AgentDataType> providedDataTypes = [
       AUTHORITATIVE.forType(INSTANCES.ns),
       INFORMATIVE.forType(SERVER_GROUPS.ns),
+      INFORMATIVE.forType(CLUSTERS.ns)
   ]
 
   String agentType = "${accountName}/global/${GoogleInstanceCachingAgent.simpleName}"

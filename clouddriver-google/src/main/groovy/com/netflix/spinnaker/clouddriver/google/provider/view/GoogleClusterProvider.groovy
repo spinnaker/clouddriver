@@ -123,21 +123,11 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
 
   @Override
   GoogleServerGroup.View getServerGroup(String account, String region, String name, boolean includeDetails) {
-    def cacheData = cacheView.get(SERVER_GROUPS.ns,
-                                  Keys.getServerGroupKey(name, account, region),
-                                  RelationshipCacheFilter.include(LOAD_BALANCERS.ns, INSTANCES.ns))
+    def cacheData = searchCacheForServerGroup(Keys.getServerGroupKey(name, "*", account, region))
 
     if (!cacheData) {
       // No regional server group was found, so attempt to query for all zonal server groups in the region.
-      def pattern = Keys.getServerGroupKey(name, account, region, "*")
-      def identifiers = cacheView.filterIdentifiers(SERVER_GROUPS.ns, pattern)
-      def cacheDataResults = cacheView.getAll(SERVER_GROUPS.ns,
-                                              identifiers,
-                                              RelationshipCacheFilter.include(LOAD_BALANCERS.ns, INSTANCES.ns))
-
-      if (cacheDataResults) {
-        cacheData = cacheDataResults.first()
-      }
+      cacheData = searchCacheForServerGroup(Keys.getServerGroupKey(name, "*", account, region, "*"))
     }
 
     if (cacheData) {
@@ -148,6 +138,18 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
       def loadBalancers = loadBalancersFromKeys(cacheData.relationships[LOAD_BALANCERS.ns] as List)
       return serverGroupFromCacheData(cacheData, account, instances, securityGroups, loadBalancers)?.view
     }
+  }
+
+  private CacheData searchCacheForServerGroup(String pattern) {
+    def identifiers = cacheView.filterIdentifiers(SERVER_GROUPS.ns, pattern)
+    def cacheDataResults = cacheView.getAll(SERVER_GROUPS.ns,
+      identifiers,
+      RelationshipCacheFilter.include(LOAD_BALANCERS.ns, INSTANCES.ns))
+
+    if (cacheDataResults) {
+      return cacheDataResults.first()
+    }
+    return null
   }
 
   @Override

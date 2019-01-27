@@ -21,6 +21,7 @@ import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource;
 import com.netflix.spinnaker.clouddriver.names.NamingStrategy;
 import com.netflix.spinnaker.moniker.Moniker;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -73,12 +74,9 @@ public class GoogleLabeledResourceNamer implements NamingStrategy<GoogleLabeledR
       if (cluster == null && (detail != null || stack != null)) {
         // If detail or stack is set and not cluster, we generate the cluster name using frigga convention (app-stack-detail)
         cluster = getClusterName(moniker.getApp(), stack, detail);
-        moniker.setStack(stack);
-        moniker.setDetail(detail);
-      } else {
-        setIfPresent(moniker::setStack, stack);
-        setIfPresent(moniker::setDetail, detail);
       }
+      setIfPresent(moniker::setStack, stack);
+      setIfPresent(moniker::setDetail, detail);
       setIfPresent(moniker::setCluster, cluster);
       setIfPresent(moniker::setSequence, sequence != null ? Integer.parseInt(sequence) : null);
     }
@@ -87,20 +85,23 @@ public class GoogleLabeledResourceNamer implements NamingStrategy<GoogleLabeledR
 
   private static String getClusterName(String app, String stack, String detail) {
     StringBuilder sb = new StringBuilder(app);
-    if (stack != null) {
+    if (StringUtils.isNotEmpty(stack)) {
       sb.append("-").append(stack);
     }
-    if (stack == null && detail != null) {
+    if (StringUtils.isEmpty(stack) && StringUtils.isNotEmpty(detail)) {
       sb.append("-");
     }
-    if (detail != null) {
+    if (StringUtils.isNotEmpty(detail)) {
       sb.append("-").append(detail);
     }
     return sb.toString();
   }
 
   private static <T> void setIfPresent(Consumer<T> setter, T value) {
-    if (value != null && !"".equals(String.valueOf(value))) {
+    if (value != null) {
+      if (value.equals("")) {
+        value = null;
+      }
       setter.accept(value);
     }
   }
