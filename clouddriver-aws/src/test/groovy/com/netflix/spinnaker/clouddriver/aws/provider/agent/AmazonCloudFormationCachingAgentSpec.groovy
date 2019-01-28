@@ -110,9 +110,9 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
   void "should include stack status reason when state is ROLLBACK_COMPLETE (failed)"() {
     given:
     def amazonCloudFormation = Mock(AmazonCloudFormation)
-    def stack = new Stack().withStackId("stack1").withStackStatus("ROLLBACK_COMPLETE")
+    def stack = new Stack().withStackId("stack1").withStackStatus(stackStatus)
     def stackResults = Mock(DescribeStacksResult)
-    def stackEvent = new StackEvent().withResourceStatus("CREATE_FAILED").withResourceStatusReason("who knows")
+    def stackEvent = new StackEvent().withResourceStatus(resourceStatus).withResourceStatusReason(expectedReason)
     def stackEventResults = Mock(DescribeStackEventsResult)
 
     when:
@@ -126,6 +126,13 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStackEvents(_) >> stackEventResults
     1 * stackEventResults.getStackEvents() >> [ stackEvent ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackStatusReason' == 'who knows'
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackStatusReason' == expectedReason
+
+    where:
+    resourceStatus  | stackStatus                || expectedReason
+    'CREATE_FAILED' | 'ROLLBACK_COMPLETE'        || "create failed"
+    'UPDATE_FAILED' | 'ROLLBACK_COMPLETE'        || "create failed"
+    'CREATE_FAILED' | 'UPDATE_ROLLBACK_COMPLETE' || "create failed"
+    'UPDATE_FAILED' | 'UPDATE_ROLLBACK_COMPLETE' || "update failed"
   }
 }
