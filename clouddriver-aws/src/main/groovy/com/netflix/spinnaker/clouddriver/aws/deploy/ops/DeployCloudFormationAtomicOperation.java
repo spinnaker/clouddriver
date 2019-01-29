@@ -106,9 +106,7 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         .getStacks()
         .stream()
         .findFirst()
-        .<IllegalArgumentException>orElseThrow(() -> {
-          throw new IllegalArgumentException("No stack found with stack name " + description.getStackName());
-        })
+        .orElseThrow(() -> new IllegalArgumentException("No stack found with stack name " + description.getStackName()))
         .getStackId();
     }
 
