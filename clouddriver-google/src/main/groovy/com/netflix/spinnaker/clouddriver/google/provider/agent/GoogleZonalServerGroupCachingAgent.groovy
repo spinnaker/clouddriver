@@ -47,7 +47,7 @@ import com.netflix.spinnaker.clouddriver.google.provider.agent.util.PaginatedReq
 import com.netflix.spinnaker.clouddriver.google.security.AccountForClient
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
-import com.netflix.spinnaker.clouddriver.googlecommon.batch.GoogleBatchRequest
+import com.netflix.spinnaker.clouddriver.google.batch.GoogleBatchRequest
 import groovy.transform.Canonical
 import groovy.util.logging.Slf4j
 
