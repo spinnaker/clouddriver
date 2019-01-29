@@ -47,29 +47,29 @@ class CloudFormationControllerSpec extends Specification {
 
   def "request a list of stacks returns all the stacks for a given account (any region)"() {
     given:
-    def accountId = '123456789'
-    cloudFormationProvider.list(accountId, '*') >> [ new CloudFormationStackTest(accountId: accountId) ]
+    def accountName = 'aws-account-name'
+    cloudFormationProvider.list(accountName, '*') >> [ new CloudFormationStackTest(accountName: accountName) ]
 
     when:
-    def results = mvc.perform(get("/aws/cloudFormation/stacks?accountId=$accountId"))
+    def results = mvc.perform(get("/aws/cloudFormation/stacks?accountName=$accountName"))
 
     then:
     results.andExpect(status().is2xxSuccessful())
-    results.andExpect(jsonPath('$[0].accountId').value(accountId))
+    results.andExpect(jsonPath('$[0].accountName').value(accountName))
   }
 
   def "request a list of stacks returns all the stacks for a given account filtering by region (if specified)"() {
     given:
-    def accountId = '123456789'
+    def accountName = 'aws-account-name'
     def region = 'region'
-    cloudFormationProvider.list(accountId, region) >> [ new CloudFormationStackTest(accountId: accountId, region: region) ]
+    cloudFormationProvider.list(accountName, region) >> [ new CloudFormationStackTest(accountName: accountName, region: region) ]
 
     when:
-    def results = mvc.perform(get("/aws/cloudFormation/stacks?accountId=$accountId&region=$region"))
+    def results = mvc.perform(get("/aws/cloudFormation/stacks?accountName=$accountName&region=$region"))
 
     then:
     results.andExpect(status().is2xxSuccessful())
-    results.andExpect(jsonPath('$[0].accountId').value(accountId))
+    results.andExpect(jsonPath('$[0].accountName').value(accountName))
     results.andExpect(jsonPath('$[0].region').value(region))
   }
 

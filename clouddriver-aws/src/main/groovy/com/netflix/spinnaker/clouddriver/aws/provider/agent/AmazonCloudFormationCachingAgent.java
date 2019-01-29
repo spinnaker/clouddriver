@@ -108,7 +108,7 @@ public class AmazonCloudFormationCachingAgent implements CachingAgent, AccountAw
           .map(StackEvent::getResourceStatusReason)
           .map(statusReason -> stackAttributes.put("stackStatusReason", statusReason));
       }
-      String stackCacheKey = Keys.getCloudFormationKey(stack.getStackId(), region, account.getAccountId());
+      String stackCacheKey = Keys.getCloudFormationKey(stack.getStackId(), region, account.getName());
       Map<String, Collection<String>> relationships = new HashMap<>();
       relationships.put(CLOUDFORMATION.getNs(), Collections.singletonList(stackCacheKey));
       stackCacheData.add(new DefaultCacheData(stackCacheKey, stackAttributes, relationships));

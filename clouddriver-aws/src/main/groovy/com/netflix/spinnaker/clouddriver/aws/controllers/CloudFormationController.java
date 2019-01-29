@@ -17,7 +17,7 @@
 package com.netflix.spinnaker.clouddriver.aws.controllers;
 
 import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationStack;
-import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationProvider;
+import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonCloudFormationProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
@@ -29,10 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.HandlerMapping;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @RequestMapping("/aws/cloudFormation/stacks")
@@ -40,13 +37,13 @@ import java.util.stream.Collectors;
 class CloudFormationController {
 
   @Autowired
-  private CloudFormationProvider<CloudFormationStack> cloudFormationProvider;
+  private AmazonCloudFormationProvider cloudFormationProvider;
 
   @RequestMapping(method = RequestMethod.GET)
-  List<CloudFormationStack> list(@RequestParam String accountId,
+  List<CloudFormationStack> list(@RequestParam String accountName,
                                  @RequestParam(required = false, defaultValue = "*") String region) {
-    log.debug("Cloud formation list stacks for account {}", accountId);
-    return cloudFormationProvider.list(accountId, region);
+    log.debug("Cloud formation list stacks for account {}", accountName);
+    return cloudFormationProvider.list(accountName, region);
   }
 
   @RequestMapping(method = RequestMethod.GET, value = "/**")

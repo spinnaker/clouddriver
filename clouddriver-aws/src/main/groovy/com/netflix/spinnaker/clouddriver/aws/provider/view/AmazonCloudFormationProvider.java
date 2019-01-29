@@ -22,6 +22,7 @@ import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.aws.cache.Keys;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonCloudFormationStack;
 import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationProvider;
+import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationStack;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -35,31 +36,31 @@ import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.CLOUDFO
 
 @Slf4j
 @Component
-class AmazonCloudFormationProvider implements CloudFormationProvider<AmazonCloudFormationStack> {
+public class AmazonCloudFormationProvider implements CloudFormationProvider<CloudFormationStack> {
 
   private final Cache cacheView;
   private final ObjectMapper objectMapper;
 
   @Autowired
-  AmazonCloudFormationProvider(Cache cacheView, ObjectMapper objectMapper) {
+  public AmazonCloudFormationProvider(Cache cacheView, ObjectMapper objectMapper) {
     this.cacheView = cacheView;
     this.objectMapper = objectMapper;
   }
 
-  public List<AmazonCloudFormationStack> list(String account, String region) {
-    String filter = Keys.getCloudFormationKey("*", region, account);
+  public List<CloudFormationStack> list(String accountName, String region) {
+    String filter = Keys.getCloudFormationKey("*", region, accountName);
     log.debug("List all stacks with filter {}", filter);
     return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter));
   }
 
   @Override
-  public Optional<AmazonCloudFormationStack> get(String stackId) {
+  public Optional<CloudFormationStack> get(String stackId) {
     String filter = Keys.getCloudFormationKey(stackId, "*", "*");
     log.debug("Get stack with filter {}", filter);
     return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter)).stream().findFirst();
   }
 
-  List<AmazonCloudFormationStack> loadResults(Collection<String> identifiers) {
+  List<CloudFormationStack> loadResults(Collection<String> identifiers) {
     return cacheView.getAll(CLOUDFORMATION.getNs(), identifiers, RelationshipCacheFilter.none())
       .stream()
       .map(data -> {

@@ -32,7 +32,7 @@ import spock.lang.Subject
 
 class AmazonCloudFormationCachingAgentSpec extends Specification {
   static String region = 'region'
-  static String account = 'account'
+  static String accountName = 'accountName'
 
   @Subject
   AmazonCloudFormationCachingAgent agent
@@ -49,7 +49,7 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
   def setup() {
     ec2 = Mock(AmazonEC2)
     def creds = Stub(NetflixAmazonCredentials) {
-      getAccountId() >> account
+      getName() >> accountName
     }
     acp = Mock(AmazonClientProvider)
     agent = new AmazonCloudFormationCachingAgent(acp, creds, region)
@@ -71,8 +71,8 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1, stack2 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackId' == stack1.stackId
-    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") }.attributes.'stackId' == stack2.stackId
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "accountName") }.attributes.'stackId' == stack1.stackId
+    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "accountName") }.attributes.'stackId' == stack2.stackId
   }
 
   void "should evict cloudformations when not found on subsequent runs"() {
@@ -91,8 +91,8 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1, stack2 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackId' == stack1.stackId
-    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") }.attributes.'stackId' == stack2.stackId
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "accountName") }.attributes.'stackId' == stack1.stackId
+    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "accountName") }.attributes.'stackId' == stack2.stackId
 
     when:
     cache = agent.loadData(providerCache)
@@ -103,8 +103,8 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStacks() >> stackResults
     1 * stackResults.stacks >> [ stack1 ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackId' == stack1.stackId
-    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "account") } == null
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "accountName") }.attributes.'stackId' == stack1.stackId
+    results.find { it.id == Keys.getCloudFormationKey("stack2", "region", "accountName") } == null
   }
 
   void "should include stack status reason when state is ROLLBACK_COMPLETE (failed)"() {
@@ -126,6 +126,6 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     1 * amazonCloudFormation.describeStackEvents(_) >> stackEventResults
     1 * stackEventResults.getStackEvents() >> [ stackEvent ]
 
-    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "account") }.attributes.'stackStatusReason' == 'who knows'
+    results.find { it.id == Keys.getCloudFormationKey("stack1", "region", "accountName") }.attributes.'stackStatusReason' == 'who knows'
   }
 }

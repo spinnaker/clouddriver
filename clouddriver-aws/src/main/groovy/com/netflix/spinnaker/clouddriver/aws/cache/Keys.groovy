@@ -167,7 +167,7 @@ class Keys implements KeyParser {
 
   static String getCloudFormationKey(String stackId,
                                      String region,
-                                     String account) {
-    "$ID:${Namespace.CLOUDFORMATION}:${account}:${region}:${stackId}"
+                                     String accountName) {
+    "$ID:${Namespace.CLOUDFORMATION}:${accountName}:${region}:${stackId}"
   }
 }
