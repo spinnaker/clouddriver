@@ -81,37 +81,41 @@ public class AmazonCloudFormationCachingAgent implements CachingAgent, AccountAw
     log.info("Describing items in {}", getAgentType());
     AmazonCloudFormation cloudformation = amazonClientProvider.getAmazonCloudFormation(account, region);
 
-    List<Stack> stacks = cloudformation.describeStacks().getStacks();
-
     Collection<CacheData> stackCacheData = new ArrayList<>();
 
-    for (Stack stack : stacks) {
-      Map<String, Object> stackAttributes = new HashMap<>();
-      stackAttributes.put("stackId", stack.getStackId());
-      stackAttributes.put("tags",
-        stack.getTags().stream().collect(Collectors.toMap(Tag::getKey, Tag::getValue)));
-      stackAttributes.put("outputs",
-        stack.getOutputs().stream().collect(Collectors.toMap(Output::getOutputKey, Output::getOutputValue)));
-      stackAttributes.put("stackName", stack.getStackName());
-      stackAttributes.put("region", region);
-      stackAttributes.put("accountName", account.getName());
-      stackAttributes.put("accountId", account.getAccountId());
-      stackAttributes.put("stackStatus", stack.getStackStatus());
-      stackAttributes.put("creationTime", stack.getCreationTime());
+    try {
+      List<Stack> stacks = cloudformation.describeStacks().getStacks();
 
-      if (stack.getStackStatus().equals("ROLLBACK_COMPLETE")) {
-        DescribeStackEventsRequest request = new DescribeStackEventsRequest().withStackName(stack.getStackName());
-        cloudformation.describeStackEvents(request).getStackEvents()
-          .stream()
-          .filter(e -> e.getResourceStatus().equals("CREATE_FAILED"))
-          .findFirst()
-          .map(StackEvent::getResourceStatusReason)
-          .map(statusReason -> stackAttributes.put("stackStatusReason", statusReason));
+      for (Stack stack : stacks) {
+        Map<String, Object> stackAttributes = new HashMap<>();
+        stackAttributes.put("stackId", stack.getStackId());
+        stackAttributes.put("tags",
+          stack.getTags().stream().collect(Collectors.toMap(Tag::getKey, Tag::getValue)));
+        stackAttributes.put("outputs",
+          stack.getOutputs().stream().collect(Collectors.toMap(Output::getOutputKey, Output::getOutputValue)));
+        stackAttributes.put("stackName", stack.getStackName());
+        stackAttributes.put("region", region);
+        stackAttributes.put("accountName", account.getName());
+        stackAttributes.put("accountId", account.getAccountId());
+        stackAttributes.put("stackStatus", stack.getStackStatus());
+        stackAttributes.put("creationTime", stack.getCreationTime());
+
+        if (stack.getStackStatus().equals("ROLLBACK_COMPLETE")) {
+          DescribeStackEventsRequest request = new DescribeStackEventsRequest().withStackName(stack.getStackName());
+          cloudformation.describeStackEvents(request).getStackEvents()
+            .stream()
+            .filter(e -> e.getResourceStatus().equals("CREATE_FAILED"))
+            .findFirst()
+            .map(StackEvent::getResourceStatusReason)
+            .map(statusReason -> stackAttributes.put("stackStatusReason", statusReason));
+        }
+        String stackCacheKey = Keys.getCloudFormationKey(stack.getStackId(), region, account.getName());
+        Map<String, Collection<String>> relationships = new HashMap<>();
+        relationships.put(CLOUDFORMATION.getNs(), Collections.singletonList(stackCacheKey));
+        stackCacheData.add(new DefaultCacheData(stackCacheKey, stackAttributes, relationships));
       }
-      String stackCacheKey = Keys.getCloudFormationKey(stack.getStackId(), region, account.getName());
-      Map<String, Collection<String>> relationships = new HashMap<>();
-      relationships.put(CLOUDFORMATION.getNs(), Collections.singletonList(stackCacheKey));
-      stackCacheData.add(new DefaultCacheData(stackCacheKey, stackAttributes, relationships));
+    } catch (Exception e) {
+      log.info("Error retrieving stacks, ignoring error: {}", e.getMessage());
     }
 
     log.info("Caching {} items in {}", stackCacheData.size(), getAgentType());
