@@ -66,7 +66,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Slf4j
 public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
 
-  private static final TypeReference<Map<String, Object>> ANY_MAP = new TypeReference<Map<String, Object>>() {};
+  private static final TypeReference<Map<String, Object>> ANY_MAP = new TypeReference<Map<String, Object>>() {
+  };
 
   private final TitusClient titusClient;
   private final TitusAutoscalingClient titusAutoscalingClient;
@@ -77,8 +78,12 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
   private final Registry registry;
   private final Id metricId;
   private final Provider<AwsLookupUtil> awsLookupUtil;
-  private final long TIME_UPDATE_THRESHHOLD_MS = 5000;
-  private final long ITEMS_CHANGED_THRESHHOLD = 1000;
+
+  // TODO: these thresholds should be dynamic properties
+  private final long TIME_UPDATE_THRESHOLD_MS = TimeUnit.SECONDS.toMillis(15);
+  private final long ITEMS_CHANGED_THRESHOLD = 10000;
+
+  private final Logger log = LoggerFactory.getLogger(TitusStreamingUpdateAgent.class);
 
   private static final Set<TaskStatus.TaskState> FINISHED_TASK_STATES = Collections.unmodifiableSet(Stream.of(
     TaskStatus.TaskState.Finished,
@@ -98,10 +103,10 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
 
   private static final Set<AgentDataType> TYPES = Collections.unmodifiableSet(Stream.of(
     AUTHORITATIVE.forType(SERVER_GROUPS.ns),
+    AUTHORITATIVE.forType(CLUSTERS.ns),
     AUTHORITATIVE.forType(APPLICATIONS.ns),
     AUTHORITATIVE.forType(INSTANCES.ns),
     INFORMATIVE.forType(IMAGES.ns),
-    INFORMATIVE.forType(CLUSTERS.ns),
     INFORMATIVE.forType(TARGET_GROUPS.ns)
   ).collect(Collectors.toSet()));
 
@@ -157,16 +162,12 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
   }
 
   class StreamingCacheExecution implements AgentExecution {
-    private final Logger log = LoggerFactory.getLogger(CachingAgent.CacheExecution.class);
     private final ProviderRegistry providerRegistry;
     private final ProviderCache cache;
     private AtomicInteger changes = new AtomicInteger(0);
     private AtomicLong lastUpdate = new AtomicLong(0);
 
-    Map<String, Job> jobs = new HashMap();
-    Map<String, Set<Task>> tasks = new HashMap();
-
-    public StreamingCacheExecution(ProviderRegistry providerRegistry) {
+    StreamingCacheExecution(ProviderRegistry providerRegistry) {
       this.providerRegistry = providerRegistry;
       this.cache = providerRegistry.getProviderCache(getProviderName());
     }
@@ -177,6 +178,11 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
 
     @Override
     public void executeAgent(Agent agent) {
+      Long startTime = System.currentTimeMillis();
+
+      Map<String, Job> jobs = new HashMap<>();
+      Map<String, Set<Task>> tasks = new HashMap<>();
+
       ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
       final Future handler = executor.submit(() -> {
         Iterator<JobChangeNotification> notificationIt = titusClient.observeJobs(
@@ -185,75 +191,128 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
             .putFilteringCriteria("attributes", "source:spinnaker")
             .build()
         );
-        Long startTime = System.currentTimeMillis();
-        while (notificationIt.hasNext()) {
-          JobChangeNotification notification = notificationIt.next();
-          switch (notification.getNotificationCase()) {
-            case JOBUPDATE:
-              updateJob(notification.getJobUpdate().getJob());
-              break;
-            case TASKUPDATE:
-              updateTask(notification.getTaskUpdate().getTask());
-              break;
-            case SNAPSHOTEND:
-              lastUpdate.set(0); // last update should already be initialized to 0 but this forces an update regardless
-              log.info("Snapshot finished {}", getAgentType());
-              tasks.keySet().retainAll(jobs.keySet());
-              break;
+
+        Boolean snapshotComplete = false;
+        Boolean savedSnapshot = false;
+
+        while (continueStreaming(startTime)) {
+          try {
+            while (notificationIt.hasNext() && continueStreaming(startTime)) {
+              JobChangeNotification notification = notificationIt.next();
+              switch (notification.getNotificationCase()) {
+                case JOBUPDATE:
+                  updateJob(jobs, tasks, notification.getJobUpdate().getJob(), snapshotComplete);
+                  break;
+                case TASKUPDATE:
+                  updateTask(tasks, notification.getTaskUpdate().getTask(), snapshotComplete);
+                  break;
+                case SNAPSHOTEND:
+                  lastUpdate.set(0);
+                  log.info("{} snapshot finished in {}ms", getAgentType(), System.currentTimeMillis() - startTime);
+                  tasks.keySet().retainAll(jobs.keySet());
+                  if (snapshotComplete) {
+                    log.error("{} received >1 SNAPSHOTEND events, this is unexpected and may be handled incorrectly",
+                      getAgentType()
+                    );
+                  }
+                  snapshotComplete = true;
+                  break;
+              }
+
+              if (snapshotComplete) {
+                writeToCache(jobs, tasks, !savedSnapshot);
+                if (!savedSnapshot) {
+                  savedSnapshot = true;
+                }
+              }
+            }
+          } catch (io.grpc.StatusRuntimeException e) {
+            log.warn("gRPC exception while streaming {} updates, attempting to reconnect", getAgentType(), e);
+            notificationIt = titusClient.observeJobs(
+              ObserveJobsQuery.newBuilder()
+                .putFilteringCriteria("jobType", "SERVICE")
+                .putFilteringCriteria("attributes", "source:spinnaker")
+                .build()
+            );
+            snapshotComplete = false;
+            savedSnapshot = false;
+          } catch (Exception e) {
+            log.error("Exception while streaming {} titus updates", getAgentType(), e);
           }
-          maybeWriteToCache();
         }
       });
+
       executor.schedule(() -> {
         handler.cancel(true);
-      }, getPollIntervalMillis(), TimeUnit.MILLISECONDS);
+      }, getTimeoutMillis(), TimeUnit.MILLISECONDS);
       CompletableFuture.completedFuture(handler).join();
     }
 
-    private void updateJob(Job job) {
+    private void updateJob(Map<String, Job> jobs, Map<String, Set<Task>> tasks, Job job, Boolean snapshotComplete) {
       String jobId = job.getId();
       if (FINISHED_JOB_STATES.contains(job.getStatus().getState())) {
-        if (jobs.keySet().contains(jobId)) {
-          tasks.remove(jobId);
+        tasks.remove(jobId);
+        if (jobs.containsKey(jobId)) {
           jobs.remove(jobId);
-          changes.incrementAndGet();
+        } else if (snapshotComplete) {
+          log.debug("{} updateJob: jobId: {} has finished, but not present in current snapshot set",
+            getAgentType(),
+            jobId
+          );
         }
       } else {
         jobs.put(jobId, job);
-        changes.incrementAndGet();
       }
+      changes.incrementAndGet();
     }
 
-    private void updateTask(Task task) {
+    private void updateTask(Map<String, Set<Task>> tasks, Task task, Boolean snapshotComplete) {
       String jobId = task.getJobId();
       if (FILTERED_TASK_STATES.contains(task.getStatus().getState())) {
-        if (tasks.containsKey(jobId)) {
-          tasks.get(jobId).add(task);
-        } else {
-          tasks.put(jobId, Stream.of(task).collect(Collectors.toCollection(HashSet::new)));
-        }
+        tasks.computeIfAbsent(jobId, t -> new HashSet<>()).remove(task);
+        tasks.get(jobId).add(task);
         changes.incrementAndGet();
       } else if (FINISHED_TASK_STATES.contains(task.getStatus().getState())) {
-        tasks.get(jobId).remove(task);
-        changes.incrementAndGet();
+        if (tasks.containsKey(jobId)) {
+          tasks.get(jobId).remove(task);
+          changes.incrementAndGet();
+        } else if (snapshotComplete) {
+          log.debug("{} updateTask: task: {} jobId: {} has finished, but not present in current snapshot set",
+            getAgentType(),
+            task.getId(),
+            jobId
+          );
+        }
       }
     }
 
     /**
-     * Will only write to a cache if the time from the last update exceeds TIME_UPDATE_THRESHHOLD_MS or
-     * the number of changes exceeds ITEMS_CHANGED_THRESHHOLD
+     * Once we persist the first snapshot, we only update the cache if the time from the last update exceeds
+     * TIME_UPDATE_THRESHOLD_MS or the number of changes exceeds ITEMS_CHANGED_THRESHOLD.
+     * <p>
+     * TODO: After the full snapshot write, we should support incremental updates to the ProviderCache.
+     * Instead of always calling ProviderCache.putCacheResult (which requires the full result set from
+     * a caching agent, and calls backingStore.mergeAll()), we should call i.e. ProviderCache.putCacheData
+     * (calls backingStore.merge()) and ProviderCache.evictDeletedItems() as needed.
      */
-    private void maybeWriteToCache() {
-      Long startTime = System.currentTimeMillis();
-      if (changes.get() > 0 &&
-          (changes.get() >= ITEMS_CHANGED_THRESHHOLD || startTime - lastUpdate.get() > TIME_UPDATE_THRESHHOLD_MS)
+    private void writeToCache(Map<String, Job> jobs, Map<String, Set<Task>> tasks, Boolean firstSnapshotWrite) {
+      long startTime = System.currentTimeMillis();
+
+      if (firstSnapshotWrite ||
+        changes.get() >= ITEMS_CHANGED_THRESHOLD ||
+        (startTime - lastUpdate.get() > TIME_UPDATE_THRESHOLD_MS && changes.get() > 0)
       ) {
-        if (lastUpdate.get() != 0) {
+        if (firstSnapshotWrite) {
+          log.info("Storing snapshot with {} job and tasks in {}", changes.get(), getAgentType());
+        } else {
+          tasks.keySet().retainAll(jobs.keySet());
+
           log.info("Updating: {} changes ( last update {} milliseconds ) in {}",
             changes.get(),
             startTime - lastUpdate.get(),
             getAgentType());
         }
+
         List<ScalingPolicyResult> scalingPolicyResults = titusAutoscalingClient != null
           ? titusAutoscalingClient.getAllScalingPolicies()
           : Collections.emptyList();
@@ -261,7 +320,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
           .get(registry, metricId.withTag("operation", "getScalingPolicies"))
           .record(System.currentTimeMillis() - startTime, MILLISECONDS);
 
-        Long startLoadBalancerTime = System.currentTimeMillis();
+        long startLoadBalancerTime = System.currentTimeMillis();
         Map<String, List<String>> allLoadBalancers = titusLoadBalancerClient != null
           ? titusLoadBalancerClient.getAllLoadBalancers()
           : Collections.emptyMap();
@@ -269,19 +328,15 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
           .get(registry, metricId.withTag("operation", "getLoadBalancers"))
           .record(System.currentTimeMillis() - startLoadBalancerTime, MILLISECONDS);
 
-        CacheResult result = buildCacheResult(
-          scalingPolicyResults,
-          allLoadBalancers
-        );
+        CacheResult result = buildCacheResult(jobs, tasks, scalingPolicyResults, allLoadBalancers);
 
-        Collection<String> authoritative = new HashSet<>(TYPES.size());
-        for (AgentDataType type : TYPES) {
-          if (type.getAuthority() == AgentDataType.Authority.AUTHORITATIVE) {
-            authoritative.add(type.getTypeName());
-          }
-        }
+        Collection<String> authoritative = TYPES.stream()
+          .filter(t -> t.getAuthority().equals(AUTHORITATIVE))
+          .map(AgentDataType::getTypeName)
+          .collect(Collectors.toSet());
+
         cache.putCacheResult(getAgentType(), authoritative, result);
-        lastUpdate.set(startTime);
+        lastUpdate.set(System.currentTimeMillis());
         changes.set(0);
 
         PercentileTimer
@@ -290,7 +345,9 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
       }
     }
 
-    private CacheResult buildCacheResult(List<ScalingPolicyResult> scalingPolicyResults,
+    private CacheResult buildCacheResult(Map<String, Job> jobs,
+                                         Map<String, Set<Task>> tasks,
+                                         List<ScalingPolicyResult> scalingPolicyResults,
                                          Map<String, List<String>> allLoadBalancers) {
       // INITIALIZE CACHES
       Map<String, CacheData> applicationCache = createCache();
@@ -304,7 +361,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
         .map(job -> {
           List<ScalingPolicyData> jobScalingPolicies = scalingPolicyResults.stream()
             .filter(it -> it.getJobId().equalsIgnoreCase(job.getId())
-                          && CACHEABLE_POLICY_STATES.contains(it.getPolicyState().getState()))
+              && CACHEABLE_POLICY_STATES.contains(it.getPolicyState().getState()))
             .map(it -> new ScalingPolicyData(it.getId().getId(), it.getScalingPolicy(), it.getPolicyState()))
             .collect(Collectors.toList());
 
@@ -315,7 +372,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
             jobLoadBalancers,
             tasks.getOrDefault(job.getId(), Collections.emptySet())
               .stream()
-              .map(it -> it.getId())
+              .map(Task::getId)
               .collect(Collectors.toSet()),
             account.getName(),
             region.getName());
@@ -440,12 +497,27 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
 
   @Override
   public long getPollIntervalMillis() {
-    return 120000;
+    return TimeUnit.MINUTES.toMillis(3);
   }
 
+  // TODO: AgentSchedulers need to support ttl heartbeats for proper streaming agent support.
+  // We really want a short poll interval (for fast agent failover across instances) with a
+  // timeout that can be extended indefinitely while streaming updates are actively processed.
   @Override
   public long getTimeoutMillis() {
-    return 120000;
+    return TimeUnit.MINUTES.toMillis(3);
+  }
+
+  /***
+   *
+   * @return Time in milliseconds prior to timeout that the streaming agent will stop polling Titus for updates
+   */
+  private long getPadTimeMillis() {
+    return TimeUnit.SECONDS.toMillis(5);
+  }
+
+  private boolean continueStreaming(long startTime) {
+    return System.currentTimeMillis() < (startTime + getTimeoutMillis() - getPadTimeMillis());
   }
 
   private Map<String, CacheData> createCache() {
@@ -534,7 +606,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
         String scalingPolicy = JsonFormat.printer().print(policy);
         result.put("policy", objectMapper.readValue(scalingPolicy, ANY_MAP));
       } catch (Exception e) {
-        log.warn("Failed to serialize scaling policy for scaling policy {}", e);
+        log.warn("Failed to serialize scaling policy for scaling policy {}", getAgentType(), e);
         result.put("policy", Collections.emptyMap());
       }
 
@@ -628,7 +700,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
     return response;
   }
 
-  String getAsgName(com.netflix.spinnaker.clouddriver.titus.client.model.Job job) {
+  private String getAsgName(com.netflix.spinnaker.clouddriver.titus.client.model.Job job) {
     String asgName = job.getName();
     if (job.getLabels().containsKey("name")) {
       asgName = job.getLabels().get("name");
