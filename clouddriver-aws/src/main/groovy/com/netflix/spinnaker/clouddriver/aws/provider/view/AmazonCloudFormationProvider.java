@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.aws.cache.Keys;
-import com.netflix.spinnaker.clouddriver.aws.model.AmazonCloudFormation;
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonCloudFormationStack;
 import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +35,7 @@ import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.CLOUDFO
 
 @Slf4j
 @Component
-class AmazonCloudFormationProvider implements CloudFormationProvider<AmazonCloudFormation> {
+class AmazonCloudFormationProvider implements CloudFormationProvider<AmazonCloudFormationStack> {
 
   private final Cache cacheView;
   private final ObjectMapper objectMapper;
@@ -46,25 +46,25 @@ class AmazonCloudFormationProvider implements CloudFormationProvider<AmazonCloud
     this.objectMapper = objectMapper;
   }
 
-  public List<AmazonCloudFormation> list(String account, String region) {
+  public List<AmazonCloudFormationStack> list(String account, String region) {
     String filter = Keys.getCloudFormationKey("*", region, account);
     log.debug("List all stacks with filter {}", filter);
     return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter));
   }
 
   @Override
-  public Optional<AmazonCloudFormation> get(String stackId) {
+  public Optional<AmazonCloudFormationStack> get(String stackId) {
     String filter = Keys.getCloudFormationKey(stackId, "*", "*");
     log.debug("Get stack with filter {}", filter);
     return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter)).stream().findFirst();
   }
 
-  List<AmazonCloudFormation> loadResults(Collection<String> identifiers) {
+  List<AmazonCloudFormationStack> loadResults(Collection<String> identifiers) {
     return cacheView.getAll(CLOUDFORMATION.getNs(), identifiers, RelationshipCacheFilter.none())
       .stream()
       .map(data -> {
         log.debug("Cloud formation cached properties {}", data.getAttributes());
-        return objectMapper.convertValue(data.getAttributes(), AmazonCloudFormation.class);
+        return objectMapper.convertValue(data.getAttributes(), AmazonCloudFormationStack.class);
       })
       .collect(Collectors.toList());
   }

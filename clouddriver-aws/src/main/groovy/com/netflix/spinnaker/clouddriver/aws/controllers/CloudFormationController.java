@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.controllers;
 
-import com.netflix.spinnaker.clouddriver.aws.model.CloudFormation;
+import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationStack;
 import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,30 +40,22 @@ import java.util.stream.Collectors;
 class CloudFormationController {
 
   @Autowired
-  private List<CloudFormationProvider> cloudFormationProviders;
+  private CloudFormationProvider<CloudFormationStack> cloudFormationProvider;
 
   @RequestMapping(method = RequestMethod.GET)
-  List<CloudFormation> list(@RequestParam String accountId,
-                            @RequestParam(required = false, defaultValue = "*") String region) {
+  List<CloudFormationStack> list(@RequestParam String accountId,
+                                 @RequestParam(required = false, defaultValue = "*") String region) {
     log.debug("Cloud formation list stacks for account {}", accountId);
-    return cloudFormationProviders
-      .stream()
-      .map(p -> p.list(accountId, region))
-      .flatMap(Collection<CloudFormation>::stream)
-      .collect(Collectors.toList());
+    return cloudFormationProvider.list(accountId, region);
   }
 
   @RequestMapping(method = RequestMethod.GET, value = "/**")
-  CloudFormation get(HttpServletRequest request) {
+  CloudFormationStack get(HttpServletRequest request) {
     String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
     String stackId = new AntPathMatcher().extractPathWithinPattern(pattern, request.getRequestURI());
     log.debug("Cloud formation get stack with id {}", stackId);
-    return cloudFormationProviders
-      .stream()
-      .map(p -> p.get(stackId))
-      .filter(Optional::isPresent)
-      .map(Optional<CloudFormation>::get)
-      .findFirst()
+    return cloudFormationProvider
+      .get(stackId)
       .orElseThrow(
         () -> new ResourceNotFoundException(String.format("Cloud Formation stackId %s not found.", stackId))
       );
