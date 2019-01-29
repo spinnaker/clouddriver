@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.CLOUDFORMATION;
+import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.STACKS;
 
 @Slf4j
 @Component
@@ -50,18 +50,18 @@ public class AmazonCloudFormationProvider implements CloudFormationProvider<Clou
   public List<CloudFormationStack> list(String accountName, String region) {
     String filter = Keys.getCloudFormationKey("*", region, accountName);
     log.debug("List all stacks with filter {}", filter);
-    return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter));
+    return loadResults(cacheView.filterIdentifiers(STACKS.getNs(), filter));
   }
 
   @Override
   public Optional<CloudFormationStack> get(String stackId) {
     String filter = Keys.getCloudFormationKey(stackId, "*", "*");
     log.debug("Get stack with filter {}", filter);
-    return loadResults(cacheView.filterIdentifiers(CLOUDFORMATION.getNs(), filter)).stream().findFirst();
+    return loadResults(cacheView.filterIdentifiers(STACKS.getNs(), filter)).stream().findFirst();
   }
 
   List<CloudFormationStack> loadResults(Collection<String> identifiers) {
-    return cacheView.getAll(CLOUDFORMATION.getNs(), identifiers, RelationshipCacheFilter.none())
+    return cacheView.getAll(STACKS.getNs(), identifiers, RelationshipCacheFilter.none())
       .stream()
       .map(data -> {
         log.debug("Cloud formation cached properties {}", data.getAttributes());

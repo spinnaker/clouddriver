@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.CLOUDFORMATION;
+import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.STACKS;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 
 @Slf4j
@@ -45,7 +45,7 @@ public class AmazonCloudFormationCachingAgent implements CachingAgent, AccountAw
   private final String region;
 
   static final Set<AgentDataType> types = new HashSet<>(
-    Collections.singletonList(AUTHORITATIVE.forType(CLOUDFORMATION.getNs()))
+    Collections.singletonList(AUTHORITATIVE.forType(STACKS.getNs()))
   );
 
   public AmazonCloudFormationCachingAgent(AmazonClientProvider amazonClientProvider,
@@ -111,16 +111,16 @@ public class AmazonCloudFormationCachingAgent implements CachingAgent, AccountAw
         }
         String stackCacheKey = Keys.getCloudFormationKey(stack.getStackId(), region, account.getName());
         Map<String, Collection<String>> relationships = new HashMap<>();
-        relationships.put(CLOUDFORMATION.getNs(), Collections.singletonList(stackCacheKey));
+        relationships.put(STACKS.getNs(), Collections.singletonList(stackCacheKey));
         stackCacheData.add(new DefaultCacheData(stackCacheKey, stackAttributes, relationships));
       }
-    } catch (Exception e) {
-      log.info("Error retrieving stacks, ignoring error: {}", e.getMessage());
+    } catch (AmazonCloudFormationException e) {
+      log.error("Error retrieving stacks", e);
     }
 
     log.info("Caching {} items in {}", stackCacheData.size(), getAgentType());
     HashMap<String, Collection<CacheData>> result = new HashMap<>();
-    result.put(CLOUDFORMATION.getNs(), stackCacheData);
+    result.put(STACKS.getNs(), stackCacheData);
     return new DefaultCacheResult(result);
   }
 }

@@ -27,7 +27,7 @@ import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll
 
-import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.CLOUDFORMATION
+import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.STACKS
 
 class AmazonCloudFormationProviderSpec extends Specification {
   static final TypeReference<Map<String, Object>> ATTRIBUTES = new TypeReference<Map<String, Object>>() {}
@@ -40,7 +40,7 @@ class AmazonCloudFormationProviderSpec extends Specification {
   def setup() {
     def cache = new InMemoryCache()
     cloudFormations.each {
-      cache.merge(CLOUDFORMATION.ns,
+      cache.merge(STACKS.ns,
           new DefaultCacheData(makeKey(it), objectMapper.convertValue(it, ATTRIBUTES), [:]))
     }
 

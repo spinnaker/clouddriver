@@ -64,7 +64,7 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
 
     when:
     def cache = agent.loadData(providerCache)
-    def results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
+    def results = cache.cacheResults[Keys.Namespace.STACKS.ns]
 
     then:
     1 * acp.getAmazonCloudFormation(_, _) >> amazonCloudFormation
@@ -84,7 +84,7 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
 
     when:
     def cache = agent.loadData(providerCache)
-    def results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
+    def results = cache.cacheResults[Keys.Namespace.STACKS.ns]
 
     then:
     1 * acp.getAmazonCloudFormation(_, _) >> amazonCloudFormation
@@ -96,7 +96,7 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
 
     when:
     cache = agent.loadData(providerCache)
-    results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
+    results = cache.cacheResults[Keys.Namespace.STACKS.ns]
 
     then:
     1 * acp.getAmazonCloudFormation(_, _) >> amazonCloudFormation
@@ -117,7 +117,7 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
 
     when:
     def cache = agent.loadData(providerCache)
-    def results = cache.cacheResults[Keys.Namespace.CLOUDFORMATION.ns]
+    def results = cache.cacheResults[Keys.Namespace.STACKS.ns]
 
     then:
     1 * acp.getAmazonCloudFormation(_, _) >> amazonCloudFormation
