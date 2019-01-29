@@ -1,7 +1,6 @@
 dependencies {
   spinnaker.group('fiat')
 
-  compile spinnaker.dependency('googleHttp')
   compile spinnaker.dependency('spectatorApi')
   compile spinnaker.dependency('lombok')
 
