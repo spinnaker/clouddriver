@@ -255,8 +255,7 @@ public class ProjectClustersService {
         .flatMap(ac -> ac.getServerGroups().stream())
         .filter(serverGroup ->
           serverGroup != null &&
-            serverGroup.isDisabled() != null &&
-            !serverGroup.isDisabled().booleanValue() &&
+            (serverGroup.isDisabled() == null || !serverGroup.isDisabled()) &&
             serverGroup.getInstanceCounts().getTotal() > 0)
         .forEach((ServerGroup serverGroup) -> {
           RegionClusterModel regionCluster = regionClusters.computeIfAbsent(
