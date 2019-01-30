@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.model;
+package com.netflix.spinnaker.clouddriver.aws.model;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface CloudFormationProvider<T extends CloudFormation> {
+public interface CloudFormationProvider<T extends CloudFormationStack> {
 
   List<T> list(String account, String region);
 

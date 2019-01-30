@@ -16,13 +16,12 @@
 package com.netflix.spinnaker.clouddriver.aws.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.netflix.spinnaker.clouddriver.model.CloudFormation;
 
 import java.util.Date;
 import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public class AmazonCloudFormation implements CloudFormation {
+public class AmazonCloudFormationStack implements CloudFormationStack {
   final String type = "aws";
   private String stackId;
   private Map<String, String> tags;
@@ -87,8 +86,8 @@ public class AmazonCloudFormation implements CloudFormation {
 
   @Override
   public boolean equals(Object cf) {
-    if (cf instanceof AmazonCloudFormation) {
-      return stackId.equals(((AmazonCloudFormation) cf).stackId);
+    if (cf instanceof AmazonCloudFormationStack) {
+      return stackId.equals(((AmazonCloudFormationStack) cf).stackId);
     } else {
       return false;
     }
