@@ -23,7 +23,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1DeleteOptions;
-import lombok.extern.slf4j.Slf4j;
 
 public interface CanDeploy {
   default OperationResult deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest, boolean recreate) {
