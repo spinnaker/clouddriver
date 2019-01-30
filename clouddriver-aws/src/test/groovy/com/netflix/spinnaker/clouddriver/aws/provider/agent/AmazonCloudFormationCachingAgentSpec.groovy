@@ -168,8 +168,8 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     2 * amazonCloudFormation.describeStacks() >> stackResults
     2 * stackResults.stacks >> [ stack1, stack2 ]
 
-    def expected = cache.cacheResults.get(Keys.Namespace.CLOUDFORMATION.ns).collect { it.attributes } as Set
-    def onDemand = results.cacheResult.cacheResults.get(Keys.Namespace.CLOUDFORMATION.ns).collect { it.attributes } as Set
+    def expected = cache.cacheResults.get(Keys.Namespace.STACKS.ns).collect { it.attributes } as Set
+    def onDemand = results.cacheResult.cacheResults.get(Keys.Namespace.STACKS.ns).collect { it.attributes } as Set
     expected == onDemand
   }
 }
