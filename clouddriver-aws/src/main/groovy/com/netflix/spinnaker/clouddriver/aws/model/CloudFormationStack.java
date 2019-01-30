@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.model;
+package com.netflix.spinnaker.clouddriver.aws.model;
 
 import java.util.Date;
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * A representation of a CloudFormation stack
  */
-public interface CloudFormation {
+public interface CloudFormationStack {
 
   String getStackId();
 

@@ -14,52 +14,45 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.controllers;
+package com.netflix.spinnaker.clouddriver.aws.controllers;
 
-import com.netflix.spinnaker.clouddriver.model.CloudFormation;
-import com.netflix.spinnaker.clouddriver.model.CloudFormationProvider;
+import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationStack;
+import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonCloudFormationProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.HandlerMapping;
 
-import java.util.Collection;
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
-@RequestMapping("/cloudFormation")
+@RequestMapping("/aws/cloudFormation/stacks")
 @RestController
 class CloudFormationController {
 
   @Autowired
-  private List<CloudFormationProvider> cloudFormationProviders;
+  private AmazonCloudFormationProvider cloudFormationProvider;
 
-  @RequestMapping(method = RequestMethod.GET, value = "/list/{accountId}")
-  List<CloudFormation> list(@PathVariable String accountId,
-                            @RequestParam(required = false, defaultValue = "*") String region) {
-    log.debug("Cloud formation list stacks for account {}", accountId);
-    return cloudFormationProviders
-      .stream()
-      .map(p -> p.list(accountId, region))
-      .flatMap(Collection<CloudFormation>::stream)
-      .collect(Collectors.toList());
+  @RequestMapping(method = RequestMethod.GET)
+  List<CloudFormationStack> list(@RequestParam String accountName,
+                                 @RequestParam(required = false, defaultValue = "*") String region) {
+    log.debug("Cloud formation list stacks for account {}", accountName);
+    return cloudFormationProvider.list(accountName, region);
   }
 
-  @RequestMapping(method = RequestMethod.GET, value = "/get")
-  CloudFormation get(@RequestParam String stackId) {
+  @RequestMapping(method = RequestMethod.GET, value = "/**")
+  CloudFormationStack get(HttpServletRequest request) {
+    String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+    String stackId = new AntPathMatcher().extractPathWithinPattern(pattern, request.getRequestURI());
     log.debug("Cloud formation get stack with id {}", stackId);
-    return cloudFormationProviders
-      .stream()
-      .map(p -> p.get(stackId))
-      .filter(Optional::isPresent)
-      .map(Optional<CloudFormation>::get)
-      .findFirst()
+    return cloudFormationProvider
+      .get(stackId)
       .orElseThrow(
         () -> new ResourceNotFoundException(String.format("Cloud Formation stackId %s not found.", stackId))
       );

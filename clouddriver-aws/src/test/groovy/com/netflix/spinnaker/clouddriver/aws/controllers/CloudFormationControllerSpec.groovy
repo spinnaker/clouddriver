@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.controllers
+package com.netflix.spinnaker.clouddriver.aws.controllers
 
 import com.fasterxml.jackson.annotation.JsonInclude
-import com.netflix.spinnaker.clouddriver.model.CloudFormation
-import com.netflix.spinnaker.clouddriver.model.CloudFormationProvider
+import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationStack
+import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonCloudFormationProvider
 import groovy.transform.Immutable
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -43,43 +43,43 @@ class CloudFormationControllerSpec extends Specification {
   protected MockMvc mvc
 
   @Autowired
-  CloudFormationProvider<CloudFormation> cloudFormationProvider
+  AmazonCloudFormationProvider cloudFormationProvider
 
   def "request a list of stacks returns all the stacks for a given account (any region)"() {
     given:
-    def accountId = '123456789'
-    cloudFormationProvider.list(accountId, '*') >> [ new CloudFormationTest(accountId: accountId) ]
+    def accountName = 'aws-account-name'
+    cloudFormationProvider.list(accountName, '*') >> [ new CloudFormationStackTest(accountName: accountName) ]
 
     when:
-    def results = mvc.perform(get("/cloudFormation/list/$accountId"))
+    def results = mvc.perform(get("/aws/cloudFormation/stacks?accountName=$accountName"))
 
     then:
     results.andExpect(status().is2xxSuccessful())
-    results.andExpect(jsonPath('$[0].accountId').value(accountId))
+    results.andExpect(jsonPath('$[0].accountName').value(accountName))
   }
 
   def "request a list of stacks returns all the stacks for a given account filtering by region (if specified)"() {
     given:
-    def accountId = '123456789'
+    def accountName = 'aws-account-name'
     def region = 'region'
-    cloudFormationProvider.list(accountId, region) >> [ new CloudFormationTest(accountId: accountId, region: region) ]
+    cloudFormationProvider.list(accountName, region) >> [ new CloudFormationStackTest(accountName: accountName, region: region) ]
 
     when:
-    def results = mvc.perform(get("/cloudFormation/list/$accountId?region=$region"))
+    def results = mvc.perform(get("/aws/cloudFormation/stacks?accountName=$accountName&region=$region"))
 
     then:
     results.andExpect(status().is2xxSuccessful())
-    results.andExpect(jsonPath('$[0].accountId').value(accountId))
+    results.andExpect(jsonPath('$[0].accountName').value(accountName))
     results.andExpect(jsonPath('$[0].region').value(region))
   }
 
   def "requesting a single stack by stackId"() {
     given:
     def stackId = "arn:cloudformation:stack/name"
-    cloudFormationProvider.get(stackId) >> Optional.of(new CloudFormationTest(stackId: stackId))
+    cloudFormationProvider.get(stackId) >> Optional.of(new CloudFormationStackTest(stackId: stackId))
 
     when:
-    def results = mvc.perform(get("/cloudFormation/get?stackId=$stackId"))
+    def results = mvc.perform(get("/aws/cloudFormation/stacks/$stackId"))
 
     then:
     results.andExpect(status().is2xxSuccessful())
@@ -92,7 +92,7 @@ class CloudFormationControllerSpec extends Specification {
     cloudFormationProvider.get(stackId) >> { throw new ResourceNotFoundException() }
 
     when:
-    def results = mvc.perform(get("/cloudFormation/get?stackId=$stackId"))
+    def results = mvc.perform(get("/aws/cloudFormation/stacks/$stackId"))
 
     then:
     results.andExpect(status().is(404))
@@ -100,7 +100,7 @@ class CloudFormationControllerSpec extends Specification {
 
   @Immutable
   @JsonInclude(JsonInclude.Include.NON_EMPTY)
-  class CloudFormationTest implements CloudFormation {
+  class CloudFormationStackTest implements CloudFormationStack {
     final String stackId
     final Map<String, String> tags
     final Map<String, String> outputs
@@ -119,8 +119,8 @@ class CloudFormationControllerSpec extends Specification {
     DetachedMockFactory detachedMockFactory = new DetachedMockFactory()
 
     @Bean
-    CloudFormationProvider provider() {
-      detachedMockFactory.Stub(CloudFormationProvider)
+    AmazonCloudFormationProvider provider() {
+      detachedMockFactory.Stub(AmazonCloudFormationProvider)
     }
   }
 
