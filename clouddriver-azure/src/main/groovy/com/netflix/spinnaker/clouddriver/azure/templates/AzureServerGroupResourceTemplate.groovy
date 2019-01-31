@@ -33,7 +33,6 @@ package com.netflix.spinnaker.clouddriver.azure.templates
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription.AzureInboundPortConfig
-import com.netflix.spinnaker.clouddriver.model.Image
 import groovy.util.logging.Slf4j
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
