@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.jobs.local
 
-import com.netflix.spinnaker.clouddriver.jobs.JobExecutor
+import com.netflix.spinnaker.clouddriver.jobs.AsyncJobExecutor
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus
 import groovy.util.logging.Slf4j
@@ -32,7 +32,7 @@ import org.springframework.beans.factory.annotation.Value
 import java.util.concurrent.ConcurrentHashMap
 
 @Slf4j
-class JobExecutorLocal implements JobExecutor {
+class AsyncJobExecutorLocal implements AsyncJobExecutor {
 
   @Value('${jobs.local.timeoutMinutes:10}')
   long timeoutMinutes

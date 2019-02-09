@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.jobs
 
-interface JobExecutor {
+interface AsyncJobExecutor {
   String startJob(JobRequest jobRequest, Map<String, String> environment, InputStream inputStream)
   boolean jobExists(String jobId)
   JobStatus updateJob(String jobId)

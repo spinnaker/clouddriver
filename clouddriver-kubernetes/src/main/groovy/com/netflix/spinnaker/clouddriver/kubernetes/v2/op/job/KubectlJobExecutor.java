@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
-import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
+import com.netflix.spinnaker.clouddriver.jobs.AsyncJobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
@@ -71,12 +71,12 @@ public class KubectlJobExecutor {
 
   private final static String NO_RESOURCE_TYPE_ERROR = "doesn't have a resource type";
 
-  private final JobExecutor jobExecutor;
+  private final AsyncJobExecutor jobExecutor;
 
   private final Gson gson = new Gson();
 
   @Autowired
-  KubectlJobExecutor(JobExecutor jobExecutor) {
+  KubectlJobExecutor(AsyncJobExecutor jobExecutor) {
     this.jobExecutor = jobExecutor;
   }
 

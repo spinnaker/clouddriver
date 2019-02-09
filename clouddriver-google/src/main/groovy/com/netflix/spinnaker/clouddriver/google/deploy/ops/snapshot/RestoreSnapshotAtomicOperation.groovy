@@ -32,7 +32,7 @@ import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvi
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleSecurityGroupProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.jobs.JobExecutor
+import com.netflix.spinnaker.clouddriver.jobs.AsyncJobExecutor
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -72,7 +72,7 @@ class RestoreSnapshotAtomicOperation implements AtomicOperation<Void> {
   AccountCredentialsRepository accountCredentialsRepository
 
   @Autowired
-  JobExecutor jobExecutor
+  AsyncJobExecutor jobExecutor
 
   @Autowired
   ObjectMapper objectMapper

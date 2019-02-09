@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.appengine
 
-import com.netflix.spinnaker.clouddriver.jobs.JobExecutor
+import com.netflix.spinnaker.clouddriver.jobs.AsyncJobExecutor
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus
 import org.springframework.beans.factory.annotation.Autowired
@@ -29,7 +29,7 @@ class AppengineJobExecutor {
   Long sleepMs
 
   @Autowired
-  JobExecutor jobExecutor
+  AsyncJobExecutor jobExecutor
 
   void runCommand(List<String> command) {
     String jobId = jobExecutor.startJob(new JobRequest(command),
