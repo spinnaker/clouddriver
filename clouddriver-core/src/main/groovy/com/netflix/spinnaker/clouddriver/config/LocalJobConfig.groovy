@@ -16,9 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.config
 
-import com.netflix.spinnaker.clouddriver.jobs.AsyncJobExecutor
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor
-import com.netflix.spinnaker.clouddriver.jobs.local.AsyncJobExecutorLocal
 import com.netflix.spinnaker.clouddriver.jobs.local.JobExecutorLocal
 import groovy.util.logging.Slf4j
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -28,13 +26,6 @@ import org.springframework.context.annotation.Configuration
 @Slf4j
 @Configuration
 class LocalJobConfig {
-
-  @Bean
-  @ConditionalOnMissingBean(AsyncJobExecutor)
-  AsyncJobExecutor asyncJobExecutorLocal() {
-    new AsyncJobExecutorLocal()
-  }
-
   @Bean
   @ConditionalOnMissingBean(JobExecutor)
   JobExecutor jobExecutorLocal() {
