@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.appengine
 
-import com.netflix.spinnaker.clouddriver.jobs.AsyncJobExecutor
+import com.netflix.spinnaker.clouddriver.jobs.JobExecutor
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus
 import org.springframework.beans.factory.annotation.Autowired
@@ -29,27 +29,16 @@ class AppengineJobExecutor {
   Long sleepMs
 
   @Autowired
-  AsyncJobExecutor jobExecutor
+  JobExecutor jobExecutor
 
   void runCommand(List<String> command) {
-    String jobId = jobExecutor.startJob(new JobRequest(command),
+    JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command),
                                         System.getenv(),
                                         new ByteArrayInputStream())
-    waitForJobCompletion(jobId)
-  }
-
-  void waitForJobCompletion(String jobId) {
-    sleep(sleepMs)
-    JobStatus jobStatus = jobExecutor.updateJob(jobId)
-    while (jobStatus != null && jobStatus.state == JobStatus.State.RUNNING) {
-      sleep(sleepMs)
-      jobStatus = jobExecutor.updateJob(jobId)
-    }
-    if (jobStatus == null) {
-      throw new RuntimeException("job timed out or was cancelled")
-    }
-    if (jobStatus.result == JobStatus.Result.FAILURE && jobStatus.stdOut) {
-      throw new IllegalArgumentException("$jobStatus.stdOut + $jobStatus.stdErr")
+    if (jobStatus.getResult() == JobStatus.Result.FAILURE && jobStatus.getStdOut()) {
+      String stdOut = jobStatus.getStdOut()
+      String stdErr = jobStatus.getStdErr()
+      throw new IllegalArgumentException("$stdOut + $stdErr")
     }
   }
 }
