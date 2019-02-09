@@ -108,7 +108,7 @@ class AsyncJobExecutorLocal implements AsyncJobExecutor {
       log.debug("Polling state for $jobId...")
 
       if (jobIdToHandlerMap[jobId]) {
-        JobStatus jobStatus = new JobStatus()
+        JobStatus jobStatus = JobStatus.builder().build()
         jobStatus.id = jobId
 
         DefaultExecuteResultHandler resultHandler
