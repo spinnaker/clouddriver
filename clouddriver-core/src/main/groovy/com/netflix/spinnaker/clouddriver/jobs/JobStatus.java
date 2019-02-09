@@ -17,20 +17,14 @@
 package com.netflix.spinnaker.clouddriver.jobs;
 
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 
 @Builder
-@Data
+@Getter
 public class JobStatus {
-  String id;
-  State state;
-  Result result;
-  String stdOut;
-  String stdErr;
-
-  public enum State {
-    RUNNING, COMPLETED;
-  }
+  private final Result result;
+  private final String stdOut;
+  private final String stdErr;
 
   public enum Result {
     SUCCESS, FAILURE;
