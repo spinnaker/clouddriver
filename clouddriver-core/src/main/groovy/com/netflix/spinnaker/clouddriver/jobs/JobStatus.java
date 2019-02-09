@@ -14,21 +14,23 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.jobs
+package com.netflix.spinnaker.clouddriver.jobs;
 
-class JobStatus {
+import lombok.Data;
 
-  String id
-  State state
-  Result result
-  String stdOut
-  String stdErr
+@Data
+public class JobStatus {
+  String id;
+  State state;
+  Result result;
+  String stdOut;
+  String stdErr;
 
-  static enum State {
-    RUNNING, COMPLETED
+  public enum State {
+    RUNNING, COMPLETED;
   }
 
-  static enum Result {
-    SUCCESS, FAILURE
+  public enum Result {
+    SUCCESS, FAILURE;
   }
 }

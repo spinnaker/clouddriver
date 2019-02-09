@@ -32,7 +32,7 @@ class AppengineJobExecutor {
   JobExecutor jobExecutor
 
   void runCommand(List<String> command) {
-    String jobId = jobExecutor.startJob(new JobRequest(tokenizedCommand: command),
+    String jobId = jobExecutor.startJob(new JobRequest(command),
                                         System.getenv(),
                                         new ByteArrayInputStream())
     waitForJobCompletion(jobId)

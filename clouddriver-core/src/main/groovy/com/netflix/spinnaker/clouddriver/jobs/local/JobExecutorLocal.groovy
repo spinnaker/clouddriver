@@ -108,7 +108,8 @@ class JobExecutorLocal implements JobExecutor {
       log.debug("Polling state for $jobId...")
 
       if (jobIdToHandlerMap[jobId]) {
-        JobStatus jobStatus = new JobStatus(id: jobId)
+        JobStatus jobStatus = new JobStatus()
+        jobStatus.id = jobId
 
         DefaultExecuteResultHandler resultHandler
         ByteArrayOutputStream stdOut
