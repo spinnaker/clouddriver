@@ -222,7 +222,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setMemoryLimit(memoryLimit)
       .setIamRole(iamRole)
       .setTaskName(StringUtils.substringAfterLast(taskDefinition.getTaskDefinitionArn(), "/"))
-      .setEnvironmentVariables(containerDefinition.getEnvironment());
+      .setEnvironmentVariables(containerDefinition.getEnvironment())
+      .setSecrets(containerDefinition.getSecrets());
   }
 
   private ServerGroup.Capacity buildServerGroupCapacity(int desiredCount, ScalableTarget target) {

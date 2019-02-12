@@ -353,6 +353,7 @@ class EcsServerClusterProviderSpec extends Specification {
         cpuUnits: 123,
         memoryReservation: 256,
         environmentVariables: [],
+        secrets: [],
         iamRole: 'None'
       ),
       metricAlarms: [],
