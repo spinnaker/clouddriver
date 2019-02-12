@@ -257,6 +257,9 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
       (description.configFilepaths?.collect { Paths.get(repositoryPath, applicationDirectoryRoot ?: '.', it).toString() } ?: []) as List<String>
     def configArtifactPaths = fetchConfigArtifacts(description.configArtifacts, repositoryPath, applicationDirectoryRoot)
 
+    // runCommand expects a List<String> and will fail if some of the arguments are GStrings (as that is not a subclass
+    // of String). It is thus important to only add Strings to deployCommand.  For example, adding a flag "--test=$testvalue"
+    // below will cause deployments to fail unless you explicitly convert it to a String via "--test=$testvalue".toString()
     def deployCommand = ["gcloud"]
     if (gcloudReleaseTrack != null && gcloudReleaseTrack != GcloudReleaseTrack.STABLE) {
       deployCommand << gcloudReleaseTrack.toString().toLowerCase()

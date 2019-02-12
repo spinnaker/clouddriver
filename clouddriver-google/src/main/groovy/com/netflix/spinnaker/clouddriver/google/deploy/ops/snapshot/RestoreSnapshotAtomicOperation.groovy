@@ -142,6 +142,9 @@ class RestoreSnapshotAtomicOperation implements AtomicOperation<Void> {
 
     task.updateStatus BASE_PHASE, "Restoring snapshot with timestamp ${snapshotTimestamp} for application ${applicationName} in account ${accountName}"
     createTerraformConfig()
+    // JobRequest expects a List<String> and will fail if some of the arguments are GStrings (as that is not a subclass
+    // of String). It is thus important to only add Strings to command.  For example, adding a flag "--test=$testvalue"
+    // below will cause the job to fail unless you explicitly convert it to a String via "--test=$testvalue".toString()
     ArrayList<String> command = ["terraform", "apply", "-state=" + directory + "/terraform.tfstate", directory]
     JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command), System.getenv(), new ByteArrayInputStream())
     cleanUpDirectory()
@@ -223,6 +226,9 @@ class RestoreSnapshotAtomicOperation implements AtomicOperation<Void> {
       inputStream = new ByteArrayInputStream()
       env.GOOGLE_REGION = region
     }
+    // JobRequest expects a List<String> and will fail if some of the arguments are GStrings (as that is not a subclass
+    // of String). It is thus important to only add Strings to command.  For example, adding a flag "--test=$testvalue"
+    // below will cause the job to fail unless you explicitly convert it to a String via "--test=$testvalue".toString()
     ArrayList<String> command = ["terraform", "import", "-state=" + directory + "/terraform.tfstate", resource + "." + name, id]
     JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command), env, inputStream)
     if (jobStatus.getResult() == JobStatus.Result.FAILURE && jobStatus.stdOut) {
