@@ -262,13 +262,13 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
       deployCommand << gcloudReleaseTrack.toString().toLowerCase()
     }
     deployCommand += ["app", "deploy", *(repositoryFullConfigFilePaths + writtenFullConfigFilePaths + configArtifactPaths)]
-    deployCommand << "--version=$versionName"
+    deployCommand << "--version=" + versionName
     deployCommand << (description.promote ? "--promote" : "--no-promote")
     deployCommand << (description.stopPreviousVersion ? "--stop-previous-version": "--no-stop-previous-version")
-    deployCommand << "--project=$project"
-    deployCommand << "--account=$accountEmail"
+    deployCommand << "--project=" + project
+    deployCommand << "--account=" + accountEmail
     if (containerDeployment) {
-      deployCommand << "--image-url=$imageUrl"
+      deployCommand << "--image-url=" + imageUrl
     }
 
     task.updateStatus BASE_PHASE, "Deploying version $versionName..."

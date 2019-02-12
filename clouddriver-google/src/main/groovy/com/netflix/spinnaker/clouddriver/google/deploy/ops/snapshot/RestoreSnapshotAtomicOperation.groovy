@@ -142,7 +142,7 @@ class RestoreSnapshotAtomicOperation implements AtomicOperation<Void> {
 
     task.updateStatus BASE_PHASE, "Restoring snapshot with timestamp ${snapshotTimestamp} for application ${applicationName} in account ${accountName}"
     createTerraformConfig()
-    ArrayList<String> command = ["terraform", "apply", "-state=$directory/terraform.tfstate", "$directory"]
+    ArrayList<String> command = ["terraform", "apply", "-state=" + directory + "/terraform.tfstate", directory]
     JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command), System.getenv(), new ByteArrayInputStream())
     cleanUpDirectory()
     if (jobStatus.getResult() == JobStatus.Result.FAILURE && jobStatus.getStdOut()) {
@@ -223,7 +223,7 @@ class RestoreSnapshotAtomicOperation implements AtomicOperation<Void> {
       inputStream = new ByteArrayInputStream()
       env.GOOGLE_REGION = region
     }
-    ArrayList<String> command = ["terraform", "import", "-state=$directory/terraform.tfstate", "$resource.$name", id]
+    ArrayList<String> command = ["terraform", "import", "-state=" + directory + "/terraform.tfstate", resource + "." + name, id]
     JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command), env, inputStream)
     if (jobStatus.getResult() == JobStatus.Result.FAILURE && jobStatus.stdOut) {
       cleanUpDirectory()
