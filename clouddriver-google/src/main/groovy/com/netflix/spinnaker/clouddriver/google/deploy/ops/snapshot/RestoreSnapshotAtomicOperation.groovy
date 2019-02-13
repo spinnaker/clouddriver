@@ -142,11 +142,17 @@ class RestoreSnapshotAtomicOperation implements AtomicOperation<Void> {
 
     task.updateStatus BASE_PHASE, "Restoring snapshot with timestamp ${snapshotTimestamp} for application ${applicationName} in account ${accountName}"
     createTerraformConfig()
-    ArrayList<String> command = ["terraform", "apply", "-state=$directory/terraform.tfstate", "$directory"]
-    String jobId = jobExecutor.startJob(new JobRequest(tokenizedCommand: command), System.getenv(), new ByteArrayInputStream())
-    waitForJobCompletion(jobId)
-
+    // JobRequest expects a List<String> and will fail if some of the arguments are GStrings (as that is not a subclass
+    // of String). It is thus important to only add Strings to command.  For example, adding a flag "--test=$testvalue"
+    // below will cause the job to fail unless you explicitly convert it to a String via "--test=$testvalue".toString()
+    ArrayList<String> command = ["terraform", "apply", "-state=" + directory + "/terraform.tfstate", directory]
+    JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command), System.getenv(), new ByteArrayInputStream())
     cleanUpDirectory()
+    if (jobStatus.getResult() == JobStatus.Result.FAILURE && jobStatus.getStdOut()) {
+      String stdOut = jobStatus.getStdOut()
+      String stdErr = jobStatus.getStdErr()
+      throw new IllegalArgumentException("$stdOut + $stdErr")
+    }
     return null
   }
 
@@ -220,19 +226,12 @@ class RestoreSnapshotAtomicOperation implements AtomicOperation<Void> {
       inputStream = new ByteArrayInputStream()
       env.GOOGLE_REGION = region
     }
-    ArrayList<String> command = ["terraform", "import", "-state=$directory/terraform.tfstate", "$resource.$name", id]
-    String jobId = jobExecutor.startJob(new JobRequest(tokenizedCommand: command), env, inputStream)
-    waitForJobCompletion(jobId)
-  }
-
-  private void waitForJobCompletion(String jobId) {
-    sleep(1000)
-    JobStatus jobStatus = jobExecutor.updateJob(jobId)
-    while (jobStatus.state == JobStatus.State.RUNNING) {
-      sleep(1000)
-      jobStatus = jobExecutor.updateJob(jobId)
-    }
-    if (jobStatus.result == JobStatus.Result.FAILURE && jobStatus.stdOut) {
+    // JobRequest expects a List<String> and will fail if some of the arguments are GStrings (as that is not a subclass
+    // of String). It is thus important to only add Strings to command.  For example, adding a flag "--test=$testvalue"
+    // below will cause the job to fail unless you explicitly convert it to a String via "--test=$testvalue".toString()
+    ArrayList<String> command = ["terraform", "import", "-state=" + directory + "/terraform.tfstate", resource + "." + name, id]
+    JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command), env, inputStream)
+    if (jobStatus.getResult() == JobStatus.Result.FAILURE && jobStatus.stdOut) {
       cleanUpDirectory()
       throw new IllegalArgumentException("$jobStatus.stdOut + $jobStatus.stdErr")
     }
