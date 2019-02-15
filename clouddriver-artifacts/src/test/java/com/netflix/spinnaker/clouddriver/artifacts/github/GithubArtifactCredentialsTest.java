@@ -112,9 +112,9 @@ class GithubArtifactCredentialsTest {
   }
 
   private void prepareServer(WireMockServer server, Function<MappingBuilder, MappingBuilder> withAuth) throws IOException {
-    final String DOWNLOAD_PATH = "/download/spinnaker/testing/master/manifest.yml";
+    final String downloadPath = "/download/spinnaker/testing/master/manifest.yml";
 
-    GitHubArtifactCredentials.ContentMetadata contentMetadata = new GitHubArtifactCredentials.ContentMetadata().setDownloadUrl(server.baseUrl() + DOWNLOAD_PATH);
+    GitHubArtifactCredentials.ContentMetadata contentMetadata = new GitHubArtifactCredentials.ContentMetadata().setDownloadUrl(server.baseUrl() + downloadPath);
 
     server.stubFor(
       withAuth.apply(
@@ -126,7 +126,7 @@ class GithubArtifactCredentialsTest {
 
     server.stubFor(
       withAuth.apply(
-        any(urlPathEqualTo(DOWNLOAD_PATH))
+        any(urlPathEqualTo(downloadPath))
           .willReturn(aResponse().withBody(FILE_CONTENTS))
       )
     );
