@@ -20,8 +20,6 @@ package com.netflix.spinnaker.clouddriver.artifacts.embedded;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import java.util.Arrays;
-import java.util.List;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
@@ -29,7 +27,9 @@ import org.apache.commons.lang3.NotImplementedException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 
 @Slf4j
 @Data
