@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Schibsted Media Group.
+ * Copyright 2019 Pivotal, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -13,34 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.model;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
-/**
- * A representation of a CloudFormation stack
- */
-public interface CloudFormation {
+import org.junit.jupiter.api.Test;
 
-  String getStackId();
+import static org.junit.jupiter.api.Assertions.*;
 
-  Map<String, String> getTags();
+class DestroyCloudFoundryServerGroupAtomicOperationConverterTest {
 
-  Map<String, String> getOutputs();
-
-  String getStackName();
-
-  String getRegion();
-
-  String getAccountName();
-
-  String getAccountId();
-
-  String getStackStatus();
-
-  String getStackStatusReason();
-
-  Date getCreationTime();
+  @Test
+  void convertDescription() {
+  }
 }
