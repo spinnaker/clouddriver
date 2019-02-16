@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.artifacts.helm;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.clouddriver.artifacts.exceptions.FailedDownloadException;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import com.squareup.okhttp.OkHttpClient;
@@ -148,11 +149,5 @@ public class HelmArtifactCredentials implements ArtifactCredentials {
       throw new FailedDownloadException("Failed to download index.yaml file in '" + indexParser.getRepository() + "' repository");
     }
     return indexDownloadResponse.body().byteStream();
-  }
-
-  public class FailedDownloadException extends IOException {
-    public FailedDownloadException(String message) {
-      super(message);
-    }
   }
 }

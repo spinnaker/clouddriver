@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.artifacts.gitlab;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.clouddriver.artifacts.exceptions.FailedDownloadException;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.squareup.okhttp.HttpUrl;
 import com.squareup.okhttp.OkHttpClient;
@@ -109,14 +110,7 @@ public class GitlabArtifactCredentials implements ArtifactCredentials {
       Response downloadResponse = okHttpClient.newCall(fileRequest).execute();
       return downloadResponse.body().byteStream();
     } catch (IOException e) {
-      throw new com.netflix.spinnaker.clouddriver.artifacts.gitlab.GitlabArtifactCredentials.FailedDownloadException("Unable to download the contents of artifact " + artifact + ": " + e.getMessage(), e);
-    }
-  }
-
-  public class FailedDownloadException extends IOException {
-
-    public FailedDownloadException(String message, Throwable cause) {
-      super(message, cause);
+      throw new FailedDownloadException("Unable to download the contents of artifact " + artifact + ": " + e.getMessage(), e);
     }
   }
 }

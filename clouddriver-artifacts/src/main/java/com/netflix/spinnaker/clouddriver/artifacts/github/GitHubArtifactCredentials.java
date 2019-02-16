@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.clouddriver.artifacts.exceptions.FailedDownloadException;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.squareup.okhttp.*;
 import lombok.Data;
@@ -150,15 +151,5 @@ public class GitHubArtifactCredentials implements ArtifactCredentials {
   public static class ContentMetadata {
     @JsonProperty("download_url")
     private String downloadUrl;
-  }
-
-  public class FailedDownloadException extends IOException {
-    public FailedDownloadException(String message) {
-      super(message);
-    }
-
-    public FailedDownloadException(String message, Throwable cause) {
-      super(message, cause);
-    }
   }
 }
