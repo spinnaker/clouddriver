@@ -26,7 +26,7 @@ RUN apk -v --update add py-pip && \
   apk -v --purge del py-pip && \
   rm /var/cache/apk/*
 
-ENV PATH "$PATH:/usr/local/bin/aws-iam-authenticator"
+ENV PATH "$PATH:/usr/local/bin/"
 
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin/
 

@@ -32,6 +32,6 @@ RUN wget -O /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py && \
     python /tmp/get-pip.py && \
     pip install awscli --upgrade 
 
-ENV PATH "$PATH:/usr/local/bin/aws-iam-authenticator"
+ENV PATH "$PATH:/usr/local/bin/"
 
 CMD ["/opt/clouddriver/bin/clouddriver"]
