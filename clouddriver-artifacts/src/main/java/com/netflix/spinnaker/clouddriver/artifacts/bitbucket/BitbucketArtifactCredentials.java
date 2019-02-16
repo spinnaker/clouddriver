@@ -69,7 +69,7 @@ public class BitbucketArtifactCredentials implements ArtifactCredentials {
       } else if (useLogin) {
         authHeader = Base64.encodeBase64String((account.getUsername() + ":" + account.getPassword()).getBytes());
       }
-      builder.header("Authorization: Basic ", authHeader);
+      builder.header("Authorization", "Basic " + authHeader);
       log.info("Loaded credentials for Bitbucket artifact account {}", account.getName());
     } else {
       log.info("No credentials included with Bitbucket artifact account {}", account.getName());
