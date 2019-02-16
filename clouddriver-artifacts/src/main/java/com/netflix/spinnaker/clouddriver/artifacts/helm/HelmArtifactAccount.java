@@ -19,10 +19,11 @@ package com.netflix.spinnaker.clouddriver.artifacts.helm;
 
 
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
+import com.netflix.spinnaker.clouddriver.artifacts.config.BasicAuth;
 import lombok.Data;
 
 @Data
-public class HelmArtifactAccount implements ArtifactAccount{
+public class HelmArtifactAccount implements ArtifactAccount, BasicAuth {
   private String name;
   /*
     One of the following are required for auth:
@@ -33,5 +34,4 @@ public class HelmArtifactAccount implements ArtifactAccount{
   private String password;
   private String usernamePasswordFile;
   private String repository;
-
 }
