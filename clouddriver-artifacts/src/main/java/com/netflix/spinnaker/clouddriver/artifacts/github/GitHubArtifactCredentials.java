@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.artifacts.exceptions.FailedDownloadExce
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.squareup.okhttp.*;
 import lombok.Data;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
@@ -37,21 +38,22 @@ import java.util.Collections;
 import java.util.List;
 
 @Slf4j
-@Data
 public class GitHubArtifactCredentials implements ArtifactCredentials {
+  @Getter
   private final String name;
+  @Getter
   private final List<String> types = Collections.singletonList("github/file");
 
   @JsonIgnore
   private final Headers headers;
 
   @JsonIgnore
-  OkHttpClient okHttpClient;
+  private final OkHttpClient okHttpClient;
 
   @JsonIgnore
-  ObjectMapper objectMapper;
+  private final ObjectMapper objectMapper;
 
-  public GitHubArtifactCredentials(GitHubArtifactAccount account, OkHttpClient okHttpClient, ObjectMapper objectMapper) {
+  GitHubArtifactCredentials(GitHubArtifactAccount account, OkHttpClient okHttpClient, ObjectMapper objectMapper) {
     this.name = account.getName();
     this.okHttpClient = okHttpClient;
     this.objectMapper = objectMapper;

@@ -18,7 +18,6 @@
 package com.netflix.spinnaker.clouddriver.artifacts.helm;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.artifacts.exceptions.FailedDownloadException;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
@@ -28,6 +27,7 @@ import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Request.Builder;
 import com.squareup.okhttp.Response;
 import lombok.Data;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
@@ -36,33 +36,32 @@ import org.apache.commons.lang3.StringUtils;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
 @Data
 public class HelmArtifactCredentials implements ArtifactCredentials {
+  @Getter
   private final String name;
-  private final List<String> types = Arrays.asList("helm/chart");
+  @Getter
+  private final List<String> types = Collections.singletonList("helm/chart");
 
   @JsonIgnore
   private final IndexParser indexParser;
 
   @JsonIgnore
-  OkHttpClient okHttpClient;
+  private final OkHttpClient okHttpClient;
 
   @JsonIgnore
   private final Builder requestBuilder;
-
-  @JsonIgnore
-  ObjectMapper objectMapper;
 
   @Override
   public boolean handlesType(String type) {
     return type.equals("helm/chart");
   }
 
-  public HelmArtifactCredentials(HelmArtifactAccount account, OkHttpClient okHttpClient) {
+  HelmArtifactCredentials(HelmArtifactAccount account, OkHttpClient okHttpClient) {
     this.name = account.getName();
     this.okHttpClient = okHttpClient;
     this.indexParser = new IndexParser(account.getRepository());

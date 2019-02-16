@@ -29,11 +29,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class OracleArtifactClient {
+class OracleArtifactClient {
 
-  private Client client;
+  private final Client client;
 
-  public OracleArtifactClient(String userId, String sshPrivateKeyFilePath, String privateKeyPassphrase, String fingerprint, String tenancyId) {
+  OracleArtifactClient(String userId, String sshPrivateKeyFilePath, String privateKeyPassphrase, String fingerprint, String tenancyId) {
     Supplier<InputStream> privateKeySupplier = new SimplePrivateKeySupplier(sshPrivateKeyFilePath);
     AuthenticationDetailsProvider provider = SimpleAuthenticationDetailsProvider.builder()
             .userId(userId)

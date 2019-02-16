@@ -75,7 +75,7 @@ class GitlabArtifactCredentialsTest {
 
 
   private void runTestCase(WireMockServer server, GitlabArtifactAccount account, Function<MappingBuilder, MappingBuilder> expectedAuth) throws IOException {
-    GitlabArtifactCredentials credentials = new GitlabArtifactCredentials(account, okHttpClient, objectMapper);
+    GitlabArtifactCredentials credentials = new GitlabArtifactCredentials(account, okHttpClient);
 
     Artifact artifact = Artifact.builder()
       .reference(server.baseUrl() + DOWNLOAD_PATH)

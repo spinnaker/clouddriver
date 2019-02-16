@@ -24,7 +24,7 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Request.Builder;
 import com.squareup.okhttp.Response;
-import lombok.Data;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
@@ -33,22 +33,23 @@ import org.apache.commons.lang3.StringUtils;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
-@Data
 public class HttpArtifactCredentials implements ArtifactCredentials {
+  @Getter
   private final String name;
-  private final List<String> types = Arrays.asList("http/file");
+  @Getter
+  private final List<String> types = Collections.singletonList("http/file");
 
   @JsonIgnore
   private final Builder requestBuilder;
 
   @JsonIgnore
-  OkHttpClient okHttpClient;
+  private final OkHttpClient okHttpClient;
 
-  public HttpArtifactCredentials(HttpArtifactAccount account, OkHttpClient okHttpClient) {
+  HttpArtifactCredentials(HttpArtifactAccount account, OkHttpClient okHttpClient) {
     this.name = account.getName();
     this.okHttpClient = okHttpClient;
     Builder builder = new Request.Builder();

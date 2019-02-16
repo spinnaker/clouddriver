@@ -18,10 +18,8 @@
 package com.netflix.spinnaker.clouddriver.artifacts.helm;
 
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import lombok.Data;
-import org.apache.commons.lang3.StringUtils;
 
 @Data
 public class HelmArtifactAccount implements ArtifactAccount{
@@ -36,8 +34,4 @@ public class HelmArtifactAccount implements ArtifactAccount{
   private String usernamePasswordFile;
   private String repository;
 
-  @JsonIgnore
-  public boolean usesAuth() {
-    return !(StringUtils.isEmpty(username) && StringUtils.isEmpty(password) && StringUtils.isEmpty(usernamePasswordFile));
-  }
 }

@@ -35,10 +35,10 @@ public class ArtifactUtils {
       }
       public File directory;
       public long millis;
-    };
+    }
     // Directories come in hierarchical order within the stream, but
     // we need to set their timestamps after their children have been written.
-    Stack<DirectoryTimestamp> directoryStack = new Stack<DirectoryTimestamp>();
+    Stack<DirectoryTimestamp> directoryStack = new Stack<>();
 
     File baseDirectory = new File(basePath);
     baseDirectory.mkdir();

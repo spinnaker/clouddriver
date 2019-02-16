@@ -76,7 +76,7 @@ class BitbucketArtifactCredentialsTest {
 
 
   private void runTestCase(WireMockServer server, BitbucketArtifactAccount account, Function<MappingBuilder, MappingBuilder> expectedAuth) throws IOException {
-    BitbucketArtifactCredentials credentials = new BitbucketArtifactCredentials(account, okHttpClient, objectMapper);
+    BitbucketArtifactCredentials credentials = new BitbucketArtifactCredentials(account, okHttpClient);
 
     Artifact artifact = Artifact.builder()
       .reference(server.baseUrl() + DOWNLOAD_PATH)
