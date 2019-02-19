@@ -33,7 +33,7 @@ public class ArtifactCredentialsRepository {
   @Getter
   private final List<ArtifactCredentials> allCredentials;
 
-  ArtifactCredentialsRepository(List<List<? extends ArtifactCredentials>> allCredentials) {
+  public ArtifactCredentialsRepository(List<List<? extends ArtifactCredentials>> allCredentials) {
     this.allCredentials = Collections.unmodifiableList(
       allCredentials.stream()
         .filter(Objects::nonNull)
