@@ -198,7 +198,7 @@ public class Applications {
         .stream()
         .flatMap(vcap -> vcap.getValue().stream()
           .map(instance -> CloudFoundryServiceInstance.builder()
-            .serviceName(vcap.getKey())
+            .serviceInstanceName(vcap.getKey())
             .name(instance.getName())
             .plan(instance.getPlan())
             .tags(instance.getTags())
@@ -294,7 +294,7 @@ public class Applications {
   public void updateProcess(String guid, @Nullable String command, @Nullable String healthCheckType, @Nullable String healthCheckEndpoint) throws CloudFoundryApiException {
     final Process.HealthCheck healthCheck = healthCheckType != null ?
       new Process.HealthCheck().setType(healthCheckType) : null;
-    if (healthCheckEndpoint != null) {
+    if (healthCheckEndpoint != null && !healthCheckEndpoint.isEmpty()) {
       healthCheck.setData(new Process.HealthCheckData().setEndpoint(healthCheckEndpoint));
     }
     safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
