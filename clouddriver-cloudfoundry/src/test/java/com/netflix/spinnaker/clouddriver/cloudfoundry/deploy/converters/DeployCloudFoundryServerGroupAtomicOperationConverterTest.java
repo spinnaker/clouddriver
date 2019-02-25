@@ -70,15 +70,16 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
   }
 
   private List<String> accounts = List.of("test", "sourceAccount", "sourceAccount1", "sourceAccount2", "destinationAccount");
-  private final ArtifactCredentialsRepository artifactCredentialsRepository = new ArtifactCredentialsRepository();
 
-  {
-    accounts.toStream().forEach(account -> artifactCredentialsRepository.save(new ArtifactCredentialsFromString(
-      account,
-      List.of("a").asJava(),
-      "applications: [{instances: 42}]"
-    )));
-  }
+  private final ArtifactCredentialsRepository artifactCredentialsRepository = new ArtifactCredentialsRepository(
+    Collections.singletonList(
+      accounts.map(account -> new ArtifactCredentialsFromString(
+        account,
+        List.of("a").asJava(),
+        "applications: [{instances: 42}]"
+      )).asJava()
+    )
+  );
 
   private final AccountCredentialsRepository accountCredentialsRepository = new MapBackedAccountCredentialsRepository();
 
@@ -103,6 +104,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     final Map input = HashMap.of(
       "credentials", "destinationAccount",
       "region", "org > space",
+      "startApplication", "true",
       "source", HashMap.of(
         "account", "sourceAccount",
         "asgName", "serverGroupName1",
@@ -124,6 +126,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     assertThat(result.getSpace()).isEqualToComparingFieldByFieldRecursively(
       CloudFoundrySpace.builder().id("spaceID").name("space").organization(
         CloudFoundryOrganization.builder().id("orgID").name("org").build()).build());
+    assertThat(result.isStartApplication()).isTrue();
     assertThat(result.getApplicationAttributes()).isEqualToComparingFieldByFieldRecursively(
       new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
         .setInstances(42)

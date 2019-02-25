@@ -62,7 +62,7 @@ class GithubArtifactCredentialsTest {
     account.setName("my-github-account");
     account.setTokenFile(authFile.toAbsolutePath().toString());
 
-    runTestCase(server, account, m -> m.withHeader("Authorization",equalTo("token zzz")));
+    runTestCase(server, account, m -> m.withHeader("Authorization", equalTo("token zzz")));
   }
 
   @Test
@@ -92,7 +92,7 @@ class GithubArtifactCredentialsTest {
     GitHubArtifactAccount account = new GitHubArtifactAccount();
     account.setName("my-github-account");
 
-    runTestCase(server, account, m -> m.withHeader("Authorization",absent()));
+    runTestCase(server, account, m -> m.withHeader("Authorization", absent()));
   }
 
 
@@ -102,6 +102,7 @@ class GithubArtifactCredentialsTest {
     Artifact artifact = Artifact.builder()
       .reference(server.baseUrl() + METADATA_PATH)
       .version("master")
+      .type("github/file")
       .build();
 
     prepareServer(server, expectedAuth);

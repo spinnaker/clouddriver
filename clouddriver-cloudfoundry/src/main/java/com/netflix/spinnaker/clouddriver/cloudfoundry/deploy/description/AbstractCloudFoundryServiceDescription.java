@@ -26,9 +26,4 @@ import java.time.Duration;
 @EqualsAndHashCode(callSuper = true)
 public abstract class AbstractCloudFoundryServiceDescription extends AbstractCloudFoundryDescription {
   private CloudFoundrySpace space;
-  private long timeout = 450;
-
-  public Duration getTimeout() {
-    return Duration.ofSeconds(timeout);
-  }
 }
