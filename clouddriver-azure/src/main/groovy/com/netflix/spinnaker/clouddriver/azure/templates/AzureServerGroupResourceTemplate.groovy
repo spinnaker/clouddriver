@@ -60,6 +60,7 @@ class AzureServerGroupResourceTemplate {
    *
    */
   static class ServerGroupTemplate {
+    //TODO: Make this configurable for AZURE_US_GOVERNMENT
     String $schema = "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#"
     String contentVersion = "1.0.0.0"
 
@@ -328,11 +329,20 @@ class AzureServerGroupResourceTemplate {
 
     VirtualMachineScaleSetProperty(AzureServerGroupDescription description) {
       upgradePolicy["mode"] = description.upgradePolicy.toString()
-      virtualMachineProfile = description.customScriptsSettings?.fileUris ?
-        new ScaleSetVMProfilePropertyWithExtension(description) :
-        new ScaleSetVMProfileProperty(description)
 
+      if (description.customScriptsSettings?.commandToExecute) {
+        Collection<String> uriTemp = description.customScriptsSettings.fileUris
+        if (!uriTemp || uriTemp.isEmpty() || (uriTemp.size() == 1 && !uriTemp.first()?.trim())) {
 
+          // if there are no custom scripts provided, set the fileUris section as an empty array.
+          description.customScriptsSettings.fileUris = []
+        }
+
+        virtualMachineProfile = new ScaleSetVMProfilePropertyWithExtension(description)
+      }
+      else {
+        virtualMachineProfile = new ScaleSetVMProfileProperty(description)
+      }
     }
   }
 
@@ -407,7 +417,7 @@ class AzureServerGroupResourceTemplate {
   }
 
   /**
-   *
+   * Here is the location to put NSG applying to VMSS nic
    */
   static class NetworkInterfaceConfigurationProperty {
     boolean primary
