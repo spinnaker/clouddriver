@@ -96,6 +96,6 @@ public final class AtomicOperations {
   public static final String DESTROY_SERVICE = "destroyService";
 
   // CloudFormation operations
-  public static final String DEPLOY_CLOUDFORMATION = "deployCloudFormation";
+  public static final String DEPLOY_CLOUDFORMATION_STACK = "deployCloudFormation";
 
 }

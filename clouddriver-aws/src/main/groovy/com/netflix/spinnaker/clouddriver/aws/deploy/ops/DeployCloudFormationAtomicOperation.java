@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map> {
 
-  private static final String BASE_PHASE = "DEPLOY_CLOUDFORMATION";
+  private static final String BASE_PHASE = "DEPLOY_CLOUDFORMATION_STACK";
 
 
   @Autowired
@@ -53,14 +53,14 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
   @Override
   public Map operate(List priorOutputs) {
     Task task = TaskRepository.threadLocalTask.get();
-    task.updateStatus(BASE_PHASE, "Configuring cloudformation");
+    task.updateStatus(BASE_PHASE, "Configuring CloudFormation Stack");
     AmazonCloudFormation amazonCloudFormation = amazonClientProvider.getAmazonCloudFormation(
       description.getCredentials(), description.getRegion());
     String template;
     try {
       template = objectMapper.writeValueAsString(description.getTemplateBody());
     } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException("Could not deserialize template body", e);
+      throw new IllegalArgumentException("Could not serialize CloudFormation Stack template body", e);
     }
     List<Parameter> parameters = description.getParameters().entrySet().stream()
       .map(entry -> new Parameter()
@@ -78,24 +78,24 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
 
   private String createStack(AmazonCloudFormation amazonCloudFormation, String template, List<Parameter> parameters) {
     Task task = TaskRepository.threadLocalTask.get();
-    task.updateStatus(BASE_PHASE, "Preparing cloudformation");
+    task.updateStatus(BASE_PHASE, "Preparing CloudFormation Stack");
     CreateStackRequest createStackRequest = new CreateStackRequest()
       .withStackName(description.getStackName())
       .withParameters(parameters)
       .withTemplateBody(template);
-    task.updateStatus(BASE_PHASE, "Uploading cloudformation");
+    task.updateStatus(BASE_PHASE, "Uploading CloudFormation Stack");
     CreateStackResult createStackResult = amazonCloudFormation.createStack(createStackRequest);
     return createStackResult.getStackId();
   }
 
   private String updateStack(AmazonCloudFormation amazonCloudFormation, String template, List<Parameter> parameters) {
     Task task = TaskRepository.threadLocalTask.get();
-    task.updateStatus(BASE_PHASE, "Cloudformation stack exists. Updating it");
+    task.updateStatus(BASE_PHASE, "CloudFormation Stack exists. Updating it");
     UpdateStackRequest updateStackRequest = new UpdateStackRequest()
       .withStackName(description.getStackName())
       .withParameters(parameters)
       .withTemplateBody(template);
-    task.updateStatus(BASE_PHASE, "Uploading cloudformation");
+    task.updateStatus(BASE_PHASE, "Uploading CloudFormation Stack");
     try {
       UpdateStackResult updateStackResult = amazonCloudFormation.updateStack(updateStackRequest);
       return updateStackResult.getStackId();
@@ -106,7 +106,8 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         .getStacks()
         .stream()
         .findFirst()
-        .orElseThrow(() -> new IllegalArgumentException("No stack found with stack name " + description.getStackName()))
+        .orElseThrow(() ->
+          new IllegalArgumentException("No CloudFormation Stack found with stack name " + description.getStackName()))
         .getStackId();
     }
 

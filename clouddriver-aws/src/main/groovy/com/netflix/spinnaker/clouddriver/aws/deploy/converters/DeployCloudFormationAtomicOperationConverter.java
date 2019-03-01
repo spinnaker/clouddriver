@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-@AmazonOperation(AtomicOperations.DEPLOY_CLOUDFORMATION)
+@AmazonOperation(AtomicOperations.DEPLOY_CLOUDFORMATION_STACK)
 @Component("deployCloudFormationDescription")
 public class DeployCloudFormationAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
   @Override
