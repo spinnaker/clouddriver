@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Google, Inc.
+ * Copyright 2019 Pivotal, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,18 +12,27 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package com.netflix.spinnaker.clouddriver.google.deploy.description
+package com.netflix.spinnaker.clouddriver.artifacts.kubernetes;
 
-import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
+import com.netflix.spinnaker.clouddriver.artifacts.docker.DockerArtifactCredentials;
 
-class CreateGoogleInstanceDescription extends BaseGoogleInstanceDescription implements DeployDescription {
-  String instanceName
-  String zone
+public enum KubernetesArtifactType {
+  DockerImage(DockerArtifactCredentials.TYPE),
+  ConfigMap("kubernetes/configMap"),
+  Deployment("kubernetes/deployment"),
+  ReplicaSet("kubernetes/replicaSet"),
+  Secret("kubernetes/secret");
 
-  @Override
-  String getName() {
-    return instanceName
+  private final String type;
+
+  KubernetesArtifactType(String type) {
+    this.type = type;
+  }
+
+  public String getType() {
+    return type;
   }
 }
