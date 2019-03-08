@@ -66,7 +66,7 @@ public class KubernetesV2CachingAgentDispatcher implements KubernetesCachingAgen
             .stream()
             .map(KubernetesResourceProperties::getHandler)
             .filter(Objects::nonNull)
-            .filter(h -> v2Credentials.isValidKind(h.kind()) || h.kind() == NONE)
+            .filter(h -> !v2Credentials.checkIfInvalidKind(h.kind()).isPresent() || h.kind() == NONE)
             .map(h -> h.buildCachingAgent(credentials, propertyRegistry, objectMapper, registry, i, credentials.getCacheThreads(), agentInterval))
             .filter(Objects::nonNull)
             .forEach(c -> result.add((KubernetesCachingAgent) c))

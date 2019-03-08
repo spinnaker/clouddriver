@@ -59,7 +59,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter
   private final List<String> omitNamespaces;
   private final List<KubernetesKind> kinds;
-  private final List<KubernetesKind> omitKinds;
+  private final Map<KubernetesKind, String> omitKinds; // value: omit reason
   @Getter
   private final boolean serviceAccount;
   @Getter
@@ -115,15 +115,17 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private final Path serviceAccountNamespacePath = Paths.get("/var/run/secrets/kubernetes.io/serviceaccount/namespace");
 
-  public boolean isValidKind(KubernetesKind kind) {
+  public Optional<String> checkIfInvalidKind(KubernetesKind kind) {
     if (kind == KubernetesKind.NONE) {
-      return false;
+      return Optional.of("kubernetes kind NONE is invalid");
     } else if (!this.kinds.isEmpty()) {
-      return kinds.contains(kind);
+      return kinds.contains(kind) ? Optional.empty() :
+        Optional.of(String.format("kind %s is not included in account configuration, " +
+          "did you missed it in 'hal config provider kubernetes account add <account> --kinds'?", kind));
     } else if (!this.omitKinds.isEmpty()) {
-      return !omitKinds.contains(kind);
+      return !omitKinds.keySet().contains(kind) ? Optional.empty() : Optional.of(omitKinds.get(kind));
     } else {
-      return true;
+      return Optional.empty();
     }
   }
 
@@ -376,7 +378,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.cachingPolicies = cachingPolicies;
     this.kinds = kinds;
     this.metrics = metrics;
-    this.omitKinds = omitKinds;
+    this.omitKinds = omitKinds.stream()
+      .collect(Collectors.toMap(k -> k, k -> "kind included in 'omitKinds' of kubernetes account configuration"));
     this.onlySpinnakerManaged = onlySpinnakerManaged;
     this.liveManifestCalls = liveManifestCalls;
 
@@ -455,12 +458,13 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     List<KubernetesKind> allKinds = KubernetesKind.getValues();
 
     log.info("Checking permissions on configured kinds for account {}... {}", accountName, allKinds);
-    Set<KubernetesKind> unreadableKinds = allKinds.parallelStream()
+    Map<KubernetesKind, String> unreadableKinds = allKinds.parallelStream()
       .filter(k -> k != KubernetesKind.NONE)
-      .filter(k -> !omitKinds.contains(k))
-      .filter(k -> !canReadKind(k, checkNamespace))
-      .collect(Collectors.toCollection(ConcurrentHashMap::newKeySet));
-    omitKinds.addAll(unreadableKinds);
+      .filter(k -> !omitKinds.keySet().contains(k))
+      .collect(Collectors.toConcurrentMap(k -> k, k -> checkIfKindError(k, checkNamespace))).entrySet().parallelStream()
+      .filter(e -> e.getValue().isPresent())
+      .collect(Collectors.toConcurrentMap(Map.Entry::getKey, e -> e.getValue().get()));
+    omitKinds.putAll(unreadableKinds);
 
     if (metrics) {
       try {
@@ -474,7 +478,13 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
   }
 
-  private boolean canReadKind(KubernetesKind kind, String checkNamespace) {
+  /**
+   * Tries to read the provided kubernetes kind, returning error details if it cannot be read.
+   * @param kind kubernetes kind to check.
+   * @param checkNamespace namespace to check the kind.
+   * @return optional error message if the kind cannot be read.
+   */
+  private Optional<String> checkIfKindError(KubernetesKind kind, String checkNamespace) {
     try {
       log.info("Checking if {} is readable...", kind);
       if (kind.isNamespaced()) {
@@ -482,11 +492,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       } else {
         list(kind, null);
       }
-      return true;
+      return Optional.empty();
     } catch (Exception e) {
       log.info("Kind '{}' will not be cached in account '{}' for reason: '{}'", kind, accountName, e.getMessage());
       log.debug("Reading kind '{}' failed with exception: ", kind, e);
-      return false;
+      return Optional.of(e.getMessage());
     }
   }
 

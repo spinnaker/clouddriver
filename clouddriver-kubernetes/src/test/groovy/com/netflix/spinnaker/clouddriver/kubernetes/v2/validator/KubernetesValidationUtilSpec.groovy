@@ -51,7 +51,7 @@ class KubernetesValidationUtilSpec extends Specification {
     credentials.namespaces >> namespaces
     manifest.getNamespace() >> testNamespace
     manifest.getKind() >> kind
-    credentials.isValidKind(kind) >> true
+    credentials.checkIfInvalidKind(kind) >> Optional.empty()
     judgement == expectedResult
 
     where:
