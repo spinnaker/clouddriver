@@ -120,8 +120,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return Optional.of("kubernetes kind NONE is invalid");
     } else if (!this.kinds.isEmpty()) {
       return kinds.contains(kind) ? Optional.empty() :
-        Optional.of(String.format("kind %s is not included in account configuration, " +
-          "did you missed it in 'hal config provider kubernetes account add <account> --kinds'?", kind));
+        Optional.of(String.format("kind [%s] is not included in configuration for account [%s]", kind, accountName));
     } else if (!this.omitKinds.isEmpty()) {
       return !omitKinds.keySet().contains(kind) ? Optional.empty() : Optional.of(omitKinds.get(kind));
     } else {
