@@ -18,9 +18,11 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
+import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.ArtifactCredentialsFromString;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.PackageArtifactCredentials;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
@@ -62,33 +64,37 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
       });
     }
 
-    return new CloudFoundryCredentials(name, "", "", "", "", "", "")
-    {
+    return new CloudFoundryCredentials(name, "", "", "", "", "", "") {
       public CloudFoundryClient getClient() {
         return cloudFoundryClient;
       }
     };
   }
 
-  private List<String> accounts = List.of("test", "sourceAccount", "destinationAccount");
-  private final ArtifactCredentialsRepository artifactCredentialsRepository = new ArtifactCredentialsRepository();
-  {
-    accounts.toStream().forEach(account -> artifactCredentialsRepository.save(new ArtifactCredentialsFromString(
-      account,
-      List.of("a").asJava(),
-      "applications: [{instances: 42}]"
-    )));
-  }
+  private List<String> accounts = List.of("test", "sourceAccount", "sourceAccount1", "sourceAccount2", "destinationAccount");
+
+  private final ArtifactCredentialsRepository artifactCredentialsRepository = new ArtifactCredentialsRepository(
+    Collections.singletonList(
+      accounts.map(account -> new ArtifactCredentialsFromString(
+        account,
+        List.of("test").asJava(),
+        "applications: [{instances: 42}]"
+      )).asJava()
+    )
+  );
 
   private final AccountCredentialsRepository accountCredentialsRepository = new MapBackedAccountCredentialsRepository();
+
   {
     accounts.toStream().forEach(account -> accountCredentialsRepository.update(account, createCredentials(account)));
   }
+
   private final AccountCredentialsProvider accountCredentialsProvider =
     new DefaultAccountCredentialsProvider(accountCredentialsRepository);
 
   private final DeployCloudFoundryServerGroupAtomicOperationConverter converter =
-    new DeployCloudFoundryServerGroupAtomicOperationConverter(null, artifactCredentialsRepository, null);
+    new DeployCloudFoundryServerGroupAtomicOperationConverter(null, artifactCredentialsRepository, null,
+      new ArtifactDownloader(artifactCredentialsRepository));
 
   @BeforeEach
   void initializeClassUnderTest() {
@@ -97,19 +103,19 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
   }
 
   @Test
-  void convertDescriptionWithPackageArtifactSourceAndDownloadedManifest() {
+  void convertDescriptionWithSourceSet() {
     final Map input = HashMap.of(
       "credentials", "destinationAccount",
       "region", "org > space",
-      "artifact", HashMap.of(
-        "type", "package",
+      "startApplication", "true",
+      "source", HashMap.of(
         "account", "sourceAccount",
-        "serverGroupName", "serverGroupName1",
+        "asgName", "serverGroupName1",
         "region", "org > space"
       ).toJavaMap(),
       "manifest", HashMap.of(
-        "type", "artifact",
-        "account", "test",
+        "type", "test",
+        "artifactAccount", "test",
         "reference", "ref1"
       ).toJavaMap()
     ).toJavaMap();
@@ -123,6 +129,46 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     assertThat(result.getSpace()).isEqualToComparingFieldByFieldRecursively(
       CloudFoundrySpace.builder().id("spaceID").name("space").organization(
         CloudFoundryOrganization.builder().id("orgID").name("org").build()).build());
+    assertThat(result.isStartApplication()).isTrue();
+    assertThat(result.getApplicationAttributes()).isEqualToComparingFieldByFieldRecursively(
+      new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
+        .setInstances(42)
+        .setMemory("1024")
+        .setDiskQuota("1024")
+        .setBuildpacks(Collections.emptyList())
+    );
+  }
+
+  @Test
+  void convertDescriptionWithDestinationSet() {
+    final Map input = HashMap.of(
+      "credentials", "destinationAccount",
+      "region", "org > space",
+      "destination", HashMap.of(
+        "account", "sourceAccount1",
+        "region", "org1 > space1"
+      ).toJavaMap(),
+      "source", HashMap.of(
+        "account", "sourceAccount2",
+        "asgName", "serverGroupName1",
+        "region", "org > space"
+      ).toJavaMap(),
+      "manifest", HashMap.of(
+        "artifactAccount", "test",
+        "reference", "ref1",
+        "type", "test"
+      ).toJavaMap()
+    ).toJavaMap();
+
+    final DeployCloudFoundryServerGroupDescription result = converter.convertDescription(input);
+
+    CloudFoundryCredentials sourceCredentials = converter.getCredentialsObject("sourceAccount2");
+    assertThat(result.getAccountName()).isEqualTo("sourceAccount1");
+    assertThat(result.getArtifactCredentials())
+      .isEqualToComparingFieldByFieldRecursively(new PackageArtifactCredentials(sourceCredentials.getClient()));
+    assertThat(result.getSpace()).isEqualToComparingFieldByFieldRecursively(
+      CloudFoundrySpace.builder().id("space1ID").name("space1").organization(
+        CloudFoundryOrganization.builder().id("org1ID").name("org1").build()).build());
     assertThat(result.getApplicationAttributes()).isEqualToComparingFieldByFieldRecursively(
       new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
         .setInstances(42)

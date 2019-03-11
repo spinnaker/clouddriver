@@ -90,4 +90,12 @@ public final class AtomicOperations {
 
   // Image operations
   public static final String DEREGISTER_IMAGE = "deleteImage";
+
+  // Service operations
+  public static final String DEPLOY_SERVICE = "deployService";
+  public static final String DESTROY_SERVICE = "destroyService";
+
+  // CloudFormation operations
+  public static final String DEPLOY_CLOUDFORMATION_STACK = "deployCloudFormation";
+
 }

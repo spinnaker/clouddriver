@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Pivotal, Inc.
+ * Copyright 2019 Pivotal, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,33 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.controller;
+package com.netflix.spinnaker.clouddriver.controllers;
 
-import com.netflix.spinnaker.clouddriver.cloudfoundry.servicebroker.Service;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.servicebroker.ServiceProvider;
-import lombok.RequiredArgsConstructor;
+import com.netflix.spinnaker.clouddriver.model.Service;
+import com.netflix.spinnaker.clouddriver.model.ServiceInstance;
+import com.netflix.spinnaker.clouddriver.model.ServiceProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
+import java.util.Collections;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 
-@RequiredArgsConstructor
 @RestController
 @RequestMapping("/servicebroker")
 public class ServiceBrokerController {
   private final Collection<ServiceProvider> serviceProviders;
+
+  public ServiceBrokerController(@Autowired(required = false) Collection<ServiceProvider> serviceProviders) {
+    if (serviceProviders != null) {
+      this.serviceProviders = serviceProviders;
+    } else {
+      this.serviceProviders = Collections.emptyList();
+    }
+  }
 
   @PreAuthorize("hasPermission(#account, 'ACCOUNT', 'READ')")
   @GetMapping("/{account}/services")
@@ -43,5 +52,18 @@ public class ServiceBrokerController {
       .flatMap(serviceProvider -> serviceProvider.getServices(account, region).stream())
       .sorted(comparing(Service::getName))
       .collect(toList());
+  }
+
+  @PreAuthorize("hasPermission(#account, 'ACCOUNT', 'READ')")
+  @GetMapping("/{account}/serviceInstance")
+  public ServiceInstance getServiceInstance(@PathVariable String account,
+                                            @RequestParam(value = "cloudProvider") String cloudProvider,
+                                            @RequestParam(value = "region") String region,
+                                            @RequestParam(value = "serviceInstanceName") String serviceInstanceName) {
+    return serviceProviders.stream()
+      .filter(serviceProvider -> serviceProvider.getCloudProvider().equals(cloudProvider))
+      .findFirst()
+      .map(serviceProvider -> serviceProvider.getServiceInstance(account, region, serviceInstanceName))
+      .orElse(null);
   }
 }
