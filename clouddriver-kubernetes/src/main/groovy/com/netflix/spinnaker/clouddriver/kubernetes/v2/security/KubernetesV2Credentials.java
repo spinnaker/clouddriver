@@ -43,7 +43,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -59,7 +58,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter
   private final List<String> omitNamespaces;
   private final List<KubernetesKind> kinds;
-  private final Map<KubernetesKind, String> omitKinds; // value: omit reason
+  private final Map<KubernetesKind, InvalidKindReason> omitKinds;
   @Getter
   private final boolean serviceAccount;
   @Getter
@@ -115,16 +114,41 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private final Path serviceAccountNamespacePath = Paths.get("/var/run/secrets/kubernetes.io/serviceaccount/namespace");
 
-  public Optional<String> checkIfInvalidKind(KubernetesKind kind) {
+  public enum InvalidKindReason {
+    KIND_NONE("Kind [%s] is invalid"),
+    EXPLICITLY_OMITTED_BY_CONFIGURATION("Kind [%s] included in 'omitKinds' of kubernetes account configuration"),
+    MISSING_FROM_ALLOWED_KINDS("Kind [%s] missing in 'kinds' of kubernetes account configuration"),
+    READ_ERROR("Error reading kind [%s]. Please check connectivity and access permissions to the cluster");
+
+    private String errorMessage;
+    InvalidKindReason(String errorMessage) {
+      this.errorMessage = errorMessage;
+    }
+
+    public String getErrorMessage(KubernetesKind kind) {
+      return String.format(this.errorMessage, kind);
+    }
+  }
+
+  public boolean isValidKind(KubernetesKind kind) {
     if (kind == KubernetesKind.NONE) {
-      return Optional.of("kubernetes kind NONE is invalid");
+      return false;
     } else if (!this.kinds.isEmpty()) {
-      return kinds.contains(kind) ? Optional.empty() :
-        Optional.of(String.format("kind [%s] is not included in configuration for account [%s]", kind, accountName));
+      return kinds.contains(kind);
     } else if (!this.omitKinds.isEmpty()) {
-      return !omitKinds.keySet().contains(kind) ? Optional.empty() : Optional.of(omitKinds.get(kind));
+      return !omitKinds.keySet().contains(kind);
     } else {
-      return Optional.empty();
+      return true;
+    }
+  }
+
+  public InvalidKindReason getInvalidKindReason(KubernetesKind kind) {
+    if (kind == KubernetesKind.NONE) {
+      return InvalidKindReason.KIND_NONE;
+    } else if (!this.kinds.isEmpty() && !kinds.contains(kind)) {
+      return InvalidKindReason.MISSING_FROM_ALLOWED_KINDS;
+    } else {
+      return this.omitKinds.getOrDefault(kind, null);
     }
   }
 
@@ -378,7 +402,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.kinds = kinds;
     this.metrics = metrics;
     this.omitKinds = omitKinds.stream()
-      .collect(Collectors.toMap(k -> k, k -> "kind included in 'omitKinds' of kubernetes account configuration"));
+      .collect(Collectors.toMap(k -> k, k -> InvalidKindReason.EXPLICITLY_OMITTED_BY_CONFIGURATION));
     this.onlySpinnakerManaged = onlySpinnakerManaged;
     this.liveManifestCalls = liveManifestCalls;
 
@@ -457,12 +481,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     List<KubernetesKind> allKinds = KubernetesKind.getValues();
 
     log.info("Checking permissions on configured kinds for account {}... {}", accountName, allKinds);
-    Map<KubernetesKind, String> unreadableKinds = allKinds.parallelStream()
+    Map<KubernetesKind, InvalidKindReason> unreadableKinds = allKinds.parallelStream()
       .filter(k -> k != KubernetesKind.NONE)
       .filter(k -> !omitKinds.keySet().contains(k))
-      .collect(Collectors.toConcurrentMap(k -> k, k -> checkIfKindError(k, checkNamespace))).entrySet().parallelStream()
-      .filter(e -> e.getValue().isPresent())
-      .collect(Collectors.toConcurrentMap(Map.Entry::getKey, e -> e.getValue().get()));
+      .filter(k -> !canReadKind(k, checkNamespace))
+      .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
     omitKinds.putAll(unreadableKinds);
 
     if (metrics) {
@@ -477,13 +500,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
   }
 
-  /**
-   * Tries to read the provided kubernetes kind, returning error details if it cannot be read.
-   * @param kind kubernetes kind to check.
-   * @param checkNamespace namespace to check the kind.
-   * @return optional error message if the kind cannot be read.
-   */
-  private Optional<String> checkIfKindError(KubernetesKind kind, String checkNamespace) {
+  private boolean canReadKind(KubernetesKind kind, String checkNamespace) {
     try {
       log.info("Checking if {} is readable...", kind);
       if (kind.isNamespaced()) {
@@ -491,11 +508,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       } else {
         list(kind, null);
       }
-      return Optional.empty();
+      return true;
     } catch (Exception e) {
       log.info("Kind '{}' will not be cached in account '{}' for reason: '{}'", kind, accountName, e.getMessage());
       log.debug("Reading kind '{}' failed with exception: ", kind, e);
-      return Optional.of(e.getMessage());
+      return false;
     }
   }
 

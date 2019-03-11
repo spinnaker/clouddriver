@@ -26,7 +26,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.validation.Errors;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 public class KubernetesValidationUtil {
@@ -117,9 +120,13 @@ public class KubernetesValidationUtil {
   }
 
   private boolean validateKind(KubernetesKind kind, KubernetesV2Credentials credentials) {
-    Optional<String> invalidReason = credentials.checkIfInvalidKind(kind);
-    if (invalidReason.isPresent()) {
-      reject(invalidReason.get(), kind.toString());
+    if (!credentials.isValidKind(kind)) {
+      KubernetesV2Credentials.InvalidKindReason invalidReason = credentials.getInvalidKindReason(kind);
+      if (invalidReason != null) {
+        reject(invalidReason.getErrorMessage(kind), kind.toString());
+      } else {
+        reject("notValidKind", kind.toString());
+      }
       return false;
     }
 

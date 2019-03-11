@@ -55,7 +55,7 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
   public Collection<AgentDataType> getProvidedDataTypes() {
     return Collections.unmodifiableSet(
         primaryKinds().stream()
-            .filter(k -> !credentials.checkIfInvalidKind(k).isPresent())
+            .filter(credentials::isValidKind)
             .map(k -> AUTHORITATIVE.forType(k.toString()))
             .collect(Collectors.toSet())
     );
@@ -64,7 +64,7 @@ public class KubernetesUnregisteredCustomResourceCachingAgent extends Kubernetes
   @Override
   protected List<KubernetesKind> primaryKinds() {
     return credentials.getCrds().stream()
-      .filter(k -> !credentials.checkIfInvalidKind(k).isPresent())
+      .filter(credentials::isValidKind)
       .collect(Collectors.toList());
   }
 }
