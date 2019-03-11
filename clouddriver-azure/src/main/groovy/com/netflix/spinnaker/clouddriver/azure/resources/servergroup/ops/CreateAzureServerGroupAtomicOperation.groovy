@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.azure.resources.servergroup.ops
 
-import com.microsoft.azure.management.resources.models.DeploymentExtended
+import com.microsoft.azure.management.resources.Deployment
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.common.model.AzureDeploymentOperation
 import com.netflix.spinnaker.clouddriver.azure.resources.network.model.AzureVirtualNetworkDescription
@@ -47,7 +47,7 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
   }
 
   /**
-   * curl -X POST -H "Content-Type: application/json" -d '[{"createServerGroup":{"name":"taz-st1-d1","cloudProvider":"azure","application":"taz","stack":"st1","detail":"d1","vnet":"vnet-select","subnet":"subnet1","account":"azure-cred1","selectedProvider":"azure","capacity":{"useSourceCapacity":false,"min":1,"max":1},"credentials":"azure-cred1","region":"westus","loadBalancerName":"taz-ag1-d1","securityGroupName":"taz-secg1","user":"[anonymous]","upgradePolicy":"Manual","image":{"account":"azure-cred1","imageName":"UbuntuServer-14.04.3-LTS(Recommended)","isCustom":false,"offer":"UbuntuServer","ostype":null,"publisher":"Canonical","region":null,"sku":"14.04.3-LTS","uri":null,"version":"14.04.201602171"},"sku":{"name":"Standard_DS1_v2","tier":"Standard","capacity":1},"osConfig":{"adminUserName":"spinnakeruser","adminPassword":"!Qnti**234"},"type":"createServerGroup"}}]' localhost:7002/ops
+   * curl -X POST -H "Content-Type: application/json" -d '[{"createServerGroup":{"name":"taz-st1-d1","cloudProvider":"azure","application":"taz","stack":"st1","detail":"d1","vnet":"vnet-select","subnet":"subnet1","account":"azure-cred1","selectedProvider":"azure","capacity":{"useSourceCapacity":false,"min":1,"max":1},"credentials":"azure-cred1","region":"westus","loadBalancerName":"taz-ag1-d1","securityGroupName":"taz-secg1","user":"[anonymous]","upgradePolicy":"Manual","image":{"account":"azure-cred1","imageName":"UbuntuServer-14.04.3-LTS(Recommended)","isCustom":false,"offer":"UbuntuServer","ostype":null,"publisher":"Canonical","region":null,"sku":"14.04.3-LTS","uri":null,"version":"14.04.201602171"},"sku":{"name":"Standard_DS1_v2","tier":"Standard","capacity":1},"osConfig":{},"type":"createServerGroup"}}]' localhost:7002/ops
    *
    * @param priorOutputs
    * @return
@@ -193,7 +193,7 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
       if (errList.isEmpty()) {
         description.subnetId = subnetId
         task.updateStatus(BASE_PHASE, "Deploying server group")
-        DeploymentExtended deployment = description.credentials.resourceManagerClient.createResourceFromTemplate(
+        Deployment deployment = description.credentials.resourceManagerClient.createResourceFromTemplate(
           AzureServerGroupResourceTemplate.getTemplate(description),
           resourceGroupName,
           description.region,
@@ -201,7 +201,7 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
           "serverGroup",
           templateParameters)
 
-        errList.addAll(AzureDeploymentOperation.checkDeploymentOperationStatus(task, BASE_PHASE, description.credentials, resourceGroupName, deployment.name))
+        errList.addAll(AzureDeploymentOperation.checkDeploymentOperationStatus(task, BASE_PHASE, description.credentials, resourceGroupName, deployment.name()))
         serverGroupName = errList.isEmpty() ? description.name : null
       }
     } catch (Exception e) {

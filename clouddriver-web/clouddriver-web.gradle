@@ -17,11 +17,10 @@ run {
 configurations.all {
   exclude group: 'javax.servlet', module: 'servlet-api'
   exclude group: "org.slf4j", module: "slf4j-log4j12"
-  resolutionStrategy.force 'com.microsoft.rest:client-runtime:1.0.0-20160309.002843-19'
 }
 
 repositories {
-  maven { url "http://adxsnapshots.azurewebsites.net" }
+  maven { url "https://adxsnapshots.azurewebsites.net" }
 }
 
 dependencies {
@@ -35,7 +34,7 @@ dependencies {
   compile spinnaker.dependency('korkSwagger')
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootDataRest')
-  testCompile ("org.springframework.boot:spring-boot-starter-test")
+  testCompile spinnaker.dependency('bootTest')
   //this brings in the jetty GzipFilter which boot will autoconfigure
   runtime 'org.eclipse.jetty:jetty-servlets:9.2.11.v20150529'
 

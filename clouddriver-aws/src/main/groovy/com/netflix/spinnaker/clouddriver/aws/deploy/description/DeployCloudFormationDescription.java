@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Pivotal, Inc.
+ * Copyright (c) 2019 Schibsted Media Group.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.clouddriver.aws.deploy.description;
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.servicebroker;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
-public interface Service {
-  String getName();
+@EqualsAndHashCode(callSuper = false)
+@Data
+public class DeployCloudFormationDescription extends AbstractAmazonCredentialsDescription {
 
-  Collection<? extends ServicePlan> getServicePlans();
+  private String stackName;
+  private Map<String, Object> templateBody = new HashMap<>();
+  private Map<String, String> parameters = new HashMap<>();
+  private String region;
 }

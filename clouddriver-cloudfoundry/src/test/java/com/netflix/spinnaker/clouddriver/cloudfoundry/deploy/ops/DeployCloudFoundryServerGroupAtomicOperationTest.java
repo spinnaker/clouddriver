@@ -20,10 +20,10 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.ArtifactCredenti
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Applications;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.RouteId;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryServerGroup;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.view.CloudFoundryClusterProvider;
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
@@ -35,25 +35,24 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
+import org.mockito.verification.VerificationMode;
 
 import java.util.Collections;
-import java.util.List;
+import java.util.function.Supplier;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops.DeployCloudFoundryServerGroupAtomicOperation.convertToMb;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.data.Index.atIndex;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class DeployCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoundryAtomicOperationTest {
 
   private final CloudFoundryClient cloudFoundryClient = new MockCloudFoundryClient();
 
-  DefaultTask testTask = new DefaultTask("testTask");
+  private DefaultTask testTask = new DefaultTask("testTask");
+
   {
     TaskRepository.threadLocalTask.set(testTask);
   }
@@ -69,87 +68,106 @@ class DeployCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoun
   }
 
   @Test
-  void mapRoutesShouldReturnTrueWhenRoutesIsNull() {
-    DeployCloudFoundryServerGroupDescription description = new DeployCloudFoundryServerGroupDescription();
-    DeployCloudFoundryServerGroupAtomicOperation operation = new DeployCloudFoundryServerGroupAtomicOperation(null, description, null);
-
-    assertThat(operation.mapRoutes(null, null, null)).isTrue();
-    assertThat(testTask.getHistory()).has(status("No load balancers provided to create or update"), atIndex(1));
-  }
-
-  @Test
-  void mapRoutesShouldReturnTrueWhenRoutesAreValid() {
-    DeployCloudFoundryServerGroupDescription description = new DeployCloudFoundryServerGroupDescription();
-    description.setClient(client);
-    description.setServerGroupName("sg-name");
-    DeployCloudFoundryServerGroupAtomicOperation operation = new DeployCloudFoundryServerGroupAtomicOperation(null, description, null);
-    when(client.getRoutes().toRouteId(anyString())).thenReturn(new RouteId("road.to.nowhere", null, null, "domain-guid"));
-
-    CloudFoundryOrganization org = CloudFoundryOrganization.builder().id("org-id").name("org-name").build();
-    CloudFoundrySpace space = CloudFoundrySpace.builder().id("space-id").name("space-name").organization(org).build();
-    CloudFoundryLoadBalancer loadBalancer = CloudFoundryLoadBalancer.builder().
-      host("road.to").
-      domain(CloudFoundryDomain.builder().
-        id("domain-id").
-        name("nowhere").
-        organization(org).
-        build()).
-      build();
-    when(client.getRoutes().createRoute(any(RouteId.class), anyString())).thenReturn(loadBalancer);
-
-    List<String> routeList = Collections.singletonList("road.to.nowhere");
-
-    assertThat(operation.mapRoutes(routeList, space, null)).isTrue();
-    assertThat(testTask.getHistory()).has(status("Mapping load balancer 'road.to.nowhere' to sg-name"), atIndex(2));
-  }
-
-  @Test
-  void mapRoutesShouldReturnFalseWhenInvalidRoutesAreFound() {
-    DeployCloudFoundryServerGroupDescription description = new DeployCloudFoundryServerGroupDescription();
-    description.setClient(client);
-    description.setServerGroupName("sg-name");
-    DeployCloudFoundryServerGroupAtomicOperation operation = new DeployCloudFoundryServerGroupAtomicOperation(null, description, null);
-    when(client.getRoutes().toRouteId(anyString())).thenReturn(null);
-
-    List<String> routeList = Collections.singletonList("road.to.nowhere");
-
-    assertThat(operation.mapRoutes(routeList, null, null)).isFalse();
-    assertThat(testTask.getHistory()).has(status("Invalid format or domain for route 'road.to.nowhere'"), atIndex(2));
-  }
-
-  @Test
-  void mapRoutesShouldReturnFalseWhenRoutesExistInOtherOrgSpace() {
-    DeployCloudFoundryServerGroupDescription description = new DeployCloudFoundryServerGroupDescription();
-    description.setClient(client);
-    description.setServerGroupName("sg-name");
-
-    CloudFoundryOrganization org = CloudFoundryOrganization.builder().id("org-id").name("org-name").build();
-    CloudFoundrySpace space = CloudFoundrySpace.builder().id("space-id").name("space-name").organization(org).build();
-
-    DeployCloudFoundryServerGroupAtomicOperation operation = new DeployCloudFoundryServerGroupAtomicOperation(null, description, null);
-    when(client.getRoutes().toRouteId(anyString())).thenReturn(new RouteId("road.to.nowhere", null, null, "domain-guid"));
-
-    List<String> routeList = Collections.singletonList("road.to.nowhere");
-
-    assertThat(operation.mapRoutes(routeList, space, null)).isFalse();
-    assertThat(testTask.getHistory()).has(status("Load balancer already exists in another organization and space"), atIndex(2));
-  }
-
-  @Test
-  void executeOperation() {
+  void executeOperationAndDeploySucceeds() {
     // Given
+    final DeployCloudFoundryServerGroupDescription description = getDeployCloudFoundryServerGroupDescription(true);
+    final CloudFoundryClusterProvider clusterProvider = mock(CloudFoundryClusterProvider.class);
+    final DeployCloudFoundryServerGroupAtomicOperation operation =
+      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description, clusterProvider);
+    final Applications apps = getApplications(clusterProvider, ProcessStats.State.RUNNING);
+
+    // When
+    final DeploymentResult result = operation.operate(Lists.emptyList());
+
+    // Then
+    verifyInOrder(apps, () -> atLeastOnce());
+
+    assertThat(testTask.getStatus().isFailed()).isFalse();
+    assertThat(result.getServerGroupNames()).isEqualTo(Collections.singletonList("region1:app1-stack1-detail1-v000"));
+  }
+
+  @Test
+  void executeOperationAndDeployFails() {
+    // Given
+    final DeployCloudFoundryServerGroupDescription description = getDeployCloudFoundryServerGroupDescription(true);
+    final CloudFoundryClusterProvider clusterProvider = mock(CloudFoundryClusterProvider.class);
+    final DeployCloudFoundryServerGroupAtomicOperation operation =
+      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description, clusterProvider);
+    final Applications apps = getApplications(clusterProvider, ProcessStats.State.CRASHED);
+
+    // When
+    final DeploymentResult result = operation.operate(Lists.emptyList());
+
+    // Then
+    verifyInOrder(apps, () -> atLeastOnce());
+
+    assertThat(testTask.getStatus().isFailed()).isTrue();
+  }
+
+  @Test
+  void executeOperationWithNoStartFlag() {
+    // Given
+    final DeployCloudFoundryServerGroupDescription description = getDeployCloudFoundryServerGroupDescription(false);
+    final CloudFoundryClusterProvider clusterProvider = mock(CloudFoundryClusterProvider.class);
+    final DeployCloudFoundryServerGroupAtomicOperation operation =
+      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description, clusterProvider);
+    final Applications apps = getApplications(clusterProvider, ProcessStats.State.RUNNING);
+
+    // When
+    final DeploymentResult result = operation.operate(Lists.emptyList());
+
+    // Then
+    verifyInOrder(apps, () -> never());
+
+    assertThat(testTask.getStatus().isFailed()).isFalse();
+    assertThat(result.getServerGroupNames()).isEqualTo(Collections.singletonList("region1:app1-stack1-detail1-v000"));
+  }
+
+  private void verifyInOrder(final Applications apps, Supplier<VerificationMode> calls) {
+    final InOrder inOrder = Mockito.inOrder(apps, cloudFoundryClient.getServiceInstances());
+    inOrder.verify(apps).createApplication("app1-stack1-detail1-v000",
+      CloudFoundrySpace.builder().id("space1Id").name("space1").build(),
+      io.vavr.collection.List.of("buildpack1", "buildpack2").asJava(),
+      HashMap.of(
+        "token", "ASDF"
+      ).toJavaMap());
+    inOrder.verify(apps).uploadPackageBits(eq("serverGroupId_package"), any());
+    inOrder.verify(apps).createBuild("serverGroupId_package");
+    inOrder.verify(apps).scaleApplication("serverGroupId", 7, 1024, 2048);
+    inOrder.verify(apps).updateProcess("serverGroupId", null, "http", "/health");
+    inOrder.verify(cloudFoundryClient.getServiceInstances()).createServiceBindingsByName(any(), eq(Collections.singletonList("service1")));
+    inOrder.verify(apps, calls.get()).startApplication("serverGroupId");
+  }
+
+  private Applications getApplications(CloudFoundryClusterProvider clusterProvider, ProcessStats.State state) {
+    final Applications apps = cloudFoundryClient.getApplications();
+    when(clusterProvider.getClusters()).thenReturn(Collections.emptyMap());
+    when(apps.createApplication(any(), any(), any(), any()))
+      .thenReturn(CloudFoundryServerGroup.builder().id("serverGroupId").space(
+        CloudFoundrySpace.builder().id("spaceId").build()
+      ).build());
+    when(apps.getProcessState(any())).thenReturn(state);
+    when(apps.createPackage(any()))
+      .thenAnswer((Answer<String>) invocation -> {
+        Object[] args = invocation.getArguments();
+        return args[0].toString() + "_package";
+      });
+    return apps;
+  }
+
+  private DeployCloudFoundryServerGroupDescription getDeployCloudFoundryServerGroupDescription(boolean b) {
     final DeployCloudFoundryServerGroupDescription description = new DeployCloudFoundryServerGroupDescription()
       .setAccountName("account1")
       .setApplication("app1")
       .setStack("stack1")
-      .setDetail("detail1")
+      .setFreeFormDetails("detail1")
       .setArtifactCredentials(new ArtifactCredentialsFromString(
         "test",
         io.vavr.collection.List.of("a").asJava(),
         ""
       ))
       .setSpace(CloudFoundrySpace.builder().id("space1Id").name("space1").build())
-      .setArtifact(Artifact.builder().reference("ref1").build())
+      .setApplicationArtifact(Artifact.builder().reference("ref1").build())
       .setApplicationAttributes(new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
         .setInstances(7)
         .setMemory("1G")
@@ -163,41 +181,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoun
         ).toJavaMap()));
     description.setClient(cloudFoundryClient);
     description.setRegion("region1");
-    final CloudFoundryClusterProvider clusterProvider = mock(CloudFoundryClusterProvider.class);
-    final DeployCloudFoundryServerGroupAtomicOperation operation =
-      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description, clusterProvider);
-
-    final Applications apps = cloudFoundryClient.getApplications();
-    when(clusterProvider.getClusters()).thenReturn(Collections.emptyMap());
-    when(apps.createApplication(any(), any(), any(), any()))
-      .thenReturn(CloudFoundryServerGroup.builder().id("serverGroupId").space(
-        CloudFoundrySpace.builder().id("spaceId").build()
-      ).build());
-    when(apps.getProcessState(any())).thenReturn(ProcessStats.State.RUNNING);
-    when(apps.createPackage(any()))
-      .thenAnswer((Answer<String>) invocation -> {
-        Object[] args = invocation.getArguments();
-        return args[0].toString() + "_package";
-      });
-
-    // When
-    final DeploymentResult result = operation.operate(Lists.emptyList());
-
-    // Then
-    final InOrder inOrder = Mockito.inOrder(apps, cloudFoundryClient.getServiceInstances());
-    inOrder.verify(apps).createApplication("app1-stack1-detail1-v000",
-      CloudFoundrySpace.builder().id("space1Id").name("space1").build(),
-      io.vavr.collection.List.of("buildpack1", "buildpack2").asJava(),
-      HashMap.of(
-        "token", "ASDF"
-      ).toJavaMap());
-    inOrder.verify(apps).uploadPackageBits(eq("serverGroupId_package"), any());
-    inOrder.verify(apps).createBuild("serverGroupId_package");
-    inOrder.verify(apps).scaleApplication("serverGroupId", 7, 1024, 2048);
-    inOrder.verify(apps).updateProcess("serverGroupId", null, "http", "/health");
-    inOrder.verify(cloudFoundryClient.getServiceInstances()).createServiceBindingsByName(any(), eq(Collections.singletonList("service1")));
-    inOrder.verify(apps).startApplication("serverGroupId");
-
-    assertThat(result.getServerGroupNames()).isEqualTo(Collections.singletonList("region1:app1-stack1-detail1-v000"));
+    description.setStartApplication(b);
+    return description;
   }
 }

@@ -45,6 +45,8 @@ public final class AtomicOperations {
   public static final String ATTACH_CLASSIC_LINK_VPC = "attachClassicLinkVpc";
   public static final String REGISTER_INSTANCES_WITH_LOAD_BALANCER = "registerInstancesWithLoadBalancer";
   public static final String DEREGISTER_INSTANCES_FROM_LOAD_BALANCER = "deregisterInstancesFromLoadBalancer";
+  public static final String MAP_LOAD_BALANCERS = "mapLoadBalancers";
+  public static final String UNMAP_LOAD_BALANCERS = "unmapLoadBalancers";
   public static final String ENABLE_INSTANCES_IN_DISCOVERY = "enableInstancesInDiscovery";
   public static final String DISABLE_INSTANCES_IN_DISCOVERY = "disableInstancesInDiscovery";
   public static final String UPDATE_INSTANCES = "updateInstances";
@@ -88,4 +90,12 @@ public final class AtomicOperations {
 
   // Image operations
   public static final String DEREGISTER_IMAGE = "deleteImage";
+
+  // Service operations
+  public static final String DEPLOY_SERVICE = "deployService";
+  public static final String DESTROY_SERVICE = "destroyService";
+
+  // CloudFormation operations
+  public static final String DEPLOY_CLOUDFORMATION_STACK = "deployCloudFormation";
+
 }

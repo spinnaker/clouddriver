@@ -19,8 +19,6 @@ package com.netflix.spinnaker.clouddriver.azure.resources.servergroups.deploy.te
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
-import com.netflix.spinnaker.clouddriver.azure.client.AzureResourceManagerClient
-import com.netflix.spinnaker.clouddriver.azure.resources.common.model.KeyVaultSecret
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureNamedImage
 import com.netflix.spinnaker.clouddriver.azure.templates.AzureServerGroupResourceTemplate
@@ -40,7 +38,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     String template = AzureServerGroupResourceTemplate.getTemplate(description)
 
     expect:
-    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"') == expectedFullTemplate
+    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedFullTemplate
   }
 
   def 'should generate correct ServerGroup resource template with custom image'() {
@@ -48,7 +46,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     String template = AzureServerGroupResourceTemplate.getTemplate(description)
 
     expect:
-    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"') == expectedFullTemplateWithCustomImage
+    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedFullTemplateWithCustomImage
   }
 
   def 'generate server group template with extensions profile for linux'() {
@@ -56,7 +54,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     String template = AzureServerGroupResourceTemplate.getTemplate(description)
 
     expect:
-    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"') == expectedCustomScriptTemplateLinux
+    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedCustomScriptTemplateLinux
   }
 
   def 'generate server group template with extension profile for windows'() {
@@ -64,7 +62,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     String template = AzureServerGroupResourceTemplate.getTemplate(description)
 
     expect:
-    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"') == expectedCustomScriptTemplateWindows
+    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedCustomScriptTemplateWindows
   }
 
   def 'generate server group template with custom data'() {
@@ -75,17 +73,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     String template = AzureServerGroupResourceTemplate.getTemplate(description)
 
     expect:
-    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"') == expectedCustomDataTemplate
-  }
-
-  def 'verify parameters JSON'() {
-
-    def parameters = [:]
-    parameters[AzureServerGroupResourceTemplate.subnetParameterName] = subnetId
-    parameters[AzureServerGroupResourceTemplate.vmPasswordParameterName] = new KeyVaultSecret(secretName, subscriptionId, defaultResourceGroup, defaultVaultName)
-    String parametersJSON = AzureResourceManagerClient.convertParametersToTemplateJSON(objectMapper, parameters)
-
-    expect: parametersJSON == expectedParameters
+    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedCustomDataTemplate
   }
 
   private static AzureServerGroupDescription createDescription(boolean withCustomImage = false) {
@@ -106,7 +94,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       image.isCustom = true
       image.ostype = 'Linux'
       image.region = 'westus'
-      image.uri = 'https://storevm112345.blob.core.windows.net/vhds/vm1-1234520161917555.vhd'
+      image.uri = '/subscriptions/faab228d-df7a-4086-991e-e81c4659d41a/resourceGroups/zhqqi-sntest/providers/Microsoft.Compute/images/hello-karyon-rxnetty-all-20190125054410-ubuntu-1604'
     } else {
       image.sku = '14.04.3-LTS'
       image.offer = 'UbuntuServer'
@@ -187,17 +175,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   },
   "variables" : {
-    "apiVersion" : "2015-06-15",
-    "publicIPAddressName" : "pip-azureMASM-st1-d11",
-    "publicIPAddressID" : "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
-    "publicIPAddressType" : "Dynamic",
-    "dnsNameForLBIP" : "dns-azuremasm-st1-d11",
-    "loadBalancerBackend" : "be-azureMASM-st1-d11",
-    "loadBalancerFrontEnd" : "fe-azureMASM-st1-d11",
-    "loadBalancerName" : "lb-azureMASM-st1-d11",
-    "loadBalancerID" : "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]",
-    "frontEndIPConfigID" : "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', variables('loadBalancerName'), variables('loadBalancerFrontEnd'))]",
-    "inboundNatPoolName" : "np-azureMASM-st1-d11",
+    "apiVersion" : "2018-10-01",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -230,57 +208,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   }, {
     "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('publicIPAddressName')]",
-    "type" : "Microsoft.Network/publicIPAddresses",
-    "location" : "[parameters('location')]",
-    "tags" : null,
-    "properties" : {
-      "publicIPAllocationMethod" : "[variables('publicIPAddressType')]",
-      "dnsSettings" : {
-        "domainNameLabel" : "[variables('dnsNameForLBIP')]"
-      }
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('loadBalancerName')]",
-    "type" : "Microsoft.Network/loadBalancers",
-    "location" : "[parameters('location')]",
-    "tags" : {
-      "appName" : "azureMASM",
-      "stack" : "st1",
-      "detail" : "d11",
-      "createdTime" : "1234567890",
-      "cluster" : "azureMASM-st1-d11",
-      "serverGroup" : "azureMASM-st1-d11"
-    },
-    "dependsOn" : [ "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]" ],
-    "properties" : {
-      "frontendIPConfigurations" : [ {
-        "name" : "[variables('loadBalancerFrontEnd')]",
-        "properties" : {
-          "publicIpAddress" : {
-            "id" : "[variables('publicIPAddressID')]"
-          }
-        }
-      } ],
-      "backendAddressPools" : [ {
-        "name" : "[variables('loadBalancerBackEnd')]"
-      } ],
-      "inboundNatPools" : [ {
-        "name" : "InboundPortConfig",
-        "properties" : {
-          "frontendIPConfiguration" : {
-            "id" : "[variables('frontEndIPConfigID')]"
-          },
-          "protocol" : "tcp",
-          "frontendPortRangeStart" : 50000,
-          "frontendPortRangeEnd" : 50099,
-          "backendPort" : 3389
-        }
-      } ]
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
     "name" : "azureMASM-st1-d11",
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
@@ -290,12 +217,11 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       "detail" : "d11",
       "cluster" : "azureMASM-st1-d11",
       "createdTime" : "1234567890",
-      "loadBalancerName" : "lb-azureMASM-st1-d11",
       "hasNewSubnet" : "false",
       "imageIsCustom" : "false",
       "storageAccountNames" : "[concat(uniqueString(concat(resourceGroup().id, subscription().id, 'azuremasmst1d11', '0')), 'sa')]"
     },
-    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]", "[concat('Microsoft.Network/loadBalancers/', variables('loadBalancerName'))]" ],
+    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]" ],
     "sku" : {
       "name" : "Standard_A1",
       "tier" : "Standard",
@@ -331,12 +257,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
-                  "loadBalancerBackendAddressPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('loadBalancerBackend'))]"
-                  } ],
-                  "loadBalancerInboundNatPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/inboundNatPools', variables('loadBalancerName'), variables('inboundNatPoolName'))]"
-                  } ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -393,70 +313,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   },
   "variables" : {
-    "apiVersion" : "2015-06-15",
-    "publicIPAddressName" : "pip-azureMASM-st1-d11",
-    "publicIPAddressID" : "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
-    "publicIPAddressType" : "Dynamic",
-    "dnsNameForLBIP" : "dns-azuremasm-st1-d11",
-    "loadBalancerBackend" : "be-azureMASM-st1-d11",
-    "loadBalancerFrontEnd" : "fe-azureMASM-st1-d11",
-    "loadBalancerName" : "lb-azureMASM-st1-d11",
-    "loadBalancerID" : "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]",
-    "frontEndIPConfigID" : "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', variables('loadBalancerName'), variables('loadBalancerFrontEnd'))]",
-    "inboundNatPoolName" : "np-azureMASM-st1-d11"
+    "apiVersion" : "2018-10-01"
   },
   "resources" : [ {
-    "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('publicIPAddressName')]",
-    "type" : "Microsoft.Network/publicIPAddresses",
-    "location" : "[parameters('location')]",
-    "tags" : null,
-    "properties" : {
-      "publicIPAllocationMethod" : "[variables('publicIPAddressType')]",
-      "dnsSettings" : {
-        "domainNameLabel" : "[variables('dnsNameForLBIP')]"
-      }
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('loadBalancerName')]",
-    "type" : "Microsoft.Network/loadBalancers",
-    "location" : "[parameters('location')]",
-    "tags" : {
-      "appName" : "azureMASM",
-      "stack" : "st1",
-      "detail" : "d11",
-      "createdTime" : "1234567890",
-      "cluster" : "azureMASM-st1-d11",
-      "serverGroup" : "azureMASM-st1-d11"
-    },
-    "dependsOn" : [ "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]" ],
-    "properties" : {
-      "frontendIPConfigurations" : [ {
-        "name" : "[variables('loadBalancerFrontEnd')]",
-        "properties" : {
-          "publicIpAddress" : {
-            "id" : "[variables('publicIPAddressID')]"
-          }
-        }
-      } ],
-      "backendAddressPools" : [ {
-        "name" : "[variables('loadBalancerBackEnd')]"
-      } ],
-      "inboundNatPools" : [ {
-        "name" : "InboundPortConfig",
-        "properties" : {
-          "frontendIPConfiguration" : {
-            "id" : "[variables('frontEndIPConfigID')]"
-          },
-          "protocol" : "tcp",
-          "frontendPortRangeStart" : 50000,
-          "frontendPortRangeEnd" : 50099,
-          "backendPort" : 22
-        }
-      } ]
-    }
-  }, {
     "apiVersion" : "[variables('apiVersion')]",
     "name" : "azureMASM-st1-d11",
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
@@ -467,11 +326,10 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       "detail" : "d11",
       "cluster" : "azureMASM-st1-d11",
       "createdTime" : "1234567890",
-      "loadBalancerName" : "lb-azureMASM-st1-d11",
       "hasNewSubnet" : "false",
       "imageIsCustom" : "true"
     },
-    "dependsOn" : [ "[concat('Microsoft.Network/loadBalancers/', variables('loadBalancerName'))]" ],
+    "dependsOn" : [ ],
     "sku" : {
       "name" : "Standard_A1",
       "tier" : "Standard",
@@ -483,14 +341,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       },
       "virtualMachineProfile" : {
         "storageProfile" : {
-          "osDisk" : {
-            "name" : "osdisk-azureMASM-st1-d11",
-            "caching" : "ReadOnly",
-            "createOption" : "FromImage",
-            "osType" : "Linux",
-            "image" : {
-              "uri" : "https://storevm112345.blob.core.windows.net/vhds/vm1-1234520161917555.vhd"
-            }
+          "imageReference" : {
+            "id" : "/subscriptions/faab228d-df7a-4086-991e-e81c4659d41a/resourceGroups/zhqqi-sntest/providers/Microsoft.Compute/images/hello-karyon-rxnetty-all-20190125054410-ubuntu-1604"
           }
         },
         "osProfile" : {
@@ -509,12 +361,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
-                  "loadBalancerBackendAddressPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('loadBalancerBackend'))]"
-                  } ],
-                  "loadBalancerInboundNatPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/inboundNatPools', variables('loadBalancerName'), variables('inboundNatPoolName'))]"
-                  } ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -571,17 +417,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   },
   "variables" : {
-    "apiVersion" : "2015-06-15",
-    "publicIPAddressName" : "pip-azureMASM-st1-d11",
-    "publicIPAddressID" : "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
-    "publicIPAddressType" : "Dynamic",
-    "dnsNameForLBIP" : "dns-azuremasm-st1-d11",
-    "loadBalancerBackend" : "be-azureMASM-st1-d11",
-    "loadBalancerFrontEnd" : "fe-azureMASM-st1-d11",
-    "loadBalancerName" : "lb-azureMASM-st1-d11",
-    "loadBalancerID" : "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]",
-    "frontEndIPConfigID" : "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', variables('loadBalancerName'), variables('loadBalancerFrontEnd'))]",
-    "inboundNatPoolName" : "np-azureMASM-st1-d11",
+    "apiVersion" : "2018-10-01",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -614,57 +450,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   }, {
     "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('publicIPAddressName')]",
-    "type" : "Microsoft.Network/publicIPAddresses",
-    "location" : "[parameters('location')]",
-    "tags" : null,
-    "properties" : {
-      "publicIPAllocationMethod" : "[variables('publicIPAddressType')]",
-      "dnsSettings" : {
-        "domainNameLabel" : "[variables('dnsNameForLBIP')]"
-      }
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('loadBalancerName')]",
-    "type" : "Microsoft.Network/loadBalancers",
-    "location" : "[parameters('location')]",
-    "tags" : {
-      "appName" : "azureMASM",
-      "stack" : "st1",
-      "detail" : "d11",
-      "createdTime" : "1234567890",
-      "cluster" : "azureMASM-st1-d11",
-      "serverGroup" : "azureMASM-st1-d11"
-    },
-    "dependsOn" : [ "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]" ],
-    "properties" : {
-      "frontendIPConfigurations" : [ {
-        "name" : "[variables('loadBalancerFrontEnd')]",
-        "properties" : {
-          "publicIpAddress" : {
-            "id" : "[variables('publicIPAddressID')]"
-          }
-        }
-      } ],
-      "backendAddressPools" : [ {
-        "name" : "[variables('loadBalancerBackEnd')]"
-      } ],
-      "inboundNatPools" : [ {
-        "name" : "InboundPortConfig",
-        "properties" : {
-          "frontendIPConfiguration" : {
-            "id" : "[variables('frontEndIPConfigID')]"
-          },
-          "protocol" : "tcp",
-          "frontendPortRangeStart" : 50000,
-          "frontendPortRangeEnd" : 50099,
-          "backendPort" : 22
-        }
-      } ]
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
     "name" : "azureMASM-st1-d11",
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
@@ -674,12 +459,11 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       "detail" : "d11",
       "cluster" : "azureMASM-st1-d11",
       "createdTime" : "1234567890",
-      "loadBalancerName" : "lb-azureMASM-st1-d11",
       "hasNewSubnet" : "false",
       "imageIsCustom" : "false",
       "storageAccountNames" : "[concat(uniqueString(concat(resourceGroup().id, subscription().id, 'azuremasmst1d11', '0')), 'sa')]"
     },
-    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]", "[concat('Microsoft.Network/loadBalancers/', variables('loadBalancerName'))]" ],
+    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]" ],
     "sku" : {
       "name" : "Standard_A1",
       "tier" : "Standard",
@@ -715,12 +499,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
-                  "loadBalancerBackendAddressPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('loadBalancerBackend'))]"
-                  } ],
-                  "loadBalancerInboundNatPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/inboundNatPools', variables('loadBalancerName'), variables('inboundNatPoolName'))]"
-                  } ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -792,17 +570,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   },
   "variables" : {
-    "apiVersion" : "2015-06-15",
-    "publicIPAddressName" : "pip-azureMASM-st1-d11",
-    "publicIPAddressID" : "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
-    "publicIPAddressType" : "Dynamic",
-    "dnsNameForLBIP" : "dns-azuremasm-st1-d11",
-    "loadBalancerBackend" : "be-azureMASM-st1-d11",
-    "loadBalancerFrontEnd" : "fe-azureMASM-st1-d11",
-    "loadBalancerName" : "lb-azureMASM-st1-d11",
-    "loadBalancerID" : "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]",
-    "frontEndIPConfigID" : "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', variables('loadBalancerName'), variables('loadBalancerFrontEnd'))]",
-    "inboundNatPoolName" : "np-azureMASM-st1-d11",
+    "apiVersion" : "2018-10-01",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -835,57 +603,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   }, {
     "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('publicIPAddressName')]",
-    "type" : "Microsoft.Network/publicIPAddresses",
-    "location" : "[parameters('location')]",
-    "tags" : null,
-    "properties" : {
-      "publicIPAllocationMethod" : "[variables('publicIPAddressType')]",
-      "dnsSettings" : {
-        "domainNameLabel" : "[variables('dnsNameForLBIP')]"
-      }
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('loadBalancerName')]",
-    "type" : "Microsoft.Network/loadBalancers",
-    "location" : "[parameters('location')]",
-    "tags" : {
-      "appName" : "azureMASM",
-      "stack" : "st1",
-      "detail" : "d11",
-      "createdTime" : "1234567890",
-      "cluster" : "azureMASM-st1-d11",
-      "serverGroup" : "azureMASM-st1-d11"
-    },
-    "dependsOn" : [ "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]" ],
-    "properties" : {
-      "frontendIPConfigurations" : [ {
-        "name" : "[variables('loadBalancerFrontEnd')]",
-        "properties" : {
-          "publicIpAddress" : {
-            "id" : "[variables('publicIPAddressID')]"
-          }
-        }
-      } ],
-      "backendAddressPools" : [ {
-        "name" : "[variables('loadBalancerBackEnd')]"
-      } ],
-      "inboundNatPools" : [ {
-        "name" : "InboundPortConfig",
-        "properties" : {
-          "frontendIPConfiguration" : {
-            "id" : "[variables('frontEndIPConfigID')]"
-          },
-          "protocol" : "tcp",
-          "frontendPortRangeStart" : 50000,
-          "frontendPortRangeEnd" : 50099,
-          "backendPort" : 3389
-        }
-      } ]
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
     "name" : "azureMASM-st1-d11",
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
@@ -895,12 +612,11 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       "detail" : "d11",
       "cluster" : "azureMASM-st1-d11",
       "createdTime" : "1234567890",
-      "loadBalancerName" : "lb-azureMASM-st1-d11",
       "hasNewSubnet" : "false",
       "imageIsCustom" : "false",
       "storageAccountNames" : "[concat(uniqueString(concat(resourceGroup().id, subscription().id, 'azuremasmst1d11', '0')), 'sa')]"
     },
-    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]", "[concat('Microsoft.Network/loadBalancers/', variables('loadBalancerName'))]" ],
+    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]" ],
     "sku" : {
       "name" : "Standard_A1",
       "tier" : "Standard",
@@ -936,12 +652,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
-                  "loadBalancerBackendAddressPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('loadBalancerBackend'))]"
-                  } ],
-                  "loadBalancerInboundNatPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/inboundNatPools', variables('loadBalancerName'), variables('inboundNatPoolName'))]"
-                  } ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -1013,17 +723,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   },
   "variables" : {
-    "apiVersion" : "2015-06-15",
-    "publicIPAddressName" : "pip-azureMASM-st1-d11",
-    "publicIPAddressID" : "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
-    "publicIPAddressType" : "Dynamic",
-    "dnsNameForLBIP" : "dns-azuremasm-st1-d11",
-    "loadBalancerBackend" : "be-azureMASM-st1-d11",
-    "loadBalancerFrontEnd" : "fe-azureMASM-st1-d11",
-    "loadBalancerName" : "lb-azureMASM-st1-d11",
-    "loadBalancerID" : "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]",
-    "frontEndIPConfigID" : "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', variables('loadBalancerName'), variables('loadBalancerFrontEnd'))]",
-    "inboundNatPoolName" : "np-azureMASM-st1-d11",
+    "apiVersion" : "2018-10-01",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -1056,57 +756,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   }, {
     "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('publicIPAddressName')]",
-    "type" : "Microsoft.Network/publicIPAddresses",
-    "location" : "[parameters('location')]",
-    "tags" : null,
-    "properties" : {
-      "publicIPAllocationMethod" : "[variables('publicIPAddressType')]",
-      "dnsSettings" : {
-        "domainNameLabel" : "[variables('dnsNameForLBIP')]"
-      }
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
-    "name" : "[variables('loadBalancerName')]",
-    "type" : "Microsoft.Network/loadBalancers",
-    "location" : "[parameters('location')]",
-    "tags" : {
-      "appName" : "azureMASM",
-      "stack" : "st1",
-      "detail" : "d11",
-      "createdTime" : "1234567890",
-      "cluster" : "azureMASM-st1-d11",
-      "serverGroup" : "azureMASM-st1-d11"
-    },
-    "dependsOn" : [ "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]" ],
-    "properties" : {
-      "frontendIPConfigurations" : [ {
-        "name" : "[variables('loadBalancerFrontEnd')]",
-        "properties" : {
-          "publicIpAddress" : {
-            "id" : "[variables('publicIPAddressID')]"
-          }
-        }
-      } ],
-      "backendAddressPools" : [ {
-        "name" : "[variables('loadBalancerBackEnd')]"
-      } ],
-      "inboundNatPools" : [ {
-        "name" : "InboundPortConfig",
-        "properties" : {
-          "frontendIPConfiguration" : {
-            "id" : "[variables('frontEndIPConfigID')]"
-          },
-          "protocol" : "tcp",
-          "frontendPortRangeStart" : 50000,
-          "frontendPortRangeEnd" : 50099,
-          "backendPort" : 22
-        }
-      } ]
-    }
-  }, {
-    "apiVersion" : "[variables('apiVersion')]",
     "name" : "azureMASM-st1-d11",
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
@@ -1116,12 +765,11 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       "detail" : "d11",
       "cluster" : "azureMASM-st1-d11",
       "createdTime" : "1234567890",
-      "loadBalancerName" : "lb-azureMASM-st1-d11",
       "hasNewSubnet" : "false",
       "imageIsCustom" : "false",
       "storageAccountNames" : "[concat(uniqueString(concat(resourceGroup().id, subscription().id, 'azuremasmst1d11', '0')), 'sa')]"
     },
-    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]", "[concat('Microsoft.Network/loadBalancers/', variables('loadBalancerName'))]" ],
+    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]" ],
     "sku" : {
       "name" : "Standard_A1",
       "tier" : "Standard",
@@ -1158,12 +806,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
-                  "loadBalancerBackendAddressPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('loadBalancerBackend'))]"
-                  } ],
-                  "loadBalancerInboundNatPools" : [ {
-                    "id" : "[resourceId('Microsoft.Network/loadBalancers/inboundNatPools', variables('loadBalancerName'), variables('inboundNatPoolName'))]"
-                  } ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -1191,25 +833,5 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   } ]
 }'''
-
-  private static String expectedParameters = """{
-  "subnetId" : {
-    "value" : "$subnetId"
-  },
-  "vmPassword" : {
-    "reference" : {
-      "keyVault" : {
-        "id" : "/subscriptions/$subscriptionId/resourceGroups/$defaultResourceGroup/providers/Microsoft.KeyVault/vaults/$defaultVaultName"
-      },
-      "secretName" : "$secretName"
-    }
-  }
-}"""
-
-  private static final String subscriptionId = "testSubscriptionID"
-  private static final String subnetId = "SubNetTestID"
-  private static final String defaultResourceGroup = "defaultResourceGroup"
-  private static final String defaultVaultName = "defaultKeyVault"
-  private static final String secretName = "VMPassword"
 
 }

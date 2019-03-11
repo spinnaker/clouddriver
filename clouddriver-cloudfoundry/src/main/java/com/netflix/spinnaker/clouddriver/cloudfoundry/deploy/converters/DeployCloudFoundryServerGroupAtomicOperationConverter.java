@@ -21,9 +21,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
-import com.google.common.annotations.VisibleForTesting;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryOperation;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.PackageArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
@@ -42,6 +41,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.vavr.API.*;
 import static java.util.stream.Collectors.toList;
@@ -52,13 +52,16 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
   private final OperationPoller operationPoller;
   private final ArtifactCredentialsRepository credentialsRepository;
   private final CloudFoundryClusterProvider clusterProvider;
+  private final ArtifactDownloader artifactDownloader;
 
   public DeployCloudFoundryServerGroupAtomicOperationConverter(@Qualifier("cloudFoundryOperationPoller") OperationPoller operationPoller,
                                                                ArtifactCredentialsRepository credentialsRepository,
-                                                               CloudFoundryClusterProvider clusterProvider) {
+                                                               CloudFoundryClusterProvider clusterProvider,
+                                                               ArtifactDownloader artifactDownloader) {
     this.operationPoller = operationPoller;
     this.credentialsRepository = credentialsRepository;
     this.clusterProvider = clusterProvider;
+    this.artifactDownloader = artifactDownloader;
   }
 
   @Override
@@ -69,45 +72,44 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
   @Override
   public DeployCloudFoundryServerGroupDescription convertDescription(Map input) {
     DeployCloudFoundryServerGroupDescription converted = getObjectMapper().convertValue(input, DeployCloudFoundryServerGroupDescription.class);
-    CloudFoundryCredentials credentials = getCredentialsObject(input.get("credentials").toString());
+    String deployCredentials = Optional.ofNullable(converted.getDestination())
+      .map(DeployCloudFoundryServerGroupDescription.Destination::getAccount)
+      .orElse(input.get("credentials").toString());
+    CloudFoundryCredentials credentials = getCredentialsObject(deployCredentials);
     converted.setClient(credentials.getClient());
     converted.setAccountName(credentials.getName());
 
-    converted.setSpace(findSpace(converted.getRegion(), converted.getClient())
-      .orElseThrow(() -> new IllegalArgumentException("Unable to find space '" + converted.getRegion() + "'.")));
+    String region = Optional.ofNullable(converted.getDestination())
+      .map(DeployCloudFoundryServerGroupDescription.Destination::getRegion)
+      .orElse(converted.getRegion());
+    converted.setSpace(findSpace(region, converted.getClient())
+      .orElseThrow(() -> new IllegalArgumentException("Unable to find space '" + region + "'.")));
 
-    Map artifactSource = (Map) input.get("artifact");
-
-    if ("artifact".equals(artifactSource.get("type"))) {
-      ArtifactCredentials artifactCredentials = credentialsRepository.getAllCredentials().stream()
-        .filter(creds -> creds.getName().equals(artifactSource.get("account")))
-        .findAny()
-        .orElseThrow(() -> new IllegalArgumentException("Unable to find artifact credentials '" + artifactSource.get("account") + "'"));
-
-      converted.setArtifact(convertToArtifact(artifactCredentials, artifactSource.get("reference").toString()));
-      converted.setArtifactCredentials(artifactCredentials);
-    } else if ("package".equals(artifactSource.get("type"))) {
-      CloudFoundryCredentials artifactCredentials = getCredentialsObject(artifactSource.get("account").toString());
+    if (Optional.ofNullable(converted.getSource()).isPresent()) {
+      CloudFoundryCredentials artifactCredentials = getCredentialsObject(converted.getSource().getAccount());
       converted.setArtifactCredentials(new PackageArtifactCredentials(artifactCredentials.getClient()));
 
-      Artifact artifact = new Artifact();
-      artifact.setType("package");
-      artifact.setReference(getServerGroupId(artifactSource.get("serverGroupName").toString(),
-        artifactSource.get("region").toString(), artifactCredentials.getClient()));
-      converted.setArtifact(artifact);
+      Artifact artifact = Artifact.builder()
+        .type("package")
+        .reference(getServerGroupId(converted.getSource().getAsgName(),
+          converted.getSource().getRegion(), artifactCredentials.getClient()))
+        .build();
+
+      converted.setApplicationArtifact(artifact);
+    } else {
+      // fail early if we're not going to be able to locate credentials to download the artifact in the deploy operation.
+      converted.setArtifactCredentials(credentialsRepository.getAllCredentials().stream()
+        .filter(creds -> creds.getName().equals(converted.getApplicationArtifact().getArtifactAccount()))
+        .findAny()
+        .orElseThrow(() -> new IllegalArgumentException("Unable to find artifact credentials '" + converted.getApplicationArtifact().getArtifactAccount() + "'")));
     }
 
-    Map manifest = (Map) input.get("manifest");
-    if ("direct".equals(manifest.get("type"))) {
-      DeployCloudFoundryServerGroupDescription.ApplicationAttributes attrs = getObjectMapper().convertValue(manifest, DeployCloudFoundryServerGroupDescription.ApplicationAttributes.class);
-      converted.setApplicationAttributes(attrs);
-    } else if ("artifact".equals(manifest.get("type"))) {
-      downloadAndProcessManifest(manifest, credentialsRepository, myMap -> converted.setApplicationAttributes(convertManifest(myMap)));
-    }
+    downloadAndProcessManifest(artifactDownloader, converted.getManifest(), myMap -> converted.setApplicationAttributes(convertManifest(myMap)));
+
     return converted;
   }
 
-  @VisibleForTesting
+  // visible for testing
   DeployCloudFoundryServerGroupDescription.ApplicationAttributes convertManifest(Map manifestMap) {
     List<CloudFoundryManifest> manifestApps = new ObjectMapper()
       .setPropertyNamingStrategy(PropertyNamingStrategy.KEBAB_CASE)
