@@ -8,13 +8,14 @@ import com.google.common.collect.ImmutableSet;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.TreeMap;
 
 @EqualsAndHashCode
 public class KubernetesApiGroup {
+  private static final Map<String, KubernetesApiGroup> values = Collections.synchronizedMap(new TreeMap<>(
+    String.CASE_INSENSITIVE_ORDER));
   // from https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.12/
   public static KubernetesApiGroup NONE = new KubernetesApiGroup("");
   public static KubernetesApiGroup CORE = new KubernetesApiGroup("core");
@@ -44,15 +45,11 @@ public class KubernetesApiGroup {
       ADMISSIONREGISTRATION_K8S_IO, POLICY, SCHEDULING_K8S_IO, SETTINGS_K8S_IO, AUTHORIZATION_K8S_IO,
       AUTHENTICATION_K8S_IO, RBAC_AUTHORIZATION_K8S_IO, CERTIFICATES_K8S_IO, NETWORKING_K8S_IO, NONE);
 
-  private static List<KubernetesApiGroup> values;
+
 
   protected KubernetesApiGroup(String name) {
-    if (values == null) {
-      values = Collections.synchronizedList(new ArrayList<>());
-    }
-
     this.name = name;
-    values.add(this);
+    values.put(name, this);
   }
 
   @Override
@@ -72,12 +69,7 @@ public class KubernetesApiGroup {
     }
 
     synchronized (values) {
-      Optional<KubernetesApiGroup> versionOptional = values.stream()
-        .filter(v -> v.name.equalsIgnoreCase(name))
-        .findAny();
-
-      // separate from the above chain to avoid concurrent modification of the values list
-      return versionOptional.orElseGet(() -> new KubernetesApiGroup(name));
+      return values.computeIfAbsent(name, KubernetesApiGroup::new);
     }
   }
 }

@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.netflix.servo.util.Strings;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -200,6 +199,6 @@ public class KubernetesKind {
       return KubernetesApiGroup.NONE;
     }
 
-    return KubernetesApiGroup.fromString(Strings.join(".", Arrays.stream(parts).skip(1).iterator()));
+    return KubernetesApiGroup.fromString(StringUtils.joinWith(".", Arrays.stream(parts).skip(1).toArray()));
   }
 }
