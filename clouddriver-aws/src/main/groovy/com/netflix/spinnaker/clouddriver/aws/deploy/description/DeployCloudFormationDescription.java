@@ -26,7 +26,7 @@ import java.util.Map;
 public class DeployCloudFormationDescription extends AbstractAmazonCredentialsDescription {
 
   private String stackName;
-  private Map<String, Object> templateBody = new HashMap<>();
+  private String  templateBody;
   private Map<String, String> parameters = new HashMap<>();
   private String region;
 }

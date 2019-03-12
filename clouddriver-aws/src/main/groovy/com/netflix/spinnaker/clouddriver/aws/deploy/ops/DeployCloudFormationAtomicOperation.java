@@ -41,9 +41,6 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
   @Autowired
   AmazonClientProvider amazonClientProvider;
 
-  @Autowired
-  private ObjectMapper objectMapper;
-
   private DeployCloudFormationDescription description;
 
   public DeployCloudFormationAtomicOperation(DeployCloudFormationDescription deployCloudFormationDescription) {
@@ -56,12 +53,7 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
     task.updateStatus(BASE_PHASE, "Configuring CloudFormation Stack");
     AmazonCloudFormation amazonCloudFormation = amazonClientProvider.getAmazonCloudFormation(
       description.getCredentials(), description.getRegion());
-    String template;
-    try {
-      template = objectMapper.writeValueAsString(description.getTemplateBody());
-    } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException("Could not serialize CloudFormation Stack template body", e);
-    }
+    String template = description.getTemplateBody();
     List<Parameter> parameters = description.getParameters().entrySet().stream()
       .map(entry -> new Parameter()
         .withParameterKey(entry.getKey())
