@@ -131,22 +131,14 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   public boolean isValidKind(KubernetesKind kind) {
-    if (kind == KubernetesKind.NONE) {
-      return false;
-    } else if (!this.kinds.isEmpty()) {
-      return kinds.contains(kind);
-    } else if (!this.omitKinds.isEmpty()) {
-      return !omitKinds.keySet().contains(kind);
-    } else {
-      return true;
-    }
+    return getInvalidKindReason(kind) != null;
   }
 
   public InvalidKindReason getInvalidKindReason(KubernetesKind kind) {
     if (kind == KubernetesKind.NONE) {
       return InvalidKindReason.KIND_NONE;
-    } else if (!this.kinds.isEmpty() && !kinds.contains(kind)) {
-      return InvalidKindReason.MISSING_FROM_ALLOWED_KINDS;
+    } else if (!this.kinds.isEmpty()) {
+      return !kinds.contains(kind) ? InvalidKindReason.MISSING_FROM_ALLOWED_KINDS : null;
     } else {
       return this.omitKinds.getOrDefault(kind, null);
     }
