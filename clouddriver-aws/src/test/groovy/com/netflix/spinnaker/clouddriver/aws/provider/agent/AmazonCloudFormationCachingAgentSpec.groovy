@@ -131,7 +131,7 @@ class AmazonCloudFormationCachingAgentSpec extends Specification {
     where:
     resourceStatus  | stackStatus                || expectedReason
     'CREATE_FAILED' | 'ROLLBACK_COMPLETE'        || "create failed"
-    'UPDATE_FAILED' | 'ROLLBACK_COMPLETE'        || "create failed"
+    'UPDATE_FAILED' | 'ROLLBACK_COMPLETE'        || "update failed"
     'CREATE_FAILED' | 'UPDATE_ROLLBACK_COMPLETE' || "create failed"
     'UPDATE_FAILED' | 'UPDATE_ROLLBACK_COMPLETE' || "update failed"
   }
