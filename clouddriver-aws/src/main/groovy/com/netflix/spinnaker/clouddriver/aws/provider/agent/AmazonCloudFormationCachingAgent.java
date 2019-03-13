@@ -81,7 +81,7 @@ public class AmazonCloudFormationCachingAgent implements CachingAgent, OnDemandA
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type == OnDemandType.CloudFormation && cloudProvider.equals(AmazonCloudProvider.ID);
+    return OnDemandType.CloudFormation.equals(type) && cloudProvider.equals(AmazonCloudProvider.ID);
   }
 
   @Override
