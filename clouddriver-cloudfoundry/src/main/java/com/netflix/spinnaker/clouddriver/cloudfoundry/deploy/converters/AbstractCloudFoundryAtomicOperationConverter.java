@@ -16,10 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
-import com.netflix.spinnaker.clouddriver.artifacts.gcs.GcsArtifactCredentials;
-import com.netflix.spinnaker.clouddriver.artifacts.http.HttpArtifactCredentials;
+import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
@@ -40,9 +38,18 @@ abstract class AbstractCloudFoundryAtomicOperationConverter extends AbstractAtom
     CloudFoundrySpace space = CloudFoundrySpace.fromRegion(region);
 
     // fully populates the space guid which is what Cloud Foundry's API expects as an input, not the name.
-    return client.getOrganizations()
+    Optional<CloudFoundrySpace> spaceOptional = client.getOrganizations()
       .findByName(space.getOrganization().getName())
       .map(org -> client.getSpaces().findByName(org.getId(), space.getName()));
+
+    spaceOptional.ifPresent(spaceCase -> {
+      if (!(space.getName().equals(spaceCase.getName()) &&
+        space.getOrganization().getName().equals(spaceCase.getOrganization().getName()))) {
+        throw new CloudFoundryApiException("Org or Space name not in correct case");
+      }
+    });
+
+    return spaceOptional;
   }
 
   protected CloudFoundryClient getClient(Map<?, ?> input) {
@@ -50,28 +57,9 @@ abstract class AbstractCloudFoundryAtomicOperationConverter extends AbstractAtom
     return credentials.getClient();
   }
 
-  static Artifact convertToArtifact(ArtifactCredentials artifactCredentials, String reference) {
-    Artifact artifact = new Artifact();
-    artifact.setReference(reference);
-
-    if (artifactCredentials == null || artifactCredentials instanceof HttpArtifactCredentials) {
-      artifact.setType("http/file");
-    } else if (artifactCredentials instanceof GcsArtifactCredentials) {
-      artifact.setType("gcs/file");
-    }
-
-    return artifact;
-  }
-
-  void downloadAndProcessManifest(Map manifest, ArtifactCredentialsRepository credentialsRepository, Consumer<Map> processManifest) {
-    ArtifactCredentials manifestArtifactCredentials = credentialsRepository.getAllCredentials().stream()
-      .filter(creds -> creds.getName().equals(manifest.get("account")))
-      .findAny()
-      .orElseThrow(() -> new IllegalArgumentException("Unable to find manifest credentials '" + manifest.get("account") + "'"));
-    Artifact manifestArtifact = convertToArtifact(manifestArtifactCredentials, manifest.get("reference").toString());
-
+  void downloadAndProcessManifest(ArtifactDownloader downloader, Artifact manifest, Consumer<Map> processManifest) {
     try {
-      InputStream manifestInput = manifestArtifactCredentials.download(manifestArtifact);
+      InputStream manifestInput = downloader.download(manifest);
       Yaml parser = new Yaml(new SafeConstructor());
       processManifest.accept(parser.load(manifestInput));
     } catch (IOException e) {

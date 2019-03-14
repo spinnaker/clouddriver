@@ -37,7 +37,6 @@ class DeployCloudFoundryServiceAtomicOperationTest extends AbstractCloudFoundryA
 
   @Test
   void deployService() {
-    desc.setServiceType("service");
     desc.setClient(client);
     desc.setServiceAttributes(new DeployCloudFoundryServiceDescription.ServiceAttributes()
       .setServiceInstanceName("some-service-name")
@@ -47,7 +46,6 @@ class DeployCloudFoundryServiceAtomicOperationTest extends AbstractCloudFoundryA
 
     ServiceInstanceResponse serviceInstanceResponse = new ServiceInstanceResponse()
       .setServiceInstanceName("some-service-name")
-      .setServiceInstanceId("service-guid")
       .setType(UPDATE)
       .setState(IN_PROGRESS);
     when(client.getServiceInstances().createServiceInstance(any(), any(), any(), any(), any(), any()))
@@ -68,7 +66,7 @@ class DeployCloudFoundryServiceAtomicOperationTest extends AbstractCloudFoundryA
 
   @Test
   void deployUserProvidedService() {
-    desc.setServiceType("userProvided");
+    desc.setUserProvided(true);
     desc.setClient(client);
     desc.setUserProvidedServiceAttributes(new DeployCloudFoundryServiceDescription.UserProvidedServiceAttributes()
       .setServiceInstanceName("some-up-service-name")
@@ -76,7 +74,6 @@ class DeployCloudFoundryServiceAtomicOperationTest extends AbstractCloudFoundryA
 
     ServiceInstanceResponse serviceInstanceResponse = new ServiceInstanceResponse()
       .setServiceInstanceName("some-up-service-name")
-      .setServiceInstanceId("up-service-guid")
       .setType(CREATE)
       .setState(SUCCEEDED);
     when(client.getServiceInstances().createUserProvidedServiceInstance(any(), any(), any(), any(), any(), any()))
