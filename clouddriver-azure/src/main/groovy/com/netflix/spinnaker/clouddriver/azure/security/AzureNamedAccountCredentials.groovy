@@ -43,6 +43,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
   final String defaultKeyVault
   final String defaultResourceGroup
   final Map<String, List<AzureComputeClient.VirtualMachineSize>> locationToInstanceTypesMap
+  final Boolean useSshPublicKey
 
   AzureNamedAccountCredentials(String accountName,
                                String environment,
@@ -56,6 +57,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
                                List<AzureCustomImageStorage> vmCustomImages,
                                String defaultResourceGroup,
                                String defaultKeyVault,
+                               Boolean useSshPublicKey,
                                String applicationName,
                                List<String> requiredGroupMembership = null) {
     this.accountName = accountName
@@ -71,6 +73,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
     this.applicationName = applicationName
     this.defaultKeyVault = defaultKeyVault
     this.defaultResourceGroup = defaultResourceGroup
+    this.useSshPublicKey = useSshPublicKey
     this.requiredGroupMembership = requiredGroupMembership ?: [] as List<String>
     this.credentials = appKey.isEmpty() ? null : buildCredentials()
     this.locationToInstanceTypesMap = this.credentials.computeClient.getVirtualMachineSizesByRegions(this.regions)
@@ -87,7 +90,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
   }
 
   private AzureCredentials buildCredentials() {
-    new AzureCredentials(this.tenantId, this.clientId, this.appKey, this.subscriptionId, this.defaultKeyVault, this.defaultResourceGroup, this.applicationName, this.environment)
+    new AzureCredentials(this.tenantId, this.clientId, this.appKey, this.subscriptionId, this.defaultKeyVault, this.defaultResourceGroup, this.applicationName, this.environment, this.useSshPublicKey)
   }
 
   private static List<AzureVMImage> buildPreferredVMImageList(List<AzureVMImage> vmImages) {
