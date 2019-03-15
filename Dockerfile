@@ -6,7 +6,7 @@ COPY . workdir/
 
 WORKDIR workdir
 
-RUN GRADLE_USER_HOME=cache ./gradlew buildDeb -x test && \
+RUN GRADLE_USER_HOME=cache ./gradlew build -x test && \
   dpkg -i ./clouddriver-web/build/distributions/*.deb && \
   cd .. && \
   rm -rf workdir && \
