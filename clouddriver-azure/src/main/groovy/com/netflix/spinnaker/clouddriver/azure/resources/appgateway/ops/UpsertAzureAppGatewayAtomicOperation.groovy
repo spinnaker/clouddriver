@@ -85,12 +85,12 @@ class UpsertAzureAppGatewayAtomicOperation implements AtomicOperation<Map> {
         description.subnetResourceId = appGatewayDescription.subnetResourceId
         description.serverGroups = appGatewayDescription.serverGroups
         description.trafficEnabledSG = appGatewayDescription.trafficEnabledSG
+        description.vnetResourceGroup = appGatewayDescription.vnetResourceGroup
 
         Deployment deployment = description.credentials.resourceManagerClient.createResourceFromTemplate(
           AzureAppGatewayResourceTemplate.getTemplate(description),
           resourceGroupName,
           description.region,
-          description.loadBalancerName,
           "appGateway")
 
         errList = AzureDeploymentOperation.checkDeploymentOperationStatus(task, BASE_PHASE, description.credentials, resourceGroupName, deployment.name())
@@ -167,7 +167,6 @@ class UpsertAzureAppGatewayAtomicOperation implements AtomicOperation<Map> {
           AzureAppGatewayResourceTemplate.getTemplate(description),
           resourceGroupName,
           description.region,
-          description.loadBalancerName,
           "appGateway")
 
         errList = AzureDeploymentOperation.checkDeploymentOperationStatus(task, BASE_PHASE, description.credentials, resourceGroupName, deployment.name())
