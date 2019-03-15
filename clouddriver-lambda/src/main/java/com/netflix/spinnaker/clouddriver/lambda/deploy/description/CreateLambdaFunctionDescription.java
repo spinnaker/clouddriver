@@ -25,10 +25,10 @@ import java.util.List;
 @Data
 @EqualsAndHashCode(callSuper = false)
 public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescription {
-  String functionname;
+  String functionName;
   String description;
-  String s3bucket;
-  String s3key;
+  String s3Bucket;
+  String s3Key;
   String handler;
   String role;
   String runtime;
