@@ -35,3 +35,4 @@ RUN wget -O /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py && \
 ENV PATH "$PATH:/usr/local/bin/"
 
 CMD ["/opt/clouddriver/bin/clouddriver"]
+
