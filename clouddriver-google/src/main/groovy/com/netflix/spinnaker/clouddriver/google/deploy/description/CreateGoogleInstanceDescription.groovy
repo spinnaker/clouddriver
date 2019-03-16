@@ -21,4 +21,9 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 class CreateGoogleInstanceDescription extends BaseGoogleInstanceDescription implements DeployDescription {
   String instanceName
   String zone
+
+  @Override
+  String getName() {
+    return instanceName
+  }
 }
