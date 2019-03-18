@@ -16,16 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops;
 
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Routes;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.RouteId;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.LoadBalancersDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryDomain;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryLoadBalancer;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
+import com.netflix.spinnaker.clouddriver.data.task.Task;
 import io.vavr.collection.List;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.atIndex;
@@ -51,16 +54,30 @@ class UnmapLoadBalancersAtomicOperationTest extends AbstractCloudFoundryAtomicOp
   @Test
   void operateWithNullRoutes() {
     UnmapLoadBalancersAtomicOperation op = new UnmapLoadBalancersAtomicOperation(desc);
-    assertThat(runOperation(op).getHistory())
-      .has(status("No load balancer specified"), atIndex(2));
+
+    Task task = runOperation(op);
+    java.util.List<Object> resultObjects = task.getResultObjects();
+    assertThat(resultObjects.size()).isEqualTo(1);
+    Object o = resultObjects.get(0);
+    assertThat(o).isInstanceOf(Map.class);
+    Object ex = ((Map) o).get("EXCEPTION");
+    assertThat(ex).isInstanceOf(CloudFoundryApiException.class);
+    assertThat(((CloudFoundryApiException) ex).getMessage()).isEqualTo("Cloud Foundry API returned with error(s): No load balancer specified");
   }
 
   @Test
   void operateWithEmptyRoutes() {
     desc.setRoutes(Collections.emptyList());
     UnmapLoadBalancersAtomicOperation op = new UnmapLoadBalancersAtomicOperation(desc);
-    assertThat(runOperation(op).getHistory())
-      .has(status("No load balancer specified"), atIndex(2));
+
+    Task task = runOperation(op);
+    java.util.List<Object> resultObjects = task.getResultObjects();
+    assertThat(resultObjects.size()).isEqualTo(1);
+    Object o = resultObjects.get(0);
+    assertThat(o).isInstanceOf(Map.class);
+    Object ex = ((Map) o).get("EXCEPTION");
+    assertThat(ex).isInstanceOf(CloudFoundryApiException.class);
+    assertThat(((CloudFoundryApiException) ex).getMessage()).isEqualTo("Cloud Foundry API returned with error(s): No load balancer specified");
   }
 
   @Test
@@ -70,9 +87,14 @@ class UnmapLoadBalancersAtomicOperationTest extends AbstractCloudFoundryAtomicOp
       "bad.route 2.example.com"
     ).asJava());
     UnmapLoadBalancersAtomicOperation op = new UnmapLoadBalancersAtomicOperation(desc);
-    assertThat(runOperation(op).getHistory())
-      .has(status("Load balancer 'bad.route-1.example.com' does not exist"), atIndex(2))
-      .has(status("Invalid format for load balancer 'bad.route 2.example.com'"), atIndex(3));
+    Task task = runOperation(op);
+    java.util.List<Object> resultObjects = task.getResultObjects();
+    assertThat(resultObjects.size()).isEqualTo(1);
+    Object o = resultObjects.get(0);
+    assertThat(o).isInstanceOf(Map.class);
+    Object ex = ((Map) o).get("EXCEPTION");
+    assertThat(ex).isInstanceOf(CloudFoundryApiException.class);
+    assertThat(((CloudFoundryApiException) ex).getMessage()).isEqualTo("Cloud Foundry API returned with error(s): Load balancer 'bad.route-1.example.com' does not exist");
   }
 
   @Test

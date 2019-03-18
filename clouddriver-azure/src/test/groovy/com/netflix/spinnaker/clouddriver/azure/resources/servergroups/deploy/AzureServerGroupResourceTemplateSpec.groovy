@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureNamedImage
+import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
 import com.netflix.spinnaker.clouddriver.azure.templates.AzureServerGroupResourceTemplate
 import spock.lang.Specification
 
@@ -76,6 +77,17 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedCustomDataTemplate
   }
 
+  def 'generate server group with custom availability zones'() {
+    description = createCustomDescription()
+
+    description.zones = ["1", "3"]
+
+    String template = AzureServerGroupResourceTemplate.getTemplate(description)
+
+    expect:
+    template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedCustomZonesTemplate
+  }
+
   private static AzureServerGroupDescription createDescription(boolean withCustomImage = false) {
     AzureServerGroupDescription description = new AzureServerGroupDescription()
     description.name = 'azureMASM-st1-d11'
@@ -114,6 +126,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
 
     int backendPort = withCustomImage ? 22 : 3389
     description.addInboundPortConfig("InboundPortConfig", 50000, 50099, "tcp", backendPort)
+
+    description.credentials = new AzureCredentials("", "", "", "", "", "", "", "", false)
 
     description
   }
@@ -154,24 +168,33 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         "description" : "App Gateway backend address pool resource ID"
       }
     },
-    "vmuserName" : {
+    "vmUserName" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account name"
-      }
+        "description" : "Admin username on all VMs"
+      },
+      "defaultValue" : ""
     },
     "vmPassword" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account password"
-      }
+        "description" : "Admin password on all VMs"
+      },
+      "defaultValue" : ""
+    },
+    "vmSshPublicKey" : {
+      "type" : "securestring",
+      "metadata" : {
+        "description" : "SSH public key on all VMs"
+      },
+      "defaultValue" : ""
     },
     "customData" : {
       "type" : "string",
       "metadata" : {
         "description" : "custom data to pass down to the virtual machine(s)"
       },
-      "defaultValue" : ""
+      "defaultValue" : "sample custom data"
     }
   },
   "variables" : {
@@ -243,8 +266,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         },
         "osProfile" : {
           "computerNamePrefix" : "azureMASM-",
-          "adminUsername" : "[parameters('vmUsername')]",
-          "adminPassword" : "[parameters('vmPassword')]"
+          "adminUsername" : "[parameters('vmUserName')]",
+          "adminPassword" : "[parameters('vmPassword')]",
+          "customData" : "[base64(parameters('customData'))]"
         },
         "networkProfile" : {
           "networkInterfaceConfigurations" : [ {
@@ -292,24 +316,33 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         "description" : "App Gateway backend address pool resource ID"
       }
     },
-    "vmuserName" : {
+    "vmUserName" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account name"
-      }
+        "description" : "Admin username on all VMs"
+      },
+      "defaultValue" : ""
     },
     "vmPassword" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account password"
-      }
+        "description" : "Admin password on all VMs"
+      },
+      "defaultValue" : ""
+    },
+    "vmSshPublicKey" : {
+      "type" : "securestring",
+      "metadata" : {
+        "description" : "SSH public key on all VMs"
+      },
+      "defaultValue" : ""
     },
     "customData" : {
       "type" : "string",
       "metadata" : {
         "description" : "custom data to pass down to the virtual machine(s)"
       },
-      "defaultValue" : ""
+      "defaultValue" : "sample custom data"
     }
   },
   "variables" : {
@@ -347,8 +380,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         },
         "osProfile" : {
           "computerNamePrefix" : "azureMASM-",
-          "adminUsername" : "[parameters('vmUsername')]",
-          "adminPassword" : "[parameters('vmPassword')]"
+          "adminUsername" : "[parameters('vmUserName')]",
+          "adminPassword" : "[parameters('vmPassword')]",
+          "customData" : "[base64(parameters('customData'))]"
         },
         "networkProfile" : {
           "networkInterfaceConfigurations" : [ {
@@ -396,24 +430,33 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         "description" : "App Gateway backend address pool resource ID"
       }
     },
-    "vmuserName" : {
+    "vmUserName" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account name"
-      }
+        "description" : "Admin username on all VMs"
+      },
+      "defaultValue" : ""
     },
     "vmPassword" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account password"
-      }
+        "description" : "Admin password on all VMs"
+      },
+      "defaultValue" : ""
+    },
+    "vmSshPublicKey" : {
+      "type" : "securestring",
+      "metadata" : {
+        "description" : "SSH public key on all VMs"
+      },
+      "defaultValue" : ""
     },
     "customData" : {
       "type" : "string",
       "metadata" : {
         "description" : "custom data to pass down to the virtual machine(s)"
       },
-      "defaultValue" : ""
+      "defaultValue" : "sample custom data"
     }
   },
   "variables" : {
@@ -485,8 +528,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         },
         "osProfile" : {
           "computerNamePrefix" : "azureMASM-",
-          "adminUsername" : "[parameters('vmUsername')]",
-          "adminPassword" : "[parameters('vmPassword')]"
+          "adminUsername" : "[parameters('vmUserName')]",
+          "adminPassword" : "[parameters('vmPassword')]",
+          "customData" : "[base64(parameters('customData'))]"
         },
         "networkProfile" : {
           "networkInterfaceConfigurations" : [ {
@@ -549,24 +593,33 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         "description" : "App Gateway backend address pool resource ID"
       }
     },
-    "vmuserName" : {
+    "vmUserName" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account name"
-      }
+        "description" : "Admin username on all VMs"
+      },
+      "defaultValue" : ""
     },
     "vmPassword" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account password"
-      }
+        "description" : "Admin password on all VMs"
+      },
+      "defaultValue" : ""
+    },
+    "vmSshPublicKey" : {
+      "type" : "securestring",
+      "metadata" : {
+        "description" : "SSH public key on all VMs"
+      },
+      "defaultValue" : ""
     },
     "customData" : {
       "type" : "string",
       "metadata" : {
         "description" : "custom data to pass down to the virtual machine(s)"
       },
-      "defaultValue" : ""
+      "defaultValue" : "sample custom data"
     }
   },
   "variables" : {
@@ -638,8 +691,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         },
         "osProfile" : {
           "computerNamePrefix" : "azureMASM-",
-          "adminUsername" : "[parameters('vmUsername')]",
-          "adminPassword" : "[parameters('vmPassword')]"
+          "adminUsername" : "[parameters('vmUserName')]",
+          "adminPassword" : "[parameters('vmPassword')]",
+          "customData" : "[base64(parameters('customData'))]"
         },
         "networkProfile" : {
           "networkInterfaceConfigurations" : [ {
@@ -702,24 +756,33 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         "description" : "App Gateway backend address pool resource ID"
       }
     },
-    "vmuserName" : {
+    "vmUserName" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account name"
-      }
+        "description" : "Admin username on all VMs"
+      },
+      "defaultValue" : ""
     },
     "vmPassword" : {
       "type" : "securestring",
       "metadata" : {
-        "description" : "default VM account password"
-      }
+        "description" : "Admin password on all VMs"
+      },
+      "defaultValue" : ""
+    },
+    "vmSshPublicKey" : {
+      "type" : "securestring",
+      "metadata" : {
+        "description" : "SSH public key on all VMs"
+      },
+      "defaultValue" : ""
     },
     "customData" : {
       "type" : "string",
       "metadata" : {
         "description" : "custom data to pass down to the virtual machine(s)"
       },
-      "defaultValue" : ""
+      "defaultValue" : "sample custom data"
     }
   },
   "variables" : {
@@ -791,7 +854,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         },
         "osProfile" : {
           "computerNamePrefix" : "azureMASM-",
-          "adminUsername" : "[parameters('vmUsername')]",
+          "adminUsername" : "[parameters('vmUserName')]",
           "adminPassword" : "[parameters('vmPassword')]",
           "customData" : "[base64(parameters('customData'))]"
         },
@@ -831,6 +894,171 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
         }
       }
     }
+  } ]
+}'''
+
+
+  private static String expectedCustomZonesTemplate = '''{
+  "$schema" : "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion" : "1.0.0.0",
+  "parameters" : {
+    "location" : {
+      "type" : "string",
+      "metadata" : {
+        "description" : "Location to deploy"
+      }
+    },
+    "subnetId" : {
+      "type" : "string",
+      "metadata" : {
+        "description" : "Subnet Resource ID"
+      }
+    },
+    "appGatewayAddressPoolId" : {
+      "type" : "string",
+      "metadata" : {
+        "description" : "App Gateway backend address pool resource ID"
+      }
+    },
+    "vmUserName" : {
+      "type" : "securestring",
+      "metadata" : {
+        "description" : "Admin username on all VMs"
+      },
+      "defaultValue" : ""
+    },
+    "vmPassword" : {
+      "type" : "securestring",
+      "metadata" : {
+        "description" : "Admin password on all VMs"
+      },
+      "defaultValue" : ""
+    },
+    "vmSshPublicKey" : {
+      "type" : "securestring",
+      "metadata" : {
+        "description" : "SSH public key on all VMs"
+      },
+      "defaultValue" : ""
+    },
+    "customData" : {
+      "type" : "string",
+      "metadata" : {
+        "description" : "custom data to pass down to the virtual machine(s)"
+      },
+      "defaultValue" : "sample custom data"
+    }
+  },
+  "variables" : {
+    "apiVersion" : "2018-10-01",
+    "vhdContainerName" : "azuremasm-st1-d11",
+    "osType" : {
+      "publisher" : "Canonical",
+      "offer" : "UbuntuServer",
+      "sku" : "14.04.3-LTS",
+      "version" : "latest"
+    },
+    "imageReference" : "[variables('osType')]",
+    "uniqueStorageNameArray" : [ "[concat(uniqueString(concat(resourceGroup().id, subscription().id, 'azuremasmst1d11', '0')), 'sa')]" ]
+  },
+  "resources" : [ {
+    "apiVersion" : "[variables('apiVersion')]",
+    "name" : "[concat(variables('uniqueStorageNameArray')[copyIndex()])]",
+    "type" : "Microsoft.Storage/storageAccounts",
+    "location" : "[parameters('location')]",
+    "tags" : {
+      "appName" : "azureMASM",
+      "stack" : "st1",
+      "detail" : "d11",
+      "cluster" : "azureMASM-st1-d11",
+      "serverGroupName" : "azureMASM-st1-d11",
+      "createdTime" : "1234567890"
+    },
+    "copy" : {
+      "name" : "storageLoop",
+      "count" : 1
+    },
+    "properties" : {
+      "accountType" : "Premium_LRS"
+    }
+  }, {
+    "apiVersion" : "[variables('apiVersion')]",
+    "name" : "azureMASM-st1-d11",
+    "type" : "Microsoft.Compute/virtualMachineScaleSets",
+    "location" : "[parameters('location')]",
+    "tags" : {
+      "appName" : "azureMASM",
+      "stack" : "st1",
+      "detail" : "d11",
+      "cluster" : "azureMASM-st1-d11",
+      "createdTime" : "1234567890",
+      "hasNewSubnet" : "false",
+      "imageIsCustom" : "false",
+      "storageAccountNames" : "[concat(uniqueString(concat(resourceGroup().id, subscription().id, 'azuremasmst1d11', '0')), 'sa')]"
+    },
+    "dependsOn" : [ "[concat('Microsoft.Storage/storageAccounts/', variables('uniqueStorageNameArray')[0])]" ],
+    "sku" : {
+      "name" : "Standard_A1",
+      "tier" : "Standard",
+      "capacity" : 2
+    },
+    "properties" : {
+      "upgradePolicy" : {
+        "mode" : "Manual"
+      },
+      "virtualMachineProfile" : {
+        "storageProfile" : {
+          "osDisk" : {
+            "name" : "osdisk-azureMASM-st1-d11",
+            "caching" : "ReadOnly",
+            "createOption" : "FromImage",
+            "vhdContainers" : [ "[concat('https://', variables('uniqueStorageNameArray')[0], '.blob.core.windows.net/', variables('vhdContainerName'))]" ]
+          },
+          "imageReference" : "[variables('imageReference')]"
+        },
+        "osProfile" : {
+          "computerNamePrefix" : "azureMASM-",
+          "adminUsername" : "[parameters('vmUserName')]",
+          "adminPassword" : "[parameters('vmPassword')]",
+          "customData" : "[base64(parameters('customData'))]"
+        },
+        "networkProfile" : {
+          "networkInterfaceConfigurations" : [ {
+            "name" : "nic-azureMASM-st1-d11",
+            "properties" : {
+              "primary" : true,
+              "ipConfigurations" : [ {
+                "name" : "ipc-azureMASM-st1-d11",
+                "properties" : {
+                  "subnet" : {
+                    "id" : "[parameters('subnetId')]"
+                  },
+                  "applicationGatewayBackendAddressPools" : [ {
+                    "id" : "[parameters('appGatewayAddressPoolId')]"
+                  } ]
+                }
+              } ]
+            }
+          } ]
+        },
+        "extensionProfile" : {
+          "extensions" : [ {
+            "name" : "azureMASM_ext",
+            "properties" : {
+              "publisher" : "Microsoft.Azure.Extensions",
+              "type" : "CustomScript",
+              "typeHandlerVersion" : "2.0",
+              "autoUpgradeMinorVersion" : true,
+              "settings" : {
+                "fileUris" : [ "storage1", "file2" ],
+                "commandToExecute" : "mkdir mydir"
+              }
+            }
+          } ]
+        }
+      }
+    },
+    "zones" : [ "1", "3" ]
   } ]
 }'''
 
