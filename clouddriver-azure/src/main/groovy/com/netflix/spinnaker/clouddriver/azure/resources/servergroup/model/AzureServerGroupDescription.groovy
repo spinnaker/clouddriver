@@ -201,7 +201,6 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
       osConfig.adminUserName = osProfile.adminUsername()
       osConfig.computerNamePrefix = osProfile.computerNamePrefix()
       osConfig.customData = osProfile.customData()
-
     }
     azureSG.osConfig = osConfig
 
@@ -228,6 +227,8 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
       sku.tier = skuData.tier()
     }
     azureSG.sku = sku
+    def zones = scaleSet.zones()
+    azureSG.zones = zones == null ? new HashSet<>() : zones.toSet()
 
     azureSG.provisioningState = scaleSet.provisioningState()
 
