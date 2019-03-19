@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
+import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.ArtifactCredentialsFromString;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
@@ -75,12 +76,13 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
     Collections.singletonList(
       Collections.singletonList(new ArtifactCredentialsFromString(
         "test",
-        List.of("a").asJava(),
-        "service_instance_name: my-service-instance-name\n" +
+        List.of("test").asJava(),
+          "service_instance_name: my-service-instance-name\n" +
           "service: my-service\n" +
           "service_plan: my-service-plan\n" +
           "tags:\n" +
           "- tag1\n" +
+          "updatable: false\n" +
           "parameters: |\n" +
           "  { \"foo\": \"bar\" }\n"
       ))
@@ -96,7 +98,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
   private final AccountCredentialsProvider accountCredentialsProvider =
     new DefaultAccountCredentialsProvider(accountCredentialsRepository);
   private final DeployCloudFoundryServiceAtomicOperationConverter converter =
-    new DeployCloudFoundryServiceAtomicOperationConverter(artifactCredentialsRepository);
+    new DeployCloudFoundryServiceAtomicOperationConverter(new ArtifactDownloader(artifactCredentialsRepository));
 
   @BeforeEach
   void initializeClassUnderTest() {
@@ -122,6 +124,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
         .setServiceInstanceName("my-service-instance-name")
         .setServicePlan("my-service-plan")
         .setTags(Collections.singleton("my-tag"))
+        .setUpdatable(true)
         .setParameterMap(HashMap.<String, Object>of(
           "foo", "bar"
         ).toJavaMap())
@@ -175,6 +178,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
     final Map input = HashMap.of(
       "service_instance_name", "my-service-instance-name",
       "syslog_drain_url", "test-syslog-drain-url",
+      "updatable", false,
       "route_service_url", "test-route-service-url",
       "tags", List.of(
         "my-tag"
@@ -188,7 +192,8 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
         .setSyslogDrainUrl("test-syslog-drain-url")
         .setRouteServiceUrl("test-route-service-url")
         .setTags(Collections.singleton("my-tag"))
-        .setCredentialsMap(HashMap.<String, Object>of(
+        .setUpdatable(false)
+        .setCredentials(HashMap.<String, Object>of(
           "foo", "bar"
         ).toJavaMap())
     );
@@ -217,6 +222,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
       "tags", List.of(
         "my-tag"
       ).asJava(),
+      "updatable", true,
       "parameters", ""
     ).toJavaMap();
 
@@ -226,6 +232,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
         .setServiceInstanceName("my-service-instance-name")
         .setServicePlan("my-service-plan")
         .setTags(Collections.singleton("my-tag"))
+        .setUpdatable(true)
     );
   }
 
@@ -246,9 +253,11 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
       "credentials", "test",
       "region", "org > space",
       "manifest", HashMap.of(
-        "type", "artifact",
-        "account", "test",
-        "reference", "ref1"
+        "artifact", HashMap.of(
+          "artifactAccount", "test",
+          "reference", "ref1",
+          "type", "test"
+        ).toJavaMap()
       ).toJavaMap()
     ).toJavaMap();
 
@@ -263,6 +272,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
         .setServiceInstanceName("my-service-instance-name")
         .setServicePlan("my-service-plan")
         .setTags(Collections.singleton("tag1"))
+        .setUpdatable(false)
         .setParameterMap(HashMap.<String, Object>of(
           "foo", "bar"
         ).toJavaMap())
@@ -274,15 +284,15 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
     final Map input = HashMap.of(
       "credentials", "test",
       "region", "org > space",
+      "userProvided", true,
       "manifest", HashMap.of(
-        "type", "userProvided",
-        "serviceInstanceName", "userProvidedServiceName",
-        "tags", List.of(
-          "my-tag"
-        ).asJava(),
-        "syslogDrainUrl", "http://syslogDrainUrl.io",
-        "credentials", "{\"foo\": \"bar\"}",
-        "routeServiceUrl", "http://routeServiceUrl.io"
+        "direct", HashMap.of(
+          "serviceInstanceName", "userProvidedServiceName",
+          "tags", List.of("my-tag").asJava(),
+          "syslogDrainUrl", "http://syslogDrainUrl.io",
+          "credentials", "{\"foo\": \"bar\"}",
+          "routeServiceUrl", "http://routeServiceUrl.io"
+        ).toJavaMap()
       ).toJavaMap()
     ).toJavaMap();
 
@@ -294,7 +304,8 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
         .setSyslogDrainUrl("http://syslogDrainUrl.io")
         .setRouteServiceUrl("http://routeServiceUrl.io")
         .setTags(Collections.singleton("my-tag"))
-        .setCredentialsMap(HashMap.<String, Object>of(
+        .setUpdatable(true)
+        .setCredentials(HashMap.<String, Object>of(
           "foo", "bar"
         ).toJavaMap())
     );
@@ -305,14 +316,15 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
     final Map input = HashMap.of(
       "credentials", "test",
       "region", "org > space",
+      "userProvided", true,
       "manifest", HashMap.of(
-        "type", "userProvided",
-        "serviceInstanceName", "userProvidedServiceName",
-        "tags", List.of(
-          "my-tag"
-        ).asJava(),
-        "syslogDrainUrl", "http://syslogDrainUrl.io",
-        "routeServiceUrl", "http://routeServiceUrl.io"
+        "direct", HashMap.of(
+          "serviceInstanceName", "userProvidedServiceName",
+          "tags", List.of("my-tag").asJava(),
+          "updatable", false,
+          "syslogDrainUrl", "http://syslogDrainUrl.io",
+          "routeServiceUrl", "http://routeServiceUrl.io"
+        ).toJavaMap()
       ).toJavaMap()
     ).toJavaMap();
 
@@ -324,6 +336,7 @@ class DeployCloudFoundryServiceAtomicOperationConverterTest {
         .setSyslogDrainUrl("http://syslogDrainUrl.io")
         .setRouteServiceUrl("http://routeServiceUrl.io")
         .setTags(Collections.singleton("my-tag"))
+        .setUpdatable(false)
     );
   }
 }

@@ -17,20 +17,18 @@
 package com.netflix.spinnaker.clouddriver.google.deploy
 
 import com.google.api.services.compute.model.InstanceGroupManager
+import com.google.api.services.compute.model.InstanceProperties
 import com.google.api.services.compute.model.InstanceTemplate
-import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
 import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource
-import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver
-import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
+import com.netflix.spinnaker.moniker.Moniker
 import com.netflix.spinnaker.moniker.Namer
-import org.springframework.util.StringUtils
 
 class GCEServerGroupNameResolver extends AbstractServerGroupNameResolver {
 
@@ -71,11 +69,6 @@ class GCEServerGroupNameResolver extends AbstractServerGroupNameResolver {
   @Override
   List<AbstractServerGroupNameResolver.TakenSlot> getTakenSlots(String clusterName) {
     def managedInstanceGroups = GCEUtil.queryAllManagedInstanceGroups(project, region, credentials, task, phase, safeRetry, executor)
-    def clusters = googleClusterProvider.getClusters(clusterName.split("-")[0], project)
-    clusterName = clusters.find { cluster ->
-      cluster.name == clusterName
-    }?.moniker?.cluster ?: clusterName
-
     return findMatchingManagedInstanceGroups(managedInstanceGroups, clusterName)
   }
 
@@ -88,10 +81,11 @@ class GCEServerGroupNameResolver extends AbstractServerGroupNameResolver {
     def instanceTemplates = GCEUtil.queryAllInstanceTemplates(credentials, executor)
 
     return managedInstanceGroups.findResults { managedInstanceGroup ->
-      def instanceTemplateName = GCEUtil.getLocalName(managedInstanceGroup.getInstanceTemplate())
-      def instanceTemplate = instanceTemplates.find { it.getName() == instanceTemplateName }
-      def labeledInstanceTemplate = new GoogleInstanceTemplate(instanceTemplate.getProperties().getLabels())
-      def moniker = naming.deriveMoniker(labeledInstanceTemplate)
+      String instanceTemplateName = GCEUtil.getLocalName(managedInstanceGroup.getInstanceTemplate())
+      InstanceTemplate instanceTemplate = instanceTemplates.find { it.getName() == instanceTemplateName }
+      InstanceProperties instanceProperties = instanceTemplate.getProperties()
+      GoogleLabeledManagedInstanceGroup labeledInstanceTemplate = new GoogleLabeledManagedInstanceGroup(managedInstanceGroup.getName(), instanceProperties.getLabels())
+      Moniker moniker = naming.deriveMoniker(labeledInstanceTemplate)
 
       if (moniker.cluster == clusterName) {
         return new AbstractServerGroupNameResolver.TakenSlot(
@@ -105,10 +99,12 @@ class GCEServerGroupNameResolver extends AbstractServerGroupNameResolver {
     }
   }
 
-  private class GoogleInstanceTemplate implements GoogleLabeledResource {
+  private class GoogleLabeledManagedInstanceGroup implements GoogleLabeledResource {
+    String name
     Map<String, String> labels
 
-    GoogleInstanceTemplate(Map<String, String> labels) {
+    GoogleLabeledManagedInstanceGroup (String name, Map<String, String> labels) {
+      this.name = name
       this.labels = labels
     }
   }
