@@ -30,6 +30,7 @@
  */
 package com.netflix.spinnaker.clouddriver.azure.templates
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
@@ -140,9 +141,12 @@ class AzureServerGroupResourceTemplate {
     LocationParameter location = new LocationParameter(["description": "Location to deploy"])
     SubnetParameter subnetId = new SubnetParameter(["description": "Subnet Resource ID"])
     AppGatewayAddressPoolParameter appGatewayAddressPoolId = new AppGatewayAddressPoolParameter(["description": "App Gateway backend address pool resource ID"])
-    VMUserNameParameter vmuserName = new VMUserNameParameter(["description": "default VM account name"])
-    VMPasswordParameter vmPassword = new VMPasswordParameter(["description": "default VM account password"])
-    CustomDataParameter customData = new CustomDataParameter(["description":"custom data to pass down to the virtual machine(s)"], "")
+    VMUserNameParameter vmUserName = new VMUserNameParameter(["description": "Admin username on all VMs"], "")
+    VMPasswordParameter vmPassword = new VMPasswordParameter(["description": "Admin password on all VMs"], "")
+    VMSshPublicKeyParameter vmSshPublicKey = new VMSshPublicKeyParameter(["description": "SSH public key on all VMs"], "")
+
+    // The default value of custom data cannot be "" otherwise Azure service will run into error complaining "custom data must be in Base64".
+    CustomDataParameter customData = new CustomDataParameter(["description":"custom data to pass down to the virtual machine(s)"], "sample custom data")
   }
 
   /* Server Group Parameters */
@@ -174,17 +178,24 @@ class AzureServerGroupResourceTemplate {
     }
   }
 
-  static String vmUserNameParameterName = "vmUsername"
+  static String vmUserNameParameterName = "vmUserName"
   static class VMUserNameParameter extends SecureStringParameter {
-    VMUserNameParameter(Map<String, String> metadata) {
-      super(metadata)
+    VMUserNameParameter(Map<String, String> metadata, String defaultValue) {
+      super(metadata, defaultValue)
     }
   }
 
   static String vmPasswordParameterName = "vmPassword"
   static class VMPasswordParameter extends SecureStringParameter {
-    VMPasswordParameter(Map<String, String> metadata) {
-      super(metadata)
+    VMPasswordParameter(Map<String, String> metadata, String defaultValue) {
+      super(metadata, defaultValue)
+    }
+  }
+
+  static String vmSshPublicKeyParameterName = "vmSshPublicKey"
+  static class VMSshPublicKeyParameter extends SecureStringParameter {
+    VMSshPublicKeyParameter(Map<String, String> metadata, String defaultValue) {
+      super(metadata, defaultValue)
     }
   }
 
@@ -282,6 +293,9 @@ class AzureServerGroupResourceTemplate {
     ScaleSetSkuProperty sku
     VirtualMachineScaleSetProperty properties
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    List<String> zones
+
     VirtualMachineScaleSet(AzureServerGroupDescription description) {
       apiVersion = "[variables('apiVersion')]"
       name = description.name
@@ -289,33 +303,18 @@ class AzureServerGroupResourceTemplate {
       location = "[parameters('${locationParameterName}')]"
       def currentTime = System.currentTimeMillis()
       tags = [:]
-      tags.appName = description.application
-      tags.stack = description.stack
-      tags.detail = description.detail
-      tags.cluster = description.clusterName
       tags.createdTime = currentTime.toString()
-      tags.hasNewSubnet = description.hasNewSubnet.toString()
+      if (description.instanceTags != null) {
+        tags << description.instanceTags
+      }
 
       // debug only; can be removed as part of the tags cleanup
       if (description.appGatewayName) tags.appGatewayName = description.appGatewayName
-      if (description.appGatewayBapId) tags.appGatewayBapId = description.appGatewayBapId
-
-      if (description.securityGroupName) tags.securityGroupName = description.securityGroupName
-      if (description.subnetId) tags.subnetId = description.subnetId
-      tags.imageIsCustom = description.image.isCustom.toString()
       // will need this when cloning a server group
       if (description.image.imageName) tags.imageName = description.image.imageName
 
-      if (!description.image.isCustom) {
-        description.getStorageAccountCount().times { idx ->
-          this.dependsOn.add(
-            String.format("[concat('Microsoft.Storage/storageAccounts/', variables('%s')[%s])]",
-              ExtendedServerGroupTemplateVariables.uniqueStorageNamesArrayVar,
-              idx)
-          )
-          String uniqueName = getUniqueStorageName(description.name, idx)
-          tags.storageAccountNames = tags.storageAccountNames ? "${tags.storageAccountNames},${uniqueName}" : uniqueName
-        }
+      if(description.zones != null && description.zones.size() != 0) {
+        zones = description.zones.asList()
       }
 
       properties = new VirtualMachineScaleSetProperty(description)
@@ -373,6 +372,7 @@ class AzureServerGroupResourceTemplate {
     String computerNamePrefix
     String adminUsername
     String adminPassword
+    String customData
 
     ScaleSetOsProfileProperty(AzureServerGroupDescription description) {
       //Max length of 10 characters to allow for an aditional postfix within a max length of 15 characters
@@ -380,18 +380,46 @@ class AzureServerGroupResourceTemplate {
       log.info("computerNamePrefix will be truncated to 10 characters to maintain Azure restrictions")
       adminUsername = "[parameters('${vmUserNameParameterName}')]"
       adminPassword = "[parameters('${vmPasswordParameterName}')]"
-    }
-  }
-
-  static class ScaleSetOsProfileCustomDataProperty extends ScaleSetOsProfileProperty implements ScaleSetOsProfile {
-    String customData
-
-    ScaleSetOsProfileCustomDataProperty(AzureServerGroupDescription description) {
-      super(description)
       customData = "[base64(parameters('customData'))]"
     }
   }
 
+  static class ScaleSetOsProfileLinuxConfiguration extends ScaleSetOsProfileProperty implements ScaleSetOsProfile {
+    OsProfileLinuxConfiguration linuxConfiguration
+
+    ScaleSetOsProfileLinuxConfiguration(AzureServerGroupDescription description) {
+      super(description)
+      linuxConfiguration = new OsProfileLinuxConfiguration()
+    }
+  }
+
+  static class OsProfileLinuxConfiguration{
+    Boolean disablePasswordAuthentication
+    ScaleSetOsProfileLinuxConfigurationSsh ssh
+
+    OsProfileLinuxConfiguration() {
+      disablePasswordAuthentication = true
+      ssh = new ScaleSetOsProfileLinuxConfigurationSsh()
+    }
+  }
+
+  static class ScaleSetOsProfileLinuxConfigurationSsh {
+    ArrayList<ScaleSetOsProfileLinuxConfigurationSshPublicKey> publicKeys = []
+
+    ScaleSetOsProfileLinuxConfigurationSsh() {
+      publicKeys.add(new ScaleSetOsProfileLinuxConfigurationSshPublicKey())
+    }
+  }
+
+  static class ScaleSetOsProfileLinuxConfigurationSshPublicKey {
+    String path
+    String keyData
+
+    ScaleSetOsProfileLinuxConfigurationSshPublicKey() {
+      path = "[concat('/home/', parameters('${vmUserNameParameterName}'), '/.ssh/authorized_keys')]"
+      keyData = "[parameters('${vmSshPublicKeyParameterName}')]"
+    }
+  }
 
   // ***Network Profile
   static class ScaleSetNetworkProfileProperty {
@@ -500,11 +528,15 @@ class AzureServerGroupResourceTemplate {
       storageProfile = description.image.isCustom ?
         new ScaleSetCustomManagedImageStorageProfile(description) :
         new ScaleSetStorageProfile(description)
-      osProfile = description.osConfig.customData ?
-        new ScaleSetOsProfileCustomDataProperty(description) :
-        new ScaleSetOsProfileProperty(description)
-      networkProfile = new ScaleSetNetworkProfileProperty(description)
 
+      if(description.credentials.useSshPublicKey){
+        osProfile = new ScaleSetOsProfileLinuxConfiguration(description)
+      }
+      else{
+        osProfile = new ScaleSetOsProfileProperty(description)
+      }
+
+      networkProfile = new ScaleSetNetworkProfileProperty(description)
     }
   }
 

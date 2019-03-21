@@ -73,6 +73,7 @@ public final class AtomicOperations {
   // Snapshot operations
   public static final String SAVE_SNAPSHOT = "saveSnapshot";
   public static final String RESTORE_SNAPSHOT = "restoreSnapshot";
+  public static final String DELETE_SNAPSHOT = "deleteSnapshot";
 
   // Manifest operations
   public static final String DEPLOY_MANIFEST = "deployManifest";
@@ -94,8 +95,9 @@ public final class AtomicOperations {
   // Service operations
   public static final String DEPLOY_SERVICE = "deployService";
   public static final String DESTROY_SERVICE = "destroyService";
+  public static final String SHARE_SERVICE = "shareService";
+  public static final String UNSHARE_SERVICE = "unshareService";
 
   // CloudFormation operations
   public static final String DEPLOY_CLOUDFORMATION_STACK = "deployCloudFormation";
-
 }
