@@ -63,7 +63,7 @@ public class DeleteAmazonSnapshotAtomicOperation implements AtomicOperation<Void
         .deleteSnapshot(new DeleteSnapshotRequest().withSnapshotId(description.getSnapshotId()));
     } catch (Exception e) {
       registry.counter(deleteSnapshotTaskId.withTag("success", false)).increment();
-      log.error("Failed to delete snapshotId with exception: {}", e.getMessage());
+      log.error(String.format("Failed to delete snapshotId %s", description.getSnapshotId()), e);
       throw e;
     }
     registry.counter(deleteSnapshotTaskId.withTag("success", true)).increment();
