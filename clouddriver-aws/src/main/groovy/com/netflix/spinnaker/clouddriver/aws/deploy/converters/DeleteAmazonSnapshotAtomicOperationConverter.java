@@ -32,7 +32,7 @@ import java.util.Map;
 @AmazonOperation(AtomicOperations.DELETE_SNAPSHOT)
 @Component
 public class DeleteAmazonSnapshotAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
-  private Registry registry;
+  private final Registry registry;
 
   @Autowired
   public DeleteAmazonSnapshotAtomicOperationConverter(Registry registry) {

@@ -65,10 +65,6 @@ public class DeleteAmazonSnapshotAtomicOperation implements AtomicOperation<Void
       registry.counter(deleteSnapshotTaskId.withTag("success", false)).increment();
       log.error("Failed to delete snapshotId with exception: {}", ec2Exception.getMessage());
       throw ec2Exception;
-    } catch (Exception e) {
-      registry.counter(deleteSnapshotTaskId.withTag("success", false)).increment();
-      log.error("Failed to delete snapshotId with exception: {}", e.getMessage());
-      throw e;
     }
     registry.counter(deleteSnapshotTaskId.withTag("success", true)).increment();
 
