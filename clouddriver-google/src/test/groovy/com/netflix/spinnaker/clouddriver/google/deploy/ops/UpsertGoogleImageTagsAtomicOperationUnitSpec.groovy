@@ -117,7 +117,7 @@ class UpsertGoogleImageTagsAtomicOperationUnitSpec extends Specification impleme
       }
 
     then:
-      1 * imagesMock.setLabels(PROJECT_NAME, IMAGE_NAME, { globalSetLabelsRequest = it }) >> setLabelsMock
+      1 * imagesMock.setLabels(PROJECT_NAME, IMAGE_NAME, { globalSetLabelsRequest == it }) >> setLabelsMock
       1 * setLabelsMock.execute()
       globalSetLabelsRequest.labels == TAGS
   }
@@ -188,7 +188,7 @@ class UpsertGoogleImageTagsAtomicOperationUnitSpec extends Specification impleme
       }
 
     then:
-      1 * imagesMock.setLabels(PROJECT_NAME, IMAGE_NAME, { globalSetLabelsRequest = it }) >> setLabelsMock
+      1 * imagesMock.setLabels(PROJECT_NAME, IMAGE_NAME, { globalSetLabelsRequest == it }) >> setLabelsMock
       1 * setLabelsMock.execute()
       globalSetLabelsRequest.labels == LABELS + TAGS
   }

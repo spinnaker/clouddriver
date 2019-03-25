@@ -49,7 +49,7 @@ class OpenstackDescriptionValidatorSpec extends Specification {
     provider = Mock(AccountCredentialsProvider) {
       1 * getCredentials(_) >> credentials
     }
-    validator = new FooValidator<>(accountCredentialsProvider: provider)
+    validator = new FooValidator(accountCredentialsProvider: provider)
     OpenstackInstancesDescription description = new OpenstackInstancesDescription(account: 'test', instanceIds: ['1','2'], credentials: credz, region: 'r1')
 
     when:
@@ -69,7 +69,7 @@ class OpenstackDescriptionValidatorSpec extends Specification {
       0 * getCredentials(_) >> credentials
     }
     errors = Mock(Errors)
-    validator = new FooValidator<>(accountCredentialsProvider: provider)
+    validator = new FooValidator(accountCredentialsProvider: provider)
     OpenstackInstancesDescription description = new OpenstackInstancesDescription(account: '', instanceIds: ['1','2'])
 
     when:
@@ -92,7 +92,7 @@ class OpenstackDescriptionValidatorSpec extends Specification {
     provider = Mock(AccountCredentialsProvider) {
       1 * getCredentials(_) >> credentials
     }
-    validator = new FooValidator<>(accountCredentialsProvider: provider)
+    validator = new FooValidator(accountCredentialsProvider: provider)
     OpenstackInstancesDescription description = new OpenstackInstancesDescription(account: 'test', instanceIds: ['1','2'], credentials: credz, region: 'r2')
 
     when:
@@ -115,7 +115,7 @@ class OpenstackDescriptionValidatorSpec extends Specification {
     provider = Mock(AccountCredentialsProvider) {
       1 * getCredentials(_) >> credentials
     }
-    validator = new FooValidator<>(accountCredentialsProvider: provider)
+    validator = new FooValidator(accountCredentialsProvider: provider)
     OpenstackInstancesDescription description = new OpenstackInstancesDescription(account: 'test', instanceIds: ['1','2'], credentials: credz, region: 'r1')
 
     when:

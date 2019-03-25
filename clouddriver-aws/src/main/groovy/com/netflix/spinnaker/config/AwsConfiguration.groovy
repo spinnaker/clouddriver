@@ -19,7 +19,7 @@ package com.netflix.spinnaker.config
 import com.amazonaws.retry.RetryPolicy.BackoffStrategy
 import com.amazonaws.retry.RetryPolicy.RetryCondition
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.awsobjectmapper.AmazonObjectMapper
+import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
@@ -120,7 +120,7 @@ class AwsConfiguration {
 
   @Bean
   ObjectMapper amazonObjectMapper() {
-    return new AmazonObjectMapper()
+    return AmazonObjectMapperConfigurer.createConfigured()
   }
 
   @Bean

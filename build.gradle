@@ -93,29 +93,29 @@ subprojects { project ->
     all {
       exclude group: 'javax.servlet', module: 'servlet-api'
       exclude group: 'javax.ws.rs', module: 'jsr311-api'
-//      resolutionStrategy {
-//        force 'org.antlr:antlr-runtime:3.5.2'
-//        eachDependency {
-//          if (it.requested.group == 'asm' || it.requested.group == 'org.ow2.asm') {
-//            it.useTarget group: 'org.ow2.asm', name: 'asm-all', version: '5.0.3'
-//          }
-//          if (it.requested.group == 'junit') {
-//            it.useTarget group: 'junit', name: 'junit', version: '4.12'
-//          }
-//          if (it.requested.group == 'cglib' || it.requested.name == 'cglib') {
-//            it.useTarget group: 'cglib', name: 'cglib', version: '3.2.0'
-//          }
-//          if (it.requested.group == 'antlr') {
-//            it.useTarget group: 'org.antlr', name: it.requested.name, version: '3.5.2'
-//          }
-//          if (it.requested.group == 'org.apache.xbean') {
-//            it.useVersion '4.3'
-//          }
-//          if (it.requested.group == 'ch.qos.logback') {
-//            it.useVersion '1.2.3'
-//          }
-//        }
-//      }
+      resolutionStrategy {
+        force 'org.antlr:antlr-runtime:3.5.2'
+        eachDependency {
+          if (it.requested.group == 'asm' || it.requested.group == 'org.ow2.asm') {
+            it.useTarget group: 'org.ow2.asm', name: 'asm-all', version: '5.0.3'
+          }
+          if (it.requested.group == 'junit') {
+            it.useTarget group: 'junit', name: 'junit', version: '4.12'
+          }
+          if (it.requested.group == 'cglib' || it.requested.name == 'cglib') {
+            it.useTarget group: 'cglib', name: 'cglib', version: '3.2.0'
+          }
+          if (it.requested.group == 'antlr') {
+            it.useTarget group: 'org.antlr', name: it.requested.name, version: '3.5.2'
+          }
+          if (it.requested.group == 'org.apache.xbean') {
+            it.useVersion '4.3'
+          }
+          if (it.requested.group == 'ch.qos.logback') {
+            it.useVersion '1.2.3'
+          }
+        }
+      }
     }
   }
 

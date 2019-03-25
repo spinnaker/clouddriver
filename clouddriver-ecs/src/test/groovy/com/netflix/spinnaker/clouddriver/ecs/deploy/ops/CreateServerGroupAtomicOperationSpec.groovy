@@ -138,7 +138,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     1 * ecs.createService({ CreateServiceRequest request ->
       request.serviceName == "service/test-cluster/${serviceName}-v008"
       request.desiredCount == 1
-      request.cluster = 'test-cluster'
+      request.cluster == 'test-cluster'
       request.loadBalancers.size() == 1
       request.loadBalancers.get(0).containerPort == 1337
       request.loadBalancers.get(0).targetGroupArn == 'target-group-arn'

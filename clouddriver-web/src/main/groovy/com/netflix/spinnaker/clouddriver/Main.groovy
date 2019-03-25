@@ -20,8 +20,9 @@ import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.autoconfigure.batch.BatchAutoConfiguration
 import org.springframework.boot.autoconfigure.groovy.template.GroovyTemplateAutoConfiguration
+import org.springframework.boot.autoconfigure.gson.GsonAutoConfiguration
 import org.springframework.boot.builder.SpringApplicationBuilder
-import org.springframework.boot.web.support.SpringBootServletInitializer
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
@@ -40,8 +41,9 @@ import java.security.Security
   'com.netflix.spinnaker.clouddriver.config'
 ])
 @EnableAutoConfiguration(exclude = [
-    BatchAutoConfiguration,
-    GroovyTemplateAutoConfiguration,
+  BatchAutoConfiguration,
+  GroovyTemplateAutoConfiguration,
+  GsonAutoConfiguration
 ])
 @EnableScheduling
 class Main extends SpringBootServletInitializer {

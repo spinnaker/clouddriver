@@ -19,14 +19,11 @@ package com.netflix.spinnaker.clouddriver.aws.provider.agent
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.DescribeImagesRequest
 import com.amazonaws.services.ec2.model.DescribeImagesResult
-import com.amazonaws.services.ec2.model.DomainType
 import com.amazonaws.services.ec2.model.Filter
 import com.amazonaws.services.ec2.model.Image
-import com.netflix.awsobjectmapper.AmazonObjectMapper
 import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer
 import com.netflix.spectator.api.Spectator
 import com.netflix.spinnaker.cats.provider.ProviderCache
-import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials

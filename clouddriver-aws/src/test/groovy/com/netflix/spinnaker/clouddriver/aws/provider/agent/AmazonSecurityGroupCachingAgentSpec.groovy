@@ -19,16 +19,17 @@ package com.netflix.spinnaker.clouddriver.aws.provider.agent
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.DescribeSecurityGroupsResult
 import com.amazonaws.services.ec2.model.SecurityGroup
-import com.netflix.awsobjectmapper.AmazonObjectMapper
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer
 import com.netflix.spectator.api.Spectator
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
+import com.netflix.spinnaker.clouddriver.aws.cache.Keys
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
-import com.netflix.spinnaker.clouddriver.aws.cache.Keys
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -47,7 +48,7 @@ class AmazonSecurityGroupCachingAgentSpec extends Specification {
     getLastModified() >> 12345L
   }
   ProviderCache providerCache = Mock(ProviderCache)
-  AmazonObjectMapper mapper = new AmazonObjectMapper()
+  ObjectMapper mapper = AmazonObjectMapperConfigurer.createConfigured()
   EddaTimeoutConfig eddaTimeoutConfig = new EddaTimeoutConfig.Builder().build()
 
   @Subject AmazonSecurityGroupCachingAgent agent = new AmazonSecurityGroupCachingAgent(
