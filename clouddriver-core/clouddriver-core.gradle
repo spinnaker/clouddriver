@@ -13,6 +13,7 @@ dependencies {
   compile spinnaker.dependency("frigga")
   compile spinnaker.dependency("lombok")
   compile spinnaker.dependency('logstashEncoder')
+  compile spinnaker.dependency("moniker")
 
   compile project(':cats:cats-core')
   compile project(':cats:cats-redis')
@@ -21,6 +22,4 @@ dependencies {
   testCompile project(':cats:cats-test')
   testCompile spinnaker.dependency('korkJedisTest')
   testCompile project(":clouddriver-core-tck")
-
-  compile 'com.netflix.spinnaker.moniker:moniker:0.2.0'
 }

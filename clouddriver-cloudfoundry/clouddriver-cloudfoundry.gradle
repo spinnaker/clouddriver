@@ -22,7 +22,7 @@ dependencies {
 
   compile "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${spinnaker.version("jackson")}"
 
-  compile 'io.github.resilience4j:resilience4j-retry:0.13.1'
+  compile spinnaker.dependency("resilience4jRetry")
 
   testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
   testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')
