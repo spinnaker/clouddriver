@@ -50,7 +50,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
   @Value('${default.build.host:http://builds.netflix.com/}')
   String defaultBuildHost
 
-  @Value('${sql.cache.hasApplicationIndex:false}')
+  @Value('${sql.cache.has-application-index:false}')
   Boolean sqlApplicationIndexEnabled
 
   @Autowired

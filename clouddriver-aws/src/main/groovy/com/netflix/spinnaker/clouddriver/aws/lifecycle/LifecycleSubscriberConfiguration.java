@@ -30,7 +30,7 @@ import org.springframework.context.annotation.Configuration;
 class LifecycleSubscriberConfiguration {
 
   @Bean
-  @ConditionalOnProperty("aws.lifecycleSubscribers.launchFailure.enabled")
+  @ConditionalOnProperty("aws.lifecycle-subscribers.launch-failure.enabled")
   LaunchFailureNotificationAgentProvider launchFailureNotificationAgentProvider(ObjectMapper objectMapper,
                                                                                 AmazonClientProvider amazonClientProvider,
                                                                                 AccountCredentialsProvider accountCredentialsProvider,

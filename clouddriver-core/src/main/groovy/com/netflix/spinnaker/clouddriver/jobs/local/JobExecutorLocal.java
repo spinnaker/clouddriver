@@ -33,7 +33,7 @@ import java.util.UUID;
 @Slf4j
 public class JobExecutorLocal implements JobExecutor {
   @Setter
-  @Value("${jobs.local.timeoutMinutes:10}")
+  @Value("${jobs.local.timeout-minutes:10}")
   private long timeoutMinutes;
 
   @Override

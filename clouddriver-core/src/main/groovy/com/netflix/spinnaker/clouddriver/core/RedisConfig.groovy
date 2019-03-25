@@ -46,7 +46,7 @@ class RedisConfig {
   }
 
   @Bean
-  @ConditionalOnExpression('${redis.taskRepository.enabled:true}')
+  @ConditionalOnExpression('${redis.task-repository.enabled:true}')
   TaskRepository taskRepository(RedisClientDelegate redisClientDelegate, Optional<RedisClientDelegate> redisClientDelegatePrevious) {
     new RedisTaskRepository(redisClientDelegate, redisClientDelegatePrevious)
   }

@@ -20,25 +20,22 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationException
 import com.netflix.spinnaker.clouddriver.googlecommon.deploy.GoogleCommonSafeRetry
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import java.util.concurrent.TimeUnit
-
 // TODO(jacobkiefer): This used to have a generic return type associated with 'doRetry'. Find a way to reincorporate while still making this a Bean.
 @Component
 class SafeRetry extends GoogleCommonSafeRetry {
 
-  @Value('${google.safeRetryMaxWaitIntervalMs:60000}')
+  @Value('${google.safe-retry-max-wait-interval-ms:60000}')
   Long maxWaitInterval
 
-  @Value('${google.safeRetryRetryIntervalBaseSec:2}')
+  @Value('${google.safe-retry-retry-interval-base-sec:2}')
   Long retryIntervalBase
 
-  @Value('${google.safeRetryJitterMultiplier:1000}')
+  @Value('${google.safe-retry-jitter-multiplier:1000}')
   Long jitterMultiplier
 
-  @Value('${google.safeRetryMaxRetries:10}')
+  @Value('${google.safe-retry-max-retries:10}')
   Long maxRetries
 
   public Object doRetry(Closure operation,
