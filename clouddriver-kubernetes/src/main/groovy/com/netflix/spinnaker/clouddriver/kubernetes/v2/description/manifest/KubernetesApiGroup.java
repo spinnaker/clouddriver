@@ -35,6 +35,7 @@ public class KubernetesApiGroup {
   public static KubernetesApiGroup RBAC_AUTHORIZATION_K8S_IO = new KubernetesApiGroup("rbac.authorization.k8s.io");
   public static KubernetesApiGroup CERTIFICATES_K8S_IO = new KubernetesApiGroup("certificates.k8s.io");
   public static KubernetesApiGroup NETWORKING_K8S_IO = new KubernetesApiGroup("networking.k8s.io");
+  public static KubernetesApiGroup TEKTON = new KubernetesApiGroup("tekton.dev");
 
 
   private final String name;
@@ -43,7 +44,7 @@ public class KubernetesApiGroup {
   private final static ImmutableSet<KubernetesApiGroup> NATIVE_GROUPS = ImmutableSet
     .of(CORE, BATCH, APPS, EXTENSIONS, STORAGE_K8S_IO, APIEXTENSIONS_K8S_IO, APIREGISTRATION_K8S_IO, AUTOSCALING,
       ADMISSIONREGISTRATION_K8S_IO, POLICY, SCHEDULING_K8S_IO, SETTINGS_K8S_IO, AUTHORIZATION_K8S_IO,
-      AUTHENTICATION_K8S_IO, RBAC_AUTHORIZATION_K8S_IO, CERTIFICATES_K8S_IO, NETWORKING_K8S_IO, NONE);
+      AUTHENTICATION_K8S_IO, RBAC_AUTHORIZATION_K8S_IO, CERTIFICATES_K8S_IO, NETWORKING_K8S_IO, TEKTON, NONE);
 
 
 

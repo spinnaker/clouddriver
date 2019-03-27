@@ -62,6 +62,11 @@ public class KubernetesKind {
   public static KubernetesKind SERVICE_ACCOUNT = new KubernetesKind("serviceAccount", KubernetesApiGroup.CORE, "sa");
   public static KubernetesKind STATEFUL_SET = new KubernetesKind("statefulSet", KubernetesApiGroup.APPS, null, true, true);
   public static KubernetesKind STORAGE_CLASS = new KubernetesKind("storageClass", KubernetesApiGroup.STORAGE_K8S_IO, "sc", false, false);
+  public static KubernetesKind TASK = new KubernetesKind("task", KubernetesApiGroup.TEKTON);
+  public static KubernetesKind TASKRUN = new KubernetesKind("taskrun", KubernetesApiGroup.TEKTON);
+  public static KubernetesKind PIPELINE = new KubernetesKind("pipeline", KubernetesApiGroup.TEKTON);
+  public static KubernetesKind PIPELINE_RESOURCE = new KubernetesKind("pipelineresource", KubernetesApiGroup.TEKTON);
+  public static KubernetesKind PIPELINE_RUN = new KubernetesKind("pipelinerun", KubernetesApiGroup.TEKTON);
   public static KubernetesKind VALIDATING_WEBHOOK_CONFIGURATION = new KubernetesKind("validatingWebhookConfiguration", KubernetesApiGroup.ADMISSIONREGISTRATION_K8S_IO, null, false, false);
 
   // special kind that should never be assigned to a manifest, used only to represent objects whose kind is not in spinnaker's registry
