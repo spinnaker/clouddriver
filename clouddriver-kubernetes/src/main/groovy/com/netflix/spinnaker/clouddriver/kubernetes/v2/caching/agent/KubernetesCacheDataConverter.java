@@ -24,6 +24,7 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2CacheConfig;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesCachingProperties;
@@ -51,7 +52,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -60,14 +60,13 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.Logic
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.POD;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.SERVICE;
-import static java.lang.Math.toIntExact;
 
 @Slf4j
 public class KubernetesCacheDataConverter {
   private static ObjectMapper mapper = new ObjectMapper();
   private static final JSON json = new JSON();
   // TODO(lwander): make configurable
-  private static final int logicalTtlSeconds = toIntExact(TimeUnit.MINUTES.toSeconds(10));
+  private static final int logicalTtlSeconds = KubernetesV2CacheConfig.getCacheTtlSeconds();
   private static final int infrastructureTtlSeconds = -1;
   // These are kinds which are are frequently added/removed from other resources, and can sometimes
   // persist in the cache when no relationships are found.
