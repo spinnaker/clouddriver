@@ -20,10 +20,13 @@ import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
+import com.netflix.spinnaker.kork.core.RetrySupport
 
 class TitusServerGroupNameResolver extends AbstractServerGroupNameResolver {
 
   private static final String TITUS_PHASE = "TITUS_DEPLOY"
+
+  private final RetrySupport retrySupport = new RetrySupport()
 
   private final TitusClient titusClient
   final String region
@@ -40,16 +43,19 @@ class TitusServerGroupNameResolver extends AbstractServerGroupNameResolver {
 
   @Override
   List<AbstractServerGroupNameResolver.TakenSlot> getTakenSlots(String clusterName) {
-    def clusterNameParts = Names.parseName(clusterName)
-    List<Job> jobs = titusClient.findJobsByApplication(clusterNameParts.app)
-      .findAll { Names.parseName(it.name).cluster == Names.parseName(clusterName).cluster }
 
-    return jobs.collect { Job job ->
-      return new AbstractServerGroupNameResolver.TakenSlot(
-        serverGroupName: job.name,
-        sequence: Names.parseName(job.name).sequence,
-        createdTime: job.submittedAt
-      )
-    }
+    retrySupport.retry({
+      def clusterNameParts = Names.parseName(clusterName)
+      List<Job> jobs = titusClient.findJobsByApplication(clusterNameParts.app)
+          .findAll { Names.parseName(it.name).cluster == Names.parseName(clusterName).cluster }
+
+      return jobs.collect { Job job ->
+        return new AbstractServerGroupNameResolver.TakenSlot(
+            serverGroupName: job.name,
+            sequence: Names.parseName(job.name).sequence,
+            createdTime: job.submittedAt
+        )
+      }
+    }, 5, 1000, true)
   }
 }
