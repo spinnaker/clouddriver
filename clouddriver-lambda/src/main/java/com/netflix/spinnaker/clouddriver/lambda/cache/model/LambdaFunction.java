@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 @Data
-public class LambdaFunction extends FunctionConfiguration implements Function {
+  public class LambdaFunction extends FunctionConfiguration implements Function {
   private String cloudProvider;
   private String account;
   private String region;
@@ -34,4 +34,5 @@ public class LambdaFunction extends FunctionConfiguration implements Function {
   private Map<String, String> revisions;
   private List<AliasConfiguration> aliasConfigurations;
   private List<EventSourceMappingConfiguration> eventSourceMappings;
+  private String functionname;
 }

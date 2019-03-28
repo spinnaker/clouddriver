@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
 import java.util.ArrayList;
 import java.util.Collection;
 
+
 @Component
 public class LambdaFunctionProvider implements FunctionProvider {
   private LambdaCacheClient awsLambdaCacheClient;
@@ -36,7 +37,6 @@ public class LambdaFunctionProvider implements FunctionProvider {
     this.awsLambdaCacheClient = new LambdaCacheClient(cacheView);
   }
 
-  @Override
   public Collection<Function> getAllFunctions() {
     return new ArrayList<>(awsLambdaCacheClient.getAll());
   }
@@ -45,4 +45,5 @@ public class LambdaFunctionProvider implements FunctionProvider {
     String key = Keys.getLambdaFunctionKey(account, region, functionName);
     return awsLambdaCacheClient.get(key);
   }
+
 }
