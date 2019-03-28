@@ -39,6 +39,7 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.vavr.API.*;
 import static java.util.stream.Collectors.toList;
@@ -99,6 +100,14 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter extends Abstr
         if(metadata != null) {
           converted.setApplicationAttributes(getObjectMapper().convertValue(metadata.get("direct"),
             DeployCloudFoundryServerGroupDescription.ApplicationAttributes.class));
+          Map<String, String> manifestEnv = Optional.ofNullable(converted.getApplicationAttributes().getEnvironment())
+            .get()
+            .stream()
+            .collect(Collectors.toMap(
+              DeployCloudFoundryServerGroupDescription.EnvironmentVariable::getKey,
+              DeployCloudFoundryServerGroupDescription.EnvironmentVariable::getValue));
+          converted.getApplicationAttributes().setEnv(manifestEnv);
+
         }
       }
     } else {

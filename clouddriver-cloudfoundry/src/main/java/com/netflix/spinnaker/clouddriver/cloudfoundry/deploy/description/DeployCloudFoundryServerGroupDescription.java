@@ -20,10 +20,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -74,6 +72,10 @@ public class DeployCloudFoundryServerGroupDescription extends AbstractCloudFound
     @Nullable
     private Map<String, String> env;
 
+    //used json mapping for environment vairable
+    @Nullable
+    private List<EnvironmentVariable> environment;
+
     @Nullable
     private List<String> services;
   }
@@ -89,5 +91,11 @@ public class DeployCloudFoundryServerGroupDescription extends AbstractCloudFound
   public static class Destination {
     String account;
     String region;
+  }
+
+  @Data
+  public static class EnvironmentVariable {
+    String key;
+    String value;
   }
 }
