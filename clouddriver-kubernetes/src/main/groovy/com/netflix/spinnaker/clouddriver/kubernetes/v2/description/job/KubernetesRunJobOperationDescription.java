@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Google, Inc.
+ * Copyright 2019 Armory
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,17 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.model;
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.job;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.Set;
+import lombok.EqualsAndHashCode;
 
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class LoadBalancerServerGroup {
-  String name;
-  String account;
-  String region;
-  Boolean isDisabled;
-  Set<String> detachedInstances;
-  Set<LoadBalancerInstance> instances;
-  String cloudProvider;
+@EqualsAndHashCode(callSuper = true)
+public class KubernetesRunJobOperationDescription extends KubernetesAtomicOperationDescription {
+  String application;
+  String namespace = "";
+  KubernetesManifest manifest;
 }
