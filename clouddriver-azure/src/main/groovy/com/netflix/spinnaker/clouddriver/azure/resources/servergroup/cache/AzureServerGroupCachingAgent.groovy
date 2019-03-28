@@ -31,6 +31,7 @@ import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.common.cache.AzureCachingAgent
 import com.netflix.spinnaker.clouddriver.azure.common.cache.MutableCacheData
 import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys
+
 import static com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys.Namespace.*
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
@@ -85,12 +86,37 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
       it.attributes.processedCount = (it.attributes.processedCount ?: 0) + 1
     }
 
-    if (result.cacheResults[AZURE_SERVER_GROUPS.ns]) {
+    def cacheServerGroups = result.cacheResults[AZURE_SERVER_GROUPS.ns]
+    if (cacheServerGroups) {
+      cacheServerGroups.each { cacheServerGroup ->
+        if(!cacheServerGroup.relationships.containsKey(AZURE_INSTANCES.ns)) {
+          def serverGroupName = cacheServerGroup.attributes.serverGroup.name
+          removeDeadInstancesCacheEntries(result, providerCache, serverGroupName)
+        }
+      }
+
       result
     } else {
       // run the cache cleanup routine on an empty server group list only for now
       removeDeadCacheEntries(result, providerCache)
     }
+  }
+
+  CacheResult removeDeadInstancesCacheEntries(CacheResult cacheResult, ProviderCache providerCache, String serverGroupName) {
+    def instanceIdentifiers = providerCache.filterIdentifiers(AZURE_INSTANCES.ns, Keys.getInstanceKey(AzureCloudProvider.ID, serverGroupName, "*", region, accountName))
+    def instanceCacheResults = providerCache.getAll((AZURE_INSTANCES.ns), instanceIdentifiers, RelationshipCacheFilter.none())
+    def evictedInstanceList = instanceCacheResults.collect{ cached ->
+      if (!cacheResult.cacheResults[AZURE_INSTANCES.ns].find {it.id == cached.id}) {
+        cached.id
+      } else {
+        null
+      }
+    }
+    if (evictedInstanceList) {
+      cacheResult.evictions[AZURE_INSTANCES.ns] = evictedInstanceList
+    }
+
+    cacheResult
   }
 
   CacheResult removeDeadCacheEntries(CacheResult cacheResult, ProviderCache providerCache) {
