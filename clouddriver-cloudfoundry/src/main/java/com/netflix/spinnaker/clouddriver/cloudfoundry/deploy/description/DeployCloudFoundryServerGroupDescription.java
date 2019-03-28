@@ -72,10 +72,6 @@ public class DeployCloudFoundryServerGroupDescription extends AbstractCloudFound
     @Nullable
     private Map<String, String> env;
 
-    //used json mapping for environment vairable
-    @Nullable
-    private List<EnvironmentVariable> environment;
-
     @Nullable
     private List<String> services;
   }
@@ -91,11 +87,5 @@ public class DeployCloudFoundryServerGroupDescription extends AbstractCloudFound
   public static class Destination {
     String account;
     String region;
-  }
-
-  @Data
-  public static class EnvironmentVariable {
-    String key;
-    String value;
   }
 }

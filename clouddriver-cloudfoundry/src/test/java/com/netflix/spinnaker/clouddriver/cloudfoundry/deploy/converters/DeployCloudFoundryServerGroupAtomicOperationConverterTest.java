@@ -103,7 +103,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
   }
 
   @Test
-  void convertDescriptionForCloneWtihEnvironmentVariables() {
+  void convertDescriptionForCloneWithEnvironmentVariables() {
     final Map input = HashMap.of(
       "credentials", "destinationAccount",
       "region", "org > space",
@@ -140,20 +140,15 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
       CloudFoundrySpace.builder().id("spaceID").name("space").organization(
         CloudFoundryOrganization.builder().id("orgID").name("org").build()).build());
     assertThat(result.isStartApplication()).isTrue();
+
     assertThat(result.getApplicationAttributes()).isEqualToComparingFieldByFieldRecursively(
       new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
         .setInstances(42)
         .setMemory("1024")
         .setDiskQuota("1024")
-        .setEnv(HashMap.of(
-          "testKey", "testValue"
-        ).toJavaMap())
-        .setEnvironment(List.of(
-          new DeployCloudFoundryServerGroupDescription.EnvironmentVariable().setKey("testKey").setValue("testValue")
-        ).toJavaList())
+        .setEnv(HashMap.of("testKey", "testValue").toJavaMap())
         .setBuildpacks(Collections.emptyList())
     );
-
   }
 
   @Test
