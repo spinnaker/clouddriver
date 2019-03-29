@@ -457,7 +457,8 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
         }
 
         def autoscalerCallback = new AutoscalerAggregatedListCallback(serverGroups: serverGroups)
-        autoscalerRequest.queue(compute.autoscalers().aggregatedList(project), autoscalerCallback)
+        buildAutoscalerListRequest().queue(autoscalerRequest, autoscalerCallback,
+          'GoogleZonalServerGroupCachingAgent.autoscalerAggregatedList')
       }
     }
 
@@ -676,6 +677,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
 
     @Override
     void onSuccess(AutoscalerAggregatedList autoscalerAggregatedList, HttpHeaders responseHeaders) throws IOException {
+
       autoscalerAggregatedList?.items?.each { String location, AutoscalersScopedList autoscalersScopedList ->
         if (location.startsWith("zones/")) {
           def localZoneName = Utils.getLocalName(location)
@@ -700,6 +702,20 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
             }
           }
         }
+      }
+    }
+  }
+
+  PaginatedRequest<AutoscalerAggregatedList> buildAutoscalerListRequest() {
+    return new PaginatedRequest<AutoscalerAggregatedList>(this) {
+      @Override
+      protected String getNextPageToken(AutoscalerAggregatedList autoscalerAggregatedList) {
+        return autoscalerAggregatedList.getNextPageToken()
+      }
+
+      @Override
+      protected ComputeRequest<AutoscalerAggregatedList> request(String pageToken) {
+        return compute.autoscalers().aggregatedList(project).setPageToken(pageToken)
       }
     }
   }

@@ -411,7 +411,8 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
         }
 
         def autoscalerCallback = new AutoscalerAggregatedListCallback(serverGroups: serverGroups)
-        autoscalerRequest.queue(compute.autoscalers().aggregatedList(project), autoscalerCallback)
+        buildAutoscalerListRequest().queue(autoscalerRequest, autoscalerCallback,
+          'GoogleRegionalServerGroupCachingAgent.autoscalerAggregatedList')
       }
     }
 
@@ -517,6 +518,20 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
             }
           }
         }
+      }
+    }
+  }
+
+  PaginatedRequest<AutoscalerAggregatedList> buildAutoscalerListRequest() {
+    return new PaginatedRequest<AutoscalerAggregatedList>(this) {
+      @Override
+      protected String getNextPageToken(AutoscalerAggregatedList autoscalerAggregatedList) {
+        return autoscalerAggregatedList.getNextPageToken()
+      }
+
+      @Override
+      protected ComputeRequest<AutoscalerAggregatedList> request(String pageToken) {
+        return compute.autoscalers().aggregatedList(project).setPageToken(pageToken)
       }
     }
   }
