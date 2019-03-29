@@ -24,7 +24,9 @@ import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.agent.CachingAgent
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
+import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
+import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.edda.EddaApi
@@ -81,20 +83,35 @@ class EddaLoadBalancerCachingAgent implements CachingAgent, HealthProvidingCachi
 
     List<InstanceLoadBalancers> ilbs = InstanceLoadBalancers.fromLoadBalancerInstanceState(balancerInstances)
     Collection<CacheData> lbHealths = new ArrayList<CacheData>(ilbs.size())
-    Collection<CacheData> instances = new ArrayList<CacheData>(ilbs.size())
+    Collection<CacheData> instanceRels = new ArrayList<CacheData>(ilbs.size())
+
+    Collection<String> instanceIds = ilbs.collect {
+      Keys.getInstanceKey(it.instanceId, account.name, region)
+    }
+    Map<String, CacheData> instances = providerCache
+      .getAll(INSTANCES.ns, instanceIds, RelationshipCacheFilter.none())
+      .collectEntries { [(it.id): it] }
 
     for (InstanceLoadBalancers ilb : ilbs) {
       String instanceId = Keys.getInstanceKey(ilb.instanceId, account.name, region)
       String healthId = Keys.getInstanceHealthKey(ilb.instanceId, account.name, region, healthId)
       Map<String, Object> attributes = objectMapper.convertValue(ilb, ATTRIBUTES)
       Map<String, Collection<String>> relationships = [(INSTANCES.ns): [instanceId]]
+
+      if (instances[instanceId] != null) {
+        String application = instances[instanceId].attributes.get("application")
+        if (application != null) {
+          attributes.put("application", application)
+        }
+      }
+
       lbHealths.add(new DefaultCacheData(healthId, attributes, relationships))
-      instances.add(new DefaultCacheData(instanceId, [:], [(HEALTH.ns): [healthId]]))
+      instanceRels.add(new DefaultCacheData(instanceId, [:], [(HEALTH.ns): [healthId]]))
     }
-    log.info("Caching ${instances.size()} items in ${agentType}")
+    log.info("Caching ${instanceRels.size()} items in ${agentType}")
 
     new DefaultCacheResult(
       (HEALTH.ns): lbHealths,
-      (INSTANCES.ns): instances)
+      (INSTANCES.ns): instanceRels)
   }
 }
