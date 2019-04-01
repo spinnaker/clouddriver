@@ -18,13 +18,11 @@ package com.netflix.spinnaker.clouddriver.jobs.local;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.ExecuteWatchdog;
 import org.apache.commons.exec.Executor;
 import org.apache.commons.exec.PumpStreamHandler;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -32,9 +30,11 @@ import java.util.UUID;
 
 @Slf4j
 public class JobExecutorLocal implements JobExecutor {
-  @Setter
-  @Value("${jobs.local.timeoutMinutes:10}")
-  private long timeoutMinutes;
+  private final long timeoutMinutes;
+
+  public JobExecutorLocal(long timeoutMinutes) {
+    this.timeoutMinutes = timeoutMinutes;
+  }
 
   @Override
   public JobStatus runJob(final JobRequest jobRequest) {
