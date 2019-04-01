@@ -22,9 +22,9 @@ import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.exec.*;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -37,12 +37,21 @@ public class JobExecutorLocal implements JobExecutor {
 
   @Override
   public JobStatus runJob(final JobRequest jobRequest) {
+    return runJob(jobRequest, null);
+  }
+
+  @Override
+  public JobStatus runJob(final JobRequest jobRequest, StreamConsumer streamConsumer) {
     log.debug(String.format("Starting job: '%s'...", String.join(" ", jobRequest.getTokenizedCommand())));
 
     final String jobId = UUID.randomUUID().toString();
     ExecuteResult executeResult;
     try {
-      executeResult = executeJob(jobRequest);
+      if (streamConsumer != null) {
+        executeResult = executeJobStreaming(jobRequest, streamConsumer);
+      } else {
+        executeResult = executeJob(jobRequest);
+      }
     } catch (IOException e) {
       throw new RuntimeException("Failed to execute job", e);
     }
@@ -53,8 +62,8 @@ public class JobExecutorLocal implements JobExecutor {
 
     return JobStatus.builder()
       .result(executeResult.exitValue == 0 ? JobStatus.Result.SUCCESS : JobStatus.Result.FAILURE)
-      .stdOut(executeResult.stdOut.toString())
-      .stdErr(executeResult.stdErr.toString())
+      .stdOut(executeResult.getStdOut())
+      .stdErr(executeResult.getStdErr())
       .build();
   }
 
@@ -69,6 +78,31 @@ public class JobExecutorLocal implements JobExecutor {
       .stdOut(stdOut)
       .stdErr(stdErr)
       .exitValue(exitValue)
+      .wasKilled(executor.getWatchdog().killedProcess())
+      .build();
+  }
+
+  private ExecuteResult executeJobStreaming(JobRequest jobRequest, StreamConsumer consumer) throws IOException {
+    PipedOutputStream stdOut = new PipedOutputStream();
+    ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
+
+    Executor executor = buildExecutor(new PumpStreamHandler(stdOut, stdErr, jobRequest.getInputStream()));
+    DefaultExecuteResultHandler resultHandler = new DefaultExecuteResultHandler();
+    executor.execute(jobRequest.getCommandLine(), jobRequest.getEnvironment(), resultHandler);
+
+    try (PipedInputStream is = new PipedInputStream(stdOut)) {
+      consumer.consume(is);
+    }
+
+    try {
+      resultHandler.waitFor();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+
+    return ExecuteResult.builder()
+      .stdErr(stdErr)
+      .exitValue(resultHandler.getExitValue())
       .wasKilled(executor.getWatchdog().killedProcess())
       .build();
   }
@@ -90,5 +124,13 @@ public class JobExecutorLocal implements JobExecutor {
     final OutputStream stdErr;
     final int exitValue;
     final boolean wasKilled;
+
+    String getStdOut() {
+      return Optional.ofNullable(stdOut).map(Objects::toString).orElse(null);
+    }
+
+    String getStdErr() {
+      return Optional.ofNullable(stdErr).map(Objects::toString).orElse(null);
+    }
   }
 }
