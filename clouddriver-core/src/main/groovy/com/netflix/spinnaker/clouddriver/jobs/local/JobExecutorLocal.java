@@ -20,14 +20,14 @@ import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.exec.*;
+import org.apache.commons.exec.DefaultExecutor;
+import org.apache.commons.exec.ExecuteWatchdog;
+import org.apache.commons.exec.Executor;
+import org.apache.commons.exec.PumpStreamHandler;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -37,15 +37,14 @@ public class JobExecutorLocal implements JobExecutor {
   private long timeoutMinutes;
 
   @Override
-  public JobStatus runJob(final JobRequest jobRequest, Map<String, String> environment, InputStream inputStream) {
+  public JobStatus runJob(final JobRequest jobRequest) {
     log.debug("Starting job: \'" + String.join(" ", jobRequest.getTokenizedCommand()) + "\'...");
     final String jobId = UUID.randomUUID().toString();
     log.debug("Executing job with tokenized command: " + String.valueOf(jobRequest.getTokenizedCommand()));
 
-    CommandLine commandLine = createCommandLine(jobRequest.getTokenizedCommand());
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
-    PumpStreamHandler pumpStreamHandler = new PumpStreamHandler(stdOut, stdErr, inputStream);
+    PumpStreamHandler pumpStreamHandler = new PumpStreamHandler(stdOut, stdErr, jobRequest.getInputStream());
     ExecuteWatchdog watchdog = new ExecuteWatchdog(timeoutMinutes * 60 * 1000);
     Executor executor = new DefaultExecutor();
     executor.setStreamHandler(pumpStreamHandler);
@@ -54,7 +53,7 @@ public class JobExecutorLocal implements JobExecutor {
 
     boolean success = false;
     try {
-      int exitValue = executor.execute(commandLine, environment);
+      int exitValue = executor.execute(jobRequest.getCommandLine(), jobRequest.getEnvironment());
       if (watchdog.killedProcess()) {
         log.warn("Job " + jobId + " timed out (after " + String.valueOf(timeoutMinutes) + " minutes).");
       }
@@ -71,19 +70,5 @@ public class JobExecutorLocal implements JobExecutor {
       .stdOut(stdOut.toString())
       .stdErr(stdErr.toString())
       .build();
-  }
-
-  private CommandLine createCommandLine(List<String> tokenizedCommand) {
-    if (tokenizedCommand == null || tokenizedCommand.size() == 0) {
-      throw new IllegalArgumentException("No tokenizedCommand specified.");
-    }
-
-    // Grab the first element as the command.
-    CommandLine commandLine = new CommandLine(tokenizedCommand.get(0));
-
-    int size = tokenizedCommand.size();
-    String[] arguments = tokenizedCommand.subList(1, size).toArray(new String[size - 1]);
-    commandLine.addArguments(arguments, false);
-    return commandLine;
   }
 }
