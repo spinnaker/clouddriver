@@ -19,16 +19,17 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.stream.JsonReader;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
+import com.netflix.spinnaker.clouddriver.jobs.local.StreamConsumer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric.ContainerMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1DeleteOptions;
@@ -39,6 +40,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -304,7 +309,8 @@ public class KubectlJobExecutor {
     command.add("--field-selector");
     command.add(String.format("involvedObject.name=%s,involvedObject.kind=%s", name, StringUtils.capitalize(kind.toString())));
 
-    JobStatus status = jobExecutor.runJob(new JobRequest(command));
+    List<KubernetesManifest> result = new ArrayList<>();
+    JobStatus status = jobExecutor.runJob(new JobRequest(command), parseManifestList(result));
 
     if (status.getResult() != JobStatus.Result.SUCCESS) {
       if (status.getStdErr().contains(NO_RESOURCE_TYPE_ERROR)) {
@@ -318,12 +324,7 @@ public class KubectlJobExecutor {
       return new ArrayList<>();
     }
 
-    try {
-      KubernetesManifestList list = gson.fromJson(status.getStdOut(), KubernetesManifestList.class);
-      return list.getItems();
-    } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
-    }
+    return result;
   }
 
   public List<KubernetesManifest> list(KubernetesV2Credentials credentials, List<KubernetesKind> kinds, String namespace, KubernetesSelectorList selectors) {
@@ -332,7 +333,8 @@ public class KubectlJobExecutor {
       command.add("-l=" + selectors.toString());
     }
 
-    JobStatus status = jobExecutor.runJob(new JobRequest(command));
+    List<KubernetesManifest> result = new ArrayList<>();
+    JobStatus status = jobExecutor.runJob(new JobRequest(command), parseManifestList(result));
 
     if (status.getResult() != JobStatus.Result.SUCCESS) {
       if (status.getStdErr().contains(NO_RESOURCE_TYPE_ERROR)) {
@@ -346,12 +348,7 @@ public class KubectlJobExecutor {
       return new ArrayList<>();
     }
 
-    try {
-      KubernetesManifestList list = gson.fromJson(status.getStdOut(), KubernetesManifestList.class);
-      return list.getItems();
-    } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
-    }
+    return result;
   }
 
   public Void deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
@@ -587,6 +584,26 @@ public class KubectlJobExecutor {
     }
 
     return null;
+  }
+
+  private StreamConsumer parseManifestList(List<KubernetesManifest> manifestList) {
+    return (InputStream is) -> {
+      JsonReader reader = new JsonReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+      reader.beginObject();
+      while (reader.hasNext()) {
+        if (reader.nextName().equals("items")) {
+          reader.beginArray();
+          while (reader.hasNext()) {
+            KubernetesManifest manifest = gson.fromJson(reader, KubernetesManifest.class);
+            manifestList.add(manifest);
+          }
+          reader.endArray();
+        } else {
+          reader.skipValue();
+        }
+      }
+      reader.endObject();
+    };
   }
 
   public static class NoResourceTypeException extends RuntimeException {
