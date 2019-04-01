@@ -218,11 +218,11 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
                   break;
                 case TASKUPDATE:
                   if (notification.getTaskUpdate().getMovedFromAnotherJob()) {
-                      Task task = notification.getTaskUpdate().getTask();
-                      String destinationJobId = task.getJobId();
-                      String sourceJobId = task.getTaskContextOrDefault("task.movedFromJob", null);
-                      log.info("task {} moved from job {} to {} ", task.getId(), sourceJobId, destinationJobId);
-                      updateMovedTask(state, task, sourceJobId);
+                    Task task = notification.getTaskUpdate().getTask();
+                    String destinationJobId = task.getJobId();
+                    String sourceJobId = task.getTaskContextOrDefault("task.movedFromJob", null);
+                    log.info("{} task moved from job {} to {}", task.getId(), sourceJobId, destinationJobId);
+                    updateMovedTask(state, task, sourceJobId);
                   }
                   updateTask(state, notification.getTaskUpdate().getTask());
                   break;
