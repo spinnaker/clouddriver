@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops;
 
+import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryCloudProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
@@ -26,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.view.CloudFoundry
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -120,6 +122,21 @@ public class DeployCloudFoundryServerGroupAtomicOperation
     deploymentResult.setMessages(getTask().getHistory().stream()
       .map(hist -> hist.getPhase() + ":" + hist.getStatus())
       .collect(toList()));
+    List<String> routes = description.getApplicationAttributes().getRoutes();
+    if (routes == null) {
+      routes = Collections.emptyList();
+    }
+    Artifact.ArtifactBuilder deploymentArtifactBuilder = new Artifact().builder()
+      .type(CloudFoundryCloudProvider.ID)
+      .name(description.getServerGroupName())
+      .reference(description.getServerGroupName());
+    if (!routes.isEmpty()) {
+      deploymentArtifactBuilder.location(routes.get(0));
+    }
+    Artifact deploymentArtifact = deploymentArtifactBuilder.build();
+    deploymentArtifact.putMetadata("env", description.getApplicationAttributes().getEnv());
+    deploymentArtifact.putMetadata("routes", routes);
+    deploymentResult.setCreatedArtifacts(Collections.singletonList(deploymentArtifact));
     return deploymentResult;
   }
 
