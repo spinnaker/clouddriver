@@ -16,6 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.security;
 
+import com.google.common.collect.Lists;
+
+import java.util.List;
+
 /**
  * This interface is used by the credentials refresh controller to identify credentials initializers that should be
  * re-created when the credentials have changed.
@@ -27,4 +31,14 @@ public interface CredentialsInitializerSynchronizable {
    * requesting this bean.
    */
   String getCredentialsSynchronizationBeanName();
+
+  /**
+   * Default for now, until all providers have been migrated to use this method.
+   *
+   * @return a list of AccountCredentials which have been synchronized.
+   */
+  default List<? extends AccountCredentials> synchronize() {
+    return Lists.newArrayList();
+  }
+
 }

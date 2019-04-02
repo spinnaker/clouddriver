@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.security
+package com.netflix.spinnaker.clouddriver.security;
 
-import com.google.common.collect.Lists
+public interface ProviderSynchronizable {
 
-class NoopCredentialsInitializerSynchronizable implements CredentialsInitializerSynchronizable {
-  String credentialsSynchronizationBeanName = null
+  void synchronize();
 
-  List<? extends AccountCredentials> synchronize() {
-    return Lists.newArrayList()
-  }
 }

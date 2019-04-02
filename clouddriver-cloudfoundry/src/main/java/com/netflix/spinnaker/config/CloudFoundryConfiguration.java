@@ -16,16 +16,22 @@
 
 package com.netflix.spinnaker.config;
 
-import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper;
+import com.netflix.spinnaker.cats.module.CatsModule;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentialsInitializer;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProviderSynchronizer;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentialsSynchronizer;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
+
+import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Configuration
 @EnableConfigurationProperties
@@ -40,13 +46,21 @@ public class CloudFoundryConfiguration {
   }
 
   @Bean
-  CloudFoundrySynchronizerTypeWrapper cloudFoundrySynchronizerTypeWrapper() {
-    return new CloudFoundrySynchronizerTypeWrapper();
+  CloudFoundryCredentialsSynchronizer cloudFoundryCredentialsSynchronizer(CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties,
+                                                                          AccountCredentialsRepository accountCredentialsRepository,
+                                                                          CatsModule catsModule) {
+    return new CloudFoundryCredentialsSynchronizer(cloudFoundryConfigurationProperties, accountCredentialsRepository, catsModule);
   }
 
   @Bean
-  CloudFoundryCredentialsInitializer cloudFoundryCredentialsInitializer() {
-    return new CloudFoundryCredentialsInitializer();
+  CloudFoundryProvider cloudFoundryProvider() {
+    return new CloudFoundryProvider(Collections.newSetFromMap(new ConcurrentHashMap<>()));
+  }
+
+  @Bean
+  CloudFoundryProviderSynchronizer cloudFoundryProviderSynchronizer(CloudFoundryProvider cloudFoundryProvider,
+                                                                    AccountCredentialsRepository accountCredentialsRepository) {
+    return new CloudFoundryProviderSynchronizer(cloudFoundryProvider, accountCredentialsRepository);
   }
 
   @Bean
@@ -55,15 +69,5 @@ public class CloudFoundryConfiguration {
       properties.getAsyncOperationTimeoutMillisecondsDefault(),
       properties.getAsyncOperationMaxPollingIntervalMilliseconds()
     );
-  }
-
-  public static class CloudFoundryProviderSynchronizer {
-  }
-
-  class CloudFoundrySynchronizerTypeWrapper implements ProviderSynchronizerTypeWrapper {
-    @Override
-    public Class getSynchronizerType() {
-      return CloudFoundryProviderSynchronizer.class;
-    }
   }
 }

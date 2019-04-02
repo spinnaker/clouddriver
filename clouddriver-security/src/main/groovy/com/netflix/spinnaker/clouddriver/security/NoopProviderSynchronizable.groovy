@@ -16,12 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.security
 
-import com.google.common.collect.Lists
-
-class NoopCredentialsInitializerSynchronizable implements CredentialsInitializerSynchronizable {
-  String credentialsSynchronizationBeanName = null
-
-  List<? extends AccountCredentials> synchronize() {
-    return Lists.newArrayList()
-  }
+class NoopProviderSynchronizable implements ProviderSynchronizable {
+  void synchronize() {}
 }

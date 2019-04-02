@@ -21,6 +21,8 @@ import com.netflix.spinnaker.clouddriver.security.AllowedAccountsValidator
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.DefaultAllowedAccountsValidator
 import com.netflix.spinnaker.clouddriver.security.NoopCredentialsInitializerSynchronizable
+import com.netflix.spinnaker.clouddriver.security.NoopProviderSynchronizable
+import com.netflix.spinnaker.clouddriver.security.ProviderSynchronizable
 import com.netflix.spinnaker.fiat.shared.EnableFiatAutoConfig
 import com.netflix.spinnaker.fiat.shared.FiatStatus
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
@@ -38,6 +40,12 @@ class SecurityConfig {
   @ConditionalOnMissingBean(CredentialsInitializerSynchronizable)
   CredentialsInitializerSynchronizable noopCredentialsInitializerSynchronizable() {
     new NoopCredentialsInitializerSynchronizable()
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ProviderSynchronizable)
+  ProviderSynchronizable noopProviderSynchronizable() {
+    new NoopProviderSynchronizable()
   }
 
   @Bean
