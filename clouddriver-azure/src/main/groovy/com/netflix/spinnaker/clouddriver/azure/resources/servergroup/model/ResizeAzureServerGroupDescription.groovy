@@ -21,9 +21,7 @@ import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable
 
 class ResizeAzureServerGroupDescription extends AzureServerGroupDescription implements ServerGroupsNameable {
   String serverGroupName
-
   Integer targetSize
-
   ServerGroup.Capacity capacity
 
   @Override

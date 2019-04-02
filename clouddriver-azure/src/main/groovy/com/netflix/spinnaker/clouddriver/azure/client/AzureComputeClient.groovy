@@ -209,10 +209,10 @@ public class AzureComputeClient extends AzureBaseClient {
 
   ServiceResponse<Void> resizeServerGroup(String resourceGroupName, String serverGroupName, int capacity) {
     try {
-      def vm = executeOp({
+      def vmss = executeOp({
         azure.virtualMachineScaleSets().getByResourceGroup(resourceGroupName, serverGroupName)
       })
-      vm.update().withCapacity(capacity).apply()
+      vmss.update().withCapacity(capacity).apply()
     } catch (CloudException e) {
       if (resourceNotFound(e)) {
         log.warn("ServerGroup: ${e.message} (${serverGroupName} was not found)")
