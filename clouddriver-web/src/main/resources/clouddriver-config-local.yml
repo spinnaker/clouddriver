@@ -1,0 +1,5 @@
+spring:
+  profiles:
+    # default Spring Cloud Config Server environment repository profile
+    # to disable unless explicitly configured     
+    active: native

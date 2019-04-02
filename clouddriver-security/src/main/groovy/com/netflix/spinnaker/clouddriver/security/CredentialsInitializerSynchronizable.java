@@ -26,5 +26,13 @@ public interface CredentialsInitializerSynchronizable {
    * Accounts and Agents managed by the credentials initializer will be synchronized with the latest
    * configured accounts as a result of requesting this bean.
    */
-  String getCredentialsSynchronizationBeanName();
+  default String getCredentialsSynchronizationBeanName() {
+    return null;
+  }
+
+  /**
+   * Synchronize the Accounts and Agents managed by the provider with the latest configured accounts.
+   */
+  default void synchronize() {
+  }
 }

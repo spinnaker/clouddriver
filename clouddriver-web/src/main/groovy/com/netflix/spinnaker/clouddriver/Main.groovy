@@ -60,14 +60,21 @@ import java.security.Security
 @EnableScheduling
 class Main extends SpringBootServletInitializer {
 
-  static final Map<String, String> DEFAULT_PROPS = [
+  private static final Map<String, String> DEFAULT_PROPS = [
     'netflix.environment'    : 'test',
     'netflix.account'        : '${netflix.environment}',
     'netflix.stack'          : 'test',
     'spring.config.additional-location' : '${user.home}/.spinnaker/',
-    'spring.application.name': 'clouddriver',
+    'spring.profiles.active' : '${netflix.environment},local',
     'spring.config.name'     : 'spinnaker,${spring.application.name}',
-    'spring.profiles.active' : '${netflix.environment},local'
+    'spring.config.location' : '${user.home}/.spinnaker/'
+  ]
+
+  static final Map<String, String> BOOTSTRAP_SYSTEM_PROPS = [
+    'spring.application.name'               : 'clouddriver',
+    'spring.cloud.bootstrap.location'       : '${user.home}/.spinnaker/',
+    'spring.cloud.bootstrap.name'           : 'spinnaker-config,${spring.application.name}-config',
+    'spring.cloud.config.server.bootstrap'  : 'true'
   ]
 
   static {
@@ -81,8 +88,12 @@ class Main extends SpringBootServletInitializer {
   }
 
   static void main(String... args) {
+    BOOTSTRAP_SYSTEM_PROPS.each { key, value -> System.setProperty(key, value) }
     launchArgs = args
-    new SpringApplicationBuilder().properties(DEFAULT_PROPS).sources(Main).run(args)
+    new SpringApplicationBuilder()
+      .properties(DEFAULT_PROPS)
+      .sources(Main)
+      .run(args)
   }
 
   @Bean

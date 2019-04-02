@@ -23,7 +23,6 @@ import com.netflix.spinnaker.clouddriver.security.DefaultAllowedAccountsValidato
 import com.netflix.spinnaker.clouddriver.security.NoopCredentialsInitializerSynchronizable
 import com.netflix.spinnaker.fiat.shared.EnableFiatAutoConfig
 import com.netflix.spinnaker.fiat.shared.FiatStatus
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
