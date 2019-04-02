@@ -31,7 +31,6 @@ import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.common.cache.AzureCachingAgent
 import com.netflix.spinnaker.clouddriver.azure.common.cache.MutableCacheData
 import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys
-
 import static com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys.Namespace.*
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
@@ -87,11 +86,12 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
     }
 
     def cacheServerGroups = result.cacheResults[AZURE_SERVER_GROUPS.ns]
+
     if (cacheServerGroups) {
       cacheServerGroups.each { cacheServerGroup ->
         if(!cacheServerGroup.relationships.containsKey(AZURE_INSTANCES.ns)) {
           def serverGroupName = cacheServerGroup.attributes.serverGroup.name
-          removeDeadInstancesCacheEntries(result, providerCache, serverGroupName)
+          removeDeadCacheEntries(result, providerCache, serverGroupName)
         }
       }
 
@@ -102,25 +102,8 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
     }
   }
 
-  CacheResult removeDeadInstancesCacheEntries(CacheResult cacheResult, ProviderCache providerCache, String serverGroupName) {
-    def instanceIdentifiers = providerCache.filterIdentifiers(AZURE_INSTANCES.ns, Keys.getInstanceKey(AzureCloudProvider.ID, serverGroupName, "*", region, accountName))
-    def instanceCacheResults = providerCache.getAll((AZURE_INSTANCES.ns), instanceIdentifiers, RelationshipCacheFilter.none())
-    def evictedInstanceList = instanceCacheResults.collect{ cached ->
-      if (!cacheResult.cacheResults[AZURE_INSTANCES.ns].find {it.id == cached.id}) {
-        cached.id
-      } else {
-        null
-      }
-    }
-    if (evictedInstanceList) {
-      cacheResult.evictions[AZURE_INSTANCES.ns] = evictedInstanceList
-    }
-
-    cacheResult
-  }
-
-  CacheResult removeDeadCacheEntries(CacheResult cacheResult, ProviderCache providerCache) {
-    def sgIdentifiers = providerCache.filterIdentifiers(AZURE_SERVER_GROUPS.ns, Keys.getServerGroupKey(AzureCloudProvider.ID, "*", region, accountName))
+  CacheResult removeDeadCacheEntries(CacheResult cacheResult, ProviderCache providerCache, String serverGroupName = "*") {
+    def sgIdentifiers = providerCache.filterIdentifiers(AZURE_SERVER_GROUPS.ns, Keys.getServerGroupKey(AzureCloudProvider.ID, serverGroupName, region, accountName))
     def sgCacheResults = providerCache.getAll((AZURE_SERVER_GROUPS.ns), sgIdentifiers, RelationshipCacheFilter.none())
     def evictedSGList = sgCacheResults.collect{ cached ->
       if (!cacheResult.cacheResults[AZURE_SERVER_GROUPS.ns].find {it.id == cached.id}) {
@@ -133,7 +116,7 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
       cacheResult.evictions[AZURE_SERVER_GROUPS.ns] = evictedSGList
     }
 
-    def instanceIdentifiers = providerCache.filterIdentifiers(AZURE_INSTANCES.ns, Keys.getInstanceKey(AzureCloudProvider.ID, "*", "*", region, accountName))
+    def instanceIdentifiers = providerCache.filterIdentifiers(AZURE_INSTANCES.ns, Keys.getInstanceKey(AzureCloudProvider.ID, serverGroupName, "*", region, accountName))
     def instanceCacheResults = providerCache.getAll((AZURE_INSTANCES.ns), instanceIdentifiers, RelationshipCacheFilter.none())
     def evictedInstanceList = instanceCacheResults.collect{ cached ->
       if (!cacheResult.cacheResults[AZURE_INSTANCES.ns].find {it.id == cached.id}) {

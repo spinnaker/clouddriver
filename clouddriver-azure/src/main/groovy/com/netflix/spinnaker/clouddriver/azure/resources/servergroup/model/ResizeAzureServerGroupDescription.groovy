@@ -16,22 +16,15 @@
 
 package com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model
 
-
+import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable
 
 class ResizeAzureServerGroupDescription extends AzureServerGroupDescription implements ServerGroupsNameable {
   String serverGroupName
-  /**
-   * targetSize takes precedence if it and capacity are both specified.
-   */
+
   Integer targetSize
-  String region
-  String accountName
-  Capacity capacity
 
-  @Deprecated
-  String zone
-
+  ServerGroup.Capacity capacity
 
   @Override
   Collection<String> getServerGroupNames() {

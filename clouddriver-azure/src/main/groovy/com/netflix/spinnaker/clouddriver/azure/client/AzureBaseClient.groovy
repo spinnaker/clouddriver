@@ -23,7 +23,6 @@ import com.microsoft.azure.AzureEnvironment
 import com.microsoft.azure.CloudException
 import com.microsoft.azure.credentials.ApplicationTokenCredentials
 import com.microsoft.azure.management.Azure
-import com.microsoft.azure.management.compute.VirtualMachineScaleSet
 import com.microsoft.rest.LogLevel
 import com.microsoft.rest.ServiceResponse
 import groovy.transform.CompileStatic
