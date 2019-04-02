@@ -945,6 +945,7 @@ class GCEUtil {
                                               GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                               Task task,
                                               String phase,
+                                              GoogleOperationPoller googleOperationPoller,
                                               GoogleExecutorTraits executor) {
     String serverGroupName = serverGroup.name
     String region = serverGroup.region
@@ -984,10 +985,12 @@ class GCEUtil {
           backendService.backends = []
         }
         backendService.backends << backendToAdd
-        executor.timeExecute(
+        def updateOp = executor.timeExecute(
           compute.regionBackendServices().update(project, region, backendServiceName, backendService),
           "compute.regionBackendServices.update",
           executor.TAG_SCOPE, executor.SCOPE_REGIONAL, executor.TAG_REGION, region)
+        googleOperationPoller.waitForRegionalOperation(compute, project, region, updateOp.getName(),
+          null, task, "compute.${region}.backendServices.update", phase)
         task.updateStatus phase, "Enabled backend for server group ${serverGroupName} in Internal load balancer backend service ${backendServiceName}."
       }
     }
@@ -1000,6 +1003,7 @@ class GCEUtil {
                                           GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                           Task task,
                                           String phase,
+                                          GoogleOperationPoller googleOperationPoller,
                                           GoogleExecutorTraits executor) {
     String serverGroupName = serverGroup.name
     Metadata instanceMetadata = serverGroup?.launchConfig?.instanceTemplate?.properties?.metadata
@@ -1047,10 +1051,12 @@ class GCEUtil {
             backendService.backends = []
           }
           backendService.backends << backendToAdd
-        executor.timeExecute(
+          def updateOp = executor.timeExecute(
             compute.backendServices().update(project, backendServiceName, backendService),
             "compute.backendServices.update",
             executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+          googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+            task, 'compute.backendService.update', phase)
           task.updateStatus phase, "Enabled backend for server group ${serverGroupName} in Http(s) load balancer backend service ${backendServiceName}."
         }
       }
@@ -1064,6 +1070,7 @@ class GCEUtil {
                                          GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                          Task task,
                                          String phase,
+                                         GoogleOperationPoller googleOperationPoller,
                                          GoogleExecutorTraits executor) {
     String serverGroupName = serverGroup.name
     Metadata instanceMetadata = serverGroup?.launchConfig?.instanceTemplate?.properties?.metadata
@@ -1111,10 +1118,12 @@ class GCEUtil {
           backendService.backends = []
         }
         backendService.backends << backendToAdd
-        executor.timeExecute(
+        def updateOp = executor.timeExecute(
             compute.backendServices().update(project, backendServiceName, backendService),
             "compute.backendServices.update",
             executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+        googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+          task, 'compute.backendService.update', phase)
         task.updateStatus phase, "Enabled backend for server group ${serverGroupName} in ssl load balancer backend service ${backendServiceName}."
       }
     }
@@ -1127,6 +1136,7 @@ class GCEUtil {
                                          GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                          Task task,
                                          String phase,
+                                         GoogleOperationPoller googleOperationPoller,
                                          GoogleExecutorTraits executor) {
     String serverGroupName = serverGroup.name
     Metadata instanceMetadata = serverGroup?.launchConfig?.instanceTemplate?.properties?.metadata
@@ -1174,10 +1184,12 @@ class GCEUtil {
           backendService.backends = []
         }
         backendService.backends << backendToAdd
-        executor.timeExecute(
+        def updateOp = executor.timeExecute(
             compute.backendServices().update(project, backendServiceName, backendService),
             "compute.backendServices.update",
             executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+        googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+          task, 'compute.backendService.update', phase)
         task.updateStatus phase, "Enabled backend for server group ${serverGroupName} in tcp load balancer backend service ${backendServiceName}."
       }
     }
@@ -1233,6 +1245,7 @@ class GCEUtil {
                                              GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                              Task task,
                                              String phase,
+                                             GoogleOperationPoller googleOperationPoller,
                                              GoogleExecutorTraits executor) {
     def serverGroupName = serverGroup.name
     def region = serverGroup.region
@@ -1274,10 +1287,12 @@ class GCEUtil {
         (getLocalName(backend.group) == serverGroupName) &&
           (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
-      executor.timeExecute(
+      def updateOp = executor.timeExecute(
         compute.backendServices().update(project, backendServiceName, backendService),
         "compute.backendServices.update",
         executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+        task, 'compute.backendService.update', phase)
       task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from ssl load balancer backend service ${backendServiceName}."
     }
   }
@@ -1288,6 +1303,7 @@ class GCEUtil {
                                              GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                              Task task,
                                              String phase,
+                                             GoogleOperationPoller googleOperationPoller,
                                              GoogleExecutorTraits executor) {
     def serverGroupName = serverGroup.name
     def region = serverGroup.region
@@ -1329,10 +1345,12 @@ class GCEUtil {
         (getLocalName(backend.group) == serverGroupName) &&
           (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
-      executor.timeExecute(
+      def updateOp = executor.timeExecute(
         compute.backendServices().update(project, backendServiceName, backendService),
         "compute.backendServices.update",
         executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+        task, 'compute.backendService.update', phase)
       task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from tcp load balancer backend service ${backendServiceName}."
     }
   }
@@ -1343,6 +1361,7 @@ class GCEUtil {
                                                   GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                                   Task task,
                                                   String phase,
+                                                  GoogleOperationPoller googleOperationPoller,
                                                   GoogleExecutorTraits executor) {
     def serverGroupName = serverGroup.name
     def region = serverGroup.region
@@ -1380,10 +1399,12 @@ class GCEUtil {
         (getLocalName(backend.group) == serverGroupName) &&
           (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
-      executor.timeExecute(
+      def updateOp = executor.timeExecute(
         compute.regionBackendServices().update(project, region, backendServiceName, backendService),
         "compute.backendServices.update",
         executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      googleOperationPoller.waitForRegionalOperation(compute, project, region, updateOp.getName(), null,
+        task, "compute.${region}.backendServices.update", phase)
       task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from internal load balancer backend service ${backendServiceName}."
     }
   }
@@ -1394,6 +1415,7 @@ class GCEUtil {
                                               GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                               Task task,
                                               String phase,
+                                              GoogleOperationPoller googleOperationPoller,
                                               GoogleExecutorTraits executor) {
     def serverGroupName = serverGroup.name
     def httpLoadBalancersInMetadata = serverGroup?.asg?.get(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES) ?: []
@@ -1435,10 +1457,12 @@ class GCEUtil {
             (getLocalName(backend.group) == serverGroupName) &&
                 (Utils.getRegionFromGroupUrl(backend.group) == serverGroup.region)
           }
-          executor.timeExecute(
-              compute.backendServices().update(project, backendServiceName, backendService),
-              "compute.backendServices.update",
-              executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+          def updateOp = executor.timeExecute(
+            compute.backendServices().update(project, backendServiceName, backendService),
+            "compute.backendServices.update",
+            executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+          googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+            task, 'compute.backendService.update', phase)
           task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from Http(s) load balancer backend service ${backendServiceName}."
         }
       }

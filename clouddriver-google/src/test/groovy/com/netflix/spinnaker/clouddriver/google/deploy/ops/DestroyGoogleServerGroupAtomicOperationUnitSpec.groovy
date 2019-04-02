@@ -350,13 +350,10 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
                                                                 accountName: ACCOUNT_NAME,
                                                                 credentials: credentials)
       @Subject def operation = new DestroyGoogleServerGroupAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          registry: registry,
-          safeRetry: safeRetry
-        )
+      def googleOperationPoller = Mock(GoogleOperationPoller)
+      operation.googleOperationPoller = googleOperationPoller
+      def updateOpName = 'updateOp'
+
       operation.registry = registry
       operation.safeRetry = safeRetry
       operation.googleClusterProvider = googleClusterProviderMock
@@ -371,7 +368,8 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       _ * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
       _ * backendSvcGetMock.execute() >> bs
       _ * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
-      _ * backendUpdateMock.execute()
+      _ * backendUpdateMock.execute() >> [name: updateOpName]
+      _ * googleOperationPoller.waitForGlobalOperation(computeMock, PROJECT_NAME, updateOpName, null, task, _, _)
 
       _ * computeMock.globalForwardingRules() >> globalForwardingRules
       _ * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
@@ -440,13 +438,12 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DestroyGoogleServerGroupAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          registry: registry,
-          safeRetry: safeRetry
-        )
+
+      def task = Mock(Task)
+      def googleOperationPoller = Mock(GoogleOperationPoller)
+      operation.googleOperationPoller = googleOperationPoller
+      def updateOpName = 'updateOp'
+
       operation.registry = registry
       operation.safeRetry = safeRetry
       operation.googleClusterProvider = googleClusterProviderMock
@@ -461,7 +458,8 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       _ * backendServicesMock.get(PROJECT_NAME, REGION, 'backend-service') >> backendSvcGetMock
       _ * backendSvcGetMock.execute() >> bs
       _ * backendServicesMock.update(PROJECT_NAME, REGION, 'backend-service', bs) >> backendUpdateMock
-      _ * backendUpdateMock.execute()
+      _ * backendUpdateMock.execute() >> [name: updateOpName]
+      _ * googleOperationPoller.waitForRegionalOperation(computeMock, PROJECT_NAME, REGION, updateOpName, null, task, _, _)
 
       _ * computeMock.globalForwardingRules() >> globalForwardingRules
       _ * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
@@ -482,7 +480,6 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       true       | REGION   | []                                                                                                                                             | []
   }
 
-  @Unroll
   void "should retry http backend deletion on 400, 412, socket timeout, succeed on 404"() {
     // Note: Implicitly tests SafeRetry.doRetry
     setup:
@@ -569,16 +566,15 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       def bs = isRegional ?
           new BackendService(backends: lbNames.collect { new Backend(group: GCEUtil.buildZonalServerGroupUrl(PROJECT_NAME, ZONE, serverGroup.name)) }) :
           new BackendService(backends: lbNames.collect { new Backend(group: GCEUtil.buildRegionalServerGroupUrl(PROJECT_NAME, REGION, serverGroup.name)) })
+      def updateOpName = 'updateOp'
+      def task = Mock(Task)
+      def googleOperationPoller = Mock(GoogleOperationPoller)
 
     when:
       def destroy = new DestroyGoogleServerGroupAtomicOperation()
-      destroy.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          registry: registry,
-          safeRetry: safeRetry
-        )
+
+      destroy.googleOperationPoller = googleOperationPoller
+
       destroy.registry = registry
       destroy.safeRetry = safeRetry
       destroy.destroy(
@@ -608,11 +604,12 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       1 * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
 
     then:
-      1 * backendUpdateMock.execute()
+      1 * backendUpdateMock.execute() >> [name: updateOpName]
       2 * computeMock.backendServices() >> backendServicesMock
       1 * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
       1 * backendSvcGetMock.execute() >> bs
       1 * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
+      _ * googleOperationPoller.waitForGlobalOperation(computeMock, PROJECT_NAME, updateOpName, null, task, _, _)
 
     when:
       destroy.destroy(
