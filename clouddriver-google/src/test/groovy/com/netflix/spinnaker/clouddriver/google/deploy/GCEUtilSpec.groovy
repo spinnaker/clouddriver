@@ -552,6 +552,9 @@ class GCEUtilSpec extends Specification {
 
       googleLoadBalancerProviderMock.getApplicationLoadBalancers("") >> loadBalancerList
       def task = Mock(Task)
+
+      def googleOperationPoller = Mock(GoogleOperationPoller)
+      def updateOpName = 'updateOp'
       def bs = new BackendService(backends: [])
       if (lbNames) {
         serverGroup.launchConfig.instanceTemplate.properties.metadata.items.add(
@@ -563,14 +566,15 @@ class GCEUtilSpec extends Specification {
       }
 
     when:
-      GCEUtil.addHttpLoadBalancerBackends(computeMock, new ObjectMapper(), PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock, task, "PHASE", executor)
+      GCEUtil.addHttpLoadBalancerBackends(computeMock, new ObjectMapper(), PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock, task, "PHASE", googleOperationPoller, executor)
 
     then:
       _ * computeMock.backendServices() >> backendServicesMock
       _ * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
       _ * backendSvcGetMock.execute() >> bs
       _ * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
-      _ * backendUpdateMock.execute()
+      _ * backendUpdateMock.execute() >> [name: updateOpName] // Mock for async op
+      _ * googleOperationPoller.waitForGlobalOperation(computeMock, PROJECT_NAME, updateOpName, null, task, _, _)
 
       _ * computeMock.globalForwardingRules() >> globalForwardingRules
       _ * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
