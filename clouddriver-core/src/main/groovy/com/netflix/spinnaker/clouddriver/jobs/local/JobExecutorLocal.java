@@ -91,6 +91,8 @@ public class JobExecutorLocal implements JobExecutor {
     try {
       resultHandler.waitFor();
     } catch (InterruptedException e) {
+      executor.getWatchdog().destroyProcess();
+      Thread.currentThread().interrupt();
       throw new RuntimeException(e);
     }
 
