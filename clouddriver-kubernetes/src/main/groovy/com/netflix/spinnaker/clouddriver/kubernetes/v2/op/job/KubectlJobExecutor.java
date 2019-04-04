@@ -583,23 +583,24 @@ public class KubectlJobExecutor {
 
   private ReaderConsumer<List<KubernetesManifest>> parseManifestList() {
     return (BufferedReader r) -> {
-      List<KubernetesManifest> manifestList = new ArrayList<>();
-      JsonReader reader = new JsonReader(r);
-      reader.beginObject();
-      while (reader.hasNext()) {
-        if (reader.nextName().equals("items")) {
-          reader.beginArray();
-          while (reader.hasNext()) {
-            KubernetesManifest manifest = gson.fromJson(reader, KubernetesManifest.class);
-            manifestList.add(manifest);
+      try (JsonReader reader = new JsonReader(r)) {
+        List<KubernetesManifest> manifestList = new ArrayList<>();
+        reader.beginObject();
+        while (reader.hasNext()) {
+          if (reader.nextName().equals("items")) {
+            reader.beginArray();
+            while (reader.hasNext()) {
+              KubernetesManifest manifest = gson.fromJson(reader, KubernetesManifest.class);
+              manifestList.add(manifest);
+            }
+            reader.endArray();
+          } else {
+            reader.skipValue();
           }
-          reader.endArray();
-        } else {
-          reader.skipValue();
         }
+        reader.endObject();
+        return manifestList;
       }
-      reader.endObject();
-      return manifestList;
     };
   }
 

@@ -42,13 +42,13 @@ public class JobExecutorLocal implements JobExecutor {
     return executeWrapper(jobRequest, request -> executeStreaming(request, readerConsumer));
   }
 
-  private <T> JobResult<T> executeWrapper(final JobRequest jobRequest, ResultSupplier<T> resultSupplier) {
+  private <T> JobResult<T> executeWrapper(final JobRequest jobRequest, RequestExecutor<T> requestExecutor) {
     log.debug(String.format("Starting job: '%s'...", String.join(" ", jobRequest.getTokenizedCommand())));
     final String jobId = UUID.randomUUID().toString();
 
     JobResult<T> jobResult;
     try {
-      jobResult = resultSupplier.supply(jobRequest);
+      jobResult = requestExecutor.execute(jobRequest);
     } catch (IOException e) {
       throw new RuntimeException("Failed to execute job", e);
     }
@@ -112,7 +112,7 @@ public class JobExecutorLocal implements JobExecutor {
     return executor;
   }
 
-  interface ResultSupplier<U> {
-    JobResult<U> supply(JobRequest jobRequest) throws IOException;
+  interface RequestExecutor<U> {
+    JobResult<U> execute(JobRequest jobRequest) throws IOException;
   }
 }
