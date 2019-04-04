@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Netflix, Inc.
+ * Copyright 2019 Armory
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.deploy.ops.servergroup
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.job;
 
-import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.MigrateLoadBalancerResult
-import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.MigrateSecurityGroupResult
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-class MigrateServerGroupResult {
-  List<String> serverGroupNames
-  List<String> warnings = []
-  List<MigrateLoadBalancerResult> loadBalancers
-  List<MigrateSecurityGroupResult> securityGroups
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class KubernetesRunJobOperationDescription extends KubernetesAtomicOperationDescription {
+  String application;
+  String namespace = "";
+  KubernetesManifest manifest;
 }

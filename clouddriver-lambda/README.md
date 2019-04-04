@@ -295,6 +295,8 @@ curl -X POST \
 {
     "id": "e4dfdfa1-0b3c-4980-a745-413eb9806332",
     "resourceUri": "/task/e4dfdfa1-0b3c-4980-a745-413eb9806332"
+    "id": "4c316ba9-7db8-4675-82d9-5adf118c541c",
+    "resourceUri": "/task/4c316ba9-7db8-4675-82d9-5adf118c541c"
 }
 
 You may navigate to 
@@ -334,44 +336,6 @@ curl -X POST \
 {
     "id": "3a43157d-7f5d-4077-bc8d-8a21381eb6b7",
     "resourceUri": "/task/3a43157d-7f5d-4077-bc8d-8a21381eb6b7"
-}
-
-You may navigate to 
-http://localhost:7002/$resourceUri to see
-the orchestration details.
-In this case, resourceUri generated for my post request is
-/task/4c316ba9-7db8-4675-82d9-5adf118c541c. So, I'll have to navigate to
-http://localhost:7002/task/4c316ba9-7db8-4675-82d9-5adf118c541c for orchestration details
-```
-
-### Purpose
-
-Upsert Event Mapping.
-
-***Sample Request***
-
-```
-curl -X POST \
-  http://localhost:7002/aws/ops/upsertLambdaFunctionEventMapping \
-  -H 'Accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "region": "us-west-2",
-    "functionName": "mylambdafunctiontwo",
-    "credentials": "mylambda", 
-    "batchsize" : "10",
-    "majorFunctionVersion": "1",
-    "enabled": "false",
-    "eventSourceArn" : "arn:aws:kinesis:us-west-2:<myacctid>:stream/myteststream"
-}'
-```
-
-***Sample Response***
-
-```
-{
-    "id": "451b5171-7050-43b7-9176-483790e77bb6",
-    "resourceUri": "/task/50540cf6-5859-44f6-9f13-9c4944386666"
 }
 
 You may navigate to 
