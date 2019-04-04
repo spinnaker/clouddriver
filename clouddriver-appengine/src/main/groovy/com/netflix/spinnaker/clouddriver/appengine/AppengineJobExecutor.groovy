@@ -32,7 +32,7 @@ class AppengineJobExecutor {
   JobExecutor jobExecutor
 
   void runCommand(List<String> command) {
-    JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command))
+    JobStatus<String> jobStatus = jobExecutor.runJob(new JobRequest(command))
     if (jobStatus.getResult() == JobStatus.Result.FAILURE && jobStatus.getStdOut()) {
       String stdOut = jobStatus.getStdOut()
       String stdErr = jobStatus.getStdErr()

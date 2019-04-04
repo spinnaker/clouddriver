@@ -18,13 +18,13 @@ package com.netflix.spinnaker.clouddriver.jobs.local;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
-import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.exec.*;
 
-import java.io.*;
-import java.util.Objects;
-import java.util.Optional;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.util.UUID;
 
 @Slf4j
@@ -36,53 +36,49 @@ public class JobExecutorLocal implements JobExecutor {
   }
 
   @Override
-  public JobStatus runJob(final JobRequest jobRequest) {
-    return runJob(jobRequest, null);
+  public JobStatus<String> runJob(final JobRequest jobRequest) {
+    return executeWrapper(jobRequest, this::execute);
   }
 
   @Override
-  public JobStatus runJob(final JobRequest jobRequest, StreamConsumer streamConsumer) {
-    log.debug(String.format("Starting job: '%s'...", String.join(" ", jobRequest.getTokenizedCommand())));
+  public <T> JobStatus<T> runJob(final JobRequest jobRequest, StreamConsumer<T> streamConsumer) {
+    return executeWrapper(jobRequest, request -> executeStreaming(request, streamConsumer));
+  }
 
+  private <T> JobStatus<T> executeWrapper(final JobRequest jobRequest, ResultSupplier<T> resultSupplier) {
+    log.debug(String.format("Starting job: '%s'...", String.join(" ", jobRequest.getTokenizedCommand())));
     final String jobId = UUID.randomUUID().toString();
-    ExecuteResult executeResult;
+
+    JobStatus<T> jobStatus;
     try {
-      if (streamConsumer != null) {
-        executeResult = executeJobStreaming(jobRequest, streamConsumer);
-      } else {
-        executeResult = executeJob(jobRequest);
-      }
+      jobStatus = resultSupplier.supply(jobRequest);
     } catch (IOException e) {
       throw new RuntimeException("Failed to execute job", e);
     }
 
-    if (executeResult.wasKilled) {
+    if (jobStatus.isKilled()) {
       log.warn(String.format("Job %s timed out (after %d minutes)", jobId, timeoutMinutes));
     }
 
-    return JobStatus.builder()
-      .result(executeResult.exitValue == 0 ? JobStatus.Result.SUCCESS : JobStatus.Result.FAILURE)
-      .stdOut(executeResult.getStdOut())
-      .stdErr(executeResult.getStdErr())
-      .build();
+    return jobStatus;
   }
 
-  private ExecuteResult executeJob(JobRequest jobRequest) throws IOException {
+  private JobStatus<String> execute(JobRequest jobRequest) throws IOException {
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
 
     Executor executor = buildExecutor(new PumpStreamHandler(stdOut, stdErr, jobRequest.getInputStream()));
     int exitValue = executor.execute(jobRequest.getCommandLine(), jobRequest.getEnvironment());
 
-    return ExecuteResult.builder()
-      .stdOut(stdOut)
-      .stdErr(stdErr)
-      .exitValue(exitValue)
-      .wasKilled(executor.getWatchdog().killedProcess())
+    return JobStatus.<String>builder()
+      .result(exitValue == 0 ? JobStatus.Result.SUCCESS : JobStatus.Result.FAILURE)
+      .killed(executor.getWatchdog().killedProcess())
+      .stdOut(stdOut.toString())
+      .stdErr(stdErr.toString())
       .build();
   }
 
-  private ExecuteResult executeJobStreaming(JobRequest jobRequest, StreamConsumer consumer) throws IOException {
+  private <T> JobStatus<T> executeStreaming(JobRequest jobRequest, StreamConsumer<T> consumer) throws IOException {
     PipedOutputStream stdOut = new PipedOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
 
@@ -90,9 +86,7 @@ public class JobExecutorLocal implements JobExecutor {
     DefaultExecuteResultHandler resultHandler = new DefaultExecuteResultHandler();
     executor.execute(jobRequest.getCommandLine(), jobRequest.getEnvironment(), resultHandler);
 
-    try (PipedInputStream is = new PipedInputStream(stdOut)) {
-      consumer.consume(is);
-    }
+    T result = consumer.consume(new PipedInputStream(stdOut));
 
     try {
       resultHandler.waitFor();
@@ -100,10 +94,11 @@ public class JobExecutorLocal implements JobExecutor {
       throw new RuntimeException(e);
     }
 
-    return ExecuteResult.builder()
-      .stdErr(stdErr)
-      .exitValue(resultHandler.getExitValue())
-      .wasKilled(executor.getWatchdog().killedProcess())
+    return JobStatus.<T>builder()
+      .result(resultHandler.getExitValue() == 0 ? JobStatus.Result.SUCCESS : JobStatus.Result.FAILURE)
+      .killed(executor.getWatchdog().killedProcess())
+      .stdOut(result)
+      .stdErr(stdErr.toString())
       .build();
   }
 
@@ -118,19 +113,7 @@ public class JobExecutorLocal implements JobExecutor {
     return executor;
   }
 
-  @Builder
-  private static class ExecuteResult {
-    final OutputStream stdOut;
-    final OutputStream stdErr;
-    final int exitValue;
-    final boolean wasKilled;
-
-    String getStdOut() {
-      return Optional.ofNullable(stdOut).map(Objects::toString).orElse(null);
-    }
-
-    String getStdErr() {
-      return Optional.ofNullable(stdErr).map(Objects::toString).orElse(null);
-    }
+  interface ResultSupplier<U> {
+    JobStatus<U> supply(JobRequest jobRequest) throws IOException;
   }
 }

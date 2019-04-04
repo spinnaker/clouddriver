@@ -19,6 +19,11 @@ package com.netflix.spinnaker.clouddriver.jobs.local;
 import java.io.IOException;
 import java.io.InputStream;
 
-public interface StreamConsumer {
-  void consume(InputStream s) throws IOException;
+/**
+ * Transforms a stream into an object of arbitrary type.
+ *
+ * Implementations are responsible for closing the supplied InputStream.
+ */
+public interface StreamConsumer<T> {
+  T consume(InputStream s) throws IOException;
 }
