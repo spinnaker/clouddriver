@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.security
+package com.netflix.spinnaker.clouddriver.security;
 
-class NoopProviderSynchronizable implements ProviderSynchronizable {
-  void synchronize() {}
+public class NoopProviderSynchronizable implements ProviderSynchronizable {
+
+  public void synchronize() {}
+
 }
