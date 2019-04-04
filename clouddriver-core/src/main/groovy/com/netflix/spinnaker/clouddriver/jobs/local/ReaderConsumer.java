@@ -16,14 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.jobs.local;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 
 /**
- * Transforms a stream into an object of arbitrary type.
+ * Transforms a stream into an object of arbitrary type using a supplied BufferReader for the stream.
  *
- * Implementations are responsible for closing the supplied InputStream.
+ * Implementations are responsible for closing the supplied BufferReader.
  */
-public interface StreamConsumer<T> {
-  T consume(InputStream s) throws IOException;
+public interface ReaderConsumer<T> {
+  T consume(BufferedReader r) throws IOException;
 }

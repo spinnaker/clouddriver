@@ -23,7 +23,7 @@ import com.google.gson.stream.JsonReader;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobResult;
-import com.netflix.spinnaker.clouddriver.jobs.local.StreamConsumer;
+import com.netflix.spinnaker.clouddriver.jobs.local.ReaderConsumer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
@@ -39,10 +39,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -583,10 +581,10 @@ public class KubectlJobExecutor {
     return null;
   }
 
-  private StreamConsumer<List<KubernetesManifest>> parseManifestList() {
-    return (InputStream is) -> {
+  private ReaderConsumer<List<KubernetesManifest>> parseManifestList() {
+    return (BufferedReader r) -> {
       List<KubernetesManifest> manifestList = new ArrayList<>();
-      JsonReader reader = new JsonReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+      JsonReader reader = new JsonReader(r);
       reader.beginObject();
       while (reader.hasNext()) {
         if (reader.nextName().equals("items")) {

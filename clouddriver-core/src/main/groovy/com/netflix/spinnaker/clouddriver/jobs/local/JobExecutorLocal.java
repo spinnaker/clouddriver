@@ -21,10 +21,7 @@ import com.netflix.spinnaker.clouddriver.jobs.JobResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.exec.*;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
+import java.io.*;
 import java.util.UUID;
 
 @Slf4j
@@ -41,8 +38,8 @@ public class JobExecutorLocal implements JobExecutor {
   }
 
   @Override
-  public <T> JobResult<T> runJob(final JobRequest jobRequest, StreamConsumer<T> streamConsumer) {
-    return executeWrapper(jobRequest, request -> executeStreaming(request, streamConsumer));
+  public <T> JobResult<T> runJob(final JobRequest jobRequest, ReaderConsumer<T> readerConsumer) {
+    return executeWrapper(jobRequest, request -> executeStreaming(request, readerConsumer));
   }
 
   private <T> JobResult<T> executeWrapper(final JobRequest jobRequest, ResultSupplier<T> resultSupplier) {
@@ -78,7 +75,7 @@ public class JobExecutorLocal implements JobExecutor {
       .build();
   }
 
-  private <T> JobResult<T> executeStreaming(JobRequest jobRequest, StreamConsumer<T> consumer) throws IOException {
+  private <T> JobResult<T> executeStreaming(JobRequest jobRequest, ReaderConsumer<T> consumer) throws IOException {
     PipedOutputStream stdOut = new PipedOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
 
@@ -86,7 +83,7 @@ public class JobExecutorLocal implements JobExecutor {
     DefaultExecuteResultHandler resultHandler = new DefaultExecuteResultHandler();
     executor.execute(jobRequest.getCommandLine(), jobRequest.getEnvironment(), resultHandler);
 
-    T result = consumer.consume(new PipedInputStream(stdOut));
+    T result = consumer.consume(new BufferedReader(new InputStreamReader(new PipedInputStream(stdOut))));
 
     try {
       resultHandler.waitFor();
