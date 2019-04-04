@@ -21,10 +21,10 @@ import lombok.Getter;
 
 @Builder
 @Getter
-public class JobStatus<T> {
+public class JobResult<T> {
   private final Result result;
-  private final T stdOut;
-  private final String stdErr;
+  private final T output;
+  private final String error;
   private final boolean killed;
 
   public enum Result {

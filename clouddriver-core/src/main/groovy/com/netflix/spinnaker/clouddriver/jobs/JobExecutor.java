@@ -18,28 +18,28 @@ package com.netflix.spinnaker.clouddriver.jobs;
 import com.netflix.spinnaker.clouddriver.jobs.local.StreamConsumer;
 
 /**
- * Executes a job defined by a JobRequest, returning the results as a JobStatus.
+ * Executes a job defined by a JobRequest, returning the results as a JobResult.
  *
  * The caller can optionally supply a StreamConsumer, in which case the output from the job will be
- * transformed by the StreamConsumer before being returned in JobStatus.
+ * transformed by the StreamConsumer before being returned in JobResult.
  *
  * @see JobRequest
- * @see JobStatus
+ * @see JobResult
  */
 public interface JobExecutor {
   /**
-   * Runs the specified JobRequest, returning the job's standard output in a JobStatus.
+   * Runs the specified JobRequest, returning the job's standard output in a JobResult.
    * @param jobRequest The job request
    * @return The result of the job
    */
-  JobStatus<String> runJob(JobRequest jobRequest);
+  JobResult<String> runJob(JobRequest jobRequest);
 
   /**
    * Runs the specified JobRequest, transforming the job's standard output with the supplied StreamConsumer, and
-   * returning the transformed result in a JobStatus.
+   * returning the transformed result in a JobResult.
    * @param jobRequest The job request
    * @param streamConsumer A function that transforms the job's standard output
    * @return The result of the job
    */
-  <T> JobStatus<T> runJob(JobRequest jobRequest, StreamConsumer<T> streamConsumer);
+  <T> JobResult<T> runJob(JobRequest jobRequest, StreamConsumer<T> streamConsumer);
 }
