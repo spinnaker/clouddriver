@@ -42,11 +42,24 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
 
   public static final DIMENSION_NAME_FOR_ASG = 'AutoScalingGroupName'
 
-  @Autowired
   AmazonClientProvider amazonClientProvider
 
-  @Autowired
   IdGenerator idGenerator
+
+  PolicyNameGenerator policyNameGenerator
+
+  @Autowired
+  DefaultScalingPolicyCopier(AmazonClientProvider amazonClientProvider, IdGenerator idGenerator) {
+    this.amazonClientProvider = amazonClientProvider
+    this.idGenerator = idGenerator
+    this.policyNameGenerator = new PolicyNameGenerator(idGenerator, amazonClientProvider)
+  }
+
+  DefaultScalingPolicyCopier(AmazonClientProvider amazonClientProvider, IdGenerator idGenerator, PolicyNameGenerator policyNameGenerator) {
+    this.amazonClientProvider = amazonClientProvider
+    this.idGenerator = idGenerator
+    this.policyNameGenerator = policyNameGenerator
+  }
 
   @Override
   void copyScalingPolicies(Task task,
@@ -64,7 +77,7 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
 
     Map<String, String> sourcePolicyArnToTargetPolicyArn = [:]
     sourceAsgScalingPolicies.each { sourceAsgScalingPolicy ->
-      String newPolicyName = [targetAsgName, 'policy', idGenerator.nextId()].join('-')
+      String newPolicyName = policyNameGenerator.generateScalingPolicyName(sourceCredentials, sourceRegion, sourceAsgName, targetAsgName, sourceAsgScalingPolicy)
       def policyRequest = buildNewPolicyRequest(newPolicyName, sourceAsgScalingPolicy, targetAsgName)
       task.updateStatus "AWS_DEPLOY", "Creating scaling policy (${policyRequest}) on ${targetRegion}/${targetAsgName} from ${sourceRegion}/${sourceAsgName}..."
 
@@ -206,6 +219,35 @@ class DefaultScalingPolicyCopier implements ScalingPolicyCopier {
     @Override
     protected List<MetricAlarm> accessResult(DescribeAlarmsResult result) {
       result.metricAlarms
+    }
+  }
+
+  static class PolicyNameGenerator {
+    private IdGenerator idGenerator
+
+    private AmazonClientProvider amazonClientProvider
+
+    PolicyNameGenerator(IdGenerator idGenerator, AmazonClientProvider amazonClientProvider) {
+      this.idGenerator = idGenerator
+      this.amazonClientProvider = amazonClientProvider
+    }
+
+    String generateScalingPolicyName(NetflixAmazonCredentials sourceCredentials, String sourceRegion, String sourceAsgName, String targetAsgName, ScalingPolicy policy) {
+      policy.policyName.replaceAll(sourceAsgName, targetAsgName)
+      String fallback = policy.policyName.contains(sourceAsgName) ?
+        policy.policyName.replaceAll(sourceAsgName, targetAsgName) :
+        [policy.policyName, 'no-alarm', idGenerator.nextId()].join('-')
+
+      if (policy.alarms.isEmpty()) {
+        return fallback
+      }
+      AmazonCloudWatch sourceCloudWatch = amazonClientProvider.getCloudWatch(sourceCredentials, sourceRegion, true)
+      List<MetricAlarm> sourceAlarms = new AlarmRetriever(sourceCloudWatch).retrieve(new DescribeAlarmsRequest(alarmNames: [policy.alarms[0].alarmName]))
+      if (sourceAlarms.isEmpty()) {
+        return fallback
+      }
+      MetricAlarm alarm = sourceAlarms[0]
+      return [targetAsgName, alarm.namespace, alarm.metricName, alarm.comparisonOperator, alarm.threshold, alarm.evaluationPeriods, alarm.period, new Date().getTime()].join('-')
     }
   }
 }

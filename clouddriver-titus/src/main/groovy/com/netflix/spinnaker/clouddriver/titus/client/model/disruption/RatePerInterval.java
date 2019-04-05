@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Netflix, Inc.
+ * Copyright 2019 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.clouddriver.titus.client.model.disruption;
 
-package com.netflix.spinnaker.clouddriver.aws.deploy.description
+public class RatePerInterval {
 
-import com.fasterxml.jackson.annotation.JsonIgnore
-import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.SecurityGroupMigrator.SecurityGroupLocation
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+  int intervalMs;
+  int limitPerInterval;
 
-class MigrateSecurityGroupDescription {
-  SecurityGroupLocation source
-  SecurityGroupLocation target
-  boolean dryRun
+  public int getIntervalMs() { return intervalMs; }
 
-  @JsonIgnore
-  Set<AccountCredentials> credentials = [];
+  public void setIntervalMs(int intervalMs) {
+    this.intervalMs = intervalMs;
+  }
+
+  public void setLimitPerInterval(int limitPerInterval) {
+    this.limitPerInterval = limitPerInterval;
+  }
+
+  public int getLimitPerInterval() { return limitPerInterval; }
 }
