@@ -20,10 +20,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -40,12 +38,6 @@ public class DeployCloudFoundryServerGroupDescription extends AbstractCloudFound
   private boolean startApplication;
   private Artifact applicationArtifact;
   private Artifact manifest;
-
-  @Nullable
-  private Source source;
-
-  @Nullable
-  private Destination destination;
 
   @JsonIgnore
   private ArtifactCredentials artifactCredentials;
@@ -76,18 +68,5 @@ public class DeployCloudFoundryServerGroupDescription extends AbstractCloudFound
 
     @Nullable
     private List<String> services;
-  }
-
-  @Data
-  public static class Source {
-    String account;
-    String region;
-    String asgName;
-  }
-
-  @Data
-  public static class Destination {
-    String account;
-    String region;
   }
 }
