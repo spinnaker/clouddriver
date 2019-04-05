@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Google, Inc.
+ * Copyright 2019 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.jobs;
+package com.netflix.spinnaker.clouddriver.titus.client.model.disruption;
 
-public interface JobExecutor {
-  JobStatus runJob(JobRequest jobRequest);
+public class RatePerInterval {
+
+  int intervalMs;
+  int limitPerInterval;
+
+  public int getIntervalMs() { return intervalMs; }
+
+  public void setIntervalMs(int intervalMs) {
+    this.intervalMs = intervalMs;
+  }
+
+  public void setLimitPerInterval(int limitPerInterval) {
+    this.limitPerInterval = limitPerInterval;
+  }
+
+  public int getLimitPerInterval() { return limitPerInterval; }
 }
