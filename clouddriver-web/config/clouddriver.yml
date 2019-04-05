@@ -14,6 +14,8 @@ services:
 
 management.health.elasticsearch.enabled: false
 
+refreshPollingDelay: 10000
+
 swagger:
   enabled: true
   title: clouddriver
