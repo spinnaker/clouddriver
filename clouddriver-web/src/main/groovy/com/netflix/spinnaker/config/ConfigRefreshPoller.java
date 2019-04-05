@@ -17,7 +17,7 @@ public class ConfigRefreshPoller {
     this.contextRefresher = contextRefresher;
   }
 
-  @Scheduled(fixedDelayString = "${refreshPollingDelay}")
+  @Scheduled(fixedDelayString = "${refreshPollingDelay:20000}")
   public void refresh() {
     Set<String> keys = contextRefresher.refresh();
     log.info("Refreshed configuration for the following keys: " + keys);

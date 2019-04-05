@@ -40,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @ComponentScan("com.netflix.spinnaker.clouddriver.cloudfoundry")
 public class CloudFoundryConfiguration {
 
-  // Why is this defined as a bean here, and as a @Component as well?
   @Bean
   CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties() {
     return new CloudFoundryConfigurationProperties();
