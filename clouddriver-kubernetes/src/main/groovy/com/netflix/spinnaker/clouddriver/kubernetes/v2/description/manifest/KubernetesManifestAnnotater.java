@@ -209,6 +209,26 @@ public class KubernetesManifestAnnotater {
     return new KubernetesManifestTraffic(loadBalancers);
   }
 
+  public static void setTraffic(KubernetesManifest manifest, KubernetesManifestTraffic traffic) {
+    Map<String, String> annotations = manifest.getAnnotations();
+    List<String> loadBalancers = traffic.getLoadBalancers();
+
+    if (annotations.containsKey(LOAD_BALANCERS)) {
+      KubernetesManifestTraffic currentTraffic = getTraffic(manifest);
+      if (currentTraffic.getLoadBalancers().equals(loadBalancers)) {
+        return;
+      } else {
+        throw new RuntimeException(String.format(
+          "Manifest already has %s annotation set to %s. Failed attempting to set it to %s.",
+          LOAD_BALANCERS,
+          currentTraffic.getLoadBalancers(),
+          loadBalancers
+        ));
+      }
+    }
+    storeAnnotation(annotations, LOAD_BALANCERS, loadBalancers);
+  }
+
   public static KubernetesCachingProperties getCachingProperties(KubernetesManifest manifest) {
     Map<String, String> annotations = manifest.getAnnotations();
 

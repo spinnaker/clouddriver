@@ -38,6 +38,9 @@ public class KubernetesDeployManifestDescription extends KubernetesAtomicOperati
   private Source source;
   private Artifact manifestArtifact;
 
+  private boolean enableTraffic = true;
+  private List<String> services;
+
   public enum Source {
     artifact,
     text
