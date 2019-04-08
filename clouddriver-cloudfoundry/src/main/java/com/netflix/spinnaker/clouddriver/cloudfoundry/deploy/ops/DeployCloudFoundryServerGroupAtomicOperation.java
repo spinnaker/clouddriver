@@ -22,7 +22,6 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessSta
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.CloudFoundryServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryServerGroup;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.view.CloudFoundryClusterProvider;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
@@ -34,7 +33,6 @@ import javax.annotation.Nullable;
 import java.io.*;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -49,7 +47,6 @@ public class DeployCloudFoundryServerGroupAtomicOperation
 
   private final OperationPoller operationPoller;
   private final DeployCloudFoundryServerGroupDescription description;
-  private final CloudFoundryClusterProvider clusterProvider;
 
   @Override
   protected String getPhase() {
@@ -62,8 +59,8 @@ public class DeployCloudFoundryServerGroupAtomicOperation
 
     CloudFoundryClient client = description.getClient();
 
-    CloudFoundryServerGroupNameResolver serverGroupNameResolver = new CloudFoundryServerGroupNameResolver(description.getAccountName(),
-      clusterProvider, description.getSpace());
+    CloudFoundryServerGroupNameResolver serverGroupNameResolver = new CloudFoundryServerGroupNameResolver(client,
+      description.getSpace());
 
     description.setServerGroupName(serverGroupNameResolver.resolveNextServerGroupName(description.getApplication(),
       description.getStack(), description.getFreeFormDetails(), false));
@@ -76,7 +73,9 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       serverGroup = createApplication(description);
       packageId = buildPackage(serverGroup.getId(), description, packageArtifact);
     } finally {
-      packageArtifact.delete();
+      if (packageArtifact != null) {
+        packageArtifact.delete();
+      }
     }
 
     buildDroplet(packageId, serverGroup.getId(), description);
@@ -112,11 +111,8 @@ public class DeployCloudFoundryServerGroupAtomicOperation
 
   private DeploymentResult deploymentResult() {
     DeploymentResult deploymentResult = new DeploymentResult();
-    String destinationRegion = Optional.ofNullable(description.getDestination())
-      .map(DeployCloudFoundryServerGroupDescription.Destination::getRegion)
-      .orElse(description.getRegion());
-    deploymentResult.setServerGroupNames(Collections.singletonList(destinationRegion + ":" + description.getServerGroupName()));
-    deploymentResult.getServerGroupNameByRegion().put(destinationRegion, description.getServerGroupName());
+    deploymentResult.setServerGroupNames(Collections.singletonList(description.getRegion() + ":" + description.getServerGroupName()));
+    deploymentResult.getServerGroupNameByRegion().put(description.getRegion(), description.getServerGroupName());
     deploymentResult.setMessages(getTask().getHistory().stream()
       .map(hist -> hist.getPhase() + ":" + hist.getStatus())
       .collect(toList()));
@@ -146,7 +142,9 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       IOUtils.copy(artifactInputStream, fileOutputStream);
       fileOutputStream.close();
     } catch (IOException e) {
-      file.delete();
+      if (file != null) {
+        file.delete();
+      }
       throw new UncheckedIOException(e);
     }
     return file;
