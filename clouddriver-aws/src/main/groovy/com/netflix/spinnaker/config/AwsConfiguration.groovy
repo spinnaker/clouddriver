@@ -29,23 +29,13 @@ import com.netflix.spinnaker.clouddriver.aws.agent.CleanupDetachedInstancesAgent
 import com.netflix.spinnaker.clouddriver.aws.agent.ReconcileClassicLinkSecurityGroupsAgent
 import com.netflix.spinnaker.clouddriver.aws.bastion.BastionConfig
 import com.netflix.spinnaker.clouddriver.aws.deploy.BlockDeviceConfig
-import com.netflix.spinnaker.clouddriver.aws.deploy.converters.AllowLaunchAtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.BasicAmazonDeployHandler
-import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.DefaultMigrateClusterConfigurationStrategy
-import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.DefaultMigrateLoadBalancerStrategy
-import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.DefaultMigrateSecurityGroupStrategy
-import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.DefaultMigrateServerGroupStrategy
-import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.MigrateClusterConfigurationStrategy
-import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.MigrateLoadBalancerStrategy
-import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.MigrateSecurityGroupStrategy
-import com.netflix.spinnaker.clouddriver.aws.deploy.handlers.MigrateServerGroupStrategy
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.securitygroup.SecurityGroupLookupFactory
 import com.netflix.spinnaker.clouddriver.aws.deploy.scalingpolicy.DefaultScalingPolicyCopier
 import com.netflix.spinnaker.clouddriver.aws.deploy.scalingpolicy.ScalingPolicyCopier
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.NullOpUserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider
-import com.netflix.spinnaker.clouddriver.aws.deploy.validators.BasicAmazonDeployDescriptionValidator
 import com.netflix.spinnaker.clouddriver.aws.event.AfterResizeEventHandler
 import com.netflix.spinnaker.clouddriver.aws.event.DefaultAfterResizeEventHandler
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
@@ -58,6 +48,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentialsInitializ
 import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig
 import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig.Builder
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
+import com.netflix.spinnaker.clouddriver.aws.services.IdGenerator
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -131,53 +122,14 @@ class AwsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ScalingPolicyCopier)
-  DefaultScalingPolicyCopier defaultScalingPolicyCopier() {
-    new DefaultScalingPolicyCopier()
+  DefaultScalingPolicyCopier defaultScalingPolicyCopier(AmazonClientProvider amazonClientProvider, IdGenerator idGenerator) {
+    new DefaultScalingPolicyCopier(amazonClientProvider, idGenerator)
   }
 
   @Bean
   @ConditionalOnMissingBean(UserDataProvider)
   NullOpUserDataProvider nullOpUserDataProvider() {
     new NullOpUserDataProvider()
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  MigrateSecurityGroupStrategy migrateSecurityGroupStrategy(AwsConfigurationProperties awsConfigurationProperties, AmazonClientProvider amazonClientProvider) {
-    new DefaultMigrateSecurityGroupStrategy(amazonClientProvider, awsConfigurationProperties.migration.infrastructureApplications)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  MigrateLoadBalancerStrategy migrateLoadBalancerStrategy(AmazonClientProvider amazonClientProvider,
-                                                          RegionScopedProviderFactory regionScopedProviderFactory,
-                                                          DeployDefaults deployDefaults) {
-    new DefaultMigrateLoadBalancerStrategy(amazonClientProvider, regionScopedProviderFactory, deployDefaults)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  MigrateServerGroupStrategy migrateServerGroupStrategy(AmazonClientProvider amazonClientProvider,
-                                                        BasicAmazonDeployHandler basicAmazonDeployHandler,
-                                                        RegionScopedProviderFactory regionScopedProviderFactory,
-                                                        BasicAmazonDeployDescriptionValidator basicAmazonDeployDescriptionValidator,
-                                                        AllowLaunchAtomicOperationConverter allowLaunchAtomicOperationConverter,
-                                                        DeployDefaults deployDefaults) {
-    new DefaultMigrateServerGroupStrategy(amazonClientProvider, basicAmazonDeployHandler,
-      regionScopedProviderFactory, basicAmazonDeployDescriptionValidator, allowLaunchAtomicOperationConverter,
-      deployDefaults)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  MigrateClusterConfigurationStrategy migrateClusterConfigurationStrategy(AmazonClientProvider amazonClientProvider,
-                                                                          RegionScopedProviderFactory regionScopedProviderFactory,
-                                                                          DeployDefaults deployDefaults) {
-    new DefaultMigrateClusterConfigurationStrategy(amazonClientProvider, regionScopedProviderFactory, deployDefaults)
   }
 
   @Bean
