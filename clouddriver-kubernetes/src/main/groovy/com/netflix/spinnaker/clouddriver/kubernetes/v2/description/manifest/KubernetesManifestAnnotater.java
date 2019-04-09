@@ -205,9 +205,8 @@ public class KubernetesManifestAnnotater {
   public static KubernetesManifestTraffic getTraffic(KubernetesManifest manifest) {
     Map<String, String> annotations = manifest.getAnnotations();
 
-    return KubernetesManifestTraffic.builder()
-        .loadBalancers(getAnnotation(annotations, LOAD_BALANCERS, new TypeReference<List<String>>() {}, new ArrayList<>()))
-        .build();
+    List<String> loadBalancers = getAnnotation(annotations, LOAD_BALANCERS, new TypeReference<List<String>>() {}, new ArrayList<>());
+    return new KubernetesManifestTraffic(loadBalancers);
   }
 
   public static KubernetesCachingProperties getCachingProperties(KubernetesManifest manifest) {

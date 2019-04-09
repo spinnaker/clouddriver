@@ -29,14 +29,14 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 public class KubernetesDeployManifestDescription extends KubernetesAtomicOperationDescription {
   @Deprecated
-  KubernetesManifest manifest;
-  List<KubernetesManifest> manifests;
-  Moniker moniker;
-  List<Artifact> requiredArtifacts;
-  List<Artifact> optionalArtifacts;
-  Boolean versioned;
-  Source source;
-  Artifact manifestArtifact;
+  private KubernetesManifest manifest;
+  private List<KubernetesManifest> manifests;
+  private Moniker moniker;
+  private List<Artifact> requiredArtifacts;
+  private List<Artifact> optionalArtifacts;
+  private Boolean versioned;
+  private Source source;
+  private Artifact manifestArtifact;
 
   public enum Source {
     artifact,
