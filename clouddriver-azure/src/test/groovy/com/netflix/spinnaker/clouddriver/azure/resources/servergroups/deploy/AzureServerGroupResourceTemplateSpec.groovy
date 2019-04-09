@@ -214,6 +214,16 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
   },
   "variables" : {
     "apiVersion" : "2018-10-01",
+    "publicIPAddressName" : "",
+    "publicIPAddressID" : "",
+    "publicIPAddressType" : "",
+    "dnsNameForLBIP" : "",
+    "loadBalancerBackend" : "",
+    "loadBalancerFrontEnd" : "",
+    "loadBalancerName" : "",
+    "loadBalancerID" : "",
+    "frontEndIPConfigID" : "",
+    "inboundNatPoolName" : "",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -250,7 +260,10 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890"
+      "createdTime" : "1234567890",
+      "subnetId" : null,
+      "securityGroupName" : null,
+      "enableInboundNAT" : "false"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -289,6 +302,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
+                  "loadBalancerBackendAddressPools" : [ ],
+                  "loadBalancerInboundNatPools" : [ ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -354,7 +369,17 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     }
   },
   "variables" : {
-    "apiVersion" : "2018-10-01"
+    "apiVersion" : "2018-10-01",
+    "publicIPAddressName" : "",
+    "publicIPAddressID" : "",
+    "publicIPAddressType" : "",
+    "dnsNameForLBIP" : "",
+    "loadBalancerBackend" : "",
+    "loadBalancerFrontEnd" : "",
+    "loadBalancerName" : "",
+    "loadBalancerID" : "",
+    "frontEndIPConfigID" : "",
+    "inboundNatPoolName" : ""
   },
   "resources" : [ {
     "apiVersion" : "[variables('apiVersion')]",
@@ -362,7 +387,10 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890"
+      "createdTime" : "1234567890",
+      "subnetId" : null,
+      "securityGroupName" : null,
+      "enableInboundNAT" : "false"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -397,6 +425,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
+                  "loadBalancerBackendAddressPools" : [ ],
+                  "loadBalancerInboundNatPools" : [ ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -463,6 +493,16 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
   },
   "variables" : {
     "apiVersion" : "2018-10-01",
+    "publicIPAddressName" : "",
+    "publicIPAddressID" : "",
+    "publicIPAddressType" : "",
+    "dnsNameForLBIP" : "",
+    "loadBalancerBackend" : "",
+    "loadBalancerFrontEnd" : "",
+    "loadBalancerName" : "",
+    "loadBalancerID" : "",
+    "frontEndIPConfigID" : "",
+    "inboundNatPoolName" : "",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -499,7 +539,10 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890"
+      "createdTime" : "1234567890",
+      "subnetId" : null,
+      "securityGroupName" : null,
+      "enableInboundNAT" : "false"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -538,6 +581,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
+                  "loadBalancerBackendAddressPools" : [ ],
+                  "loadBalancerInboundNatPools" : [ ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -619,6 +664,16 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
   },
   "variables" : {
     "apiVersion" : "2018-10-01",
+    "publicIPAddressName" : "",
+    "publicIPAddressID" : "",
+    "publicIPAddressType" : "",
+    "dnsNameForLBIP" : "",
+    "loadBalancerBackend" : "",
+    "loadBalancerFrontEnd" : "",
+    "loadBalancerName" : "",
+    "loadBalancerID" : "",
+    "frontEndIPConfigID" : "",
+    "inboundNatPoolName" : "",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -655,7 +710,10 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890"
+      "createdTime" : "1234567890",
+      "subnetId" : null,
+      "securityGroupName" : null,
+      "enableInboundNAT" : "false"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -694,6 +752,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
+                  "loadBalancerBackendAddressPools" : [ ],
+                  "loadBalancerInboundNatPools" : [ ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -775,6 +835,16 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
   },
   "variables" : {
     "apiVersion" : "2018-10-01",
+    "publicIPAddressName" : "",
+    "publicIPAddressID" : "",
+    "publicIPAddressType" : "",
+    "dnsNameForLBIP" : "",
+    "loadBalancerBackend" : "",
+    "loadBalancerFrontEnd" : "",
+    "loadBalancerName" : "",
+    "loadBalancerID" : "",
+    "frontEndIPConfigID" : "",
+    "inboundNatPoolName" : "",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -811,7 +881,10 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890"
+      "createdTime" : "1234567890",
+      "subnetId" : null,
+      "securityGroupName" : null,
+      "enableInboundNAT" : "false"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -850,6 +923,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
+                  "loadBalancerBackendAddressPools" : [ ],
+                  "loadBalancerInboundNatPools" : [ ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -932,6 +1007,16 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
   },
   "variables" : {
     "apiVersion" : "2018-10-01",
+    "publicIPAddressName" : "",
+    "publicIPAddressID" : "",
+    "publicIPAddressType" : "",
+    "dnsNameForLBIP" : "",
+    "loadBalancerBackend" : "",
+    "loadBalancerFrontEnd" : "",
+    "loadBalancerName" : "",
+    "loadBalancerID" : "",
+    "frontEndIPConfigID" : "",
+    "inboundNatPoolName" : "",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -968,7 +1053,10 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890"
+      "createdTime" : "1234567890",
+      "subnetId" : null,
+      "securityGroupName" : null,
+      "enableInboundNAT" : "false"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -1007,6 +1095,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
+                  "loadBalancerBackendAddressPools" : [ ],
+                  "loadBalancerInboundNatPools" : [ ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]
@@ -1089,6 +1179,16 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
   },
   "variables" : {
     "apiVersion" : "2018-10-01",
+    "publicIPAddressName" : "",
+    "publicIPAddressID" : "",
+    "publicIPAddressType" : "",
+    "dnsNameForLBIP" : "",
+    "loadBalancerBackend" : "",
+    "loadBalancerFrontEnd" : "",
+    "loadBalancerName" : "",
+    "loadBalancerID" : "",
+    "frontEndIPConfigID" : "",
+    "inboundNatPoolName" : "",
     "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
@@ -1126,6 +1226,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "location" : "[parameters('location')]",
     "tags" : {
       "createdTime" : "1234567890",
+      "subnetId" : null,
+      "securityGroupName" : null,
+      "enableInboundNAT" : "false",
       "key1" : "value1",
       "key2" : "value2"
     },
@@ -1166,6 +1269,8 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
                   },
+                  "loadBalancerBackendAddressPools" : [ ],
+                  "loadBalancerInboundNatPools" : [ ],
                   "applicationGatewayBackendAddressPools" : [ {
                     "id" : "[parameters('appGatewayAddressPoolId')]"
                   } ]

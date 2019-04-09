@@ -33,15 +33,14 @@ package com.netflix.spinnaker.clouddriver.azure.templates
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
-import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription.AzureInboundPortConfig
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
+import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription.AzureInboundPortConfig
 import groovy.util.logging.Slf4j
 
 @Slf4j
 class AzureServerGroupResourceTemplate {
   static final String STORAGE_ACCOUNT_SUFFIX = "sa"
-
   static String LB_NAME = null
 
   protected static ObjectMapper mapper = new ObjectMapper()
@@ -86,21 +85,18 @@ class AzureServerGroupResourceTemplate {
     ServerGroupTemplate(AzureServerGroupDescription description) {
       if (description.enableInboundNAT){
         initializeCommonVariables(description)
+        resources.add(new PublicIpResource(properties: new PublicIPPropertiesWithDns()))
+        resources.add(new LoadBalancer(description))
       }
 
       parameters = new ServerGroupTemplateParameters()
 
       //If it's custom,
       if (description.image.isCustom) {
-          variables = new CoreServerGroupTemplateVariables(description)
+        variables = new CoreServerGroupTemplateVariables(description)
       } else {
         variables = new ExtendedServerGroupTemplateVariables(description)
         resources.add(new StorageAccount(description))
-      }
-
-      if(description.enableInboundNAT){
-        resources.add(new PublicIpResource(properties: new PublicIPPropertiesWithDns()))
-        resources.add(new LoadBalancer(description))
       }
 
       resources.add(new VirtualMachineScaleSet(description))
@@ -350,12 +346,8 @@ class AzureServerGroupResourceTemplate {
       def currentTime = System.currentTimeMillis()
       tags = [:]
       tags.createdTime = currentTime.toString()
-      tags.subnetId = description.subnetId
-      tags.securityGroupName = description.securityGroupName
-      tags.enableInboundNAT = description.enableInboundNAT ? "true" : "false"
-      if(description.enableInboundNAT){
-        tags.loadBalancerName = LB_NAME
-      }
+      if (description.subnetId) tags.subnetId = description.subnetId
+      if (description.securityGroupName) tags.securityGroupName = description.securityGroupName
 
       if (description.instanceTags != null) {
         tags << description.instanceTags
@@ -371,6 +363,8 @@ class AzureServerGroupResourceTemplate {
       }
 
       if(description.enableInboundNAT){
+        tags.enableInboundNAT = description.enableInboundNAT ? "true" : "false"
+        tags.loadBalancerName = LB_NAME
         this.dependsOn.add("[concat('Microsoft.Network/loadBalancers/', variables('loadBalancerName'))]")
       }
 
@@ -578,7 +572,6 @@ class AzureServerGroupResourceTemplate {
   }
 
   static class LoadBalancerInboundNatPoolId extends IdRef {
-
     LoadBalancerInboundNatPoolId() {
       id = "[resourceId('Microsoft.Network/loadBalancers/inboundNatPools', variables('loadBalancerName'), variables('inboundNatPoolName'))]"
     }

@@ -67,7 +67,7 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
   Boolean hasNewSubnet = false
   Boolean createNewSubnet = false
   AzureExtensionCustomScriptSettings customScriptsSettings
-  Boolean enableInboundNAT
+  Boolean enableInboundNAT = false
 
   static class AzureScaleSetSku {
     String name
