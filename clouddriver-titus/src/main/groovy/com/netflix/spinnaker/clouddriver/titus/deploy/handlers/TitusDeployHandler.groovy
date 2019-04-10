@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.titus.deploy.handlers
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.TargetGroupLookupHelper
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.TargetGroupLookupHelper.TargetGroupLookupResult
@@ -173,7 +172,8 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
         if (description.inService == null) {
           description.inService = sourceJob.inService
         }
-        if(description.disruptionBudget == null) {
+        if (description.disruptionBudget == null) {
+          //migrationPolicy should only be used when the disruptionBudget has not been specified
           description.migrationPolicy = description.migrationPolicy ?: sourceJob.migrationPolicy
         }
         description.jobType = description.jobType ?: "service"
