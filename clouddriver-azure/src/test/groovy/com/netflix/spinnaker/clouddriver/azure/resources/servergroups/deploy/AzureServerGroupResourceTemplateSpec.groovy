@@ -260,10 +260,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890",
-      "subnetId" : null,
-      "securityGroupName" : null,
-      "enableInboundNAT" : "false"
+      "createdTime" : "1234567890"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -387,10 +384,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890",
-      "subnetId" : null,
-      "securityGroupName" : null,
-      "enableInboundNAT" : "false"
+      "createdTime" : "1234567890"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -539,10 +533,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890",
-      "subnetId" : null,
-      "securityGroupName" : null,
-      "enableInboundNAT" : "false"
+      "createdTime" : "1234567890"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -710,10 +701,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890",
-      "subnetId" : null,
-      "securityGroupName" : null,
-      "enableInboundNAT" : "false"
+      "createdTime" : "1234567890"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -881,10 +869,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890",
-      "subnetId" : null,
-      "securityGroupName" : null,
-      "enableInboundNAT" : "false"
+      "createdTime" : "1234567890"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -1053,10 +1038,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "type" : "Microsoft.Compute/virtualMachineScaleSets",
     "location" : "[parameters('location')]",
     "tags" : {
-      "createdTime" : "1234567890",
-      "subnetId" : null,
-      "securityGroupName" : null,
-      "enableInboundNAT" : "false"
+      "createdTime" : "1234567890"
     },
     "dependsOn" : [ ],
     "sku" : {
@@ -1226,9 +1208,6 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     "location" : "[parameters('location')]",
     "tags" : {
       "createdTime" : "1234567890",
-      "subnetId" : null,
-      "securityGroupName" : null,
-      "enableInboundNAT" : "false",
       "key1" : "value1",
       "key2" : "value2"
     },
