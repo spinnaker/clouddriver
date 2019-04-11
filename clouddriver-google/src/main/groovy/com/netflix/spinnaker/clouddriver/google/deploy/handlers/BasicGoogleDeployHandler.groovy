@@ -220,6 +220,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     task.updateStatus BASE_PHASE, "Composing server group $serverGroupName..."
 
     description.baseDeviceName = serverGroupName
+
     def bootImage = GCEUtil.getBootImage(description,
       task,
       BASE_PHASE,
@@ -227,6 +228,10 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       googleConfigurationProperties.baseImageProjects,
       safeRetry,
       this)
+
+    // We include a subset of the image's attributes and a reference in the disks.
+    // Furthermore, we're using the underlying raw compute model classes
+    // so we can't simply change the representation to support what we need for shielded VMs.
     def attachedDisks = GCEUtil.buildAttachedDisks(description,
                                                    null,
                                                    false,

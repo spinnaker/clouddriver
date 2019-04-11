@@ -196,17 +196,19 @@ class GCEUtil {
 
     boolean isUefiCompatible = false;
     boolean isSecureBootCompatible = false;
-    for (def feature : guestOsFeatureList) {
+
+    guestOsFeatureList.each { feature ->
       if (feature.getType() == "UEFI_COMPATIBLE") {
         isUefiCompatible= true
-        continue
+        return
       }
 
       if (feature.getType() == "SECURE_BOOT") {
         isSecureBootCompatible = true
-        continue
+        return
       }
     }
+
     return isUefiCompatible && isSecureBootCompatible
   }
 

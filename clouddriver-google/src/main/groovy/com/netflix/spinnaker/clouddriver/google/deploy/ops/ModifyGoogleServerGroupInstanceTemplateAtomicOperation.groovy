@@ -176,6 +176,10 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperation extends GoogleAtomi
           googleConfigurationProperties.baseImageProjects,
           safeRetry,
           this)
+
+        // We include a subset of the image's attributes and a reference in the disks.
+        // Furthermore, we're using the underlying raw compute model classes
+        // so we can't simply change the representation to support what we need for shielded VMs.
         def attachedDisks = GCEUtil.buildAttachedDisks(clonedDescription,
                                                        null,
                                                        false,
