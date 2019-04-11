@@ -58,7 +58,7 @@ public class CloudFoundryApiException extends RuntimeException {
   }
 
   private static String getMessage(Throwable t, String... errors) {
-    String[] allErrors = Arrays.copyOf(errors,errors.length + 1);
+    String[] allErrors = Arrays.copyOf(errors, errors.length + 1);
     allErrors[errors.length] = t.getMessage();
     return getMessage(allErrors);
   }
