@@ -43,6 +43,9 @@ class BaseGoogleInstanceDescription extends AbstractGoogleCredentialsDescription
   Boolean preemptible
   Boolean automaticRestart
   OnHostMaintenance onHostMaintenance
+  Boolean enableSecureBoot;
+  Boolean enableVtpm;
+  Boolean enableIntegrityMonitoring;
 
   // Unique disk device name addressable by a Linux OS in /dev/disk/by-id/google-* in the running instance.
   // Used to reference disk for mounting, resizing, etc.

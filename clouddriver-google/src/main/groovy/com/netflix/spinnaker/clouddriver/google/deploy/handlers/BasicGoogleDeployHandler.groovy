@@ -220,6 +220,13 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     task.updateStatus BASE_PHASE, "Composing server group $serverGroupName..."
 
     description.baseDeviceName = serverGroupName
+    def bootImage = GCEUtil.getBootImage(description,
+      task,
+      BASE_PHASE,
+      clouddriverUserAgentApplicationName,
+      googleConfigurationProperties.baseImageProjects,
+      safeRetry,
+      this)
     def attachedDisks = GCEUtil.buildAttachedDisks(description,
                                                    null,
                                                    false,
@@ -228,6 +235,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                    BASE_PHASE,
                                                    clouddriverUserAgentApplicationName,
                                                    googleConfigurationProperties.baseImageProjects,
+                                                   bootImage,
                                                    safeRetry,
                                                    this)
 
@@ -394,6 +402,11 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                     labels: labels,
                                                     scheduling: scheduling,
                                                     serviceAccounts: serviceAccount)
+
+    if (GCEUtil.isShieldedVmCompatible(bootImage)) {
+      def shieldedVmConfig = GCEUtil.buildShieldedVmConfig(description)
+      instanceProperties.setShieldedVmConfig(shieldedVmConfig)
+    }
 
     if (description.minCpuPlatform) {
       instanceProperties.minCpuPlatform = description.minCpuPlatform

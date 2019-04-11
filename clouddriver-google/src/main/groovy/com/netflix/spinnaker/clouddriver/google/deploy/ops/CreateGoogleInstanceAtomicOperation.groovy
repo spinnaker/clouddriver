@@ -20,6 +20,8 @@ import com.google.api.services.compute.model.Instance
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
+import com.netflix.spinnaker.clouddriver.google.deploy.description.BaseGoogleInstanceDescription
 import com.netflix.spinnaker.config.GoogleConfiguration
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
@@ -99,6 +101,13 @@ class CreateGoogleInstanceAtomicOperation extends GoogleAtomicOperation<Deployme
     task.updateStatus BASE_PHASE, "Composing instance..."
 
     description.baseDeviceName = description.instanceName
+    def bootImage = GCEUtil.getBootImage(description,
+      task,
+      BASE_PHASE,
+      clouddriverUserAgentApplicationName,
+      googleConfigurationProperties.baseImageProjects,
+      safeRetry,
+      this)
     def attachedDisks = GCEUtil.buildAttachedDisks(description,
                                                    zone,
                                                    true,
@@ -107,6 +116,7 @@ class CreateGoogleInstanceAtomicOperation extends GoogleAtomicOperation<Deployme
                                                    BASE_PHASE,
                                                    clouddriverUserAgentApplicationName,
                                                    googleConfigurationProperties.baseImageProjects,
+                                                   bootImage,
                                                    safeRetry,
                                                    this)
 
@@ -134,6 +144,11 @@ class CreateGoogleInstanceAtomicOperation extends GoogleAtomicOperation<Deployme
                                 labels: description.labels,
                                 scheduling: scheduling,
                                 serviceAccounts: serviceAccount)
+
+    if (GCEUtil.isShieldedVmCompatible(bootImage)) {
+      def shieldedVmConfig = GCEUtil.buildShieldedVmConfig(description)
+      instance.setShieldedVmConfig(shieldedVmConfig)
+    }
 
     if (description.minCpuPlatform) {
       instance.minCpuPlatform = description.minCpuPlatform
