@@ -226,7 +226,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
 
   private List<String> findMatches(String q, List<String> cachesToQuery, Map<String, String> filters) {
 
-    if (!q && keyParsers) {
+    if (!q && keyParsers && filters) {
       // no keyword search so find sensible default value to set for searching
       Set<String> filterKeys = filters.keySet()
       keyParsers.find {
@@ -237,7 +237,17 @@ class CatsSearchProvider implements SearchProvider, Runnable {
           return true
         }
       }
-      log.info("no query string specified, looked for sensible default and found: ${q}")
+
+      if (q) {
+        log.info(
+          "no query string specified, looked for sensible default and found: {} (cachesToQuery: {})",
+          q,
+          cachesToQuery
+        )
+      } else {
+        log.info("no query string specified and no sensible default found (cachesToQuery: {})", cachesToQuery)
+        return []
+      }
     }
 
     log.info("Querying ${cachesToQuery} for term: ${q}")
@@ -249,19 +259,18 @@ class CatsSearchProvider implements SearchProvider, Runnable {
             return true
           }
 
-          if (keyParsers) {
-            KeyParser parser = keyParsers.find { it.cloudProvider == filters.cloudProvider && it.canParseType(cache) }
-            if (parser) {
-              Map<String, String> parsed = parser.parseKey(key)
-              return filters.entrySet().every { filter ->
-                String[] vals = filter.value.split(',')
-                filter.key == 'cloudProvider' || parsed &&
-                  ((parsed.containsKey(filter.key) && vals.contains(parsed[filter.key])) ||
+          KeyParser parser = keyParsers?.find { it.cloudProvider == filters.cloudProvider && it.canParseType(cache) }
+          if (parser) {
+            Map<String, String> parsed = parser.parseKey(key)
+            return filters.entrySet().every { filter ->
+              String[] vals = filter.value.split(',')
+              filter.key == 'cloudProvider' || parsed &&
+                ((parsed.containsKey(filter.key) && vals.contains(parsed[filter.key])) ||
                   (parsed.containsKey(parser.getNameMapping(cache)) && vals.contains(parsed[parser.getNameMapping(cache)])))
-              }
-            } else {
-              log.warn("No parser found for $cache:$key")
             }
+          } else {
+            log.debug("No parser found for $cache:$key")
+            return true
           }
         } catch (Exception e) {
           log.warn("Failed on $cache:$key", e)

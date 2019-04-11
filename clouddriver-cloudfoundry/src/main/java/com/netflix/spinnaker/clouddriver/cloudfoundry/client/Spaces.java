@@ -22,6 +22,8 @@ import com.google.common.cache.LoadingCache;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.SpaceService;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Space;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.SpaceSummary;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.SummaryServiceInstance;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -69,9 +72,26 @@ public class Spaces {
   }
 
   @Nullable
+  public SpaceSummary getSpaceSummaryById(String spaceId) {
+    return safelyCall(() -> api.getSpaceSummaryById(spaceId))
+      .orElse(null);
+  }
+
+  @Nullable
   public CloudFoundrySpace findByName(String orgId, String spaceName) throws CloudFoundryApiException {
     return safelyCall(() -> api.all(null, Arrays.asList("name:" + spaceName, "organization_guid:" + orgId)))
       .flatMap(page -> page.getResources().stream().findAny().map(this::map))
+      .orElse(null);
+  }
+
+  @Nullable
+  public SummaryServiceInstance getSummaryServiceInstanceByNameAndSpace(String serviceInstanceName, CloudFoundrySpace space) {
+    return Optional.ofNullable(getSpaceSummaryById(space.getId()))
+      .map(SpaceSummary::getServices)
+      .map(services -> services.stream()
+        .filter(si -> serviceInstanceName.equals(si.getName()))
+        .findFirst()
+        .orElse(null))
       .orElse(null);
   }
 

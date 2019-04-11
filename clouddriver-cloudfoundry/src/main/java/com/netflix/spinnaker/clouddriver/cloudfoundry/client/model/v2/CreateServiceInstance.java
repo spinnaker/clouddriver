@@ -18,20 +18,17 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import javax.annotation.Nullable;
-import java.util.Set;
+import java.util.Map;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class CreateServiceInstance {
-  private String spaceGuid;
-  private String name;
+public class CreateServiceInstance extends AbstractCreateServiceInstance {
   private String servicePlanGuid;
 
   @Nullable
-  private Set<String> tags;
-
-  @Nullable
-  private String parameters;
+  private Map<String, Object> parameters;
 }

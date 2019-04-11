@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Oracle America, Inc.
+ * Copyright (c) 2017, 2018, Oracle Corporation and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the Apache License Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,14 @@ class OracleLoadBalancerCachingAgent extends AbstractOracleCachingAgent {
         return null
       }
       Map<String, Object> attributes = objectMapper.convertValue(lb, ATTRIBUTES)
+      Map<String, Object> certificates = attributes.certificates;
+      if (certificates) {
+        certificates.each{ name, cert ->
+          if (cert) {
+            cert.remove('publicCertificate')
+          }
+        }
+      }
       new DefaultCacheData(
         Keys.getLoadBalancerKey(lb.displayName, lb.id, credentials.region, credentials.name),
         attributes,

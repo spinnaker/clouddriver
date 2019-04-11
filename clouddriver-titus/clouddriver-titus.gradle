@@ -20,7 +20,7 @@ repositories {
 }
 
 dependencies {
-  protobuf 'com.netflix.titus:titus-api-definitions:0.0.1-rc23'
+  protobuf 'com.netflix.titus:titus-api-definitions:0.0.1-rc59'
 
   compile "com.google.protobuf:protobuf-java:$protobufVersion"
   compile "io.grpc:grpc-protobuf:$grpcVersion"
@@ -65,4 +65,15 @@ protobuf {
       grpc {}
     }
   }
+}
+
+javadoc {
+  exclude 'io/titanframework/**'
+  exclude 'com/netflix/titus/grpc/protogen/**'
+}
+
+def licenseExtension = project.extensions.findByName('license')
+if (licenseExtension != null) {
+  licenseExtension.exclude('io/titanframework/**')
+  licenseExtension.exclude('com/netflix/titus/grpc/protogen/**')
 }

@@ -16,8 +16,15 @@
 
 package com.netflix.spinnaker.clouddriver.titus.deploy.description
 
-class DestroyTitusServerGroupDescription extends AbstractTitusCredentialsDescription {
+import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable
+
+class DestroyTitusServerGroupDescription extends AbstractTitusCredentialsDescription implements ServerGroupsNameable {
   String region
   String serverGroupName
   String user
+
+  @Override
+  Collection<String> getServerGroupNames() {
+    return [serverGroupName]
+  }
 }

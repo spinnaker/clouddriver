@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.ops
 
 import com.google.api.services.compute.model.*
+import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.description.snapshot.SaveSnapshotDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceIllegalStateException
 import com.netflix.spinnaker.clouddriver.google.deploy.ops.snapshot.SaveSnapshotAtomicOperation
@@ -59,8 +60,8 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
   private static final DISK_SIZE_GB = 100
   private static final DISK_SOURCE = "https://pantheon.corp.google.com/compute/disksDetail/zones/us-central1-f/disks/spinnaker-test-disk"
 
-  private static final NETWORK_URL = "https://www.googleapis.com/compute/v1/projects/test-proj/networking/networks/details/default"
-  private static final SUBNETWORK_URL = "https://www.googleapis.com/compute/v1/projects/test-proj/networking/subnetworks/details/us-central1/default"
+  private static final NETWORK_URL = "https://compute.googleapis.com/compute/v1/projects/test-proj/networking/networks/details/default"
+  private static final SUBNETWORK_URL = "https://compute.googleapis.com/compute/v1/projects/test-proj/networking/subnetworks/details/us-central1/default"
   private static final NETWORK_ACCESS_CONFIG = []
 
   private static final AUTOSCALING_MAX_NUM_REPLICAS = 6
@@ -76,7 +77,7 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
   private static final LOAD_BALANCER_IP_PROTOCOL = "TCP"
   private static final LOAD_BALANCER_PORT_RANGE = "8080-8080"
   private static final LOAD_BALANCER_REGION = "us-east1"
-  private static final LOAD_BALANCER_TARGET_POOL = "https://www.googleapis.com/compute/v1/projects/test-proj/regions/us-central1/targetPools/spinnaker-load_balancer-tp"
+  private static final LOAD_BALANCER_TARGET_POOL = "https://compute.googleapis.com/compute/v1/projects/test-proj/regions/us-central1/targetPools/spinnaker-load_balancer-tp"
 
   private static final HEALTH_CHECK_NAME = "spinnaker-load-balancer-hc"
   private static final HEALTH_CHECK_INTERVAL = 15
@@ -135,7 +136,7 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
                                                                                                                             utilizationTargetType: AUTOSCALING_METRIC_TYPE)])
       def serverGroup = new GoogleServerGroup(name: SERVER_GROUP_NAME,
                                               zone: SERVER_GROUP_ZONE,
-                                              asg: [(GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES): SERVER_GROUP_LOAD_BALANCERS],
+                                              asg: [(GCEUtil.REGIONAL_LOAD_BALANCER_NAMES): SERVER_GROUP_LOAD_BALANCERS],
                                               launchConfig: ["instanceTemplate": instanceTemplate],
                                               autoscalingPolicy: autoscalingPolicy)
 
@@ -294,7 +295,7 @@ class SerializeApplicationAtomicOperationUnitSpec extends Specification {
       // Create a server group with no instance template
       def serverGroup = new GoogleServerGroup(name: SERVER_GROUP_NAME,
         zone: SERVER_GROUP_ZONE,
-        asg: [(GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES): SERVER_GROUP_LOAD_BALANCERS],
+        asg: [(GCEUtil.REGIONAL_LOAD_BALANCER_NAMES): SERVER_GROUP_LOAD_BALANCERS],
         launchConfig: ["instanceTemplate": null])
       @Subject def operation = new SaveSnapshotAtomicOperation(new SaveSnapshotDescription())
 

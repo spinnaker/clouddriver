@@ -32,7 +32,7 @@ class AzureSecurityGroupResourceTemplateSpec extends Specification {
   def 'should generate a correct Azure Security Group create template'(){
     String template = AzureSecurityGroupResourceTemplate.getTemplate(description)
 
-    expect: template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"') == expectedFullTemplate
+    expect: template.replaceAll('"createdTime" : "\\d+"', '"createdTime" : "1234567890"').replace('\r', '') == expectedFullTemplate
   }
 
   UpsertAzureSecurityGroupDescription createNoRulesDescription(){
@@ -88,13 +88,46 @@ class AzureSecurityGroupResourceTemplateSpec extends Specification {
       "metadata" : {
         "description" : "Location to deploy"
       }
+    },
+    "networkSecurityGroupName" : {
+      "type" : "string",
+      "metadata" : {
+        "description" : "The NSG name"
+      }
+    },
+    "networkSecurityGroupResourceGroupName" : {
+      "type" : "string",
+      "metadata" : {
+        "description" : "The resource group name of NSG"
+      }
+    },
+    "virtualNetworkName" : {
+      "type" : "string",
+      "defaultValue" : "",
+      "metadata" : {
+        "description" : "The Virtual Network name"
+      }
+    },
+    "virtualNetworkResourceGroupName" : {
+      "type" : "string",
+      "defaultValue" : "",
+      "metadata" : {
+        "description" : "The resource group name of Virtual Network"
+      }
+    },
+    "subnetName" : {
+      "type" : "string",
+      "defaultValue" : "",
+      "metadata" : {
+        "description" : "The subnet name"
+      }
     }
   },
   "variables" : {
     "securityGroupName" : "azuremasm-sg1-d11"
   },
   "resources" : [ {
-    "apiVersion" : "2015-05-01-preview",
+    "apiVersion" : "2018-11-01",
     "name" : "[variables('securityGroupName')]",
     "type" : "Microsoft.Network/networkSecurityGroups",
     "location" : "[parameters('location')]",
@@ -113,10 +146,12 @@ class AzureSecurityGroupResourceTemplateSpec extends Specification {
           "access" : "Allow",
           "destinationAddressPrefix" : "*",
           "destinationPortRange" : "433",
+          "destinationPortRanges" : null,
           "direction" : "Inbound",
           "priority" : 100,
           "protocol" : "TCP",
           "sourceAddressPrefix" : "10.0.0.0/24",
+          "sourceAddressPrefixes" : null,
           "sourcePortRange" : "*"
         }
       }, {
@@ -126,10 +161,12 @@ class AzureSecurityGroupResourceTemplateSpec extends Specification {
           "access" : "Deny",
           "destinationAddressPrefix" : "*",
           "destinationPortRange" : "3389",
+          "destinationPortRanges" : null,
           "direction" : "Inbound",
           "priority" : 101,
           "protocol" : "TCP",
           "sourceAddressPrefix" : "Internet",
+          "sourceAddressPrefixes" : null,
           "sourcePortRange" : "*"
         }
       } ]

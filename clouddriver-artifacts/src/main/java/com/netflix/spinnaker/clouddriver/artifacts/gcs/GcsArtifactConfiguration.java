@@ -17,16 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.gcs;
 
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -36,21 +32,11 @@ import java.util.stream.Collectors;
 
 @Configuration
 @ConditionalOnProperty("artifacts.gcs.enabled")
-@EnableScheduling
+@EnableConfigurationProperties(GcsArtifactProviderProperties.class)
+@RequiredArgsConstructor
 @Slf4j
 public class GcsArtifactConfiguration {
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  @Bean
-  @ConfigurationProperties("artifacts.gcs")
-  GcsArtifactProviderProperties gcsArtifactProviderProperties() {
-    return new GcsArtifactProviderProperties();
-  }
-
-  @Autowired
-  GcsArtifactProviderProperties gcsArtifactProviderProperties;
-
-  @Autowired
-  ArtifactCredentialsRepository artifactCredentialsRepository;
+  private final GcsArtifactProviderProperties gcsArtifactProviderProperties;
 
   @Bean
   List<? extends GcsArtifactCredentials> gcsArtifactCredentials(String clouddriverUserAgentApplicationName) {
@@ -58,9 +44,7 @@ public class GcsArtifactConfiguration {
         .stream()
         .map(a -> {
           try {
-            GcsArtifactCredentials c = new GcsArtifactCredentials(clouddriverUserAgentApplicationName, a);
-            artifactCredentialsRepository.save(c);
-            return c;
+            return new GcsArtifactCredentials(clouddriverUserAgentApplicationName, a);
           } catch (IOException | GeneralSecurityException e) {
             log.warn("Failure instantiating gcs artifact account {}: ", a, e);
             return null;

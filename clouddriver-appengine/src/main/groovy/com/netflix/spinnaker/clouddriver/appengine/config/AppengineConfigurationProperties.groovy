@@ -43,6 +43,11 @@ class AppengineConfigurationProperties {
     String sshKnownHostsFilePath
     boolean sshTrustUnknownHosts
     GcloudReleaseTrack gcloudReleaseTrack
+    List<String> services
+    List<String> versions
+    List<String> omitServices
+    List<String> omitVersions
+    Long cachingIntervalSeconds
 
     void initialize(AppengineJobExecutor jobExecutor) {
       if (this.jsonPath) {

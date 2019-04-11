@@ -13,49 +13,49 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.sun.jersey.api.client.UniformInterfaceException;
-import lombok.Data;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.ws.rs.core.UriBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.security.GeneralSecurityException;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
-@Data
 public class OracleArtifactCredentials implements ArtifactCredentials {
-  private static String ARTIFACT_REFERENCE_PREFIX = "oci://";
+  private static final String ARTIFACT_REFERENCE_PREFIX = "oci://";
 
   private static final String ARTIFACT_URI = "https://objectstorage.{arg0}.oraclecloud.com/n/{arg1}/b/{arg2}/o/{arg3}";
 
-  private final List<String> types = Arrays.asList("oracle/object");
-
+  @Getter
   private final String name;
+  @Getter
+  private final List<String> types = Collections.singletonList("oracle/object");
 
   private final String namespace;
   private final String region;
   private final String userId;
   private final String fingerprint;
   private final String sshPrivateKeyFilePath;
+  private final String privateKeyPassphrase;
   private final String tenancyId;
 
   @JsonIgnore
   private final OracleArtifactClient client;
 
-  public OracleArtifactCredentials(String applicationName, OracleArtifactAccount account)
-          throws IOException, GeneralSecurityException {
+  OracleArtifactCredentials(String applicationName, OracleArtifactAccount account) {
     this.name = account.getName();
     this.namespace = account.getNamespace();
     this.region = account.getRegion();
     this.userId = account.getUserId();
     this.fingerprint = account.getFingerprint();
     this.sshPrivateKeyFilePath = account.getSshPrivateKeyFilePath();
+    this.privateKeyPassphrase = account.getPrivateKeyPassphrase();
     this.tenancyId = account.getTenancyId();
 
-    this.client = new OracleArtifactClient(userId, sshPrivateKeyFilePath, fingerprint, tenancyId);
+    this.client = new OracleArtifactClient(userId, sshPrivateKeyFilePath, privateKeyPassphrase, fingerprint, tenancyId);
   }
 
   public InputStream download(Artifact artifact) throws IOException {

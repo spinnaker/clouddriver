@@ -23,6 +23,7 @@ import com.google.api.services.compute.model.RegionInstanceGroupManagersSetAutoH
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
+import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.description.DeleteGoogleAutoscalingPolicyDescription
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
@@ -41,6 +42,9 @@ class DeleteGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
 
   @Autowired
   private GoogleClusterProvider googleClusterProvider
+
+  @Autowired
+  private GoogleOperationPoller googleOperationPoller
 
   @Autowired
   AtomicOperationsRegistry atomicOperationsRegistry
@@ -82,34 +86,44 @@ class DeleteGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
       task.updateStatus BASE_PHASE, "Initializing deletion of autoHealing policy for $description.serverGroupName..."
       if (isRegional) {
         def request = new RegionInstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
-        timeExecute(
+        def deleteOp = timeExecute(
           compute.regionInstanceGroupManagers().setAutoHealingPolicies(project, region, serverGroupName, request),
           "compute.regionInstanceGroupManagers.setAutoHealingPolicies",
           TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
+        googleOperationPoller.waitForRegionalOperation(compute, project, region,
+          deleteOp.getName(), null, task, "autoHealing policy for $serverGroupName", BASE_PHASE)
+        deletePolicyMetadata(compute, credentials, project, GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName))
       } else {
         def request = new InstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies([])
-        timeExecute(
+        def deleteOp = timeExecute(
           compute.instanceGroupManagers().setAutoHealingPolicies(project, zone, serverGroupName, request),
           "compute.instanceGroupManagers.setAutoHealingPolicies",
           TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
+        googleOperationPoller.waitForZonalOperation(compute, project, zone,
+          deleteOp.getName(), null, task, "autoHealing policy for $serverGroupName", BASE_PHASE)
+        deletePolicyMetadata(compute, credentials, project, GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName))
       }
       task.updateStatus BASE_PHASE, "Done deleting autoHealing policy for $serverGroupName."
-      deletePolicyMetadata(compute, credentials, project, GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName))
     } else {
       task.updateStatus BASE_PHASE, "Initializing deletion of scaling policy for $description.serverGroupName..."
       if (isRegional) {
-        timeExecute(
+        def deleteOp = timeExecute(
             compute.regionAutoscalers().delete(project, region, serverGroupName),
             "compute.regionAutoscalers.delete",
             TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
+        googleOperationPoller.waitForRegionalOperation(compute, project, region,
+          deleteOp.getName(), null, task, "autoScaling policy for $serverGroupName", BASE_PHASE)
+        deletePolicyMetadata(compute, credentials, project, GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName))
       } else {
-        timeExecute(
+        def deleteOp = timeExecute(
             compute.autoscalers().delete(project, zone, serverGroupName),
             "compute.autoscalers.delete",
             TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
+        googleOperationPoller.waitForZonalOperation(compute, project, zone,
+          deleteOp.getName(), null, task, "autoScaling policy for $serverGroupName", BASE_PHASE)
+        deletePolicyMetadata(compute, credentials, project, GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName))
       }
       task.updateStatus BASE_PHASE, "Done deleting scaling policy for $serverGroupName."
-      deletePolicyMetadata(compute, credentials, project, GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName))
     }
 
     return null
@@ -148,7 +162,7 @@ class DeleteGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
       compute.instanceTemplates().get(project, Utils.getLocalName(templateUrl)),
       "compute.instancesTemplates.get",
       TAG_SCOPE, SCOPE_GLOBAL)
-    def instanceDescription = GCEUtil.buildInstanceDescriptionFromTemplate(template)
+    def instanceDescription = GCEUtil.buildInstanceDescriptionFromTemplate(project, template)
 
     def templateOpMap = [
       image              : instanceDescription.image,
@@ -173,7 +187,7 @@ class DeleteGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     }
 
     if (templateOpMap?.instanceMetadata) {
-      templateOpMap.instanceMetadata.remove(GoogleServerGroup.View.AUTOSCALING_POLICY)
+      templateOpMap.instanceMetadata.remove(GCEUtil.AUTOSCALING_POLICY)
       def converter = atomicOperationsRegistry.getAtomicOperationConverter('modifyGoogleServerGroupInstanceTemplateDescription', 'gce', ProviderVersion.v1)
       AtomicOperation templateOp = converter.convertOperation(templateOpMap)
       orchestrationProcessor.process([templateOp], UUID.randomUUID().toString())

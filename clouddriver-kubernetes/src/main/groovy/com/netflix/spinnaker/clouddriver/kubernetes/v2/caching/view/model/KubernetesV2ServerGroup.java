@@ -21,12 +21,15 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestTraffic;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
@@ -47,6 +50,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static java.util.Collections.singletonList;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -99,12 +104,13 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
     return disabled;
   }
 
-  protected KubernetesV2ServerGroup(KubernetesManifest manifest, String key, List<KubernetesV2Instance> instances, Set<String> loadBalancers, List<ServerGroupManagerSummary> serverGroupManagers) {
+  protected KubernetesV2ServerGroup(KubernetesManifest manifest, String key, List<KubernetesV2Instance> instances, Set<String> loadBalancers, List<ServerGroupManagerSummary> serverGroupManagers, Boolean disabled) {
     this.manifest = manifest;
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
     this.instances = new HashSet<>(instances);
     this.loadBalancers = loadBalancers;
     this.serverGroupManagers = serverGroupManagers;
+    this.disabled = disabled;
 
     Object odesired = ((Map<String, Object>) manifest
         .getOrDefault("spec", new HashMap<String, Object>()))
@@ -155,6 +161,13 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
 
+
+    KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
+    Set<String> explicitLoadBalancers = traffic.getLoadBalancers().stream()
+        .map(KubernetesManifest::fromFullResourceName)
+        .map(p -> KubernetesManifest.getFullResourceName(p.getLeft(), p.getRight())) // this ensures the names are serialized correctly when the get merged below
+        .collect(Collectors.toSet());
+
     Set<String> loadBalancers = loadBalancerData.stream()
         .map(CacheData::getId)
         .map(Keys::parseKey)
@@ -164,7 +177,10 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         .map(k -> KubernetesManifest.getFullResourceName(k.getKubernetesKind(), k.getName()))
         .collect(Collectors.toSet());
 
-    return new KubernetesV2ServerGroup(manifest, cd.getId(), instances, loadBalancers, serverGroupManagers);
+    Boolean disabled = loadBalancers.isEmpty() && !explicitLoadBalancers.isEmpty();
+    loadBalancers.addAll(explicitLoadBalancers);
+
+    return new KubernetesV2ServerGroup(manifest, cd.getId(), instances, loadBalancers, serverGroupManagers, disabled);
   }
 
   public static KubernetesV2ServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
@@ -190,6 +206,49 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
       .name(getName())
       .region(getRegion())
       .isDisabled(isDisabled())
+      .cloudProvider(KubernetesCloudProvider.getID())
       .build();
+  }
+
+  @Override
+  public ImagesSummary getImagesSummary() {
+    Map<String, Object> buildInfo = getBuildInfo();
+    Set<String> images = (HashSet<String>) buildInfo.get("images");
+    return new ImagesSummary() {
+      @Override
+      public List<? extends ImageSummary> getSummaries() {
+        return singletonList(
+          new ImageSummary() {
+
+            @Override
+            public String getServerGroupName() {
+              return getManifest().getName();
+            }
+
+            @Override
+            public String getImageId() {
+              return null;
+            }
+
+            @Override
+            public String getImageName() {
+              return null;
+            }
+
+            @Override
+            public Map<String, Object> getImage() {
+              return null;
+            }
+
+            @Override
+            public Map<String, Object> getBuildInfo() {
+              return new ImmutableMap.Builder<String, Object>()
+                .put("images", new ArrayList<>(images))
+                .build();
+            }
+          }
+        );
+      }
+    };
   }
 }

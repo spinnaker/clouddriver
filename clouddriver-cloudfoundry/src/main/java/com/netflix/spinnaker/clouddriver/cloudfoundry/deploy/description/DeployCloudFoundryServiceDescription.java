@@ -16,16 +16,62 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.Set;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class DeployCloudFoundryServiceDescription extends DeleteCloudFoundryServiceDescription {
-  String service;
-  String servicePlan;
-  Set<String> tags;
-  String parameters;
+public class DeployCloudFoundryServiceDescription extends AbstractCloudFoundryServiceDescription {
+  private boolean userProvided = false;
+
+  @JsonIgnore
+  private Artifact artifact;
+
+  @JsonIgnore
+  private ArtifactCredentials artifactCredentials;
+
+  @JsonIgnore
+  private ServiceAttributes serviceAttributes;
+
+  @JsonIgnore
+  private UserProvidedServiceAttributes userProvidedServiceAttributes;
+
+  @Data
+  public static class ServiceAttributes {
+    String service;
+    String serviceInstanceName;
+    String servicePlan;
+    boolean updatable = true;
+
+    @Nullable
+    Set<String> tags;
+
+    @Nullable
+    Map<String, Object> parameterMap;
+  }
+
+  @Data
+  public static class UserProvidedServiceAttributes {
+    String serviceInstanceName;
+    boolean updatable = true;
+
+    @Nullable
+    Set<String> tags;
+
+    @Nullable
+    String syslogDrainUrl;
+
+    @Nullable
+    Map<String, Object> credentials;
+
+    @Nullable
+    String routeServiceUrl;
+  }
 }

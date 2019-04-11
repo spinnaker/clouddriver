@@ -1,3 +1,6 @@
+test {
+  useJUnitPlatform()
+}
 
 class DownloadTask extends DefaultTask {
   @Input
@@ -18,7 +21,7 @@ final File sdkLocation = project.file('build/oci-java-sdk')
 // Oracle BMCS SDK isn't published to any maven repo (yet!), so we manually download, unpack and add to compile/runtime deps
 // https://github.com/oracle/oci-java-sdk/issues/25
 task fetchSdk(type: DownloadTask) {
-  sourceUrl = 'https://github.com/oracle/oci-java-sdk/releases/download/v1.2.44/oci-java-sdk.zip'
+  sourceUrl = 'https://github.com/oracle/oci-java-sdk/releases/download/v1.3.2/oci-java-sdk.zip'
   target = sdkDownloadLocation
 }
 
@@ -62,11 +65,30 @@ dependencies {
   compile spinnaker.dependency("frigga")
   compile spinnaker.dependency("bootActuator")
   compile spinnaker.dependency("bootWeb")
+  compile spinnaker.dependency("commonsLang")
   compile spinnaker.dependency("korkArtifacts")
+  compile spinnaker.dependency("korkExceptions")
+  compile spinnaker.dependency("lombok")
+  compile spinnaker.dependency("okHttp")
 
   compile spinnaker.dependency("googleStorage")
   compile spinnaker.dependency("awsS3")
   compile "org.apache.commons:commons-compress:1.14"
+  compile "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.7"
+  compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.9.7'
+  compile "org.apache.ivy:ivy:2.4.0"
 
+  compile 'org.eclipse.aether:aether-api:1.1.0'
+  compile 'org.eclipse.aether:aether-impl:1.1.0'
+  compile 'org.apache.maven:maven-aether-provider:3.3.9'
+  
   compile fileTree(sdkLocation)
+
+  testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
+  testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')
+  testCompile 'org.assertj:assertj-core:3.8.0'
+  testCompile 'org.junit-pioneer:junit-pioneer:latest.release'
+
+  testCompile 'ru.lanwen.wiremock:wiremock-junit5:1.2.0'
+  testCompile 'com.github.tomakehurst:wiremock:latest.release'
 }

@@ -16,12 +16,17 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops;
 
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.ScaleCloudFoundryServerGroupDescription;
+import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
-import org.junit.jupiter.api.BeforeEach;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,17 +37,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoundryAtomicOperationTest {
-  private ScaleCloudFoundryServerGroupDescription desc = new ScaleCloudFoundryServerGroupDescription();
+  private final ScaleCloudFoundryServerGroupDescription desc;
 
   ScaleCloudFoundryServerGroupAtomicOperationTest() {
-    super();
-  }
-
-  @BeforeEach
-  void before() {
+    desc = new ScaleCloudFoundryServerGroupDescription();
     desc.setClient(client);
     desc.setServerGroupName("myapp");
-    desc.setInstanceCount(2);
+    desc.setCapacity(ServerGroup.Capacity.builder().desired(2).build());
   }
 
   @Test
@@ -68,8 +69,28 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFound
 
     ScaleCloudFoundryServerGroupAtomicOperation op = new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
 
+    Task task = runOperation(op);
+    List<Object> resultObjects = task.getResultObjects();
+    assertThat(resultObjects.size()).isEqualTo(1);
+    Object o = resultObjects.get(0);
+    assertThat(o).isInstanceOf(Map.class);
+    Object ex = ((Map) o).get("EXCEPTION");
+    assertThat(ex).isInstanceOf(CloudFoundryApiException.class);
+    assertThat(((CloudFoundryApiException) ex).getMessage()).isEqualTo("Cloud Foundry API returned with error(s): Failed to start 'myapp' which instead crashed");
+  }
+
+  @Test
+  void scaleDownToZero() {
+    desc.setCapacity(new ServerGroup.Capacity(1, 1, 0));
+    OperationPoller poller = mock(OperationPoller.class);
+
+    //noinspection unchecked
+    when(poller.waitForOperation(any(Supplier.class), any(), anyLong(), any(), any(), any())).thenReturn(ProcessStats.State.DOWN);
+
+    ScaleCloudFoundryServerGroupAtomicOperation op = new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
+
     assertThat(runOperation(op).getHistory())
       .has(status("Resizing 'myapp'"), atIndex(1))
-      .has(status("Failed to start 'myapp' which instead crashed"), atIndex(2));
+      .has(status("Resized 'myapp'"), atIndex(2));
   }
 }

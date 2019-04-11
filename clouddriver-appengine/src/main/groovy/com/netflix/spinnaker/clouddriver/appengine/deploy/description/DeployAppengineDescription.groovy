@@ -37,7 +37,9 @@ class DeployAppengineDescription extends AbstractAppengineCredentialsDescription
   String applicationDirectoryRoot
   List<String> configFilepaths
   List<String> configFiles
+  List<Artifact> configArtifacts
   Boolean promote
   Boolean stopPreviousVersion
+  Boolean suppressVersionString
   String containerImageUrl // app engine flex only
 }

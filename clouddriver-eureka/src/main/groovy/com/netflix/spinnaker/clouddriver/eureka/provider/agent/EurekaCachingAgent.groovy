@@ -109,13 +109,17 @@ class EurekaCachingAgent implements CachingAgent, HealthProvidingCachingAgent, C
           Map<String, Object> attributes = convertedInstancesById[instance.instanceId]
           attributes.eurekaAccountName = eurekaAccountName
           attributes.allowMultipleEurekaPerAccount = allowMultipleEurekaPerAccount
+          attributes.application = application.name.toLowerCase()
+
           eurekaAwareProviderList.each { provider ->
             if (provider.isProviderForEurekaRecord(attributes)) {
               String instanceKey = provider.getInstanceKey(attributes, region)
               if (instanceKey) {
                 String instanceHealthKey = provider.getInstanceHealthKey(attributes, region, healthId)
-                Map<String, Collection<String>> relationships = [(INSTANCES.ns): [instanceKey]]
-                eurekaCacheData.add(new DefaultCacheData(instanceHealthKey, attributes, relationships))
+                Map<String, Collection<String>> healthRelationship = [(INSTANCES.ns): [instanceKey]]
+                Map<String, Collection<String>> instanceRelationship = [(HEALTH.ns): [instanceHealthKey]]
+                eurekaCacheData.add(new DefaultCacheData(instanceHealthKey, attributes, healthRelationship))
+                instanceCacheData.add(new DefaultCacheData(instanceKey, Collections.emptyMap(), instanceRelationship))
               }
             }
           }

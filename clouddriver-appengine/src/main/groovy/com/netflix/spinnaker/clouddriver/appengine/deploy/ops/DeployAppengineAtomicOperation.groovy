@@ -24,13 +24,22 @@ import com.netflix.spinnaker.clouddriver.appengine.deploy.AppengineServerGroupNa
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.DeployAppengineDescription
 import com.netflix.spinnaker.clouddriver.appengine.deploy.exception.AppengineOperationException
 import com.netflix.spinnaker.clouddriver.appengine.gcsClient.AppengineGcsRepositoryClient
+import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
+import com.netflix.spinnaker.kork.artifacts.model.Artifact
+
+import com.netflix.spectator.api.Registry
+import groovy.util.logging.Slf4j
+
+import java.nio.file.Path
 import java.nio.file.Paths
+
 import org.springframework.beans.factory.annotation.Autowired
 import static com.netflix.spinnaker.clouddriver.appengine.config.AppengineConfigurationProperties.ManagedAccount.GcloudReleaseTrack
+import java.util.concurrent.TimeUnit
 
 class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult> {
   private static final String BASE_PHASE = "DEPLOY"
@@ -40,6 +49,9 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
   }
 
   @Autowired
+  Registry registry
+
+  @Autowired
   AppengineJobExecutor jobExecutor
 
   @Autowired(required=false)
@@ -47,6 +59,9 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
 
   @Autowired(required=false)
   GcsStorageService.Factory storageServiceFactory
+
+  @Autowired
+  ArtifactDownloader artifactDownloader
 
   DeployAppengineDescription description
   boolean usesGcs
@@ -85,6 +100,7 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
    * curl -X POST -H "Content-Type: application/json" -d '[ { "createServerGroup": { "application": "myapp", "stack": "stack", "freeFormDetails": "details", "repositoryUrl": "https://github.com/organization/project.git", "branch": "feature-branch", "credentials": "my-appengine-account", "configFilepaths": ["app.yaml"], "promote": true, "stopPreviousVersion": true } } ]' "http://localhost:7002/appengine/ops"
    * curl -X POST -H "Content-Type: application/json" -d '[ { "createServerGroup": { "application": "myapp", "stack": "stack", "freeFormDetails": "details", "repositoryUrl": "https://github.com/organization/project.git", "branch": "feature-branch", "credentials": "my-appengine-account", "configFilepaths": ["runtime: python27\napi_version: 1\nthreadsafe: true\nmanual_scaling:\n  instances: 5\ninbound_services:\n - warmup\nhandlers:\n - url: /.*\n   script: main.app"],} } ]' "http://localhost:7002/appengine/ops"
    * curl -X POST -H "Content-Type: application/json" -d '[ { "createServerGroup": { "application": "myapp", "stack": "stack", "freeFormDetails": "details", "credentials": "my-appengine-account", "containerImageUrl": "gcr.io/my-project/my-image:my-tag", "configFiles": ["env: flex\nruntime: custom\nmanual_scaling:\n  instances: 1\nresources:\n  cpu: 1\n  memory_gb: 0.5\n  disk_size_gb: 10"] } } ]' "http://localhost:7002/appengine/ops"
+   * curl -X POST -H "Content-Type: application/json" -d '[ { "createServerGroup": { "application": "myapp", "stack": "stack", "freeFormDetails": "details", "credentials": "my-appengine-credential-name", "containerImageUrl": "gcr.io/my-gcr-repo/image:tag", "configArtifacts": [{ "type": "gcs/object", "name": "gs://path/to/app.yaml", "reference": "gs://path/to/app.yaml", "artifactAccount": "my-gcs-artifact-account-name" }] } } ]' "http://localhost:7002/appengine/ops"
    */
   @Override
   DeploymentResult operate(List priorOutputs) {
@@ -98,25 +114,65 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
     }
 
     def directoryPath = getFullDirectoryPath(baseDir, directoryId)
+    def serviceAccount = description.credentials.serviceAccountEmail
+    def region = description.credentials.region
 
     /*
     * We can't allow concurrent deploy operations on the same local repository.
     * If operation A checks out a new branch before operation B has run 'gcloud app deploy',
     * operation B will deploy using that new branch's source files.
-    * */
+    *
+    * This means if one were to deploy to multiple regions, that the deployments
+    * will be serialized. If this is a problem, the mutex could be removed in
+    * favor of using temporary directories encapsulated to the request. However
+    * this means that the downloads would not be incremental without more work.
+    */
+    registry.counter(registry.createId("appengine.deployStart",
+                                       "account", serviceAccount,
+                                       "region", region))
+            .increment()
     return AppengineMutexRepository.atomicWrapper(directoryPath, {
       task.updateStatus BASE_PHASE, "Initializing creation of version..."
-      def result = new DeploymentResult()
       String newVersionName
+      String deployPath
+
       if (containerDeployment) {
         createEmptyDirectory(directoryPath)
-        newVersionName = deploy(directoryPath)
+        deployPath = directoryPath
       } else {
-        newVersionName = deploy(cloneOrUpdateLocalRepository(directoryPath, 1))
+        def startTime = registry.clock().monotonicTime()
+        def success = "false"
+        try {
+          deployPath = cloneOrUpdateLocalRepository(directoryPath, 1)
+          success = "true"
+        } finally {
+          def duration = registry.clock().monotonicTime() - startTime
+          registry.timer(
+              registry.createId("appengine.repositoryDownload",
+                                "account", serviceAccount,
+                                "repositoryType", usesGcs ? "gcs" : "git",
+                                "success", success))
+              .record(duration, TimeUnit.NANOSECONDS);
+        }
       }
-      def region = description.credentials.region
+      def startTime = registry.clock().monotonicTime()
+      def success = "false"
+      try {
+          newVersionName = deploy(deployPath)
+          success = "true"
+      } finally {
+          def duration = registry.clock().monotonicTime() - startTime
+          registry.timer(registry.createId("appengine.deploy",
+                                           "success", success,
+                                           "account", serviceAccount,
+                                           "region", region))
+              .record(duration, TimeUnit.NANOSECONDS);
+      }
+
+      def result = new DeploymentResult()
       result.serverGroupNames = Arrays.asList("$region:$newVersionName".toString())
       result.serverGroupNameByRegion[region] = newVersionName
+      success = "true"
       return result
     })
   }
@@ -146,8 +202,11 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
 
       def applicationDirectoryRoot = description.applicationDirectoryRoot
       String credentialPath = ""
-      if (description.storageAccountName != null && !description.storageAccountName.isEmpty()) {
+      String storageAccountName = description.storageAccountName
+      if (storageAccountName != null && !storageAccountName.isEmpty()) {
         credentialPath = storageConfiguration.getAccount(description.storageAccountName).jsonPath
+      } else {
+        storageAccountName = "ApplicationDefaultCredentials";
       }
       GcsStorageService storage = storageServiceFactory.newForCredentials(credentialPath)
       repositoryClient = new AppengineGcsRepositoryClient(repositoryUrl, directoryPath, applicationDirectoryRoot,
@@ -188,38 +247,68 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
     def gcloudReleaseTrack = description.credentials.gcloudReleaseTrack
     def serverGroupNameResolver = new AppengineServerGroupNameResolver(project, region, description.credentials)
     def versionName = serverGroupNameResolver.resolveNextServerGroupName(description.application,
-                                                                         description.stack,
-                                                                         description.freeFormDetails,
-                                                                         false)
+      description.stack,
+      description.freeFormDetails,
+      description.suppressVersionString)
     def imageUrl = description.containerImageUrl
     def configFiles = description.configFiles
     def writtenFullConfigFilePaths = writeConfigFiles(configFiles, repositoryPath, applicationDirectoryRoot)
     def repositoryFullConfigFilePaths =
       (description.configFilepaths?.collect { Paths.get(repositoryPath, applicationDirectoryRoot ?: '.', it).toString() } ?: []) as List<String>
+    def configArtifactPaths = fetchConfigArtifacts(description.configArtifacts, repositoryPath, applicationDirectoryRoot)
+
+    // runCommand expects a List<String> and will fail if some of the arguments are GStrings (as that is not a subclass
+    // of String). It is thus important to only add Strings to deployCommand.  For example, adding a flag "--test=$testvalue"
+    // below will cause deployments to fail unless you explicitly convert it to a String via "--test=$testvalue".toString()
     def deployCommand = ["gcloud"]
     if (gcloudReleaseTrack != null && gcloudReleaseTrack != GcloudReleaseTrack.STABLE) {
       deployCommand << gcloudReleaseTrack.toString().toLowerCase()
     }
-    deployCommand += ["app", "deploy", *(repositoryFullConfigFilePaths + writtenFullConfigFilePaths)]
-    deployCommand << "--version=$versionName"
+    deployCommand += ["app", "deploy", *(repositoryFullConfigFilePaths + writtenFullConfigFilePaths + configArtifactPaths)]
+    deployCommand << "--version=" + versionName
     deployCommand << (description.promote ? "--promote" : "--no-promote")
     deployCommand << (description.stopPreviousVersion ? "--stop-previous-version": "--no-stop-previous-version")
-    deployCommand << "--project=$project"
-    deployCommand << "--account=$accountEmail"
+    deployCommand << "--project=" + project
+    deployCommand << "--account=" + accountEmail
     if (containerDeployment) {
-      deployCommand << "--image-url=$imageUrl"
+      deployCommand << "--image-url=" + imageUrl
     }
 
     task.updateStatus BASE_PHASE, "Deploying version $versionName..."
+    def startTime = registry.clock().monotonicTime()
+    def success = "false"
     try {
       jobExecutor.runCommand(deployCommand)
+      success = "true"
     } catch (e) {
       throw new AppengineOperationException("Failed to deploy to App Engine with command ${deployCommand.join(' ')}: ${e.getMessage()}")
     } finally {
+      def duration = registry.clock().monotonicTime() - startTime
+      def id = registry.createId("appengine.deploy",
+                                 "account", description.credentials.serviceAccountEmail,
+                                 "region", description.credentials.region,
+                                 "success", success)
+      registry.timer(id).record(duration, TimeUnit.NANOSECONDS);
       deleteFiles(writtenFullConfigFilePaths)
     }
     task.updateStatus BASE_PHASE, "Done deploying version $versionName..."
     return versionName
+  }
+
+  List<String> fetchConfigArtifacts(List<Artifact> configArtifacts, String repositoryPath, String applicationDirectoryRoot) {
+    if (!configArtifacts) {
+      return [];
+    } else {
+      return configArtifacts.collect { artifact ->
+        def path = generateRandomRepositoryFilePath(repositoryPath, applicationDirectoryRoot)
+        try {
+          path.toFile() << artifactDownloader.download(artifact)
+        } catch(e) {
+          throw new AppengineOperationException("Could not download artifact as config file: ${e.getMessage()}")
+        }
+        return path.toString()
+      }
+    }
   }
 
   static List<String> writeConfigFiles(List<String> configFiles, String repositoryPath, String applicationDirectoryRoot) {
@@ -227,8 +316,7 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
       return []
     } else {
       return configFiles.collect { configFile ->
-        def name = UUID.randomUUID().toString()
-        def path = Paths.get(repositoryPath, applicationDirectoryRoot ?: ".", "${name}.yaml")
+        def path = generateRandomRepositoryFilePath(repositoryPath, applicationDirectoryRoot)
         try {
           path.toFile() << configFile
         } catch(e) {
@@ -251,5 +339,10 @@ class DeployAppengineAtomicOperation implements AtomicOperation<DeploymentResult
 
   static String getFullDirectoryPath(String localRepositoryDirectory, String repositoryUrl) {
     return Paths.get(localRepositoryDirectory, repositoryUrl.replace('/', '-')).toString()
+  }
+
+  static Path generateRandomRepositoryFilePath(String repositoryPath, String applicationDirectoryRoot) {
+    def name = UUID.randomUUID().toString()
+    return Paths.get(repositoryPath, applicationDirectoryRoot ?: ".", "${name}.yaml")
   }
 }

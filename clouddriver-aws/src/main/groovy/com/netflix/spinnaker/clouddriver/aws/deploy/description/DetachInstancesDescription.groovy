@@ -16,11 +16,18 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.description
 
-class DetachInstancesDescription extends AbstractAmazonCredentialsDescription {
+import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable
+
+class DetachInstancesDescription extends AbstractAmazonCredentialsDescription implements ServerGroupsNameable {
   String region
   String asgName
   List<String> instanceIds
   boolean decrementDesiredCapacity
   boolean terminateDetachedInstances
   boolean adjustMinIfNecessary
+
+  @Override
+  Collection<String> getServerGroupNames() {
+    return [asgName]
+  }
 }

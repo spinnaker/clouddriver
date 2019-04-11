@@ -24,6 +24,7 @@ import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonApplicationLoadBalancerCachingAgent
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonCertificateCachingAgent
+import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonCloudFormationCachingAgent
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonLoadBalancerCachingAgent
 
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ReservedInstancesCachingAgent
@@ -148,10 +149,15 @@ class AwsProviderConfig {
             publicRegions.add(region.name)
           }
           newlyAddedAgents << new InstanceCachingAgent(amazonClientProvider, credentials, region.name, objectMapper, registry)
-          newlyAddedAgents << new AmazonLoadBalancerCachingAgent(amazonCloudProvider, amazonClientProvider, credentials, region.name, objectMapper, registry)
+          newlyAddedAgents << new AmazonLoadBalancerCachingAgent(amazonCloudProvider, amazonClientProvider, credentials, region.name, eddaApiFactory.createApi(credentials.edda, region.name), objectMapper, registry)
           newlyAddedAgents << new AmazonApplicationLoadBalancerCachingAgent(amazonCloudProvider, amazonClientProvider, credentials, region.name, eddaApiFactory.createApi(credentials.edda, region.name), objectMapper, registry, eddaTimeoutConfig)
           newlyAddedAgents << new ReservedInstancesCachingAgent(amazonClientProvider, credentials, region.name, objectMapper, registry)
           newlyAddedAgents << new AmazonCertificateCachingAgent(amazonClientProvider, credentials, region.name, objectMapper, registry)
+
+          if (dynamicConfigService.isEnabled("aws.features.cloudFormation", false)) {
+            newlyAddedAgents << new AmazonCloudFormationCachingAgent(amazonClientProvider, credentials, region.name, registry)
+          }
+
           if (credentials.eddaEnabled && !eddaTimeoutConfig.disabledRegions.contains(region.name)) {
             newlyAddedAgents << new EddaLoadBalancerCachingAgent(eddaApiFactory.createApi(credentials.edda, region.name), credentials, region.name, objectMapper)
           } else {

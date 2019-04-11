@@ -39,6 +39,7 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
                                               @JsonProperty("accountType") String accountType,
                                               @JsonProperty("accountId") String accountId,
                                               @JsonProperty("defaultKeyPair") String defaultKeyPair,
+                                              @JsonProperty("enabled") Boolean enabled,
                                               @JsonProperty("regions") List<AWSRegion> regions,
                                               @JsonProperty("defaultSecurityGroups") List<String> defaultSecurityGroups,
                                               @JsonProperty("requiredGroupMembership") List<String> requiredGroupMembership,
@@ -55,13 +56,15 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
                                               @JsonProperty("bastionEnabled") Boolean bastionEnabled,
                                               @JsonProperty("shieldEnabled") Boolean shieldEnabled,
                                               @JsonProperty("assumeRole") String assumeRole,
-                                              @JsonProperty("sessionName") String sessionName) {
+                                              @JsonProperty("sessionName") String sessionName,
+                                              @JsonProperty("lambdaEnabled") Boolean lambdaEnabled) {
 
         this(name,
              environment,
              accountType,
              accountId,
              defaultKeyPair,
+             enabled,
              regions,
              defaultSecurityGroups,
              requiredGroupMembership,
@@ -79,7 +82,8 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
              bastionEnabled,
              shieldEnabled,
              assumeRole,
-             sessionName);
+             sessionName,
+             lambdaEnabled);
     }
 
     public NetflixAssumeRoleAmazonCredentials(NetflixAssumeRoleAmazonCredentials copy, AWSCredentialsProvider credentialsProvider) {
@@ -88,6 +92,7 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
              copy.getAccountType(),
              copy.getAccountId(),
              copy.getDefaultKeyPair(),
+             copy.isEnabled(),
              copy.getRegions(),
              copy.getDefaultSecurityGroups(),
              copy.getRequiredGroupMembership(),
@@ -105,7 +110,8 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
              copy.getBastionEnabled(),
              copy.getShieldEnabled(),
              copy.getAssumeRole(),
-             copy.getSessionName());
+             copy.getSessionName(),
+             copy.getLambdaEnabled());
     }
 
     NetflixAssumeRoleAmazonCredentials(String name,
@@ -113,6 +119,7 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
                                        String accountType,
                                        String accountId,
                                        String defaultKeyPair,
+                                       Boolean enabled,
                                        List<AWSRegion> regions,
                                        List<String> defaultSecurityGroups,
                                        List<String> requiredGroupMembership,
@@ -130,12 +137,14 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
                                        Boolean bastionEnabled,
                                        Boolean shieldEnabled,
                                        String assumeRole,
-                                       String sessionName) {
+                                       String sessionName,
+                                       Boolean lambdaEnabled) {
         super(name,
               environment,
               accountType,
               accountId,
               defaultKeyPair,
+              enabled,
               regions,
               defaultSecurityGroups,
               requiredGroupMembership,
@@ -154,7 +163,8 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
               front50Enabled,
               bastionHost,
               bastionEnabled,
-              shieldEnabled);
+              shieldEnabled,
+              lambdaEnabled);
         this.assumeRole = assumeRole;
         this.sessionName = sessionName == null ? AssumeRoleAmazonCredentials.DEFAULT_SESSION_NAME : sessionName;
     }

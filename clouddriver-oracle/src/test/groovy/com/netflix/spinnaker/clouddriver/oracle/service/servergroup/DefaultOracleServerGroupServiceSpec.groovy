@@ -15,6 +15,7 @@ import com.netflix.spinnaker.clouddriver.oracle.security.OracleNamedAccountCrede
 import com.oracle.bmc.Region
 import com.oracle.bmc.core.ComputeClient
 import com.oracle.bmc.core.model.Instance
+import com.oracle.bmc.core.requests.LaunchInstanceRequest
 import com.oracle.bmc.core.responses.LaunchInstanceResponse
 import spock.lang.Specification
 
@@ -22,11 +23,52 @@ class DefaultOracleServerGroupServiceSpec extends Specification {
 
   def "create server group"() {
     setup:
+    def SSHKeys = "ssh-rsa ABC a@b"
     def creds = Mock(OracleNamedAccountCredentials)
     creds.getName() >> "foo"
     creds.getRegion() >> Region.US_PHOENIX_1.regionId
     creds.getComputeClient() >> Mock(ComputeClient)
     def persistence = Mock(OracleServerGroupPersistence)
+    def task = Mock(Task)
+    def sgService = new DefaultOracleServerGroupService(persistence)
+
+    when:
+    def sg = new OracleServerGroup(
+      name: "sg1",
+      region: creds.region,
+      zone: "ad1",
+      launchConfig: [
+        "availabilityDomain": "ad1",
+        "compartmentId"     : "ocid.compartment.123",
+        "imageId"           : "ocid.image.123",
+        "shape"             : "small",
+        "vpcId"             : "ocid.vcn.123",
+        "subnetId"          : "ocid.subnet.123",
+        "sshAuthorizedKeys" : SSHKeys,
+        "createdTime"       : System.currentTimeMillis()
+      ],
+      targetSize: 4,
+      credentials: creds
+    )
+    sgService.createServerGroup(task, sg)
+
+    then:
+    4 * creds.computeClient.launchInstance(_) >> { args ->
+      LaunchInstanceRequest argumentRequest = (LaunchInstanceRequest) args[0]
+      assert argumentRequest.getLaunchInstanceDetails().getMetadata().get("ssh_authorized_keys") == SSHKeys
+      return LaunchInstanceResponse.builder().instance(Instance.builder().timeCreated(new Date()).build()).build()
+    }
+    1 * persistence.upsertServerGroup(_)
+  }
+  
+  def "create server group over limit"() {
+    setup:
+    def creds = Mock(OracleNamedAccountCredentials)
+    creds.getName() >> "foo"
+    creds.getRegion() >> Region.US_PHOENIX_1.regionId
+    creds.getComputeClient() >> Mock(ComputeClient)
+    def persistence = Mock(OracleServerGroupPersistence)
+    def task = Mock(Task)
     def sgService = new DefaultOracleServerGroupService(persistence)
 
     when:
@@ -43,19 +85,70 @@ class DefaultOracleServerGroupServiceSpec extends Specification {
         "subnetId"          : "ocid.subnet.123",
         "createdTime"       : System.currentTimeMillis()
       ],
-      targetSize: 4,
+      targetSize: 3,
       credentials: creds
     )
-    sgService.createServerGroup(sg)
+    sgService.createServerGroup(task, sg)
 
     then:
-    4 * creds.computeClient.launchInstance(_) >> LaunchInstanceResponse.builder().instance(
-      Instance.builder().timeCreated(new Date()).build()
-    ).build()
-    1 * persistence.upsertServerGroup(_)
+    3 * creds.computeClient.launchInstance(_) >> launchResponse() >> launchResponse() >> 
+      { throw new com.oracle.bmc.model.BmcException(400, 'LimitExceeded', 'LimitExceeded', 'LimitExceeded')  }
+    1 * persistence.upsertServerGroup(_) >> { args ->
+      OracleServerGroup serverGroup = (OracleServerGroup) args[0]
+      assert serverGroup.instances.size() == 2
+    }
   }
 
   def "resize (increase) server group"() {
+    setup:
+    def SSHKeys = null
+    def creds = Mock(OracleNamedAccountCredentials)
+    creds.getName() >> "foo"
+    creds.getRegion() >> Region.US_PHOENIX_1.regionId
+    creds.getComputeClient() >> Mock(ComputeClient)
+    def task = Mock(Task)
+    def persistence = Mock(OracleServerGroupPersistence)
+    def sgService = new DefaultOracleServerGroupService(persistence)
+    def sg = new OracleServerGroup(
+      name: "sg1",
+      region: creds.region,
+      zone: "ad1",
+      launchConfig: [
+        "availabilityDomain": "ad1",
+        "compartmentId"     : "ocid.compartment.123",
+        "imageId"           : "ocid.image.123",
+        "shape"             : "small",
+        "vpcId"             : "ocid.vcn.123",
+        "subnetId"          : "ocid.subnet.123",
+        "sshAuthorizedKeys" : SSHKeys,
+        "createdTime"       : System.currentTimeMillis()
+      ],
+      instances: [
+        new OracleInstance(name: "a")
+      ],
+      targetSize: 1,
+      credentials: creds
+    )
+
+    when:
+    def resized = sgService.resizeServerGroup(task, creds, "sg1", 5)
+
+    then:
+    4 * creds.computeClient.launchInstance(_)  >> { args ->
+      LaunchInstanceRequest argumentRequest = (LaunchInstanceRequest) args[0]
+      assert argumentRequest.getLaunchInstanceDetails().getMetadata().get("ssh_authorized_keys") == SSHKeys
+      return LaunchInstanceResponse.builder().instance(Instance.builder().timeCreated(new Date()).build()).build()
+    }
+    1 * persistence.getServerGroupByName(_, "sg1") >> sg
+    1 * persistence.upsertServerGroup(_) >> { args ->
+      OracleServerGroup serverGroup = (OracleServerGroup) args[0]
+      assert serverGroup.instances.size() == 5
+      assert serverGroup.targetSize == 5
+    }
+    resized == true
+  }
+
+  def "resize (increase) server group over limit"() {
     setup:
     def creds = Mock(OracleNamedAccountCredentials)
     creds.getName() >> "foo"
@@ -77,6 +170,9 @@ class DefaultOracleServerGroupServiceSpec extends Specification {
         "subnetId"          : "ocid.subnet.123",
         "createdTime"       : System.currentTimeMillis()
       ],
+      instances: [
+        new OracleInstance(name: "a")
+      ],
       targetSize: 1,
       credentials: creds
     )
@@ -85,11 +181,17 @@ class DefaultOracleServerGroupServiceSpec extends Specification {
     def resized = sgService.resizeServerGroup(task, creds, "sg1", 5)
 
     then:
-    4 * creds.computeClient.launchInstance(_) >> LaunchInstanceResponse.builder().instance(
-      Instance.builder().timeCreated(new Date()).build()
-    ).build()
+    4 * creds.computeClient.launchInstance(_) >> 
+      launchResponse() >> 
+      launchResponse() >>
+      launchResponse() >>
+      { throw new com.oracle.bmc.model.BmcException(400, 'LimitExceeded', 'LimitExceeded', 'LimitExceeded')  }
     1 * persistence.getServerGroupByName(_, "sg1") >> sg
-    1 * persistence.upsertServerGroup(_)
+    1 * persistence.upsertServerGroup(_) >> { args ->
+      OracleServerGroup serverGroup = (OracleServerGroup) args[0]
+      assert serverGroup.instances.size() == 4
+      assert serverGroup.targetSize == 4
+    }
     resized == true
   }
 
@@ -336,5 +438,9 @@ class DefaultOracleServerGroupServiceSpec extends Specification {
     1 * persistence.listServerGroupNames(_) >> ["foo-test-v001", "foo-v002", "foo-edge-v001", "foo-test-v002", "bar-v001"]
     serverGroups == ["foo-test-v001", "foo-test-v002"]
   }
-
+  
+  LaunchInstanceResponse launchResponse() {
+    LaunchInstanceResponse.builder().instance(
+      Instance.builder().timeCreated(new Date()).build()).build()
+  }
 }

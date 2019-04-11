@@ -44,6 +44,10 @@ import com.amazonaws.services.route53.AmazonRoute53;
 import com.amazonaws.services.route53.AmazonRoute53ClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.secretsmanager.AWSSecretsManager;
+import com.amazonaws.services.secretsmanager.AWSSecretsManagerClientBuilder;
+import com.amazonaws.services.cloudformation.AmazonCloudFormation;
+import com.amazonaws.services.cloudformation.AmazonCloudFormationClientBuilder;
 import com.amazonaws.services.shield.AWSShield;
 import com.amazonaws.services.shield.AWSShieldClientBuilder;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflow;
@@ -53,14 +57,10 @@ import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer;
 import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spectator.api.Registry;
-import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer;
-import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.AmazonClientInvocationHandler;
-import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.AwsSdkClientSupplier;
-import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.ProxyHandlerBuilder;
-import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.RateLimiterSupplier;
-import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.SpinnakerAwsRegionProvider;
+import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.*;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfigurationBuilder;
 import org.apache.http.client.HttpClient;
@@ -316,6 +316,10 @@ public class AmazonClientProvider {
     return proxyHandlerBuilder.getProxyHandler(AmazonS3.class, AmazonS3ClientBuilder.class, amazonCredentials, region, true);
   }
 
+  public AmazonCloudFormation getAmazonCloudFormation(NetflixAmazonCredentials amazonCredentials, String region) {
+    return proxyHandlerBuilder.getProxyHandler(AmazonCloudFormation.class, AmazonCloudFormationClientBuilder.class, amazonCredentials, region, true);
+  }
+
   public AmazonAutoScaling getAutoScaling(NetflixAmazonCredentials amazonCredentials, String region) {
     return getAutoScaling(amazonCredentials, region, false);
   }
@@ -443,5 +447,9 @@ public class AmazonClientProvider {
 
   public AmazonECR getAmazonEcr(NetflixAmazonCredentials amazonCredentials, String region, boolean skipEdda) {
     return proxyHandlerBuilder.getProxyHandler(AmazonECR.class, AmazonECRClientBuilder.class, amazonCredentials, region, skipEdda);
+  }
+
+  public AWSSecretsManager getAmazonSecretsManager(NetflixAmazonCredentials amazonCredentials, String region, boolean skipEdda) {
+    return proxyHandlerBuilder.getProxyHandler(AWSSecretsManager.class, AWSSecretsManagerClientBuilder.class, amazonCredentials, region, skipEdda);
   }
 }

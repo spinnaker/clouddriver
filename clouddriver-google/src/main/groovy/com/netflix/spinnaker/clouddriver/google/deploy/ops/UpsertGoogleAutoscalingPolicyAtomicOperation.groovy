@@ -24,6 +24,7 @@ import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
+import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.description.UpsertGoogleAutoscalingPolicyDescription
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoHealingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy
@@ -46,6 +47,9 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
 
   @Autowired
   private GoogleClusterProvider googleClusterProvider
+
+  @Autowired
+  private GoogleOperationPoller googleOperationPoller
 
   @Autowired
   AtomicOperationsRegistry atomicOperationsRegistry
@@ -106,15 +110,19 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
                                                                                       description.autoscalingPolicy))
 
         if (isRegional) {
-          timeExecute(
+          def updateOp = timeExecute(
               compute.regionAutoscalers().update(project, region, autoscaler),
               "compute.regionAutoscalers.update",
               TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
+          googleOperationPoller.waitForRegionalOperation(compute, project, region,
+            updateOp.getName(), null, task, "autoScaler ${autoscaler.getName()} for server group $serverGroupName", BASE_PHASE)
         } else {
-          timeExecute(
+          def updateOp = timeExecute(
               compute.autoscalers().update(project, zone, autoscaler),
               "compute.autoscalers.update",
               TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
+          googleOperationPoller.waitForZonalOperation(compute, project, zone,
+            updateOp.getName(), null, task, "autoScaler ${autoscaler.getName()} for server group $serverGroupName", BASE_PHASE)
         }
       } else {
         task.updateStatus BASE_PHASE, "Creating new autoscaler for $serverGroupName..."
@@ -124,15 +132,19 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
                                              normalizeNewAutoscalingPolicy(description.autoscalingPolicy))
 
         if (isRegional) {
-          timeExecute(
+          def insertOp = timeExecute(
               compute.regionAutoscalers().insert(project, region, autoscaler),
               "compute.regionAutoscalers.insert",
               TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
+          googleOperationPoller.waitForRegionalOperation(compute, project, region,
+            insertOp.getName(), null, task, "autoScaler ${autoscaler.getName()} for server group $serverGroupName", BASE_PHASE)
         } else {
-          timeExecute(
+          def insertOp = timeExecute(
               compute.autoscalers().insert(project, zone, autoscaler),
               "compute.autoscalers.insert",
               TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
+          googleOperationPoller.waitForZonalOperation(compute, project, zone,
+            insertOp.getName(), null, task, "autoScaler ${autoscaler.getName()} for server group $serverGroupName", BASE_PHASE)
         }
       }
     }
@@ -143,18 +155,22 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
 
       def regionalRequest = { List<InstanceGroupManagerAutoHealingPolicy> policy ->
         def request = new RegionInstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies(policy)
-        timeExecute(
+        def autoHealingOp = timeExecute(
           compute.regionInstanceGroupManagers().setAutoHealingPolicies(project, region, serverGroupName, request),
           "compute.regionInstanceGroupManagers.setAutoHealingPolicies",
           TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
+        googleOperationPoller.waitForRegionalOperation(compute, project, region,
+          autoHealingOp.getName(), null, task, "autoHealing policy ${policy} for server group $serverGroupName", BASE_PHASE)
       }
 
       def zonalRequest = { List<InstanceGroupManagerAutoHealingPolicy> policy ->
         def request = new InstanceGroupManagersSetAutoHealingRequest().setAutoHealingPolicies(policy)
-        timeExecute(
+        def autoHealingOp = timeExecute(
           compute.instanceGroupManagers().setAutoHealingPolicies(project, zone, serverGroupName, request),
           "compute.instanceGroupManagers.setAutoHealingPolicies",
           TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
+        googleOperationPoller.waitForZonalOperation(compute, project, zone,
+          autoHealingOp.getName(), null, task, "autoHealing policy ${policy} for server group $serverGroupName", BASE_PHASE)
       }
 
       if (ancestorAutoHealingPolicyDescription) {
@@ -180,18 +196,20 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     // TODO(jacobkiefer): Update metadata for autoHealingPolicy when 'mode' support lands.
     // NOTE: This block is here intentionally, we should wait until all the modifications are done before
     // updating the instance template metadata.
-    if (isRegional) {
-      updatePolicyMetadata(compute,
-                           credentials,
-                           project,
-                           GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName),
-                           autoscaler)
-    } else {
-      updatePolicyMetadata(compute,
-                           credentials,
-                           project,
-                           GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName),
-                           autoscaler)
+    if (description.writeMetadata == null || description.writeMetadata) {
+      if (isRegional) {
+        updatePolicyMetadata(compute,
+          credentials,
+          project,
+          GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName),
+          autoscaler)
+      } else {
+        updatePolicyMetadata(compute,
+          credentials,
+          project,
+          GCEUtil.buildZonalServerGroupUrl(project, zone, serverGroupName),
+          autoscaler)
+      }
     }
 
     return null
@@ -247,7 +265,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
       return newDescription
     }
 
-    ["healthCheck", "initialDelaySec"].each {
+    ["healthCheck", "initialDelaySec", "healthCheckKind"].each {
       if (update[it] != null) {
         newDescription[it] = update[it]
       }
@@ -276,10 +294,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
   }
 
   private buildAutoHealingPolicyFromAutoHealingPolicyDescription(GoogleAutoHealingPolicy autoHealingPolicyDescription, String project, Compute compute) {
-    // Note: Cache queries for these health checks must occur in this order since queryHealthCheck() will make a live
-    // call that fails on a missing health check.
-    def autoHealingHealthCheck = GCEUtil.queryNestedHealthCheck(project, description.accountName, autoHealingPolicyDescription.healthCheck, compute, cacheView, task, BASE_PHASE, this) ?:
-      GCEUtil.queryHealthCheck(project, description.accountName, autoHealingPolicyDescription.healthCheck, compute, cacheView, task, BASE_PHASE, this)
+    def autoHealingHealthCheck = GCEUtil.queryHealthCheck(project, description.accountName, autoHealingPolicyDescription.healthCheck, autoHealingPolicyDescription.healthCheckKind, compute, cacheView, task, BASE_PHASE, this)
 
     List<InstanceGroupManagerAutoHealingPolicy> autoHealingPolicy = autoHealingPolicyDescription?.healthCheck
       ? [new InstanceGroupManagerAutoHealingPolicy(
@@ -331,7 +346,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
       compute.instanceTemplates().get(project, Utils.getLocalName(templateUrl)),
       "compute.instancesTemplates.get",
       TAG_SCOPE, SCOPE_GLOBAL)
-    def instanceDescription = GCEUtil.buildInstanceDescriptionFromTemplate(template)
+    def instanceDescription = GCEUtil.buildInstanceDescriptionFromTemplate(project, template)
 
     def templateOpMap = [
       image              : instanceDescription.image,
@@ -357,10 +372,10 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
 
     def instanceMetadata = templateOpMap?.instanceMetadata
     if (instanceMetadata && autoscaler) {
-      instanceMetadata.(GoogleServerGroup.View.AUTOSCALING_POLICY) = objectMapper.writeValueAsString(autoscaler)
+      instanceMetadata.(GCEUtil.AUTOSCALING_POLICY) = objectMapper.writeValueAsString(autoscaler)
     } else if (autoscaler) {
       templateOpMap.instanceMetadata = [
-        (GoogleServerGroup.View.AUTOSCALING_POLICY): objectMapper.writeValueAsString(autoscaler)
+        (GCEUtil.AUTOSCALING_POLICY): objectMapper.writeValueAsString(autoscaler)
       ]
     }
 

@@ -19,7 +19,9 @@ package com.netflix.spinnaker.clouddriver.security.resources;
 import com.netflix.frigga.Names;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.Collections;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -29,9 +31,11 @@ import java.util.stream.Collectors;
 public interface ResourcesNameable {
   Collection<String> getNames();
 
-  default List<String> getApplications() {
-    return getNames().stream()
-                     .map(name -> Names.parseName(name).getApp())
-                     .collect(Collectors.toList());
+  default Collection<String> getResourceApplications() {
+    return Optional.ofNullable(getNames()).orElse(Collections.emptyList())
+      .stream()
+      .filter(Objects::nonNull)
+      .map(name -> Names.parseName(name).getApp())
+      .collect(Collectors.toList());
   }
 }

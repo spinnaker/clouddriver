@@ -1,4 +1,4 @@
-/*
+  /*
  * Copyright 2014 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,36 +16,36 @@
 
 package com.netflix.spinnaker.clouddriver.google.deploy
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
-import com.google.api.client.googleapis.batch.BatchRequest
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
-import com.google.api.client.http.HttpRequest
-import com.google.api.client.http.HttpRequestFactory
-import com.google.api.client.http.HttpResponse
-import com.google.api.client.json.jackson2.JacksonFactory
-import com.google.api.services.compute.Compute
-import com.google.api.services.compute.model.*
-import com.netflix.spectator.api.DefaultRegistry
-import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.clouddriver.data.task.Task
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
-import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDeployDescription
-import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationException
-import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
-import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy
-import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
-import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleNetworkLoadBalancer
-import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
-import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import com.netflix.spinnaker.kork.artifacts.model.Artifact
-import spock.lang.Shared
-import spock.lang.Specification
-import spock.lang.Unroll
+  import com.fasterxml.jackson.databind.ObjectMapper
+  import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
+  import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+  import com.google.api.client.http.HttpRequest
+  import com.google.api.client.http.HttpRequestFactory
+  import com.google.api.client.http.HttpResponse
+  import com.google.api.client.json.jackson2.JacksonFactory
+  import com.google.api.services.compute.Compute
+  import com.google.api.services.compute.model.*
+  import com.netflix.spectator.api.DefaultRegistry
+  import com.netflix.spectator.api.Registry
+  import com.netflix.spinnaker.clouddriver.data.task.Task
+  import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+  import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
+  import com.netflix.spinnaker.clouddriver.google.batch.GoogleBatchRequest
+  import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDeployDescription
+  import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationException
+  import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleResourceNotFoundException
+  import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy
+  import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
+  import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
+  import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleNetworkLoadBalancer
+  import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
+  import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+  import com.netflix.spinnaker.kork.artifacts.model.Artifact
+  import spock.lang.Shared
+  import spock.lang.Specification
+  import spock.lang.Unroll
 
-class GCEUtilSpec extends Specification {
+  class GCEUtilSpec extends Specification {
   class TestExecutor implements GoogleExecutorTraits {
     def Registry registry = new DefaultRegistry()
   }
@@ -57,8 +57,8 @@ class GCEUtilSpec extends Specification {
   private static final PHASE = "SOME-PHASE"
   private static final INSTANCE_LOCAL_NAME_1 = "some-instance-name-1"
   private static final INSTANCE_LOCAL_NAME_2 = "some-instance-name-2"
-  private static final INSTANCE_URL_1 = "https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/zones/us-central1-b/instances/$INSTANCE_LOCAL_NAME_1"
-  private static final INSTANCE_URL_2 = "https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/zones/us-central1-b/instances/$INSTANCE_LOCAL_NAME_2"
+  private static final INSTANCE_URL_1 = "https://compute.googleapis.com/compute/v1/projects/$PROJECT_NAME/zones/us-central1-b/instances/$INSTANCE_LOCAL_NAME_1"
+  private static final INSTANCE_URL_2 = "https://compute.googleapis.com/compute/v1/projects/$PROJECT_NAME/zones/us-central1-b/instances/$INSTANCE_LOCAL_NAME_2"
   private static final IMAGE_PROJECT_NAME = "some-image-project"
   private static final GOOGLE_APPLICATION_NAME = "test"
   private static final BASE_IMAGE_PROJECTS = ["centos-cloud", "ubuntu-os-cloud"]
@@ -94,7 +94,7 @@ class GCEUtilSpec extends Specification {
         httpTransport, jsonFactory, httpRequestInitializer).setApplicationName(GOOGLE_APPLICATION_NAME).build()
       def soughtImage = new Image(name: IMAGE_NAME)
       def imageList = new ImageList(
-        selfLink: "https://www.googleapis.com/compute/alpha/projects/$PROJECT_NAME/global/images",
+        selfLink: "https://compute.googleapis.com/compute/alpha/projects/$PROJECT_NAME/global/images",
         items: [soughtImage]
       )
 
@@ -103,12 +103,12 @@ class GCEUtilSpec extends Specification {
 
     then:
       1 * executorMock.timeExecuteBatch(_, "findImage", _) >> {
-        BatchRequest batchRequest = it[0]
-        assert batchRequest.requestInfos != null
+        GoogleBatchRequest batchRequest = it[0]
+        assert batchRequest.queuedRequests.every { it.request != null }
         // 1 request for each of the 3 projects (PROJECT_NAME + BASE_IMAGE_PROJECTS)
-        assert batchRequest.requestInfos.size() == 3
-        batchRequest.requestInfos.each { BatchRequest.RequestInfo requestInfo ->
-          requestInfo.callback.onSuccess(imageList, null)
+        assert batchRequest.queuedRequests.size() == 3
+        batchRequest.queuedRequests.each {
+          it.callback.onSuccess(imageList, null)
         }
       }
       sourceImage == soughtImage
@@ -127,7 +127,7 @@ class GCEUtilSpec extends Specification {
       def credentials = new GoogleNamedAccountCredentials.Builder().compute(compute).imageProjects([IMAGE_PROJECT_NAME]).build()
       def soughtImage = new Image(name: IMAGE_NAME)
       def imageList = new ImageList(
-        selfLink: "https://www.googleapis.com/compute/alpha/projects/$PROJECT_NAME/global/images",
+        selfLink: "https://compute.googleapis.com/compute/alpha/projects/$PROJECT_NAME/global/images",
         items: [soughtImage]
       )
 
@@ -136,12 +136,12 @@ class GCEUtilSpec extends Specification {
 
     then:
       1 * executorMock.timeExecuteBatch(_, "findImage", _) >> {
-        BatchRequest batchRequest = it[0]
-        assert batchRequest.requestInfos != null
+        GoogleBatchRequest batchRequest = it[0]
+        assert batchRequest.queuedRequests.every { it.request != null }
         // 1 request for each of the 4 projects (PROJECT_NAME + IMAGE_PROJECT_NAME + BASE_IMAGE_PROJECTS)
-        assert batchRequest.requestInfos.size() == 4
-        batchRequest.requestInfos.each { BatchRequest.RequestInfo requestInfo ->
-          requestInfo.callback.onSuccess(imageList, null)
+        assert batchRequest.queuedRequests.size() == 4
+        batchRequest.queuedRequests.each {
+          it.callback.onSuccess(imageList, null)
         }
       }
       sourceImage == soughtImage
@@ -164,12 +164,12 @@ class GCEUtilSpec extends Specification {
 
     then:
       1 * executorMock.timeExecuteBatch(_, "findImage", _) >> {
-        BatchRequest batchRequest = it[0]
-        assert batchRequest.requestInfos != null
+        GoogleBatchRequest batchRequest = it[0]
+        assert batchRequest.queuedRequests.every { it.request != null }
         // 1 request for each of the 3 projects (PROJECT_NAME + IMAGE_PROJECT_NAME + BASE_IMAGE_PROJECTS)
-        assert batchRequest.requestInfos.size() == 3
-        batchRequest.requestInfos.each { BatchRequest.RequestInfo requestInfo ->
-          requestInfo.callback.onSuccess(emptyImageList, null)
+        assert batchRequest.queuedRequests.size() == 3
+        batchRequest.queuedRequests.each {
+          it.callback.onSuccess(emptyImageList, null)
         }
       }
       thrown GoogleResourceNotFoundException
@@ -206,7 +206,7 @@ class GCEUtilSpec extends Specification {
     def soughtImage = new Image(name: IMAGE_NAME)
     def artifact = Artifact.builder()
       .name(IMAGE_NAME)
-      .reference("https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/global/images/$IMAGE_NAME")
+      .reference("https://compute.googleapis.com/compute/v1/projects/$PROJECT_NAME/global/images/$IMAGE_NAME")
       .type("gce/image")
       .build()
 
@@ -522,18 +522,18 @@ class GCEUtilSpec extends Specification {
           regional: isRegional,
           zone: ZONE,
           asg: [
-            (GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
+            (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
           ],
           launchConfig: [
             instanceTemplate: new InstanceTemplate(name: "irrelevant-instance-template-name",
               properties: [
                 'metadata': new Metadata(items: [
                   new Metadata.Items(
-                    key: (GoogleServerGroup.View.LOAD_BALANCING_POLICY),
+                    key: (GCEUtil.LOAD_BALANCING_POLICY),
                     value: "{\"balancingMode\": \"UTILIZATION\",\"maxUtilization\": 0.80, \"namedPorts\": [{\"name\": \"http\", \"port\": 8080}], \"capacityScaler\": 0.77}"
                   ),
                   new Metadata.Items(
-                    key: (GoogleServerGroup.View.BACKEND_SERVICE_NAMES),
+                    key: (GCEUtil.BACKEND_SERVICE_NAMES),
                     value: backendServiceNames
                   )
                 ])
@@ -552,25 +552,29 @@ class GCEUtilSpec extends Specification {
 
       googleLoadBalancerProviderMock.getApplicationLoadBalancers("") >> loadBalancerList
       def task = Mock(Task)
+
+      def googleOperationPoller = Mock(GoogleOperationPoller)
+      def updateOpName = 'updateOp'
       def bs = new BackendService(backends: [])
       if (lbNames) {
         serverGroup.launchConfig.instanceTemplate.properties.metadata.items.add(
           new Metadata.Items(
-            key: (GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES),
+            key: (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES),
             value: lbNames.join(",").trim()
           )
         )
       }
 
     when:
-      GCEUtil.addHttpLoadBalancerBackends(computeMock, new ObjectMapper(), PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock, task, "PHASE", executor)
+      GCEUtil.addHttpLoadBalancerBackends(computeMock, new ObjectMapper(), PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock, task, "PHASE", googleOperationPoller, executor)
 
     then:
       _ * computeMock.backendServices() >> backendServicesMock
       _ * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
       _ * backendSvcGetMock.execute() >> bs
       _ * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
-      _ * backendUpdateMock.execute()
+      _ * backendUpdateMock.execute() >> [name: updateOpName] // Mock for async op
+      _ * googleOperationPoller.waitForGlobalOperation(computeMock, PROJECT_NAME, updateOpName, null, task, _, _)
 
       _ * computeMock.globalForwardingRules() >> globalForwardingRules
       _ * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
@@ -598,8 +602,8 @@ class GCEUtilSpec extends Specification {
 
     where:
       fullResourceLink << [
-        "https://www.googleapis.com/compute/v1/projects/my-test-project/global/firewalls/name-a",
-        "www.googleapis.com/compute/v1/projects/my-test-project/global/firewalls/name-a",
+        "https://compute.googleapis.com/compute/v1/projects/my-test-project/global/firewalls/name-a",
+        "compute.googleapis.com/compute/v1/projects/my-test-project/global/firewalls/name-a",
         "compute/v1/projects/my-test-project/global/firewalls/name-a",
         "projects/my-test-project/global/firewalls/name-a"
       ]
@@ -617,7 +621,7 @@ class GCEUtilSpec extends Specification {
       fullResourceLink << [
         null,
         "",
-        "https://www.googleapis.com/compute/v1/my-test-project/global/firewalls/name-a"
+        "https://compute.googleapis.com/compute/v1/my-test-project/global/firewalls/name-a"
       ]
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Oracle America, Inc.
+ * Copyright (c) 2017, 2018, Oracle Corporation and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the Apache License Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import com.oracle.bmc.loadbalancer.model.Listener
 import com.oracle.bmc.loadbalancer.model.LoadBalancer
 import com.oracle.bmc.loadbalancer.responses.CreateBackendSetResponse
 import com.oracle.bmc.loadbalancer.responses.GetLoadBalancerResponse
-import com.oracle.bmc.loadbalancer.responses.UpdateListenerResponse
+import com.oracle.bmc.loadbalancer.responses.UpdateBackendSetResponse
 import spock.lang.Specification
 
 class BasicOracleDeployHandlerSpec extends Specification {
@@ -47,6 +47,7 @@ class BasicOracleDeployHandlerSpec extends Specification {
 
   def "Create server group"() {
     setup:
+    def SSHKeys = "ssh-rsa ABC a@b"
     def creds = Mock(OracleNamedAccountCredentials)
     creds.compartmentId >> "ocid.compartment.123"
     TaskRepository.threadLocalTask.set(Mock(Task))
@@ -57,6 +58,8 @@ class BasicOracleDeployHandlerSpec extends Specification {
     desc.stack = "dev"
     desc.region = "us-phoenix-1"
     desc.loadBalancerId = "ocid.lb.oc1..1918273"
+    desc.sshAuthorizedKeys = SSHKeys
+    desc.backendSetName = "myBackendSet"
     def loadBalancerClient = Mock(LoadBalancerClient)
     creds.loadBalancerClient >> loadBalancerClient
     def computeClient = Mock(ComputeClient)
@@ -81,19 +84,21 @@ class BasicOracleDeployHandlerSpec extends Specification {
     then:
     1 * sgService.listServerGroupNamesByClusterName(_, "foo-dev") >> ["foo-dev-v001"]
     1 * sgService.getServerGroup(creds, "foo", "foo-dev-v001") >> sg
-    1 * sgService.createServerGroup(_)
+    1 * sgService.createServerGroup(_, _) >> { args ->
+      OracleServerGroup sgArgument = (OracleServerGroup) args[1]
+      assert sgArgument.launchConfig.get("sshAuthorizedKeys") == SSHKeys
+    }
     res != null
     res.serverGroupNames == ["us-phoenix-1:foo-dev-v002"]
     1 * loadBalancerClient.getLoadBalancer(_) >> GetLoadBalancerResponse.builder()
       .loadBalancer(LoadBalancer.builder()
       .listeners(["foo-dev": Listener.builder()
-      .defaultBackendSetName("foo-dev-v001").build()])
-      .backendSets(["foo-dev-template": BackendSet.builder()
+      .defaultBackendSetName("myBackendSet").build()])
+      .backendSets(["myBackendSet": BackendSet.builder()
       .healthChecker(HealthChecker.builder().build())
       .build()]).build()).build()
-    1 * loadBalancerClient.createBackendSet(_) >> CreateBackendSetResponse.builder().build()
-    1 * loadBalancerClient.updateListener(_) >> UpdateListenerResponse.builder().opcWorkRequestId("wr1").build()
-    2 * OracleWorkRequestPoller.poll(_, _, _, loadBalancerClient) >> null
+    1 * loadBalancerClient.updateBackendSet(_) >> UpdateBackendSetResponse.builder().opcWorkRequestId("wr1").build()
+    1 * OracleWorkRequestPoller.poll(_, _, _, loadBalancerClient) >> null
     1 * sgProvider.getServerGroup(_, _, _) >> sgViewMock
     sgViewMock.instanceCounts >> instanceCounts
   }

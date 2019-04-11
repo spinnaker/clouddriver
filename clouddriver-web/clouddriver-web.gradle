@@ -1,29 +1,26 @@
-apply plugin: 'org.springframework.boot'
-// Applying the spring-boot plugin pulls in a newer version of jedis that we can't use yet. The
-// other ways to override versions (namely the subprojects.configurations.all.resolutionStrategy in
-// build.gradle) didn't work.
-ext['jedis.version'] = spinnaker.version('jedis')
+apply plugin: 'spinnaker.application'
 
-apply plugin: 'spinnaker.package'
+if (gradle.includedCloudProviderProjects.contains(':clouddriver-oracle')) {
+  tasks.startScripts.dependsOn(':clouddriver-oracle:unpackSdk')
+  tasks.startScripts.mustRunAfter(':clouddriver-oracle:unpackSdk')
+}
 
 ext {
   springConfigLocation = System.getProperty('spring.config.location', "${System.getProperty('user.home')}/.spinnaker/")
-  repackage = System.getProperty('springBoot.repackage', "false")
 }
 
-tasks.withType(org.springframework.boot.gradle.run.BootRunTask) {
+mainClassName = 'com.netflix.spinnaker.clouddriver.Main'
+run {
   systemProperty('spring.config.location', project.springConfigLocation)
 }
 
 configurations.all {
   exclude group: 'javax.servlet', module: 'servlet-api'
   exclude group: "org.slf4j", module: "slf4j-log4j12"
-  resolutionStrategy.force 'com.microsoft.rest:client-runtime:1.0.0-20160309.002843-19'
 }
 
 repositories {
-  maven { url "http://adxsnapshots.azurewebsites.net" }
-  maven { url 'https://dl.bintray.com/netflixoss' }
+  maven { url "https://adxsnapshots.azurewebsites.net" }
 }
 
 dependencies {
@@ -37,20 +34,15 @@ dependencies {
   compile spinnaker.dependency('korkSwagger')
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootDataRest')
-  testCompile ("org.springframework.boot:spring-boot-starter-test")
+  testCompile spinnaker.dependency('bootTest')
   //this brings in the jetty GzipFilter which boot will autoconfigure
   runtime 'org.eclipse.jetty:jetty-servlets:9.2.11.v20150529'
 
-  //Some controller tests rely on models from aws and gcp
-  testCompile project(':clouddriver-aws')
   testCompile project(':clouddriver-elasticsearch')
-  testCompile project(':clouddriver-google')
 
   // Add each included cloud provider project as a runtime dependency
   gradle.includedCloudProviderProjects.each {
     runtime project(":${it}")
   }
 }
-
-tasks.bootRepackage.enabled = Boolean.valueOf(project.repackage)
 

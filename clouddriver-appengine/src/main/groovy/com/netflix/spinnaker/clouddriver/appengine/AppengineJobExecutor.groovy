@@ -18,7 +18,7 @@ package com.netflix.spinnaker.clouddriver.appengine
 
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest
-import com.netflix.spinnaker.clouddriver.jobs.JobStatus
+import com.netflix.spinnaker.clouddriver.jobs.JobResult
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -32,24 +32,11 @@ class AppengineJobExecutor {
   JobExecutor jobExecutor
 
   void runCommand(List<String> command) {
-    String jobId = jobExecutor.startJob(new JobRequest(tokenizedCommand: command),
-                                        System.getenv(),
-                                        new ByteArrayInputStream())
-    waitForJobCompletion(jobId)
-  }
-
-  void waitForJobCompletion(String jobId) {
-    sleep(sleepMs)
-    JobStatus jobStatus = jobExecutor.updateJob(jobId)
-    while (jobStatus != null && jobStatus.state == JobStatus.State.RUNNING) {
-      sleep(sleepMs)
-      jobStatus = jobExecutor.updateJob(jobId)
-    }
-    if (jobStatus == null) {
-      throw new RuntimeException("job timed out or was cancelled")
-    }
-    if (jobStatus.result == JobStatus.Result.FAILURE && jobStatus.stdOut) {
-      throw new IllegalArgumentException("$jobStatus.stdOut + $jobStatus.stdErr")
+    JobResult<String> jobStatus = jobExecutor.runJob(new JobRequest(command))
+    if (jobStatus.getResult() == JobResult.Result.FAILURE && jobStatus.getStdOut()) {
+      String stdOut = jobStatus.getOutput()
+      String stdErr = jobStatus.getError()
+      throw new IllegalArgumentException("$stdOut + $stdErr")
     }
   }
 }

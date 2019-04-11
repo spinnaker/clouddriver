@@ -24,13 +24,11 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,7 +41,7 @@ public class ArtifactController {
 
   @Autowired
   public ArtifactController(Optional<ArtifactCredentialsRepository> artifactCredentialsRepository,
-      Optional<ArtifactDownloader> artifactDownloader) {
+                            Optional<ArtifactDownloader> artifactDownloader) {
     this.artifactCredentialsRepository = artifactCredentialsRepository.orElse(null);
     this.artifactDownloader = artifactDownloader.orElse(null);
   }
@@ -51,7 +49,7 @@ public class ArtifactController {
   @RequestMapping(method = RequestMethod.GET, value = "/credentials")
   List<ArtifactCredentials> list() {
     if (artifactCredentialsRepository == null) {
-      return new ArrayList<>();
+      return Collections.emptyList();
     } else {
       return artifactCredentialsRepository.getAllCredentials();
     }
@@ -65,5 +63,20 @@ public class ArtifactController {
     }
 
     return outputStream -> IOUtils.copy(artifactDownloader.download(artifact), outputStream);
+  }
+
+  @RequestMapping(method = RequestMethod.GET, value = "/account/{accountName}/names")
+  List<String> getNames(@PathVariable("accountName") String accountName,
+                        @RequestParam(value = "type") String type) {
+    ArtifactCredentials credentials = artifactCredentialsRepository.getCredentials(accountName, type);
+    return credentials.getArtifactNames();
+  }
+
+  @RequestMapping(method = RequestMethod.GET, value = "/account/{accountName}/versions")
+  List<String> getVersions(@PathVariable("accountName") String accountName,
+                           @RequestParam(value = "type") String type,
+                           @RequestParam(value = "artifactName") String artifactName) {
+    ArtifactCredentials credentials = artifactCredentialsRepository.getCredentials(accountName, type);
+    return credentials.getArtifactVersions(artifactName);
   }
 }

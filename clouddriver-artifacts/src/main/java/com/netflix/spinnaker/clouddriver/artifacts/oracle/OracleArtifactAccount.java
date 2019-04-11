@@ -11,11 +11,9 @@ package com.netflix.spinnaker.clouddriver.artifacts.oracle;
 
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
-@EqualsAndHashCode(callSuper = true)
 @Data
-public class OracleArtifactAccount extends ArtifactAccount {
+public class OracleArtifactAccount implements ArtifactAccount {
   private String name;
 
   private String namespace;
@@ -23,5 +21,6 @@ public class OracleArtifactAccount extends ArtifactAccount {
   private String userId;
   private String fingerprint;
   private String sshPrivateKeyFilePath;
+  private String privateKeyPassphrase;
   private String tenancyId;
 }

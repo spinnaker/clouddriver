@@ -45,6 +45,8 @@ public final class AtomicOperations {
   public static final String ATTACH_CLASSIC_LINK_VPC = "attachClassicLinkVpc";
   public static final String REGISTER_INSTANCES_WITH_LOAD_BALANCER = "registerInstancesWithLoadBalancer";
   public static final String DEREGISTER_INSTANCES_FROM_LOAD_BALANCER = "deregisterInstancesFromLoadBalancer";
+  public static final String MAP_LOAD_BALANCERS = "mapLoadBalancers";
+  public static final String UNMAP_LOAD_BALANCERS = "unmapLoadBalancers";
   public static final String ENABLE_INSTANCES_IN_DISCOVERY = "enableInstancesInDiscovery";
   public static final String DISABLE_INSTANCES_IN_DISCOVERY = "disableInstancesInDiscovery";
   public static final String UPDATE_INSTANCES = "updateInstances";
@@ -71,6 +73,7 @@ public final class AtomicOperations {
   // Snapshot operations
   public static final String SAVE_SNAPSHOT = "saveSnapshot";
   public static final String RESTORE_SNAPSHOT = "restoreSnapshot";
+  public static final String DELETE_SNAPSHOT = "deleteSnapshot";
 
   // Manifest operations
   public static final String DEPLOY_MANIFEST = "deployManifest";
@@ -80,10 +83,22 @@ public final class AtomicOperations {
   public static final String PAUSE_ROLLOUT_MANIFEST = "pauseRolloutManifest";
   public static final String RESUME_ROLLOUT_MANIFEST = "resumeRolloutManifest";
   public static final String UNDO_ROLLOUT_MANIFEST = "undoRolloutManifest";
+  public static final String DISABLE_MANIFEST = "disableManifest";
+  public static final String ENABLE_MANIFEST = "enableManifest";
 
   // Artifact operations
   public static final String CLEANUP_ARTIFACTS = "cleanupArtifacts";
 
   // Image operations
   public static final String DEREGISTER_IMAGE = "deleteImage";
+
+  // Service operations
+  public static final String CREATE_SERVICE_KEY = "createServiceKey";
+  public static final String DEPLOY_SERVICE = "deployService";
+  public static final String DESTROY_SERVICE = "destroyService";
+  public static final String SHARE_SERVICE = "shareService";
+  public static final String UNSHARE_SERVICE = "unshareService";
+
+  // CloudFormation operations
+  public static final String DEPLOY_CLOUDFORMATION_STACK = "deployCloudFormation";
 }

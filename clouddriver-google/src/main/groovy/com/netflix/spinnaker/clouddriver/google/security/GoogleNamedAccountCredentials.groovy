@@ -17,20 +17,21 @@
 package com.netflix.spinnaker.clouddriver.google.security
 
 import com.google.api.services.compute.Compute
-import com.google.api.services.compute.model.MachineTypeAggregatedList
-import com.google.api.services.compute.model.Region
-import com.google.api.services.compute.model.RegionList
-import com.google.api.services.compute.model.Zone
-import com.google.api.services.compute.model.ZoneList
+import com.google.api.services.compute.model.*
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.consul.config.ConsulConfig
 import com.netflix.spinnaker.clouddriver.google.ComputeVersion
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstanceTypeDisk
-import com.netflix.spinnaker.clouddriver.googlecommon.GoogleExecutor
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
+import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource
+import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
+import com.netflix.spinnaker.clouddriver.google.names.GoogleLabeledResourceNamer
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.fiat.model.resources.Permissions
+import com.netflix.spinnaker.moniker.Namer
 import groovy.transform.TupleConstructor
 import groovy.util.logging.Slf4j
 
@@ -68,11 +69,13 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
   final Compute compute
   final String userDataFile
   final List<String> regionsToManage
+  final Map<String, Map> zoneToAcceleratorTypesMap
 
   static class Builder {
     String name
     String environment
     String accountType
+    Namer namer
     List<String> requiredGroupMembership = []
     Permissions permissions = Permissions.EMPTY
     String project
@@ -82,6 +85,7 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
     ComputeVersion computeVersion = ComputeVersion.DEFAULT
     Map<String, List<String>> regionToZonesMap = [:]
     Map<String, Map> locationToInstanceTypesMap = [:]
+    Map<String, Map> zoneToAcceleratorTypesMap = [:]
     Map<String, List<String>> locationToCpuPlatformsMap
     List<GoogleInstanceTypeDisk> instanceTypeDisks = []
     String jsonKey
@@ -110,6 +114,11 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
 
     Builder accountType(String accountType) {
       this.accountType = accountType
+      return this
+    }
+
+    Builder namer(Namer namer) {
+      this.namer = namer
       return this
     }
 
@@ -258,7 +267,15 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
             )?.getName()
         regionToZonesMap = queryRegions(compute, project)
         locationToInstanceTypesMap = queryInstanceTypes(compute, project, regionToZonesMap)
+        zoneToAcceleratorTypesMap = queryAcceleratorTypes(compute, project)
         locationToCpuPlatformsMap = queryCpuPlatforms(compute, project, regionToZonesMap)
+      }
+
+      if (namer && name) {
+        NamerRegistry.lookup()
+          .withProvider(GoogleCloudProvider.getID())
+          .withAccount(name)
+          .setNamer(GoogleLabeledResource.class, namer)
       }
 
       new GoogleNamedAccountCredentials(name,
@@ -280,7 +297,8 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
                                         consulConfig,
                                         compute,
                                         userDataFile,
-                                        regionsToManage)
+                                        regionsToManage,
+                                        zoneToAcceleratorTypesMap)
 
     }
   }
@@ -348,6 +366,39 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
     }
   }
 
+  private static Map<String, Map> queryAcceleratorTypes(Compute compute,
+                                                        String project) {
+    AcceleratorTypeAggregatedList acceleratorTypeList = GoogleExecutor.timeExecute(
+      GoogleExecutor.getRegistry(),
+      compute.acceleratorTypes().aggregatedList(project),
+      "google.api",
+      "compute.acceleratorTypes.aggregatedList",
+      GoogleExecutor.TAG_SCOPE, GoogleExecutor.SCOPE_GLOBAL)
+    String nextPageToken = acceleratorTypeList.getNextPageToken()
+    Map<String, Map> zoneToAcceleratorTypesMap = convertAcceleratorTypeListToMap(acceleratorTypeList)
+
+    while (nextPageToken) {
+      acceleratorTypeList = GoogleExecutor.timeExecute(
+        GoogleExecutor.getRegistry(),
+        compute.acceleratorTypes().aggregatedList(project),
+        "google.api",
+        "compute.acceleratorTypes.aggregatedList",
+        GoogleExecutor.TAG_SCOPE, GoogleExecutor.SCOPE_GLOBAL)
+      nextPageToken = acceleratorTypeList.getNextPageToken()
+
+      Map<String, Map> subsequentZoneToInstanceTypesMap = convertAcceleratorTypeListToMap(acceleratorTypeList)
+      subsequentZoneToInstanceTypesMap.each { zone, acceleratorTypes ->
+        if (zone in zoneToAcceleratorTypesMap) {
+          zoneToAcceleratorTypesMap[zone].acceleratorTypes += acceleratorTypes.acceleratorTypes
+        } else {
+          zoneToAcceleratorTypesMap[zone] = acceleratorTypes
+        }
+      }
+    }
+
+    return zoneToAcceleratorTypesMap
+  }
+
   private static Map<String, Map> queryInstanceTypes(Compute compute,
                                                      String project,
                                                      Map<String, List<String>> regionToZonesMap) {
@@ -384,6 +435,19 @@ class GoogleNamedAccountCredentials implements AccountCredentials<GoogleCredenti
     populateRegionInstanceTypes(zoneToInstanceTypesMap, regionToZonesMap)
 
     return zoneToInstanceTypesMap
+  }
+
+  static Map<String, Map> convertAcceleratorTypeListToMap(AcceleratorTypeAggregatedList acceleratorTypeList) {
+    def zoneToAcceleratorTypesMap = acceleratorTypeList.items.collectEntries { zone, acceleratorTypesScopedList ->
+      zone = GCEUtil.getLocalName(zone)
+      if (acceleratorTypesScopedList.acceleratorTypes) {
+        return [(zone): [ acceleratorTypes: acceleratorTypesScopedList ]]
+      } else {
+        return [:]
+      }
+    }
+
+    return zoneToAcceleratorTypesMap
   }
 
   @VisibleForTesting

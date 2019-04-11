@@ -137,12 +137,14 @@ public class CredentialsConfig {
         private String accountType;
         private String accountId;
         private String defaultKeyPair;
+        private Boolean enabled;
         private List<Region> regions;
         private List<String> defaultSecurityGroups;
         private List<String> requiredGroupMembership;
         private Permissions.Builder permissions;
         private String edda;
         private Boolean eddaEnabled;
+        private Boolean lambdaEnabled;
         private String discovery;
         private Boolean discoveryEnabled;
         private String front50;
@@ -192,6 +194,14 @@ public class CredentialsConfig {
 
         public void setDefaultKeyPair(String defaultKeyPair) {
             this.defaultKeyPair = defaultKeyPair;
+        }
+
+        public Boolean getEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(Boolean enabled) {
+            this.enabled = enabled;
         }
 
         public List<Region> getRegions() {
@@ -320,6 +330,14 @@ public class CredentialsConfig {
 
         public void setAllowPrivateThirdPartyImages(Boolean allowPrivateThirdPartyImages) {
           this.allowPrivateThirdPartyImages = allowPrivateThirdPartyImages;
+        }
+
+        public Boolean getLambdaEnabled() {
+          return lambdaEnabled;
+        }
+
+        public void setLambdaEnabled(Boolean lambdaEnabled) {
+          this.lambdaEnabled = lambdaEnabled;
         }
     }
 

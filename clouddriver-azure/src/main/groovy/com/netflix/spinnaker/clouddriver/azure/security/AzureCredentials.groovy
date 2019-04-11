@@ -32,13 +32,15 @@ class AzureCredentials {
   final String defaultKeyVault
   final String defaultResourceGroup
   final String userAgentApplicationName
+  final String configuredAzureEnvironment
+  final Boolean useSshPublicKey
 
   final AzureResourceManagerClient resourceManagerClient
   final AzureNetworkClient networkClient
   final AzureComputeClient computeClient
   final AzureStorageClient storageClient
 
-  AzureCredentials(String tenantId, String clientId, String appKey, String subscriptionId, String defaultKeyVault, String defaultResourceGroup, String userAgentApplicationName) {
+  AzureCredentials(String tenantId, String clientId, String appKey, String subscriptionId, String defaultKeyVault, String defaultResourceGroup, String userAgentApplicationName, String configuredAzureEnvironment, Boolean useSshPublicKey) {
     this.tenantId = tenantId
     this.clientId = clientId
     this.appKey = appKey
@@ -47,8 +49,10 @@ class AzureCredentials {
     this.defaultKeyVault = defaultKeyVault
     this.defaultResourceGroup = defaultResourceGroup
     this.userAgentApplicationName = userAgentApplicationName
+    this.configuredAzureEnvironment = configuredAzureEnvironment
+    this.useSshPublicKey = useSshPublicKey
 
-    def token = AzureBaseClient.getTokenCredentials(this.clientId, this.tenantId, this.appKey)
+    def token = AzureBaseClient.getTokenCredentials(this.clientId, this.tenantId, this.appKey, this.configuredAzureEnvironment)
 
     resourceManagerClient = new AzureResourceManagerClient(this.subscriptionId, token, userAgentApplicationName)
 
@@ -57,6 +61,7 @@ class AzureCredentials {
     computeClient = new AzureComputeClient(this.subscriptionId, token, userAgentApplicationName)
 
     storageClient = new AzureStorageClient(this.subscriptionId, token, userAgentApplicationName)
+
     registerProviders()
   }
 

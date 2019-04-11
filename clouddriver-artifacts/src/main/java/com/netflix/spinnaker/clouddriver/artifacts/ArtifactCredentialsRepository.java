@@ -18,30 +18,48 @@
 package com.netflix.spinnaker.clouddriver.artifacts;
 
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Component
 public class ArtifactCredentialsRepository {
-  private Map<String, List<ArtifactCredentials>> credentialsMap = new ConcurrentHashMap<>();
+  @Getter
+  private final List<ArtifactCredentials> allCredentials;
 
-  public void save(ArtifactCredentials credentials) {
-    String name = credentials.getName();
-    List<ArtifactCredentials> stored = credentialsMap.getOrDefault(name, new ArrayList<>());
-    stored.add(credentials);
-    credentialsMap.put(credentials.getName(), stored);
+  public ArtifactCredentialsRepository(List<List<? extends ArtifactCredentials>> allCredentials) {
+    this.allCredentials = Collections.unmodifiableList(
+      allCredentials.stream()
+        .filter(Objects::nonNull)
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList())
+    );
   }
 
-  public List<ArtifactCredentials> getAllCredentials() {
-    return credentialsMap.values()
-        .stream()
-        .flatMap(Collection::stream)
-        .collect(Collectors.toList());
+  public ArtifactCredentials getCredentials(String accountName) {
+    return getAllCredentials()
+      .stream()
+      .filter(e -> e.getName().equals(accountName))
+      .findFirst()
+      .orElseThrow(() -> new IllegalArgumentException("No credentials with name '" + accountName + "' could be found."));
+  }
+
+  public ArtifactCredentials getCredentials(String accountName, String type) {
+    if (StringUtils.isEmpty(accountName)) {
+      throw new IllegalArgumentException("An artifact account must be supplied to download this artifact: " + accountName);
+    }
+
+    ArtifactCredentials credentials = getCredentials(accountName);
+    if (!credentials.handlesType(type)) {
+      throw new IllegalArgumentException("Artifact credentials '" + accountName + "' cannot handle artifacts of type '" + type + "'");
+    }
+
+    return credentials;
   }
 }

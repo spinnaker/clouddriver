@@ -74,13 +74,14 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
   private static final long DISK_SIZE_GB = 100
   private static final String DISK_TYPE = "pd-standard"
-  private static final GoogleDisk DISK_PD_STANDARD = new GoogleDisk(type: DISK_TYPE, sizeGb: DISK_SIZE_GB)
+
+  private static final GoogleDisk DISK_PD_STANDARD = new GoogleDisk(type: DISK_TYPE, sizeGb: DISK_SIZE_GB, sourceImage: IMAGE)
   private static final String DEFAULT_NETWORK_NAME = "default"
   private static final String DEFAULT_NETWORK_URL =
-          "https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/global/networks/$DEFAULT_NETWORK_NAME"
+          "https://compute.googleapis.com/compute/v1/projects/$PROJECT_NAME/global/networks/$DEFAULT_NETWORK_NAME"
   private static final String SUBNET_NAME = "some-subnet"
   private static final String SUBNET_URL =
-          "https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/regions/$REGION/subnetworks/$SUBNET_NAME"
+          "https://compute.googleapis.com/compute/v1/projects/$PROJECT_NAME/regions/$REGION/subnetworks/$SUBNET_NAME"
   private static final String ACCESS_CONFIG_NAME = "External NAT"
   private static final String ACCESS_CONFIG_TYPE = "ONE_TO_ONE_NAT"
 
@@ -107,7 +108,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
   def setup() {
     computeMock = Mock(Compute)
-    credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
+    credentials = new GoogleNamedAccountCredentials.Builder().name("gce").project(PROJECT_NAME).compute(computeMock).build()
 
     sourceImage = new Image(selfLink: IMAGE)
     network = new GoogleNetwork(selfLink: DEFAULT_NETWORK_URL)
@@ -145,7 +146,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
     serverGroup = new GoogleServerGroup(name: ANCESTOR_SERVER_GROUP_NAME,
                                         zone: ZONE,
-                                        asg: [(GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES): LOAD_BALANCERS,
+                                        asg: [(GCEUtil.REGIONAL_LOAD_BALANCER_NAMES): LOAD_BALANCERS,
                                             desiredCapacity: 2],
                                         launchConfig: [instanceTemplate: instanceTemplate],
                                         autoscalingPolicy: [coolDownPeriodSec: 45,

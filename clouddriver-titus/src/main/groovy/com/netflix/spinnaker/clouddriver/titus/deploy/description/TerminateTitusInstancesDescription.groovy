@@ -16,8 +16,18 @@
 
 package com.netflix.spinnaker.clouddriver.titus.deploy.description
 
-class TerminateTitusInstancesDescription extends AbstractTitusCredentialsDescription {
+import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable
+
+class TerminateTitusInstancesDescription extends AbstractTitusCredentialsDescription implements ApplicationNameable {
   String region
   List<String> instanceIds
   String user
+
+  Set<String> applications
+  boolean requiresApplicationRestriction = true
+
+  @Override
+  boolean requiresApplicationRestriction() {
+    return requiresApplicationRestriction
+  }
 }

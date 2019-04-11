@@ -40,7 +40,7 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.IN
 import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.SERVER_GROUPS
 
 @Component
-class TitusInstanceProvider implements InstanceProvider<TitusInstance> {
+class TitusInstanceProvider implements InstanceProvider<TitusInstance, String> {
   final String cloudProvider = TitusCloudProvider.ID
   private final Cache cacheView
   private final ObjectMapper objectMapper
@@ -110,6 +110,10 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance> {
       job = objectMapper.convertValue(instanceEntry.attributes.job, Job)
     }
 
+    if (job == null) {
+      return null
+    }
+
     TitusInstance instance = new TitusInstance(job, task)
     instance.accountId = awsAccount
 
@@ -145,6 +149,9 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance> {
 
   private Job loadJob(CacheData instanceEntry) {
     Collection<CacheData> data = resolveRelationshipData(instanceEntry, SERVER_GROUPS.ns)
+    if (data == null || data.isEmpty()) {
+      return null
+    }
     return objectMapper.convertValue(data?.first()?.attributes.job, Job)
   }
 

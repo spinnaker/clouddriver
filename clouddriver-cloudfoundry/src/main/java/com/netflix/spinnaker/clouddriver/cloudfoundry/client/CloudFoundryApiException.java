@@ -20,23 +20,32 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.ErrorDescript
 import lombok.Getter;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
 
 @Getter
 public class CloudFoundryApiException extends RuntimeException {
+  private static final String UNKNOWN_ERROR = "Unknown Error";
+
   @Nullable
   private ErrorDescription.Code errorCode;
 
   public CloudFoundryApiException(ErrorDescription errorCause) {
-    super(getMessage(errorCause.getErrors().toArray(new String[0])));
-    this.errorCode = errorCause.getCode();
+    super(Optional.ofNullable(errorCause)
+      .map(e -> getMessage(e.getErrors().toArray(new String[0])))
+      .orElse(UNKNOWN_ERROR));
+    if (errorCause != null) {
+      this.errorCode = errorCause.getCode();
+    }
   }
 
   public CloudFoundryApiException(Throwable t, String... errors) {
-    super(getMessage(errors), t);
+    super(getMessage(t, errors), t);
   }
 
   public CloudFoundryApiException(String... errors) {
@@ -46,5 +55,11 @@ public class CloudFoundryApiException extends RuntimeException {
   private static String getMessage(String... errors) {
     return "Cloud Foundry API returned with error(s): " +
       stream(errors).filter(Objects::nonNull).collect(Collectors.joining(" and "));
+  }
+
+  private static String getMessage(Throwable t, String... errors) {
+    String[] allErrors = Arrays.copyOf(errors, errors.length + 1);
+    allErrors[errors.length] = t.getMessage();
+    return getMessage(allErrors);
   }
 }

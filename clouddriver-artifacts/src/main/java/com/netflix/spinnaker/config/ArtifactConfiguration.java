@@ -16,44 +16,22 @@
 
 package com.netflix.spinnaker.config;
 
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.artifacts.embedded.EmbeddedArtifactConfiguration;
-import com.netflix.spinnaker.clouddriver.artifacts.gcs.GcsArtifactConfiguration;
-import com.netflix.spinnaker.clouddriver.artifacts.github.GitHubArtifactConfiguration;
-import com.netflix.spinnaker.clouddriver.artifacts.http.HttpArtifactConfiguration;
-import com.netflix.spinnaker.clouddriver.artifacts.oracle.OracleArtifactConfiguration;
-import com.netflix.spinnaker.clouddriver.artifacts.s3.S3ArtifactConfiguration;
+import com.squareup.okhttp.OkHttpClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Component;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 @Configuration
 @EnableConfigurationProperties
 @EnableScheduling
 @Component
-@ComponentScan({"com.netflix.spinnaker.clouddriver.artifacts"})
-@Import({
-  EmbeddedArtifactConfiguration.class,
-  GcsArtifactConfiguration.class,
-  OracleArtifactConfiguration.class,
-  GitHubArtifactConfiguration.class,
-  HttpArtifactConfiguration.class,
-  S3ArtifactConfiguration.class
-})
+@ComponentScan("com.netflix.spinnaker.clouddriver.artifacts")
 public class ArtifactConfiguration {
   @Bean
-  ArtifactCredentialsRepository artifactCredentialsRepository() {
-    return new ArtifactCredentialsRepository();
-  }
-
-  @Bean
-  Yaml yaml() {
-    return new Yaml(new SafeConstructor());
+  OkHttpClient okHttpClient() {
+    return new OkHttpClient();
   }
 }

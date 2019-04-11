@@ -20,9 +20,10 @@ import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.ApplicationService;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ApplicationEnv;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.MapRoute;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import lombok.RequiredArgsConstructor;
@@ -38,11 +39,14 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.*;
+import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.collectPages;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.safelyCall;
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.*;
+import static java.util.Arrays.asList;
 import static java.util.Collections.*;
+import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -50,6 +54,8 @@ import static java.util.stream.Collectors.toSet;
 @Slf4j
 public class Applications {
   private final String account;
+  private final String appsManagerUri;
+  private final String metricsUri;
   private final ApplicationService api;
   private final Spaces spaces;
 
@@ -96,7 +102,7 @@ public class Applications {
   private CloudFoundryServerGroup map(Application application) {
     CloudFoundryServerGroup.State state = CloudFoundryServerGroup.State.valueOf(application.getState());
 
-    CloudFoundrySpace space = safelyCall(() -> spaces.findById(application.getRelationships().get("space").getData().getGuid())).orElse(null);
+    CloudFoundrySpace space = safelyCall(() -> spaces.findById(application.getLinks().get("space").getGuid())).orElse(null);
     ApplicationEnv applicationEnv = safelyCall(() -> api.findApplicationEnvById(application.getGuid())).orElse(null);
     Process process = safelyCall(() -> api.findProcessById(application.getGuid())).orElse(null);
 
@@ -119,10 +125,8 @@ public class Applications {
                   healthState = HealthState.Up;
                   break;
                 case DOWN:
-                  healthState = HealthState.Down;
-                  break;
                 case CRASHED:
-                  healthState = HealthState.OutOfService;
+                  healthState = HealthState.Down;
                   break;
                 case STARTING:
                   healthState = HealthState.Starting;
@@ -142,7 +146,7 @@ public class Applications {
         } catch (RetrofitError e) {
           try {
             log.debug("Unable to retrieve instances for application '" + application.getName() + "': " +
-              IOUtils.toString(e.getResponse().getBody().in()));
+              IOUtils.toString(e.getResponse().getBody().in(), Charset.defaultCharset()));
           } catch (IOException e1) {
             log.debug("Unable to retrieve instances for application '" + application.getName());
           }
@@ -156,9 +160,9 @@ public class Applications {
         .map(packages ->
           packages.getResources().stream().findFirst()
             .map(pkg -> CloudFoundryPackage.builder()
-              .downloadUrl(pkg.getLinks().get("download").getHref())
-              .checksumType(pkg.getData().getChecksum().getType())
-              .checksum(pkg.getData().getChecksum().getValue())
+              .downloadUrl(pkg.getLinks().containsKey("download") ? pkg.getLinks().get("download").getHref() : null)
+              .checksumType(pkg.getData().getChecksum() == null ? null : pkg.getData().getChecksum().getType())
+              .checksum(pkg.getData().getChecksum() == null ? null : pkg.getData().getChecksum().getValue())
               .build()
             )
             .orElse(null)
@@ -171,7 +175,7 @@ public class Applications {
             .id(apiDroplet.getGuid())
             .name(application.getName() + "-droplet")
             .stack(apiDroplet.getStack())
-            .buildpacks(Optional.ofNullable(apiDroplet.getBuildpacks())
+            .buildpacks(ofNullable(apiDroplet.getBuildpacks())
               .orElse(emptyList())
               .stream()
               .map(bp -> CloudFoundryBuildpack.builder()
@@ -198,25 +202,53 @@ public class Applications {
         .stream()
         .flatMap(vcap -> vcap.getValue().stream()
           .map(instance -> CloudFoundryServiceInstance.builder()
-            .serviceName(vcap.getKey())
+            .serviceInstanceName(vcap.getKey())
             .name(instance.getName())
             .plan(instance.getPlan())
+            .tags(instance.getTags())
             .build()))
         .collect(toList());
 
+    Map<String, String> environmentVars = applicationEnv == null || applicationEnv.getEnvironmentJson() == null ? emptyMap() : applicationEnv.getEnvironmentJson();
+
+    String healthCheckType = null;
+    String healthCheckHttpEndpoint = null;
+    if (process != null && process.getHealthCheck() != null) {
+      final Process.HealthCheck healthCheck = process.getHealthCheck();
+      healthCheckType = healthCheck.getType();
+      if (healthCheck.getData() != null) {
+        healthCheckHttpEndpoint = healthCheck.getData().getEndpoint();
+      }
+    }
+
+    String serverGroupAppManagerUri = appsManagerUri;
+    if (StringUtils.isNotEmpty(appsManagerUri)) {
+      serverGroupAppManagerUri = appsManagerUri + "/organizations/" + space.getOrganization().getId() + "/spaces/" + space.getId() + "/applications/" + application.getGuid();
+    }
+
+    String serverGroupMetricsUri = metricsUri;
+    if (StringUtils.isNotEmpty(metricsUri)) {
+      serverGroupMetricsUri = metricsUri + "/apps/" + application.getGuid();
+    }
+
     return CloudFoundryServerGroup.builder()
       .account(account)
+      .appsManagerUri(serverGroupAppManagerUri)
+      .metricsUri(serverGroupMetricsUri)
       .name(application.getName())
       .id(application.getGuid())
       .memory(process != null ? process.getMemoryInMb() : null)
       .instances(emptySet())
       .droplet(droplet)
       .diskQuota(process != null ? process.getDiskInMb() : null)
+      .healthCheckType(healthCheckType)
+      .healthCheckHttpEndpoint(healthCheckHttpEndpoint)
       .space(space)
       .createdTime(application.getCreatedAt().toInstant().toEpochMilli())
       .serviceInstances(cloudFoundryServices)
       .instances(instances)
       .state(state)
+      .env(environmentVars)
       .build();
   }
 
@@ -244,12 +276,12 @@ public class Applications {
     safelyCall(() -> api.deleteAppInstance(guid, index));
   }
 
-  public CloudFoundryServerGroup createApplication(String appName, CloudFoundrySpace space, @Nullable String buildpack,
-                                                   Map<String, String> environmentVariables) throws CloudFoundryApiException {
+  public CloudFoundryServerGroup createApplication(String appName, CloudFoundrySpace space, List<String> buildpacks,
+                                                   @Nullable Map<String, String> environmentVariables) throws CloudFoundryApiException {
     Map<String, ToOneRelationship> relationships = new HashMap<>();
     relationships.put("space", new ToOneRelationship(new Relationship(space.getId())));
 
-    return safelyCall(() -> api.createApplication(new CreateApplication(appName, relationships, environmentVariables, buildpack)))
+    return safelyCall(() -> api.createApplication(new CreateApplication(appName, relationships, environmentVariables, buildpacks)))
       .map(this::map)
       .orElseThrow(() -> new CloudFoundryApiException("Cloud Foundry signaled that application creation succeeded but failed to provide a response."));
   }
@@ -261,6 +293,15 @@ public class Applications {
       return;
     }
     safelyCall(() -> api.scaleApplication(guid, new ScaleApplication(instances, memInMb, diskInMb)));
+  }
+
+  public void updateProcess(String guid, @Nullable String command, @Nullable String healthCheckType, @Nullable String healthCheckEndpoint) throws CloudFoundryApiException {
+    final Process.HealthCheck healthCheck = healthCheckType != null ?
+      new Process.HealthCheck().setType(healthCheckType) : null;
+    if (healthCheckEndpoint != null && !healthCheckEndpoint.isEmpty()) {
+      healthCheck.setData(new Process.HealthCheckData().setEndpoint(healthCheckEndpoint));
+    }
+    safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
   }
 
   public String createPackage(String appGuid) throws CloudFoundryApiException {
@@ -336,8 +377,19 @@ public class Applications {
 
   @Nullable
   public ProcessStats.State getProcessState(String appGuid) throws CloudFoundryApiException {
-    return safelyCall(() -> this.api.findProcessStatsById(appGuid))
+    return safelyCall(() -> api.findProcessStatsById(appGuid))
       .flatMap(pr -> pr.getResources().stream().findAny().map(ProcessStats::getState))
-      .orElse(null);
+      .orElse(ProcessStats.State.DOWN);
+  }
+
+  public List<Resource<com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Application>> getTakenSlots(String clusterName, String spaceId) {
+    List<String> filter = asList("name<" + clusterName + "-v9999", "name>=" + clusterName, "space_guid:" + spaceId);
+    return collectPageResources("applications", page -> api.listAppsFiltered(page, filter, 10))
+      .stream()
+      .filter(app -> {
+        Names names = Names.parseName(app.getEntity().getName());
+        return clusterName.equals(names.getCluster());
+      })
+      .collect(Collectors.toList());
   }
 }

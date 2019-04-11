@@ -122,11 +122,11 @@ class ServerGroupController {
   Map expanded(ServerGroup serverGroup, Cluster cluster) {
     Map sg = objectMapper.convertValue(serverGroup, Map)
     sg.accountName = cluster.accountName
-    def name = Names.parseName(cluster.name)
-    sg.cluster = name.cluster
-    sg.application = name.app
-    sg.stack = name.stack
-    sg.freeFormDetail = name.detail
+    def moniker = cluster.moniker
+    sg.cluster = moniker.cluster
+    sg.application = moniker.app
+    sg.stack = moniker.stack
+    sg.freeFormDetail = moniker.detail
     return sg
   }
 
@@ -251,6 +251,7 @@ class ServerGroupController {
     Set<String> securityGroups
     ServerGroup.InstanceCounts instanceCounts
     Map<String, Object> tags
+    Map<String, String> labels
     Map providerMetadata
     List<ServerGroupManager.ServerGroupManagerSummary> serverGroupManagers
 
@@ -277,6 +278,10 @@ class ServerGroupController {
       }
       if (serverGroup.tags) {
         tags = serverGroup.tags
+      }
+
+      if (serverGroup.labels) {
+        labels = serverGroup.labels
       }
 
       if (serverGroup.hasProperty("buildInfo")) {

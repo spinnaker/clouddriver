@@ -18,18 +18,13 @@
 package com.netflix.spinnaker.clouddriver.artifacts.github;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
 import com.squareup.okhttp.OkHttpClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.context.annotation.Scope;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,39 +32,20 @@ import java.util.stream.Collectors;
 
 @Configuration
 @ConditionalOnProperty("artifacts.github.enabled")
-@EnableScheduling
+@EnableConfigurationProperties(GitHubArtifactProviderProperties.class)
+@RequiredArgsConstructor
 @Slf4j
 public class GitHubArtifactConfiguration {
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  @Bean
-  @ConfigurationProperties("artifacts.github")
-  GitHubArtifactProviderProperties githubArtifactProviderProperties() {
-    return new GitHubArtifactProviderProperties();
-  }
-
-  @Autowired
-  GitHubArtifactProviderProperties gitHubArtifactProviderProperties;
-
-  @Autowired
-  ArtifactCredentialsRepository artifactCredentialsRepository;
-
-  @Autowired
-  ObjectMapper objectMapper;
+  private final GitHubArtifactProviderProperties gitHubArtifactProviderProperties;
+  private final ObjectMapper objectMapper;
 
   @Bean
-  OkHttpClient gitHubOkHttpClient() {
-    return new OkHttpClient();
-  }
-
-  @Bean
-  List<? extends GitHubArtifactCredentials> gitHubArtifactCredentials(OkHttpClient gitHubOkHttpClient) {
+  List<? extends GitHubArtifactCredentials> gitHubArtifactCredentials(OkHttpClient okHttpClient) {
     return gitHubArtifactProviderProperties.getAccounts()
       .stream()
       .map(a -> {
         try {
-          GitHubArtifactCredentials c = new GitHubArtifactCredentials(a, gitHubOkHttpClient, objectMapper);
-          artifactCredentialsRepository.save(c);
-          return c;
+          return new GitHubArtifactCredentials(a, okHttpClient, objectMapper);
         } catch (Exception e) {
           log.warn("Failure instantiating GitHub artifact account {}: ", a, e);
           return null;

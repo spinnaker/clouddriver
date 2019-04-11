@@ -35,6 +35,7 @@ class AwsProviderSpec extends Specification {
             "my-ci-account",
             "123",
             "my-ci-account-keypair",
+            true,
             null,
             null,
             null,
@@ -49,12 +50,14 @@ class AwsProviderSpec extends Specification {
             false,
             null,
             false,
+            false,
             false)
     def eurekaAccount2 = new NetflixAmazonCredentials("my-qa-account",
             "qa",
             "my-qa-account",
             "123",
             "my-qa-account-keypair",
+            true,
             null,
             null,
             null,
@@ -68,6 +71,7 @@ class AwsProviderSpec extends Specification {
             null,
             false,
             null,
+            false,
             false,
             false)
 
@@ -84,6 +88,7 @@ class AwsProviderSpec extends Specification {
             "my-ci-account",
             "123",
             "my-ci-account-keypair",
+            true,
             null,
             null,
             null,
@@ -97,6 +102,7 @@ class AwsProviderSpec extends Specification {
             null,
             false,
             null,
+            false,
             false,
             false)
     def account2 = new NetflixAmazonCredentials("my-qa-account",
@@ -104,6 +110,7 @@ class AwsProviderSpec extends Specification {
             "my-qa-account",
             "456",
             "my-qa-account-keypair",
+            true,
             null,
             null,
             null,
@@ -117,6 +124,7 @@ class AwsProviderSpec extends Specification {
             null,
             false,
             null,
+            false,
             false,
             false)
 

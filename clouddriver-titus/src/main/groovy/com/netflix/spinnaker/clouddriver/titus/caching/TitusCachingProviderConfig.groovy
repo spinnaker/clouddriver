@@ -16,20 +16,20 @@
 
 package com.netflix.spinnaker.clouddriver.titus.caching
 
-import com.fasterxml.jackson.databind.DeserializationFeature
+
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.CachingAgent
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
-import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusClusterCachingAgent
 import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusInstanceCachingAgent
+import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusStreamingUpdateAgent
 import com.netflix.spinnaker.clouddriver.titus.caching.agents.TitusV2ClusterCachingAgent
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchemaUtil
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -54,24 +54,23 @@ class TitusCachingProviderConfig {
                                             ObjectMapper objectMapper,
                                             Registry registry,
                                             Provider<AwsLookupUtil> awsLookupUtilProvider,
-                                            Provider<CachingSchemaUtil> cachingSchemaUtilProvider) {
+                                            Provider<CachingSchemaUtil> cachingSchemaUtilProvider,
+                                            DynamicConfigService dynamicConfigService) {
     List<CachingAgent> agents = []
     def allAccounts = accountCredentialsRepository.all.findAll {
       it instanceof NetflixTitusCredentials
     } as Collection<NetflixTitusCredentials>
     allAccounts.each { NetflixTitusCredentials account ->
       account.regions.each { region ->
-        if (!account.splitCachingEnabled) { //default case
-          agents << new TitusClusterCachingAgent(
-            titusCloudProvider,
+        if (region.featureFlags.contains("streaming")) {
+          agents << new TitusStreamingUpdateAgent(
             titusClientProvider,
             account,
             region,
             objectMapper,
             registry,
             awsLookupUtilProvider,
-            pollIntervalMillis,
-            timeoutMillis
+            dynamicConfigService
           )
         } else { //use new split caching for this whole account
           agents << new TitusInstanceCachingAgent(
@@ -96,13 +95,5 @@ class TitusCachingProviderConfig {
       }
     }
     new TitusCachingProvider(agents, cachingSchemaUtilProvider)
-  }
-
-  @Bean
-  ObjectMapper objectMapper() {
-    ObjectMapper objectMapper = new ObjectMapper()
-    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-    objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
-    objectMapper
   }
 }

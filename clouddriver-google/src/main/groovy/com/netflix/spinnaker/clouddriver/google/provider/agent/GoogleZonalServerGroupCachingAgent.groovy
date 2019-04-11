@@ -18,12 +18,11 @@ package com.netflix.spinnaker.clouddriver.google.provider.agent
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.api.client.googleapis.batch.BatchRequest
 import com.google.api.client.googleapis.batch.json.JsonBatchCallback
 import com.google.api.client.googleapis.json.GoogleJsonError
-import com.google.api.client.googleapis.services.json.AbstractGoogleJsonClientRequest
 import com.google.api.client.http.HttpHeaders
 import com.google.api.services.compute.Compute
+import com.google.api.services.compute.ComputeRequest
 import com.google.api.services.compute.model.*
 import com.netflix.frigga.Names
 import com.netflix.frigga.ami.AppVersion
@@ -36,7 +35,9 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
+import com.netflix.spinnaker.clouddriver.google.batch.GoogleBatchRequest
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder
 import com.netflix.spinnaker.clouddriver.google.cache.Keys
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
@@ -47,7 +48,7 @@ import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLo
 import com.netflix.spinnaker.clouddriver.google.provider.agent.util.PaginatedRequest
 import com.netflix.spinnaker.clouddriver.google.security.AccountForClient
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.googlecommon.GoogleExecutor
+import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.Canonical
 import groovy.util.logging.Slf4j
 
@@ -56,14 +57,11 @@ import java.util.concurrent.TimeUnit
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.*
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.*
 
 @Slf4j
 class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent implements OnDemandAgent, GoogleExecutorTraits {
 
-  static final String GLOBAL_LOAD_BALANCER_NAMES = GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES
-  static final String REGIONAL_LOAD_BALANCER_NAMES = GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES
-  static final String BACKEND_SERVICE_NAMES = GoogleServerGroup.View.BACKEND_SERVICE_NAMES
-  static final String LOAD_BALANCING_POLICY = GoogleServerGroup.View.LOAD_BALANCING_POLICY
   final String region
   final long maxMIGPageSize
 
@@ -138,9 +136,9 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     List<String> zones = credentials.getZonesFromRegion(region)
     List<GoogleServerGroup> serverGroups = []
 
-    BatchRequest igmRequest = buildBatchRequest()
-    BatchRequest instanceGroupsRequest = buildBatchRequest()
-    BatchRequest autoscalerRequest = buildBatchRequest()
+    GoogleBatchRequest igmRequest = buildGoogleBatchRequest()
+    GoogleBatchRequest instanceGroupsRequest = buildGoogleBatchRequest()
+    GoogleBatchRequest autoscalerRequest = buildGoogleBatchRequest()
 
     List<InstanceTemplate> instanceTemplates = fetchInstanceTemplates(cachingAgent, compute, project)
     List<GoogleInstance> instances = GCEUtil.fetchInstances(this, credentials)
@@ -156,13 +154,13 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
       if (onDemandServerGroupName) {
         InstanceGroupManagerCallbacks.InstanceGroupManagerSingletonCallback igmCallback =
           instanceGroupManagerCallbacks.newInstanceGroupManagerSingletonCallback(instanceTemplates, instances)
-        compute.instanceGroupManagers().get(project, zone, onDemandServerGroupName).queue(igmRequest, igmCallback)
+        igmRequest.queue(compute.instanceGroupManagers().get(project, zone, onDemandServerGroupName), igmCallback)
       } else {
         InstanceGroupManagerCallbacks.InstanceGroupManagerListCallback igmlCallback =
           instanceGroupManagerCallbacks.newInstanceGroupManagerListCallback(instanceTemplates, instances)
         new PaginatedRequest<InstanceGroupManagerList>(cachingAgent) {
           @Override
-          AbstractGoogleJsonClientRequest<InstanceGroupManagerList> request(String pageToken) {
+          ComputeRequest<InstanceGroupManagerList> request(String pageToken) {
             return compute.instanceGroupManagers().list(project, zone).setMaxResults(maxMIGPageSize).setPageToken(pageToken)
           }
 
@@ -183,7 +181,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
   static List<InstanceTemplate> fetchInstanceTemplates(AbstractGoogleCachingAgent cachingAgent, Compute compute, String project) {
     List<InstanceTemplate> instanceTemplates = new PaginatedRequest<InstanceTemplateList>(cachingAgent) {
       @Override
-      protected AbstractGoogleJsonClientRequest<InstanceTemplateList> request (String pageToken) {
+      protected ComputeRequest<InstanceTemplateList> request (String pageToken) {
         return compute.instanceTemplates().list(project).setPageToken(pageToken)
       }
 
@@ -201,12 +199,12 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    type == OnDemandAgent.OnDemandType.ServerGroup && cloudProvider == GoogleCloudProvider.ID
+  boolean handles(OnDemandType type, String cloudProvider) {
+    type == OnDemandType.ServerGroup && cloudProvider == GoogleCloudProvider.ID
   }
 
   @Override
-  OnDemandAgent.OnDemandResult handle(ProviderCache providerCache, Map<String, ? extends Object> data) {
+  OnDemandResult handle(ProviderCache providerCache, Map<String, ? extends Object> data) {
     if (!data.containsKey("serverGroupName") || data.account != accountName || data.region != region) {
       return null
     }
@@ -225,7 +223,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     if (serverGroup) {
       serverGroupKey = getServerGroupKey(serverGroup)
     } else {
-      serverGroupKey = Keys.getServerGroupKey(data.serverGroupName as String, accountName, region, "*")
+      serverGroupKey = Keys.getServerGroupKey(data.serverGroupName as String, null, accountName, region, "*")
 
       // No server group was found, so need to find identifiers for all zonal server groups in the region.
       identifiers = providerCache.filterIdentifiers(SERVER_GROUPS.ns, serverGroupKey)
@@ -264,7 +262,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
 
     log.info("On demand cache refresh succeeded. Data: ${data}. Added ${serverGroup ? 1 : 0} items to the cache. Evicted ${evictions[SERVER_GROUPS.ns]}.")
 
-    return new OnDemandAgent.OnDemandResult(
+    return new OnDemandResult(
         sourceAgentType: getOnDemandAgentType(),
         cacheResult: result,
         evictions: evictions,
@@ -287,7 +285,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
 
       [
           details       : details,
-          moniker       : convertOnDemandDetails(details),
+          moniker       : cacheData.attributes.moniker,
           cacheTime     : cacheData.attributes.cacheTime,
           processedCount: cacheData.attributes.processedCount,
           processedTime : cacheData.attributes.processedTime
@@ -300,10 +298,9 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     log.info "Describing items in $agentType"
 
     serverGroups.each { GoogleServerGroup serverGroup ->
-      def names = Names.parseName(serverGroup.name)
-      def applicationName = names.app
-      def clusterName = names.cluster
-
+      Moniker moniker = naming.deriveMoniker(serverGroup)
+      def applicationName = moniker.app
+      def clusterName = moniker.cluster
       def serverGroupKey = getServerGroupKey(serverGroup)
       def clusterKey = Keys.getClusterKey(accountName, applicationName, clusterName)
       def appKey = Keys.getApplicationKey(applicationName)
@@ -320,6 +317,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
       cacheResultBuilder.namespace(CLUSTERS.ns).keep(clusterKey).with {
         attributes.name = clusterName
         attributes.accountName = accountName
+        attributes.moniker = moniker
         relationships[APPLICATIONS.ns].add(appKey)
         relationships[SERVER_GROUPS.ns].add(serverGroupKey)
         relationships[INSTANCES.ns].addAll(instanceKeys)
@@ -383,7 +381,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
   }
 
   String getServerGroupKey(GoogleServerGroup googleServerGroup) {
-    return Keys.getServerGroupKey(googleServerGroup.name, accountName, region, googleServerGroup.zone)
+    return Keys.getServerGroupKey(googleServerGroup.name, googleServerGroup.view.moniker.cluster, accountName, region, googleServerGroup.zone)
   }
 
   // TODO(lwander) this was taken from the netflix cluster caching, and should probably be shared between all providers.
@@ -400,8 +398,8 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
     ProviderCache providerCache
     List<GoogleServerGroup> serverGroups
     String zone
-    BatchRequest instanceGroupsRequest
-    BatchRequest autoscalerRequest
+    GoogleBatchRequest instanceGroupsRequest
+    GoogleBatchRequest autoscalerRequest
     List<GoogleInstance> instances
 
     InstanceGroupManagerSingletonCallback<InstanceGroupManager> newInstanceGroupManagerSingletonCallback(List<InstanceTemplate> instanceTemplates, List<GoogleInstance> instances) {
@@ -435,7 +433,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
           populateInstanceTemplate(providerCache, instanceGroupManager, serverGroup, instanceTemplates)
 
           def autoscalerCallback = new AutoscalerSingletonCallback(serverGroup: serverGroup)
-          compute.autoscalers().get(project, zone, serverGroup.name).queue(autoscalerRequest, autoscalerCallback)
+          autoscalerRequest.queue(compute.autoscalers().get(project, zone, serverGroup.name), autoscalerCallback)
         }
       }
     }
@@ -457,7 +455,8 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
         }
 
         def autoscalerCallback = new AutoscalerAggregatedListCallback(serverGroups: serverGroups)
-        compute.autoscalers().aggregatedList(project).queue(autoscalerRequest, autoscalerCallback)
+        buildAutoscalerListRequest().queue(autoscalerRequest, autoscalerCallback,
+          'GoogleZonalServerGroupCachingAgent.autoscalerAggregatedList')
       }
     }
 
@@ -469,6 +468,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
       instanceGroupManager.namedPorts.each { namedPorts[(it.name)] = it.port }
       return new GoogleServerGroup(
           name: instanceGroupManager.name,
+          account: accountName,
           instances: groupInstances,
           region: region,
           zone: zone,
@@ -676,6 +676,7 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
 
     @Override
     void onSuccess(AutoscalerAggregatedList autoscalerAggregatedList, HttpHeaders responseHeaders) throws IOException {
+
       autoscalerAggregatedList?.items?.each { String location, AutoscalersScopedList autoscalersScopedList ->
         if (location.startsWith("zones/")) {
           def localZoneName = Utils.getLocalName(location)
@@ -700,6 +701,20 @@ class GoogleZonalServerGroupCachingAgent extends AbstractGoogleCachingAgent impl
             }
           }
         }
+      }
+    }
+  }
+
+  PaginatedRequest<AutoscalerAggregatedList> buildAutoscalerListRequest() {
+    return new PaginatedRequest<AutoscalerAggregatedList>(this) {
+      @Override
+      protected String getNextPageToken(AutoscalerAggregatedList autoscalerAggregatedList) {
+        return autoscalerAggregatedList.getNextPageToken()
+      }
+
+      @Override
+      protected ComputeRequest<AutoscalerAggregatedList> request(String pageToken) {
+        return compute.autoscalers().aggregatedList(project).setPageToken(pageToken)
       }
     }
   }

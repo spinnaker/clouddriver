@@ -52,11 +52,11 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperationUnitSpec extends Spe
   private static final SERVER_GROUP_NAME = "spinnaker-test-v000"
   private static final ZONE = "us-central1-b"
   private static final REGION = "us-central1"
-  private static final REGION_URL = "https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/regions/$REGION"
+  private static final REGION_URL = "https://compute.googleapis.com/compute/v1/projects/$PROJECT_NAME/regions/$REGION"
 
   private static final MACHINE_TYPE = "f1-micro"
-  private static final NETWORK_1 = "default"
-  private static final NETWORK_2 = "other-network"
+  private static final NETWORK_1 = "projects/$PROJECT_NAME/networks/default"
+  private static final NETWORK_2 = "projects/$PROJECT_NAME/networks/other-network"
   private static final IMAGE = "debian"
   private static final DISK_TYPE = "pd-standard"
   private static final DISK_SIZE_GB = 120
@@ -66,7 +66,7 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperationUnitSpec extends Spe
   private static final TAGS_2 = ["some-tag-4", "some-tag-5"]
   private static final ORIG_INSTANCE_TEMPLATE_NAME = "$SERVER_GROUP_NAME-123"
   private static final ORIG_INSTANCE_TEMPLATE_URL =
-      "https://www.googleapis.com/compute/v1/projects/$PROJECT_NAME/global/instanceTemplates/$ORIG_INSTANCE_TEMPLATE_NAME"
+      "https://compute.googleapis.com/compute/v1/projects/$PROJECT_NAME/global/instanceTemplates/$ORIG_INSTANCE_TEMPLATE_NAME"
   private static final NEW_INSTANCE_TEMPLATE_NAME = "new-instance-template"
   private static final INSTANCE_TEMPLATE_INSERTION_OP_NAME = "instance-template-insertion-op"
   private static final SET_INSTANCE_TEMPLATE_OP_NAME = "set-instance-template-op"
@@ -109,7 +109,7 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperationUnitSpec extends Spe
       def instanceGroupManagersMock = Mock(Compute.InstanceGroupManagers)
       def instanceGroupManagersGetMock = Mock(Compute.InstanceGroupManagers.Get)
       def instanceGroupManagerReal = new InstanceGroupManager(instanceTemplate: ORIG_INSTANCE_TEMPLATE_URL, group: SERVER_GROUP_NAME)
-      def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
+      def credentials = new GoogleNamedAccountCredentials.Builder().name("gce").project(PROJECT_NAME).compute(computeMock).build()
       def description = new ModifyGoogleServerGroupInstanceTemplateDescription(serverGroupName: SERVER_GROUP_NAME,
                                                                                region: REGION,
                                                                                accountName: ACCOUNT_NAME,
@@ -181,7 +181,7 @@ class ModifyGoogleServerGroupInstanceTemplateAtomicOperationUnitSpec extends Spe
                                                            status: DONE)
       def setInstanceTemplateOperationGetMock = Mock(Compute.ZoneOperations.Get)
       def instanceTemplatesDeleteMock = Mock(Compute.InstanceTemplates.Delete)
-      def credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
+      def credentials = new GoogleNamedAccountCredentials.Builder().name("gce").project(PROJECT_NAME).compute(computeMock).build()
       def description = new ModifyGoogleServerGroupInstanceTemplateDescription(serverGroupName: SERVER_GROUP_NAME,
                                                                                region: REGION,
                                                                                instanceMetadata: METADATA_2,

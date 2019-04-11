@@ -19,15 +19,17 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.stream.JsonReader;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
-import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
+import com.netflix.spinnaker.clouddriver.jobs.JobResult;
+import com.netflix.spinnaker.clouddriver.jobs.local.ReaderConsumer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric.ContainerMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1DeleteOptions;
@@ -37,31 +39,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
 @Slf4j
 public class KubectlJobExecutor {
-  @Value("${kubernetes.kubectl.poll.minSleepMillis:200}")
-  Long minSleepMillis;
-
-  @Value("${kubernetes.kubectl.poll.maxSleepMillis:4000}")
-  Long maxSleepMillis;
-
-  @Value("${kubernetes.kubectl.poll.timeoutMillis:100000}")
-  Long timeoutMillis;
-
-  @Value("${kubernetes.kubectl.poll.maxInterruptRetries:10}")
-  Long maxInterruptRetries;
-
   @Value("${kubernetes.kubectl.executable:kubectl}")
   String executable;
 
@@ -84,17 +69,13 @@ public class KubectlJobExecutor {
     command.add("config");
     command.add("current-context");
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-      System.getenv(),
-      new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
+    if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException("Failed get current configuration context");
     }
 
-    return status.getStdOut();
+    return status.getOutput();
   }
 
   public String defaultNamespace(KubernetesV2Credentials credentials) {
@@ -110,16 +91,12 @@ public class KubectlJobExecutor {
     String jsonPath = "{.contexts[?(@.name==\"" + configCurrentContext + "\")].context.namespace}";
     command.add("\"jsonPath=" + jsonPath + "\"");
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-      System.getenv(),
-      new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
+    if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException("Failed get current configuration context");
     }
-    return status.getStdOut();
+    return status.getOutput();
   }
 
   public String logs(KubernetesV2Credentials credentials, String namespace, String podName, String containerName) {
@@ -128,17 +105,27 @@ public class KubectlJobExecutor {
     command.add(podName);
     command.add("-c=" + containerName);
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Failed to get logs from " + podName + "/" + containerName + " in " + namespace + ": " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Failed to get logs from " + podName + "/" + containerName + " in " + namespace + ": " + status.getError());
     }
 
-    return status.getStdOut();
+    return status.getOutput();
+  }
+
+  public String jobLogs(KubernetesV2Credentials credentials, String namespace, String jobName) {
+    List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+    command.add("logs");
+    command.add("job/"+jobName);
+
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
+
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Failed to get logs from job/" + jobName + " in " + namespace + ": " + status.getError());
+    }
+
+    return status.getOutput();
   }
 
   public List<String> delete(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, V1DeleteOptions deleteOptions) {
@@ -163,27 +150,23 @@ public class KubectlJobExecutor {
       throw new IllegalArgumentException("Propagation policy is not yet supported as a delete option");
     }
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
+    if (status.getResult() != JobResult.Result.SUCCESS) {
       String id;
       if (StringUtils.isNotEmpty(name)) {
         id = kind + "/" + name;
       } else {
         id = labelSelectors.toString();
       }
-      throw new KubectlException("Failed to delete " + id + " from " + namespace + ": " + status.getStdErr());
+      throw new KubectlException("Failed to delete " + id + " from " + namespace + ": " + status.getError());
     }
 
-    if (StringUtils.isEmpty(status.getStdOut()) || status.getStdOut().equals("No output from command.") || status.getStdOut().startsWith("No resources found")) {
+    if (StringUtils.isEmpty(status.getOutput()) || status.getOutput().equals("No output from command.") || status.getOutput().startsWith("No resources found")) {
       return new ArrayList<>();
     }
 
-    return Arrays.stream(status.getStdOut().split("\n"))
+    return Arrays.stream(status.getOutput().split("\n"))
         .map(m -> m.substring(m.indexOf("\"") + 1))
         .map(m -> m.substring(0, m.lastIndexOf("\"")))
         .collect(Collectors.toList());
@@ -196,14 +179,10 @@ public class KubectlJobExecutor {
     command = kubectlLookupInfo(command, kind, name, null);
     command.add("--replicas=" + replicas);
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Failed to scale " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Failed to scale " + kind + "/" + name + " from " + namespace + ": " + status.getError());
     }
 
     return null;
@@ -216,17 +195,13 @@ public class KubectlJobExecutor {
     command.add("history");
     command.add(kind.toString() + "/" + name);
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Failed to get rollout history of " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Failed to get rollout history of " + kind + "/" + name + " from " + namespace + ": " + status.getError());
     }
 
-    String stdout = status.getStdOut();
+    String stdout = status.getOutput();
     if (StringUtils.isEmpty(stdout)) {
       return new ArrayList<>();
     }
@@ -261,14 +236,10 @@ public class KubectlJobExecutor {
     command.add(kind.toString() + "/" + name);
     command.add("--to-revision=" + revision);
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Failed to undo rollout " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Failed to undo rollout " + kind + "/" + name + " from " + namespace + ": " + status.getError());
     }
 
     return null;
@@ -281,14 +252,10 @@ public class KubectlJobExecutor {
     command.add("pause");
     command.add(kind.toString() + "/" + name);
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Failed to pause rollout " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Failed to pause rollout " + kind + "/" + name + " from " + namespace + ": " + status.getError());
     }
 
     return null;
@@ -301,14 +268,10 @@ public class KubectlJobExecutor {
     command.add("resume");
     command.add(kind.toString() + "/" + name);
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Failed to resume rollout " + kind + "/" + name + " from " + namespace + ": " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Failed to resume rollout " + kind + "/" + name + " from " + namespace + ": " + status.getError());
     }
 
     return null;
@@ -319,54 +282,68 @@ public class KubectlJobExecutor {
     List<String> command = kubectlNamespacedGet(credentials, Collections.singletonList(kind), namespace);
     command.add(name);
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      if (status.getStdErr().contains("(NotFound)")) {
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      if (status.getError().contains("(NotFound)")) {
         return null;
-      } else if (status.getStdErr().contains(NO_RESOURCE_TYPE_ERROR)) {
-        throw new NoResourceTypeException(status.getStdErr());
+      } else if (status.getError().contains(NO_RESOURCE_TYPE_ERROR)) {
+        throw new NoResourceTypeException(status.getError());
       }
 
-      throw new KubectlException("Failed to read " + kind + " from " + namespace + ": " + status.getStdErr());
+      throw new KubectlException("Failed to read " + kind + " from " + namespace + ": " + status.getError());
     }
 
     try {
-      return gson.fromJson(status.getStdOut(), KubernetesManifest.class);
+      return gson.fromJson(status.getOutput(), KubernetesManifest.class);
     } catch (JsonSyntaxException e) {
       throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
     }
   }
 
-  public List<KubernetesManifest> list(KubernetesV2Credentials credentials, List<KubernetesKind> kinds, String namespace) {
-    String jobId = jobExecutor.startJob(new JobRequest(kubectlNamespacedGet(credentials, kinds, namespace)),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+  public List<KubernetesManifest> eventsFor(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+    List<String> command = kubectlNamespacedGet(credentials, Collections.singletonList(KubernetesKind.EVENT), namespace);
+    command.add("--field-selector");
+    command.add(String.format("involvedObject.name=%s,involvedObject.kind=%s", name, StringUtils.capitalize(kind.toString())));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
+    JobResult<List<KubernetesManifest>> status = jobExecutor.runJob(new JobRequest(command), parseManifestList());
 
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      if (status.getStdErr().contains(NO_RESOURCE_TYPE_ERROR)) {
-        throw new NoResourceTypeException(status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      if (status.getError().contains(NO_RESOURCE_TYPE_ERROR)) {
+        throw new NoResourceTypeException(status.getError());
       } else {
-        throw new KubectlException("Failed to read " + kinds + " from " + namespace + ": " + status.getStdErr());
+        throw new KubectlException("Failed to read events from " + namespace + ": " + status.getError());
       }
     }
 
-    if (status.getStdErr().contains("No resources found")) {
+    if (status.getError().contains("No resources found")) {
       return new ArrayList<>();
     }
 
-    try {
-      KubernetesManifestList list = gson.fromJson(status.getStdOut(), KubernetesManifestList.class);
-      return list.getItems();
-    } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
+    return status.getOutput();
+  }
+
+  public List<KubernetesManifest> list(KubernetesV2Credentials credentials, List<KubernetesKind> kinds, String namespace, KubernetesSelectorList selectors) {
+    List<String> command = kubectlNamespacedGet(credentials, kinds, namespace);
+    if (selectors.isNotEmpty()) {
+      command.add("-l=" + selectors.toString());
     }
+
+    JobResult<List<KubernetesManifest>> status = jobExecutor.runJob(new JobRequest(command), parseManifestList());
+
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      if (status.getError().contains(NO_RESOURCE_TYPE_ERROR)) {
+        throw new NoResourceTypeException(status.getError());
+      } else {
+        throw new KubectlException("Failed to read " + kinds + " from " + namespace + ": " + status.getError());
+      }
+    }
+
+    if (status.getError().contains("No resources found")) {
+      return new ArrayList<>();
+    }
+
+    return status.getOutput();
   }
 
   public Void deploy(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
@@ -379,57 +356,22 @@ public class KubectlJobExecutor {
     command.add("-f");
     command.add("-");
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(manifestAsJson.getBytes()));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(
+      command,
+      new ByteArrayInputStream(manifestAsJson.getBytes())
+    ));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Deploy failed: " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Deploy failed: " + status.getError());
     }
 
     return null;
   }
 
-  private JobStatus backoffWait(String jobId, boolean debug) {
-    long nextSleep = minSleepMillis;
-    long totalSleep = 0;
-    long interrupts = 0;
-    JobStatus jobStatus = null;
-
-    while (totalSleep < timeoutMillis && interrupts < maxInterruptRetries) {
-      try {
-        Thread.sleep(nextSleep);
-      } catch (InterruptedException e) {
-        log.warn("{} was interrupted", jobId, e);
-        interrupts += 1;
-      } finally {
-        totalSleep += nextSleep;
-        nextSleep = Math.min(nextSleep * 2, maxSleepMillis);
-      }
-
-      jobStatus = jobExecutor.updateJob(jobId);
-      if (jobStatus == null) {
-        log.warn("Job status couldn't be inferred from {}", jobId);
-      } else if (jobStatus.getState() == JobStatus.State.COMPLETED) {
-        if (debug) {
-          logDebugMessages(jobId, jobStatus);
-        }
-        return jobStatus;
-      }
-    }
-
-    if (debug) {
-      logDebugMessages(jobId, jobStatus);
-    }
-    throw new KubectlException("Job took too long to complete");
-  }
-
-  private void logDebugMessages(String jobId, JobStatus jobStatus) {
-    if (jobStatus != null) {
-      log.info("{} stdout:\n{}", jobId, jobStatus.getStdOut());
-      log.info("{} stderr:\n{}", jobId, jobStatus.getStdErr());
+  private void logDebugMessages(String jobId, JobResult<String> jobResult) {
+    if (jobResult != null) {
+      log.info("{} stdout:\n{}", jobId, jobResult.getOutput());
+      log.info("{} stderr:\n{}", jobId, jobResult.getError());
     } else {
       log.info("{} job status not set");
     }
@@ -517,16 +459,12 @@ public class KubectlJobExecutor {
     command.add(credentials.getOAuthServiceAccount());
     command.addAll(credentials.getOAuthScopes());
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-      System.getenv(),
-      new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Could not fetch OAuth token: " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Could not fetch OAuth token: " + status.getError());
     }
-    return status.getStdOut();
+    return status.getOutput();
   }
 
   public Collection<KubernetesPodMetric> topPod(KubernetesV2Credentials credentials, String namespace) {
@@ -536,19 +474,15 @@ public class KubectlJobExecutor {
     command.add("--containers");
 
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-        System.getenv(),
-        new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      throw new KubectlException("Could not read metrics: " + status.getStdErr());
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Could not read metrics: " + status.getError());
     }
 
     Map<String, KubernetesPodMetric> result = new HashMap<>();
 
-    String output = status.getStdOut().trim();
+    String output = status.getOutput().trim();
     if (StringUtils.isEmpty(output)) {
       log.warn("No output from `kubectl top` command, no metrics to report.");
       return new ArrayList<>();
@@ -601,9 +535,15 @@ public class KubectlJobExecutor {
     return result.values();
   }
 
+  public Void patch(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesPatchOptions options, List<JsonPatch> patches) {
+    return patch(credentials, kind, namespace, name, options, gson.toJson(patches));
+  }
 
-  public Void patch(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace,
-    String name, KubernetesPatchOptions options, KubernetesManifest manifest) {
+  public Void patch(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesPatchOptions options, KubernetesManifest manifest) {
+    return patch(credentials, kind, namespace, name, options, gson.toJson(manifest));
+  }
+
+  private Void patch(KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name, KubernetesPatchOptions options, String patchBody) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("patch");
@@ -621,23 +561,47 @@ public class KubectlJobExecutor {
     }
 
     command.add("--patch");
-    command.add(gson.toJson(manifest));
+    command.add(patchBody);
 
-    String jobId = jobExecutor.startJob(new JobRequest(command),
-      System.getenv(),
-      new ByteArrayInputStream(new byte[0]));
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    JobStatus status = backoffWait(jobId, credentials.isDebug());
-
-    if (status.getResult() != JobStatus.Result.SUCCESS) {
-      String errMsg = status.getStdErr();
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      String errMsg = status.getError();
       if (StringUtils.isEmpty(errMsg)) {
-        errMsg = status.getStdOut();
+        errMsg = status.getOutput();
       }
+      if (errMsg.contains("not patched")) {
+        log.warn("No change occurred after patching {} {}:{}, ignoring", kind, namespace, name);
+        return null;
+      }
+
       throw new KubectlException("Patch failed: " + errMsg);
     }
 
     return null;
+  }
+
+  private ReaderConsumer<List<KubernetesManifest>> parseManifestList() {
+    return (BufferedReader r) -> {
+      try (JsonReader reader = new JsonReader(r)) {
+        List<KubernetesManifest> manifestList = new ArrayList<>();
+        reader.beginObject();
+        while (reader.hasNext()) {
+          if (reader.nextName().equals("items")) {
+            reader.beginArray();
+            while (reader.hasNext()) {
+              KubernetesManifest manifest = gson.fromJson(reader, KubernetesManifest.class);
+              manifestList.add(manifest);
+            }
+            reader.endArray();
+          } else {
+            reader.skipValue();
+          }
+        }
+        reader.endObject();
+        return manifestList;
+      }
+    };
   }
 
   public static class NoResourceTypeException extends RuntimeException {

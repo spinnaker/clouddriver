@@ -23,6 +23,7 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
@@ -32,11 +33,11 @@ public class DeployCloudFoundryServerGroupDescription extends AbstractCloudFound
   private String accountName;
   private String application;
   private String stack;
-  private String detail;
+  private String freeFormDetails;
   private CloudFoundrySpace space;
-
-  @JsonIgnore
-  private Artifact artifact;
+  private boolean startApplication;
+  private Artifact applicationArtifact;
+  private Artifact manifest;
 
   @JsonIgnore
   private ArtifactCredentials artifactCredentials;
@@ -49,9 +50,23 @@ public class DeployCloudFoundryServerGroupDescription extends AbstractCloudFound
     private int instances;
     private String memory;
     private String diskQuota;
-    private String buildpack;
+
+    @Nullable
+    private String healthCheckType;
+
+    @Nullable
+    private String healthCheckHttpEndpoint;
+
+    @Nullable
     private List<String> routes;
-    private List<Map<String, String>> env;
+
+    @Nullable
+    private List<String> buildpacks;
+
+    @Nullable
+    private Map<String, String> env;
+
+    @Nullable
     private List<String> services;
   }
 }

@@ -18,14 +18,13 @@ package com.netflix.spinnaker.clouddriver.artifacts.s3;
 
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
-@EqualsAndHashCode(callSuper = true)
 @Data
-public class S3ArtifactAccount extends ArtifactAccount
-{
+public class S3ArtifactAccount implements ArtifactAccount {
   private String name;
   private String apiEndpoint;
   private String apiRegion;
   private String region;
+  private String awsAccessKeyId;
+  private String awsSecretAccessKey;
 }

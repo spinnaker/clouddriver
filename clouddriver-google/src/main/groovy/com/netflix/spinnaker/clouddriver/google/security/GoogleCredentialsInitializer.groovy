@@ -19,9 +19,12 @@ package com.netflix.spinnaker.clouddriver.google.security
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.google.ComputeVersion
+import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
+import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.config.GoogleConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
-import com.netflix.spinnaker.clouddriver.googlecommon.GoogleExecutor
+import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
@@ -39,6 +42,9 @@ class GoogleCredentialsInitializer implements CredentialsInitializerSynchronizab
 
   @Autowired
   GoogleExecutor _googleExecutor  // Not used, just here to force initialization ordering
+
+  @Autowired
+  NamerRegistry namerRegistry
 
   @Bean
   GoogleExecutor initGoogleExecutor() {  // This is to satisfy the autowiring
@@ -94,6 +100,7 @@ class GoogleCredentialsInitializer implements CredentialsInitializerSynchronizab
             .instanceTypeDisks(googleDeployDefaults.instanceTypeDisks)
             .userDataFile(managedAccount.userDataFile)
             .regionsToManage(managedAccount.regions, googleConfigurationProperties.defaultRegions)
+            .namer(namerRegistry.getNamingStrategy(managedAccount.namingStrategy))
             .build()
 
         if (!managedAccount.project) {

@@ -184,10 +184,13 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     serverGroup.placement.account = account
     serverGroup.placement.region = region
     serverGroup.scalingPolicies = serverGroupData.attributes.scalingPolicies
+    serverGroup.targetGroups = serverGroupData.attributes.targetGroups
     if (includeDetails) {
       serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns), Collections.singletonList(serverGroupData)).values()
+      if (serverGroup.targetGroups) {
+        awsLookupUtil.lookupTargetGroupHealth(job, serverGroup.instances)
+      }
     }
-    serverGroup.targetGroups = serverGroupData.attributes.targetGroups
     serverGroup.accountId = awsLookupUtil.awsAccountId(account, region)
     serverGroup.awsAccount = awsLookupUtil.lookupAccount(account, region)?.awsAccount
     serverGroup
@@ -292,17 +295,30 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
       Task task = objectMapper.convertValue(instanceEntry.attributes.task, Task)
 
       Job job
-      if (instanceEntry.attributes.job == null && instanceEntry.relationships[SERVER_GROUPS.ns] && !instanceEntry.relationships[SERVER_GROUPS.ns].empty) {
-        // job needs to be loaded because it was cached separately
-        job = jobData.get(instanceEntry.attributes.jobId)
-      } else {
-        job = objectMapper.convertValue(instanceEntry.attributes.job, Job)
-      }
+      if (instanceEntry.attributes.job != null || (instanceEntry.attributes.jobId != null &&
+          jobData.containsKey(instanceEntry.attributes.jobId))) {
+        if (instanceEntry.relationships[SERVER_GROUPS.ns]
+          && !instanceEntry.relationships[SERVER_GROUPS.ns].empty) {
+          // job needs to be loaded because it was cached separately
+          job = jobData.get(instanceEntry.attributes.jobId)
+        } else {
+          job = objectMapper.convertValue(instanceEntry.attributes.job, Job)
+        }
 
-      TitusInstance instance = new TitusInstance(job, task)
-      instance.health = instanceEntry.attributes[HEALTH.ns]
-      [(instanceEntry.id): instance]
-    }
+        if (job == null) {
+          log.error("Job is null for instance {}. Instance data {}.", instanceEntry.id, instanceEntry.toString())
+          return [:]
+        } else {
+          TitusInstance instance = new TitusInstance(job, task)
+          instance.health = instanceEntry.attributes[HEALTH.ns]
+          return [(instanceEntry.id): instance]
+        }
+
+      } else {
+        log.error("Job id is null for instance {}. Are there two jobs with the same server group name?", instanceEntry.id)
+        return [:]
+      }
+    }.findAll { it.key != null }
 
     Map<String, String> healthKeysToInstance = [:]
     instanceData.each { instanceEntry ->
@@ -316,8 +332,12 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     Collection<CacheData> healths = cacheView.getAll(HEALTH.ns, healthKeysToInstance.keySet(), RelationshipCacheFilter.none())
     healths.each { healthEntry ->
       def instanceId = healthKeysToInstance.get(healthEntry.id)
-      healthEntry.attributes.remove('lastUpdatedTimestamp')
-      instances[instanceId].health << healthEntry.attributes
+
+      // instances[:] may be a subset of instanceData from which healthKeysToInstance is built
+      if (instances.containsKey(instanceId) && instances[instanceId] != null) {
+        healthEntry.attributes.remove('lastUpdatedTimestamp')
+        instances[instanceId].health << healthEntry.attributes
+      }
     }
     return instances
   }

@@ -49,6 +49,8 @@ import static java.util.Collections.emptySet;
 @RequiredArgsConstructor
 @Slf4j
 public class Routes {
+  private static final Pattern VALID_ROUTE_REGEX = Pattern.compile("^([a-zA-Z0-9_-]+)\\.([a-zA-Z0-9_.-]+)(:[0-9]+)?([/a-zA-Z0-9_-]+)?$");
+
   private final String account;
   private final RouteService api;
   private final Applications applications;
@@ -105,13 +107,14 @@ public class Routes {
       queryParams.add("port:" + routeId.getPort().toString());
 
     return collectPageResources("route mappings", pg -> api.all(pg, queryParams))
-      .stream().findFirst().map(this::map).orElse(null);
+      .stream().filter(routeResource ->
+        (routeId.getPath() != null || routeResource.getEntity().getPath().isEmpty()) && (routeId.getPort() != null || routeResource.getEntity().getPort() == null)
+      ).findFirst().map(this::map).orElse(null);
   }
 
   @Nullable
   public RouteId toRouteId(String uri) throws CloudFoundryApiException {
-    Pattern pattern = Pattern.compile("^([a-zA-Z0-9_-]+)\\.([a-zA-Z0-9_.-]+)(:[0-9]+)?([/a-zA-Z0-9_-]+)?$");
-    Matcher matcher = pattern.matcher(uri);
+    Matcher matcher = VALID_ROUTE_REGEX.matcher(uri);
     if (matcher.find()) {
       CloudFoundryDomain domain = domains.findByName(matcher.group(2)).orElse(null);
       if (domain == null) {
@@ -161,5 +164,9 @@ public class Routes {
 
   public void deleteRoute(String loadBalancerGuid) throws CloudFoundryApiException {
     safelyCall(() -> api.deleteRoute(loadBalancerGuid));
+  }
+
+  public static boolean isValidRouteFormat(String route) {
+    return VALID_ROUTE_REGEX.matcher(route).find();
   }
 }

@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.lang.Double;
 
 public class KubernetesManifest extends HashMap<String, Object> {
   private static ObjectMapper mapper = new ObjectMapper();
@@ -51,7 +50,16 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   @JsonIgnore
   public KubernetesKind getKind() {
-    return KubernetesKind.fromString(getRequiredField(this, "kind"));
+    //using ApiVersion here allows a translation from a kind of NetworkPolicy in the manifest to something
+    //like  NetworkPolicy.crd.projectcalico.org for custom resources
+    String kindName = getRequiredField(this, "kind");
+    KubernetesApiGroup kubernetesApiGroup;
+    if (this.containsKey("apiVersion")) {
+      kubernetesApiGroup = getApiVersion().getApiGroup();
+    } else {
+      kubernetesApiGroup = null;
+    }
+    return KubernetesKind.getOrRegisterKind(kindName, true, true, kubernetesApiGroup);
   }
 
   @JsonIgnore
@@ -104,7 +112,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   public String getCreationTimestamp() {
     return getMetadata().containsKey("creationTimestamp")
       ? getMetadata().get("creationTimestamp").toString()
-      : null;
+      : "";
   }
 
   @JsonIgnore
@@ -116,6 +124,25 @@ public class KubernetesManifest extends HashMap<String, Object> {
     }
 
     return mapper.convertValue(ownerReferences, new TypeReference<List<OwnerReference>>() {});
+  }
+
+  @JsonIgnore
+  public KubernetesManifestSelector getManifestSelector() {
+    if (!containsKey("spec")) {
+      return null;
+    }
+
+    Map<String, Object> spec = (Map<String, Object>) get("spec");
+    if (!spec.containsKey("selector")) {
+      return null;
+    }
+
+    Map<String, Object> selector = (Map<String, Object>) spec.get("selector");
+    if (!selector.containsKey("matchExpressions") && !selector.containsKey("matchLabels")) {
+      return new KubernetesManifestSelector().setMatchLabels((Map<String, String>) spec.get("selector"));
+    } else {
+      return mapper.convertValue(selector, KubernetesManifestSelector.class);
+    }
   }
 
   @JsonIgnore
@@ -143,7 +170,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   @JsonIgnore
   public Double getReplicas() {
     if (!containsKey("spec")) {
-      return null; 
+      return null;
     }
 
     Map<String, Object> spec = (Map<String, Object>) get("spec");
@@ -163,7 +190,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
     Map<String, Object> spec = (Map<String, Object>) get("spec");
     if (!spec.containsKey("replicas")) {
       return;
-    } 
+    }
     spec.put("replicas", replicas);
   }
 
@@ -233,6 +260,33 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  public Double getObservedGeneration() {
+    Object statusObj = getStatus();
+    if (!(statusObj instanceof Map)) {
+      throw new IllegalStateException("Expected status to be a Map but was actually a " + statusObj.getClass());
+    }
+
+    Map<String, Object> status = (Map<String, Object>) statusObj;
+
+    Object observedGenObj = status.get("observedGeneration");
+
+    if (!(observedGenObj instanceof Double)) {
+      throw new IllegalStateException("Expected status.observedGeneration to be an Double but was actually a " + observedGenObj.getClass());
+    }
+    return (Double) observedGenObj;
+  }
+
+  @JsonIgnore
+  public Double getGeneration() {
+    Object generationObj = getMetadata().get("generation");
+
+    if (!(generationObj instanceof Double)) {
+      throw new IllegalStateException("Expected metadata.generation to be an Double but was actually a " + generationObj.getClass());
+    }
+    return (Double) generationObj;
+  }
+
+  @JsonIgnore
   public String getFullResourceName() {
     return getFullResourceName(getKind(), getName());
   }
@@ -241,17 +295,14 @@ public class KubernetesManifest extends HashMap<String, Object> {
     return String.join(" ", kind.toString(), name);
   }
 
+  @JsonIgnore
   public boolean isNewerThanObservedGeneration() {
-    try {
-      Long generation = (Long) getMetadata().get("generation");
-      Long observedGeneration = ((Map<String, Long>) getStatus()).get("observedGeneration");
-      if (observedGeneration == null || (generation != null && generation > observedGeneration)) {
-        return false;
-      }
-    } catch (ClassCastException e) {
-    }
-    return true;
+    Double generation = getGeneration();
+    Double observedGeneration = getObservedGeneration();
+
+    return generation > observedGeneration;
   }
+
   /*
    * The reasoning behind removing metadata for comparison is that it shouldn't affect the runtime behavior
    * of the resource we are creating.

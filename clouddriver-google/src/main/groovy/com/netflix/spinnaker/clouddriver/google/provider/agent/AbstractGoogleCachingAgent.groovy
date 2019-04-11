@@ -18,17 +18,20 @@ package com.netflix.spinnaker.clouddriver.google.provider.agent
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.api.client.googleapis.batch.BatchRequest
-import com.google.api.client.http.HttpRequest
-import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.services.compute.Compute
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AccountAware
 import com.netflix.spinnaker.cats.agent.CachingAgent
+import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
+import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource
+import com.netflix.spinnaker.clouddriver.google.names.GoogleLabeledResourceNamer
 import com.netflix.spinnaker.clouddriver.google.provider.GoogleInfrastructureProvider
+import com.netflix.spinnaker.clouddriver.google.batch.GoogleBatchRequest
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
+import com.netflix.spinnaker.moniker.Namer
 
 abstract class AbstractGoogleCachingAgent implements CachingAgent, AccountAware, GoogleExecutorTraits {
 
@@ -36,13 +39,17 @@ abstract class AbstractGoogleCachingAgent implements CachingAgent, AccountAware,
 
   final String providerName = GoogleInfrastructureProvider.name
 
+  final Namer<GoogleLabeledResource> naming
+
   String clouddriverUserAgentApplicationName // "Spinnaker/${version}" HTTP header string
   GoogleNamedAccountCredentials credentials
   ObjectMapper objectMapper
   Registry registry
 
   @VisibleForTesting
-  AbstractGoogleCachingAgent() {}
+  AbstractGoogleCachingAgent() {
+    this.naming = new GoogleLabeledResourceNamer()
+  }
 
   AbstractGoogleCachingAgent(String clouddriverUserAgentApplicationName,
                              GoogleNamedAccountCredentials credentials,
@@ -52,6 +59,10 @@ abstract class AbstractGoogleCachingAgent implements CachingAgent, AccountAware,
     this.credentials = credentials
     this.objectMapper = objectMapper
     this.registry = registry
+    this.naming = NamerRegistry.lookup()
+      .withProvider(GoogleCloudProvider.ID)
+      .withAccount(credentials.name)
+      .withResource(GoogleLabeledResource)
   }
 
   String getProject() {
@@ -70,22 +81,13 @@ abstract class AbstractGoogleCachingAgent implements CachingAgent, AccountAware,
     credentials?.name
   }
 
-  def executeIfRequestsAreQueued(BatchRequest batch, String instrumentationContext) {
-    if (batch.size()) {
-      timeExecuteBatch(batch, instrumentationContext)
-    }
+  GoogleBatchRequest buildGoogleBatchRequest() {
+    return new GoogleBatchRequest(compute, clouddriverUserAgentApplicationName)
   }
 
-  BatchRequest buildBatchRequest() {
-    return compute.batch(
-        new HttpRequestInitializer() {
-          @Override
-          void initialize(HttpRequest request) throws IOException {
-            request.headers.setUserAgent(clouddriverUserAgentApplicationName);
-            request.setConnectTimeout(2 * 60000)  // 2 minutes connect timeout
-            request.setReadTimeout(2 * 60000)  // 2 minutes read timeout
-          }
-        }
-    )
+  def executeIfRequestsAreQueued(GoogleBatchRequest googleBatchRequest, String instrumentationContext) {
+    if (googleBatchRequest.size()) {
+      timeExecuteBatch(googleBatchRequest, instrumentationContext)
+    }
   }
 }

@@ -33,6 +33,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.net.URL;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.mapping;
@@ -44,7 +45,7 @@ public class RegionScopedTitusClient implements TitusClient {
   /**
    * Default connect timeout in milliseconds
    */
-  private static final long DEFAULT_CONNECT_TIMEOUT = 60000;
+  private static final long DEFAULT_CONNECT_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
   /**
    * Default read timeout in milliseconds
@@ -65,6 +66,8 @@ public class RegionScopedTitusClient implements TitusClient {
   private final ObjectMapper objectMapper;
 
   private final JobManagementServiceGrpc.JobManagementServiceBlockingStub grpcBlockingStub;
+
+  private final JobManagementServiceGrpc.JobManagementServiceBlockingStub grpcNoDeadlineStub;
 
   private final RetrySupport retrySupport;
 
@@ -97,7 +100,12 @@ public class RegionScopedTitusClient implements TitusClient {
     } catch (Exception e) {
 
     }
-    this.grpcBlockingStub = JobManagementServiceGrpc.newBlockingStub(channelFactory.build(titusRegion, environment, eurekaName, DEFAULT_CONNECT_TIMEOUT, registry));
+
+    this.grpcBlockingStub = JobManagementServiceGrpc
+      .newBlockingStub(channelFactory.build(titusRegion, environment, eurekaName, connectTimeoutMillis, registry));
+
+    this.grpcNoDeadlineStub = JobManagementServiceGrpc
+      .newBlockingStub(channelFactory.build(titusRegion, environment, eurekaName, 0, registry));
 
     if (!titusRegion.getFeatureFlags().isEmpty()) {
       log.info("Experimental Titus V3 client feature flags {} enabled for account {} and region {}",
@@ -227,21 +235,21 @@ public class RegionScopedTitusClient implements TitusClient {
   }
 
   private void killTaskWithRetry(String id, TerminateTasksAndShrinkJobRequest terminateTasksAndShrinkJob) {
-      retrySupport.retry(() -> {
-        try {
-          return TitusClientAuthenticationUtil.attachCaller(grpcBlockingStub).killTask(
-            TaskKillRequest.newBuilder()
-              .setTaskId(id)
-              .setShrink(terminateTasksAndShrinkJob.isShrink())
-              .build()
-          );
-        } catch (io.grpc.StatusRuntimeException e) {
-          if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
-            log.warn("Titus task {} not found, continuing with terminate tasks and shrink job request.", id);
-            return Empty.newBuilder().build();
-          }
-          throw e;
+    retrySupport.retry(() -> {
+      try {
+        return TitusClientAuthenticationUtil.attachCaller(grpcBlockingStub).killTask(
+          TaskKillRequest.newBuilder()
+            .setTaskId(id)
+            .setShrink(terminateTasksAndShrinkJob.isShrink())
+            .build()
+        );
+      } catch (io.grpc.StatusRuntimeException e) {
+        if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
+          log.warn("Titus task {} not found, continuing with terminate tasks and shrink job request.", id);
+          return Empty.newBuilder().build();
         }
+        throw e;
+      }
     }, 3, 1000, false);
   }
 
@@ -324,6 +332,11 @@ public class RegionScopedTitusClient implements TitusClient {
 
     List<com.netflix.titus.grpc.protogen.Task> grpcTasks = getTasksWithFilter(taskQueryBuilder, 10000);
     return grpcTasks.stream().collect(Collectors.groupingBy(com.netflix.titus.grpc.protogen.Task::getJobId, mapping(com.netflix.titus.grpc.protogen.Task::getId, toList())));
+  }
+
+  @Override
+  public Iterator<JobChangeNotification> observeJobs(ObserveJobsQuery observeJobsQuery) {
+    return grpcNoDeadlineStub.observeJobs(observeJobsQuery);
   }
 
   private Map<String, List<com.netflix.titus.grpc.protogen.Task>> getTasks(List<String> jobIds, boolean includeDoneJobs) {

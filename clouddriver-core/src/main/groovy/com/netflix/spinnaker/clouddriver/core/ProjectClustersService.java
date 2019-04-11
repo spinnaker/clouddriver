@@ -99,7 +99,7 @@ public class ProjectClustersService {
   public List<ClusterModel> getProjectClusters(Project project) {
     List<String> applicationsToRetrieve = Optional.ofNullable(project.config.applications)
       .orElse(Collections.emptyList());
-    Map<String, Set<Cluster>> allClusters = retrieveClusters(applicationsToRetrieve);
+    Map<String, Set<Cluster>> allClusters = retrieveClusters(applicationsToRetrieve, project);
 
     return project.config.clusters.stream()
       .map(projectCluster -> {
@@ -122,11 +122,11 @@ public class ProjectClustersService {
       .collect(Collectors.toList());
   }
 
-  private Map<String, Set<Cluster>> retrieveClusters(List<String> applications) {
+  private Map<String, Set<Cluster>> retrieveClusters(List<String> applications, Project project) {
     Map<String, Set<Cluster>> allClusters = new HashMap<>();
 
     for (String application : applications) {
-      for (RetrievedClusters clusters : retrieveClusters(application)) {
+      for (RetrievedClusters clusters : retrieveClusters(application, project)) {
         allClusters.computeIfAbsent(clusters.application, s -> new HashSet<>())
           .addAll(clusters.clusters);
       }
@@ -150,19 +150,31 @@ public class ProjectClustersService {
       .collect(Collectors.toSet());
   }
 
-  private List<RetrievedClusters> retrieveClusters(String application) {
+  private List<RetrievedClusters> retrieveClusters(String application, Project project) {
     return clusterProviders.get().stream()
       .map(clusterProvider -> {
-        Map<String, Set<Cluster>> details = clusterProvider.getClusterDetails(application);
-        if (details == null) {
+        Map<String, Set<Cluster>> clusterSummariesByAccount = clusterProvider.getClusterSummaries(application);
+        if (clusterSummariesByAccount == null) {
           return null;
         }
-        return new RetrievedClusters(
-          application,
-          details.values().stream()
-            .flatMap(Collection::stream)
-            .collect(Collectors.toSet())
-        );
+
+        Set<Cluster> allClusterSummaries = clusterSummariesByAccount
+          .values()
+          .stream()
+          .flatMap(Collection::stream)
+          .collect(Collectors.toSet());
+
+        Set<Cluster> matchingClusterSummaries = new HashSet<>();
+        for (ProjectCluster projectCluster : project.config.clusters) {
+          matchingClusterSummaries.addAll(findClustersForProject(allClusterSummaries, projectCluster));
+        }
+
+        Set<Cluster> expandedClusters = matchingClusterSummaries
+          .stream()
+          .map(c -> clusterProvider.getCluster(c.getMoniker().getApp(), c.getAccountName(), c.getName()))
+          .collect(Collectors.toSet());
+
+        return new RetrievedClusters(application, expandedClusters);
       })
       .filter(Objects::nonNull)
       .collect(Collectors.toList());
@@ -210,12 +222,14 @@ public class ProjectClustersService {
     public String stack;
     public String detail;
     public List<ApplicationClusterModel> applications;
+    public ServerGroup.InstanceCounts instanceCounts;
 
     public ClusterModel(String account, String stack, String detail, List<ApplicationClusterModel> applications) {
       this.account = account;
       this.stack = stack;
       this.detail = detail;
       this.applications = applications;
+      this.instanceCounts = getInstanceCounts();
     }
 
     ServerGroup.InstanceCounts getInstanceCounts() {
@@ -241,7 +255,7 @@ public class ProjectClustersService {
         .flatMap(ac -> ac.getServerGroups().stream())
         .filter(serverGroup ->
           serverGroup != null &&
-            !serverGroup.isDisabled() &&
+            (serverGroup.isDisabled() == null || !serverGroup.isDisabled()) &&
             serverGroup.getInstanceCounts().getTotal() > 0)
         .forEach((ServerGroup serverGroup) -> {
           RegionClusterModel regionCluster = regionClusters.computeIfAbsent(
@@ -250,7 +264,9 @@ public class ProjectClustersService {
           );
           incrementInstanceCounts(serverGroup, regionCluster.instanceCounts);
 
-          JenkinsBuildInfo buildInfo = extractJenkinsBuildInfo(serverGroup.getImagesSummary().getSummaries());
+          ServerGroup.ImagesSummary imagesSummary = serverGroup.getImagesSummary();
+          List<? extends ServerGroup.ImageSummary> imageSummaries = imagesSummary == null ? new ArrayList() : imagesSummary.getSummaries();
+          JenkinsBuildInfo buildInfo = extractJenkinsBuildInfo(imageSummaries);
           Optional<DeployedBuild> existingBuild = regionCluster.builds.stream()
             .filter(b -> b.buildNumber.equals(buildInfo.number) &&
               Optional.ofNullable(b.host).equals(Optional.ofNullable(buildInfo.host)) &&
@@ -258,13 +274,23 @@ public class ProjectClustersService {
             .findFirst();
 
           new OptionalConsumer<>(
-            (DeployedBuild b) -> b.deployed = Math.max(b.deployed, serverGroup.getCreatedTime()),
+            (DeployedBuild b) -> {
+              b.deployed = Math.max(b.deployed, serverGroup.getCreatedTime());
+              List images = getServerGroupBuildInfoImages(imageSummaries);
+              if (images != null) {
+                images.forEach(image -> {
+                  if (image != null && !b.images.contains(image)) {
+                    b.images.add(image);
+                  }
+                });
+              }
+            },
             () -> regionCluster.builds.add(new DeployedBuild(
               buildInfo.host,
               buildInfo.name,
               buildInfo.number,
               serverGroup.getCreatedTime(),
-              getServerGroupBuildInfoImages(serverGroup.getImagesSummary().getSummaries())
+              getServerGroupBuildInfoImages(imageSummaries)
             ))
           ).accept(existingBuild);
         });

@@ -16,10 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.description;
 
-import com.amazonaws.services.elasticloadbalancingv2.model.ActionTypeEnum;
-import com.amazonaws.services.elasticloadbalancingv2.model.AuthenticateOidcActionConfig;
-import com.amazonaws.services.elasticloadbalancingv2.model.Certificate;
-import com.amazonaws.services.elasticloadbalancingv2.model.ProtocolEnum;
+import com.amazonaws.services.elasticloadbalancingv2.model.*;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,6 +26,7 @@ import java.util.Set;
 public class UpsertAmazonLoadBalancerV2Description extends UpsertAmazonLoadBalancerDescription {
   public List<Listener> listeners = new ArrayList<>();
   public List<TargetGroup> targetGroups = new ArrayList<>();
+  public Boolean deletionProtection = false;
 
   public static class TargetGroup {
     private String name;
@@ -45,7 +43,6 @@ public class UpsertAmazonLoadBalancerV2Description extends UpsertAmazonLoadBalan
     private Integer unhealthyThreshold = 2;
     private Integer healthyThreshold = 10;
     private String healthCheckMatcher = "200-299"; // string of ranges or individual http status codes, separated by commas
-
 
     public String getName() {
       return name;
@@ -283,6 +280,8 @@ public class UpsertAmazonLoadBalancerV2Description extends UpsertAmazonLoadBalan
     private String targetGroupName;
     private AuthenticateOidcActionConfig authenticateOidcActionConfig;
 
+    private RedirectActionConfig redirectActionConfig;
+
     public String getType() {
       return type;
     }
@@ -305,6 +304,14 @@ public class UpsertAmazonLoadBalancerV2Description extends UpsertAmazonLoadBalan
 
     public void setAuthenticateOidcActionConfig(AuthenticateOidcActionConfig authenticateOidcActionConfig) {
       this.authenticateOidcActionConfig = authenticateOidcActionConfig;
+    }
+
+    public RedirectActionConfig getRedirectActionConfig() {
+      return redirectActionConfig;
+    }
+
+    public void setRedirectActionConfig(RedirectActionConfig redirectActionConfig) {
+      this.redirectActionConfig = redirectActionConfig;
     }
   }
 

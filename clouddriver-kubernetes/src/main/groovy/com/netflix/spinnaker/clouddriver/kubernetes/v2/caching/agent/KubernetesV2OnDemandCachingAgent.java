@@ -77,8 +77,9 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
-      int agentCount) {
-    super(namedAccountCredentials, resourcePropertyRegistry, objectMapper, registry, agentIndex, agentCount);
+      int agentCount,
+      Long agentInterval) {
+    super(namedAccountCredentials, resourcePropertyRegistry, objectMapper, registry, agentIndex, agentCount, agentInterval);
     namer = NamerRegistry.lookup()
         .withProvider(KubernetesCloudProvider.getID())
         .withAccount(namedAccountCredentials.getName())
@@ -89,17 +90,20 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    log.info(getAgentType() + " is starting");
+    log.info(getAgentType() + ": agent is starting");
     reloadNamespaces();
+    Map<String, Object> details = defaultIntrospectionDetails();
 
     Long start = System.currentTimeMillis();
     Map<KubernetesKind, List<KubernetesManifest>> primaryResource;
     try {
       primaryResource = loadPrimaryResourceList();
     } catch (KubectlJobExecutor.NoResourceTypeException e) {
-      log.warn(getAgentType() + ": resource for this caching agent is not supported for this cluster");
+      log.error(getAgentType() + ": resource for this caching agent is not supported for this cluster. This will cause problems, please remove it from caching using the `omitKinds` config parameter.");
       return new DefaultCacheResult(new HashMap<>());
     }
+
+    details.put("timeSpentInKubectlMs", System.currentTimeMillis() - start);
 
     List<String> primaryKeys = primaryResource.values()
         .stream()
@@ -157,7 +161,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
         .put(ON_DEMAND_TYPE, evictFromOnDemand.stream().map(CacheData::getId).collect(Collectors.toList()))
         .build();
 
-    return new DefaultCacheResult(cacheResults, evictionResults);
+    return new DefaultCacheResult(cacheResults, evictionResults, details);
   }
 
   protected void mergeCacheResults(Map<String, Collection<CacheData>> current, Map<String, Collection<CacheData>> added) {
@@ -210,14 +214,14 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     cacheTime = cacheTime == null ? 0L : cacheTime;
     processedCount = processedCount == null ? 0 : processedCount;
 
-    return cacheTime >= lastFullRefresh || processedCount == 0;
+    return cacheTime >= lastFullRefresh || processedCount < 2;
   }
 
   private OnDemandAgent.OnDemandResult evictEntry(ProviderCache providerCache, KubernetesKind kind, String key) {
     Map<String, Collection<String>> evictions = new HashMap<>();
     CacheResult cacheResult = new DefaultCacheResult(new HashMap<>());
 
-    log.info("Evicting on demand '{}'", key);
+    log.info("{}: Evicting on demand '{}'", getAgentType(), key);
     providerCache.evictDeletedItems(ON_DEMAND_TYPE, Collections.singletonList(key));
     evictions.put(kind.toString(), Collections.singletonList(key));
 
@@ -256,8 +260,14 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     String name;
     KubernetesKind kind;
 
-    // todo(lwander): this can be removed
-    log.debug("Queried for on demand cache refresh of '{}'", data);
+    if (!getAccountName().equals(account)) {
+      return null;
+    }
+    
+    // No on-demand updates needed when live calls are used to check for status during orchestration
+    if (credentials.isLiveManifestCalls()) {
+      return null;
+    }
 
     try {
       Pair<KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(fullName);
@@ -273,7 +283,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     }
 
     if (!kind.isNamespaced() && StringUtils.isNotEmpty(namespace)) {
-      log.warn("Kind {} is not namespace but namespace {} was provided, ignoring", kind, namespace);
+      log.warn("{}: Kind {} is not namespace but namespace {} was provided, ignoring", getAgentType(), kind, namespace);
       namespace = "";
     }
 
@@ -284,7 +294,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
       return null;
     }
 
-    log.info("Accepted on demand refresh of '{}'", data);
+    log.info("{}: Accepted on demand refresh of '{}'", getAgentType(), data);
     OnDemandAgent.OnDemandResult result;
     KubernetesManifest manifest = loadPrimaryResource(kind, namespace, name);
     String resourceKey = Keys.infrastructure(kind, account, namespace, name);
@@ -295,7 +305,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
       return null;
     }
 
-    log.info("On demand cache refresh of (data: {}) succeeded", data);
+    log.info("{}: On demand cache refresh of (data: {}) succeeded", getAgentType(), data);
     return result;
   }
 

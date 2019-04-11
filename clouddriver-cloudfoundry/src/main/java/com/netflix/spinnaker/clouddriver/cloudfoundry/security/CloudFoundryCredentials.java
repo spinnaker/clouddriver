@@ -19,14 +19,17 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.security;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.HttpCloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonMap;
@@ -36,9 +39,14 @@ import static java.util.stream.Collectors.toList;
 @Getter
 @JsonIgnoreProperties({"credentials", "client"})
 public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryClient> {
+
   private final String name;
+
+  @Nullable
   private final String environment;
+
   private final String accountType = "cloudfoundry";
+
   private final String cloudProvider = "cloudfoundry";
 
   @Deprecated
@@ -46,10 +54,10 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
 
   private final CloudFoundryClient credentials;
 
-  public CloudFoundryCredentials(String name, String apiHost, String userName, String password, String environment) {
+  public CloudFoundryCredentials(String name, String appsManagerUri, String metricsUri, String apiHost, String userName, String password, String environment) {
     this.name = name;
-    this.environment = environment;
-    this.credentials = new CloudFoundryClient(name, apiHost, userName, password);
+    this.environment = Optional.ofNullable(environment).orElse("dev");
+    this.credentials = new HttpCloudFoundryClient(name, appsManagerUri, metricsUri, apiHost, userName, password);
   }
 
   public CloudFoundryClient getClient() {

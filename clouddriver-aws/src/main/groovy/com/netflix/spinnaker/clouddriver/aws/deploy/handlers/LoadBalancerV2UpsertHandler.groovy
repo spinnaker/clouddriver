@@ -18,43 +18,19 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.handlers
 
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing
-import com.amazonaws.services.elasticloadbalancingv2.model.Action
-import com.amazonaws.services.elasticloadbalancingv2.model.CreateListenerRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.CreateListenerResult
-import com.amazonaws.services.elasticloadbalancingv2.model.CreateLoadBalancerRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.CreateRuleRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.CreateTargetGroupRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.CreateTargetGroupResult
-import com.amazonaws.services.elasticloadbalancingv2.model.DeleteListenerRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.DeleteRuleRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.DeleteTargetGroupRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeListenersRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeRulesRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.Listener
-import com.amazonaws.services.elasticloadbalancingv2.model.ListenerNotFoundException
-import com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancer
-import com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancerTypeEnum
-import com.amazonaws.services.elasticloadbalancingv2.model.Matcher
-import com.amazonaws.services.elasticloadbalancingv2.model.ModifyListenerRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.ModifyTargetGroupAttributesRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.ModifyTargetGroupRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.ProtocolEnum
-import com.amazonaws.services.elasticloadbalancingv2.model.ResourceInUseException
-import com.amazonaws.services.elasticloadbalancingv2.model.Rule
-import com.amazonaws.services.elasticloadbalancingv2.model.RuleCondition
-import com.amazonaws.services.elasticloadbalancingv2.model.SetSecurityGroupsRequest
-import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroup
-import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroupAttribute
-import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
+import com.amazonaws.services.elasticloadbalancingv2.model.*
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerV2Description
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationException
+import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 
 class LoadBalancerV2UpsertHandler {
 
   private static final String BASE_PHASE = "UPSERT_ELB_V2"
+
+  private static final String ATTRIBUTE_IDLE_TIMEOUT = "idle_timeout.timeout_seconds"
+  private static final String ATTRIBUTE_DELETION_PROTECTION = "deletion_protection.enabled"
 
   private static Task getTask() {
     TaskRepository.threadLocalTask.get()
@@ -122,9 +98,16 @@ class LoadBalancerV2UpsertHandler {
           .withTargetType(targetGroup.targetType)
 
         if (targetGroup.healthCheckProtocol in [ProtocolEnum.HTTP, ProtocolEnum.HTTPS]) {
-          createTargetGroupRequest.withMatcher(new Matcher().withHttpCode(targetGroup.healthCheckMatcher))
+          createTargetGroupRequest
             .withHealthCheckPath(targetGroup.healthCheckPath)
-            .withHealthCheckTimeoutSeconds(targetGroup.healthCheckTimeout)
+
+          // HTTP(s) health checks for TCP does not support custom matchers and timeouts. Also, health thresholds must be equal.
+          if (targetGroup.protocol == ProtocolEnum.TCP) {
+            createTargetGroupRequest.withUnhealthyThresholdCount(createTargetGroupRequest.getHealthyThresholdCount())
+          } else {
+            createTargetGroupRequest.withMatcher(new Matcher().withHttpCode(targetGroup.healthCheckMatcher))
+              .withHealthCheckTimeoutSeconds(targetGroup.healthCheckTimeout)
+          }
         }
 
         CreateTargetGroupResult createTargetGroupResult = loadBalancing.createTargetGroup( createTargetGroupRequest )
@@ -180,9 +163,16 @@ class LoadBalancerV2UpsertHandler {
         .withUnhealthyThresholdCount(targetGroup.unhealthyThreshold)
 
       if (targetGroup.healthCheckProtocol in [ProtocolEnum.HTTP, ProtocolEnum.HTTPS]) {
-        modifyTargetGroupRequest.withMatcher(new Matcher().withHttpCode(targetGroup.healthCheckMatcher))
+        modifyTargetGroupRequest
           .withHealthCheckPath(targetGroup.healthCheckPath)
-          .withHealthCheckTimeoutSeconds(targetGroup.healthCheckTimeout)
+
+        // HTTP(s) health checks for TCP does not support custom matchers and timeouts. Also, health thresholds must be equal.
+        if (targetGroup.protocol == ProtocolEnum.TCP) {
+          modifyTargetGroupRequest.withUnhealthyThresholdCount(modifyTargetGroupRequest.getHealthyThresholdCount())
+        } else {
+          modifyTargetGroupRequest.withMatcher(new Matcher().withHttpCode(targetGroup.healthCheckMatcher))
+            .withHealthCheckTimeoutSeconds(targetGroup.healthCheckTimeout)
+        }
       }
 
       loadBalancing.modifyTargetGroup(modifyTargetGroupRequest)
@@ -315,6 +305,9 @@ class LoadBalancerV2UpsertHandler {
       } else if (action.type == "authenticate-oidc") {
         Action awsAction = new Action().withType(action.type).withAuthenticateOidcConfig(action.authenticateOidcActionConfig).withOrder(index + 1)
         awsActions.add(awsAction)
+      } else if (action.type == "redirect") {
+        Action awsAction = new Action().withType(action.type).withRedirectConfig(action.redirectActionConfig).withOrder(index + 1)
+        awsActions.add(awsAction)
       }
     }
     awsActions
@@ -325,7 +318,10 @@ class LoadBalancerV2UpsertHandler {
                                  Collection<String> securityGroups,
                                  List<UpsertAmazonLoadBalancerV2Description.TargetGroup> targetGroups,
                                  List<UpsertAmazonLoadBalancerV2Description.Listener> listeners,
-                                 DeployDefaults deployDefaults) {
+                                 DeployDefaults deployDefaults,
+                                 Integer idleTimeout,
+                                 Boolean deletionProtection
+  ) {
     def amazonErrors = []
     def loadBalancerName = loadBalancer.loadBalancerName
     def loadBalancerArn = loadBalancer.loadBalancerArn
@@ -342,6 +338,39 @@ class LoadBalancerV2UpsertHandler {
         ))
         task.updateStatus BASE_PHASE, "Security groups updated on ${loadBalancerName}."
       }
+    }
+
+    // Update load balancer attributes
+    def currentAttributes = loadBalancing.describeLoadBalancerAttributes(
+      new DescribeLoadBalancerAttributesRequest()
+        .withLoadBalancerArn(loadBalancerArn)
+    ).attributes
+
+    List<LoadBalancerAttribute> attributes = []
+
+    // idle timeout is only supported in application load balancers
+    if (loadBalancer.type == 'application') {
+      String currentIdleTimeout = currentAttributes.find { it.key == ATTRIBUTE_IDLE_TIMEOUT }?.getValue()
+      String newIdleTimeout = [idleTimeout, deployDefaults.loadBalancing.idleTimeout].findResult(Closure.IDENTITY).toString()
+      if (currentIdleTimeout != newIdleTimeout) {
+        task.updateStatus BASE_PHASE, "Setting idle timeout on ${loadBalancerName} to ${newIdleTimeout}."
+        attributes.add(new LoadBalancerAttribute().withKey(ATTRIBUTE_IDLE_TIMEOUT).withValue(newIdleTimeout))
+      }
+    }
+
+    String currentDeletionProtections = currentAttributes.find { it.key == ATTRIBUTE_DELETION_PROTECTION }?.getValue()
+    String newDeletionProtection = [deletionProtection, deployDefaults.loadBalancing.deletionProtection].findResult(Boolean.FALSE, Closure.IDENTITY).toString()
+    if (currentDeletionProtections != newDeletionProtection) {
+      task.updateStatus BASE_PHASE, "Setting deletion protection on ${loadBalancerName} to ${newDeletionProtection}."
+      attributes.add(new LoadBalancerAttribute().withKey(ATTRIBUTE_DELETION_PROTECTION).withValue(newDeletionProtection))
+    }
+
+    if (!attributes.isEmpty()) {
+      loadBalancing.modifyLoadBalancerAttributes(
+        new ModifyLoadBalancerAttributesRequest()
+          .withLoadBalancerArn(loadBalancerArn)
+          .withAttributes(attributes)
+      )
     }
 
     // Get the state of this load balancer from aws
@@ -451,7 +480,9 @@ class LoadBalancerV2UpsertHandler {
                                          List<UpsertAmazonLoadBalancerV2Description.TargetGroup> targetGroups,
                                          List<UpsertAmazonLoadBalancerV2Description.Listener> listeners,
                                          DeployDefaults deployDefaults,
-                                         String type) {
+                                         String type,
+                                         Integer idleTimeout,
+                                         boolean deletionProtection) {
     def request = new CreateLoadBalancerRequest().withName(loadBalancerName)
 
     // Networking Related
@@ -486,8 +517,9 @@ class LoadBalancerV2UpsertHandler {
     List<LoadBalancer> loadBalancers = result.getLoadBalancers()
     if (loadBalancers != null && loadBalancers.size() > 0) {
       createdLoadBalancer = loadBalancers.get(0)
-      updateLoadBalancer(loadBalancing, createdLoadBalancer, securityGroups, targetGroups, listeners, deployDefaults)
+      updateLoadBalancer(loadBalancing, createdLoadBalancer, securityGroups, targetGroups, listeners, deployDefaults, idleTimeout, deletionProtection)
     }
+
     createdLoadBalancer
   }
 }
