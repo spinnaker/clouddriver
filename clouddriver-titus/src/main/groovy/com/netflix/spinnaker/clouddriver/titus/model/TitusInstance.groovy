@@ -81,7 +81,8 @@ class TitusInstance implements Instance {
     finishedAt = task.finishedAt ? task.finishedAt.time : null
     stdoutLive = task.stdoutLive
     logs = task.logs
-    // For Titus tasks map the privateIp to containerIp for consistency purpose
+
+    // expose containerIp as privateIpAddress to remain consistent with aws
     privateIpAddress = task.containerIp ?: task.data?.ipAddresses?.nfvpc
   }
 
