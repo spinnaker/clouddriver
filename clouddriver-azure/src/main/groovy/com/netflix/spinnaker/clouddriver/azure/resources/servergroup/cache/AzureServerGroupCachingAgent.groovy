@@ -89,7 +89,7 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
 
     if (cacheServerGroups) {
       cacheServerGroups.each { cacheServerGroup ->
-        if(!cacheServerGroup.relationships.containsKey(AZURE_INSTANCES.ns)) {
+        if(cacheServerGroup.attributes.serverGroup.provisioningState == 'Succeeded' && !cacheServerGroup.relationships.containsKey(AZURE_INSTANCES.ns)) {
           def serverGroupName = cacheServerGroup.attributes.serverGroup.name
           removeDeadCacheEntries(result, providerCache, serverGroupName)
         }
