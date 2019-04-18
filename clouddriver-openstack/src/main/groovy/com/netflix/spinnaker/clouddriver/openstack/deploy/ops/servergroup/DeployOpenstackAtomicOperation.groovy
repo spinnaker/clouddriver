@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergrou
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.ServerGroupParameters
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.UserDataType
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
-import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.StackPoolMemberAware
 import com.netflix.spinnaker.clouddriver.openstack.domain.LoadBalancerResolver
@@ -36,7 +35,6 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
-import org.openstack4j.model.heat.Stack
 import org.openstack4j.model.network.Subnet
 
 import java.util.concurrent.ConcurrentHashMap

@@ -26,6 +26,7 @@ dependencies {
 
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootWeb')
+  compile spinnaker.dependency('slf4j')
 
   compile "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${spinnaker.version('jackson')}"
   compile "org.pacesys:openstack4j-core:$openstack4jVersion"

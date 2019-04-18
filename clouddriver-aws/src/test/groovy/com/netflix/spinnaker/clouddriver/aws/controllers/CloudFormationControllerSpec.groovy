@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.data.rest.webmvc.ResourceNotFoundException
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import spock.lang.Specification
 import spock.mock.DetachedMockFactory
 
@@ -34,16 +35,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
-@WebMvcTest(controllers = [CloudFormationController])
-@ContextConfiguration(classes = [CloudFormationController])
-@AutoConfigureMockMvc(secure=false)
 class CloudFormationControllerSpec extends Specification {
 
-  @Autowired
-  protected MockMvc mvc
+  MockMvc mockMvc
 
-  @Autowired
-  AmazonCloudFormationProvider cloudFormationProvider
+  AmazonCloudFormationProvider cloudFormationProvider = Mock(AmazonCloudFormationProvider)
+
+  void setup() {
+    mockMvc = MockMvcBuilders.standaloneSetup(
+      new CloudFormationController(cloudFormationProvider)
+    ).build()
+  }
 
   def "request a list of stacks returns all the stacks for a given account (any region)"() {
     given:
@@ -51,7 +53,7 @@ class CloudFormationControllerSpec extends Specification {
     cloudFormationProvider.list(accountName, '*') >> [ new CloudFormationStackTest(accountName: accountName) ]
 
     when:
-    def results = mvc.perform(get("/aws/cloudFormation/stacks?accountName=$accountName"))
+    def results = mockMvc.perform(get("/aws/cloudFormation/stacks?accountName=$accountName"))
 
     then:
     results.andExpect(status().is2xxSuccessful())
@@ -65,7 +67,7 @@ class CloudFormationControllerSpec extends Specification {
     cloudFormationProvider.list(accountName, region) >> [ new CloudFormationStackTest(accountName: accountName, region: region) ]
 
     when:
-    def results = mvc.perform(get("/aws/cloudFormation/stacks?accountName=$accountName&region=$region"))
+    def results = mockMvc.perform(get("/aws/cloudFormation/stacks?accountName=$accountName&region=$region"))
 
     then:
     results.andExpect(status().is2xxSuccessful())
@@ -79,7 +81,7 @@ class CloudFormationControllerSpec extends Specification {
     cloudFormationProvider.get(stackId) >> Optional.of(new CloudFormationStackTest(stackId: stackId))
 
     when:
-    def results = mvc.perform(get("/aws/cloudFormation/stacks/$stackId"))
+    def results = mockMvc.perform(get("/aws/cloudFormation/stacks/$stackId"))
 
     then:
     results.andExpect(status().is2xxSuccessful())
@@ -92,7 +94,7 @@ class CloudFormationControllerSpec extends Specification {
     cloudFormationProvider.get(stackId) >> { throw new ResourceNotFoundException() }
 
     when:
-    def results = mvc.perform(get("/aws/cloudFormation/stacks/$stackId"))
+    def results = mockMvc.perform(get("/aws/cloudFormation/stacks/$stackId"))
 
     then:
     results.andExpect(status().is(404))
@@ -112,16 +114,4 @@ class CloudFormationControllerSpec extends Specification {
     final String accountId
     final Date creationTime
   }
-
-  @TestConfiguration
-  static class StubConfig {
-
-    DetachedMockFactory detachedMockFactory = new DetachedMockFactory()
-
-    @Bean
-    AmazonCloudFormationProvider provider() {
-      detachedMockFactory.Stub(AmazonCloudFormationProvider)
-    }
-  }
-
 }

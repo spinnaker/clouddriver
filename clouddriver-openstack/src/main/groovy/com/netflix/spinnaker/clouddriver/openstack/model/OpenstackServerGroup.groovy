@@ -21,10 +21,6 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
-import com.netflix.spinnaker.clouddriver.model.ServerGroup.Capacity
-import com.netflix.spinnaker.clouddriver.model.ServerGroup.ImageSummary
-import com.netflix.spinnaker.clouddriver.model.ServerGroup.ImagesSummary
-import com.netflix.spinnaker.clouddriver.model.ServerGroup.InstanceCounts
 import com.netflix.spinnaker.clouddriver.openstack.OpenstackCloudProvider
 import groovy.transform.Canonical
 import groovy.transform.builder.Builder
@@ -55,7 +51,6 @@ class OpenstackServerGroup {
   View getView() {
     new View()
   }
-
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   @Canonical

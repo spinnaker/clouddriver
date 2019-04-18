@@ -35,7 +35,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.regex.Pattern;
 
 @Component
-@ConditionalOnExpression("${aws.lifecycleSubscribers.instanceTermination.enabled:false} && ${caching.writeEnabled:true}")
+@ConditionalOnExpression("${aws.lifecycle-subscribers.instance-termination.enabled:false} && ${caching.write-enabled:true}")
 public class InstanceTerminationLifecycleWorkerProvider {
   private final static String REGION_TEMPLATE_PATTERN = Pattern.quote("{{region}}");
   private final static String ACCOUNT_ID_TEMPLATE_PATTERN = Pattern.quote("{{accountId}}");

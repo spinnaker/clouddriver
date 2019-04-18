@@ -36,8 +36,12 @@ import java.util.List;
 @RestController
 class CloudFormationController {
 
-  @Autowired
   private AmazonCloudFormationProvider cloudFormationProvider;
+
+  @Autowired
+  public CloudFormationController(AmazonCloudFormationProvider cloudFormationProvider) {
+    this.cloudFormationProvider = cloudFormationProvider;
+  }
 
   @RequestMapping(method = RequestMethod.GET)
   List<CloudFormationStack> list(@RequestParam String accountName,

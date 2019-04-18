@@ -66,7 +66,6 @@ import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*;
 import static java.util.Collections.*;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-@Slf4j
 public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
 
   private static final TypeReference<Map<String, Object>> ANY_MAP = new TypeReference<Map<String, Object>>() {

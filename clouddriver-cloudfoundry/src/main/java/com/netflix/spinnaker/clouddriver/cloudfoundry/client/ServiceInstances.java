@@ -296,7 +296,8 @@ public class ServiceInstances {
     }
 
     List<Resource<T>> serviceInstances = collectPageResources("service instances by space and name",
-      pg -> func.apply(pg, getServiceQueryParams(Collections.singletonList(serviceInstanceName), space)));
+      pg -> func.apply(pg, getServiceQueryParams(Collections.singletonList(serviceInstanceName), space))
+    );
 
     if (serviceInstances.isEmpty()) {
       return null;

@@ -4,6 +4,7 @@ dependencies {
 
   spinnaker.group('amazon')
   spinnaker.group('retrofitDefault')
+  spinnaker.group("spockBase")
 
   compile spinnaker.dependency('kork')
   compile spinnaker.dependency('korkExceptions')

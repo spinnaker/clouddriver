@@ -22,7 +22,8 @@ import com.netflix.spinnaker.clouddriver.openstack.config.OpenstackConfiguration
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
-import org.apache.log4j.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -33,7 +34,7 @@ import org.springframework.stereotype.Component
 @Component
 @Configuration
 class OpenstackCredentialsInitializer implements CredentialsInitializerSynchronizable {
-  private static final Logger LOG = Logger.getLogger(this.class.simpleName)
+  private static final Logger LOG = LoggerFactory.getLogger(getClass())
 
   @Bean
   List<? extends OpenstackNamedAccountCredentials> openstackNamedAccountCredentials(OpenstackConfigurationProperties openstackConfigurationProperties,

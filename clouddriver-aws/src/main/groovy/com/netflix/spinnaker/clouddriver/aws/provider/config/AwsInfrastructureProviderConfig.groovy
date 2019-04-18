@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.config
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.awsobjectmapper.AmazonObjectMapper
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.Agent
@@ -47,7 +48,7 @@ class AwsInfrastructureProviderConfig {
   @DependsOn('netflixAmazonCredentials')
   AwsInfrastructureProvider awsInfrastructureProvider(AmazonClientProvider amazonClientProvider,
                                                       AccountCredentialsRepository accountCredentialsRepository,
-                                                      AmazonObjectMapper amazonObjectMapper,
+                                                      ObjectMapper amazonObjectMapper,
                                                       Registry registry,
                                                       EddaTimeoutConfig eddaTimeoutConfig) {
     def awsInfrastructureProvider =
@@ -82,7 +83,7 @@ class AwsInfrastructureProviderConfig {
   AwsInfrastructureProviderSynchronizer synchronizeAwsInfrastructureProvider(AwsInfrastructureProvider awsInfrastructureProvider,
                                                                              AmazonClientProvider amazonClientProvider,
                                                                              AccountCredentialsRepository accountCredentialsRepository,
-                                                                             AmazonObjectMapper amazonObjectMapper,
+                                                                             ObjectMapper amazonObjectMapper,
                                                                              Registry registry,
                                                                              EddaTimeoutConfig eddaTimeoutConfig) {
     def scheduledAccounts = ProviderUtils.getScheduledAccounts(awsInfrastructureProvider)

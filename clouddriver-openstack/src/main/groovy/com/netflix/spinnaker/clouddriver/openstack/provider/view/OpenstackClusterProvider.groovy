@@ -127,7 +127,9 @@ class OpenstackClusterProvider implements ClusterProvider<OpenstackCluster.View>
   }
 
   protected Map<String, Set<OpenstackCluster.View>> getClustersInternal(
-    final String applicationName, final boolean includeInstanceDetails) {
+    final String applicationName,
+    final boolean includeInstanceDetails
+  ) {
     Map<String, Set<OpenstackCluster.View>> result = null
 
     CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName))

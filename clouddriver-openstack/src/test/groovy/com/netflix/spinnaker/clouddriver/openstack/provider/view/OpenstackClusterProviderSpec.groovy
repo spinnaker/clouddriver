@@ -30,6 +30,7 @@ import org.mockito.internal.util.collections.Sets
 import redis.clients.jedis.exceptions.JedisException
 import spock.lang.Shared
 import spock.lang.Specification
+import spock.lang.Subject
 import spock.lang.Unroll
 
 import static com.netflix.spinnaker.clouddriver.openstack.cache.Keys.Namespace.APPLICATIONS
@@ -44,19 +45,14 @@ class OpenstackClusterProviderSpec extends Specification {
   @Shared
   String account = 'test'
 
-  OpenstackClusterProvider provider
-  OpenstackInstanceProvider instanceProvider
-  Cache cache
-  ObjectMapper objectMapper
+  OpenstackInstanceProvider instanceProvider = Mock(OpenstackInstanceProvider)
+  Cache cache = Mock(Cache)
+  ObjectMapper objectMapper = new ObjectMapper()
 
-  void "setup"() {
-    objectMapper = new ObjectMapper()
-    cache = Mock(Cache)
-    instanceProvider = Mock(OpenstackInstanceProvider)
-    provider = Spy(OpenstackClusterProvider, constructorArgs: [
-      new OpenstackCloudProvider(), cache, objectMapper, instanceProvider
-    ])
-  }
+  @Subject
+  OpenstackClusterProvider provider = new OpenstackClusterProvider(
+    new OpenstackCloudProvider(), cache, objectMapper, instanceProvider
+  )
 
   void "test all get clusters"() {
     given:
@@ -86,33 +82,6 @@ class OpenstackClusterProviderSpec extends Specification {
     throwable == thrownException
   }
 
-  void "test get clusters internal"() {
-    given:
-    boolean details = false
-    String appName = 'app'
-    String appKey = Keys.getApplicationKey(appName)
-    CacheData appCache = Mock(CacheData)
-    Map<String, Collection<String>> relationships = Mock(Map)
-    Collection<String> clusterKeys = Mock(Collection)
-    CacheData clusterData = Mock(CacheData)
-    Collection<CacheData> clusters = [clusterData]
-    OpenstackCluster.View cluster = Mock(OpenstackCluster.View)
-
-    when:
-    Map<String, Set<OpenstackCluster.View>> result = provider.getClustersInternal(appName, details)
-
-    then:
-    1 * cache.get(APPLICATIONS.ns, appKey) >> appCache
-    1 * appCache.relationships >> relationships
-    1 * relationships.get(CLUSTERS.ns) >> clusterKeys
-    1 * cache.getAll(CLUSTERS.ns, clusterKeys, _) >> clusters
-    1 * provider.clusterFromCacheData(_, _) >> cluster
-    1 * cluster.accountName >> account
-
-    and:
-    result == [(account): [cluster].toSet()]
-  }
-
   void "test get clusters internal exception"() {
     given:
     boolean details = false
@@ -129,99 +98,6 @@ class OpenstackClusterProviderSpec extends Specification {
     throwable == thrownException
   }
 
-  void "test get cluster summaries by app"() {
-    given:
-    String appName = 'app'
-    Map<String, Set<OpenstackCluster>> attributes = Mock(Map)
-
-    when:
-    Map<String, Set<OpenstackCluster>> result = provider.getClusterSummaries(appName)
-
-    then:
-    1 * provider.getClustersInternal(appName, false) >> attributes
-    result == attributes
-    noExceptionThrown()
-  }
-
-  void "test get cluster details by app"() {
-    given:
-    String appName = 'app'
-    Map<String, Set<OpenstackCluster>> attributes = Mock(Map)
-
-    when:
-    Map<String, Set<OpenstackCluster>> result = provider.getClusterDetails(appName)
-
-    then:
-    1 * provider.getClustersInternal(appName, true) >> attributes
-    result == attributes
-    noExceptionThrown()
-  }
-
-  void "test get clusters by app and account - #testCase"() {
-    given:
-    String appName = 'app'
-
-    when:
-    Set<OpenstackCluster> result = provider.getClusters(appName, account)
-
-    then:
-    1 * provider.getClusterDetails(appName) >> details
-    result == expected
-    noExceptionThrown()
-
-    where:
-    testCase       | details                                          | expected
-    'normal'       | [(account): Sets.newSet(new OpenstackCluster())] | Sets.newSet(new OpenstackCluster())
-    'empty'        | [(account): Sets.newSet()]                       | Sets.newSet()
-    'null'         | [(account): null]                                | null
-    'missing'      | [:]                                              | null
-    'null details' | null                                             | null
-  }
-
-  void "test get cluster by app, account, name - #testCase"() {
-    given:
-    String appName = 'app'
-    String name = 'name'
-
-    when:
-    OpenstackCluster.View result = provider.getCluster(appName, account, name)
-
-    then:
-    1 * provider.getClusters(appName, account) >> details
-    result == expected
-    noExceptionThrown()
-
-    where:
-    testCase    | details                                               | expected
-    'normal'    | Sets.newSet(new OpenstackCluster(name: 'name').view)  | new OpenstackCluster(name: 'name').view
-    'missing'   | Sets.newSet(new OpenstackCluster(name: 'namez').view) | null
-    'empty set' | Sets.newSet()                                         | null
-    'null set'  | null                                                  | null
-  }
-
-  void "test server group - #testCase"() {
-    given:
-    String name = 'name'
-    String region = 'region'
-    String serverGroupKey = Keys.getServerGroupKey(name, account, region)
-
-    when:
-    OpenstackServerGroup.View result = provider.getServerGroup(account, region, name)
-
-    then:
-    1 * cache.get(SERVER_GROUPS.ns, serverGroupKey, _) >> cacheData
-    if (cacheData) {
-      1 * provider.serverGroupFromCacheData(cacheData) >> expected
-    }
-    result == expected
-    noExceptionThrown()
-
-    where:
-    testCase  | cacheData       | expected
-    'normal'  | Mock(CacheData) | Mock(OpenstackServerGroup.View)
-    'no data' | null            | null
-  }
-
   void "test server group exception"() {
     given:
     String name = 'name'
@@ -236,39 +112,6 @@ class OpenstackClusterProviderSpec extends Specification {
     1 * cache.get(SERVER_GROUPS.ns, serverGroupKey, _) >> { throw throwable }
     Throwable thrownException = thrown(JedisException)
     throwable == thrownException
-  }
-
-  void "test cluster from cache data"() {
-    given:
-    boolean details = true
-    CacheData cacheData = Mock(CacheData)
-    Map<String, Collection<String>> relationships = Mock(Map)
-    Collection<String> serverGroupKeys = Mock(Collection)
-    Map<String, Object> attributes = [accountName: account, name: 'name']
-    CacheData serverGroupCache = Mock(CacheData)
-    OpenstackServerGroup.View openstackServerGroup = Mock(OpenstackServerGroup.View)
-    OpenstackLoadBalancer.View openstackLoadBalancer = Mock(OpenstackLoadBalancer.View)
-
-    when:
-    OpenstackCluster.View result = provider.clusterFromCacheData(cacheData, details)
-
-    then:
-    1 * cacheData.attributes >> attributes
-    1 * cacheData.relationships >> relationships
-    1 * relationships.get(SERVER_GROUPS.ns) >> serverGroupKeys
-    1 * cache.getAll(SERVER_GROUPS.ns, serverGroupKeys, _) >> [serverGroupCache]
-    1 * provider.serverGroupFromCacheData(serverGroupCache) >> openstackServerGroup
-    1 * provider.loadBalancersFromCacheData(serverGroupCache) >> [openstackLoadBalancer]
-
-    and:
-    result.with {
-      assert accountName == account
-      assert name == 'name'
-      assert serverGroups.size() == 1
-      assert loadBalancers.size() == 1
-      it
-    }
-    noExceptionThrown()
   }
 
   void "test cluster from cache data - no server groups"() {

@@ -35,6 +35,7 @@ dependencies {
   compile spinnaker.dependency('bootActuator')
   compile spinnaker.dependency('bootDataRest')
   testCompile spinnaker.dependency('bootTest')
+  testCompile spinnaker.dependency('slf4j')
   //this brings in the jetty GzipFilter which boot will autoconfigure
   runtime 'org.eclipse.jetty:jetty-servlets:9.2.11.v20150529'
 

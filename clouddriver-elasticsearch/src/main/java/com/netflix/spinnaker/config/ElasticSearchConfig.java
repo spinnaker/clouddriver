@@ -33,7 +33,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConditionalOnProperty({"elasticSearch.connection"})
+@ConditionalOnProperty({"elastic-search.connection"})
 @ComponentScan({"com.netflix.spinnaker.clouddriver.elasticsearch"})
 @EnableConfigurationProperties(ElasticSearchConfigProperties.class)
 public class ElasticSearchConfig {
