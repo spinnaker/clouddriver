@@ -59,8 +59,8 @@ class ZoneGoogleServerGroupManagers extends AbstractGoogleServerGroupManagers {
   List<String> getRegionOrZoneTags() {
     return ImmutableList.of(
         GoogleExecutor.getTAG_SCOPE(),
-        GoogleExecutor.getSCOPE_REGIONAL(),
-        GoogleExecutor.getTAG_REGION(),
+        GoogleExecutor.getSCOPE_ZONAL(),
+        GoogleExecutor.getTAG_ZONE(),
         zone);
   }
 
