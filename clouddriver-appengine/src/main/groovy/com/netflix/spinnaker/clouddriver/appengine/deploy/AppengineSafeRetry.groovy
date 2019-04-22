@@ -28,7 +28,7 @@ class AppengineSafeRetry extends GoogleCommonSafeRetry {
   @Value('${appengine.safe-retry-max-wait-interval-ms:60000}')
   Long maxWaitInterval
 
-  @Value('${appengine.safe-retry-retry-interval-baseSec:2}')
+  @Value('${appengine.safe-retry-retry-interval-base-sec:2}')
   Long retryIntervalBase
 
   @Value('${appengine.safe-retry-jitter-multiplier:1000}')
