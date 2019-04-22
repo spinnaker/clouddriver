@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// IMPORTANT: https://github.com/spinnaker/spinnaker/issues/4316
+test.enabled = false
+
 ext {
   openstack4jVersion = '3.1.0'
   commonsNetVersion = '3.5'
