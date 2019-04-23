@@ -44,7 +44,7 @@ public class CreateCloudFoundryServiceKeyAtomicOperation implements AtomicOperat
     String serviceKeyName = description.getServiceKeyName();
     task.updateStatus(PHASE, "Creating service key '" + serviceKeyName + "' for service '" + serviceInstanceName + "' in '" + space.getRegion() + "'");
 
-    ServiceKeyResponse results = description.getClient().getServiceInstances().createServiceKey(space, serviceInstanceName, serviceKeyName);
+    ServiceKeyResponse results = description.getClient().getServiceKeys().createServiceKey(space, serviceInstanceName, serviceKeyName);
 
     task.updateStatus(PHASE, "Finished creating service key '" + serviceKeyName + "'");
 

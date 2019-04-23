@@ -59,14 +59,14 @@ class CreateCloudFoundryServiceKeyAtomicOperationTest extends AbstractCloudFound
       .setServiceInstanceName(serviceInstanceName)
       .setType(CREATE_SERVICE_KEY)
       .setState(SUCCEEDED);
-    when(client.getServiceInstances().createServiceKey(any(), any(), any()))
+    when(client.getServiceKeys().createServiceKey(any(), any(), any()))
       .thenReturn(serviceKeyResponse);
 
     CreateCloudFoundryServiceKeyAtomicOperation op = new CreateCloudFoundryServiceKeyAtomicOperation(desc);
 
     Task task = runOperation(op);
 
-    verify(client.getServiceInstances()).createServiceKey(eq(cloudFoundrySpace), eq(serviceInstanceName), eq(serviceKeyName));
+    verify(client.getServiceKeys()).createServiceKey(eq(cloudFoundrySpace), eq(serviceInstanceName), eq(serviceKeyName));
     assertThat(task.getHistory())
       .has(status("Creating service key 'service-key-name' for service 'service-instance-name' in 'org > space'"),
         atIndex(1));
@@ -90,14 +90,14 @@ class CreateCloudFoundryServiceKeyAtomicOperationTest extends AbstractCloudFound
     desc.setServiceKeyName(serviceKeyName);
     desc.setClient(client);
 
-    when(client.getServiceInstances().createServiceKey(any(), any(), any()))
+    when(client.getServiceKeys().createServiceKey(any(), any(), any()))
       .thenThrow(new CloudFoundryApiException("Much fail"));
 
     CreateCloudFoundryServiceKeyAtomicOperation op = new CreateCloudFoundryServiceKeyAtomicOperation(desc);
 
     Task task = runOperation(op);
 
-    verify(client.getServiceInstances()).createServiceKey(eq(cloudFoundrySpace), eq(serviceInstanceName), eq(serviceKeyName));
+    verify(client.getServiceKeys()).createServiceKey(eq(cloudFoundrySpace), eq(serviceInstanceName), eq(serviceKeyName));
     assertThat(task.getHistory().size()).isEqualTo(2);
     assertThat(task.getHistory())
       .has(status("Creating service key 'service-key-name' for service 'service-instance-name' in 'org > space'"),
