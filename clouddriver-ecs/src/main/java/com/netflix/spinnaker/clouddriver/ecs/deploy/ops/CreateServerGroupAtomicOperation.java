@@ -157,6 +157,24 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     Collection<PortMapping> portMappings = new LinkedList<>();
     portMappings.add(portMapping);
 
+    if (description.getServiceDiscoveryAssociations() != null) {
+      for (CreateServerGroupDescription.ServiceDiscoveryAssociation config : description.getServiceDiscoveryAssociations()) {
+        if (config.getContainerPort() != null && config.getContainerPort() != 0 && config.getContainerPort() != description.getContainerPort()) {
+          portMapping = new PortMapping().withProtocol("tcp");
+          if (AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
+            portMapping
+              .withHostPort(config.getContainerPort())
+              .withContainerPort(config.getContainerPort());
+          } else {
+            portMapping
+              .withHostPort(0)
+              .withContainerPort(config.getContainerPort());
+          }
+          portMappings.add(portMapping);
+        }
+      }
+    }
+
     ContainerDefinition containerDefinition = new ContainerDefinition()
       .withName(EcsServerGroupNameResolver.getEcsContainerName(newServerGroupName))
       .withEnvironment(containerEnvironment)
@@ -238,6 +256,25 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       desiredCount = sourceService.getDesiredCount();
     }
 
+    Collection<ServiceRegistry> serviceRegistries = new LinkedList<>();
+    if (description.getServiceDiscoveryAssociations() != null) {
+      for (CreateServerGroupDescription.ServiceDiscoveryAssociation config : description.getServiceDiscoveryAssociations()) {
+        ServiceRegistry registryEntry = new ServiceRegistry().withRegistryArn(config.getRegistry().getArn());
+
+        if (config.getContainerPort() != null && config.getContainerPort() != 0) {
+          registryEntry.setContainerPort(config.getContainerPort());
+
+          if (StringUtils.isEmpty(config.getContainerName())) {
+            registryEntry.setContainerName(EcsServerGroupNameResolver.getEcsContainerName(newServerGroupName));
+          } else {
+            registryEntry.setContainerName(config.getContainerName());
+          }
+        }
+
+        serviceRegistries.add(registryEntry);
+      }
+    }
+
     String taskDefinitionArn = taskDefinition.getTaskDefinitionArn();
 
     DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration()
@@ -251,6 +288,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withLoadBalancers(loadBalancers)
       .withTaskDefinition(taskDefinitionArn)
       .withPlacementStrategy(description.getPlacementStrategySequence())
+      .withServiceRegistries(serviceRegistries)
       .withDeploymentConfiguration(deploymentConfiguration);
 
     if (!AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
