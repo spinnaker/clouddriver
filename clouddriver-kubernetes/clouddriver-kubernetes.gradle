@@ -1,17 +1,22 @@
 dependencies {
-  spinnaker.group('kubernetes')
-  compile project(":clouddriver-artifacts")
-  compile project(":clouddriver-core")
-  compile project(":clouddriver-docker")
-  compile spinnaker.dependency('bootActuator')
-  compile spinnaker.dependency('bootWeb')
-  compile spinnaker.dependency('frigga')
-  compile spinnaker.dependency('korkArtifacts')
-  compile spinnaker.dependency('lombok')
+  api "io.fabric8:kubernetes-client:4.0.0"
+  api project(":clouddriver-artifacts")
+  api project(":clouddriver-core")
+  api project(":clouddriver-docker")
+  api "org.springframework.boot:spring-boot-actuator"
+  api "org.springframework.boot:spring-boot-starter-web"
+  api "com.netflix.frigga:frigga"
+  api "com.netflix.spinnaker.kork:kork-artifacts"
+  api "com.netflix.spinnaker.moniker:moniker"
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
 
-  // TODO(lwander) move to spinnaker-dependencies when library stabilizes
-  compile 'io.kubernetes:client-java:1.0.0-beta1'
-  compile 'com.github.fge:json-patch:1.9'
-  compile spinnaker.dependency("moniker")
-  compile 'com.jayway.jsonpath:json-path:2.3.0'
+  api "io.kubernetes:client-java:1.0.0-beta1"
+  api "com.github.fge:json-patch:1.9"
+  api 'com.jayway.jsonpath:json-path:2.3.0'
+
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
 }

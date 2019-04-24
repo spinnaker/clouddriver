@@ -1,21 +1,39 @@
 dependencies {
-  compile project(":clouddriver-core")
-  compile project(":clouddriver-eureka")
+  api project(":clouddriver-core")
+  api project(":clouddriver-eureka")
 
-  spinnaker.group('amazon')
-  spinnaker.group('retrofitDefault')
-  spinnaker.group("spockBase")
+  api "com.amazonaws:aws-java-sdk"
+  api "com.netflix.awsobjectmapper:awsobjectmapper"
+  api "org.apache.httpcomponents:httpclient"
+  api "org.apache.httpcomponents:httpcore"
 
-  compile spinnaker.dependency('kork')
-  compile spinnaker.dependency('korkExceptions')
-  compile spinnaker.dependency('bootActuator')
-  compile spinnaker.dependency('bootWeb')
-  compile spinnaker.dependency('frigga')
-  compile spinnaker.dependency('rxJava')
-  compile spinnaker.dependency('httpclient')
-  compile spinnaker.dependency('guava')
+  api "com.squareup.retrofit:retrofit"
+  api "com.squareup.okhttp:okhttp"
+  api "com.squareup.okhttp:okhttp-urlconnection"
+  api "com.squareup.okhttp:okhttp-apache"
+  api "com.squareup.retrofit:converter-jackson"
 
-  compile 'com.aestasit.infrastructure.sshoogr:sshoogr:0.9.25'
-  compile 'com.jcraft:jsch.agentproxy.jsch:0.0.9'
-  compile 'com.jcraft:jsch.agentproxy.connector-factory:0.0.9'
+  api "org.springframework.boot:spring-boot-actuator"
+  api "org.springframework.boot:spring-boot-starter-web"
+  api "com.netflix.frigga:frigga"
+
+  api "com.netflix.spinnaker.kork:kork-exceptions"
+  api "com.netflix.spinnaker.kork:kork-core"
+  api "io.reactivex:rxjava"
+
+  api "com.google.guava:guava"
+
+  api 'com.aestasit.infrastructure.sshoogr:sshoogr:0.9.25'
+  api 'com.jcraft:jsch.agentproxy.jsch:0.0.9'
+  api 'com.jcraft:jsch.agentproxy.connector-factory:0.0.9'
+
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "org.springframework:spring-test"
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
+  testImplementation "junit:junit"
+  testImplementation "com.natpryce:hamkrest"
+
+  testImplementation "org.springframework.boot:spring-boot-starter-test"
 }

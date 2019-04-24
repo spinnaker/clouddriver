@@ -1,6 +1,11 @@
 dependencies {
-  compile project(":clouddriver-core")
-  compile spinnaker.dependency('bootActuator')
-  compile spinnaker.dependency('bootWeb')
-  compile 'com.cerner.marathon:marathon-client:0.6.3'
+  api project(":clouddriver-core")
+  api "org.springframework.boot:spring-boot-actuator"
+  api "org.springframework.boot:spring-boot-starter-web"
+  api 'com.cerner.marathon:marathon-client:0.6.3'
+
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
 }

@@ -22,18 +22,26 @@ repositories {
 dependencies {
   protobuf 'com.netflix.titus:titus-api-definitions:0.0.1-rc59'
 
-  compile "com.google.protobuf:protobuf-java:$protobufVersion"
-  compile "io.grpc:grpc-protobuf:$grpcVersion"
-  compile "io.grpc:grpc-stub:$grpcVersion"
-  compile "io.grpc:grpc-netty-shaded:$grpcVersion"
-  compile project(":clouddriver-aws")
-  compile project(":clouddriver-core")
-  compile project(":clouddriver-eureka")
-  compile spinnaker.dependency('bootActuator')
-  compile spinnaker.dependency('bootWeb')
-  compile 'com.squareup.okhttp3:okhttp:3.1.2'
-  testCompile "org.slf4j:slf4j-simple:${spinnaker.version('slf4j')}"
-  spinnaker.group('test')
+  api "com.google.protobuf:protobuf-java:$protobufVersion"
+  api "io.grpc:grpc-protobuf:$grpcVersion"
+  api "io.grpc:grpc-stub:$grpcVersion"
+  api "io.grpc:grpc-netty-shaded:$grpcVersion"
+  api project(":clouddriver-aws")
+  api project(":clouddriver-core")
+  api project(":clouddriver-eureka")
+  api "org.springframework.boot:spring-boot-actuator"
+  api "org.springframework.boot:spring-boot-starter-web"
+  api "com.squareup.okhttp3:okhttp:3.1.2"
+
+  testImplementation "org.slf4j:slf4j-simple"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "org.springframework:spring-test"
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
+  testImplementation "junit:junit"
+  testImplementation "org.hamcrest:hamcrest-core"
+
 }
 
 sourceSets {

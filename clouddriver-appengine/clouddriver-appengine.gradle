@@ -1,15 +1,19 @@
 dependencies {
-  compile project(":clouddriver-artifacts")
-  compile project(":clouddriver-core")
-  compile project(":clouddriver-google-common")
-  compile spinnaker.dependency("frigga")
-  compile spinnaker.dependency("bootActuator")
-  compile spinnaker.dependency("bootWeb")
-  compile spinnaker.dependency("korkArtifacts")
+  api project(":clouddriver-artifacts")
+  api project(":clouddriver-core")
+  api project(":clouddriver-google-common")
+  api "org.springframework.boot:spring-boot-actuator"
+  api "org.springframework.boot:spring-boot-starter-web"
+  api "com.netflix.frigga:frigga"
+  api "com.netflix.spinnaker.kork:kork-artifacts"
 
-  // TODO(dpeach): move to spinnaker/spinnaker-dependencies.
-  compile "com.google.apis:google-api-services-appengine:v1-rev92-1.25.0"
-  compile "org.eclipse.jgit:org.eclipse.jgit:5.2.1.201812262042-r"
+  api "com.google.apis:google-api-services-appengine:v1-rev92-1.25.0"
+  api "org.eclipse.jgit:org.eclipse.jgit:5.2.1.201812262042-r"
 
-  compile spinnaker.dependency("googleStorage")
+  api "com.google.apis:google-api-services-storage"
+
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
 }

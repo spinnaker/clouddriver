@@ -1,26 +1,37 @@
 dependencies {
-  spinnaker.group('retrofitDefault')
+  api "com.squareup.retrofit:retrofit"
+  api "com.squareup.okhttp:okhttp"
+  api "com.squareup.okhttp:okhttp-urlconnection"
+  api "com.squareup.okhttp:okhttp-apache"
+  api "com.squareup.retrofit:converter-jackson"
 
-  compile spinnaker.dependency('bootActuator')
-  compile spinnaker.dependency('bootDataRest')
-  compile spinnaker.dependency("commonsExec")
-  compile spinnaker.dependency('rxJava')
-  compile spinnaker.dependency('kork')
-  compile spinnaker.dependency('korkArtifacts')
-  compile spinnaker.dependency('korkWeb')
-  compile spinnaker.dependency('eurekaClient')
-  compile spinnaker.dependency("jedis")
-  compile spinnaker.dependency("frigga")
-  compile spinnaker.dependency("lombok")
-  compile spinnaker.dependency('logstashEncoder')
-  compile spinnaker.dependency("moniker")
+  api "org.springframework.boot:spring-boot-actuator"
+  api "org.springframework.boot:spring-boot-starter-data-rest"
+  api "org.apache.commons:commons-exec:1.3"
+  api "io.reactivex:rxjava"
 
-  compile project(':cats:cats-core')
-  compile project(':cats:cats-redis')
-  compile project(':cats:cats-dynomite')
-  compile project(':clouddriver-security')
-  testCompile project(':cats:cats-test')
-  testCompile spinnaker.dependency('korkJedisTest')
-  testCompile project(":clouddriver-core-tck")
+  api "com.netflix.spinnaker.kork:kork-core"
+  api "com.netflix.spinnaker.kork:kork-artifacts"
+  api "com.netflix.spinnaker.kork:kork-web"
+  api "com.netflix.eureka:eureka-client"
+  api "redis.clients:jedis"
+  api "com.netflix.frigga:frigga"
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  compileOnly "net.logstash.logback:logstash-logback-encoder"
+  api "com.netflix.spinnaker.moniker:moniker"
+
+  api project(":cats:cats-core")
+  api project(":cats:cats-redis")
+  api project(":cats:cats-dynomite")
+  api project(":clouddriver-security")
+  testImplementation project(":cats:cats-test")
+  testImplementation "com.netflix.spinnaker.kork:kork-jedis-test"
+  testImplementation project(":clouddriver-core-tck")
+
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
 
 }

@@ -1,7 +1,23 @@
 dependencies {
-  compile project(":clouddriver-aws")
-  compile spinnaker.dependency('lombok')
+  api project(":clouddriver-aws")
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
 
-  spinnaker.group('amazon')
-  spinnaker.group('retrofitDefault')
+  api "com.amazonaws:aws-java-sdk"
+  api "com.netflix.awsobjectmapper:awsobjectmapper"
+  api "org.apache.httpcomponents:httpclient"
+  api "org.apache.httpcomponents:httpcore"
+
+  api "com.squareup.retrofit:retrofit"
+  api "com.squareup.okhttp:okhttp"
+  api "com.squareup.okhttp:okhttp-urlconnection"
+  api "com.squareup.okhttp:okhttp-apache"
+  api "com.squareup.retrofit:converter-jackson"
+
+  testImplementation "org.mockito:mockito-core"
+
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
 }

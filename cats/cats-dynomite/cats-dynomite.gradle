@@ -1,8 +1,8 @@
 dependencies {
-  compile project(':cats:cats-redis')
-  compile("com.netflix.spinnaker.kork:kork-dynomite:${spinnaker.version("kork")}")
-  compile('net.jodah:failsafe:1.0.4')
+  api project(":cats:cats-redis")
+  api "com.netflix.spinnaker.kork:kork-dynomite"
+  api "net.jodah:failsafe:1.0.4"
 
-  testCompile project(':cats:cats-test')
-  testCompile spinnaker.dependency('korkJedisTest')
+  testImplementation project(":cats:cats-test")
+  testImplementation "com.netflix.spinnaker.kork:kork-jedis-test"
 }

@@ -19,17 +19,10 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationStack
 import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonCloudFormationProvider
 import groovy.transform.Immutable
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.context.annotation.Bean
 import org.springframework.data.rest.webmvc.ResourceNotFoundException
-import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import spock.lang.Specification
-import spock.mock.DetachedMockFactory
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath

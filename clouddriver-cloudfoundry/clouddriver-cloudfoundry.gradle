@@ -7,26 +7,30 @@ configurations {
 }
 
 dependencies {
-  compile project(":clouddriver-artifacts")
-  compile project(":clouddriver-core")
+  api project(":clouddriver-artifacts")
+  api project(":clouddriver-core")
 
-  compile spinnaker.dependency('frigga')
-  compile spinnaker.dependency('bootActuator')
-  compile spinnaker.dependency('bootWeb')
+  api "org.springframework.boot:spring-boot-actuator"
+  api "org.springframework.boot:spring-boot-starter-web"
+  api "com.netflix.frigga:frigga"
 
-  compile spinnaker.dependency('korkArtifacts')
-  compile spinnaker.dependency('lombok')
-  compile spinnaker.dependency('commonsLang')
+  api "com.google.guava:guava"
+  api "com.netflix.spinnaker.kork:kork-artifacts"
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  compileOnly "org.apache.commons:commons-lang3"
 
-  spinnaker.group('retrofitDefault')
+  api "com.squareup.retrofit:retrofit"
+  api "com.squareup.okhttp:okhttp"
+  api "com.squareup.okhttp:okhttp-urlconnection"
+  api "com.squareup.okhttp:okhttp-apache"
+  api "com.squareup.retrofit:converter-jackson"
 
-  compile "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${spinnaker.version("jackson")}"
+  api "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+  api "io.github.resilience4j:resilience4j-retry"
 
-  compile spinnaker.dependency('resilience4jRetry')
-
-  testCompile "org.junit.jupiter:junit-jupiter-api:${spinnaker.version("jupiter")}"
-  testCompile "org.junit.jupiter:junit-jupiter-engine:${spinnaker.version("jupiter")}"
-  testCompile "org.junit.jupiter:junit-jupiter-params:${spinnaker.version("jupiter")}"
-
-  testCompile spinnaker.dependency('assertj')
+  testImplementation "org.junit.jupiter:junit-jupiter-api"
+  testImplementation "org.junit.jupiter:junit-jupiter-engine"
+  testImplementation "org.junit.jupiter:junit-jupiter-params"
+  testImplementation "org.assertj:assertj-core"
 }

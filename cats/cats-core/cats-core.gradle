@@ -1,7 +1,8 @@
 dependencies {
-  compile spinnaker.dependency('slf4jApi')
-  compile spinnaker.dependency('jacksonAnnotations')
-  compileOnly spinnaker.dependency("lombok")
+  api "org.slf4j:slf4j-api"
+  api "com.fasterxml.jackson.core:jackson-annotations"
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
 
-  testCompile project(":cats:cats-test")
+  testImplementation project(":cats:cats-test")
 }
