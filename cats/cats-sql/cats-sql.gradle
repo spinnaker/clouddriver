@@ -30,20 +30,22 @@ dependencies {
   testImplementation "junit:junit"
   testImplementation "org.hamcrest:hamcrest-core"
 
-  implementation "org.codehaus.groovy:groovy-all"
+  implementation project(":cats:cats-core")
+  implementation project(":cats:cats-redis")
+  implementation project(":clouddriver-sql")
+  implementation project(":clouddriver-core")
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core-common:1.1.1"
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.1.1"
 
-  api project(":cats:cats-core")
-  api project(":cats:cats-redis")
-  api project(":clouddriver-sql")
-  api project(":clouddriver-core")
-  api "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
-  api "org.jetbrains.kotlinx:kotlinx-coroutines-core-common:1.1.1"
-  api "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.1.1"
+  implementation "com.h2database:h2:1.4.197"
 
-  api "com.h2database:h2:1.4.197"
+  annotationProcessor "org.projectlombok:lombok"
+  compileOnly "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
 
-  api "io.strikt:strikt-core:0.11.5"
-  api  "org.assertj:assertj-core:3.9.0"
+  implementation "io.strikt:strikt-core:0.11.5"
+  implementation "org.assertj:assertj-core:3.9.0"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
   testImplementation "com.nhaarman:mockito-kotlin:1.5.0"
 
@@ -52,4 +54,5 @@ dependencies {
   testImplementation "org.junit.jupiter:junit-jupiter-engine"
   testImplementation "org.junit.platform:junit-platform-launcher"
   testImplementation "org.junit.vintage:junit-vintage-engine"
+  testImplementation "org.spockframework:spock-core"
 }

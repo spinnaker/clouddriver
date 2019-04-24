@@ -7,6 +7,7 @@ import com.netflix.spinnaker.cats.cache.WriteableCacheSpec
 import com.netflix.spinnaker.cats.sql.cache.SqlCache
 import com.netflix.spinnaker.cats.sql.cache.SqlCacheMetrics
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
+import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import spock.lang.AutoCleanup
 import spock.lang.Shared
@@ -21,6 +22,7 @@ import static com.netflix.spinnaker.kork.sql.test.SqlTestUtil.initDatabase
 
 class SqlCacheSpec extends WriteableCacheSpec {
 
+  @Shared
   SqlCacheMetrics cacheMetrics = Mock()
 
   @Shared
@@ -92,7 +94,7 @@ class SqlCacheSpec extends WriteableCacheSpec {
   Cache getSubject() {
     def mapper = new ObjectMapper()
     def clock = new Clock.FixedClock(Instant.EPOCH, ZoneId.of("UTC"))
-    def sqlRetryProperties = new SqlRetryProperties()
+    def sqlRetryProperties = new SqlRetryProperties(new RetryProperties(1, 10), new RetryProperties(1, 10))
 
     def dynamicConfigService = Mock(DynamicConfigService) {
       getConfig(_, _, _) >> 2

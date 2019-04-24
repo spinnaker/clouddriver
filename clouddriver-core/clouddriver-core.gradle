@@ -13,6 +13,8 @@ dependencies {
   api "com.netflix.spinnaker.kork:kork-core"
   api "com.netflix.spinnaker.kork:kork-artifacts"
   api "com.netflix.spinnaker.kork:kork-web"
+  api "com.netflix.spinnaker.kork:kork-jedis"
+  api "com.netflix.spinnaker.kork:kork-dynomite"
   api "com.netflix.eureka:eureka-client"
   api "redis.clients:jedis"
   api "com.netflix.frigga:frigga"
@@ -20,6 +22,7 @@ dependencies {
   annotationProcessor "org.projectlombok:lombok"
   compileOnly "net.logstash.logback:logstash-logback-encoder"
   api "com.netflix.spinnaker.moniker:moniker"
+  implementation "net.jodah:failsafe:1.0.4"
 
   api project(":cats:cats-core")
   api project(":cats:cats-redis")

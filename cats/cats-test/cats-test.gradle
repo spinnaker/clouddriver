@@ -9,4 +9,8 @@ dependencies {
   implementation "org.spockframework:spock-spring"
   implementation "cglib:cglib-nodep"
   implementation "org.objenesis:objenesis"
+
+  annotationProcessor "org.projectlombok:lombok"
+  compileOnly "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
 }

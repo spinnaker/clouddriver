@@ -1,9 +1,15 @@
 dependencies {
-  api project(":cats:cats-core")
-  api "com.netflix.eureka:eureka-client"
-  api "com.google.guava:guava"
-  api "com.netflix.spinnaker.kork:kork-jedis"
-  api "com.fasterxml.jackson.core:jackson-databind"
+  implementation project(":cats:cats-core")
+  implementation "com.netflix.eureka:eureka-client"
+  implementation "com.google.guava:guava"
+  implementation "com.netflix.spinnaker.kork:kork-jedis"
+  implementation "com.fasterxml.jackson.core:jackson-databind"
   testImplementation project(":cats:cats-test")
   testImplementation "com.netflix.spinnaker.kork:kork-jedis-test"
+
+  annotationProcessor "org.projectlombok:lombok"
+  compileOnly "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  testImplementation "org.spockframework:spock-core"
 }

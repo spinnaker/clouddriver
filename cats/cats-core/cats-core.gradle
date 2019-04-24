@@ -1,8 +1,13 @@
 dependencies {
-  api "org.slf4j:slf4j-api"
-  api "com.fasterxml.jackson.core:jackson-annotations"
-  compileOnly "org.projectlombok:lombok"
+  implementation "org.slf4j:slf4j-api"
+  implementation "com.fasterxml.jackson.core:jackson-annotations"
+  implementation "org.codehaus.groovy:groovy-all"
+
   annotationProcessor "org.projectlombok:lombok"
+  compileOnly "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
 
   testImplementation project(":cats:cats-test")
+
+  testImplementation "org.spockframework:spock-core"
 }
