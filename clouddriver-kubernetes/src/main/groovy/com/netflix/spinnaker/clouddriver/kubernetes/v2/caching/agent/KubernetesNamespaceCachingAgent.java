@@ -43,7 +43,7 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 
 @Slf4j
 public class KubernetesNamespaceCachingAgent extends KubernetesV2CachingAgent {
-  KubernetesNamespaceCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+  public KubernetesNamespaceCachingAgent(KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
       KubernetesResourcePropertyRegistry propertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
