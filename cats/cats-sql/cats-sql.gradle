@@ -39,6 +39,9 @@ dependencies {
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:1.1.1"
 
   implementation "com.h2database:h2:1.4.197"
+  implementation("org.jooq:jooq:3.9.6"){
+    force = true
+  }
 
   annotationProcessor "org.projectlombok:lombok"
   compileOnly "org.projectlombok:lombok"

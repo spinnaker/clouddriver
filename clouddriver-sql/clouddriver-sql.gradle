@@ -26,4 +26,8 @@ dependencies {
 
   testImplementation project(":clouddriver-core-tck")
   testImplementation "com.netflix.spinnaker.kork:kork-sql-test"
+
+  testImplementation("org.jooq:jooq:3.9.6") {
+    force = true
+  }
 }
