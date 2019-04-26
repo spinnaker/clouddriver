@@ -79,11 +79,12 @@ class AllowLaunchAtomicOperation implements AtomicOperation<ResolvedAmiResult> {
 
     // If the AMI was created/owned by a different account, switch to using that for modifying the image
     if (resolvedAmi.ownerId != sourceCredentials.accountId) {
-      if (resolvedAmi.getRegion())
+      if (resolvedAmi.getRegion()) {
         sourceCredentials = accountCredentialsProvider.all.find { accountCredentials ->
           accountCredentials instanceof NetflixAmazonCredentials &&
             ((AmazonCredentials) accountCredentials).accountId == resolvedAmi.ownerId
         } as NetflixAmazonCredentials
+      }
       if (!sourceCredentials) {
         throw new IllegalArgumentException("Unable to find owner of resolved AMI $resolvedAmi")
       }
