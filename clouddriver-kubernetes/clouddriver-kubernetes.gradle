@@ -1,22 +1,24 @@
 dependencies {
-  api "io.fabric8:kubernetes-client:4.0.0"
-  api project(":clouddriver-artifacts")
-  api project(":clouddriver-core")
-  api project(":clouddriver-docker")
-  api "org.springframework.boot:spring-boot-actuator"
-  api "org.springframework.boot:spring-boot-starter-web"
-  api "com.netflix.frigga:frigga"
-  api "com.netflix.spinnaker.kork:kork-artifacts"
-  api "com.netflix.spinnaker.moniker:moniker"
+  implementation project(":clouddriver-artifacts")
+  implementation project(":clouddriver-core")
+  implementation project(":clouddriver-docker")
+
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
 
-  api "io.kubernetes:client-java:1.0.0-beta1"
-  api "com.github.fge:json-patch:1.9"
-  api 'com.jayway.jsonpath:json-path:2.3.0'
+  implementation "com.github.fge:json-patch:1.9"
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "io.fabric8:kubernetes-client:4.0.0"
+  implementation "io.kubernetes:client-java:1.0.0-beta1"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+  implementation 'com.jayway.jsonpath:json-path:2.3.0'
 
-  testImplementation "org.spockframework:spock-core"
-  testImplementation "org.spockframework:spock-spring"
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
 }

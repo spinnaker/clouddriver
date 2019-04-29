@@ -60,41 +60,36 @@ tasks.clean.dependsOn('cleanSdk')
 tasks.compileJava.dependsOn('unpackSdk')
 
 dependencies {
-  api project(":clouddriver-core")
-
-  api "org.springframework.boot:spring-boot-actuator"
-  api "org.springframework.boot:spring-boot-starter-web"
-  api "com.netflix.frigga:frigga"
-
-  api "com.netflix.spinnaker.kork:kork-exceptions"
-  api "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation project(":clouddriver-core")
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
   compileOnly "org.apache.commons:commons-lang3"
-  api "com.squareup.okhttp:okhttp"
-
-  api "com.google.apis:google-api-services-storage:v1-rev141-1.25.0"
-  api "com.amazonaws:aws-java-sdk-s3"
-
-  api "org.apache.commons:commons-compress:1.14"
-  api "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.7"
-  api "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.9.7"
-  api "org.apache.ivy:ivy:2.4.0"
-
-  api "org.eclipse.aether:aether-api:1.1.0"
-  api "org.eclipse.aether:aether-impl:1.1.0"
-  api "org.apache.maven:maven-aether-provider:3.3.9"
-
+  
+  implementation "com.amazonaws:aws-java-sdk-s3"
+  implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.9.7"
+  implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.7"
+  implementation "com.google.apis:google-api-services-storage:v1-rev141-1.25.0"
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.squareup.okhttp:okhttp"
   implementation "com.sun.jersey:jersey-client:1.9.1"
-
-  api fileTree(sdkLocation)
-
-  testImplementation "org.junit.jupiter:junit-jupiter-api"
-  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+  implementation "org.apache.commons:commons-compress:1.14"
+  implementation "org.apache.ivy:ivy:2.4.0"
+  implementation "org.apache.maven:maven-aether-provider:3.3.9"
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.eclipse.aether:aether-api:1.1.0"
+  implementation "org.eclipse.aether:aether-impl:1.1.0"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+  
+  implementation fileTree(sdkLocation)
+  
+  testImplementation "com.github.tomakehurst:wiremock:latest.release"
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit-pioneer:junit-pioneer:0.3.0"
-
+  testImplementation "org.junit.jupiter:junit-jupiter-api"
   testImplementation "ru.lanwen.wiremock:wiremock-junit5:1.2.0"
-  testImplementation "com.github.tomakehurst:wiremock:latest.release"
+  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 }

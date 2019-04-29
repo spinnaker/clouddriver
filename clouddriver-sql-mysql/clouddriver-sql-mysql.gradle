@@ -1,6 +1,6 @@
 dependencies {
-  api project(":cats:cats-sql")
-  api project(":clouddriver-sql")
+  implementation project(":cats:cats-sql")
+  implementation project(":clouddriver-sql")
 
-  api "mysql:mysql-connector-java:8.0.12"
+  implementation "mysql:mysql-connector-java:8.0.12"
 }

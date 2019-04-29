@@ -24,27 +24,43 @@ repositories {
 }
 
 dependencies {
-  api project(":clouddriver-core")
-  api project(":clouddriver-security")
-  api project(":clouddriver-artifacts")
-  api project(":clouddriver-sql-mysql")
+  implementation project(":cats:cats-core")
+  implementation project(":clouddriver-artifacts")
+  implementation project(":clouddriver-core")
+  implementation project(":clouddriver-security")
+  implementation project(":clouddriver-sql-mysql")
 
-  runtimeOnly "com.netflix.spinnaker.kork:kork-core"
-  api "com.netflix.spinnaker.kork:kork-web"
-  api "com.netflix.spinnaker.kork:kork-stackdriver"
-  api "com.netflix.spinnaker.kork:kork-swagger"
-  api "org.springframework.boot:spring-boot-actuator"
-  api "org.springframework.boot:spring-boot-starter-data-rest"
-  api "org.springframework.boot:spring-boot-starter-test"
-  testImplementation "org.slf4j:slf4j-api"
+  
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.kork:kork-core"
+  implementation "com.netflix.spinnaker.kork:kork-stackdriver"
+  implementation "com.netflix.spinnaker.kork:kork-swagger"
+  implementation "com.netflix.spinnaker.kork:kork-web"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.slf4j:slf4j-api"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-data-rest"
+  implementation "org.springframework.boot:spring-boot-starter-test"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+
   //this brings in the jetty GzipFilter which boot will autoconfigure
   runtime 'org.eclipse.jetty:jetty-servlets:9.2.11.v20150529'
 
   testImplementation project(":clouddriver-elasticsearch")
 
+  testImplementation "org.spockframework:spock-core"
+
   // Add each included cloud provider project as a runtime dependency
   gradle.includedCloudProviderProjects.each {
-    api project(":${it}")
+    implementation project(":${it}")
   }
 }
 

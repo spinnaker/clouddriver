@@ -1,18 +1,18 @@
 dependencies {
-  implementation "org.codehaus.groovy:groovy-all"
-
-  api "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
-  api "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
-  api "org.springframework.security:spring-security-config"
-  api "org.springframework.security:spring-security-core"
-  api "org.springframework.security:spring-security-web"
-
-  api "com.google.api-client:google-api-client"
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
-  api "com.netflix.spectator:spectator-api"
+  testAnnotationProcessor "org.projectlombok:lombok"
 
-  testImplementation "org.spockframework:spock-core"
+  implementation "com.google.api-client:google-api-client"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.springframework.security:spring-security-config"
+  implementation "org.springframework.security:spring-security-core"
+  implementation "org.springframework.security:spring-security-web"
+
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
 }

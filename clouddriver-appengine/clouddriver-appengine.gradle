@@ -1,19 +1,18 @@
 dependencies {
-  api project(":clouddriver-artifacts")
-  api project(":clouddriver-core")
-  api project(":clouddriver-google-common")
-  api "org.springframework.boot:spring-boot-actuator"
-  api "org.springframework.boot:spring-boot-starter-web"
-  api "com.netflix.frigga:frigga"
-  api "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation project(":clouddriver-artifacts")
+  implementation project(":clouddriver-core")
+  implementation project(":clouddriver-google-common")
 
-  api "com.google.apis:google-api-services-appengine:v1-rev92-1.25.0"
-  api "org.eclipse.jgit:org.eclipse.jgit:5.2.1.201812262042-r"
+  implementation "com.google.apis:google-api-services-appengine:v1-rev92-1.25.0"
+  implementation "com.google.apis:google-api-services-storage"
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "org.eclipse.jgit:org.eclipse.jgit:5.2.1.201812262042-r"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
 
-  api "com.google.apis:google-api-services-storage"
-
-  testImplementation "org.spockframework:spock-core"
-  testImplementation "org.spockframework:spock-spring"
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
 }

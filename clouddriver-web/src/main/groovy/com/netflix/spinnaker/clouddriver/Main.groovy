@@ -68,7 +68,7 @@ class Main extends SpringBootServletInitializer {
      */
     InetAddressCachePolicy.cachePolicy = InetAddressCachePolicy.NEVER
     Security.setProperty('networkaddress.cache.ttl', '0')
-    System.setProperty("spring.main.allow-bean-definition-overriding", "true");
+    System.setProperty("spring.main.allow-bean-definition-overriding", "true")
   }
 
   static void main(String... args) {

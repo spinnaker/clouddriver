@@ -22,26 +22,44 @@ repositories {
 dependencies {
   protobuf 'com.netflix.titus:titus-api-definitions:0.0.1-rc59'
 
-  api "com.google.protobuf:protobuf-java:$protobufVersion"
-  api "io.grpc:grpc-protobuf:$grpcVersion"
-  api "io.grpc:grpc-stub:$grpcVersion"
-  api "io.grpc:grpc-netty-shaded:$grpcVersion"
-  api project(":clouddriver-aws")
-  api project(":clouddriver-core")
-  api project(":clouddriver-eureka")
-  api "org.springframework.boot:spring-boot-actuator"
-  api "org.springframework.boot:spring-boot-starter-web"
-  api "com.squareup.okhttp3:okhttp:3.1.2"
+  implementation project(":cats:cats-core")
+  implementation project(":clouddriver-aws")
+  implementation project(":clouddriver-core")
+  implementation project(":clouddriver-eureka")
+  implementation project(":clouddriver-security")
 
+  annotationProcessor "org.projectlombok:lombok"
+  compileOnly "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "com.amazonaws:aws-java-sdk"
+  implementation "com.google.protobuf:protobuf-java:$protobufVersion"
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.kork:kork-core"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.netflix.spinnaker.kork:kork-security"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.squareup.okhttp3:okhttp:3.1.2"
+  implementation "io.grpc:grpc-netty-shaded:$grpcVersion"
+  implementation "io.grpc:grpc-protobuf:$grpcVersion"
+  implementation "io.grpc:grpc-stub:$grpcVersion"
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.slf4j:slf4j-api"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "junit:junit"
+  testImplementation "org.hamcrest:hamcrest-core"
+  testImplementation "org.objenesis:objenesis"
   testImplementation "org.slf4j:slf4j-simple"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
-  testImplementation "cglib:cglib-nodep"
-  testImplementation "org.objenesis:objenesis"
-  testImplementation "junit:junit"
-  testImplementation "org.hamcrest:hamcrest-core"
-
 }
 
 sourceSets {

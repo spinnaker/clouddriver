@@ -3,15 +3,16 @@ repositories {
 }
 
 dependencies {
-  api project(":clouddriver-core")
-  api "org.springframework.boot:spring-boot-actuator"
-  api "org.springframework.boot:spring-boot-starter-web"
-  api "com.netflix.frigga:frigga"
-  api 'com.microsoft.azure:adal4j:1.6.3'
-  api 'com.microsoft.azure:azure:1.19.0'
+  implementation project(":clouddriver-core")
 
-  testImplementation "org.spockframework:spock-core"
-  testImplementation "org.spockframework:spock-spring"
+  implementation "com.netflix.frigga:frigga"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+  implementation 'com.microsoft.azure:adal4j:1.6.3'
+  implementation 'com.microsoft.azure:azure:1.19.0'
+
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
 }

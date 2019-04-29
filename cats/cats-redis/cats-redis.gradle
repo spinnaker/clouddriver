@@ -1,15 +1,17 @@
 dependencies {
   implementation project(":cats:cats-core")
-  implementation "com.netflix.eureka:eureka-client"
-  implementation "com.google.guava:guava"
-  implementation "com.netflix.spinnaker.kork:kork-jedis"
+
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
   implementation "com.fasterxml.jackson.core:jackson-databind"
+  implementation "com.google.guava:guava"
+  implementation "com.netflix.eureka:eureka-client"
+  implementation "com.netflix.spinnaker.kork:kork-jedis"
+
   testImplementation project(":cats:cats-test")
   testImplementation "com.netflix.spinnaker.kork:kork-jedis-test"
-
-  annotationProcessor "org.projectlombok:lombok"
-  compileOnly "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
 
   testImplementation "org.spockframework:spock-core"
 }

@@ -57,16 +57,18 @@ tasks.clean.dependsOn('cleanSdk')
 tasks.compileJava.dependsOn('unpackSdk')
 
 dependencies {
-  api project(":clouddriver-core")
-  api "com.netflix.frigga:frigga"
-  api "org.springframework.boot:spring-boot-starter-actuator"
-  api "org.springframework.boot:spring-boot-starter-web"
-  api fileTree(sdkLocation)
+  implementation project(":clouddriver-core")
 
-  testImplementation "org.spockframework:spock-core"
-  testImplementation "org.spockframework:spock-spring"
+  implementation fileTree(sdkLocation)
+
+  implementation "com.netflix.frigga:frigga"
+  implementation "org.springframework.boot:spring-boot-starter-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
 }
 
 def allSourceSets = sourceSets

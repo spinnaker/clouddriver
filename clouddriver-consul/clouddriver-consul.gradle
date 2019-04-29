@@ -1,8 +1,10 @@
 dependencies {
-  api project(":clouddriver-core")
+  implementation project(":clouddriver-core")
 
-  testImplementation "org.spockframework:spock-core"
-  testImplementation "org.spockframework:spock-spring"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
 }

@@ -1,19 +1,18 @@
 dependencies {
-  api project(":clouddriver-artifacts")
-  api project(":clouddriver-core")
-  api project(":clouddriver-consul")
-  api project(":clouddriver-google-common")
+  implementation project(":clouddriver-artifacts")
+  implementation project(":clouddriver-consul")
+  implementation project(":clouddriver-core")
+  implementation project(":clouddriver-google-common")
 
-  api "org.springframework.boot:spring-boot-actuator"
-  api "org.springframework.boot:spring-boot-starter-web"
-  api "com.netflix.frigga:frigga"
-  api "com.google.apis:google-api-services-compute" //todo eb: add to kork bom
-
+  implementation "com.google.apis:google-api-services-compute"
   // Move this to spinnaker-dependencies when we can confirm we'll use this feature.
-  api "com.google.apis:google-api-services-iam:v1-rev267-1.25.0"
+  implementation "com.google.apis:google-api-services-iam:v1-rev267-1.25.0"
+  implementation "com.netflix.frigga:frigga"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
 
-  testImplementation "org.spockframework:spock-core"
-  testImplementation "org.spockframework:spock-spring"
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
 }
