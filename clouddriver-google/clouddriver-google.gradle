@@ -11,6 +11,7 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
 
+  testImplementation "org.assertj:assertj-core"
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"

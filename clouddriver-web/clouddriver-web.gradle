@@ -40,6 +40,7 @@ dependencies {
   implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "com.netflix.spinnaker.kork:kork-artifacts"
   implementation "com.netflix.spinnaker.kork:kork-core"
+  implementation "com.netflix.spinnaker.kork:kork-secrets-aws"
   implementation "com.netflix.spinnaker.kork:kork-stackdriver"
   implementation "com.netflix.spinnaker.kork:kork-swagger"
   implementation "com.netflix.spinnaker.kork:kork-web"
@@ -50,7 +51,7 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-starter-data-rest"
   implementation "org.springframework.boot:spring-boot-starter-test"
   implementation "org.springframework.boot:spring-boot-starter-web"
-
+  
   //this brings in the jetty GzipFilter which boot will autoconfigure
   runtime 'org.eclipse.jetty:jetty-servlets:9.2.11.v20150529'
 
