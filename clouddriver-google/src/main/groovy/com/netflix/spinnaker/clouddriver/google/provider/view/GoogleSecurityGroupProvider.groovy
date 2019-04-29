@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.google.provider.view
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.api.services.iam.v1.model.ServiceAccount
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
@@ -187,14 +188,17 @@ class GoogleSecurityGroupProvider implements SecurityGroupProvider<GoogleSecurit
    * @param account - GCE account name.
    * @param securityGroups - Set of server groups to filter.
    * @param tags - GCE network tags to filter security groups by.
+   * @param serviceAccounts - GCE service accounts to filter security groups by.
    * @param networkName - GCE network name.
    * @return Security group names that match account, networkName, and network tags.
    */
   static List<String> getMatchingSecurityGroupNames(String account,
                                                     Set<GoogleSecurityGroup> securityGroups,
                                                     Set<String> tags,
+                                                    Set<ServiceAccount> serviceAccounts,
                                                     String networkName) {
     tags = tags ?: [] as Set
+    serviceAccounts = serviceAccounts ?: [] as Set
     securityGroups?.findResults { GoogleSecurityGroup securityGroup ->
       def accountAndNetworkMatch = securityGroup.accountName == account && securityGroup.network == networkName
       if (!accountAndNetworkMatch) {
@@ -207,14 +211,18 @@ class GoogleSecurityGroupProvider implements SecurityGroupProvider<GoogleSecurit
         targetTagsInCommon = (securityGroup.targetTags).intersect(tags)
       }
 
-      // TODO(jacobkiefer): GCE firewall rules can target service accounts. This is a stop-gap solution to fix
-      // a bug where security groups targeting service accounts are always returned. We should fully support those
-      // security group configurations in the future.
       boolean hasTargetServiceAccounts = securityGroup.targetServiceAccounts
+      def targetServiceAccountsInCommon = []
+
+      serviceAccounts.each { serviceAccount ->
+        if (serviceAccount.email in securityGroup.targetServiceAccounts)
+        targetServiceAccountsInCommon.add(serviceAccount.email)
+      }
+
       // Firewall rules can apply to all instances, in which case neither tags nor service accounts are present.
       boolean isDefaultFirewallRule = !hasTargetTags && !hasTargetServiceAccounts
 
-      (isDefaultFirewallRule || targetTagsInCommon) ? securityGroup.name : null
+      (isDefaultFirewallRule || targetTagsInCommon || targetServiceAccountsInCommon) ? securityGroup.name : null
     } ?: []
   }
 
