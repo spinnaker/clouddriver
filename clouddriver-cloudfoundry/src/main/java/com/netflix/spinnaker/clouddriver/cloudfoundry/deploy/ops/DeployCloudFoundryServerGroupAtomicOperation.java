@@ -149,12 +149,17 @@ public class DeployCloudFoundryServerGroupAtomicOperation
 
     Map<String, String> environmentVars = new HashMap<>(description.getApplicationAttributes().getEnv());
     final Artifact applicationArtifact = description.getApplicationArtifact();
-    environmentVars.put(BuildEnvVar.Version.envVarName, applicationArtifact.getVersion());
-    final Map<String, String> buildInfo = (Map<String, String>) applicationArtifact.getMetadata().get("build");
-    if (buildInfo != null) {
-      environmentVars.put(BuildEnvVar.JobName.envVarName, buildInfo.get("name"));
-      environmentVars.put(BuildEnvVar.JobNumber.envVarName, buildInfo.get("number"));
-      environmentVars.put(BuildEnvVar.JobUrl.envVarName, buildInfo.get("url"));
+    if (applicationArtifact.getVersion() != null) {
+      environmentVars.put(BuildEnvVar.Version.envVarName, applicationArtifact.getVersion());
+    }
+    final Map<String, Object> metadata = applicationArtifact.getMetadata();
+    if (metadata != null) {
+      final Map<String, String> buildInfo = (Map<String, String>) applicationArtifact.getMetadata().get("build");
+      if (buildInfo != null) {
+        environmentVars.put(BuildEnvVar.JobName.envVarName, buildInfo.get("name"));
+        environmentVars.put(BuildEnvVar.JobNumber.envVarName, buildInfo.get("number"));
+        environmentVars.put(BuildEnvVar.JobUrl.envVarName, buildInfo.get("url"));
+      }
     }
 
     CloudFoundryServerGroup serverGroup = client.getApplications().createApplication(description.getServerGroupName(),
