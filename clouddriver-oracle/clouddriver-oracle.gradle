@@ -58,10 +58,22 @@ tasks.compileJava.dependsOn('unpackSdk')
 
 dependencies {
   implementation project(":clouddriver-core")
+  implementation project(":cats:cats-core")
+  implementation project(":clouddriver-security")
 
   implementation fileTree(sdkLocation)
 
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "com.google.guava:guava:27.1-jre"
   implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "org.codehaus.groovy:groovy-all"
   implementation "org.springframework.boot:spring-boot-starter-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
 
@@ -69,6 +81,7 @@ dependencies {
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
+  testImplementation "org.springframework:spring-test"
 }
 
 def allSourceSets = sourceSets

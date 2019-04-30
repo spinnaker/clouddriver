@@ -1,14 +1,20 @@
 dependencies {
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
+  implementation project(":cats:cats-core")
   implementation project(":clouddriver-docker")
+  implementation project(":clouddriver-security")
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
 
+  implementation "org.codehaus.groovy:groovy-all"
+
   implementation "com.github.fge:json-patch:1.9"
   implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "com.netflix.spinnaker.kork:kork-artifacts"
   implementation "com.netflix.spinnaker.moniker:moniker"
   implementation "io.fabric8:kubernetes-client:4.0.0"
@@ -21,4 +27,5 @@ dependencies {
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
+  testImplementation "org.springframework:spring-test"
 }
