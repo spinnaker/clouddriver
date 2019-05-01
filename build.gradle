@@ -30,7 +30,10 @@ buildscript {
   }
 
   dependencies {
-    classpath 'com.netflix.spinnaker.gradle:spinnaker-dev-plugin:5.2.2'
+    classpath 'com.netflix.spinnaker.gradle:spinnaker-dev-plugin:6.0.0'
+    if (Boolean.valueOf(enablePublishing)) {
+      classpath "com.netflix.spinnaker.gradle:spinnaker-gradle-project:6.0.0"
+    }
     classpath "com.netflix.nebula:nebula-kotlin-plugin:$kotlinVersion"
     classpath "org.junit.platform:junit-platform-gradle-plugin:${junitPlatformVersion}"
 
@@ -40,6 +43,9 @@ buildscript {
 allprojects {
   group = "com.netflix.spinnaker.clouddriver"
   apply plugin: 'spinnaker.base-project'
+  if (Boolean.valueOf(enablePublishing)) {
+    apply plugin: 'spinnaker.project'
+  }
   apply plugin: 'java-library'
   apply plugin: 'groovy'
   apply plugin: 'nebula.kotlin'
@@ -84,13 +90,6 @@ subprojects { project ->
     if (System.getProperty('DEBUG', 'false') == 'true') {
       jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=7102'
     }
-  }
-  
-  //c&p this because NetflixOss reverts it to 1.7 and ends up getting applied last..
-  project.plugins.withType(JavaBasePlugin) {
-    JavaPluginConvention convention = project.convention.getPlugin(JavaPluginConvention)
-    convention.sourceCompatibility = JavaVersion.VERSION_1_8
-    convention.targetCompatibility = JavaVersion.VERSION_1_8
   }
 }
 
