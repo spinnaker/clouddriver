@@ -32,9 +32,8 @@ import io.kubernetes.client.models.V1DeleteOptions;
 import io.kubernetes.client.models.V1Job;
 import lombok.Data;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.NotImplementedException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -42,9 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatus> {
-  private final static Logger log = LoggerFactory.getLogger(KubernetesV2JobProvider.class);
 
   @Getter
   private String platform = "kubernetes";
