@@ -33,6 +33,8 @@ import io.kubernetes.client.models.V1Job;
 import lombok.Data;
 import lombok.Getter;
 import org.apache.commons.lang.NotImplementedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -42,6 +44,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatus> {
+  private final static Logger log = LoggerFactory.getLogger(KubernetesV2JobProvider.class);
+
   @Getter
   private String platform = "kubernetes";
   private AccountCredentialsProvider accountCredentialsProvider;
@@ -86,7 +90,30 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
   }
 
   public Map<String, Object> getFileContents(String account, String location, String id, String filename) {
-    return new HashMap<>();
+    KubernetesV2Credentials credentials = (KubernetesV2Credentials) accountCredentialsProvider.getCredentials(account).getCredentials();
+
+    List<Manifest> manifests = manifestProviderList.stream()
+      .map(p -> p.getManifest(account, location, id))
+      .filter( m -> m != null)
+      .collect(Collectors.toList());
+
+    if (manifests.isEmpty()) {
+      log.warn("Could not find Kubernetes manifest {} in namespace {}", id, location);
+      return null;
+    }
+
+    KubernetesManifest jobManifest = ((KubernetesV2Manifest) manifests.get(0)).getManifest();
+    V1Job job = KubernetesCacheDataConverter.getResource(jobManifest, V1Job.class);
+    String logContents = credentials.jobLogs(location, job.getMetadata().getName());
+
+    Map props = null;
+    try {
+      props = PropertyParser.extractPropertiesFromLog(logContents);
+    } catch(Exception e) {
+      log.error("Couldn't parse properties for account {} at {}", account, location);
+    }
+
+    return props;
   }
 
   public void cancelJob(String account, String location, String id) {
