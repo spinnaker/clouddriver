@@ -49,7 +49,7 @@ class DeployCloudFormationAtomicOperationConverterSpec extends Specification {
                  templateBody   : [ field1: "field1" ],
                  parameters     : [ param1: "param1" ],
                  tags           : [ tag1: "tag1" ],
-                 capabilities   : [ cap1: "cap2" ],
+                 capabilities   : [ "cap1", "cap2" ],
                  region         : "eu-west_1",
                  credentials    : "credentials"]
 
