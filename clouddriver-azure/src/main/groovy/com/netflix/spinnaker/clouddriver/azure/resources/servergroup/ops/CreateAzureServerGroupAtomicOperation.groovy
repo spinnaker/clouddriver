@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.azure.resources.servergroup.ops
 
-import com.microsoft.azure.management.resources.models.DeploymentExtended
+import com.microsoft.azure.management.resources.Deployment
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.common.model.AzureDeploymentOperation
 import com.netflix.spinnaker.clouddriver.azure.resources.network.model.AzureVirtualNetworkDescription
@@ -184,16 +184,30 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
         description.credentials.subscriptionId,
         description.credentials.defaultResourceGroup,
         description.credentials.defaultKeyVault)
-      templateParameters[AzureServerGroupResourceTemplate.vmPasswordParameterName] = new KeyVaultSecret("VMPassword",
-        description.credentials.subscriptionId,
-        description.credentials.defaultResourceGroup,
-        description.credentials.defaultKeyVault)
-      templateParameters[AzureServerGroupResourceTemplate.customDataParameterName] = description.osConfig.customData ?: ""
+
+      if(description.credentials.useSshPublicKey) {
+        templateParameters[AzureServerGroupResourceTemplate.vmSshPublicKeyParameterName] = new KeyVaultSecret("VMSshPublicKey",
+          description.credentials.subscriptionId,
+          description.credentials.defaultResourceGroup,
+          description.credentials.defaultKeyVault)
+      }
+      else {
+        templateParameters[AzureServerGroupResourceTemplate.vmPasswordParameterName] = new KeyVaultSecret("VMPassword",
+          description.credentials.subscriptionId,
+          description.credentials.defaultResourceGroup,
+          description.credentials.defaultKeyVault)
+      }
+
+      // The empty "" cannot be assigned to the custom data otherwise Azure service will run into error complaining "custom data must be in Base64".
+      // So once there is no custom data, remove this template section rather than assigning a "".
+      if(description.osConfig.customData){
+        templateParameters[AzureServerGroupResourceTemplate.customDataParameterName] = description.osConfig.customData
+      }
 
       if (errList.isEmpty()) {
         description.subnetId = subnetId
         task.updateStatus(BASE_PHASE, "Deploying server group")
-        DeploymentExtended deployment = description.credentials.resourceManagerClient.createResourceFromTemplate(
+        Deployment deployment = description.credentials.resourceManagerClient.createResourceFromTemplate(
           AzureServerGroupResourceTemplate.getTemplate(description),
           resourceGroupName,
           description.region,
@@ -201,7 +215,7 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
           "serverGroup",
           templateParameters)
 
-        errList.addAll(AzureDeploymentOperation.checkDeploymentOperationStatus(task, BASE_PHASE, description.credentials, resourceGroupName, deployment.name))
+        errList.addAll(AzureDeploymentOperation.checkDeploymentOperationStatus(task, BASE_PHASE, description.credentials, resourceGroupName, deployment.name()))
         serverGroupName = errList.isEmpty() ? description.name : null
       }
     } catch (Exception e) {
@@ -209,6 +223,16 @@ class CreateAzureServerGroupAtomicOperation implements AtomicOperation<Map> {
       errList.add(e.message)
     }
     if (errList.isEmpty()) {
+      if (description.credentials.networkClient.isServerGroupDisabled(resourceGroupName, description.appGatewayName, description.name)) {
+        description
+          .credentials
+          .networkClient
+          .enableServerGroup(resourceGroupName, description.appGatewayName, description.name)
+        task.updateStatus BASE_PHASE, "Done enabling Azure server group ${description.name} in ${description.region}."
+      } else {
+        task.updateStatus BASE_PHASE, "Azure server group ${description.name} in ${description.region} is already enabled."
+      }
+
       task.updateStatus(BASE_PHASE, "Deployment for server group ${description.name} in ${description.region} has succeeded.")
     }
     else {

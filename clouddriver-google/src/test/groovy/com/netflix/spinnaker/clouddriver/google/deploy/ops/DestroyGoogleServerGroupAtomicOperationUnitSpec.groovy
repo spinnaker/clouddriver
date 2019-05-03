@@ -1,4 +1,4 @@
-/*
+      /*
  * Copyright 2014 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,11 +26,13 @@ import com.netflix.frigga.Names
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.google.GoogleApiTestUtils
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.DestroyGoogleServerGroupDescription
+import com.netflix.spinnaker.clouddriver.google.deploy.instancegroups.GoogleServerGroupManagersFactory
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleBackendService
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
@@ -38,8 +40,6 @@ import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleIntern
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.google.GoogleApiTestUtils
-
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
@@ -74,7 +74,8 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       def registry = new DefaultRegistry()
       def googleClusterProviderMock = Mock(GoogleClusterProvider)
       def serverGroup =
-        new GoogleServerGroup(region: REGION,
+        new GoogleServerGroup(name: SERVER_GROUP_NAME,
+                              region: REGION,
                               zone: ZONE,
                               launchConfig: [instanceTemplate: new InstanceTemplate(name: INSTANCE_TEMPLATE_NAME)]).view
       def computeMock = Mock(Compute)
@@ -114,6 +115,7 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       operation.safeRetry = safeRetry
       operation.googleClusterProvider = googleClusterProviderMock
       operation.googleLoadBalancerProvider = googleLoadBalancerProviderMock
+      operation.serverGroupManagersFactory = new GoogleServerGroupManagersFactory(operation.googleOperationPoller, registry)
 
     when:
       operation.operate([])
@@ -151,12 +153,13 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
   }
 
   @Unroll
-  void "should delete managed instance group and autoscaler if defined"() {
+  void "should delete managed instance group and autoscaler if defined (isRegional: #isRegional)"() {
     setup:
       def registry = new DefaultRegistry()
       def googleClusterProviderMock = Mock(GoogleClusterProvider)
       def serverGroup =
-        new GoogleServerGroup(region: REGION,
+        new GoogleServerGroup(name: SERVER_GROUP_NAME,
+                              region: REGION,
                               regional: isRegional,
                               zone: ZONE,
                               launchConfig: [instanceTemplate: new InstanceTemplate(name: INSTANCE_TEMPLATE_NAME)],
@@ -222,6 +225,7 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       operation.safeRetry = safeRetry
       operation.googleClusterProvider = googleClusterProviderMock
       operation.googleLoadBalancerProvider = googleLoadBalancerProviderMock
+      operation.serverGroupManagersFactory = new GoogleServerGroupManagersFactory(operation.googleOperationPoller, registry)
 
     when:
       operation.operate([])
@@ -310,18 +314,18 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
               regional: isRegional,
               zone: ZONE,
               asg: [
-                  (GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
+                  (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
               ],
               launchConfig: [
                   instanceTemplate: new InstanceTemplate(name: INSTANCE_TEMPLATE_NAME,
                       properties: [
                           'metadata': new Metadata(items: [
                               new Metadata.Items(
-                                  key: (GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES),
+                                  key: (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES),
                                   value: 'spinnaker-http-load-balancer'
                               ),
                               new Metadata.Items(
-                                  key: (GoogleServerGroup.View.BACKEND_SERVICE_NAMES),
+                                  key: (GCEUtil.BACKEND_SERVICE_NAMES),
                                   value: 'backend-service'
                               )
                           ])
@@ -350,17 +354,15 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
                                                                 accountName: ACCOUNT_NAME,
                                                                 credentials: credentials)
       @Subject def operation = new DestroyGoogleServerGroupAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          registry: registry,
-          safeRetry: safeRetry
-        )
+      def googleOperationPoller = Mock(GoogleOperationPoller)
+      operation.googleOperationPoller = googleOperationPoller
+      def updateOpName = 'updateOp'
+
       operation.registry = registry
       operation.safeRetry = safeRetry
       operation.googleClusterProvider = googleClusterProviderMock
       operation.googleLoadBalancerProvider = googleLoadBalancerProviderMock
+      operation.serverGroupManagersFactory = new GoogleServerGroupManagersFactory(operation.googleOperationPoller, registry)
 
     when:
       def closure = operation.destroyHttpLoadBalancerBackends(computeMock, PROJECT_NAME, serverGroup, googleLoadBalancerProviderMock)
@@ -371,7 +373,8 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       _ * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
       _ * backendSvcGetMock.execute() >> bs
       _ * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
-      _ * backendUpdateMock.execute()
+      _ * backendUpdateMock.execute() >> [name: updateOpName]
+      _ * googleOperationPoller.waitForGlobalOperation(computeMock, PROJECT_NAME, updateOpName, null, task, _, _)
 
       _ * computeMock.globalForwardingRules() >> globalForwardingRules
       _ * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
@@ -405,14 +408,14 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
           regional: isRegional,
           zone: ZONE,
           asg: [
-            (GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
+            (GCEUtil.REGIONAL_LOAD_BALANCER_NAMES): loadBalancerNameList,
           ],
           launchConfig: [
             instanceTemplate: new InstanceTemplate(name: INSTANCE_TEMPLATE_NAME,
               properties: [
                 'metadata': new Metadata(items: [
                   new Metadata.Items(
-                    key: (GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES),
+                    key: (GCEUtil.REGIONAL_LOAD_BALANCER_NAMES),
                     value: 'spinnaker-int-load-balancer'
                   )
                 ])
@@ -440,13 +443,12 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
         accountName: ACCOUNT_NAME,
         credentials: credentials)
       @Subject def operation = new DestroyGoogleServerGroupAtomicOperation(description)
-      operation.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          registry: registry,
-          safeRetry: safeRetry
-        )
+
+      def task = Mock(Task)
+      def googleOperationPoller = Mock(GoogleOperationPoller)
+      operation.googleOperationPoller = googleOperationPoller
+      def updateOpName = 'updateOp'
+
       operation.registry = registry
       operation.safeRetry = safeRetry
       operation.googleClusterProvider = googleClusterProviderMock
@@ -461,7 +463,8 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       _ * backendServicesMock.get(PROJECT_NAME, REGION, 'backend-service') >> backendSvcGetMock
       _ * backendSvcGetMock.execute() >> bs
       _ * backendServicesMock.update(PROJECT_NAME, REGION, 'backend-service', bs) >> backendUpdateMock
-      _ * backendUpdateMock.execute()
+      _ * backendUpdateMock.execute() >> [name: updateOpName]
+      _ * googleOperationPoller.waitForRegionalOperation(computeMock, PROJECT_NAME, REGION, updateOpName, null, task, _, _)
 
       _ * computeMock.globalForwardingRules() >> globalForwardingRules
       _ * globalForwardingRules.list(PROJECT_NAME) >> globalForwardingRulesList
@@ -482,7 +485,6 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       true       | REGION   | []                                                                                                                                             | []
   }
 
-  @Unroll
   void "should retry http backend deletion on 400, 412, socket timeout, succeed on 404"() {
     // Note: Implicitly tests SafeRetry.doRetry
     setup:
@@ -501,18 +503,18 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
               regional: isRegional,
               zone: ZONE,
               asg: [
-                  (GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES): lbNames,
+                  (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES): lbNames,
               ],
               launchConfig: [
                   instanceTemplate: new InstanceTemplate(name: INSTANCE_TEMPLATE_NAME,
                       properties: [
                           'metadata': new Metadata(items: [
                               new Metadata.Items(
-                                  key: (GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES),
+                                  key: (GCEUtil.GLOBAL_LOAD_BALANCER_NAMES),
                                   value: 'spinnaker-http-load-balancer'
                               ),
                               new Metadata.Items(
-                                  key: (GoogleServerGroup.View.BACKEND_SERVICE_NAMES),
+                                  key: (GCEUtil.BACKEND_SERVICE_NAMES),
                                   value: 'backend-service'
                               )
                           ])
@@ -569,16 +571,15 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       def bs = isRegional ?
           new BackendService(backends: lbNames.collect { new Backend(group: GCEUtil.buildZonalServerGroupUrl(PROJECT_NAME, ZONE, serverGroup.name)) }) :
           new BackendService(backends: lbNames.collect { new Backend(group: GCEUtil.buildRegionalServerGroupUrl(PROJECT_NAME, REGION, serverGroup.name)) })
+      def updateOpName = 'updateOp'
+      def task = Mock(Task)
+      def googleOperationPoller = Mock(GoogleOperationPoller)
 
     when:
       def destroy = new DestroyGoogleServerGroupAtomicOperation()
-      destroy.googleOperationPoller =
-        new GoogleOperationPoller(
-          googleConfigurationProperties: new GoogleConfigurationProperties(),
-          threadSleeper: threadSleeperMock,
-          registry: registry,
-          safeRetry: safeRetry
-        )
+
+      destroy.googleOperationPoller = googleOperationPoller
+
       destroy.registry = registry
       destroy.safeRetry = safeRetry
       destroy.destroy(
@@ -608,11 +609,12 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       1 * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
 
     then:
-      1 * backendUpdateMock.execute()
+      1 * backendUpdateMock.execute() >> [name: updateOpName]
       2 * computeMock.backendServices() >> backendServicesMock
       1 * backendServicesMock.get(PROJECT_NAME, 'backend-service') >> backendSvcGetMock
       1 * backendSvcGetMock.execute() >> bs
       1 * backendServicesMock.update(PROJECT_NAME, 'backend-service', bs) >> backendUpdateMock
+      _ * googleOperationPoller.waitForGlobalOperation(computeMock, PROJECT_NAME, updateOpName, null, task, _, _)
 
     when:
       destroy.destroy(

@@ -24,13 +24,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeployManifestDescription;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestTraffic;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesSourceCapacity;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.*;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanLoadBalance;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanScale;
@@ -46,13 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -110,6 +98,8 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
     Set<Artifact> boundArtifacts = new HashSet<>();
 
+    validateManifestsForRolloutStrategies(inputManifests);
+
     for (KubernetesManifest manifest : inputManifests) {
       if (StringUtils.isEmpty(manifest.getNamespace()) && manifest.getKind().isNamespaced()) {
         manifest.setNamespace(credentials.getDefaultNamespace());
@@ -123,6 +113,8 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       if (deployer == null) {
         throw new IllegalArgumentException("No deployer available for Kubernetes object kind '" + manifest.getKind().toString() + "', unable to continue.");
       }
+
+      KubernetesManifestAnnotater.validateAnnotationsForRolloutStrategies(manifest, description.getStrategy());
 
       getTask().updateStatus(OP_NAME, "Swapping out artifacts in " + manifest.getFullResourceName() + " from context...");
       ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, artifacts, description.getAccount());
@@ -146,10 +138,10 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     for (KubernetesManifest manifest : deployManifests) {
       KubernetesResourceProperties properties = findResourceProperties(manifest);
       KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
-      KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
       boolean versioned = isVersioned(properties, strategy);
       boolean useSourceCapacity = isUseSourceCapacity(strategy);
       boolean recreate = isRecreate(strategy);
+      boolean replace = isReplace(strategy);
 
       KubernetesArtifactConverter converter = versioned ? properties.getVersionedConverter() : properties.getUnversionedConverter();
       KubernetesHandler deployer = properties.getHandler();
@@ -173,15 +165,19 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       getTask().updateStatus(OP_NAME, "Annotating manifest " + manifest.getFullResourceName() + " with artifact, relationships & moniker...");
       KubernetesManifestAnnotater.annotateManifest(manifest, artifact);
 
-      if (useSourceCapacity && deployer instanceof CanScale) { 
+      if (useSourceCapacity && deployer instanceof CanScale) {
         Double replicas = KubernetesSourceCapacity.getSourceCapacity(manifest, credentials);
         if (replicas != null) {
           manifest.setReplicas(replicas);
-        } 
+        }
       }
 
-      applyTraffic(traffic, manifest);
- 
+      setTrafficAnnotation(description.getServices(), manifest);
+      if (description.isEnableTraffic()) {
+        KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
+        applyTraffic(traffic, manifest);
+      }
+
       namer.applyMoniker(manifest, moniker);
       manifest.setName(converter.getDeployedName(artifact));
 
@@ -192,7 +188,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
       getTask().updateStatus(OP_NAME, "Submitting manifest " + manifest.getFullResourceName() + " to kubernetes master...");
       log.debug("Manifest in {} to be deployed: {}", accountName, manifest);
-      result.merge(deployer.deploy(credentials, manifest, recreate));
+      result.merge(deployer.deploy(credentials, manifest, recreate, replace));
 
       result.getCreatedArtifacts().add(artifact);
     }
@@ -204,8 +200,24 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     return result;
   }
 
+  private void setTrafficAnnotation(List<String> services, KubernetesManifest manifest) {
+    if (services == null || services.isEmpty()) {
+      return;
+    }
+    KubernetesManifestTraffic traffic = new KubernetesManifestTraffic(services);
+    KubernetesManifestAnnotater.setTraffic(manifest, traffic);
+  }
+
   private void applyTraffic(KubernetesManifestTraffic traffic, KubernetesManifest target) {
     traffic.getLoadBalancers().forEach(l -> attachLoadBalancer(l, target));
+  }
+
+  private void validateManifestsForRolloutStrategies(List<KubernetesManifest> manifests) {
+    if (description.getStrategy() != null && (manifests.size() != 1 || manifests.get(0).getKind() != KubernetesKind.REPLICA_SET)) {
+      throw new RuntimeException(
+        "Spinnaker can manage traffic for ReplicaSets only. Please deploy exactly one ReplicaSet manifest or disable rollout strategies."
+      );
+    }
   }
 
   private void attachLoadBalancer(String loadBalancerName, KubernetesManifest target) {
@@ -243,6 +255,10 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
   private boolean isRecreate(KubernetesManifestStrategy strategy) {
     return strategy.getRecreate() != null ? strategy.getRecreate() : false;
+  }
+
+  private boolean isReplace(KubernetesManifestStrategy strategy) {
+    return strategy.getReplace() != null ? strategy.getReplace() : false;
   }
 
   private boolean isUseSourceCapacity(KubernetesManifestStrategy strategy) {

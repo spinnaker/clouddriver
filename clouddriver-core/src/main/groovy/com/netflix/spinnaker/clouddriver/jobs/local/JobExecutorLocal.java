@@ -17,73 +17,102 @@ package com.netflix.spinnaker.clouddriver.jobs.local;
 
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
-import com.netflix.spinnaker.clouddriver.jobs.JobStatus;
-import lombok.Setter;
+import com.netflix.spinnaker.clouddriver.jobs.JobResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.exec.*;
-import org.springframework.beans.factory.annotation.Value;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
 import java.util.UUID;
 
 @Slf4j
 public class JobExecutorLocal implements JobExecutor {
-  @Setter
-  @Value("${jobs.local.timeoutMinutes:10}")
-  private long timeoutMinutes;
+  private final long timeoutMinutes;
+
+  public JobExecutorLocal(long timeoutMinutes) {
+    this.timeoutMinutes = timeoutMinutes;
+  }
 
   @Override
-  public JobStatus runJob(final JobRequest jobRequest, Map<String, String> environment, InputStream inputStream) {
-    log.debug("Starting job: \'" + String.join(" ", jobRequest.getTokenizedCommand()) + "\'...");
+  public JobResult<String> runJob(final JobRequest jobRequest) {
+    return executeWrapper(jobRequest, this::execute);
+  }
+
+  @Override
+  public <T> JobResult<T> runJob(final JobRequest jobRequest, ReaderConsumer<T> readerConsumer) {
+    return executeWrapper(jobRequest, request -> executeStreaming(request, readerConsumer));
+  }
+
+  private <T> JobResult<T> executeWrapper(final JobRequest jobRequest, RequestExecutor<T> requestExecutor) {
+    log.debug(String.format("Starting job: '%s'...", String.join(" ", jobRequest.getTokenizedCommand())));
     final String jobId = UUID.randomUUID().toString();
-    log.debug("Executing job with tokenized command: " + String.valueOf(jobRequest.getTokenizedCommand()));
 
-    CommandLine commandLine = createCommandLine(jobRequest.getTokenizedCommand());
-    ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
-    ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
-    PumpStreamHandler pumpStreamHandler = new PumpStreamHandler(stdOut, stdErr, inputStream);
-    ExecuteWatchdog watchdog = new ExecuteWatchdog(timeoutMinutes * 60 * 1000);
-    Executor executor = new DefaultExecutor();
-    executor.setStreamHandler(pumpStreamHandler);
-    executor.setWatchdog(watchdog);
-    executor.setExitValues(null);
-
-    boolean success = false;
+    JobResult<T> jobResult;
     try {
-      int exitValue = executor.execute(commandLine, environment);
-      if (watchdog.killedProcess()) {
-        log.warn("Job " + jobId + " timed out (after " + String.valueOf(timeoutMinutes) + " minutes).");
-      }
-
-      if (exitValue == 0) {
-        success = true;
-      }
+      jobResult = requestExecutor.execute(jobRequest);
     } catch (IOException e) {
-      throw new RuntimeException("Failed to execute job");
+      throw new RuntimeException("Failed to execute job", e);
     }
 
-    return JobStatus.builder()
-      .result(success ? JobStatus.Result.SUCCESS : JobStatus.Result.FAILURE)
-      .stdOut(stdOut.toString())
-      .stdErr(stdErr.toString())
+    if (jobResult.isKilled()) {
+      log.warn(String.format("Job %s timed out (after %d minutes)", jobId, timeoutMinutes));
+    }
+
+    return jobResult;
+  }
+
+  private JobResult<String> execute(JobRequest jobRequest) throws IOException {
+    ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
+    ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
+
+    Executor executor = buildExecutor(new PumpStreamHandler(stdOut, stdErr, jobRequest.getInputStream()));
+    int exitValue = executor.execute(jobRequest.getCommandLine(), jobRequest.getEnvironment());
+
+    return JobResult.<String>builder()
+      .result(exitValue == 0 ? JobResult.Result.SUCCESS : JobResult.Result.FAILURE)
+      .killed(executor.getWatchdog().killedProcess())
+      .output(stdOut.toString())
+      .error(stdErr.toString())
       .build();
   }
 
-  private CommandLine createCommandLine(List<String> tokenizedCommand) {
-    if (tokenizedCommand == null || tokenizedCommand.size() == 0) {
-      throw new IllegalArgumentException("No tokenizedCommand specified.");
+  private <T> JobResult<T> executeStreaming(JobRequest jobRequest, ReaderConsumer<T> consumer) throws IOException {
+    PipedOutputStream stdOut = new PipedOutputStream();
+    ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
+
+    Executor executor = buildExecutor(new PumpStreamHandler(stdOut, stdErr, jobRequest.getInputStream()));
+    DefaultExecuteResultHandler resultHandler = new DefaultExecuteResultHandler();
+    executor.execute(jobRequest.getCommandLine(), jobRequest.getEnvironment(), resultHandler);
+
+    T result = consumer.consume(new BufferedReader(new InputStreamReader(new PipedInputStream(stdOut))));
+
+    try {
+      resultHandler.waitFor();
+    } catch (InterruptedException e) {
+      executor.getWatchdog().destroyProcess();
+      Thread.currentThread().interrupt();
+      throw new RuntimeException(e);
     }
 
-    // Grab the first element as the command.
-    CommandLine commandLine = new CommandLine(tokenizedCommand.get(0));
+    return JobResult.<T>builder()
+      .result(resultHandler.getExitValue() == 0 ? JobResult.Result.SUCCESS : JobResult.Result.FAILURE)
+      .killed(executor.getWatchdog().killedProcess())
+      .output(result)
+      .error(stdErr.toString())
+      .build();
+  }
 
-    int size = tokenizedCommand.size();
-    String[] arguments = tokenizedCommand.subList(1, size).toArray(new String[size - 1]);
-    commandLine.addArguments(arguments, false);
-    return commandLine;
+  private Executor buildExecutor(ExecuteStreamHandler streamHandler) {
+    Executor executor = new DefaultExecutor();
+    executor.setStreamHandler(streamHandler);
+    executor.setWatchdog(new ExecuteWatchdog(timeoutMinutes * 60 * 1000));
+    // Setting this to null causes the executor to skip verifying exit codes; we'll handle checking the exit status
+    // instead of having the executor throw an exception for non-zero exit codes.
+    executor.setExitValues(null);
+
+    return executor;
+  }
+
+  interface RequestExecutor<U> {
+    JobResult<U> execute(JobRequest jobRequest) throws IOException;
   }
 }

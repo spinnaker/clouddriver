@@ -172,7 +172,10 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
         if (description.inService == null) {
           description.inService = sourceJob.inService
         }
-        description.migrationPolicy = description.migrationPolicy ?: sourceJob.migrationPolicy
+        if (description.disruptionBudget == null) {
+          //migrationPolicy should only be used when the disruptionBudget has not been specified
+          description.migrationPolicy = description.migrationPolicy ?: sourceJob.migrationPolicy
+        }
         description.jobType = description.jobType ?: "service"
         if (!description.hardConstraints) description.hardConstraints = []
         if (!description.softConstraints) description.softConstraints = []
@@ -248,6 +251,7 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
         .withMigrationPolicy(description.migrationPolicy)
         .withCredentials(description.credentials.name)
         .withContainerAttributes(description.containerAttributes.collectEntries { [(it.key): it.value?.toString()] })
+        .withDisruptionBudget(description.disruptionBudget)
 
       if (dockerImage.imageDigest != null) {
         submitJobRequest = submitJobRequest.withDockerDigest(dockerImage.imageDigest)

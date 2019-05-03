@@ -68,10 +68,14 @@ class GoogleInstanceProvider implements InstanceProvider<GoogleInstance.View, St
   }
 
   /**
-   * Non-interface method for efficient building of GoogleInstance models during cluster or server group requests.
+   * Non-interface methods for efficient building of GoogleInstance models during cluster or server group requests.
    */
   List<GoogleInstance> getInstances(String account, List<String> instanceKeys, Set<GoogleSecurityGroup> securityGroups) {
-    getInstanceCacheData(instanceKeys)?.collect {
+    getInstancesFromCacheData(account, getInstanceCacheData(instanceKeys), securityGroups)
+  }
+
+  List<GoogleInstance> getInstancesFromCacheData(String account, Collection<CacheData> cacheData, Set<GoogleSecurityGroup> securityGroups) {
+    cacheData?.collect {
       instanceFromCacheData(it, account, securityGroups)
     }
   }
@@ -80,7 +84,8 @@ class GoogleInstanceProvider implements InstanceProvider<GoogleInstance.View, St
     cacheView.getAll(INSTANCES.ns,
                      keys,
                      RelationshipCacheFilter.include(LOAD_BALANCERS.ns,
-                                                     SERVER_GROUPS.ns))
+                                                     SERVER_GROUPS.ns,
+                                                     CLUSTERS.ns))
   }
 
   @Override
@@ -136,10 +141,11 @@ class GoogleInstanceProvider implements InstanceProvider<GoogleInstance.View, St
       instance.serverGroup = serverGroup
     }
 
-    instance.securityGroups = GoogleSecurityGroupProvider.getMatchingServerGroupNames(
+    instance.securityGroups = GoogleSecurityGroupProvider.getMatchingSecurityGroupNames(
         account,
         securityGroups,
         instance.tags.items as Set<String>,
+        instance.serviceAccounts as Set<String>,
         instance.networkName)
 
     instance

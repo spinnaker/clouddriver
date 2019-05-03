@@ -44,6 +44,7 @@ import com.netflix.spinnaker.clouddriver.titus.client.TitusLoadBalancerClient;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion;
 import com.netflix.spinnaker.clouddriver.titus.client.model.TaskState;
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials;
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
 import com.netflix.titus.grpc.protogen.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -80,10 +81,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
   private final Registry registry;
   private final Id metricId;
   private final Provider<AwsLookupUtil> awsLookupUtil;
-
-  // TODO: these thresholds should be dynamic properties
-  private final long TIME_UPDATE_THRESHOLD_MS = TimeUnit.SECONDS.toMillis(10);
-  private final long ITEMS_CHANGED_THRESHOLD = 5000;
+  private final DynamicConfigService dynamicConfigService;
 
   private final Logger log = LoggerFactory.getLogger(TitusStreamingUpdateAgent.class);
 
@@ -138,8 +136,8 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
                                    TitusRegion region,
                                    ObjectMapper objectMapper,
                                    Registry registry,
-                                   Provider<AwsLookupUtil> awsLookupUtil
-  ) {
+                                   Provider<AwsLookupUtil> awsLookupUtil,
+                                   DynamicConfigService dynamicConfigService) {
     this.account = account;
     this.region = region;
     this.objectMapper = objectMapper;
@@ -148,6 +146,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
     this.titusLoadBalancerClient = titusClientProvider.getTitusLoadBalancerClient(account, region.getName());
     this.registry = registry;
     this.awsLookupUtil = awsLookupUtil;
+    this.dynamicConfigService = dynamicConfigService;
     this.metricId = registry.createId("titus.cache.streaming")
       .withTag("account", account.getName())
       .withTag("region", region.getName());
@@ -182,10 +181,10 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
      * received, the agent builds cacheResults for the full snapshot, equivalent to the standard
      * index-the-world caching agent. In the process, we cache mappings between jobIds to
      * applications, clusters, and server groups within a StreamingCacheState object.
-     *
+     * <p>
      * After the initial snapshot persist, the agent continues to consume observeJobs events, updating
      * StreamingCacheState, including a list of jobIds we've received events for. Once either
-     * ITEMS_CHANGED_THRESHOLD events have been consumed, or TIME_UPDATE_THRESHOLD_MS time has passed,
+     * titus.streaming.changeThreshold events have been consumed, or titus.streaming.timeThresholdMs ms has passed,
      * cacheResults are built for the full resource graph of applications that have had job/task updates.
      * This is more work than only directly updating i.e. server groups based on job updates or instance
      * based on task updates, but avoids pitfalls in properly maintaining relationships to or deleting
@@ -218,6 +217,13 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
                   updateJob(state, notification.getJobUpdate().getJob());
                   break;
                 case TASKUPDATE:
+                  if (notification.getTaskUpdate().getMovedFromAnotherJob()) {
+                    Task task = notification.getTaskUpdate().getTask();
+                    String destinationJobId = task.getJobId();
+                    String sourceJobId = task.getTaskContextOrDefault("task.movedFromJob", null);
+                    log.info("{} task moved from job {} to {}", task.getId(), sourceJobId, destinationJobId);
+                    updateMovedTask(state, task, sourceJobId);
+                  }
                   updateTask(state, notification.getTaskUpdate().getTask());
                   break;
                 case SNAPSHOTEND:
@@ -272,6 +278,11 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
       }
 
       if (FINISHED_JOB_STATES.contains(job.getStatus().getState())) {
+        if (state.snapshotComplete && state.tasks.containsKey(jobId)) {
+          state.tasks.get(jobId).forEach(t ->
+            state.completedInstanceIds.add(Keys.getInstanceV2Key(t.getId(), account.getName(), region.getName()))
+          );
+        }
         state.tasks.remove(jobId);
         if (state.jobs.containsKey(jobId)) {
           state.jobs.remove(jobId);
@@ -294,10 +305,15 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
         state.tasks.computeIfAbsent(jobId, t -> new HashSet<>()).remove(task);
         state.tasks.get(jobId).add(task);
       } else if (FINISHED_TASK_STATES.contains(task.getStatus().getState())) {
+        if (state.snapshotComplete) {
+          state.completedInstanceIds.add(
+            Keys.getInstanceV2Key(task.getId(), account.getName(), region.getName())
+          );
+        }
         if (state.tasks.containsKey(jobId)) {
           state.tasks.get(jobId).remove(task);
         } else if (state.snapshotComplete) {
-          log.debug("{} updateTask: task: {} jobId: {} has finished, but not present in current snapshot set",
+          log.debug("{} updateTask: task: {} jobId: {} has finished, but task not present in current snapshot set",
             getAgentType(),
             task.getId(),
             jobId
@@ -312,12 +328,24 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
       state.changes.incrementAndGet();
     }
 
+    private void updateMovedTask(StreamingCacheState state, Task task, String sourceJobId) {
+      if (sourceJobId != null) {
+        if (state.tasks.containsKey(sourceJobId)) {
+          state.tasks.get(sourceJobId).remove(task);
+          state.updatedJobs.add(sourceJobId);
+        }
+      }
+    }
+
     private void writeToCache(StreamingCacheState state) {
       long startTime = System.currentTimeMillis();
 
       if (!state.savedSnapshot ||
-        state.changes.get() >= ITEMS_CHANGED_THRESHOLD ||
-        (startTime - state.lastUpdate.get() > TIME_UPDATE_THRESHOLD_MS && state.changes.get() > 0)
+        state.changes.get() >=
+          dynamicConfigService.getConfig(Integer.class, "titus.streaming.changeThreshold", 1000) ||
+        (startTime - state.lastUpdate.get() >
+          dynamicConfigService.getConfig(Integer.class, "titus.streaming.timeThresholdMs", 5000) &&
+          state.changes.get() > 0)
       ) {
         if (!state.savedSnapshot) {
           log.info("Storing snapshot with {} job and tasks in {}", state.changes.get(), getAgentType());
@@ -389,14 +417,24 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
       Set<String> currentApps = new HashSet<>();
       Set<String> currentClusters = new HashSet<>();
       Set<String> currentServerGroups = new HashSet<>();
-      
+
       Map<String, Job> jobs;
 
       if (state.savedSnapshot) {
+        List<String> missingJobMappings = state.updatedJobs.stream()
+          .filter(j -> !state.jobIdToApp.containsKey(j))
+          .collect(Collectors.toList());
+
+        if (!missingJobMappings.isEmpty()) {
+          log.error("{} updatedJobs missing from jobIdToApp cache: {}", getAgentType(), missingJobMappings);
+        }
+
         Set<String> changedApplications = state.updatedJobs.stream()
           .map(j -> state.jobIdToApp.get(j))
           .collect(Collectors.toSet());
         changedApplications.remove(null);
+
+        currentApps.addAll(changedApplications);
 
         Set<String> jobsNeeded = state.jobIdToApp.entrySet().stream()
           .filter(entry -> changedApplications.contains(entry.getValue()))
@@ -483,7 +521,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
             state.clusterKeyToApp.remove(cluster);
           });
         }
-        
+
         if (!missingServerGroups.isEmpty()) {
           log.info("Evicting {} server groups in {}", missingServerGroups.size(), getAgentType());
           cache.evictDeletedItems(SERVER_GROUPS.ns, missingServerGroups);
@@ -491,6 +529,12 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
             state.appsToServerGroups.getOrDefault(state.sgKeyToApp.get(sg), emptySet()).remove(sg);
             state.sgKeyToApp.remove(sg);
           });
+        }
+
+        if (!state.completedInstanceIds.isEmpty()) {
+          log.info("Evicting {} instances in {}", state.completedInstanceIds.size(), getAgentType());
+          cache.evictDeletedItems(INSTANCES.ns, state.completedInstanceIds);
+          state.completedInstanceIds = new HashSet<>();
         }
       }
 
@@ -503,7 +547,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
       cacheResults.put(INSTANCES.ns, instancesCache.values());
 
       String action = state.savedSnapshot ? "Incrementally updating" : "Snapshot caching";
-      
+
       log.info("{} {} applications in {}", action, applicationCache.size(), getAgentType());
       log.info("{} {} server groups in {}", action, serverGroupCache.size(), getAgentType());
       log.info("{} {} clusters in {}", action, clusterCache.size(), getAgentType());
@@ -599,6 +643,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
       Map<String, String> clusterKeyToApp = new HashMap<>();
       Map<String, String> sgKeyToApp = new HashMap<>();
 
+      Set<String> completedInstanceIds = new HashSet<>();
       Set<String> updatedJobs = new HashSet<>();
 
       Boolean snapshotComplete = false;

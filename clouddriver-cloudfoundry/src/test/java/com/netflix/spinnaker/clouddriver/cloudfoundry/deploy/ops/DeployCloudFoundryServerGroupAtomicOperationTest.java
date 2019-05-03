@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.ArtifactCredentialsFromString;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Applications;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
@@ -73,7 +74,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoun
     final DeployCloudFoundryServerGroupDescription description = getDeployCloudFoundryServerGroupDescription(true);
     final CloudFoundryClusterProvider clusterProvider = mock(CloudFoundryClusterProvider.class);
     final DeployCloudFoundryServerGroupAtomicOperation operation =
-      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description, clusterProvider);
+      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description);
     final Applications apps = getApplications(clusterProvider, ProcessStats.State.RUNNING);
 
     // When
@@ -92,16 +93,20 @@ class DeployCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoun
     final DeployCloudFoundryServerGroupDescription description = getDeployCloudFoundryServerGroupDescription(true);
     final CloudFoundryClusterProvider clusterProvider = mock(CloudFoundryClusterProvider.class);
     final DeployCloudFoundryServerGroupAtomicOperation operation =
-      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description, clusterProvider);
+      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description);
     final Applications apps = getApplications(clusterProvider, ProcessStats.State.CRASHED);
 
+    Exception exception = null;
     // When
-    final DeploymentResult result = operation.operate(Lists.emptyList());
+    try {
+      operation.operate(Lists.emptyList());
+    } catch (CloudFoundryApiException cloudFoundryApiException) {
+      exception = cloudFoundryApiException;
+    }
 
-    // Then
-    verifyInOrder(apps, () -> atLeastOnce());
-
-    assertThat(testTask.getStatus().isFailed()).isTrue();
+    //Then
+    assertThat(exception).isNotNull();
+    assertThat(exception.getMessage()).isEqualTo("Cloud Foundry API returned with error(s): Failed to start 'app1-stack1-detail1-v000' which instead crashed");
   }
 
   @Test
@@ -110,7 +115,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoun
     final DeployCloudFoundryServerGroupDescription description = getDeployCloudFoundryServerGroupDescription(false);
     final CloudFoundryClusterProvider clusterProvider = mock(CloudFoundryClusterProvider.class);
     final DeployCloudFoundryServerGroupAtomicOperation operation =
-      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description, clusterProvider);
+      new DeployCloudFoundryServerGroupAtomicOperation(new PassThroughOperationPoller(), description);
     final Applications apps = getApplications(clusterProvider, ProcessStats.State.RUNNING);
 
     // When
@@ -167,7 +172,7 @@ class DeployCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoun
         ""
       ))
       .setSpace(CloudFoundrySpace.builder().id("space1Id").name("space1").build())
-      .setArtifact(Artifact.builder().reference("ref1").build())
+      .setApplicationArtifact(Artifact.builder().reference("ref1").build())
       .setApplicationAttributes(new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
         .setInstances(7)
         .setMemory("1G")

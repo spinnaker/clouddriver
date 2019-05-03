@@ -20,15 +20,17 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.SpaceService;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Space;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryServiceInstance;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import lombok.RequiredArgsConstructor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -69,9 +71,30 @@ public class Spaces {
   }
 
   @Nullable
+  public CloudFoundryServiceInstance getServiceInstanceById(String spaceId, String serviceInstanceName) {
+    return collectPageResources("get service instances by id", pg -> api.getServiceInstancesById(
+      spaceId,
+      pg,
+      Collections.singletonList("name:" + serviceInstanceName)))
+      .stream()
+      .findFirst()
+      .map(e -> CloudFoundryServiceInstance.builder()
+        .name(e.getEntity().getName())
+        .id(e.getMetadata().getGuid())
+        .build())
+      .orElse(null);
+  }
+
+  @Nullable
   public CloudFoundrySpace findByName(String orgId, String spaceName) throws CloudFoundryApiException {
     return safelyCall(() -> api.all(null, Arrays.asList("name:" + spaceName, "organization_guid:" + orgId)))
       .flatMap(page -> page.getResources().stream().findAny().map(this::map))
+      .orElse(null);
+  }
+
+  @Nullable
+  public CloudFoundryServiceInstance getServiceInstanceByNameAndSpace(String serviceInstanceName, CloudFoundrySpace space) {
+    return Optional.ofNullable(getServiceInstanceById(space.getId(), serviceInstanceName))
       .orElse(null);
   }
 

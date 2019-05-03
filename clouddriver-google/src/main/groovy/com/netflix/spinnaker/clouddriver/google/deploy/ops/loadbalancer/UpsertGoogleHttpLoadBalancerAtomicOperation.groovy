@@ -38,6 +38,9 @@ import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES
+
 @Slf4j
 class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalancerAtomicOperation {
   private static final String BASE_PHASE = "UPSERT_HTTP_LOAD_BALANCER"
@@ -437,15 +440,19 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
           TargetHttpsProxiesSetSslCertificatesRequest setSslReq = new TargetHttpsProxiesSetSslCertificatesRequest(
             sslCertificates: [GCEUtil.buildCertificateUrl(project, httpLoadBalancer.certificate)],
           )
-          timeExecute(
+          def sslCertOp = timeExecute(
               compute.targetHttpsProxies().setSslCertificates(project, targetProxyName, setSslReq),
               "compute.targetHttpsProxies.setSslCertificates",
               TAG_SCOPE, SCOPE_GLOBAL)
+          googleOperationPoller.waitForGlobalOperation(compute, project, sslCertOp.getName(), null, task,
+            "set ssl cert ${httpLoadBalancer.certificate}", BASE_PHASE)
           UrlMapReference urlMapRef = new UrlMapReference(urlMap: urlMapUrl)
           def setUrlMapOp = timeExecute(
                   compute.targetHttpsProxies().setUrlMap(project, targetProxyName, urlMapRef),
                   "compute.targetHttpsProxies.setUrlMap",
                   TAG_SCOPE, SCOPE_GLOBAL)
+          googleOperationPoller.waitForGlobalOperation(compute, project, setUrlMapOp.getName(), null, task,
+            "set urlMap $urlMapUrl for target proxy $targetProxyName", BASE_PHASE)
           targetProxyUrl = setUrlMapOp.getTargetLink()
           break
         default:
@@ -573,17 +580,17 @@ class UpsertGoogleHttpLoadBalancerAtomicOperation extends UpsertGoogleLoadBalanc
 
       def instanceMetadata = templateOpMap?.instanceMetadata
       if (instanceMetadata) {
-        List<String> globalLbs = instanceMetadata.(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES)?.split(',') ?: []
+        List<String> globalLbs = instanceMetadata.(GLOBAL_LOAD_BALANCER_NAMES)?.split(',') ?: []
         globalLbs = globalLbs  ? globalLbs + loadBalancerName : [loadBalancerName]
-        instanceMetadata.(GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES) = globalLbs.unique().join(',')
+        instanceMetadata.(GLOBAL_LOAD_BALANCER_NAMES) = globalLbs.unique().join(',')
 
-        List<String> bsNames = instanceMetadata.(GoogleServerGroup.View.BACKEND_SERVICE_NAMES)?.split(',') ?: []
+        List<String> bsNames = instanceMetadata.(BACKEND_SERVICE_NAMES)?.split(',') ?: []
         bsNames = bsNames ? bsNames + backendService.name : [backendService.name]
-        instanceMetadata.(GoogleServerGroup.View.BACKEND_SERVICE_NAMES) = bsNames.unique().join(',')
+        instanceMetadata.(BACKEND_SERVICE_NAMES) = bsNames.unique().join(',')
       } else {
         templateOpMap.instanceMetadata = [
-          (GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES): loadBalancerName,
-          (GoogleServerGroup.View.BACKEND_SERVICE_NAMES)     : backendService.name,
+          (GLOBAL_LOAD_BALANCER_NAMES): loadBalancerName,
+          (BACKEND_SERVICE_NAMES)     : backendService.name,
         ]
       }
 

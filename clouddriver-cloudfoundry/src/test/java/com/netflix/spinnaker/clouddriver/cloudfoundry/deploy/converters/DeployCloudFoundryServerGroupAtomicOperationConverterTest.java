@@ -18,9 +18,11 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
+import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.ArtifactCredentialsFromString;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.PackageArtifactCredentials;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.CloudFoundryArtifactCredentials;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
@@ -51,15 +53,14 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
         .thenAnswer((Answer<Optional<CloudFoundryOrganization>>) invocation -> {
           Object[] args = invocation.getArguments();
           return Optional.of(CloudFoundryOrganization.builder()
-            .id(args[0].toString() + "ID").name(args[0].toString()).build());
+            .id(args[0].toString() + "-guid").name(args[0].toString()).build());
         });
 
-      when(cloudFoundryClient.getSpaces().findByName(any(), any())).thenAnswer((Answer<CloudFoundrySpace>) invocation -> {
-        Object[] args = invocation.getArguments();
-        return CloudFoundrySpace.builder().id(args[1].toString() + "ID").name(args[1].toString())
+      when(cloudFoundryClient.getOrganizations().findSpaceByRegion(any()))
+        .thenReturn(Optional.of(
+          CloudFoundrySpace.builder().id("space-guid").name("space")
           .organization(CloudFoundryOrganization.builder()
-            .id(args[0].toString()).name(args[0].toString().replace("ID", "")).build()).build();
-      });
+            .id("org-guid").name("org").build()).build()));
     }
 
     return new CloudFoundryCredentials(name, "", "", "", "", "", "") {
@@ -75,7 +76,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     Collections.singletonList(
       accounts.map(account -> new ArtifactCredentialsFromString(
         account,
-        List.of("a").asJava(),
+        List.of("test").asJava(),
         "applications: [{instances: 42}]"
       )).asJava()
     )
@@ -91,88 +92,13 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     new DefaultAccountCredentialsProvider(accountCredentialsRepository);
 
   private final DeployCloudFoundryServerGroupAtomicOperationConverter converter =
-    new DeployCloudFoundryServerGroupAtomicOperationConverter(null, artifactCredentialsRepository, null);
+    new DeployCloudFoundryServerGroupAtomicOperationConverter(null, artifactCredentialsRepository,
+      new ArtifactDownloader(artifactCredentialsRepository));
 
   @BeforeEach
   void initializeClassUnderTest() {
     converter.setAccountCredentialsProvider(accountCredentialsProvider);
     converter.setObjectMapper(new ObjectMapper());
-  }
-
-  @Test
-  void convertDescriptionWitSourceSet() {
-    final Map input = HashMap.of(
-      "credentials", "destinationAccount",
-      "region", "org > space",
-      "startApplication", "true",
-      "source", HashMap.of(
-        "account", "sourceAccount",
-        "asgName", "serverGroupName1",
-        "region", "org > space"
-      ).toJavaMap(),
-      "manifest", HashMap.of(
-        "type", "artifact",
-        "account", "test",
-        "reference", "ref1"
-      ).toJavaMap()
-    ).toJavaMap();
-
-    final DeployCloudFoundryServerGroupDescription result = converter.convertDescription(input);
-
-    CloudFoundryCredentials sourceCredentials = converter.getCredentialsObject("sourceAccount");
-    assertThat(result.getAccountName()).isEqualTo("destinationAccount");
-    assertThat(result.getArtifactCredentials())
-      .isEqualToComparingFieldByFieldRecursively(new PackageArtifactCredentials(sourceCredentials.getClient()));
-    assertThat(result.getSpace()).isEqualToComparingFieldByFieldRecursively(
-      CloudFoundrySpace.builder().id("spaceID").name("space").organization(
-        CloudFoundryOrganization.builder().id("orgID").name("org").build()).build());
-    assertThat(result.isStartApplication()).isTrue();
-    assertThat(result.getApplicationAttributes()).isEqualToComparingFieldByFieldRecursively(
-      new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
-        .setInstances(42)
-        .setMemory("1024")
-        .setDiskQuota("1024")
-        .setBuildpacks(Collections.emptyList())
-    );
-  }
-
-  @Test
-  void convertDescriptionWithDestinationSet() {
-    final Map input = HashMap.of(
-      "credentials", "destinationAccount",
-      "region", "org > space",
-      "destination", HashMap.of(
-        "account", "sourceAccount1",
-        "region", "org1 > space1"
-      ).toJavaMap(),
-      "source", HashMap.of(
-        "account", "sourceAccount2",
-        "asgName", "serverGroupName1",
-        "region", "org > space"
-      ).toJavaMap(),
-      "manifest", HashMap.of(
-        "type", "artifact",
-        "account", "test",
-        "reference", "ref1"
-      ).toJavaMap()
-    ).toJavaMap();
-
-    final DeployCloudFoundryServerGroupDescription result = converter.convertDescription(input);
-
-    CloudFoundryCredentials sourceCredentials = converter.getCredentialsObject("sourceAccount2");
-    assertThat(result.getAccountName()).isEqualTo("sourceAccount1");
-    assertThat(result.getArtifactCredentials())
-      .isEqualToComparingFieldByFieldRecursively(new PackageArtifactCredentials(sourceCredentials.getClient()));
-    assertThat(result.getSpace()).isEqualToComparingFieldByFieldRecursively(
-      CloudFoundrySpace.builder().id("space1ID").name("space1").organization(
-        CloudFoundryOrganization.builder().id("org1ID").name("org1").build()).build());
-    assertThat(result.getApplicationAttributes()).isEqualToComparingFieldByFieldRecursively(
-      new DeployCloudFoundryServerGroupDescription.ApplicationAttributes()
-        .setInstances(42)
-        .setMemory("1024")
-        .setDiskQuota("1024")
-        .setBuildpacks(Collections.emptyList())
-    );
   }
 
   @Test

@@ -51,6 +51,7 @@ public class KubernetesManifestAnnotater {
   private static final String IGNORE_CACHING = CACHING_ANNOTATION_PREFIX + "/ignore";
   private static final String VERSIONED = STRATEGY_ANNOTATION_PREFIX + "/versioned";
   private static final String RECREATE = STRATEGY_ANNOTATION_PREFIX + "/recreate";
+  private static final String REPLACE = STRATEGY_ANNOTATION_PREFIX + "/replace";
   private static final String MAX_VERSION_HISTORY = STRATEGY_ANNOTATION_PREFIX + "/max-version-history";
   private static final String USE_SOURCE_CAPACITY = STRATEGY_ANNOTATION_PREFIX + "/use-source-capacity";
   private static final String LOAD_BALANCERS = TRAFFIC_ANNOTATION_PREFIX + "/load-balancers";
@@ -205,9 +206,39 @@ public class KubernetesManifestAnnotater {
   public static KubernetesManifestTraffic getTraffic(KubernetesManifest manifest) {
     Map<String, String> annotations = manifest.getAnnotations();
 
-    return KubernetesManifestTraffic.builder()
-        .loadBalancers(getAnnotation(annotations, LOAD_BALANCERS, new TypeReference<List<String>>() {}, new ArrayList<>()))
-        .build();
+    List<String> loadBalancers = getAnnotation(annotations, LOAD_BALANCERS, new TypeReference<List<String>>() {}, new ArrayList<>());
+    return new KubernetesManifestTraffic(loadBalancers);
+  }
+
+  public static void setTraffic(KubernetesManifest manifest, KubernetesManifestTraffic traffic) {
+    Map<String, String> annotations = manifest.getAnnotations();
+    List<String> loadBalancers = traffic.getLoadBalancers();
+
+    if (annotations.containsKey(LOAD_BALANCERS)) {
+      KubernetesManifestTraffic currentTraffic = getTraffic(manifest);
+      if (currentTraffic.getLoadBalancers().equals(loadBalancers)) {
+        return;
+      } else {
+        throw new RuntimeException(String.format(
+          "Manifest already has %s annotation set to %s. Failed attempting to set it to %s.",
+          LOAD_BALANCERS,
+          currentTraffic.getLoadBalancers(),
+          loadBalancers
+        ));
+      }
+    }
+    storeAnnotation(annotations, LOAD_BALANCERS, loadBalancers);
+  }
+
+  public static void validateAnnotationsForRolloutStrategies(KubernetesManifest manifest, KubernetesDeployManifestDescription.Strategy strategy) {
+    Map<String, String> annotations = manifest.getAnnotations();
+    Integer maxVersionHistory = getAnnotation(annotations, MAX_VERSION_HISTORY, new TypeReference<Integer>() {});
+    if (strategy == KubernetesDeployManifestDescription.Strategy.RED_BLACK && maxVersionHistory != null && maxVersionHistory < 2) {
+      throw new RuntimeException(String.format(
+        "The max version history specified in your manifest conflicts with the behavior of the Red/Black rollout strategy. Please update your %s annotation to a value greater than or equal to 2.",
+        MAX_VERSION_HISTORY
+      ));
+    }
   }
 
   public static KubernetesCachingProperties getCachingProperties(KubernetesManifest manifest) {
@@ -225,6 +256,7 @@ public class KubernetesManifestAnnotater {
     return KubernetesManifestStrategy.builder()
         .versioned(getAnnotation(annotations, VERSIONED, new TypeReference<Boolean>() {}))
         .recreate(getAnnotation(annotations, RECREATE, new TypeReference<Boolean>() {}))
+        .replace(getAnnotation(annotations, REPLACE, new TypeReference<Boolean>() {}))
         .maxVersionHistory(getAnnotation(annotations, MAX_VERSION_HISTORY, new TypeReference<Integer>() {}))
         .useSourceCapacity(getAnnotation(annotations, USE_SOURCE_CAPACITY, new TypeReference<Boolean>() {}))
         .build();

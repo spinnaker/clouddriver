@@ -37,16 +37,32 @@ class GoogleSecurityGroup implements SecurityGroup {
   final String region
   final String network
   final String selfLink
+
+  // GCE firewall rules (modeled by this class) can either use sourceTags/targetTags or
+  // sourceServiceAccounts/targetServiceAccounts.
+  // Read more at https://cloud.google.com/vpc/docs/firewalls#service-accounts-vs-tags.
+
   // Don't see an elegant way to encapsulate source tags in an inbound rule.
   final List<String> sourceTags
   final List<String> targetTags
+
+  final List<String> sourceServiceAccounts
+  final List<String> targetServiceAccounts
+
   final Set<Rule> inboundRules
   final Set<Rule> outboundRules
 
-  void setMoniker(Moniker _ignored) {}
-
   @Override
   SecurityGroupSummary getSummary() {
-    new GoogleSecurityGroupSummary(name: name, id: id, network: network, selfLink: selfLink, sourceTags: sourceTags, targetTags: targetTags)
+    new GoogleSecurityGroupSummary(
+      name: name,
+      id: id,
+      network: network,
+      selfLink: selfLink,
+      sourceTags: sourceTags,
+      targetTags: targetTags,
+      sourceServiceAccounts: sourceServiceAccounts,
+      targetServiceAccounts: targetServiceAccounts
+    )
   }
 }

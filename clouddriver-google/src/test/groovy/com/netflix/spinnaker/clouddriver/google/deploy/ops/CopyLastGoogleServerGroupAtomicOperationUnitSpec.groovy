@@ -23,6 +23,7 @@ import com.google.api.services.compute.model.Image
 import com.google.api.services.compute.model.InstanceProperties
 import com.google.api.services.compute.model.InstanceTemplate
 import com.google.api.services.compute.model.Scheduling
+import com.google.api.services.compute.model.ShieldedVmConfig
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
@@ -96,6 +97,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
   private def instanceMetadata
   private def tags
   private def scheduling
+  private def shieldedVmConfig
   private def serviceAccount
   private def instanceProperties
   private def instanceTemplate
@@ -108,7 +110,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
   def setup() {
     computeMock = Mock(Compute)
-    credentials = new GoogleNamedAccountCredentials.Builder().project(PROJECT_NAME).compute(computeMock).build()
+    credentials = new GoogleNamedAccountCredentials.Builder().name("gce").project(PROJECT_NAME).compute(computeMock).build()
 
     sourceImage = new Image(selfLink: IMAGE)
     network = new GoogleNetwork(selfLink: DEFAULT_NETWORK_URL)
@@ -146,7 +148,7 @@ class CopyLastGoogleServerGroupAtomicOperationUnitSpec extends Specification {
 
     serverGroup = new GoogleServerGroup(name: ANCESTOR_SERVER_GROUP_NAME,
                                         zone: ZONE,
-                                        asg: [(GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES): LOAD_BALANCERS,
+                                        asg: [(GCEUtil.REGIONAL_LOAD_BALANCER_NAMES): LOAD_BALANCERS,
                                             desiredCapacity: 2],
                                         launchConfig: [instanceTemplate: instanceTemplate],
                                         autoscalingPolicy: [coolDownPeriodSec: 45,

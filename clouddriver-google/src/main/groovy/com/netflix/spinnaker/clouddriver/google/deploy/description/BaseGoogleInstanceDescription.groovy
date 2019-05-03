@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.description
 
 import com.netflix.spinnaker.clouddriver.google.model.GoogleDisk
+import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
@@ -25,7 +26,7 @@ import groovy.transform.ToString
 @AutoClone
 @Canonical
 @ToString(includeNames = true)
-class BaseGoogleInstanceDescription extends AbstractGoogleCredentialsDescription {
+class BaseGoogleInstanceDescription extends AbstractGoogleCredentialsDescription implements GoogleLabeledResource {
   String instanceType
   String minCpuPlatform
   List<GoogleDisk> disks
@@ -42,6 +43,17 @@ class BaseGoogleInstanceDescription extends AbstractGoogleCredentialsDescription
   Boolean preemptible
   Boolean automaticRestart
   OnHostMaintenance onHostMaintenance
+  // Secure boot helps protect your VM instances against boot-level and kernel-level malware and rootkits.
+  // Supported only for Shielded VMs
+  Boolean enableSecureBoot;
+  // Virtual Trusted Platform Module (vTPM) validates your guest VM pre-boot and boot integrity,
+  // and offers key generation and protection.
+  // Supported only for Shielded VMs
+  Boolean enableVtpm;
+  // Integrity monitoring lets you monitor and verify the runtime boot integrity of your shielded VM instances using Stackdriver reports.
+  // Note: requires vTPM to be enabled.
+  // Supported only for Shielded VMs
+  Boolean enableIntegrityMonitoring;
 
   // Unique disk device name addressable by a Linux OS in /dev/disk/by-id/google-* in the running instance.
   // Used to reference disk for mounting, resizing, etc.

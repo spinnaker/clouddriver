@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.azure.common
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
 
 import java.util.regex.Matcher
@@ -34,6 +35,7 @@ class AzureUtilities {
   static final String IPCONFIG_NAME_PREFIX = "ipc-"
   static final String NETWORK_INTERFACE_PREFIX = "nic-"
   static final Pattern IPV4_PREFIX_REGEX = ~/^(?<addr3>\d+)\.(?<addr2>\d+)\.(?<addr1>\d+)\.(?<addr0>\d+)\/(?<length>\d+)$/
+  static final String LB_NAME_PREFIX = "lb-"
   static final String INBOUND_NATPOOL_PREFIX = "np-"
   static final String VNET_DEFAULT_ADDRESS_PREFIX = "10.0.0.0/8"
   static final int SUBNET_DEFAULT_ADDRESS_PREFIX_LENGTH = 24
@@ -287,6 +289,36 @@ class AzureUtilities {
       throw new ArithmeticException("Overflow occurred getting next valid subnet after $subnetAddrPrefix within vnet $vnetAddrPrefix")
     }
     return resultPrefix
+  }
+
+  static String convertParametersToTemplateJSON(ObjectMapper mapper, Map<String, Object> sourceParameters) {
+    Map<String, Object> map = new HashMap<>()
+    if (sourceParameters.size() == 0) return mapper.writeValueAsString(sourceParameters)
+    for(Map.Entry<String, Object> entry: sourceParameters.entrySet()) {
+      // Avoid null reference by skipping null values. It still works for those mapping destination fields whose source values are skipped here since they will be assigned as null by default.
+      if(entry.value) {
+        if (entry.value.class == String) {
+          map.put(entry.key, new ValueParameter(entry.value))
+        } else {
+          map.put(entry.key, new ReferenceParameter(entry.value))
+        }
+      }
+    }
+    mapper.writeValueAsString(map)
+  }
+
+  static class ValueParameter extends Object {
+    Object value
+    ValueParameter(Object value) {
+      this.value = value
+    }
+  }
+
+  static class ReferenceParameter extends Object {
+    Object reference
+    ReferenceParameter(Object reference) {
+      this.reference = reference
+    }
   }
 
   static class ProvisioningState {

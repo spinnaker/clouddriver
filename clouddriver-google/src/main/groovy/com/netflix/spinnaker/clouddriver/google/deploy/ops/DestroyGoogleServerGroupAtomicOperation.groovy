@@ -23,9 +23,11 @@ import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.DestroyGoogleServerGroupDescription
+import com.netflix.spinnaker.clouddriver.google.deploy.instancegroups.GoogleServerGroupManagersFactory
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancerProvider
+import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -52,6 +54,9 @@ class DestroyGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Void
 
   @Autowired
   SafeRetry safeRetry
+
+  @Autowired
+  GoogleServerGroupManagersFactory serverGroupManagersFactory
 
   DestroyGoogleServerGroupAtomicOperation(DestroyGoogleServerGroupDescription description) {
     this.description = description
@@ -133,7 +138,7 @@ class DestroyGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Void
         tags[TAG_ZONE] = zone
         tags['operation'] = 'compute.instanceGroupManagers.delete'
       }
-      destroy(destroyInstanceGroup(compute, serverGroupName, project, region, zone, isRegional), "instance group", tags)
+      destroy(destroyInstanceGroup(credentials, serverGroup), "instance group", tags)
     }
 
     task.updateStatus BASE_PHASE, "Deleted instance group."
@@ -197,7 +202,7 @@ class DestroyGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Void
                                           GoogleServerGroup.View serverGroup,
                                           GoogleLoadBalancerProvider googleLoadBalancerProvider) {
     return {
-      GCEUtil.destroyHttpLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, BASE_PHASE, this)
+      GCEUtil.destroyHttpLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, BASE_PHASE, googleOperationPoller, this)
       null
     }
   }
@@ -207,7 +212,7 @@ class DestroyGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Void
                                               GoogleServerGroup.View serverGroup,
                                               GoogleLoadBalancerProvider googleLoadBalancerProvider) {
     return {
-      GCEUtil.destroyInternalLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, BASE_PHASE, this)
+      GCEUtil.destroyInternalLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, BASE_PHASE, googleOperationPoller, this)
       null
     }
   }
@@ -217,7 +222,7 @@ class DestroyGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Void
                                          GoogleServerGroup.View serverGroup,
                                          GoogleLoadBalancerProvider googleLoadBalancerProvider) {
     return {
-      GCEUtil.destroySslLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, BASE_PHASE, this)
+      GCEUtil.destroySslLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, BASE_PHASE, googleOperationPoller, this)
       null
     }
   }
@@ -227,35 +232,20 @@ class DestroyGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Void
                                          GoogleServerGroup.View serverGroup,
                                          GoogleLoadBalancerProvider googleLoadBalancerProvider) {
     return {
-      GCEUtil.destroyTcpLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, BASE_PHASE, this)
+      GCEUtil.destroyTcpLoadBalancerBackends(compute, project, serverGroup, googleLoadBalancerProvider, task, BASE_PHASE, googleOperationPoller, this)
       null
     }
   }
 
-  Closure destroyInstanceGroup(Compute compute, String serverGroupName, String project, String region, String zone, Boolean isRegional) {
-    return {
-      def instanceGroupManagerDeleteOperation = isRegional ?
-        timeExecute(
-            compute.regionInstanceGroupManagers().delete(project, region, serverGroupName),
-            "compute.regionInstanceGroupManagers.delete",
-            TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region) :
-        timeExecute(
-            compute.instanceGroupManagers().delete(project, zone, serverGroupName),
-            "compute.instanceGroupManagers.delete",
-            TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
+  Closure destroyInstanceGroup(GoogleNamedAccountCredentials credentials, GoogleServerGroup.View serverGroup) {
 
-      def instanceGroupOperationName = instanceGroupManagerDeleteOperation.getName()
+    return {
+      def serverGroupManagers = serverGroupManagersFactory.getManagers(credentials, serverGroup)
+      def deleteOperation = serverGroupManagers.delete()
 
       task.updateStatus BASE_PHASE, "Waiting on delete operation for managed instance group..."
 
-      // We must make sure the managed instance group is deleted before deleting the instance template.
-      if (isRegional) {
-        googleOperationPoller.waitForRegionalOperation(compute, project, region, instanceGroupOperationName, null, task,
-          "regional instance group $serverGroupName", BASE_PHASE)
-      } else {
-        googleOperationPoller.waitForZonalOperation(compute, project, zone, instanceGroupOperationName, null, task,
-          "zonal instance group $serverGroupName", BASE_PHASE)
-      }
+      serverGroupManagers.operationPoller.waitForOperation(deleteOperation, /* timeout= */ null, task, BASE_PHASE)
       null
     }
   }

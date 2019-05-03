@@ -19,9 +19,10 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.client.api;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ApplicationEnv;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.InstanceStatus;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.MapRoute;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Page;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.*;
 import retrofit.client.Response;
 import retrofit.http.*;
 import retrofit.mime.TypedFile;
@@ -44,6 +45,12 @@ public interface ApplicationService {
 
   @GET("/v2/apps/{guid}/instances")
   Map<String, InstanceStatus> instances(@Path("guid") String guid);
+
+  @GET("/v2/apps")
+  Page<com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Application> listAppsFiltered(
+    @Query("page") Integer page,
+    @Query("q") List<String> q,
+    @Query("results-per-page") Integer resultsPerPage);
 
   /**
    * Requires an empty body.

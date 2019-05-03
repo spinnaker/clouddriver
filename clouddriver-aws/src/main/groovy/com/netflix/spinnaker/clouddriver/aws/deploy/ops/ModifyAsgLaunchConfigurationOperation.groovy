@@ -86,7 +86,7 @@ class ModifyAsgLaunchConfigurationOperation implements AtomicOperation<Void> {
     if (description.amiName) {
       def amazonEC2 = regionScopedProvider.amazonEC2
       ResolvedAmiResult ami = priorOutputs.find({
-        it instanceof ResolvedAmiResult && it.region == description.region && it.amiName == description.amiName
+        it instanceof ResolvedAmiResult && it.region == description.region && (it.amiName == description.amiName || it.amiId == description.amiName)
       }) ?: AmiIdResolver.resolveAmiIdFromAllSources(amazonEC2, description.region, description.amiName, description.credentials.accountId)
 
       props.ami = ami.amiId
@@ -118,6 +118,7 @@ class ModifyAsgLaunchConfigurationOperation implements AtomicOperation<Void> {
     }
 
     def newSettings = settings.copyWith(props)
+    String resultLaunchConfigName = existingLc
 
     if (newSettings == settings && description.legacyUdf == null) {
       task.updateStatus BASE_PHASE, "No changes required for launch configuration on $description.asgName in $description.region"
@@ -126,6 +127,7 @@ class ModifyAsgLaunchConfigurationOperation implements AtomicOperation<Void> {
       def name = Names.parseName(description.asgName)
       def newLc = lcBuilder.buildLaunchConfiguration(name.app, description.subnetType, newSettings, description.legacyUdf)
 
+      resultLaunchConfigName = newLc
       def autoScaling = regionScopedProvider.autoScaling
 
       if (!newSettings.instanceMonitoring && settings.instanceMonitoring) {
@@ -140,6 +142,7 @@ class ModifyAsgLaunchConfigurationOperation implements AtomicOperation<Void> {
           .withLaunchConfigurationName(newLc))
     }
 
+    task.addResultObjects([[launchConfigurationName: resultLaunchConfigName]])
     task.updateStatus BASE_PHASE, "completed for $description.asgName in $description.region."
     null
   }

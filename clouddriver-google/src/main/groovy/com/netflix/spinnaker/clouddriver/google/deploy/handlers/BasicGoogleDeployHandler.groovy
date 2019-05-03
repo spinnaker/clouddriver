@@ -18,7 +18,19 @@ package com.netflix.spinnaker.clouddriver.google.deploy.handlers
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.api.services.compute.Compute
-import com.google.api.services.compute.model.*
+import com.google.api.services.compute.model.AcceleratorConfig
+import com.google.api.services.compute.model.Autoscaler
+import com.google.api.services.compute.model.Backend
+import com.google.api.services.compute.model.BackendService
+import com.google.api.services.compute.model.DistributionPolicy
+import com.google.api.services.compute.model.DistributionPolicyZoneConfiguration
+import com.google.api.services.compute.model.FixedOrPercent
+import com.google.api.services.compute.model.InstanceGroupManager
+import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPolicy
+import com.google.api.services.compute.model.InstanceProperties
+import com.google.api.services.compute.model.InstanceTemplate
+import com.google.api.services.compute.model.NamedPort
+import com.netflix.frigga.Names
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.clouddriver.data.task.Task
@@ -26,6 +38,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
+import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutorTraits
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEServerGroupNameResolver
@@ -34,7 +47,7 @@ import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDeployDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.ops.GoogleUserDataProvider
-import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
+import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancingPolicy
@@ -43,10 +56,19 @@ import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleNetworkProvider
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleSubnetProvider
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.config.GoogleConfiguration
+import com.netflix.spinnaker.moniker.Moniker
+import com.netflix.spinnaker.moniker.Namer
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.LOAD_BALANCING_POLICY
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.SELECT_ZONES
 
 @Component
 @Slf4j
@@ -133,8 +155,12 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     def instanceMetadata = description.instanceMetadata
     def labels = description.labels
     def canIpForward = description.canIpForward
+    Namer<GoogleLabeledResource> namer = NamerRegistry.lookup()
+      .withProvider(GoogleCloudProvider.getID())
+      .withAccount(accountName)
+      .withResource(GoogleLabeledResource.class)
 
-    def serverGroupNameResolver = new GCEServerGroupNameResolver(project, region, credentials, safeRetry, this)
+    def serverGroupNameResolver = new GCEServerGroupNameResolver(project, region, credentials, googleClusterProvider, safeRetry, this)
     def clusterName = serverGroupNameResolver.combineAppStackDetail(description.application, description.stack, description.freeFormDetails)
 
     task.updateStatus BASE_PHASE, "Initializing creation of server group for cluster $clusterName in $location..."
@@ -194,6 +220,18 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     task.updateStatus BASE_PHASE, "Composing server group $serverGroupName..."
 
     description.baseDeviceName = serverGroupName
+
+    def bootImage = GCEUtil.getBootImage(description,
+      task,
+      BASE_PHASE,
+      clouddriverUserAgentApplicationName,
+      googleConfigurationProperties.baseImageProjects,
+      safeRetry,
+      this)
+
+    // We include a subset of the image's attributes and a reference in the disks.
+    // Furthermore, we're using the underlying raw compute model classes
+    // so we can't simply change the representation to support what we need for shielded VMs.
     def attachedDisks = GCEUtil.buildAttachedDisks(description,
                                                    null,
                                                    false,
@@ -202,6 +240,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                    BASE_PHASE,
                                                    clouddriverUserAgentApplicationName,
                                                    googleConfigurationProperties.baseImageProjects,
+                                                   bootImage,
                                                    safeRetry,
                                                    this)
 
@@ -212,7 +251,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                          ACCESS_CONFIG_TYPE)
 
     def hasBackendServices = (instanceMetadata &&
-      instanceMetadata.containsKey(GoogleServerGroup.View.BACKEND_SERVICE_NAMES)) || sslLoadBalancers || tcpLoadBalancers
+      instanceMetadata.containsKey(BACKEND_SERVICE_NAMES)) || sslLoadBalancers || tcpLoadBalancers
 
     // Resolve and queue the backend service updates, but don't execute yet.
     // We need to resolve this information to set metadata in the template so enable can know about the
@@ -220,15 +259,15 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     // If we try to execute the update, GCP will fail since the MIG is not created yet.
     List<BackendService> backendServicesToUpdate = []
     if (hasBackendServices) {
-      List<String> backendServices = instanceMetadata[GoogleServerGroup.View.BACKEND_SERVICE_NAMES]?.split(",") ?: []
+      List<String> backendServices = instanceMetadata[BACKEND_SERVICE_NAMES]?.split(",") ?: []
       backendServices.addAll(sslLoadBalancers.collect { it.backendService.name })
       backendServices.addAll(tcpLoadBalancers.collect { it.backendService.name })
 
       // Set the load balancer name metadata.
       def globalLbNames = sslLoadBalancers.collect { it.name } + tcpLoadBalancers.collect { it.name } + GCEUtil.resolveHttpLoadBalancerNamesMetadata(backendServices, compute, project, this)
-      instanceMetadata[GoogleServerGroup.View.GLOBAL_LOAD_BALANCER_NAMES] = globalLbNames.join(",")
+      instanceMetadata[GLOBAL_LOAD_BALANCER_NAMES] = globalLbNames.join(",")
 
-      String sourcePolicyJson = instanceMetadata[GoogleServerGroup.View.LOAD_BALANCING_POLICY]
+      String sourcePolicyJson = instanceMetadata[LOAD_BALANCING_POLICY]
       def loadBalancingPolicy = description.loadBalancingPolicy
 
       backendServices.each { String backendServiceName ->
@@ -272,7 +311,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     // Update the instance metadata for ILBs and queue up region backend service calls.
     List<BackendService> regionBackendServicesToUpdate = []
     if (internalLoadBalancers) {
-      List<String> existingRegionalLbs = instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
+      List<String> existingRegionalLbs = instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
       def ilbServices = internalLoadBalancers.collect { it.backendService.name }
       def ilbNames = internalLoadBalancers.collect { it.name }
 
@@ -281,7 +320,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           existingRegionalLbs << ilbName
         }
       }
-      instanceMetadata[GoogleServerGroup.View.REGIONAL_LOAD_BALANCER_NAMES] = existingRegionalLbs.join(",")
+      instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES] = existingRegionalLbs.join(",")
 
       ilbServices.each { String backendServiceName ->
         BackendService backendService = timeExecute(
@@ -319,7 +358,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     }
 
     if (isRegional && description.selectZones) {
-      instanceMetadata[GoogleServerGroup.View.SELECT_ZONES] = true
+      instanceMetadata[SELECT_ZONES] = true
     }
 
     def metadata = GCEUtil.buildMetadataFromMap(instanceMetadata)
@@ -342,6 +381,19 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     labels['spinnaker-region'] = region
     labels['spinnaker-server-group'] = serverGroupName
 
+    def sequence = Names.parseName(serverGroupName).sequence
+
+    def moniker = Moniker.builder()
+      .app(description.application)
+      .cluster(clusterName)
+      .detail(description.freeFormDetails)
+      .stack(description.stack)
+      .sequence(sequence)
+      .build()
+
+    // Apply moniker to labels which are subsequently recorded in the instance template.
+    namer.applyMoniker(new GoogleInstanceTemplate(labels: labels), moniker)
+
     // Accelerators are supported for zonal server groups only.
     List<AcceleratorConfig> acceleratorConfigs = description.regional ? [] : description.acceleratorConfigs
 
@@ -355,6 +407,11 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                     labels: labels,
                                                     scheduling: scheduling,
                                                     serviceAccounts: serviceAccount)
+
+    if (GCEUtil.isShieldedVmCompatible(bootImage)) {
+      def shieldedVmConfig = GCEUtil.buildShieldedVmConfig(description)
+      instanceProperties.setShieldedVmConfig(shieldedVmConfig)
+    }
 
     if (description.minCpuPlatform) {
       instanceProperties.minCpuPlatform = description.minCpuPlatform
@@ -600,6 +657,20 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     }
   }
 
+  // todo(lwander): move to kork
+  private static Moniker cloneMoniker(Moniker inp) {
+    if (inp == null) {
+      return new Moniker()
+    }
+    return Moniker.builder()
+      .app(inp.getApp())
+      .cluster(inp.getCluster())
+      .stack(inp.getStack())
+      .detail(inp.getDetail())
+      .sequence(inp.getSequence())
+      .build()
+  }
+
   Map getUserData(BasicGoogleDeployDescription description, String serverGroupName,
                   String instanceTemplateName, GoogleNamedAccountCredentials credentials) {
     String customUserData = ''
@@ -610,5 +681,9 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       description, credentials, customUserData)
     task.updateStatus BASE_PHASE, "Resolved user data."
     return userData
+  }
+
+  static class GoogleInstanceTemplate implements GoogleLabeledResource {
+    Map<String, String> labels
   }
 }
