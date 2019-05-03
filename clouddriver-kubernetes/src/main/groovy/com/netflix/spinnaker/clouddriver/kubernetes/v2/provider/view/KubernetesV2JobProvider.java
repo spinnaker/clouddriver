@@ -56,42 +56,17 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
   }
 
   public KubernetesV2JobStatus collectJob(String account, String location, String id) {
-
-    KubernetesV2Credentials credentials = (KubernetesV2Credentials) accountCredentialsProvider.getCredentials(account).getCredentials();
-    List<Manifest> manifests = manifestProviderList.stream()
-      .map(p -> p.getManifest(account, location, id))
-      .filter( m -> m != null)
-      .collect(Collectors.toList());
-
-    if (manifests.isEmpty()) {
-      throw new IllegalStateException("Could not find Kubernetes manifest " + id + " in namespace " + location);
-    }
-
-    KubernetesManifest jobManifest = ((KubernetesV2Manifest) manifests.get(0)).getManifest();
-    V1Job job = KubernetesCacheDataConverter.getResource(jobManifest, V1Job.class);
+    V1Job job = getKubernetesJob(account, location, id);
     KubernetesV2JobStatus jobStatus = new KubernetesV2JobStatus(job, account);
     return jobStatus;
   }
 
   public Map<String, Object> getFileContents(String account, String location, String id, String filename) {
     KubernetesV2Credentials credentials = (KubernetesV2Credentials) accountCredentialsProvider.getCredentials(account).getCredentials();
-
-    List<Manifest> manifests = manifestProviderList.stream()
-      .map(p -> p.getManifest(account, location, id))
-      .filter( m -> m != null)
-      .collect(Collectors.toList());
-
-    if (manifests.isEmpty()) {
-      log.warn("Could not find Kubernetes manifest {} in namespace {}", id, location);
-      return null;
-    }
-
-    KubernetesManifest jobManifest = ((KubernetesV2Manifest) manifests.get(0)).getManifest();
-    V1Job job = KubernetesCacheDataConverter.getResource(jobManifest, V1Job.class);
-    String logContents = credentials.jobLogs(location, job.getMetadata().getName());
-
     Map props = null;
     try {
+      V1Job job = getKubernetesJob(account, location, id);
+      String logContents = credentials.jobLogs(location, job.getMetadata().getName());
       props = PropertyParser.extractPropertiesFromLog(logContents);
     } catch(Exception e) {
       log.error("Couldn't parse properties for account {} at {}", account, location);
@@ -105,6 +80,21 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
   }
 
 
+  private V1Job getKubernetesJob(String account, String location, String id) {
+    KubernetesV2Credentials credentials = (KubernetesV2Credentials) accountCredentialsProvider.getCredentials(account).getCredentials();
+
+    List<Manifest> manifests = manifestProviderList.stream()
+      .map(p -> p.getManifest(account, location, id))
+      .filter( m -> m != null)
+      .collect(Collectors.toList());
+
+    if (manifests.isEmpty()) {
+      throw new IllegalStateException("Could not find Kubernetes manifest " + id + " in namespace " + location);
+    }
+
+    KubernetesManifest jobManifest = ((KubernetesV2Manifest) manifests.get(0)).getManifest();
+    return KubernetesCacheDataConverter.getResource(jobManifest, V1Job.class);
+  }
 
 
 }
