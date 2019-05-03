@@ -37,7 +37,6 @@ import javax.net.ssl.SSLSession
 @Component
 @Slf4j
 class TitusJobProvider implements JobProvider<TitusJobStatus> {
-  private static final LOGGER = LoggerFactory.getLogger(TitusJobProvider)
 
   String platform = "titus"
 
@@ -87,14 +86,14 @@ class TitusJobProvider implements JobProvider<TitusJobStatus> {
       try {
         amazonS3DataProvider.getAdhocData("titus", "${s3.accountName}:${s3.region}:${s3.bucket}", "${s3.key}/${fileName}", outputStream)
       } catch (Exception e) {
-        LOGGER.warn("File [${fileName}] does not exist for job [${job.task.last().id}].")
+        log.warn("File [${fileName}] does not exist for job [${job.task.last().id}].")
         return null
       }
       fileContents = new ByteArrayInputStream(outputStream.toByteArray())
     } else {
       Map files = titusClient.logsDownload(job.tasks.last().id)
       if (!files.containsKey(fileName)) {
-        LOGGER.warn("File [${fileName}] does not exist for job [${job.task.last().id}].")
+        log.warn("File [${fileName}] does not exist for job [${job.task.last().id}].")
         return null
       }
       fileContents = client.newCall(new Request.Builder().url(files.get(fileName) as String).build()).execute().body().byteStream()

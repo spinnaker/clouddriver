@@ -18,17 +18,16 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.provider.view;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+@Slf4j
 public class PropertyParser {
 
-  private static final Logger log = LoggerFactory.getLogger(PropertyParser.class);
   private static final String MAGIC_SEARCH_STRING = "SPINNAKER_PROPERTY_";
   private static final Pattern MAGIC_SEARCH_PATTERN = Pattern.compile(MAGIC_SEARCH_STRING);
   private static final String MAGIC_JSON_SEARCH_STRING = "SPINNAKER_CONFIG_JSON=";
@@ -43,7 +42,7 @@ public class PropertyParser {
         String[] splittedLine = line.split("=");
         final String key = splittedLine[0].replaceFirst(MAGIC_SEARCH_STRING, "").toLowerCase();
         final String value = splittedLine[1].trim();
-        log.info(key + ":" + value);
+        log.debug(key + ":" + value);
         map.put(key, value);
       }
 
