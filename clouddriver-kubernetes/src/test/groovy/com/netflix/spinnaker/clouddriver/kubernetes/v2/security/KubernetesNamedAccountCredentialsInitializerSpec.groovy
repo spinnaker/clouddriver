@@ -112,6 +112,15 @@ class KubernetesNamedAccountCredentialsInitializerSpec extends Specification {
     kubernetesConfigurationProperties.setAccounts([
       new KubernetesConfigurationProperties.ManagedAccount(
         name: "test-account",
+        kubeconfigContents: """
+apiVersion: v1
+contexts:
+- name: default
+  context:
+    cluster: test
+    user: test
+current-context: default
+""",
         namespaces: ["default"],
         dockerRegistries: [new LinkedDockerRegistryConfiguration(accountName: "docker-account")]
       )
