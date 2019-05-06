@@ -24,6 +24,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
@@ -50,7 +51,7 @@ public class InstanceTerminationLifecycleWorkerProvider {
   private final Registry registry;
 
   @Autowired
-  InstanceTerminationLifecycleWorkerProvider(ObjectMapper objectMapper,
+  InstanceTerminationLifecycleWorkerProvider(@Qualifier("amazonObjectMapper") ObjectMapper objectMapper,
                                              AmazonClientProvider amazonClientProvider,
                                              AccountCredentialsProvider accountCredentialsProvider,
                                              InstanceTerminationConfigurationProperties properties,

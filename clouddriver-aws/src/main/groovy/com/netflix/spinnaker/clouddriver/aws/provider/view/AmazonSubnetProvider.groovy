@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.aws.model.AmazonSubnet
 import com.netflix.spinnaker.clouddriver.model.SubnetProvider
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 
 import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.SUBNETS
@@ -45,7 +46,7 @@ class AmazonSubnetProvider implements SubnetProvider<AmazonSubnet> {
   final String cloudProvider = AmazonCloudProvider.ID
 
   @Autowired
-  AmazonSubnetProvider(Cache cacheView, ObjectMapper amazonObjectMapper) {
+  AmazonSubnetProvider(Cache cacheView, @Qualifier("amazonObjectMapper") ObjectMapper amazonObjectMapper) {
     this.cacheView = cacheView
     this.amazonObjectMapper = amazonObjectMapper
   }

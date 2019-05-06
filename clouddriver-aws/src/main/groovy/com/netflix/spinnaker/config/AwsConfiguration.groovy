@@ -50,6 +50,7 @@ import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import com.netflix.spinnaker.kork.aws.AwsComponents
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -101,6 +102,7 @@ class AwsConfiguration {
   }
 
   @Bean
+  @Qualifier("amazonObjectMapper")
   ObjectMapper amazonObjectMapper() {
     return new AmazonObjectMapperConfigurer().createConfigured()
   }

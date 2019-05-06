@@ -26,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.model.NetworkProvider
 import com.netflix.spinnaker.clouddriver.aws.cache.Keys
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonVpc
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 
 import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.VPCS
@@ -40,7 +41,7 @@ class AmazonVpcProvider implements NetworkProvider<AmazonVpc> {
   private final ObjectMapper amazonObjectMapper
 
   @Autowired
-  AmazonVpcProvider(Cache cacheView, ObjectMapper amazonObjectMapper) {
+  AmazonVpcProvider(Cache cacheView, @Qualifier("amazonObjectMapper") ObjectMapper amazonObjectMapper) {
     this.cacheView = cacheView
     this.amazonObjectMapper = amazonObjectMapper
   }

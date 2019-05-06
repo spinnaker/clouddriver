@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.tags.EntityTagger;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -31,7 +32,7 @@ class LifecycleSubscriberConfiguration {
 
   @Bean
   @ConditionalOnProperty("aws.lifecycle-subscribers.launch-failure.enabled")
-  LaunchFailureNotificationAgentProvider launchFailureNotificationAgentProvider(ObjectMapper objectMapper,
+  LaunchFailureNotificationAgentProvider launchFailureNotificationAgentProvider(@Qualifier("amazonObjectMapper") ObjectMapper objectMapper,
                                                                                 AmazonClientProvider amazonClientProvider,
                                                                                 AccountCredentialsProvider accountCredentialsProvider,
                                                                                 LaunchFailureConfigurationProperties properties,
