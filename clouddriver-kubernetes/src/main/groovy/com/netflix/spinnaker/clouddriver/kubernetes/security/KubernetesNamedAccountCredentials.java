@@ -20,6 +20,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
@@ -28,18 +29,19 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.stereotype.Component;
-
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Component;
 
 @Getter
 public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> implements AccountCredentials<C> {
@@ -54,7 +56,13 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   private final List<String> requiredGroupMembership;
   private final Permissions permissions;
   private final Long cacheIntervalSeconds;
-  public KubernetesNamedAccountCredentials(KubernetesConfigurationProperties.ManagedAccount managedAccount, CredentialFactory factory) {
+  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+
+  public KubernetesNamedAccountCredentials(
+    KubernetesConfigurationProperties.ManagedAccount managedAccount,
+    KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+    CredentialFactory factory
+  ) {
     this.name = managedAccount.getName();
     this.providerVersion = managedAccount.getProviderVersion();
     this.environment = Optional.ofNullable(managedAccount.getEnvironment()).orElse(managedAccount.getName());
@@ -62,6 +70,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     this.skin = Optional.ofNullable(managedAccount.getSkin()).orElse(managedAccount.getProviderVersion().toString());
     this.cacheThreads = managedAccount.getCacheThreads();
     this.cacheIntervalSeconds = managedAccount.getCacheIntervalSeconds();
+    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
 
     Permissions permissions = managedAccount.getPermissions().build();
     if (permissions.isRestricted()) {
@@ -82,6 +91,24 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       default:
         throw new IllegalArgumentException("Unknown provider type: " + managedAccount.getProviderVersion());
     }
+  }
+
+  public List<String> getNamespaces() {
+    return credentials.getDeclaredNamespaces();
+  }
+
+  public Map<String, String> getSpinnakerKindMap() {
+    if (kubernetesSpinnakerKindMap == null) {
+      return Collections.emptyMap();
+    }
+    Map<String, String> kindMap = new HashMap<>(kubernetesSpinnakerKindMap.kubernetesToSpinnakerKindStringMap());
+    C creds = getCredentials();
+    if (creds instanceof KubernetesV2Credentials) {
+      ((KubernetesV2Credentials) creds).getCustomResources().forEach(customResource -> {
+        kindMap.put(customResource.getKubernetesKind(), customResource.getSpinnakerKind());
+      });
+    }
+    return kindMap;
   }
 
   @Component
