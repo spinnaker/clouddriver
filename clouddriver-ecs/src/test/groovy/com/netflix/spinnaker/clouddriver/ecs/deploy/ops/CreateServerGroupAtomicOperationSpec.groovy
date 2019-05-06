@@ -77,6 +77,10 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     source.asgName = "${serviceName}-v007"
     source.useSourceCapacity = true
 
+    def placementConstraint = new PlacementConstraint(type: 'memberOf', expression: 'attribute:ecs.instance-type =~ t2.*')
+
+    def placementStrategy = new PlacementStrategy(type: 'spread', field: 'attribute:ecs.availability-zone')
+
     def description = new CreateServerGroupDescription(
       credentials: TestCredential.named('Test', [:]),
       application: applicationName,
@@ -88,12 +92,13 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       targetGroup: 'target-group-arn',
       portProtocol: 'tcp',
       computeUnits: 9001,
+      tags: ['label1': 'value1', 'fruit': 'tomato'],
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
       capacity: new ServerGroup.Capacity(1, 1, 1),
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
-      placementStrategySequence: [],
-      serviceDiscoveryAssociations: [],
+      placementStrategySequence: [placementStrategy],
+      placementConstraints: [placementConstraint],
       source: source
     )
 
@@ -140,11 +145,21 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.serviceName == "service/test-cluster/${serviceName}-v008"
       request.desiredCount == 1
       request.cluster = 'test-cluster'
+      request.enableECSManagedTags == true
+      request.propagateTags == 'SERVICE'
+      request.tags.size() == 2
+      request.tags.get(0).getKey() == 'label1'
+      request.tags.get(0).getValue() == 'value1'
+      request.tags.get(1).getKey() == 'fruit'
+      request.tags.get(1).getValue() == 'tomato'
       request.loadBalancers.size() == 1
       request.loadBalancers.get(0).containerPort == 1337
       request.loadBalancers.get(0).targetGroupArn == 'target-group-arn'
       request.taskDefinition == 'task-def-arn'
       request.networkConfiguration == null
+      request.placementStrategy == [placementStrategy]
+      request.placementConstraints == [placementConstraint]
+      request.platformVersion == null
       request.role == 'arn:aws:iam::test:test-role'
       request.serviceRegistries == []
     } as CreateServiceRequest) >> new CreateServiceResult().withService(service)
@@ -209,6 +224,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
       placementStrategySequence: [],
       launchType: 'FARGATE',
+      platformVersion: '1.0.0',
       networkMode: 'awsvpc',
       subnetType: 'public',
       securityGroupNames: ['helloworld'],
@@ -272,6 +288,9 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.networkConfiguration.awsvpcConfiguration.assignPublicIp == 'ENABLED'
       request.role == null
       request.launchType == 'FARGATE'
+      request.platformVersion == '1.0.0'
+      request.placementStrategy == []
+      request.placementConstraints == []
       request.desiredCount == 1
       request.serviceRegistries.size() == 1
       request.serviceRegistries.get(0) == new ServiceRegistry(
@@ -360,7 +379,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     labels.get(DOCKER_LABEL_KEY_SERVERGROUP) == 'mygreatapp-stack1-details2-v0011'
     labels.get(DOCKER_LABEL_KEY_SERVERGROUP) != 'some-value-we-dont-want-to-see'
   }
-
 
   def 'should allow selecting the logDriver'() {
     given:
