@@ -32,6 +32,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import com.netflix.spinnaker.moniker.Namer;
+import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.BufferedWriter;
@@ -39,173 +40,43 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
-import static com.netflix.spinnaker.clouddriver.security.ProviderVersion.v1;
-
+@Getter
 public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> implements AccountCredentials<C> {
-  final private String cloudProvider = "kubernetes";
-  final private String name;
-  final private ProviderVersion providerVersion;
-  final private String environment;
-  final private String accountType;
-  final private String context;
-  final private String cluster;
-  final private String user;
-  final private String userAgent;
-  final private String kubeconfigFile;
-  final private String kubectlExecutable;
-  final private Boolean serviceAccount;
-  final private Boolean metrics;
-  private List<String> namespaces;
-  private List<String> omitNamespaces;
-  private String skin;
-  final private int cacheThreads;
-  private C credentials;
+  private final String cloudProvider = "kubernetes";
+  private final String name;
+  private final ProviderVersion providerVersion;
+  private final String environment;
+  private final String accountType;
+  private final String skin;
+  private final int cacheThreads;
+  private final C credentials;
   private final List<String> requiredGroupMembership;
   private final Permissions permissions;
-  private final List<LinkedDockerRegistryConfiguration> dockerRegistries;
-  private final Registry spectatorRegistry;
-  private final AccountCredentialsRepository accountCredentialsRepository;
-  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
-  private final Boolean onlySpinnakerManaged;
-  private final Boolean liveManifestCalls;
   private final Long cacheIntervalSeconds;
   KubernetesNamedAccountCredentials(String name,
                                     ProviderVersion providerVersion,
-                                    AccountCredentialsRepository accountCredentialsRepository,
-                                    String userAgent,
                                     String environment,
                                     String accountType,
-                                    String context,
-                                    String cluster,
-                                    String user,
-                                    String kubeconfigFile,
-                                    String kubectlExecutable,
-                                    Boolean serviceAccount,
-                                    Boolean metrics,
-                                    List<String> namespaces,
-                                    List<String> omitNamespaces,
                                     String skin,
                                     int cacheThreads,
-                                    List<LinkedDockerRegistryConfiguration> dockerRegistries,
                                     List<String> requiredGroupMembership,
                                     Permissions permissions,
-                                    Registry spectatorRegistry,
-                                    KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
                                     C credentials,
-                                    Boolean onlySpinnakerManaged,
-                                    Boolean liveManifestCalls,
                                     Long cacheIntervalSeconds) {
     this.name = name;
     this.providerVersion = providerVersion;
     this.environment = environment;
     this.accountType = accountType;
-    this.context = context;
-    this.cluster = cluster;
-    this.user = user;
-    this.userAgent = userAgent;
-    this.kubeconfigFile = kubeconfigFile;
-    this.kubectlExecutable = kubectlExecutable;
-    this.serviceAccount = serviceAccount;
-    this.metrics = metrics;
-    this.namespaces = namespaces;
-    this.omitNamespaces = omitNamespaces;
-    this.skin = skin;
+    this.skin = Optional.ofNullable(skin).orElse(providerVersion.toString());
     this.cacheThreads = cacheThreads;
     this.requiredGroupMembership = requiredGroupMembership;
     this.permissions = permissions;
-    this.dockerRegistries = dockerRegistries;
-    this.accountCredentialsRepository = accountCredentialsRepository;
-    this.spectatorRegistry = spectatorRegistry;
     this.credentials = credentials;
-    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
-    this.onlySpinnakerManaged = onlySpinnakerManaged;
-    this.liveManifestCalls = liveManifestCalls;
     this.cacheIntervalSeconds = cacheIntervalSeconds;
   }
-
-  public List<String> getNamespaces() {
-    return credentials.getDeclaredNamespaces();
-  }
-
-  @Override
-  public String getName() {
-    return name;
-  }
-
-  @Override
-  public ProviderVersion getProviderVersion() {
-    return providerVersion;
-  }
-
-  @Override
-  public String getSkin() {
-    return skin != null ? skin : getProviderVersion().toString();
-  }
-
-  @Override
-  public String getEnvironment() {
-    return environment;
-  }
-
-  @Override
-  public String getAccountType() {
-    return accountType;
-  }
-
-  @Override
-  public C getCredentials() {
-    return credentials;
-  }
-
-  public String getKubectlExecutable() {
-    return kubectlExecutable;
-  }
-
-  @Override
-  public String getCloudProvider() {
-    return cloudProvider;
-  }
-
-  public int getCacheThreads() {
-    return cacheThreads;
-  }
-
-  public List<LinkedDockerRegistryConfiguration> getDockerRegistries() {
-    return dockerRegistries;
-  }
-
-  public Permissions getPermissions() {
-    return permissions;
-  }
-
-  public Long getCacheIntervalSeconds() {
-    return cacheIntervalSeconds;
-  }
-
-  public Map<String, String> getSpinnakerKindMap() {
-    if (kubernetesSpinnakerKindMap == null) {
-      return new HashMap<String, String>();
-    }
-    Map<String, String> kindMap = new HashMap<>(kubernetesSpinnakerKindMap.kubernetesToSpinnakerKindStringMap());
-    C creds = getCredentials();
-    if (creds instanceof KubernetesV2Credentials) {
-      ((KubernetesV2Credentials) creds).getCustomResources().forEach(customResource -> {
-        kindMap.put(customResource.getKubernetesKind(), customResource.getSpinnakerKind());
-      });
-    }
-    return kindMap;
-  }
-
-  @Override
-  public List<String> getRequiredGroupMembership() {
-    return requiredGroupMembership;
-  }
-
-  public Boolean getOnlySpinnakerManaged() { return onlySpinnakerManaged; }
 
   static class Builder<C extends KubernetesCredentials> {
     String name;
@@ -516,7 +387,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       }
 
       if (providerVersion == null) {
-        providerVersion = v1;
+        providerVersion = ProviderVersion.v1;
       }
 
       if (StringUtils.isEmpty(kubeconfigFile)){
@@ -559,32 +430,16 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       }
 
       return new KubernetesNamedAccountCredentials(
-          name,
-          providerVersion,
-          accountCredentialsRepository,
-          userAgent,
-          environment,
-          accountType,
-          context,
-          cluster,
-          user,
-          kubeconfigFile,
-          kubectlExecutable,
-          serviceAccount,
-          metrics,
-          namespaces,
-          omitNamespaces,
-          skin,
-          cacheThreads,
-          dockerRegistries,
-          requiredGroupMembership,
-          permissions,
-          spectatorRegistry,
-          kubernetesSpinnakerKindMap,
-          credentials,
-          onlySpinnakerManaged,
-          liveManifestCalls,
-          cacheIntervalSeconds
+        name,
+        providerVersion,
+        environment,
+        accountType,
+        skin,
+        cacheThreads,
+        requiredGroupMembership,
+        permissions,
+        credentials,
+        cacheIntervalSeconds
       );
     }
   }
