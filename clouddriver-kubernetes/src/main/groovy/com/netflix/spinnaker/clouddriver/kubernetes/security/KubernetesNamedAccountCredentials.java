@@ -145,29 +145,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
         .withProvider(KubernetesCloudProvider.getID())
         .withAccount(managedAccount.getName())
         .setNamer(KubernetesManifest.class, namerRegistry.getNamingStrategy(managedAccount.getNamingStrategy()));
-      return KubernetesV2Credentials.builder()
-        .accountName(managedAccount.getName())
-        .kubeconfigFile(getKubeconfigFile(managedAccount))
-        .kubectlExecutable(managedAccount.getKubectlExecutable())
-        .kubectlRequestTimeoutSeconds(managedAccount.getKubectlRequestTimeoutSeconds())
-        .context(managedAccount.getContext())
-        .oAuthServiceAccount(managedAccount.getoAuthServiceAccount())
-        .oAuthScopes(managedAccount.getoAuthScopes())
-        .serviceAccount(managedAccount.getServiceAccount())
-        .namespaces(managedAccount.getNamespaces())
-        .omitNamespaces(managedAccount.getOmitNamespaces())
-        .registry(spectatorRegistry)
-        .customResources(managedAccount.getCustomResources())
-        .cachingPolicies(managedAccount.getCachingPolicies())
-        .kinds(managedAccount.getKinds())
-        .omitKinds(managedAccount.getOmitKinds())
-        .metrics(managedAccount.getMetrics())
-        .debug(managedAccount.getDebug())
-        .checkPermissionsOnStartup(managedAccount.getCheckPermissionsOnStartup())
-        .jobExecutor(jobExecutor)
-        .onlySpinnakerManaged(managedAccount.getOnlySpinnakerManaged())
-        .liveManifestCalls(managedAccount.getLiveManifestCalls())
-        .build();
+      return new KubernetesV2Credentials(spectatorRegistry, jobExecutor, managedAccount);
     }
 
     private void validateAccount(KubernetesConfigurationProperties.ManagedAccount managedAccount) {

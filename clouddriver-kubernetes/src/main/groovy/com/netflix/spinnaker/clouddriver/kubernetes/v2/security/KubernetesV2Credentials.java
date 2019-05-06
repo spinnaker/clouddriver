@@ -23,6 +23,7 @@ import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
@@ -48,8 +49,6 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import javax.validation.constraints.NotNull;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -112,6 +111,64 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @JsonIgnore
   @Getter
   private final List<String> oAuthScopes;
+
+  public KubernetesV2Credentials(
+    Registry registry,
+    KubectlJobExecutor jobExecutor,
+    KubernetesConfigurationProperties.ManagedAccount managedAccount
+  ) {
+    this.registry = registry;
+    this.clock = registry.clock();
+    this.accountName = managedAccount.getName();
+    this.namespaces = Optional.ofNullable(managedAccount.getNamespaces()).orElse(new ArrayList<>());
+    this.omitNamespaces = Optional.ofNullable(managedAccount.getOmitNamespaces()).orElse(new ArrayList<>());
+    this.jobExecutor = jobExecutor;
+    this.debug = managedAccount.getDebug();
+    this.kubectlExecutable = managedAccount.getKubectlExecutable();
+    this.kubectlRequestTimeoutSeconds = managedAccount.getKubectlRequestTimeoutSeconds();
+    this.kubeconfigFile = managedAccount.getKubeconfigFile();
+    this.context = managedAccount.getContext();
+    this.oAuthServiceAccount = managedAccount.getoAuthServiceAccount();
+    this.oAuthScopes = managedAccount.getoAuthScopes();
+    this.serviceAccount = managedAccount.getServiceAccount();
+    this.customResources = Optional.ofNullable(managedAccount.getCustomResources()).orElse(new ArrayList<>());;
+    this.cachingPolicies = Optional.ofNullable(managedAccount.getCachingPolicies()).orElse(new ArrayList<>());;
+    this.kinds = Optional.ofNullable(managedAccount.getKinds()).map(KubernetesKind::registeredStringList).orElse(new ArrayList<>());
+    this.metrics = managedAccount.getMetrics();
+    this.omitKinds = Optional.ofNullable(managedAccount.getOmitKinds()).orElse(new ArrayList<>()).stream().map(KubernetesKind::fromString)
+      .collect(Collectors.toMap(k -> k, k -> InvalidKindReason.EXPLICITLY_OMITTED_BY_CONFIGURATION));
+    this.onlySpinnakerManaged = managedAccount.getOnlySpinnakerManaged();
+    this.liveManifestCalls = managedAccount.getLiveManifestCalls();
+    this.checkPermissionsOnStartup = managedAccount.getCheckPermissionsOnStartup();
+
+    this.liveNamespaceSupplier = Suppliers.memoizeWithExpiration(() -> jobExecutor.list(this, Collections.singletonList(KubernetesKind.NAMESPACE), "", new KubernetesSelectorList())
+      .stream()
+      .map(KubernetesManifest::getName)
+      .collect(Collectors.toList()), namespaceExpirySeconds, TimeUnit.SECONDS);
+
+    this.liveCrdSupplier = Suppliers.memoizeWithExpiration(() -> {
+      try {
+        return this.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "")
+          .stream()
+          .map(c -> {
+            Map<String, Object> spec = (Map) c.getOrDefault("spec", new HashMap<>());
+            String scope = (String) spec.getOrDefault("scope", "");
+            Map<String, String> names = (Map) spec.getOrDefault("names", new HashMap<>());
+            String name = names.get("kind");
+
+            String group = (String) spec.getOrDefault("group", "");
+            KubernetesApiGroup kubernetesApiGroup = KubernetesApiGroup.fromString(group);
+            boolean isNamespaced = scope.equalsIgnoreCase("namespaced");
+
+            return KubernetesKind.getOrRegisterKind(name, false, isNamespaced, kubernetesApiGroup);
+          })
+          .collect(Collectors.toList());
+      } catch (KubectlException e) {
+        // not logging here -- it will generate a lot of noise in cases where crds aren't available/registered in the first place
+        return new ArrayList<>();
+      }
+    }, crdExpirySeconds, TimeUnit.SECONDS);
+  }
 
   public boolean getOnlySpinnakerManaged() {
     return onlySpinnakerManaged;
@@ -193,81 +250,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Getter
   private final boolean debug;
-
-  @Builder
-  private KubernetesV2Credentials(@NotNull String accountName,
-      @NotNull KubectlJobExecutor jobExecutor,
-      @NotNull List<String> namespaces,
-      @NotNull List<String> omitNamespaces,
-      @NotNull Registry registry,
-      String kubeconfigFile,
-      String kubectlExecutable,
-      Integer kubectlRequestTimeoutSeconds,
-      String context,
-      String oAuthServiceAccount,
-      List<String> oAuthScopes,
-      boolean serviceAccount,
-      @NotNull List<CustomKubernetesResource> customResources,
-      @NotNull List<KubernetesCachingPolicy> cachingPolicies,
-      @NotNull List<String> kinds,
-      @NotNull List<String> omitKinds,
-      boolean metrics,
-      boolean checkPermissionsOnStartup,
-      boolean debug,
-      boolean onlySpinnakerManaged,
-      boolean liveManifestCalls) {
-    this.registry = registry;
-    this.clock = registry.clock();
-    this.accountName = accountName;
-    this.namespaces = Optional.ofNullable(namespaces).orElse(new ArrayList<>());
-    this.omitNamespaces = Optional.ofNullable(omitNamespaces).orElse(new ArrayList<>());
-    this.jobExecutor = jobExecutor;
-    this.debug = debug;
-    this.kubectlExecutable = kubectlExecutable;
-    this.kubectlRequestTimeoutSeconds = kubectlRequestTimeoutSeconds;
-    this.kubeconfigFile = kubeconfigFile;
-    this.context = context;
-    this.oAuthServiceAccount = oAuthServiceAccount;
-    this.oAuthScopes = oAuthScopes;
-    this.serviceAccount = serviceAccount;
-    this.customResources = Optional.ofNullable(customResources).orElse(new ArrayList<>());;
-    this.cachingPolicies = Optional.ofNullable(cachingPolicies).orElse(new ArrayList<>());;
-    this.kinds = Optional.ofNullable(kinds).map(KubernetesKind::registeredStringList).orElse(new ArrayList<>());
-    this.metrics = metrics;
-    this.omitKinds = Optional.ofNullable(omitKinds).orElse(new ArrayList<>()).stream().map(KubernetesKind::fromString)
-      .collect(Collectors.toMap(k -> k, k -> InvalidKindReason.EXPLICITLY_OMITTED_BY_CONFIGURATION));
-    this.onlySpinnakerManaged = onlySpinnakerManaged;
-    this.liveManifestCalls = liveManifestCalls;
-    this.checkPermissionsOnStartup = checkPermissionsOnStartup;
-
-    this.liveNamespaceSupplier = Suppliers.memoizeWithExpiration(() -> jobExecutor.list(this, Collections.singletonList(KubernetesKind.NAMESPACE), "", new KubernetesSelectorList())
-        .stream()
-        .map(KubernetesManifest::getName)
-        .collect(Collectors.toList()), namespaceExpirySeconds, TimeUnit.SECONDS);
-
-    this.liveCrdSupplier = Suppliers.memoizeWithExpiration(() -> {
-      try {
-        return this.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "")
-            .stream()
-            .map(c -> {
-              Map<String, Object> spec = (Map) c.getOrDefault("spec", new HashMap<>());
-              String scope = (String) spec.getOrDefault("scope", "");
-              Map<String, String> names = (Map) spec.getOrDefault("names", new HashMap<>());
-              String name = names.get("kind");
-
-              String group = (String) spec.getOrDefault("group", "");
-              KubernetesApiGroup kubernetesApiGroup = KubernetesApiGroup.fromString(group);
-              boolean isNamespaced = scope.equalsIgnoreCase("namespaced");
-
-              return KubernetesKind.getOrRegisterKind(name, false, isNamespaced, kubernetesApiGroup);
-            })
-            .collect(Collectors.toList());
-      } catch (KubectlException e) {
-        // not logging here -- it will generate a lot of noise in cases where crds aren't available/registered in the first place
-        return new ArrayList<>();
-      }
-    }, crdExpirySeconds, TimeUnit.SECONDS);
-  }
 
   public void initialize() {
     // ensure this is called at least once before the credentials object is created to ensure all crds are registered
