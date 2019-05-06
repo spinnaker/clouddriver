@@ -17,7 +17,7 @@
 
 buildscript {
   ext {
-    korkVersion = "5.1.0"
+    korkVersion = "5.2.5"
     fiatVersion = "1.0.0"
     kotlinVersion = "1.3.10"
     junitPlatformVersion = "1.0.2"

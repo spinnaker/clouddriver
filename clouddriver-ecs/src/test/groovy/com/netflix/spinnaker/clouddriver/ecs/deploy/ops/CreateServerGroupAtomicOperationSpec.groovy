@@ -77,6 +77,10 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     source.asgName = "${serviceName}-v007"
     source.useSourceCapacity = true
 
+    def placementConstraint = new PlacementConstraint(type: 'memberOf', expression: 'attribute:ecs.instance-type =~ t2.*')
+
+    def placementStrategy = new PlacementStrategy(type: 'spread', field: 'attribute:ecs.availability-zone')
+
     def description = new CreateServerGroupDescription(
       credentials: TestCredential.named('Test', [:]),
       application: applicationName,
@@ -88,11 +92,13 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       targetGroup: 'target-group-arn',
       portProtocol: 'tcp',
       computeUnits: 9001,
+      tags: ['label1': 'value1', 'fruit': 'tomato'],
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
       capacity: new ServerGroup.Capacity(1, 1, 1),
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
-      placementStrategySequence: [],
+      placementStrategySequence: [placementStrategy],
+      placementConstraints: [placementConstraint],
       source: source
     )
 
@@ -162,6 +168,10 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
   def 'should create a service using VPC and Fargate mode'() {
     given:
+    def serviceRegistry = new CreateServerGroupDescription.ServiceDiscoveryAssociation(
+      registry: new CreateServerGroupDescription.ServiceRegistry(arn: 'srv-registry-arn'),
+      containerPort: 9090
+    )
     def description = new CreateServerGroupDescription(
       credentials: TestCredential.named('Test', [:]),
       application: applicationName,
@@ -179,10 +189,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
       placementStrategySequence: [],
       launchType: 'FARGATE',
+      platformVersion: '1.0.0',
       networkMode: 'awsvpc',
       subnetType: 'public',
       securityGroupNames: ['helloworld'],
-      associatePublicIpAddress: true
+      associatePublicIpAddress: true,
+      serviceDiscoveryAssociations: [serviceRegistry]
     )
 
     def operation = new CreateServerGroupAtomicOperation(description)
@@ -226,7 +238,16 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.networkConfiguration.awsvpcConfiguration.assignPublicIp == 'ENABLED'
       request.role == null
       request.launchType == 'FARGATE'
+      request.platformVersion == '1.0.0'
+      request.placementStrategy == []
+      request.placementConstraints == []
       request.desiredCount == 1
+      request.serviceRegistries.size() == 1
+      request.serviceRegistries.get(0) == new ServiceRegistry(
+        registryArn: 'srv-registry-arn',
+        containerPort: 9090,
+        containerName: 'v008'
+      )
     } as CreateServiceRequest) >> new CreateServiceResult().withService(service)
 
     result.getServerGroupNames().size() == 1

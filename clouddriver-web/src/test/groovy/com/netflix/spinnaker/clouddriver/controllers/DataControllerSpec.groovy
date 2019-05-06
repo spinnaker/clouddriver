@@ -44,7 +44,7 @@ class DataControllerSpec extends Specification {
   }
 
   void setup() {
-    MDC.remove(AuthenticatedRequest.SPINNAKER_ACCOUNTS)
+    MDC.remove(AuthenticatedRequest.Header.ACCOUNTS.header)
   }
 
 
@@ -56,7 +56,7 @@ class DataControllerSpec extends Specification {
     thrown(AccessDeniedException)
 
     when:
-    MDC.put(AuthenticatedRequest.SPINNAKER_ACCOUNTS, "restricted")
+    MDC.put(AuthenticatedRequest.Header.ACCOUNTS.header, "restricted")
     dataController.getStaticData("restricted", [:])
 
     then:
@@ -77,7 +77,7 @@ class DataControllerSpec extends Specification {
   def "should allow access to account when fetching adhoc data with correct account"() {
     given:
     def httpServletRequest = Mock(HttpServletRequest)
-    MDC.put(AuthenticatedRequest.SPINNAKER_ACCOUNTS, "restricted")
+    MDC.put(AuthenticatedRequest.Header.ACCOUNTS.header, "restricted")
 
     when:
     dataController.getAdhocData("groupId", "restricted", httpServletRequest)
@@ -91,9 +91,9 @@ class DataControllerSpec extends Specification {
   // If the wrong slf4j is on the classpath, this fails. So leaving this test in here for sanity.
   def "mdc works"() {
     given:
-    MDC.put(AuthenticatedRequest.SPINNAKER_ACCOUNTS, "restricted")
+    MDC.put(AuthenticatedRequest.Header.ACCOUNTS.header, "restricted")
 
     expect:
-    MDC.get(AuthenticatedRequest.SPINNAKER_ACCOUNTS) == "restricted"
+    MDC.get(AuthenticatedRequest.Header.ACCOUNTS.header) == "restricted"
   }
 }
