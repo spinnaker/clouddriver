@@ -92,6 +92,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       targetGroup: 'target-group-arn',
       portProtocol: 'tcp',
       computeUnits: 9001,
+      tags: ['label1': 'value1', 'fruit': 'tomato'],
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
       capacity: new ServerGroup.Capacity(1, 1, 1),
@@ -144,6 +145,13 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.serviceName == "service/test-cluster/${serviceName}-v008"
       request.desiredCount == 1
       request.cluster = 'test-cluster'
+      request.enableECSManagedTags == true
+      request.propagateTags == 'SERVICE'
+      request.tags.size() == 2
+      request.tags.get(0).getKey() == 'label1'
+      request.tags.get(0).getValue() == 'value1'
+      request.tags.get(1).getKey() == 'fruit'
+      request.tags.get(1).getValue() == 'tomato'
       request.loadBalancers.size() == 1
       request.loadBalancers.get(0).containerPort == 1337
       request.loadBalancers.get(0).targetGroupArn == 'target-group-arn'
@@ -153,6 +161,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.placementConstraints == [placementConstraint]
       request.platformVersion == null
       request.role == 'arn:aws:iam::test:test-role'
+      request.serviceRegistries == []
     } as CreateServiceRequest) >> new CreateServiceResult().withService(service)
 
     result.getServerGroupNames().size() == 1
@@ -194,6 +203,10 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
   def 'should create a service using VPC and Fargate mode'() {
     given:
+    def serviceRegistry = new CreateServerGroupDescription.ServiceDiscoveryAssociation(
+      registry: new CreateServerGroupDescription.ServiceRegistry(arn: 'srv-registry-arn'),
+      containerPort: 9090
+    )
     def description = new CreateServerGroupDescription(
       credentials: TestCredential.named('Test', [:]),
       application: applicationName,
@@ -215,7 +228,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       networkMode: 'awsvpc',
       subnetType: 'public',
       securityGroupNames: ['helloworld'],
-      associatePublicIpAddress: true
+      associatePublicIpAddress: true,
+      serviceDiscoveryAssociations: [serviceRegistry]
     )
 
     def operation = new CreateServerGroupAtomicOperation(description)
@@ -250,10 +264,13 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     1 * ecs.registerTaskDefinition({RegisterTaskDefinitionRequest request ->
       request.networkMode == 'awsvpc'
       request.containerDefinitions.size() == 1
-      request.containerDefinitions.get(0).portMappings.size() == 1
+      request.containerDefinitions.get(0).portMappings.size() == 2
       request.containerDefinitions.get(0).portMappings.get(0).containerPort == 1337
       request.containerDefinitions.get(0).portMappings.get(0).hostPort == 0
       request.containerDefinitions.get(0).portMappings.get(0).protocol == 'tcp'
+      request.containerDefinitions.get(0).portMappings.get(1).containerPort == 9090
+      request.containerDefinitions.get(0).portMappings.get(1).hostPort == 0
+      request.containerDefinitions.get(0).portMappings.get(1).protocol == 'tcp'
       request.requiresCompatibilities.size() == 1
       request.requiresCompatibilities.get(0) == 'FARGATE'
       request.memory == 9001
@@ -275,6 +292,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.placementStrategy == []
       request.placementConstraints == []
       request.desiredCount == 1
+      request.serviceRegistries.size() == 1
+      request.serviceRegistries.get(0) == new ServiceRegistry(
+        registryArn: 'srv-registry-arn',
+        containerPort: 9090,
+        containerName: 'v008'
+      )
     } as CreateServiceRequest) >> new CreateServiceResult().withService(service)
 
     1 * autoScalingClient.registerScalableTarget({RegisterScalableTargetRequest request ->
@@ -356,7 +379,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     labels.get(DOCKER_LABEL_KEY_SERVERGROUP) == 'mygreatapp-stack1-details2-v0011'
     labels.get(DOCKER_LABEL_KEY_SERVERGROUP) != 'some-value-we-dont-want-to-see'
   }
-
 
   def 'should allow selecting the logDriver'() {
     given:
