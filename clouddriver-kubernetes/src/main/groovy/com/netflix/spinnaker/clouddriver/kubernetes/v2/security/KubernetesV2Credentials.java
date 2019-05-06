@@ -120,8 +120,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.registry = registry;
     this.clock = registry.clock();
     this.accountName = managedAccount.getName();
-    this.namespaces = Optional.ofNullable(managedAccount.getNamespaces()).orElse(new ArrayList<>());
-    this.omitNamespaces = Optional.ofNullable(managedAccount.getOmitNamespaces()).orElse(new ArrayList<>());
+    this.namespaces = managedAccount.getNamespaces();
+    this.omitNamespaces = managedAccount.getOmitNamespaces();
     this.jobExecutor = jobExecutor;
     this.debug = managedAccount.getDebug();
     this.kubectlExecutable = managedAccount.getKubectlExecutable();
@@ -131,11 +131,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.oAuthServiceAccount = managedAccount.getoAuthServiceAccount();
     this.oAuthScopes = managedAccount.getoAuthScopes();
     this.serviceAccount = managedAccount.getServiceAccount();
-    this.customResources = Optional.ofNullable(managedAccount.getCustomResources()).orElse(new ArrayList<>());;
-    this.cachingPolicies = Optional.ofNullable(managedAccount.getCachingPolicies()).orElse(new ArrayList<>());;
-    this.kinds = Optional.ofNullable(managedAccount.getKinds()).map(KubernetesKind::registeredStringList).orElse(new ArrayList<>());
+    this.customResources = managedAccount.getCustomResources();
+    this.cachingPolicies = managedAccount.getCachingPolicies();
+    this.kinds = KubernetesKind.registeredStringList(managedAccount.getKinds());
     this.metrics = managedAccount.getMetrics();
-    this.omitKinds = Optional.ofNullable(managedAccount.getOmitKinds()).orElse(new ArrayList<>()).stream().map(KubernetesKind::fromString)
+    this.omitKinds = managedAccount.getOmitKinds().stream().map(KubernetesKind::fromString)
       .collect(Collectors.toMap(k -> k, k -> InvalidKindReason.EXPLICITLY_OMITTED_BY_CONFIGURATION));
     this.onlySpinnakerManaged = managedAccount.getOnlySpinnakerManaged();
     this.liveManifestCalls = managedAccount.getLiveManifestCalls();

@@ -78,7 +78,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       this.requiredGroupMembership = Collections.emptyList();
     } else {
       this.permissions = null;
-      this.requiredGroupMembership = Optional.ofNullable(managedAccount.getRequiredGroupMembership()).map(Collections::unmodifiableList).orElse(Collections.emptyList());
+      this.requiredGroupMembership = Collections.unmodifiableList(managedAccount.getRequiredGroupMembership());
     }
 
     switch (managedAccount.getProviderVersion()) {
@@ -149,21 +149,15 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     }
 
     private void validateAccount(KubernetesConfigurationProperties.ManagedAccount managedAccount) {
-      if (
-        managedAccount.getOmitNamespaces() != null
-          && !managedAccount.getOmitNamespaces().isEmpty()
-          && managedAccount.getNamespaces() != null
-          && !managedAccount.getNamespaces().isEmpty()
-        ) {
+      if (StringUtils.isEmpty(managedAccount.getName())) {
+        throw new IllegalArgumentException("Account name for Kubernetes provider missing.");
+      }
+
+      if (!managedAccount.getOmitNamespaces().isEmpty() && !managedAccount.getNamespaces().isEmpty()) {
         throw new IllegalArgumentException("At most one of 'namespaces' and 'omitNamespaces' can be specified");
       }
 
-      if (
-        managedAccount.getOmitKinds() != null
-          && !managedAccount.getOmitKinds().isEmpty()
-          && managedAccount.getKinds() != null
-          && !managedAccount.getKinds().isEmpty()
-        ) {
+      if (!managedAccount.getOmitKinds().isEmpty() && !managedAccount.getKinds().isEmpty()) {
         throw new IllegalArgumentException("At most one of 'kinds' and 'omitKinds' can be specified");
       }
     }
