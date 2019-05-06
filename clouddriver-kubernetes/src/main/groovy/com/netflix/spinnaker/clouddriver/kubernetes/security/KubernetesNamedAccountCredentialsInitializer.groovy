@@ -20,7 +20,6 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -40,7 +39,6 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
   @Autowired Registry spectatorRegistry
   @Autowired KubectlJobExecutor jobExecutor
   @Autowired NamerRegistry namerRegistry
-  @Autowired KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap
 
   @Bean
   List<? extends KubernetesNamedAccountCredentials> kubernetesNamedAccountCredentials(
@@ -76,44 +74,12 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
     accountsToAdd.each { KubernetesConfigurationProperties.ManagedAccount managedAccount ->
       try {
         def kubernetesAccount = new KubernetesNamedAccountCredentials.Builder()
+          .managedAccount(managedAccount)
           .accountCredentialsRepository(accountCredentialsRepository)
           .userAgent(clouddriverUserAgentApplicationName)
-          .name(managedAccount.name)
-          .providerVersion(managedAccount.providerVersion)
-          .environment(managedAccount.environment)
-          .accountType(managedAccount.accountType)
-          .context(managedAccount.context)
-          .cluster(managedAccount.cluster)
-          .oAuthServiceAccount(managedAccount.oAuthServiceAccount)
-          .oAuthScopes(managedAccount.oAuthScopes)
-          .user(managedAccount.user)
-          .kubeconfigFile(managedAccount.kubeconfigFile)
-          .kubeconfigContents(managedAccount.kubeconfigContents)
-          .kubectlExecutable(managedAccount.kubectlExecutable)
-          .kubectlRequestTimeoutSeconds(managedAccount.kubectlRequestTimeoutSeconds)
-          .serviceAccount(managedAccount.serviceAccount)
-          .configureImagePullSecrets(managedAccount.configureImagePullSecrets)
-          .namespaces(managedAccount.namespaces)
-          .omitNamespaces(managedAccount.omitNamespaces)
-          .skin(managedAccount.skin)
-          .cacheThreads(managedAccount.cacheThreads)
-          .dockerRegistries(managedAccount.dockerRegistries)
-          .requiredGroupMembership(managedAccount.requiredGroupMembership)
-          .permissions(managedAccount.permissions.build())
           .spectatorRegistry(spectatorRegistry)
           .jobExecutor(jobExecutor)
-          .namer(namerRegistry.getNamingStrategy(managedAccount.namingStrategy))
-          .customResources(managedAccount.customResources)
-          .cachingPolicies(managedAccount.cachingPolicies)
-          .kinds(managedAccount.kinds)
-          .omitKinds(managedAccount.omitKinds)
-          .metrics(managedAccount.metrics)
-          .debug(managedAccount.debug)
-          .checkPermissionsOnStartup(managedAccount.checkPermissionsOnStartup)
-          .kubernetesSpinnakerKindMap(kubernetesSpinnakerKindMap)
-          .onlySpinnakerManaged(managedAccount.onlySpinnakerManaged)
-          .liveManifestCalls(managedAccount.liveManifestCalls)
-          .cacheIntervalSeconds(managedAccount.cacheIntervalSeconds)
+          .namerRegistry(namerRegistry)
           .build()
 
         accountCredentialsRepository.save(managedAccount.name, kubernetesAccount)

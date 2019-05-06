@@ -117,7 +117,6 @@ class KubernetesNamedAccountCredentialsInitializerSpec extends Specification {
     1 * accountCredentialsRepository.save("test-account", _ as KubernetesNamedAccountCredentials) >> { _, creds ->
       credentials = creds
     }
-    1 * namerRegistry.getNamingStrategy("kubernetesAnnotations") >> Mock(KubernetesManifestNamer)
 
     credentials.getName() == "test-account"
     credentials.getProviderVersion() == ProviderVersion.v1
