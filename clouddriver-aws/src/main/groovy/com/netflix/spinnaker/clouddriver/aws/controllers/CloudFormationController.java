@@ -18,9 +18,9 @@ package com.netflix.spinnaker.clouddriver.aws.controllers;
 
 import com.netflix.spinnaker.clouddriver.aws.model.CloudFormationStack;
 import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonCloudFormationProvider;
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -58,7 +58,7 @@ class CloudFormationController {
     return cloudFormationProvider
       .get(stackId)
       .orElseThrow(
-        () -> new ResourceNotFoundException(String.format("Cloud Formation stackId %s not found.", stackId))
+        () -> new NotFoundException(String.format("Cloud Formation stackId %s not found.", stackId))
       );
   }
 
