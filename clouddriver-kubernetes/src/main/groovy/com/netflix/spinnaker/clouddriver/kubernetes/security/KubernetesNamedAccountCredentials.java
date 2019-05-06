@@ -68,14 +68,20 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
                                     Long cacheIntervalSeconds) {
     this.name = name;
     this.providerVersion = providerVersion;
-    this.environment = environment;
-    this.accountType = accountType;
+    this.environment = Optional.ofNullable(environment).orElse(name);
+    this.accountType = Optional.ofNullable(accountType).orElse(name);
     this.skin = Optional.ofNullable(skin).orElse(providerVersion.toString());
     this.cacheThreads = cacheThreads;
-    this.requiredGroupMembership = requiredGroupMembership;
-    this.permissions = permissions;
     this.credentials = credentials;
     this.cacheIntervalSeconds = cacheIntervalSeconds;
+
+    if (permissions.isRestricted()) {
+      this.permissions = permissions;
+      this.requiredGroupMembership = Collections.emptyList();
+    } else {
+      this.permissions = null;
+      this.requiredGroupMembership = Optional.ofNullable(requiredGroupMembership).map(Collections::unmodifiableList).orElse(Collections.emptyList());
+    }
   }
 
   static class Builder<C extends KubernetesCredentials> {
@@ -100,7 +106,6 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     List<String> omitNamespaces;
     String skin;
     int cacheThreads;
-    C credentials;
     List<String> requiredGroupMembership;
     Permissions permissions;
     List<LinkedDockerRegistryConfiguration> dockerRegistries;
@@ -215,10 +220,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     }
 
     Builder permissions(Permissions permissions) {
-      if (permissions.isRestricted()) {
-        this.requiredGroupMembership = Collections.emptyList();
-        this.permissions = permissions;
-      }
+      this.permissions = permissions;
       return this;
     }
 
@@ -244,11 +246,6 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
 
     Builder cacheThreads(int cacheThreads) {
       this.cacheThreads = cacheThreads;
-      return this;
-    }
-
-    Builder credentials(C credentials) {
-      this.credentials = credentials;
       return this;
     }
 
@@ -318,6 +315,39 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     }
 
     private C buildCredentials() {
+      if (
+        omitNamespaces != null
+          && !omitNamespaces.isEmpty()
+          && namespaces != null
+          && !namespaces.isEmpty()
+        ) {
+        throw new IllegalArgumentException("At most one of 'namespaces' and 'omitNamespaces' can be specified");
+      }
+
+      if (
+        omitKinds != null
+          && !omitKinds.isEmpty()
+          && kinds != null
+          && !kinds.isEmpty()
+        ) {
+        throw new IllegalArgumentException("At most one of 'kinds' and 'omitKinds' can be specified");
+      }
+
+      if (StringUtils.isEmpty(kubeconfigFile)){
+        if (StringUtils.isEmpty(kubeconfigContents)) {
+          kubeconfigFile = System.getProperty("user.home") + "/.kube/config";
+        } else {
+          try {
+            File temp = File.createTempFile("kube", "config");
+            BufferedWriter writer = new BufferedWriter(new FileWriter(temp));
+            writer.write(kubeconfigContents);
+            writer.close();
+            kubeconfigFile = temp.getAbsolutePath();
+          } catch (IOException e) {
+            throw new RuntimeException("Unable to persist 'kubeconfigContents' parameter to disk: " + e.getMessage(), e);
+          }
+        }
+      }
       switch (providerVersion) {
         case v1:
           return (C) new KubernetesV1Credentials(
@@ -374,60 +404,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
         throw new IllegalArgumentException("Account name for Kubernetes provider missing.");
       }
 
-      if ((omitNamespaces != null && !omitNamespaces.isEmpty()) && (namespaces != null && !namespaces.isEmpty())) {
-        throw new IllegalArgumentException("At most one of 'namespaces' and 'omitNamespaces' can be specified");
-      }
-
-      if ((omitKinds != null && !omitKinds.isEmpty()) && (kinds != null && !kinds.isEmpty())) {
-        throw new IllegalArgumentException("At most one of 'kinds' and 'omitKinds' can be specified");
-      }
-
-      if (cacheThreads == 0) {
-        cacheThreads = 1;
-      }
-
-      if (providerVersion == null) {
-        providerVersion = ProviderVersion.v1;
-      }
-
-      if (StringUtils.isEmpty(kubeconfigFile)){
-        if (StringUtils.isEmpty(kubeconfigContents)) {
-          kubeconfigFile = System.getProperty("user.home") + "/.kube/config";
-        } else {
-          try {
-            File temp = File.createTempFile("kube", "config");
-            BufferedWriter writer = new BufferedWriter(new FileWriter(temp));
-            writer.write(kubeconfigContents);
-            writer.close();
-            kubeconfigFile = temp.getAbsolutePath();
-          } catch (IOException e) {
-            throw new RuntimeException("Unable to persist 'kubeconfigContents' parameter to disk: " + e.getMessage(), e);
-          }
-        }
-      }
-
-      if (requiredGroupMembership != null && !requiredGroupMembership.isEmpty()) {
-        requiredGroupMembership = Collections.unmodifiableList(requiredGroupMembership);
-      } else {
-        requiredGroupMembership = Collections.emptyList();
-      }
-
-      if (configureImagePullSecrets == null) {
-        configureImagePullSecrets = true;
-      }
-
-      if (serviceAccount == null) {
-        serviceAccount = false;
-      }
-
-      if (metrics == null) {
-        // on by default
-        metrics = true;
-      }
-
-      if (credentials == null) {
-        credentials = buildCredentials();
-      }
+      C credentials = buildCredentials();
 
       return new KubernetesNamedAccountCredentials(
         name,

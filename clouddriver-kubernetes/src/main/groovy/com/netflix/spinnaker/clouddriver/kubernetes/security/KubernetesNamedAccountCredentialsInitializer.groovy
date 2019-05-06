@@ -37,8 +37,6 @@ import org.springframework.context.annotation.Scope
 @Slf4j
 @Configuration
 class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitializerSynchronizable {
-  private static final Integer DEFAULT_CACHE_THREADS = 1
-
   @Autowired Registry spectatorRegistry
   @Autowired KubectlJobExecutor jobExecutor
   @Autowired NamerRegistry namerRegistry
@@ -82,8 +80,8 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
           .userAgent(clouddriverUserAgentApplicationName)
           .name(managedAccount.name)
           .providerVersion(managedAccount.providerVersion)
-          .environment(managedAccount.environment ?: managedAccount.name)
-          .accountType(managedAccount.accountType ?: managedAccount.name)
+          .environment(managedAccount.environment)
+          .accountType(managedAccount.accountType)
           .context(managedAccount.context)
           .cluster(managedAccount.cluster)
           .oAuthServiceAccount(managedAccount.oAuthServiceAccount)
@@ -98,7 +96,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
           .namespaces(managedAccount.namespaces)
           .omitNamespaces(managedAccount.omitNamespaces)
           .skin(managedAccount.skin)
-          .cacheThreads(managedAccount.cacheThreads ?: DEFAULT_CACHE_THREADS)
+          .cacheThreads(managedAccount.cacheThreads)
           .dockerRegistries(managedAccount.dockerRegistries)
           .requiredGroupMembership(managedAccount.requiredGroupMembership)
           .permissions(managedAccount.permissions.build())
@@ -111,10 +109,10 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
           .omitKinds(managedAccount.omitKinds)
           .metrics(managedAccount.metrics)
           .debug(managedAccount.debug)
-          .checkPermissionsOnStartup(managedAccount.checkPermissionsOnStartup == null ? true : managedAccount.checkPermissionsOnStartup)
+          .checkPermissionsOnStartup(managedAccount.checkPermissionsOnStartup)
           .kubernetesSpinnakerKindMap(kubernetesSpinnakerKindMap)
-          .onlySpinnakerManaged(managedAccount.onlySpinnakerManaged == null ? false : managedAccount.onlySpinnakerManaged)
-          .liveManifestCalls(managedAccount.liveManifestCalls ?: false)
+          .onlySpinnakerManaged(managedAccount.onlySpinnakerManaged)
+          .liveManifestCalls(managedAccount.liveManifestCalls)
           .cacheIntervalSeconds(managedAccount.cacheIntervalSeconds)
           .build()
 
