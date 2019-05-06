@@ -27,7 +27,7 @@ class KubernetesV2CredentialsSpec extends Specification {
   String NAMESPACE = "my-namespace"
 
   private getBuilder() {
-    return new KubernetesV2Credentials.Builder()
+    return KubernetesV2Credentials.builder()
       .registry(registry)
       .jobExecutor(kubectlJobExecutor)
       .namespaces([NAMESPACE])

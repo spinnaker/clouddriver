@@ -33,20 +33,26 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor.KubectlException;
 import io.kubernetes.client.models.V1DeleteOptions;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-
-import javax.validation.constraints.NotNull;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.validation.constraints.NotNull;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 public class KubernetesV2Credentials implements KubernetesCredentials {
@@ -188,174 +194,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter
   private final boolean debug;
 
-  public static class Builder {
-    String accountName;
-    String kubeconfigFile;
-    String context;
-    String kubectlExecutable;
-    Integer kubectlRequestTimeoutSeconds;
-    String oAuthServiceAccount;
-    List<String> oAuthScopes;
-    String userAgent;
-    List<String> namespaces = new ArrayList<>();
-    List<String> omitNamespaces = new ArrayList<>();
-    Registry registry;
-    KubectlJobExecutor jobExecutor;
-    List<CustomKubernetesResource> customResources;
-    List<KubernetesCachingPolicy> cachingPolicies;
-    List<String> kinds;
-    List<String> omitKinds;
-    boolean debug;
-    boolean checkPermissionsOnStartup;
-    boolean serviceAccount;
-    boolean metrics;
-    boolean onlySpinnakerManaged;
-    boolean liveManifestCalls;
-
-    public Builder accountName(String accountName) {
-      this.accountName = accountName;
-      return this;
-    }
-
-    public Builder kubeconfigFile(String kubeconfigFile) {
-      this.kubeconfigFile = kubeconfigFile;
-      return this;
-    }
-
-    public Builder kubectlExecutable(String kubectlExecutable) {
-      this.kubectlExecutable = kubectlExecutable;
-      return this;
-    }
-
-    public Builder kubectlRequestTimeoutSeconds(Integer kubectlRequestTimeoutSeconds) {
-      this.kubectlRequestTimeoutSeconds = kubectlRequestTimeoutSeconds;
-      return this;
-    }
-
-    public Builder context(String context) {
-      this.context = context;
-      return this;
-    }
-
-    public Builder userAgent(String userAgent) {
-      this.userAgent = userAgent;
-      return this;
-    }
-
-    public Builder namespaces(List<String> namespaces) {
-      this.namespaces = namespaces;
-      return this;
-    }
-
-    public Builder omitNamespaces(List<String> omitNamespaces) {
-      this.omitNamespaces = omitNamespaces;
-      return this;
-    }
-
-    public Builder registry(Registry registry) {
-      this.registry = registry;
-      return this;
-    }
-
-    public Builder jobExecutor(KubectlJobExecutor jobExecutor) {
-      this.jobExecutor = jobExecutor;
-      return this;
-    }
-
-    public Builder cachingPolicies(List<KubernetesCachingPolicy> cachingPolicies) {
-      this.cachingPolicies = cachingPolicies;
-      return this;
-    }
-
-    public Builder customResources(List<CustomKubernetesResource> customResources) {
-      this.customResources = customResources;
-      return this;
-    }
-
-    public Builder debug(boolean debug) {
-      this.debug = debug;
-      return this;
-    }
-
-    public Builder checkPermissionsOnStartup(boolean checkPermissionsOnStartup) {
-      this.checkPermissionsOnStartup = checkPermissionsOnStartup;
-      return this;
-    }
-
-    public Builder serviceAccount(boolean serviceAccount) {
-      this.serviceAccount = serviceAccount;
-      return this;
-    }
-
-    public Builder oAuthServiceAccount(String oAuthServiceAccount) {
-      this.oAuthServiceAccount = oAuthServiceAccount;
-      return this;
-    }
-
-    public Builder oAuthScopes(List<String> oAuthScopes) {
-      this.oAuthScopes = oAuthScopes;
-      return this;
-    }
-
-    public Builder kinds(List<String> kinds) {
-      this.kinds = kinds;
-      return this;
-    }
-
-    public Builder omitKinds(List<String> omitKinds) {
-      this.omitKinds = omitKinds;
-      return this;
-    }
-
-    public Builder metrics(boolean metrics) {
-      this.metrics = metrics;
-      return this;
-    }
-
-    public Builder onlySpinnakerManaged(boolean onlySpinnakerManaged) {
-      this.onlySpinnakerManaged = onlySpinnakerManaged;
-      return this;
-    }
-
-    public Builder liveManifestCalls(boolean liveManifestCalls) {
-      this.liveManifestCalls = liveManifestCalls;
-      return this;
-    }
-
-    public KubernetesV2Credentials build() {
-      namespaces = namespaces == null ? new ArrayList<>() : namespaces;
-      omitNamespaces = omitNamespaces == null ? new ArrayList<>() : omitNamespaces;
-      customResources = customResources == null ? new ArrayList<>() : customResources;
-      kinds = kinds == null ? new ArrayList<>() : kinds;
-      omitKinds = omitKinds == null ? new ArrayList<>() : omitKinds;
-      cachingPolicies = cachingPolicies == null ? new ArrayList<>() : cachingPolicies;
-
-      return new KubernetesV2Credentials(
-          accountName,
-          jobExecutor,
-          namespaces,
-          omitNamespaces,
-          registry,
-          kubeconfigFile,
-          kubectlExecutable,
-          kubectlRequestTimeoutSeconds,
-          context,
-          oAuthServiceAccount,
-          oAuthScopes,
-          serviceAccount,
-          customResources,
-          cachingPolicies,
-          KubernetesKind.registeredStringList(kinds),
-          KubernetesKind.registeredStringList(omitKinds),
-          metrics,
-          checkPermissionsOnStartup,
-          debug,
-          onlySpinnakerManaged,
-          liveManifestCalls
-      );
-    }
-  }
-
+  @Builder
   private KubernetesV2Credentials(@NotNull String accountName,
       @NotNull KubectlJobExecutor jobExecutor,
       @NotNull List<String> namespaces,
@@ -370,8 +209,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       boolean serviceAccount,
       @NotNull List<CustomKubernetesResource> customResources,
       @NotNull List<KubernetesCachingPolicy> cachingPolicies,
-      @NotNull List<KubernetesKind> kinds,
-      @NotNull List<KubernetesKind> omitKinds,
+      @NotNull List<String> kinds,
+      @NotNull List<String> omitKinds,
       boolean metrics,
       boolean checkPermissionsOnStartup,
       boolean debug,
@@ -380,8 +219,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.registry = registry;
     this.clock = registry.clock();
     this.accountName = accountName;
-    this.namespaces = namespaces;
-    this.omitNamespaces = omitNamespaces;
+    this.namespaces = Optional.ofNullable(namespaces).orElse(new ArrayList<>());
+    this.omitNamespaces = Optional.ofNullable(omitNamespaces).orElse(new ArrayList<>());
     this.jobExecutor = jobExecutor;
     this.debug = debug;
     this.kubectlExecutable = kubectlExecutable;
@@ -391,11 +230,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.oAuthServiceAccount = oAuthServiceAccount;
     this.oAuthScopes = oAuthScopes;
     this.serviceAccount = serviceAccount;
-    this.customResources = customResources;
-    this.cachingPolicies = cachingPolicies;
-    this.kinds = kinds;
+    this.customResources = Optional.ofNullable(customResources).orElse(new ArrayList<>());;
+    this.cachingPolicies = Optional.ofNullable(cachingPolicies).orElse(new ArrayList<>());;
+    this.kinds = Optional.ofNullable(kinds).map(KubernetesKind::registeredStringList).orElse(new ArrayList<>());
     this.metrics = metrics;
-    this.omitKinds = omitKinds.stream()
+    this.omitKinds = Optional.ofNullable(omitKinds).orElse(new ArrayList<>()).stream().map(KubernetesKind::fromString)
       .collect(Collectors.toMap(k -> k, k -> InvalidKindReason.EXPLICITLY_OMITTED_BY_CONFIGURATION));
     this.onlySpinnakerManaged = onlySpinnakerManaged;
     this.liveManifestCalls = liveManifestCalls;

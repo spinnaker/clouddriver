@@ -145,7 +145,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
         .withProvider(KubernetesCloudProvider.getID())
         .withAccount(managedAccount.getName())
         .setNamer(KubernetesManifest.class, namerRegistry.getNamingStrategy(managedAccount.getNamingStrategy()));
-      return new KubernetesV2Credentials.Builder()
+      return KubernetesV2Credentials.builder()
         .accountName(managedAccount.getName())
         .kubeconfigFile(getKubeconfigFile(managedAccount))
         .kubectlExecutable(managedAccount.getKubectlExecutable())
@@ -154,7 +154,6 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
         .oAuthServiceAccount(managedAccount.getoAuthServiceAccount())
         .oAuthScopes(managedAccount.getoAuthScopes())
         .serviceAccount(managedAccount.getServiceAccount())
-        .userAgent(userAgent)
         .namespaces(managedAccount.getNamespaces())
         .omitNamespaces(managedAccount.getOmitNamespaces())
         .registry(spectatorRegistry)
