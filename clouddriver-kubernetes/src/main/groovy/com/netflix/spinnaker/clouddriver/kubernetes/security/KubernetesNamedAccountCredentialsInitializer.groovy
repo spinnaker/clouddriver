@@ -21,7 +21,6 @@ import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
@@ -38,17 +37,16 @@ import org.springframework.context.annotation.Scope
 class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitializerSynchronizable {
   @Autowired Registry spectatorRegistry
   @Autowired KubectlJobExecutor jobExecutor
-  @Autowired NamerRegistry namerRegistry
 
   @Bean
   List<? extends KubernetesNamedAccountCredentials> kubernetesNamedAccountCredentials(
-    String clouddriverUserAgentApplicationName,
+    KubernetesNamedAccountCredentials.CredentialFactory credentialFactory,
     KubernetesConfigurationProperties kubernetesConfigurationProperties,
     ApplicationContext applicationContext,
     AccountCredentialsRepository accountCredentialsRepository,
     List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers
   ) {
-    synchronizeKubernetesAccounts(clouddriverUserAgentApplicationName, kubernetesConfigurationProperties, null, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrappers)
+    synchronizeKubernetesAccounts(credentialFactory, kubernetesConfigurationProperties, null, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrappers)
   }
 
   @Override
@@ -59,7 +57,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
   List<? extends KubernetesNamedAccountCredentials> synchronizeKubernetesAccounts(
-    String clouddriverUserAgentApplicationName,
+    KubernetesNamedAccountCredentials.CredentialFactory credentialFactory,
     KubernetesConfigurationProperties kubernetesConfigurationProperties,
     CatsModule catsModule,
     ApplicationContext applicationContext,
@@ -73,14 +71,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
     // TODO(lwander): Modify accounts when their dockerRegistries attribute is updated as well -- need to ask @duftler.
     accountsToAdd.each { KubernetesConfigurationProperties.ManagedAccount managedAccount ->
       try {
-        def kubernetesAccount = new KubernetesNamedAccountCredentials.Builder()
-          .managedAccount(managedAccount)
-          .accountCredentialsRepository(accountCredentialsRepository)
-          .userAgent(clouddriverUserAgentApplicationName)
-          .spectatorRegistry(spectatorRegistry)
-          .jobExecutor(jobExecutor)
-          .namerRegistry(namerRegistry)
-          .build()
+        def kubernetesAccount = new KubernetesNamedAccountCredentials(managedAccount, credentialFactory)
 
         accountCredentialsRepository.save(managedAccount.name, kubernetesAccount)
       } catch (e) {

@@ -29,7 +29,9 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Component;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -52,73 +54,97 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   private final List<String> requiredGroupMembership;
   private final Permissions permissions;
   private final Long cacheIntervalSeconds;
-  KubernetesNamedAccountCredentials(String name,
-                                    ProviderVersion providerVersion,
-                                    String environment,
-                                    String accountType,
-                                    String skin,
-                                    int cacheThreads,
-                                    List<String> requiredGroupMembership,
-                                    Permissions permissions,
-                                    C credentials,
-                                    Long cacheIntervalSeconds) {
-    this.name = name;
-    this.providerVersion = providerVersion;
-    this.environment = Optional.ofNullable(environment).orElse(name);
-    this.accountType = Optional.ofNullable(accountType).orElse(name);
-    this.skin = Optional.ofNullable(skin).orElse(providerVersion.toString());
-    this.cacheThreads = cacheThreads;
-    this.credentials = credentials;
-    this.cacheIntervalSeconds = cacheIntervalSeconds;
+  public KubernetesNamedAccountCredentials(KubernetesConfigurationProperties.ManagedAccount managedAccount, CredentialFactory factory) {
+    this.name = managedAccount.getName();
+    this.providerVersion = managedAccount.getProviderVersion();
+    this.environment = Optional.ofNullable(managedAccount.getEnvironment()).orElse(managedAccount.getName());
+    this.accountType = Optional.ofNullable(managedAccount.getAccountType()).orElse(managedAccount.getName());
+    this.skin = Optional.ofNullable(managedAccount.getSkin()).orElse(managedAccount.getProviderVersion().toString());
+    this.cacheThreads = managedAccount.getCacheThreads();
+    this.cacheIntervalSeconds = managedAccount.getCacheIntervalSeconds();
 
+    Permissions permissions = managedAccount.getPermissions().build();
     if (permissions.isRestricted()) {
       this.permissions = permissions;
       this.requiredGroupMembership = Collections.emptyList();
     } else {
       this.permissions = null;
-      this.requiredGroupMembership = Optional.ofNullable(requiredGroupMembership).map(Collections::unmodifiableList).orElse(Collections.emptyList());
+      this.requiredGroupMembership = Optional.ofNullable(managedAccount.getRequiredGroupMembership()).map(Collections::unmodifiableList).orElse(Collections.emptyList());
+    }
+
+    switch (managedAccount.getProviderVersion()) {
+      case v1:
+        this.credentials = (C) factory.buildV1Credentials(managedAccount);
+        break;
+      case v2:
+        this.credentials = (C) factory.buildV2Credentials(managedAccount);
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown provider type: " + managedAccount.getProviderVersion());
     }
   }
 
-  static class Builder<C extends KubernetesCredentials> {
-    KubernetesConfigurationProperties.ManagedAccount managedAccount;
-    String userAgent;
-    Registry spectatorRegistry;
-    NamerRegistry namerRegistry;
-    AccountCredentialsRepository accountCredentialsRepository;
-    KubectlJobExecutor jobExecutor;
+  @Component
+  @RequiredArgsConstructor
+  public static class CredentialFactory {
+    private final String userAgent;
+    private final Registry spectatorRegistry;
+    private final NamerRegistry namerRegistry;
+    private final AccountCredentialsRepository accountCredentialsRepository;
+    private final KubectlJobExecutor jobExecutor;
 
-    Builder managedAccount(KubernetesConfigurationProperties.ManagedAccount managedAccount) {
-      this.managedAccount = managedAccount;
-      return this;
+    public KubernetesV1Credentials buildV1Credentials(KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+      validateAccount(managedAccount);
+      return new KubernetesV1Credentials(
+        managedAccount.getName(),
+        getKubeconfigFile(managedAccount),
+        managedAccount.getContext(),
+        managedAccount.getCluster(),
+        managedAccount.getUser(),
+        userAgent,
+        managedAccount.getServiceAccount(),
+        managedAccount.getConfigureImagePullSecrets(),
+        managedAccount.getNamespaces(),
+        managedAccount.getOmitNamespaces(),
+        managedAccount.getDockerRegistries(),
+        spectatorRegistry,
+        accountCredentialsRepository
+      );
     }
 
-    Builder userAgent(String userAgent) {
-      this.userAgent = userAgent;
-      return this;
+    public KubernetesV2Credentials buildV2Credentials(KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+      validateAccount(managedAccount);
+      NamerRegistry.lookup()
+        .withProvider(KubernetesCloudProvider.getID())
+        .withAccount(managedAccount.getName())
+        .setNamer(KubernetesManifest.class, namerRegistry.getNamingStrategy(managedAccount.getNamingStrategy()));
+      return new KubernetesV2Credentials.Builder()
+        .accountName(managedAccount.getName())
+        .kubeconfigFile(getKubeconfigFile(managedAccount))
+        .kubectlExecutable(managedAccount.getKubectlExecutable())
+        .kubectlRequestTimeoutSeconds(managedAccount.getKubectlRequestTimeoutSeconds())
+        .context(managedAccount.getContext())
+        .oAuthServiceAccount(managedAccount.getoAuthServiceAccount())
+        .oAuthScopes(managedAccount.getoAuthScopes())
+        .serviceAccount(managedAccount.getServiceAccount())
+        .userAgent(userAgent)
+        .namespaces(managedAccount.getNamespaces())
+        .omitNamespaces(managedAccount.getOmitNamespaces())
+        .registry(spectatorRegistry)
+        .customResources(managedAccount.getCustomResources())
+        .cachingPolicies(managedAccount.getCachingPolicies())
+        .kinds(managedAccount.getKinds())
+        .omitKinds(managedAccount.getOmitKinds())
+        .metrics(managedAccount.getMetrics())
+        .debug(managedAccount.getDebug())
+        .checkPermissionsOnStartup(managedAccount.getCheckPermissionsOnStartup())
+        .jobExecutor(jobExecutor)
+        .onlySpinnakerManaged(managedAccount.getOnlySpinnakerManaged())
+        .liveManifestCalls(managedAccount.getLiveManifestCalls())
+        .build();
     }
 
-    Builder spectatorRegistry(Registry spectatorRegistry) {
-      this.spectatorRegistry = spectatorRegistry;
-      return this;
-    }
-
-    Builder accountCredentialsRepository(AccountCredentialsRepository accountCredentialsRepository) {
-      this.accountCredentialsRepository = accountCredentialsRepository;
-      return this;
-    }
-
-    Builder jobExecutor(KubectlJobExecutor jobExecutor) {
-      this.jobExecutor = jobExecutor;
-      return this;
-    }
-
-    Builder namerRegistry(NamerRegistry namerRegistry) {
-      this.namerRegistry = namerRegistry;
-      return this;
-    }
-
-    private C buildCredentials() {
+    private void validateAccount(KubernetesConfigurationProperties.ManagedAccount managedAccount) {
       if (
         managedAccount.getOmitNamespaces() != null
           && !managedAccount.getOmitNamespaces().isEmpty()
@@ -136,9 +162,11 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
         ) {
         throw new IllegalArgumentException("At most one of 'kinds' and 'omitKinds' can be specified");
       }
+    }
 
+    private String getKubeconfigFile(KubernetesConfigurationProperties.ManagedAccount managedAccount) {
       String kubeconfigFile = managedAccount.getKubeconfigFile();
-      if (StringUtils.isEmpty(kubeconfigFile)){
+      if (StringUtils.isEmpty(kubeconfigFile)) {
         if (StringUtils.isEmpty(managedAccount.getKubeconfigContents())) {
           kubeconfigFile = System.getProperty("user.home") + "/.kube/config";
         } else {
@@ -153,74 +181,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
           }
         }
       }
-      switch (managedAccount.getProviderVersion()) {
-        case v1:
-          return (C) new KubernetesV1Credentials(
-              managedAccount.getName(),
-              kubeconfigFile,
-              managedAccount.getContext(),
-              managedAccount.getCluster(),
-              managedAccount.getUser(),
-              userAgent,
-              managedAccount.getServiceAccount(),
-              managedAccount.getConfigureImagePullSecrets(),
-              managedAccount.getNamespaces(),
-              managedAccount.getOmitNamespaces(),
-              managedAccount.getDockerRegistries(),
-              spectatorRegistry,
-              accountCredentialsRepository
-          );
-        case v2:
-          NamerRegistry.lookup()
-              .withProvider(KubernetesCloudProvider.getID())
-              .withAccount(managedAccount.getName())
-              .setNamer(KubernetesManifest.class, namerRegistry.getNamingStrategy(managedAccount.getNamingStrategy()));
-          return (C) new KubernetesV2Credentials.Builder()
-              .accountName(managedAccount.getName())
-              .kubeconfigFile(kubeconfigFile)
-              .kubectlExecutable(managedAccount.getKubectlExecutable())
-              .kubectlRequestTimeoutSeconds(managedAccount.getKubectlRequestTimeoutSeconds())
-              .context(managedAccount.getContext())
-              .oAuthServiceAccount(managedAccount.getoAuthServiceAccount())
-              .oAuthScopes(managedAccount.getoAuthScopes())
-              .serviceAccount(managedAccount.getServiceAccount())
-              .userAgent(userAgent)
-              .namespaces(managedAccount.getNamespaces())
-              .omitNamespaces(managedAccount.getOmitNamespaces())
-              .registry(spectatorRegistry)
-              .customResources(managedAccount.getCustomResources())
-              .cachingPolicies(managedAccount.getCachingPolicies())
-              .kinds(managedAccount.getKinds())
-              .omitKinds(managedAccount.getOmitKinds())
-              .metrics(managedAccount.getMetrics())
-              .debug(managedAccount.getDebug())
-              .checkPermissionsOnStartup(managedAccount.getCheckPermissionsOnStartup())
-              .jobExecutor(jobExecutor)
-              .onlySpinnakerManaged(managedAccount.getOnlySpinnakerManaged())
-              .liveManifestCalls(managedAccount.getLiveManifestCalls())
-              .build();
-        default:
-          throw new IllegalArgumentException("Unknown provider type: " + managedAccount.getProviderVersion());
-      }
-    }
-
-    KubernetesNamedAccountCredentials build() {
-      if (StringUtils.isEmpty(managedAccount.getName())) {
-        throw new IllegalArgumentException("Account name for Kubernetes provider missing.");
-      }
-
-      return new KubernetesNamedAccountCredentials(
-        managedAccount.getName(),
-        managedAccount.getProviderVersion(),
-        managedAccount.getEnvironment(),
-        managedAccount.getAccountType(),
-        managedAccount.getSkin(),
-        managedAccount.getCacheThreads(),
-        managedAccount.getRequiredGroupMembership(),
-        managedAccount.getPermissions().build(),
-        buildCredentials(),
-        managedAccount.getCacheIntervalSeconds()
-      );
+      return kubeconfigFile;
     }
   }
 }

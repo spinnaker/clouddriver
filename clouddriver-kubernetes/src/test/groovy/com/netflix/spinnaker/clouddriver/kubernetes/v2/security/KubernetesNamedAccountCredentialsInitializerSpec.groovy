@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentialsInitializer
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion
@@ -32,22 +33,26 @@ import org.springframework.context.ApplicationContext
 import spock.lang.Specification
 
 class KubernetesNamedAccountCredentialsInitializerSpec extends Specification {
-  String clouddriverUserAgentApplicationName = "userAgent"
   CatsModule catsModule = Mock(CatsModule)
   ApplicationContext applicationContext = Mock(ApplicationContext)
   AccountCredentialsRepository accountCredentialsRepository = Mock(AccountCredentialsRepository)
   List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrapper = Collections.emptyList()
-
   NamerRegistry namerRegistry = Mock(NamerRegistry)
+  KubernetesNamedAccountCredentials.CredentialFactory credentialFactory = new KubernetesNamedAccountCredentials.CredentialFactory(
+    "userAgent",
+    new NoopRegistry(),
+    namerRegistry,
+    accountCredentialsRepository,
+    Mock(KubectlJobExecutor)
+  )
 
   KubernetesNamedAccountCredentialsInitializer kubernetesNamedAccountCredentialsInitializer = new KubernetesNamedAccountCredentialsInitializer(
-    namerRegistry: namerRegistry,
     spectatorRegistry: new NoopRegistry()
   )
 
   def synchronizeAccounts(KubernetesConfigurationProperties kubernetesConfigurationProperties) {
     return kubernetesNamedAccountCredentialsInitializer.synchronizeKubernetesAccounts(
-      clouddriverUserAgentApplicationName, kubernetesConfigurationProperties, catsModule, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrapper
+      credentialFactory, kubernetesConfigurationProperties, catsModule, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrapper
     )
   }
 
