@@ -41,6 +41,7 @@ import com.netflix.spinnaker.clouddriver.ecs.security.NetflixAssumeRoleEcsCreden
 import com.netflix.spinnaker.clouddriver.ecs.services.EcsCloudMetricService;
 import com.netflix.spinnaker.clouddriver.ecs.services.SecurityGroupSelector;
 import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector;
+import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -250,6 +251,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withCluster(description.getEcsClusterName())
       .withLoadBalancers(loadBalancers)
       .withTaskDefinition(taskDefinitionArn)
+      .withPlacementConstraints(description.getPlacementConstraints())
       .withPlacementStrategy(description.getPlacementStrategySequence())
       .withDeploymentConfiguration(deploymentConfiguration);
 
@@ -290,6 +292,10 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
 
     if (!StringUtils.isEmpty(description.getLaunchType())) {
       request.withLaunchType(description.getLaunchType());
+    }
+
+    if (!StringUtils.isEmpty(description.getPlatformVersion())) {
+      request.withPlatformVersion(description.getPlatformVersion());
     }
 
     if (description.getHealthCheckGracePeriodSeconds() != null) {
@@ -334,7 +340,10 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withMaxCapacity(max);
 
     updateTaskStatus("Creating Amazon Application Auto Scaling Scalable Target Definition...");
-    autoScalingClient.registerScalableTarget(request);
+    // ECS DescribeService is eventually consistent, so sometimes RegisterScalableTarget will
+    // return a ValidationException with message "ECS service doesn't exist", because the service
+    // was just created.  Retry until consistency is likely reached.
+    OperationPoller.retryWithBackoff(o -> autoScalingClient.registerScalableTarget(request), 1000, 3);
     updateTaskStatus("Done creating Amazon Application Auto Scaling Scalable Target Definition.");
 
     return request.getResourceId();
