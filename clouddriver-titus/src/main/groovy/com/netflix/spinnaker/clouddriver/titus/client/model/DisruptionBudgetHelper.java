@@ -22,7 +22,7 @@ import com.netflix.titus.grpc.protogen.TimeWindow;
 
 public class DisruptionBudgetHelper {
 
-   public static JobDisruptionBudget convertJobDisruptionBudget(DisruptionBudget budget) {
+  public static JobDisruptionBudget convertJobDisruptionBudget(DisruptionBudget budget) {
     JobDisruptionBudget.Builder builder = JobDisruptionBudget.newBuilder();
     if (budget.getAvailabilityPercentageLimit() != null) {
       builder.setAvailabilityPercentageLimit(

@@ -46,12 +46,12 @@ class UpsertDisruptionBudgetOperationSpec extends Specification {
   DisruptionBudget disruptionBudget = new DisruptionBudget(
       selfManaged: new SelfManaged(relocationTimeMs: 1),
       rateUnlimited: false,
-      relocationLimit : new RelocationLimit(limit: 1),
-      unhealthyTasksLimit: new UnhealthyTasksLimit(limitOfUnhealthyContainers:5)
+      relocationLimit: new RelocationLimit(limit: 1),
+      unhealthyTasksLimit: new UnhealthyTasksLimit(limitOfUnhealthyContainers: 5)
   )
 
   UpsertJobDisruptionBudgetDescription description = new UpsertJobDisruptionBudgetDescription(
-      jobId : "abc123", region: "us-east-1", credentials: testCredentials, disruptionBudget: disruptionBudget
+      jobId: "abc123", region: "us-east-1", credentials: testCredentials, disruptionBudget: disruptionBudget
   )
 
   @Subject

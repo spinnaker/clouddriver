@@ -28,7 +28,7 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.ops.UpsertTitusJobDisrupti
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-@TitusOperation(AtomicOperations.UPSERT_JOB_DISRUPTION_BUDGET)
+@TitusOperation(AtomicOperations.UPSERT_DISRUPTION_BUDGET)
 @Component
 class UpsertTitusJobDisruptionBudgetAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
