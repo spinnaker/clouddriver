@@ -21,6 +21,7 @@ import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import com.netflix.spinnaker.clouddriver.search.SearchProvider
 import com.netflix.spinnaker.clouddriver.search.SearchResultSet
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
+import com.netflix.spinnaker.fiat.shared.FiatStatus
 import groovy.text.SimpleTemplateEngine
 import groovy.text.Template
 import org.slf4j.Logger
@@ -55,6 +56,8 @@ class CatsSearchProvider implements SearchProvider, Runnable {
     [:]
   )
 
+
+  private final FiatStatus fiatStatus
   private final FiatPermissionEvaluator permissionEvaluator
   private final List<KeyParser> keyParsers
 
@@ -65,12 +68,14 @@ class CatsSearchProvider implements SearchProvider, Runnable {
                      List<SearchableProvider> providers,
                      ProviderRegistry providerRegistry,
                      Optional<FiatPermissionEvaluator> permissionEvaluator,
+                     FiatStatus fiatStatus,
                      Optional<List<KeyParser>> keyParsers) {
     this.catsInMemorySearchProperties = catsInMemorySearchProperties
     this.cacheView = cacheView
     this.providers = providers
 
     this.permissionEvaluator = permissionEvaluator.orElse(null)
+    this.fiatStatus = fiatStatus
     this.keyParsers = keyParsers.orElse(Collections.emptyList())
     this.providerRegistry = providerRegistry
 
@@ -94,9 +99,9 @@ class CatsSearchProvider implements SearchProvider, Runnable {
   CatsSearchProvider(CatsInMemorySearchProperties catsInMemorySearchProperties,
                      Cache cacheView,
                      List<SearchableProvider> providers,
-                     ProviderRegistry providerRegistry) {
-    this(catsInMemorySearchProperties, cacheView, providers, providerRegistry, Optional.empty(), Optional.empty())
-
+                     ProviderRegistry providerRegistry,
+                     FiatStatus fiatStatus) {
+    this(catsInMemorySearchProperties, cacheView, providers, providerRegistry, Optional.empty(), fiatStatus, Optional.empty())
   }
 
   @PostConstruct
@@ -162,7 +167,8 @@ class CatsSearchProvider implements SearchProvider, Runnable {
     types = defaultCaches.intersect(types)
 
     List<String> matches = findMatches(query, types, filters)
-    if (permissionEvaluator) {
+    if (fiatStatus.enabled && permissionEvaluator) {
+      // TODO(jacobkiefer): Maybe default this authentication to an empty context?
       Authentication auth = SecurityContextHolder.context.authentication
 
       matches = new ArrayList(matches).findResults { String key ->
@@ -173,6 +179,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
         }
 
         boolean canView = true
+        log.info(",, search result?: re")
         if (result.application) {
           canView = permissionEvaluator.hasPermission(auth, result.application as String, 'APPLICATION', 'READ')
         }

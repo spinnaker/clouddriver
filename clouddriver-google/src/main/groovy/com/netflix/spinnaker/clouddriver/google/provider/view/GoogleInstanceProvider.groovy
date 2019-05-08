@@ -61,7 +61,7 @@ class GoogleInstanceProvider implements InstanceProvider<GoogleInstance.View, St
 
   @Override
   GoogleInstance.View getInstance(String account, String region, String id) {
-    Set<GoogleSecurityGroup> securityGroups = securityGroupProvider.getAll(false)
+    Set<GoogleSecurityGroup> securityGroups = securityGroupProvider.getAllByAccount(false, account)
     def key = Keys.getInstanceKey(account, region, id)
     getInstanceCacheData([key])?.findResult { CacheData cacheData ->
       instanceFromCacheData(cacheData, account, securityGroups)?.view

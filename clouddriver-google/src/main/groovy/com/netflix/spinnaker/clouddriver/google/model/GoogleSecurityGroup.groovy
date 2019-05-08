@@ -21,7 +21,6 @@ import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.model.SecurityGroup
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule
-import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.Immutable
 
 @Immutable

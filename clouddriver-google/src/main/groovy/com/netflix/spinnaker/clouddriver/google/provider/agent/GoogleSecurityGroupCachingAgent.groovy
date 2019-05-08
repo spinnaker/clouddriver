@@ -59,9 +59,9 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
                                   ObjectMapper objectMapper,
                                   Registry registry) {
     super(clouddriverUserAgentApplicationName,
-          credentials,
-          objectMapper,
-          registry)
+      credentials,
+      objectMapper,
+      registry)
     this.metricsSupport = new OnDemandMetricsSupport(
       registry,
       this,
@@ -80,7 +80,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
     }
 
     Firewall firewall = metricsSupport.readData {
-      getFirewall(data.securityGroupName as String)
+      queryFirewall(data.securityGroupName as String)
     }
 
     def securityGroupKey
@@ -106,7 +106,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
 
     def cacheResultBuilder = new CacheResultBuilder(startTime: Long.MAX_VALUE)
     CacheResult result = metricsSupport.transformData {
-      buildCacheResult(cacheResultBuilder, firewall ? [firewall] : [])
+      buildCacheResult(cacheResultBuilder, firewall ? [firewall] : [], [] /* xpn firewalls */)
     }
 
     if (result.cacheResults.values().flatten().empty) {
@@ -130,7 +130,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
       }
     }
 
-    Map<String, Collection<String>> evictions = [:].withDefault {_ -> []}
+    Map<String, Collection<String>> evictions = [:].withDefault { _ -> [] }
     if (!firewall) {
       evictions[SECURITY_GROUPS.ns].addAll(identifiers)
     }
@@ -159,11 +159,11 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
       def details = Keys.parse(cacheData.id)
 
       return [
-          details       : details,
-          moniker       : convertOnDemandDetails(details),
-          cacheTime     : cacheData.attributes.cacheTime,
-          processedCount: cacheData.attributes.processedCount,
-          processedTime : cacheData.attributes.processedTime
+        details       : details,
+        moniker       : convertOnDemandDetails(details),
+        cacheTime     : cacheData.attributes.cacheTime,
+        processedCount: cacheData.attributes.processedCount,
+        processedTime : cacheData.attributes.processedTime
       ]
     }
   }
@@ -172,9 +172,15 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
   CacheResult loadData(ProviderCache providerCache) {
     def cacheResultBuilder = new CacheResultBuilder(startTime: System.currentTimeMillis())
 
-    List<Firewall> firewalls = getFirewalls()
-    def firewallKeys = firewalls.collect { Keys.getSecurityGroupKey(it.getName(), deriveFirewallId(it), "global", accountName) }
+    FirewallListResult firewallListResult = getFirewalls()
+    List<Firewall> firewalls = firewallListResult.projectFirewallRules
+    List<Firewall> xpnFirewalls = firewallListResult.xpnHostProjectFirewallRules
 
+    def firewallKeys = firewalls.collect {
+      Keys.getSecurityGroupKey(it.getName(), deriveFirewallId(it), 'global', accountName)
+    }
+
+    // Resolve onDemand namespace for non-xpn firewalls only since xpn firewalls are intended to be read-only.
     providerCache.getAll(ON_DEMAND.ns, firewallKeys).each { CacheData cacheData ->
       // Ensure that we don't overwrite data that was inserted by the `handle` method while we retrieved the
       // firewalls. Furthermore, cache data that hasn't been moved to the proper namespace needs to be
@@ -186,7 +192,7 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
       }
     }
 
-    CacheResult cacheResults = buildCacheResult(cacheResultBuilder, firewalls)
+    CacheResult cacheResults = buildCacheResult(cacheResultBuilder, firewalls, xpnFirewalls)
 
     cacheResults.cacheResults[ON_DEMAND.ns].each { CacheData cacheData ->
       cacheData.attributes.processedTime = System.currentTimeMillis()
@@ -196,40 +202,37 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
     return cacheResults
   }
 
-  List<Firewall> getFirewalls(String onDemandSecurityGroupName = null) {
-    if (onDemandSecurityGroupName) {
-      return [timeExecute(compute.firewalls().get(project, onDemandSecurityGroupName),
-                          "compute.firewalls.get", TAG_SCOPE, SCOPE_GLOBAL
-      )] as List<Firewall>
-    } else {
-      List<Firewall> firewalls = timeExecute(compute.firewalls().list(project),
-                                             "compute.firewalls.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
+  FirewallListResult getFirewalls() {
+    FirewallListResult result = new FirewallListResult()
+    List<Firewall> firewalls = timeExecute(compute.firewalls().list(project),
+      "compute.firewalls.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
+    result.projectFirewallRules = firewalls ?: []
 
-      if (xpnHostProject) {
-        List<Firewall> hostFirewalls = timeExecute(compute.firewalls().list(xpnHostProject),
-                                                   "compute.firewalls.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
+    if (xpnHostProject) {
+      List<Firewall> hostFirewalls = timeExecute(compute.firewalls().list(xpnHostProject),
+        "compute.firewalls.list", TAG_SCOPE, SCOPE_GLOBAL).items as List
 
-        firewalls = (firewalls ?: []) + (hostFirewalls ?: [])
-      }
-
-      return firewalls
+      result.xpnHostProjectFirewallRules = hostFirewalls ?: []
     }
+
+    return result
   }
 
-  Firewall getFirewall(String onDemandSecurityGroupName) {
-    def firewalls = getFirewalls(onDemandSecurityGroupName)
-
-    return firewalls ? firewalls.first() : null
+  Firewall queryFirewall(String onDemandSecurityGroupName) {
+    return timeExecute(compute.firewalls().get(project, onDemandSecurityGroupName),
+      "compute.firewalls.get", TAG_SCOPE, SCOPE_GLOBAL) ?: null
   }
 
-  private CacheResult buildCacheResult(CacheResultBuilder cacheResultBuilder, List<Firewall> firewalls) {
+  private CacheResult buildCacheResult(CacheResultBuilder cacheResultBuilder,
+                                       List<Firewall> firewalls,
+                                       List<Firewall> xpnFirewalls) {
     log.debug("Describing items in ${agentType}")
 
     firewalls.each { Firewall firewall ->
       def securityGroupKey = Keys.getSecurityGroupKey(firewall.getName(),
-                                                      deriveFirewallId(firewall),
-                                                      "global",
-                                                      accountName)
+        deriveFirewallId(firewall),
+        'global',
+        accountName)
 
       if (shouldUseOnDemandData(cacheResultBuilder, securityGroupKey)) {
         moveOnDemandDataToNamespace(cacheResultBuilder, firewall)
@@ -238,6 +241,27 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
           attributes = [firewall: firewall]
         }
       }
+    }
+
+    xpnFirewalls.each { Firewall firewall ->
+      def securityGroupKey = Keys.getSecurityGroupKey(firewall.getName(),
+        deriveFirewallId(firewall),
+        'global',
+        '_')
+      cacheResultBuilder.namespace(SECURITY_GROUPS.ns).keep(securityGroupKey).with {
+        attributes = [firewall: firewall]
+      }
+    }
+
+    List<String> xpnFirewallKeys = xpnFirewalls.collect { Firewall firewall ->
+      Keys.getSecurityGroupKey(firewall.getName(),
+        deriveFirewallId(firewall),
+        'global',
+        '_')
+    }
+
+    cacheResultBuilder.namespace(SECURITY_GROUPS.ns).keep(Keys.getSecurityGroupAccountKey(accountName)).with {
+      relationships[SECURITY_GROUPS.ns].addAll(xpnFirewallKeys)
     }
 
     log.debug("Caching ${cacheResultBuilder.namespace(SECURITY_GROUPS.ns).keepSize()} security groups in ${agentType}")
@@ -294,5 +318,10 @@ class GoogleSecurityGroupCachingAgent extends AbstractGoogleCachingAgent impleme
     int ttlSeconds = -1
     Map<String, Object> attributes = [:]
     Map<String, Collection<String>> relationships = [:].withDefault { [] as Set }
+  }
+
+  private static class FirewallListResult {
+    List<Firewall> projectFirewallRules
+    List<Firewall> xpnHostProjectFirewallRules
   }
 }

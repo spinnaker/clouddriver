@@ -30,6 +30,7 @@ import com.netflix.spinnaker.cats.provider.Provider
 import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import com.netflix.spinnaker.clouddriver.search.SearchProvider
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
+import com.netflix.spinnaker.fiat.shared.FiatStatus
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -107,8 +108,9 @@ class CacheConfig {
                                     List<SearchableProvider> providers,
                                     ProviderRegistry providerRegistry,
                                     Optional<FiatPermissionEvaluator> permissionEvaluator,
+                                    FiatStatus fiatStatus,
                                     Optional<List<KeyParser>> keyParsers) {
-    new CatsSearchProvider(catsInMemorySearchProperties, cacheView, providers, providerRegistry, permissionEvaluator, keyParsers)
+    new CatsSearchProvider(catsInMemorySearchProperties, cacheView, providers, providerRegistry, permissionEvaluator, fiatStatus, keyParsers)
   }
 
   @Bean

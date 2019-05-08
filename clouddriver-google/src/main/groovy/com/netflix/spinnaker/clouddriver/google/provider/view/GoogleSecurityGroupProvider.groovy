@@ -66,7 +66,11 @@ class GoogleSecurityGroupProvider implements SecurityGroupProvider<GoogleSecurit
 
   @Override
   Set<GoogleSecurityGroup> getAllByAccount(boolean includeRules, String account) {
-    getAllMatchingKeyPattern(Keys.getSecurityGroupKey('*', '*', '*', account), includeRules)
+    log.info(",, getting all sec groups by account")
+    Set<GoogleSecurityGroup> xpnFirewalls = getXpnFirewallsForAccount(account, includeRules)
+    Set<GoogleSecurityGroup> accountFirewalls = getAllMatchingKeyPattern(
+      Keys.getSecurityGroupKey('*', '*', '*', account), includeRules)
+    return xpnFirewalls + accountFirewalls
   }
 
   @Override
@@ -83,6 +87,12 @@ class GoogleSecurityGroupProvider implements SecurityGroupProvider<GoogleSecurit
   GoogleSecurityGroup get(String account, String region, String name, String vpcId) {
     // We ignore vpcId here.
     getAllMatchingKeyPattern(Keys.getSecurityGroupKey(name, '*', region, account), true)[0]
+  }
+
+  Set<GoogleSecurityGroup> getXpnFirewallsForAccount(String account, boolean includeRules) {
+    def secGroupAccountCacheData = cacheView.get(SECURITY_GROUPS.ns, Keys.getSecurityGroupAccountKey(account))
+    List<String> xpnFirewallKeys = secGroupAccountCacheData?.relationships?.get(SECURITY_GROUPS.ns) ?: []
+    return xpnFirewallKeys ? loadResults(includeRules, xpnFirewallKeys) : [] as Set
   }
 
   Set<GoogleSecurityGroup> getAllMatchingKeyPattern(String pattern, boolean includeRules) {
@@ -227,12 +237,19 @@ class GoogleSecurityGroupProvider implements SecurityGroupProvider<GoogleSecurit
   }
 
   private String deriveResourceId(String account, String resourceLink) {
+    if (account == '_') { // We store XPN firewalls with account =  '_' in Redis to avoid duplication across accounts.
+      def firewallProject = GCEUtil.deriveProjectId(resourceLink)
+      def firewallId = GCEUtil.getLocalName(resourceLink)
+      return "$firewallProject/$firewallId"
+    }
+
     def accountCredentials = accountCredentialsProvider.getCredentials(account)
 
     if (!(accountCredentials instanceof GoogleNamedAccountCredentials)) {
       throw new IllegalArgumentException("Invalid credentials: $account")
     }
 
+    // TODO(jacobkiefer): Clean this up.
     def project = accountCredentials.project
     def firewallProject = GCEUtil.deriveProjectId(resourceLink)
     def firewallId = GCEUtil.getLocalName(resourceLink)

@@ -276,6 +276,10 @@ class Keys implements KeyParser {
     "$GoogleCloudProvider.ID:${Namespace.SECURITY_GROUPS}:${securityGroupName}:${securityGroupId}:${region}:${account}"
   }
 
+  static String getSecurityGroupAccountKey(String account) {
+    "$GoogleCloudProvider.ID:${Namespace.SECURITY_GROUPS}:${account}"
+  }
+
   static String getServerGroupKey(String managedInstanceGroupName,
                                   String cluster,
                                   String account,
