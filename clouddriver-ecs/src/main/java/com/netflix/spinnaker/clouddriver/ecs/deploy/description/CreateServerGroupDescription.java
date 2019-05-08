@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
 import com.amazonaws.services.cloudwatch.model.MetricAlarm;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
+import com.amazonaws.services.ecs.model.PlacementConstraint;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -40,6 +41,7 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Integer reservedMemory;
 
   Map<String, String> environmentVariables;
+  Map<String, String> tags;
 
   String dockerImageAddress;
   String dockerImageCredentialsSecret;
@@ -52,16 +54,20 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Source source = new Source();
 
   List<PlacementStrategy> placementStrategySequence;
+  List<PlacementConstraint> placementConstraints;
   String networkMode;
   String subnetType;
   Boolean associatePublicIpAddress;
   Integer healthCheckGracePeriodSeconds;
 
   String launchType;
+  String platformVersion;
 
   String logDriver;
   Map<String, String> logOptions;
   Map<String, String> dockerLabels;
+
+  List<ServiceDiscoveryAssociation> serviceDiscoveryAssociations;
 
   @Override
   public String getRegion() {
@@ -76,5 +82,21 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
     String region;
     String asgName;
     Boolean useSourceCapacity;
+  }
+
+  @Data
+  @EqualsAndHashCode(callSuper = false)
+  public static class ServiceDiscoveryAssociation {
+    ServiceRegistry registry;
+    Integer containerPort;
+    String containerName;
+  }
+
+  @Data
+  @EqualsAndHashCode(callSuper = false)
+  public static class ServiceRegistry {
+    String arn;
+    String name;
+    String id;
   }
 }

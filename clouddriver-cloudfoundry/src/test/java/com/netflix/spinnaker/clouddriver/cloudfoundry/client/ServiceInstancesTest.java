@@ -32,7 +32,6 @@ import retrofit.RetrofitError;
 import retrofit.client.Response;
 
 import java.util.*;
-import java.util.function.Supplier;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ConfigFeatureFlag.ConfigFlag.SERVICE_INSTANCE_SHARING;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.State.IN_PROGRESS;
@@ -40,6 +39,8 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Las
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.Type.*;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance.Type.MANAGED_SERVICE_INSTANCE;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance.Type.USER_PROVIDED_SERVICE_INSTANCE;
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.utils.TestUtils.assertThrows;
+import static java.util.Collections.singleton;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
@@ -386,7 +387,7 @@ class ServiceInstancesTest {
     assertThrows(() -> serviceInstances.vetShareServiceArgumentsAndGetSharingSpaces(
       "",
       "service-name",
-      Collections.singleton("org1 > space1")),
+      singleton("org1 > space1")),
       CloudFoundryApiException.class,
       "Cloud Foundry API returned with error(s): Please specify a region for the sharing service instance");
   }
@@ -394,15 +395,15 @@ class ServiceInstancesTest {
   @Test
   void vetShareServiceArgumentsAndGetSharingRegionIdsShouldThrowExceptionWhenServiceSharingShareToSpaceIsTheSourceSpace() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any())).thenReturn(cloudFoundrySpace);
+    when(orgs.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
     when(configService.getConfigFeatureFlags())
-      .thenReturn(Collections.singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
+      .thenReturn(singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
     when(serviceInstanceService.all(any(), any())).thenReturn(createOsbServiceInstancePage(USER_PROVIDED_SERVICE_INSTANCE));
 
     assertThrows(() -> serviceInstances.vetShareServiceArgumentsAndGetSharingSpaces(
       "org > space",
       "service-instance-name",
-      Collections.singleton("org > space")),
+      singleton("org > space")),
       CloudFoundryApiException.class,
       "Cloud Foundry API returned with error(s): Cannot specify 'org > space' as any of the sharing regions");
   }
@@ -410,7 +411,7 @@ class ServiceInstancesTest {
   @Test
   void getOsbCloudFoundryServiceInstanceShouldThrowExceptionWhenServiceSharingServiceInstanceDoesNotExist() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any())).thenReturn(cloudFoundrySpace);
+    when(orgs.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
     when(serviceInstanceService.all(any(), any())).thenReturn(createEmptyOsbServiceInstancePage());
 
     assertThrows(() -> serviceInstances.getOsbServiceInstanceByRegion(
@@ -423,7 +424,7 @@ class ServiceInstancesTest {
   @Test
   void getOsbCloudFoundryServiceInstanceShouldThrowExceptionWhenServiceSharingSpaceDoesNotExist() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any())).thenReturn(null);
+    when(orgs.findSpaceByRegion(any())).thenReturn(Optional.empty());
     when(serviceInstanceService.all(any(), any())).thenReturn(createEmptyOsbServiceInstancePage());
 
     assertThrows(() -> serviceInstances.getOsbServiceInstanceByRegion(
@@ -445,7 +446,7 @@ class ServiceInstancesTest {
   @Test
   void checkServiceShareableShouldThrowExceptionWhenManagedServiceSharingFlagIsSetToFalse() {
     when(configService.getConfigFeatureFlags())
-      .thenReturn(Collections.singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING)));
+      .thenReturn(singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING)));
 
     assertThrows(() -> serviceInstances.checkServiceShareable("service-instance-name", null),
       CloudFoundryApiException.class,
@@ -455,7 +456,7 @@ class ServiceInstancesTest {
   @Test
   void checkServiceShareableShouldThrowExceptionIfServicePlanNotFound() {
     when(configService.getConfigFeatureFlags())
-      .thenReturn(Collections.singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
+      .thenReturn(singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
     when(serviceInstanceService.all(any(), any())).thenReturn(createOsbServiceInstancePage());
     when(serviceInstanceService.findServicePlanByServicePlanId(any())).thenReturn(null);
 
@@ -471,7 +472,7 @@ class ServiceInstancesTest {
   @Test
   void checkServiceShareableShouldThrowExceptionWhenManagedServiceDoesNotExist() {
     when(configService.getConfigFeatureFlags())
-      .thenReturn(Collections.singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
+      .thenReturn(singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
     Resource<ServicePlan> rsp = new Resource<>();
     rsp.setEntity(new ServicePlan().setServiceGuid("service-guid"));
     when(serviceInstanceService.findServicePlanByServicePlanId(any())).thenReturn(rsp);
@@ -489,9 +490,9 @@ class ServiceInstancesTest {
   @Test
   void checkServiceShareableShouldThrowExceptionWhenManagedServiceDoesNotSupportSharing() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any())).thenReturn(cloudFoundrySpace);
+    when(orgs.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
     when(configService.getConfigFeatureFlags())
-      .thenReturn(Collections.singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
+      .thenReturn(singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
     when(serviceInstanceService.all(any(), any())).thenReturn(createOsbServiceInstancePage());
     Resource<ServicePlan> rsp = new Resource<>();
     rsp.setEntity(new ServicePlan().setServiceGuid("service-guid"));
@@ -523,10 +524,10 @@ class ServiceInstancesTest {
       .build();
 
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any()))
-      .thenReturn(space1)
-      .thenReturn(space2)
-      .thenReturn(cloudFoundrySpace);
+    when(orgs.findSpaceByRegion(any()))
+      .thenReturn(Optional.of(space1))
+      .thenReturn(Optional.of(space2))
+      .thenReturn(Optional.of(cloudFoundrySpace));
     when(serviceInstanceService.all(any(), any())).thenReturn(createOsbServiceInstancePage(USER_PROVIDED_SERVICE_INSTANCE));
     when(serviceInstanceService.getShareServiceInstanceSpaceIdsByServiceInstanceId(any()))
       .thenReturn(new SharedTo().setData(Collections.emptySet()));
@@ -568,12 +569,12 @@ class ServiceInstancesTest {
       .build();
 
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any()))
-      .thenReturn(space1)
-      .thenReturn(space2)
-      .thenReturn(cloudFoundrySpace);
+    when(orgs.findSpaceByRegion(any()))
+      .thenReturn(Optional.of(space1))
+      .thenReturn(Optional.of(space2))
+      .thenReturn(Optional.of(cloudFoundrySpace));
     when(configService.getConfigFeatureFlags())
-      .thenReturn(Collections.singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
+      .thenReturn(singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
     when(serviceInstanceService.all(any(), any())).thenReturn(createOsbServiceInstancePage());
     Set<Map<String, String>> alreadySharedTo = new HashSet<>();
     alreadySharedTo.add(Collections.singletonMap("guid", "space-guid-1"));
@@ -592,7 +593,7 @@ class ServiceInstancesTest {
       .thenReturn(new Response("url", 202, "reason", Collections.emptyList(), null));
     ArgumentCaptor<String> serviceInstanceIdCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<CreateSharedServiceInstances> shareToCaptor = ArgumentCaptor.forClass(CreateSharedServiceInstances.class);
-    Set<Map<String, String>> s = Collections.singleton(Collections.singletonMap("guid", "space-guid-2"));
+    Set<Map<String, String>> s = singleton(Collections.singletonMap("guid", "space-guid-2"));
     CreateSharedServiceInstances expectedBody = new CreateSharedServiceInstances().setData(s);
     ServiceInstanceResponse expectedResult = new ServiceInstanceResponse()
       .setServiceInstanceName("service-instance-name")
@@ -628,12 +629,12 @@ class ServiceInstancesTest {
       .build();
 
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any()))
-      .thenReturn(space1)
-      .thenReturn(space2)
-      .thenReturn(cloudFoundrySpace);
+    when(orgs.findSpaceByRegion(any()))
+      .thenReturn(Optional.of(space1))
+      .thenReturn(Optional.of(space2))
+      .thenReturn(Optional.of(cloudFoundrySpace));
     when(configService.getConfigFeatureFlags())
-      .thenReturn(Collections.singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
+      .thenReturn(singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
     when(serviceInstanceService.all(any(), any())).thenReturn(createOsbServiceInstancePage());
     Set<Map<String, String>> alreadySharedTo = new HashSet<>();
     alreadySharedTo.add(Collections.singletonMap("guid", "space-guid-1"));
@@ -646,7 +647,7 @@ class ServiceInstancesTest {
     Resource<Service> r = new Resource<>();
     r.setEntity(new Service().setExtra("{\"shareable\": true}"));
     when(serviceInstanceService.findServiceByServiceId(any())).thenReturn(r);
-    Set<Map<String, String>> s = Collections.singleton(Collections.singletonMap("guid", "space-guid-2"));
+    Set<Map<String, String>> s = singleton(Collections.singletonMap("guid", "space-guid-2"));
     ServiceInstanceResponse expectedResult = new ServiceInstanceResponse()
       .setServiceInstanceName("service-instance-name")
       .setType(SHARE)
@@ -665,7 +666,7 @@ class ServiceInstancesTest {
   void vetUnshareServiceArgumentsAndGetSharingRegionIdsShouldThrowExceptionWhenServiceInstanceNameIsBlank() {
     assertThrows(() -> serviceInstances.vetUnshareServiceArgumentsAndGetSharingSpaces(
       "",
-      Collections.singleton("org1 > space1")),
+      singleton("org1 > space1")),
       CloudFoundryApiException.class,
       "Cloud Foundry API returned with error(s): Please specify a name for the unsharing service instance");
   }
@@ -682,11 +683,11 @@ class ServiceInstancesTest {
   @Test
   void vetUnshareServiceArgumentsAndGetSharingRegionIdsShouldThrowExceptionWhenServiceSharingRegionDoesNotExist() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any())).thenReturn(null);
+    when(orgs.findSpaceByRegion(any())).thenReturn(Optional.empty());
 
     assertThrows(() -> serviceInstances.vetUnshareServiceArgumentsAndGetSharingSpaces(
       "service-instance-name",
-      Collections.singleton("org1 > space1")),
+      singleton("org1 > space1")),
       CloudFoundryApiException.class,
       "Cloud Foundry API returned with error(s): Cannot find region 'org1 > space1' for unsharing");
   }
@@ -694,16 +695,15 @@ class ServiceInstancesTest {
   @Test
   void vetUnshareServiceArgumentsAndGetSharingRegionIdsShouldThrowExceptionWhenServiceSharingShareToSpaceDoesNotExist() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), eq("some")))
-      .thenReturn(cloudFoundrySpace)
-      .thenReturn(null);
+    when(orgs.findSpaceByRegion(any()))
+      .thenReturn(Optional.empty());
     when(configService.getConfigFeatureFlags())
-      .thenReturn(Collections.singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
+      .thenReturn(singleton(new ConfigFeatureFlag().setName(SERVICE_INSTANCE_SHARING).setEnabled(true)));
     when(serviceInstanceService.all(any(), any())).thenReturn(createOsbServiceInstancePage(USER_PROVIDED_SERVICE_INSTANCE));
 
     assertThrows(() -> serviceInstances.vetUnshareServiceArgumentsAndGetSharingSpaces(
       "service-instance-name",
-      Collections.singleton("org1 > space1")),
+      singleton("org1 > space1")),
       CloudFoundryApiException.class,
       "Cloud Foundry API returned with error(s): Cannot find region 'org1 > space1' for unsharing");
   }
@@ -727,26 +727,24 @@ class ServiceInstancesTest {
       .build();
 
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any()))
-      .thenReturn(space0)
-      .thenReturn(space1)
-      .thenReturn(space2);
-    when(spaces.getSpaceSummaryById(eq("space-guid-0")))
-        .thenReturn(new SpaceSummary());
-    when(spaces.getSpaceSummaryById(eq("space-guid-1")))
-        .thenReturn(new SpaceSummary()
-          .setServices(Collections.singleton(new SpaceSummary.SummaryServiceInstance()
-            .setName("service-instance-name")
-            .setGuid("service-instance-guid-1"))));
-    when(spaces.getSpaceSummaryById(eq("space-guid-2")))
-        .thenReturn(new SpaceSummary()
-          .setServices(Collections.singleton(new SpaceSummary.SummaryServiceInstance()
-            .setName("service-instance-name")
-            .setGuid("service-instance-guid-2"))));
+    when(orgs.findSpaceByRegion(any()))
+      .thenReturn(Optional.of(space0))
+      .thenReturn(Optional.of(space1))
+      .thenReturn(Optional.of(space2));
+    when(spaces.getServiceInstanceByNameAndSpace(any(), eq(space0)))
+      .thenReturn(null);
+    when(spaces.getServiceInstanceByNameAndSpace(any(), eq(space1)))
+      .thenReturn(CloudFoundryServiceInstance.builder()
+        .name("service-instance-name")
+        .id("service-instance-guid-1")
+        .build());
+    when(spaces.getServiceInstanceByNameAndSpace(any(), eq(space2)))
+      .thenReturn(CloudFoundryServiceInstance.builder()
+        .name("service-instance-name")
+        .id("service-instance-guid-2")
+        .build());
     when(serviceInstanceService.unshareServiceInstanceFromSpaceId(any(), any()))
       .thenReturn(new Response("url", 202, "reason", Collections.emptyList(), null));
-    ArgumentCaptor<String> serviceInstanceIdCaptor = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<String> unshareFromSpaceIdCaptor = ArgumentCaptor.forClass(String.class);
     Set<String> unshareFromRegions = new HashSet<>();
     unshareFromRegions.add("org0 > some-space-0");
     unshareFromRegions.add("org1 > some-space-1");
@@ -758,26 +756,18 @@ class ServiceInstancesTest {
 
     ServiceInstanceResponse result = serviceInstances.unshareServiceInstance("service-instance-name", unshareFromRegions);
 
-    verify(serviceInstanceService, times(2))
-      .unshareServiceInstanceFromSpaceId(serviceInstanceIdCaptor.capture(), unshareFromSpaceIdCaptor.capture());
-    List<String> serviceInstanceGuids = serviceInstanceIdCaptor.getAllValues();
-    int indexGuid1 = serviceInstanceGuids.indexOf("service-instance-guid-1");
-    int indexGuid2 = serviceInstanceGuids.indexOf("service-instance-guid-2");
-    assertThat(indexGuid1).isNotEqualTo(indexGuid2);
-    assertThat(indexGuid1).isLessThan(2);
-    assertThat(indexGuid1).isGreaterThanOrEqualTo(0);
-    assertThat(indexGuid2).isLessThan(2);
-    assertThat(indexGuid2).isGreaterThanOrEqualTo(0);
-    List<String> spaceInstanceGuids = unshareFromSpaceIdCaptor.getAllValues();
-    assertThat(spaceInstanceGuids.get(indexGuid1)).isEqualTo("space-guid-1");
-    assertThat(spaceInstanceGuids.get(indexGuid2)).isEqualTo("space-guid-2");
     assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedResult);
+    verify(serviceInstanceService).unshareServiceInstanceFromSpaceId("service-instance-guid-1", "space-guid-1");
+    verify(serviceInstanceService).unshareServiceInstanceFromSpaceId("service-instance-guid-2", "space-guid-2");
+    verify(spaces).getServiceInstanceByNameAndSpace(eq("service-instance-name"), eq(space0));
+    verify(spaces).getServiceInstanceByNameAndSpace(eq("service-instance-name"), eq(space1));
+    verify(spaces).getServiceInstanceByNameAndSpace(eq("service-instance-name"), eq(space2));
   }
 
   @Test
   void getServiceInstanceShouldThrowAnExceptionWhenTheRegionCannotBeFound() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any())).thenReturn(null);
+    when(orgs.findSpaceByRegion(any())).thenReturn(Optional.empty());
 
     assertThrows(() -> serviceInstances.getServiceInstance("org > space", "service-instance-name"),
       CloudFoundryApiException.class,
@@ -787,7 +777,7 @@ class ServiceInstancesTest {
   @Test
   void getServiceInstanceShouldReturnCloudFoundryOsbServiceInstance() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any())).thenReturn(cloudFoundrySpace);
+    when(orgs.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
 
     when(serviceInstanceService.all(any(), any())).thenReturn(createOsbServiceInstancePage());
 
@@ -806,7 +796,7 @@ class ServiceInstancesTest {
   @Test
   void getServiceInstanceShouldReturnCloudFoundryUserProvidedServiceInstance() {
     when(orgs.findByName(any())).thenReturn(Optional.ofNullable(cloudFoundryOrganization));
-    when(spaces.findByName(any(), any())).thenReturn(cloudFoundrySpace);
+    when(orgs.findSpaceByRegion(any())).thenReturn(Optional.of(cloudFoundrySpace));
 
     when(serviceInstanceService.all(any(), any())).thenReturn(createEmptyOsbServiceInstancePage());
     when(serviceInstanceService.allUserProvided(any(), any())).thenReturn(createUserProvidedServiceInstancePage());
@@ -923,7 +913,7 @@ class ServiceInstancesTest {
     when(serviceInstanceService.destroyServiceInstance(any())).thenThrow(destroyFailed);
 
     assertThrows(
-      () -> serviceInstances.destroyServiceInstance(cloudFoundrySpace, "serviceInstanceName"),
+      () -> serviceInstances.destroyServiceInstance(cloudFoundrySpace, "service-instance-name"),
       CloudFoundryApiException.class, "Cloud Foundry API returned with error(s): ");
 
     verify(serviceInstanceService, times(1)).destroyServiceInstance(any());
@@ -952,7 +942,7 @@ class ServiceInstancesTest {
       .thenReturn(Page.singleton(new ServiceBinding(), "service-binding-guid"));
 
     assertThrows(
-      () -> serviceInstances.destroyServiceInstance(cloudFoundrySpace, "serviceInstanceName"),
+      () -> serviceInstances.destroyServiceInstance(cloudFoundrySpace, "service-instance-name"),
       CloudFoundryApiException.class, "Cloud Foundry API returned with error(s): Unable to destroy service instance while 1 service binding(s) exist");
 
     verify(serviceInstanceService, never()).destroyServiceInstance(any());
@@ -1004,7 +994,7 @@ class ServiceInstancesTest {
     when(serviceInstanceService.destroyUserProvidedServiceInstance(any())).thenThrow(destroyFailed);
 
     assertThrows(
-      () -> serviceInstances.destroyServiceInstance(cloudFoundrySpace, "serviceInstanceName"),
+      () -> serviceInstances.destroyServiceInstance(cloudFoundrySpace, "service-instance-name"),
       CloudFoundryApiException.class, "Cloud Foundry API returned with error(s): ");
 
     verify(serviceInstanceService, times(1)).all(any(), anyListOf(String.class));
@@ -1022,7 +1012,7 @@ class ServiceInstancesTest {
       .thenReturn(Page.singleton(new ServiceBinding(), "up-service-instance-guid"));
 
     assertThrows(
-      () -> serviceInstances.destroyServiceInstance(cloudFoundrySpace, "serviceInstanceName"),
+      () -> serviceInstances.destroyServiceInstance(cloudFoundrySpace, "service-instance-name"),
       CloudFoundryApiException.class, "Cloud Foundry API returned with error(s): Unable to destroy service instance while 1 service binding(s) exist");
 
     verify(serviceInstanceService, times(1)).all(any(), anyListOf(String.class));
@@ -1060,7 +1050,7 @@ class ServiceInstancesTest {
       .setServicePlanGuid("plan-guid")
       .setType(type)
       .setName("new-service-instance-name")
-      .setTags(Collections.singleton("spinnakerVersion-v001"));
+      .setTags(singleton("spinnakerVersion-v001"));
     return Page.singleton(serviceInstance, "service-instance-guid");
   }
 
@@ -1076,7 +1066,7 @@ class ServiceInstancesTest {
     UserProvidedServiceInstance serviceInstance = new UserProvidedServiceInstance();
     serviceInstance
       .setName("up-service-instance-name")
-      .setTags(Collections.singleton("spinnakerVersion-v000"));
+      .setTags(singleton("spinnakerVersion-v000"));
     return Page.singleton(serviceInstance, "up-service-instance-guid");
   }
 
@@ -1086,16 +1076,5 @@ class ServiceInstancesTest {
       .setTotalResults(0)
       .setTotalPages(1);
     return userProvidedServiceInstancePage;
-  }
-
-  private static void assertThrows(Supplier<?> s, Class clazz, String errorString) {
-    RuntimeException runtimeException = null;
-    try {
-      s.get();
-    } catch (RuntimeException e) {
-      runtimeException = e;
-    }
-    assertThat(runtimeException).isInstanceOf(clazz);
-    assertThat(runtimeException.getMessage()).isEqualTo(errorString);
   }
 }

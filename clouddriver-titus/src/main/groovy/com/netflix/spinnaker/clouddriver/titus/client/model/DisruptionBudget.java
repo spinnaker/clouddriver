@@ -28,8 +28,11 @@ public class DisruptionBudget implements Serializable {
   UnhealthyTasksLimit unhealthyTasksLimit;
   RelocationLimit relocationLimit;
   RatePercentagePerHour ratePercentagePerHour;
-  RateUnlimited rateUnlimited;
+
+  boolean rateUnlimited;
   List<TimeWindow> timeWindows;
   List<ContainerHealthProvider> containerHealthProviders;
   SelfManaged selfManaged;
+  RatePerInterval ratePerInterval;
+  RatePercentagePerInterval ratePercentagePerInterval;
 }

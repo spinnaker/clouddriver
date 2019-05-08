@@ -83,10 +83,8 @@ class GCEUtil {
     }
   }
 
-  static Image queryImage(String projectName,
-                          String imageName,
+  static Image queryImage(String imageName,
                           GoogleNamedAccountCredentials credentials,
-                          Compute compute,
                           Task task,
                           String phase,
                           String clouddriverUserAgentApplicationName,
@@ -95,10 +93,10 @@ class GCEUtil {
     task.updateStatus phase, "Looking up image $imageName..."
 
     def filter = "name eq $imageName"
-    def imageProjects = [projectName] + credentials?.imageProjects + baseImageProjects - null
+    def imageProjects = [credentials.project] + credentials?.imageProjects + baseImageProjects - null
     def sourceImage = null
 
-    def imageListBatch = new GoogleBatchRequest(compute, clouddriverUserAgentApplicationName)
+    def imageListBatch = new GoogleBatchRequest(credentials.compute, clouddriverUserAgentApplicationName)
     def imageListCallback = new JsonBatchCallback<ImageList>() {
       @Override
       void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) throws IOException {
@@ -114,7 +112,7 @@ class GCEUtil {
     }
 
     imageProjects.each { imageProject ->
-      def imagesList = compute.images().list(imageProject)
+      def imagesList = credentials.compute.images().list(imageProject)
       imagesList.setFilter(filter)
       imageListBatch.queue(imagesList, imageListCallback)
     }
@@ -176,16 +174,38 @@ class GCEUtil {
         executor
       )
     } else {
-      return queryImage(description.credentials.project,
-        description.image,
+      return queryImage(description.image,
         description.credentials,
-        description.credentials.compute,
         task,
         phase,
         clouddriverUserAgentApplicationName,
         baseImageProjects,
         executor)
     }
+  }
+
+  static boolean isShieldedVmCompatible(Image image) {
+    java.util.List<GuestOsFeature> guestOsFeatureList = image.getGuestOsFeatures()
+    if (guestOsFeatureList == null || guestOsFeatureList.size() == 0) {
+      return false
+    }
+
+    boolean isUefiCompatible = false;
+    boolean isSecureBootCompatible = false;
+
+    guestOsFeatureList.each { feature ->
+      if (feature.getType() == "UEFI_COMPATIBLE") {
+        isUefiCompatible= true
+        return
+      }
+
+      if (feature.getType() == "SECURE_BOOT") {
+        isSecureBootCompatible = true
+        return
+      }
+    }
+
+    return isUefiCompatible && isSecureBootCompatible
   }
 
   static GoogleNetwork queryNetwork(String accountName, String networkName, Task task, String phase, GoogleNetworkProvider googleNetworkProvider) {
@@ -612,6 +632,7 @@ class GCEUtil {
 
     def networkInterface = instanceTemplateProperties.networkInterfaces[0]
     def serviceAccountEmail = instanceTemplateProperties.serviceAccounts?.getAt(0)?.email
+    def shieldedVmConfig = instanceTemplateProperties.shieldedVmConfig
 
     return new BaseGoogleInstanceDescription(
       image: image,
@@ -625,7 +646,10 @@ class GCEUtil {
       network: Utils.decorateXpnResourceIdIfNeeded(project, networkInterface.network),
       subnet: Utils.decorateXpnResourceIdIfNeeded(project, networkInterface.subnet),
       serviceAccountEmail: serviceAccountEmail,
-      authScopes: retrieveScopesFromServiceAccount(serviceAccountEmail, instanceTemplateProperties.serviceAccounts)
+      authScopes: retrieveScopesFromServiceAccount(serviceAccountEmail, instanceTemplateProperties.serviceAccounts),
+      enableSecureBoot: shieldedVmConfig?.enableSecureBoot,
+      enableVtpm: shieldedVmConfig?.enableVtpm,
+      enableIntegrityMonitoring: shieldedVmConfig?.enableIntegrityMonitoring
     )
   }
 
@@ -741,6 +765,7 @@ class GCEUtil {
                                                String phase,
                                                String clouddriverUserAgentApplicationName,
                                                List<String> baseImageProjects,
+                                               Image bootImage,
                                                SafeRetry safeRetry,
                                                GoogleExecutorTraits executor) {
     def credentials = description.credentials
@@ -754,14 +779,6 @@ class GCEUtil {
     if (!disks) {
       throw new GoogleOperationException("Unable to determine disks for instance type $instanceType.")
     }
-
-    def bootImage = getBootImage(description,
-                                 task,
-                                 phase,
-                                 clouddriverUserAgentApplicationName,
-                                 baseImageProjects,
-                                 safeRetry,
-                                 executor)
 
     disks.findAll { it.isPersistent() }
       .eachWithIndex { disk, i ->
@@ -778,10 +795,8 @@ class GCEUtil {
         sourceImage =
           disk.is(firstPersistentDisk)
           ? bootImage
-          : queryImage(credentials.project,
-                       disk.sourceImage,
+          : queryImage(disk.sourceImage,
                        credentials,
-                       credentials.compute,
                        task,
                        phase,
                        clouddriverUserAgentApplicationName,
@@ -922,6 +937,24 @@ class GCEUtil {
     return scheduling
   }
 
+  static ShieldedVmConfig buildShieldedVmConfig(BaseGoogleInstanceDescription description) {
+    def shieldedVmConfig = new ShieldedVmConfig()
+
+    if (description.enableSecureBoot != null) {
+      shieldedVmConfig.enableSecureBoot = description.enableSecureBoot
+    }
+
+    if (description.enableVtpm != null) {
+      shieldedVmConfig.enableVtpm = description.enableVtpm
+    }
+
+    if (description.enableIntegrityMonitoring != null) {
+      shieldedVmConfig.enableIntegrityMonitoring = description.enableIntegrityMonitoring
+    }
+
+    return shieldedVmConfig
+  }
+
   static void updateStatusAndThrowNotFoundException(String errorMsg, Task task, String phase) {
     task.updateStatus phase, errorMsg
     throw new GoogleResourceNotFoundException(errorMsg)
@@ -969,6 +1002,7 @@ class GCEUtil {
                                               GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                               Task task,
                                               String phase,
+                                              GoogleOperationPoller googleOperationPoller,
                                               GoogleExecutorTraits executor) {
     String serverGroupName = serverGroup.name
     String region = serverGroup.region
@@ -1008,10 +1042,12 @@ class GCEUtil {
           backendService.backends = []
         }
         backendService.backends << backendToAdd
-        executor.timeExecute(
+        def updateOp = executor.timeExecute(
           compute.regionBackendServices().update(project, region, backendServiceName, backendService),
           "compute.regionBackendServices.update",
           executor.TAG_SCOPE, executor.SCOPE_REGIONAL, executor.TAG_REGION, region)
+        googleOperationPoller.waitForRegionalOperation(compute, project, region, updateOp.getName(),
+          null, task, "compute.${region}.backendServices.update", phase)
         task.updateStatus phase, "Enabled backend for server group ${serverGroupName} in Internal load balancer backend service ${backendServiceName}."
       }
     }
@@ -1024,6 +1060,7 @@ class GCEUtil {
                                           GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                           Task task,
                                           String phase,
+                                          GoogleOperationPoller googleOperationPoller,
                                           GoogleExecutorTraits executor) {
     String serverGroupName = serverGroup.name
     Metadata instanceMetadata = serverGroup?.launchConfig?.instanceTemplate?.properties?.metadata
@@ -1071,10 +1108,12 @@ class GCEUtil {
             backendService.backends = []
           }
           backendService.backends << backendToAdd
-        executor.timeExecute(
+          def updateOp = executor.timeExecute(
             compute.backendServices().update(project, backendServiceName, backendService),
             "compute.backendServices.update",
             executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+          googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+            task, 'compute.backendService.update', phase)
           task.updateStatus phase, "Enabled backend for server group ${serverGroupName} in Http(s) load balancer backend service ${backendServiceName}."
         }
       }
@@ -1088,6 +1127,7 @@ class GCEUtil {
                                          GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                          Task task,
                                          String phase,
+                                         GoogleOperationPoller googleOperationPoller,
                                          GoogleExecutorTraits executor) {
     String serverGroupName = serverGroup.name
     Metadata instanceMetadata = serverGroup?.launchConfig?.instanceTemplate?.properties?.metadata
@@ -1135,10 +1175,12 @@ class GCEUtil {
           backendService.backends = []
         }
         backendService.backends << backendToAdd
-        executor.timeExecute(
+        def updateOp = executor.timeExecute(
             compute.backendServices().update(project, backendServiceName, backendService),
             "compute.backendServices.update",
             executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+        googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+          task, 'compute.backendService.update', phase)
         task.updateStatus phase, "Enabled backend for server group ${serverGroupName} in ssl load balancer backend service ${backendServiceName}."
       }
     }
@@ -1151,6 +1193,7 @@ class GCEUtil {
                                          GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                          Task task,
                                          String phase,
+                                         GoogleOperationPoller googleOperationPoller,
                                          GoogleExecutorTraits executor) {
     String serverGroupName = serverGroup.name
     Metadata instanceMetadata = serverGroup?.launchConfig?.instanceTemplate?.properties?.metadata
@@ -1198,10 +1241,12 @@ class GCEUtil {
           backendService.backends = []
         }
         backendService.backends << backendToAdd
-        executor.timeExecute(
+        def updateOp = executor.timeExecute(
             compute.backendServices().update(project, backendServiceName, backendService),
             "compute.backendServices.update",
             executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+        googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+          task, 'compute.backendService.update', phase)
         task.updateStatus phase, "Enabled backend for server group ${serverGroupName} in tcp load balancer backend service ${backendServiceName}."
       }
     }
@@ -1257,6 +1302,7 @@ class GCEUtil {
                                              GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                              Task task,
                                              String phase,
+                                             GoogleOperationPoller googleOperationPoller,
                                              GoogleExecutorTraits executor) {
     def serverGroupName = serverGroup.name
     def region = serverGroup.region
@@ -1298,10 +1344,12 @@ class GCEUtil {
         (getLocalName(backend.group) == serverGroupName) &&
           (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
-      executor.timeExecute(
+      def updateOp = executor.timeExecute(
         compute.backendServices().update(project, backendServiceName, backendService),
         "compute.backendServices.update",
         executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+        task, 'compute.backendService.update', phase)
       task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from ssl load balancer backend service ${backendServiceName}."
     }
   }
@@ -1312,6 +1360,7 @@ class GCEUtil {
                                              GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                              Task task,
                                              String phase,
+                                             GoogleOperationPoller googleOperationPoller,
                                              GoogleExecutorTraits executor) {
     def serverGroupName = serverGroup.name
     def region = serverGroup.region
@@ -1353,10 +1402,12 @@ class GCEUtil {
         (getLocalName(backend.group) == serverGroupName) &&
           (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
-      executor.timeExecute(
+      def updateOp = executor.timeExecute(
         compute.backendServices().update(project, backendServiceName, backendService),
         "compute.backendServices.update",
         executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+        task, 'compute.backendService.update', phase)
       task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from tcp load balancer backend service ${backendServiceName}."
     }
   }
@@ -1367,6 +1418,7 @@ class GCEUtil {
                                                   GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                                   Task task,
                                                   String phase,
+                                                  GoogleOperationPoller googleOperationPoller,
                                                   GoogleExecutorTraits executor) {
     def serverGroupName = serverGroup.name
     def region = serverGroup.region
@@ -1404,10 +1456,12 @@ class GCEUtil {
         (getLocalName(backend.group) == serverGroupName) &&
           (Utils.getRegionFromGroupUrl(backend.group) == region)
       }
-      executor.timeExecute(
+      def updateOp = executor.timeExecute(
         compute.regionBackendServices().update(project, region, backendServiceName, backendService),
         "compute.backendServices.update",
         executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+      googleOperationPoller.waitForRegionalOperation(compute, project, region, updateOp.getName(), null,
+        task, "compute.${region}.backendServices.update", phase)
       task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from internal load balancer backend service ${backendServiceName}."
     }
   }
@@ -1418,6 +1472,7 @@ class GCEUtil {
                                               GoogleLoadBalancerProvider googleLoadBalancerProvider,
                                               Task task,
                                               String phase,
+                                              GoogleOperationPoller googleOperationPoller,
                                               GoogleExecutorTraits executor) {
     def serverGroupName = serverGroup.name
     def httpLoadBalancersInMetadata = serverGroup?.asg?.get(GLOBAL_LOAD_BALANCER_NAMES) ?: []
@@ -1459,10 +1514,12 @@ class GCEUtil {
             (getLocalName(backend.group) == serverGroupName) &&
                 (Utils.getRegionFromGroupUrl(backend.group) == serverGroup.region)
           }
-          executor.timeExecute(
-              compute.backendServices().update(project, backendServiceName, backendService),
-              "compute.backendServices.update",
-              executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+          def updateOp = executor.timeExecute(
+            compute.backendServices().update(project, backendServiceName, backendService),
+            "compute.backendServices.update",
+            executor.TAG_SCOPE, executor.SCOPE_GLOBAL)
+          googleOperationPoller.waitForGlobalOperation(compute, project, updateOp.getName(), null,
+            task, 'compute.backendService.update', phase)
           task.updateStatus phase, "Deleted backend for server group ${serverGroupName} from Http(s) load balancer backend service ${backendServiceName}."
         }
       }

@@ -59,14 +59,11 @@ class StandardKubernetesAttributeValidatorSpec extends Specification {
       })
     })
 
-    def dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
-    def dockerRegistries = [dockerRegistry]
     credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
-    def namedAccountCredentials = new KubernetesNamedAccountCredentials.Builder()
-        .name(ACCOUNT_NAME)
-        .dockerRegistries(dockerRegistries)
-        .credentials(credentials)
-        .build()
+    def namedAccountCredentials =Mock(KubernetesNamedAccountCredentials) {
+      getName() >> ACCOUNT_NAME
+      getCredentials() >> credentials
+    }
     credentialsRepo.save(ACCOUNT_NAME, namedAccountCredentials)
   }
 
@@ -772,6 +769,44 @@ class StandardKubernetesAttributeValidatorSpec extends Specification {
       0 * errorsMock._
   }
 
+  void "http path accept"() {
+    setup:
+    def errorsMock = Mock(Errors)
+    def validator = new StandardKubernetesAttributeValidator(DECORATOR, errorsMock)
+    def label = "label"
+
+    when:
+      validator.validateHttpPath('/', label)
+    then:
+      0 * errorsMock._
+
+    when:
+      validator.validateHttpPath('/path-to/segment\\ 3/4', label)
+    then:
+      0 * errorsMock._
+
+  }
+
+  void "http path reject"() {
+    setup:
+    def errorsMock = Mock(Errors)
+    def validator = new StandardKubernetesAttributeValidator(DECORATOR, errorsMock)
+    def label = "label"
+
+    when:
+      validator.validateHttpPath('', label)
+    then:
+      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.empty")
+      0 * errorsMock._
+
+    when:
+      validator.validateHttpPath('path-to/segment\\ 3/4', label)
+    then:
+      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.invalid (Must match ${StandardKubernetesAttributeValidator.httpPathPattern})")
+      0 * errorsMock._
+  }
+
+
   void "path accept"() {
     setup:
       def errorsMock = Mock(Errors)
@@ -785,6 +820,26 @@ class StandardKubernetesAttributeValidatorSpec extends Specification {
 
     when:
       validator.validatePath('/path-to/dir12\\ 3/4', label)
+    then:
+      0 * errorsMock._
+
+    when:
+      validator.validatePath('C:\\\\', label)
+    then:
+      0 * errorsMock._
+
+    when:
+      validator.validatePath('C:\\\\mount\\\\ dir', label)
+    then:
+      0 * errorsMock._
+
+    when:
+      validator.validatePath('C:/', label)
+    then:
+      0 * errorsMock._
+
+    when:
+      validator.validatePath('C:/mount/ dir', label)
     then:
       0 * errorsMock._
   }
@@ -804,7 +859,57 @@ class StandardKubernetesAttributeValidatorSpec extends Specification {
     when:
       validator.validatePath('path-to/dir12\\ 3/4', label)
     then:
-      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.invalid (Must match ${StandardKubernetesAttributeValidator.pathPattern})")
+      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.invalid (Must match ${StandardKubernetesAttributeValidator.unixPathPattern} or ${StandardKubernetesAttributeValidator.winPathPattern})")
+      0 * errorsMock._
+
+    when:
+      validator.validatePath('C:', label)
+    then:
+      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.invalid (Must match ${StandardKubernetesAttributeValidator.unixPathPattern} or ${StandardKubernetesAttributeValidator.winPathPattern})")
+      0 * errorsMock._
+  }
+
+  void "relative path accept"() {
+    setup:
+      def errorsMock = Mock(Errors)
+      def validator = new StandardKubernetesAttributeValidator(DECORATOR, errorsMock)
+      def label = "label"
+
+    when:
+      validator.validateRelativePath('path-to/dir12\\\\ 3/4', label)
+    then:
+      0 * errorsMock._
+
+  }
+
+  void "relative path reject"() {
+    setup:
+      def errorsMock = Mock(Errors)
+      def validator = new StandardKubernetesAttributeValidator(DECORATOR, errorsMock)
+      def label = "label"
+
+    when:
+      validator.validateRelativePath('', label)
+    then:
+      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.empty")
+      0 * errorsMock._
+
+    when:
+      validator.validateRelativePath('/path-to/dir12\\ 3/4', label)
+    then:
+      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.invalid (Must not match ${StandardKubernetesAttributeValidator.unixPathPattern} or ${StandardKubernetesAttributeValidator.winPathPattern})")
+      0 * errorsMock._
+
+    when:
+      validator.validateRelativePath('C:\\\\mount\\\\ dir', label)
+    then:
+      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.invalid (Must not match ${StandardKubernetesAttributeValidator.unixPathPattern} or ${StandardKubernetesAttributeValidator.winPathPattern})")
+      0 * errorsMock._
+
+    when:
+      validator.validateRelativePath('C:/mount/ dir', label)
+    then:
+      1 * errorsMock.rejectValue("${DECORATOR}.${label}", "${DECORATOR}.${label}.invalid (Must not match ${StandardKubernetesAttributeValidator.unixPathPattern} or ${StandardKubernetesAttributeValidator.winPathPattern})")
       0 * errorsMock._
   }
 }

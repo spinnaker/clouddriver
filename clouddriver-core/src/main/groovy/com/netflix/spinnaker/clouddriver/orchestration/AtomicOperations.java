@@ -37,6 +37,8 @@ public final class AtomicOperations {
   public static final String MIGRATE_CLUSTER_CONFIGURATIONS = "migrateClusterConfigurations";
   public static final String START_SERVER_GROUP = "startServerGroup";
   public static final String STOP_SERVER_GROUP = "stopServerGroup";
+  public static final String SET_STATEFUL_DISK = "setStatefulDisk";
+  public static final String UPSERT_DISRUPTION_BUDGET = "upsertDisruptionBudget";
 
   // Instance operations
   public static final String REBOOT_INSTANCES = "rebootInstances";
@@ -93,6 +95,8 @@ public final class AtomicOperations {
   public static final String DEREGISTER_IMAGE = "deleteImage";
 
   // Service operations
+  public static final String CREATE_SERVICE_KEY = "createServiceKey";
+  public static final String DELETE_SERVICE_KEY = "deleteServiceKey";
   public static final String DEPLOY_SERVICE = "deployService";
   public static final String DESTROY_SERVICE = "destroyService";
   public static final String SHARE_SERVICE = "shareService";
