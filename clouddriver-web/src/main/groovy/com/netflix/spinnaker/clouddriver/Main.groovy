@@ -18,12 +18,15 @@ package com.netflix.spinnaker.clouddriver
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig
+import org.springframework.boot.actuate.autoconfigure.elasticsearch.ElasticSearchJestHealthIndicatorAutoConfiguration
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.autoconfigure.batch.BatchAutoConfiguration
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration
+import org.springframework.boot.autoconfigure.elasticsearch.jest.JestAutoConfiguration
 import org.springframework.boot.autoconfigure.groovy.template.GroovyTemplateAutoConfiguration
-import org.springframework.boot.builder.SpringApplicationBuilder
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 import org.springframework.boot.autoconfigure.gson.GsonAutoConfiguration
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
@@ -49,7 +52,10 @@ import java.security.Security
   BatchAutoConfiguration,
   GroovyTemplateAutoConfiguration,
   GsonAutoConfiguration,
-  DataSourceAutoConfiguration
+  DataSourceAutoConfiguration,
+  ElasticsearchAutoConfiguration,
+  ElasticSearchJestHealthIndicatorAutoConfiguration,
+  JestAutoConfiguration
 ])
 @EnableScheduling
 class Main extends SpringBootServletInitializer {
