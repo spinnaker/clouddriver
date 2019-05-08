@@ -41,6 +41,7 @@ import com.netflix.spinnaker.clouddriver.ecs.security.NetflixAssumeRoleEcsCreden
 import com.netflix.spinnaker.clouddriver.ecs.services.EcsCloudMetricService;
 import com.netflix.spinnaker.clouddriver.ecs.services.SecurityGroupSelector;
 import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector;
+import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -157,6 +158,24 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     Collection<PortMapping> portMappings = new LinkedList<>();
     portMappings.add(portMapping);
 
+    if (description.getServiceDiscoveryAssociations() != null) {
+      for (CreateServerGroupDescription.ServiceDiscoveryAssociation config : description.getServiceDiscoveryAssociations()) {
+        if (config.getContainerPort() != null && config.getContainerPort() != 0 && config.getContainerPort() != description.getContainerPort()) {
+          portMapping = new PortMapping().withProtocol("tcp");
+          if (AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
+            portMapping
+              .withHostPort(config.getContainerPort())
+              .withContainerPort(config.getContainerPort());
+          } else {
+            portMapping
+              .withHostPort(0)
+              .withContainerPort(config.getContainerPort());
+          }
+          portMappings.add(portMapping);
+        }
+      }
+    }
+
     ContainerDefinition containerDefinition = new ContainerDefinition()
       .withName(EcsServerGroupNameResolver.getEcsContainerName(newServerGroupName))
       .withEnvironment(containerEnvironment)
@@ -238,6 +257,25 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       desiredCount = sourceService.getDesiredCount();
     }
 
+    Collection<ServiceRegistry> serviceRegistries = new LinkedList<>();
+    if (description.getServiceDiscoveryAssociations() != null) {
+      for (CreateServerGroupDescription.ServiceDiscoveryAssociation config : description.getServiceDiscoveryAssociations()) {
+        ServiceRegistry registryEntry = new ServiceRegistry().withRegistryArn(config.getRegistry().getArn());
+
+        if (config.getContainerPort() != null && config.getContainerPort() != 0) {
+          registryEntry.setContainerPort(config.getContainerPort());
+
+          if (StringUtils.isEmpty(config.getContainerName())) {
+            registryEntry.setContainerName(EcsServerGroupNameResolver.getEcsContainerName(newServerGroupName));
+          } else {
+            registryEntry.setContainerName(config.getContainerName());
+          }
+        }
+
+        serviceRegistries.add(registryEntry);
+      }
+    }
+
     String taskDefinitionArn = taskDefinition.getTaskDefinitionArn();
 
     DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration()
@@ -250,8 +288,21 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withCluster(description.getEcsClusterName())
       .withLoadBalancers(loadBalancers)
       .withTaskDefinition(taskDefinitionArn)
+      .withPlacementConstraints(description.getPlacementConstraints())
       .withPlacementStrategy(description.getPlacementStrategySequence())
+      .withServiceRegistries(serviceRegistries)
       .withDeploymentConfiguration(deploymentConfiguration);
+
+    if (description.getTags() != null && !description.getTags().isEmpty()) {
+      Collection<Tag> taskDefTags = new LinkedList<>();
+      for (Map.Entry<String, String> entry : description.getTags().entrySet()) {
+        taskDefTags.add(new Tag().withKey(entry.getKey()).withValue(entry.getValue()));
+      }
+      request
+        .withTags(taskDefTags)
+        .withEnableECSManagedTags(true)
+        .withPropagateTags("SERVICE");
+    }
 
     if (!AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
       request.withRole(ecsServiceRole);
@@ -279,6 +330,10 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
 
     if (!StringUtils.isEmpty(description.getLaunchType())) {
       request.withLaunchType(description.getLaunchType());
+    }
+
+    if (!StringUtils.isEmpty(description.getPlatformVersion())) {
+      request.withPlatformVersion(description.getPlatformVersion());
     }
 
     if (description.getHealthCheckGracePeriodSeconds() != null) {
@@ -323,7 +378,10 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withMaxCapacity(max);
 
     updateTaskStatus("Creating Amazon Application Auto Scaling Scalable Target Definition...");
-    autoScalingClient.registerScalableTarget(request);
+    // ECS DescribeService is eventually consistent, so sometimes RegisterScalableTarget will
+    // return a ValidationException with message "ECS service doesn't exist", because the service
+    // was just created.  Retry until consistency is likely reached.
+    OperationPoller.retryWithBackoff(o -> autoScalingClient.registerScalableTarget(request), 1000, 3);
     updateTaskStatus("Done creating Amazon Application Auto Scaling Scalable Target Definition.");
 
     return request.getResourceId();
