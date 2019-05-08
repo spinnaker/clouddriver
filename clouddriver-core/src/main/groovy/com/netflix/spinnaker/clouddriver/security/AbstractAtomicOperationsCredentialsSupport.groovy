@@ -21,9 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationConverter
 import com.netflix.spinnaker.kork.web.exceptions.InvalidRequestException
-import groovy.transform.InheritConstructors
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Qualifier
 
 abstract class AbstractAtomicOperationsCredentialsSupport implements AtomicOperationConverter {
   @Autowired
@@ -32,7 +30,6 @@ abstract class AbstractAtomicOperationsCredentialsSupport implements AtomicOpera
   ObjectMapper objectMapper
 
   @Autowired
-  @Qualifier("amazonObjectMapper")
   public void setObjectMapper(ObjectMapper objectMapper) {
     this.objectMapper = objectMapper
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
