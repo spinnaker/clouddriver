@@ -147,7 +147,9 @@ public class DeployCloudFoundryServerGroupAtomicOperation
     CloudFoundryClient client = description.getClient();
     getTask().updateStatus(PHASE, "Creating Cloud Foundry application '" + description.getServerGroupName() + "'");
 
-    Map<String, String> environmentVars = new HashMap<>(description.getApplicationAttributes().getEnv());
+    Map<String, String> environmentVars = Optional.ofNullable(description.getApplicationAttributes().getEnv())
+      .map(HashMap::new)
+      .orElse(new HashMap<>());
     final Artifact applicationArtifact = description.getApplicationArtifact();
     if (applicationArtifact.getVersion() != null) {
       environmentVars.put(BuildEnvVar.Version.envVarName, applicationArtifact.getVersion());
