@@ -59,24 +59,14 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
       CloudFoundryCredentials.class,
       cloudFoundryConfigurationProperties.getAccounts());
 
-    List<CloudFoundryConfigurationProperties.ManagedAccount> addedAccounts =
-      (List<CloudFoundryConfigurationProperties.ManagedAccount>) deltas.get(0);
     List<String> deletedAccountNames = (List<String>) deltas.get(1);
 
-    if (addedAccounts.size() == 0 && deletedAccountNames.size() == 0) {
-      return;
-    }
-
-    synchronizeRepository(addedAccounts);
-
-    List<Agent> addedAgents = getAddedAgents();
-
-    synchronizeProvider(addedAgents);
-    synchronizeAgentCache(addedAgents, deletedAccountNames);
+    synchronizeRepository(cloudFoundryConfigurationProperties.getAccounts());
+    synchronizeAgentCache(getAddedAgents(), deletedAccountNames);
   }
 
-  private void synchronizeRepository(List<CloudFoundryConfigurationProperties.ManagedAccount> addedAccounts) {
-    addedAccounts.forEach(managedAccount -> {
+  private void synchronizeRepository(List<CloudFoundryConfigurationProperties.ManagedAccount> accounts) {
+    accounts.forEach(managedAccount -> {
       CloudFoundryCredentials cloudFoundryAccountCredentials = new CloudFoundryCredentials(
         managedAccount.getName(),
         managedAccount.getAppsManagerUri(),
@@ -90,12 +80,10 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
     });
   }
 
-  private void synchronizeProvider(List<Agent> addedAgents) {
-    cloudFoundryProvider.getAgents().addAll(addedAgents);
-  }
-
   private void synchronizeAgentCache(List<Agent> addedAgents, List<String> deletedAccountNames) {
+    cloudFoundryProvider.getAgents().addAll(addedAgents);
     ProviderUtils.rescheduleAgents(cloudFoundryProvider, addedAgents);
+    
     ProviderUtils.unscheduleAndDeregisterAgents(deletedAccountNames, catsModule);
   }
 
