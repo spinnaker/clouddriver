@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent
 
-import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
@@ -170,9 +169,7 @@ metadata:
     def metrics = KubernetesCacheDataConverter.getMetrics(cacheData)
 
     then:
-    // Once getMetrics is updated to directly return a List<KubernetesPodMetric.ContainerMetric> we can remove this
-    // type conversion
-    metrics == mapper.convertValue(containerMetrics, new TypeReference<List<Map<String, Object>>>() {})
+    metrics == containerMetrics
 
     where:
     containerMetrics << [

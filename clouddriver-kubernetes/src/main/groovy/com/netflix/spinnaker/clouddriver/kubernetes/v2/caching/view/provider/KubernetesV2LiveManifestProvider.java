@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.KubernetesV2Manifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -30,7 +31,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 @Component
 @Slf4j
@@ -78,7 +78,7 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
 
     // TODO kubectl top pod <name> -n <namespace>
     // low-priority, pipeline-only mode doesn't need to see resource usage.
-    List<Map> metrics = Collections.emptyList();
+    List<KubernetesPodMetric.ContainerMetric> metrics = Collections.emptyList();
 
     return buildManifest(account, manifest, events, metrics);
   }
