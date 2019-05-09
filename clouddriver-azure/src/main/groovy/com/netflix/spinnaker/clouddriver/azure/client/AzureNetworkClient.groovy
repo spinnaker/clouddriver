@@ -232,7 +232,7 @@ class AzureNetworkClient extends AzureBaseClient {
 
     if (appGateway?.tags()?.cluster) {
       // The selected can not be deleted because there are active server groups associated with
-      def errMsg = "Failed to delete ${appGatewayName}; the application gateway is still associated with server groups in ${appGateway?.tags()?.cluster} cluster"
+      def errMsg = "Failed to delete ${appGatewayName}; the application gateway is still associated with server groups in ${appGateway?.tags()?.cluster} cluster. Please delete associated server groups before deleting the load balancer."
       log.error(errMsg)
       throw new RuntimeException(errMsg)
     }
@@ -472,6 +472,18 @@ class AzureNetworkClient extends AzureBaseClient {
    * @return a ServiceResponse object
    */
   ServiceResponse deleteSecurityGroup(String resourceGroupName, String securityGroupName) {
+    def associatedSubnets = azure.networkSecurityGroups().getByResourceGroup(resourceGroupName, securityGroupName).listAssociatedSubnets()
+
+    associatedSubnets?.each{ associatedSubnet ->
+      def subnetName = associatedSubnet.inner().name()
+      associatedSubnet
+        .parent()
+        .update()
+        .updateSubnet(subnetName)
+        .withoutNetworkSecurityGroup()
+        .parent()
+        .apply()
+    }
 
     deleteAzureResource(
       azure.networkSecurityGroups().&deleteByResourceGroup,
