@@ -5,7 +5,6 @@ dependencies {
 
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
-//  implementation "org.springframework.boot:spring-boot"
   implementation "org.codehaus.groovy:groovy-all"
   implementation "com.netflix.spectator:spectator-api"
   implementation "com.squareup.okhttp:okhttp"

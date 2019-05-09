@@ -38,7 +38,7 @@ task unpackSdk(type: Sync) {
   // Scary but works. I think clouddriver deps in general need cleaning at some point
   // Even without the oracle bmc sdk 3rd party deps there's still multiple javax.inject and commons-X JARs
   exclude "**/*jackson*.jar"
-//  exclude "**/*jersey*.jar"
+  exclude "**/*jersey*.jar"
   exclude "**/hk2*.jar"
   exclude "**/*guava*.jar"
   exclude "**/commons*.jar"
@@ -67,8 +67,8 @@ dependencies {
   compileOnly "org.apache.commons:commons-lang3"
   
   implementation "com.amazonaws:aws-java-sdk-s3"
-  implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.9.7"
-  implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.7"
+  implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-xml"
+  implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml"
   implementation "com.google.apis:google-api-services-storage:v1-rev141-1.25.0"
   implementation "com.netflix.frigga:frigga"
   implementation "com.netflix.spinnaker.kork:kork-artifacts"

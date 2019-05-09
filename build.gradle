@@ -18,7 +18,7 @@
 buildscript {
   ext {
     korkVersion = "5.2.6"
-    fiatVersion = "1.0.0"
+    fiatVersion = "1.0.4"
     kotlinVersion = "1.3.10"
     junitPlatformVersion = "1.0.2"
   }
@@ -85,6 +85,12 @@ allprojects {
 }
 
 subprojects { project ->
+  if ([korkVersion, fiatVersion].any { it.endsWith("-SNAPSHOT") }) {
+    logger.info("Enabling mavenLocal")
+    repositories {
+      mavenLocal()
+    }
+  }
 
   tasks.withType(JavaExec) {
     if (System.getProperty('DEBUG', 'false') == 'true') {
