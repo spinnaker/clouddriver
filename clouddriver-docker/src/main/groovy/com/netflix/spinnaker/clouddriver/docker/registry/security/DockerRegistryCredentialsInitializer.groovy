@@ -22,21 +22,18 @@ import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DefaultDo
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerOkClientProvider
 import com.netflix.spinnaker.clouddriver.docker.registry.config.DockerRegistryConfigurationProperties
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
-import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import groovy.util.logging.Slf4j
-import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 
 @Slf4j
 @Component
 @Configuration
-class DockerRegistryCredentialsInitializer implements CredentialsInitializerSynchronizable {
+class DockerRegistryCredentialsInitializer {
 
   @Bean
   List<? extends DockerRegistryNamedAccountCredentials> dockerRegistryNamedAccountCredentials(DockerRegistryConfigurationProperties dockerRegistryConfigurationProperties,
@@ -47,18 +44,12 @@ class DockerRegistryCredentialsInitializer implements CredentialsInitializerSync
     synchronizeDockerRegistryAccounts(dockerRegistryConfigurationProperties, accountCredentialsRepository, null, applicationContext, providerSynchronizerTypeWrappers, dockerOkClientProvider)
   }
 
-  @Override
-  String getCredentialsSynchronizationBeanName() {
-    return "synchronizeDockerRegistryAccounts"
-  }
-
   @Bean
   @ConditionalOnMissingBean(DockerOkClientProvider)
   DockerOkClientProvider defaultDockerOkClientProvider() {
     new DefaultDockerOkClientProvider()
   }
 
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
   List<? extends DockerRegistryNamedAccountCredentials> synchronizeDockerRegistryAccounts(DockerRegistryConfigurationProperties dockerRegistryConfigurationProperties,
                                                                                           AccountCredentialsRepository accountCredentialsRepository,

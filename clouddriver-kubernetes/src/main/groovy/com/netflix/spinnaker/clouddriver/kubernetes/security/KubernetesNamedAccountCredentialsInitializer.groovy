@@ -23,19 +23,16 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurati
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
-import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Scope
 
 @Slf4j
 @Configuration
-class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitializerSynchronizable {
+class KubernetesNamedAccountCredentialsInitializer {
   @Autowired Registry spectatorRegistry
   @Autowired KubectlJobExecutor jobExecutor
   @Autowired KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap
@@ -51,12 +48,6 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
     synchronizeKubernetesAccounts(credentialFactory, kubernetesConfigurationProperties, null, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrappers)
   }
 
-  @Override
-  String getCredentialsSynchronizationBeanName() {
-    return "synchronizeKubernetesAccounts"
-  }
-
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
   List<? extends KubernetesNamedAccountCredentials> synchronizeKubernetesAccounts(
     KubernetesNamedAccountCredentials.CredentialFactory credentialFactory,

@@ -26,19 +26,16 @@ import com.netflix.spinnaker.config.GoogleConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.google.config.GoogleConfigurationProperties
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutor
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
-import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import groovy.util.logging.Slf4j
-import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Scope
 
 @Slf4j
 @Configuration
-class GoogleCredentialsInitializer implements CredentialsInitializerSynchronizable {
+class GoogleCredentialsInitializer {
 
   @Autowired
   GoogleExecutor _googleExecutor  // Not used, just here to force initialization ordering
@@ -61,12 +58,6 @@ class GoogleCredentialsInitializer implements CredentialsInitializerSynchronizab
     synchronizeGoogleAccounts(clouddriverUserAgentApplicationName, googleConfigurationProperties, null, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrappers, googleDeployDefaults)
   }
 
-  @Override
-  String getCredentialsSynchronizationBeanName() {
-    return "synchronizeGoogleAccounts"
-  }
-
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
   List<? extends GoogleNamedAccountCredentials> synchronizeGoogleAccounts(String clouddriverUserAgentApplicationName,
                                                                           GoogleConfigurationProperties googleConfigurationProperties,
