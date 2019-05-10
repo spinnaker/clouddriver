@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.clouddriver.google.deploy.instancegroups;
+package com.netflix.spinnaker.clouddriver.google.compute;
 
 import com.google.api.services.compute.Compute.InstanceGroupManagers;
 import com.google.api.services.compute.Compute.RegionInstanceGroupManagers;

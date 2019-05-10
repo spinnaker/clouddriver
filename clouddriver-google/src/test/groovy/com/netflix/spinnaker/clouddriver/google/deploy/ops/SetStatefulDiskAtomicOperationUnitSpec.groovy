@@ -5,9 +5,9 @@ import com.google.api.services.compute.model.Operation
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.google.deploy.description.SetStatefulDiskDescription
-import com.netflix.spinnaker.clouddriver.google.deploy.instancegroups.GoogleServerGroupManagers
-import com.netflix.spinnaker.clouddriver.google.deploy.instancegroups.GoogleServerGroupManagersFactory
-import com.netflix.spinnaker.clouddriver.google.deploy.instancegroups.GoogleServerGroupOperationPoller
+import com.netflix.spinnaker.clouddriver.google.compute.GoogleServerGroupManagers
+import com.netflix.spinnaker.clouddriver.google.compute.GoogleServerGroupManagersFactory
+import com.netflix.spinnaker.clouddriver.google.compute.GoogleServerGroupOperationPoller
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.security.FakeGoogleCredentials
