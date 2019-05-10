@@ -50,8 +50,8 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-starter-actuator"
   implementation "org.springframework.boot:spring-boot-starter-json"
   implementation "org.springframework.boot:spring-boot-starter-web"
-  implementation "org.springframework.cloud:spring-cloud-context:1.3.5.RELEASE"
-  implementation "org.springframework.cloud:spring-cloud-config-server:1.4.6.RELEASE"
+  implementation "org.springframework.cloud:spring-cloud-context"
+  implementation "org.springframework.cloud:spring-cloud-config-server"
 
   testImplementation project(":clouddriver-elasticsearch")
 
