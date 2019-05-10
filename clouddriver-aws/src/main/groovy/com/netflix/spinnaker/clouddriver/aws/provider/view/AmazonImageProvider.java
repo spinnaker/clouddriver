@@ -27,12 +27,14 @@ import com.netflix.spinnaker.clouddriver.aws.model.AmazonServerGroup;
 import com.netflix.spinnaker.clouddriver.model.Image;
 import com.netflix.spinnaker.clouddriver.model.ImageProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -48,7 +50,7 @@ public class AmazonImageProvider implements ImageProvider {
   private final ObjectMapper objectMapper;
 
   @Autowired
-  AmazonImageProvider(Cache cacheView, AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider, ObjectMapper objectMapper) {
+  AmazonImageProvider(Cache cacheView, AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider, @Qualifier("amazonObjectMapper") ObjectMapper objectMapper) {
     this.cacheView = cacheView;
     this.amazonServerGroupProvider = amazonServerGroupProvider;
     this.objectMapper = objectMapper;
@@ -78,6 +80,7 @@ public class AmazonImageProvider implements ImageProvider {
         .map(imageCache -> imageCache.getRelationships().get(SERVER_GROUPS.toString()))
         .flatMap(Collection::stream)
         .map(this::getServerGroupData)
+        .filter(Objects::nonNull)
         .collect(Collectors.toList());
 
     image.setServerGroups(serverGroupList);
