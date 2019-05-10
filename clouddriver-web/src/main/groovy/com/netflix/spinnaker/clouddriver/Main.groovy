@@ -70,10 +70,10 @@ class Main extends SpringBootServletInitializer {
     'spring.config.location' : '${user.home}/.spinnaker/'
   ]
 
-  static final Map<String, String> BOOTSTRAP_SYSTEM_PROPS = [
+  private static final Map<String, String> BOOTSTRAP_SYSTEM_PROPS = [
     'spring.application.name'               : 'clouddriver',
     'spring.cloud.bootstrap.location'       : '${user.home}/.spinnaker/',
-    'spring.cloud.bootstrap.name'           : 'spinnaker-config,${spring.application.name}-config',
+    'spring.cloud.bootstrap.name'           : 'spinnakerconfig,${spring.application.name}config',
     'spring.cloud.config.server.bootstrap'  : 'true'
   ]
 
@@ -88,8 +88,8 @@ class Main extends SpringBootServletInitializer {
   }
 
   static void main(String... args) {
-    BOOTSTRAP_SYSTEM_PROPS.each { key, value -> System.setProperty(key, value) }
-    launchArgs = args
+    BOOTSTRAP_SYSTEM_PROPS.findAll { key, value -> !System.getProperty(key)}
+      .each { key, value -> System.setProperty(key, value)}
     new SpringApplicationBuilder()
       .properties(DEFAULT_PROPS)
       .sources(Main)
@@ -106,7 +106,5 @@ class Main extends SpringBootServletInitializer {
   SpringApplicationBuilder configure(SpringApplicationBuilder application) {
     application.properties(DEFAULT_PROPS).sources(Main)
   }
-
-  static String[] launchArgs = []
 }
 
