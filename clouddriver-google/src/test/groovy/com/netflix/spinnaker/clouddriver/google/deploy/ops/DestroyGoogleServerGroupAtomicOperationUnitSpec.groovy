@@ -83,7 +83,7 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
       def zoneOperations = Mock(Compute.ZoneOperations)
       def zoneOperationsGet = Mock(Compute.ZoneOperations.Get)
       def instanceGroupManagersDeleteMock = Mock(Compute.InstanceGroupManagers.Delete)
-      def instanceGroupManagersDeleteOp = new Operation(name: INSTANCE_GROUP_OP_NAME, status: DONE)
+      def instanceGroupManagersDeleteOp = new Operation(name: INSTANCE_GROUP_OP_NAME, status: DONE, zone: ZONE, targetLink: "/${SERVER_GROUP_NAME}")
       def instanceTemplatesMock = Mock(Compute.InstanceTemplates)
       def instanceTemplatesDeleteMock = Mock(Compute.InstanceTemplates.Delete)
       def googleLoadBalancerProviderMock = Mock(GoogleLoadBalancerProvider)
@@ -178,7 +178,7 @@ class DestroyGoogleServerGroupAtomicOperationUnitSpec extends Specification {
             registry, "compute.regionInstanceGroupManagers.delete",
             [scope: "regional", region: REGION])
       def instanceGroupManagersDeleteMock = Mock(Compute.InstanceGroupManagers.Delete)
-      def instanceGroupManagersDeleteOp = new Operation(name: INSTANCE_GROUP_OP_NAME, status: DONE)
+      def instanceGroupManagersDeleteOp = new Operation(name: INSTANCE_GROUP_OP_NAME, status: DONE, zone: ZONE, region: REGION, targetLink: "/${SERVER_GROUP_NAME}")
       def zonalInstanceGroupTimerId = GoogleApiTestUtils.makeOkId(
             registry, "compute.instanceGroupManagers.delete",
             [scope: "zonal", zone: ZONE])

@@ -245,7 +245,7 @@ class DestroyGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Void
 
       task.updateStatus BASE_PHASE, "Waiting on delete operation for managed instance group..."
 
-      serverGroupManagers.operationPoller.waitForOperation(deleteOperation, /* timeout= */ null, task, BASE_PHASE)
+      deleteOperation.waitForDone(task, BASE_PHASE)
       null
     }
   }
