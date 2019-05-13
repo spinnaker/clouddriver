@@ -64,10 +64,12 @@ class SqlCacheConfiguration {
   }
 
   @Bean
-  fun catsModule(providers: List<Provider>,
-                 executionInstrumentation: List<ExecutionInstrumentation>,
-                 cacheFactory: NamedCacheFactory,
-                 agentScheduler: AgentScheduler<*>): CatsModule {
+  fun catsModule(
+    providers: List<Provider>,
+    executionInstrumentation: List<ExecutionInstrumentation>,
+    cacheFactory: NamedCacheFactory,
+    agentScheduler: AgentScheduler<*>
+  ): CatsModule {
     return CatsModule.Builder()
       .providerRegistry(SqlProviderRegistry(providers, cacheFactory))
       .cacheFactory(cacheFactory)
@@ -88,13 +90,15 @@ class SqlCacheConfiguration {
    */
   @ObsoleteCoroutinesApi
   @Bean
-  fun cacheFactory(jooq: DSLContext,
-                   clock: Clock,
-                   sqlProperties: SqlProperties,
-                   cacheMetrics: SqlCacheMetrics,
-                   dynamicConfigService: DynamicConfigService,
-                   @Value("\${sql.cache.async-pool-size:0}") poolSize: Int,
-                   @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?): NamedCacheFactory {
+  fun cacheFactory(
+    jooq: DSLContext,
+    clock: Clock,
+    sqlProperties: SqlProperties,
+    cacheMetrics: SqlCacheMetrics,
+    dynamicConfigService: DynamicConfigService,
+    @Value("\${sql.cache.async-pool-size:0}") poolSize: Int,
+    @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?
+  ): NamedCacheFactory {
     if (tableNamespace != null && !tableNamespace.matches("""^\w+$""".toRegex())) {
       throw IllegalArgumentException("tableNamespace can only contain characters [a-z, A-Z, 0-9, _]")
     }
@@ -142,23 +146,29 @@ class SqlCacheConfiguration {
 
   @Bean
   @ConditionalOnExpression("\${sql.read-only:false} == false")
-  fun sqlTableMetricsAgent(jooq: DSLContext,
-                           registry: Registry,
-                           clock: Clock,
-                           @Value("\${sql.table-namespace:#{null}}") namespace: String?): SqlTableMetricsAgent =
+  fun sqlTableMetricsAgent(
+    jooq: DSLContext,
+    registry: Registry,
+    clock: Clock,
+    @Value("\${sql.table-namespace:#{null}}") namespace: String?
+  ): SqlTableMetricsAgent =
     SqlTableMetricsAgent(jooq, registry, clock, namespace)
 
   @Bean
   @ConditionalOnExpression("\${sql.read-only:false} == false")
-  fun sqlCleanupStaleOnDemandCachesAgent(applicationContext: ApplicationContext,
-                                         registry: Registry,
-                                         clock: Clock): SqlCleanupStaleOnDemandCachesAgent =
+  fun sqlCleanupStaleOnDemandCachesAgent(
+    applicationContext: ApplicationContext,
+    registry: Registry,
+    clock: Clock
+  ): SqlCleanupStaleOnDemandCachesAgent =
     SqlCleanupStaleOnDemandCachesAgent(applicationContext, registry, clock)
 
   @Bean
   @ConditionalOnExpression("\${sql.read-only:false} == false")
-  fun sqlAgentProvider(sqlTableMetricsAgent: SqlTableMetricsAgent,
-                       sqlCleanupStaleOnDemandCachesAgent: SqlCleanupStaleOnDemandCachesAgent): SqlProvider =
+  fun sqlAgentProvider(
+    sqlTableMetricsAgent: SqlTableMetricsAgent,
+    sqlCleanupStaleOnDemandCachesAgent: SqlCleanupStaleOnDemandCachesAgent
+  ): SqlProvider =
     SqlProvider(mutableListOf(sqlTableMetricsAgent, sqlCleanupStaleOnDemandCachesAgent))
 
   @Bean

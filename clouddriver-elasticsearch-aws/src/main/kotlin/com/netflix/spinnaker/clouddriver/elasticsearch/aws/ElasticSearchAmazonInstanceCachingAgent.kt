@@ -109,11 +109,11 @@ class ElasticSearchAmazonInstanceCachingAgent(
   private fun fetchInstanceModels(credentials: NetflixAmazonCredentials, region: String): List<InstanceModel> {
     val amazonEC2 = amazonClientProvider.getAmazonEC2(credentials, region)
 
-    log.debug("Describing All Instances in ${credentials.name}:${region}")
+    log.debug("Describing All Instances in ${credentials.name}:$region")
 
     return fetchAllInstances(amazonEC2).map { instance ->
       InstanceModel(
-        "${credentials.accountId}:${region}:${instance.instanceId}".toLowerCase(),
+        "${credentials.accountId}:$region:${instance.instanceId}".toLowerCase(),
         instance.instanceId,
         InstanceTypeModel(instance.instanceType),
         LocationModel("availabilityZone", instance.placement.availabilityZone),
@@ -140,6 +140,6 @@ class ElasticSearchAmazonInstanceCachingAgent(
       }
     }
 
-    return instances;
+    return instances
   }
 }

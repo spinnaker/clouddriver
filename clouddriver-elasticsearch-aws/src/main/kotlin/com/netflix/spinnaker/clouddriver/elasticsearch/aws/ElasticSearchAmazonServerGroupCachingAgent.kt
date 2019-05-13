@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.elasticsearch.aws
 
-
 import com.amazonaws.services.autoscaling.AmazonAutoScaling
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
@@ -113,10 +112,10 @@ class ElasticSearchAmazonServerGroupCachingAgent(
   private fun fetchServerGroupModels(credentials: NetflixAmazonCredentials, region: String): List<ServerGroupModel> {
     val amazonAutoScaling = amazonClientProvider.getAutoScaling(credentials, region)
 
-    log.debug("Describing All Autoscaling Groups in ${credentials.name}:${region}")
+    log.debug("Describing All Autoscaling Groups in ${credentials.name}:$region")
     val autoScalingGroups = fetchAllAutoScalingGroups(amazonAutoScaling)
 
-    log.debug("Describing All Launch Configurations in ${credentials.name}:${region}")
+    log.debug("Describing All Launch Configurations in ${credentials.name}:$region")
     val launchConfigurationsByName = fetchAllLaunchConfigurations(amazonAutoScaling)
       .map { it.launchConfigurationName.toLowerCase() to it }
       .toMap()
@@ -136,7 +135,7 @@ class ElasticSearchAmazonServerGroupCachingAgent(
       val instanceTypes = listOfNotNull(launchConfiguration.instanceType).map { InstanceTypeModel(it) }
 
       ServerGroupModel(
-        "${credentials.accountId}:${region}:${asg.autoScalingGroupName}".toLowerCase(),
+        "${credentials.accountId}:$region:${asg.autoScalingGroupName}".toLowerCase(),
         asg.autoScalingGroupName,
         Names.parseName(asg.autoScalingGroupName).toMoniker(),
         LocationModel("region", region),
@@ -162,7 +161,7 @@ class ElasticSearchAmazonServerGroupCachingAgent(
       }
     }
 
-    return autoScalingGroups;
+    return autoScalingGroups
   }
 
   private fun fetchAllLaunchConfigurations(amazonAutoScaling: AmazonAutoScaling): List<LaunchConfiguration> {
@@ -180,7 +179,7 @@ class ElasticSearchAmazonServerGroupCachingAgent(
       }
     }
 
-    return launchConfigurations;
+    return launchConfigurations
   }
 
   fun Names.toMoniker() = Moniker(this.app, this.stack, this.detail, this.cluster)

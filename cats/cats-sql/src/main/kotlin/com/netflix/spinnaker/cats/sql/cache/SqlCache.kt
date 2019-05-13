@@ -113,11 +113,13 @@ class SqlCache(
     )
   }
 
-  fun mergeAll(type: String,
-               agentHint: String?,
-               items: MutableCollection<CacheData>?,
-               authoritative: Boolean,
-               cleanup: Boolean) {
+  fun mergeAll(
+    type: String,
+    agentHint: String?,
+    items: MutableCollection<CacheData>?,
+    authoritative: Boolean,
+    cleanup: Boolean
+  ) {
     if (
       type.isEmpty() ||
       items.isNullOrEmpty() ||
@@ -212,9 +214,11 @@ class SqlCache(
     return getAll(type, ids, null as CacheFilter?)
   }
 
-  override fun getAll(type: String,
-                      ids: MutableCollection<String>?,
-                      cacheFilter: CacheFilter?): MutableCollection<CacheData> {
+  override fun getAll(
+    type: String,
+    ids: MutableCollection<String>?,
+    cacheFilter: CacheFilter?
+  ): MutableCollection<CacheData> {
     if (ids.isNullOrEmpty()) {
       cacheMetrics.get(
         prefix = name,
@@ -253,7 +257,7 @@ class SqlCache(
   /**
    * Retrieves the items for the specified type matching the provided identifiers
    *
-   * @param type        the type for which to retrieve items
+   * @param type the type for which to retrieve items
    * @param identifiers the identifiers
    * @return the items matching the type and identifiers
    */
@@ -263,9 +267,11 @@ class SqlCache(
     return getAll(type, ids)
   }
 
-  override fun getAllByApplication(type: String,
-                                   application: String,
-                                   cacheFilter: CacheFilter?): Map<String, MutableCollection<CacheData>> {
+  override fun getAllByApplication(
+    type: String,
+    application: String,
+    cacheFilter: CacheFilter?
+  ): Map<String, MutableCollection<CacheData>> {
     val relationshipPrefixes = getRelationshipFilterPrefixes(cacheFilter)
 
     val result = if (relationshipPrefixes.isEmpty()) {
@@ -289,9 +295,11 @@ class SqlCache(
     return mapOf(type to mergeDataAndRelationships(result.data, result.relPointers, relationshipPrefixes))
   }
 
-  override fun getAllByApplication(types: Collection<String>,
-                                   application: String,
-                                   cacheFilters: Map<String, CacheFilter?>): Map<String, MutableCollection<CacheData>> {
+  override fun getAllByApplication(
+    types: Collection<String>,
+    application: String,
+    cacheFilters: Map<String, CacheFilter?>
+  ): Map<String, MutableCollection<CacheData>> {
     val result = mutableMapOf<String, MutableCollection<CacheData>>()
 
     if (coroutineContext.useAsync(this::asyncEnabled)) {
@@ -444,7 +452,7 @@ class SqlCache(
    * Gets a single item from the cache by type and id
    *
    * @param type the type of the item
-   * @param id   the id of the item
+   * @param id the id of the item
    * @return the item matching the type and id
    */
   override fun get(type: String, id: String?): CacheData? {
@@ -476,10 +484,12 @@ class SqlCache(
     return toClean.size
   }
 
-  private fun storeAuthoritative(type: String,
-                                 agentHint: String?,
-                                 items: MutableCollection<CacheData>,
-                                 cleanup: Boolean): StoreResult {
+  private fun storeAuthoritative(
+    type: String,
+    agentHint: String?,
+    items: MutableCollection<CacheData>,
+    cleanup: Boolean
+  ): StoreResult {
     val result = StoreResult()
     result.itemCount.addAndGet(items.size)
 
@@ -596,7 +606,6 @@ class SqlCache(
                 .set(field("last_updated"), clock.millis())
                 .where(field("id").eq(it), field("agent").eq(agent))
                 .execute()
-
             }
             result.writeQueries.incrementAndGet()
             result.itemsStored.incrementAndGet()
@@ -1013,7 +1022,6 @@ class SqlCache(
       }
 
       return DataWithRelationshipPointersResult(cacheData, relPointers, selectQueries, withAsync)
-
     } catch (e: Exception) {
       suppressedLog("Failed selecting ids for type $type", e)
 
@@ -1053,7 +1061,6 @@ class SqlCache(
       }
       selectQueries += 1
       return DataWithRelationshipPointersResult(cacheData, relPointers, selectQueries, false)
-
     } catch (e: Exception) {
       suppressedLog("Failed selecting resources of type $type for application $application", e)
 
@@ -1073,9 +1080,11 @@ class SqlCache(
     }
   }
 
-  private fun getDataWithRelationshipsByApp(type: String,
-                                            application: String,
-                                            relationshipPrefixes: List<String>): DataWithRelationshipPointersResult {
+  private fun getDataWithRelationshipsByApp(
+    type: String,
+    application: String,
+    relationshipPrefixes: List<String>
+  ): DataWithRelationshipPointersResult {
 
     /*
       select body, null as id, null as rel_id, null as rel_type from cats_v1_b_instances
@@ -1125,7 +1134,6 @@ class SqlCache(
       parseCacheRelResultSet(type, resultSet, cacheData, relPointers)
       selectQueries += 1
       return DataWithRelationshipPointersResult(cacheData, relPointers, selectQueries, false)
-
     } catch (e: Exception) {
       suppressedLog("Failed selecting resources of type $type for application $application", e)
 
@@ -1145,12 +1153,13 @@ class SqlCache(
     }
   }
 
-  private fun getDataWithRelationships(type: String,
-                                       relationshipPrefixes: List<String>):
+  private fun getDataWithRelationships(
+    type: String,
+    relationshipPrefixes: List<String>
+  ):
     DataWithRelationshipPointersResult {
     return getDataWithRelationships(type, emptyList(), relationshipPrefixes)
   }
-
 
   private fun getDataWithRelationships(
     type: String,
@@ -1265,9 +1274,11 @@ class SqlCache(
     }
   }
 
-  private fun selectBodiesWithRelationships(type: String,
-                                            relationshipPrefixes: List<String>,
-                                            ids: List<String>): ResultSet {
+  private fun selectBodiesWithRelationships(
+    type: String,
+    relationshipPrefixes: List<String>,
+    ids: List<String>
+  ): ResultSet {
     val where = "ID in (${ids.joinToString(",") { "'$it'" }})"
 
     val relWhere = getRelWhere(relationshipPrefixes, where)
@@ -1307,10 +1318,12 @@ class SqlCache(
     }
   }
 
-  private fun parseCacheRelResultSet(type: String,
-                                     resultSet: ResultSet,
-                                     cacheData: MutableList<CacheData>,
-                                     relPointers: MutableSet<RelPointer>) {
+  private fun parseCacheRelResultSet(
+    type: String,
+    resultSet: ResultSet,
+    cacheData: MutableList<CacheData>,
+    relPointers: MutableSet<RelPointer>
+  ) {
     while (resultSet.next()) {
       if (!resultSet.getString(1).isNullOrBlank()) {
         try {
@@ -1328,9 +1341,11 @@ class SqlCache(
     }
   }
 
-  private fun mergeDataAndRelationships(cacheData: Collection<CacheData>,
-                                        relationshipPointers: Collection<RelPointer>,
-                                        relationshipPrefixes: List<String>): MutableCollection<CacheData> {
+  private fun mergeDataAndRelationships(
+    cacheData: Collection<CacheData>,
+    relationshipPointers: Collection<RelPointer>,
+    relationshipPrefixes: List<String>
+  ): MutableCollection<CacheData> {
     val data = mutableMapOf<String, CacheData>()
     val relKeysToRemove = mutableMapOf<String, MutableSet<String>>()
     val filter = relationshipPrefixes.any { it != "ALL" } || relationshipPrefixes.isEmpty()
@@ -1418,8 +1433,10 @@ class SqlCache(
     return data.values
   }
 
-  private fun normalizeRelationships(rels: Map<String, Collection<String>>,
-                                     filterPrefixes: List<String>): Map<String, Collection<String>> {
+  private fun normalizeRelationships(
+    rels: Map<String, Collection<String>>,
+    filterPrefixes: List<String>
+  ): Map<String, Collection<String>> {
     val filter = filterPrefixes.any { it != "ALL" }
     val relationships = mutableMapOf<String, MutableCollection<String>>()
     rels.entries.forEach {
@@ -1445,7 +1462,7 @@ class SqlCache(
     return if (prefix.isNullOrBlank()) {
       relWhere
     } else {
-      when(relWhere) {
+      when (relWhere) {
         "" -> prefix
         else -> "$prefix AND $relWhere"
       }
@@ -1582,7 +1599,6 @@ fun CoroutineContext?.useAsync(useAsync: () -> Boolean): Boolean {
 
   return this != null && useAsync.invoke()
 }
-
 
 class CatsCoroutineScope(context: CoroutineContext) : CoroutineScope {
   override val coroutineContext = context
