@@ -67,7 +67,7 @@ public class SearchExecutor {
       resultSet = f.get();
     } catch (ExecutionException | InterruptedException e) {
       log.error(String.format("Retrieving future %s failed", f), e);
-    } catch (CancellationException _) {
+    } catch (CancellationException e) {
       log.error(String.format("Retrieving result failed due to cancelled task: %s", f));
       String counterId = String.format("searchExecutor.%s.failures", q != null ? q : "*");
       registry.counter(registry.createId(counterId)).increment(1);

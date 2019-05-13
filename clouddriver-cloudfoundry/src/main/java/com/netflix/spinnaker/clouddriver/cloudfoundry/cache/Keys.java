@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryCloudProvider.ID;
-import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.Keys.Namespace.*;
 import static java.util.Collections.emptyMap;
 
 @Component("CloudFoundryInfraKeys")
@@ -75,16 +74,16 @@ public class Keys implements KeyParser {
   }
 
   public static String getApplicationKey(String app) {
-    return ID + ":" + APPLICATIONS + ":" + app;
+    return ID + ":" + Namespace.APPLICATIONS + ":" + app;
   }
 
   public static String getAllLoadBalancers() {
-    return ID + ":" + LOAD_BALANCERS + ":*";
+    return ID + ":" + Namespace.LOAD_BALANCERS + ":*";
   }
 
   public static String getLoadBalancerKey(String account, CloudFoundryLoadBalancer lb) {
     return ID +
-      ":" + LOAD_BALANCERS +
+      ":" + Namespace.LOAD_BALANCERS +
       ":" + account +
       ":" + lb.getId() +
       ":" + (lb.getHost() != null ? lb.getHost() : "") +
@@ -96,7 +95,7 @@ public class Keys implements KeyParser {
 
   public static String getClusterKey(String account, String app, String name) {
     return ID +
-      ":" + CLUSTERS +
+      ":" + Namespace.CLUSTERS +
       ":" + account +
       ":" + app +
       ":" + name;
@@ -104,7 +103,7 @@ public class Keys implements KeyParser {
 
   public static String getServerGroupKey(String account, String name, String region) {
     return ID +
-      ":" + SERVER_GROUPS +
+      ":" + Namespace.SERVER_GROUPS +
       ":" + account +
       ":" + name +
       ":" + region;
@@ -112,7 +111,7 @@ public class Keys implements KeyParser {
 
   public static String getInstanceKey(String account, String instanceName) {
     return ID +
-      ":" + INSTANCES +
+      ":" + Namespace.INSTANCES +
       ":" + account +
       ":" + instanceName;
   }

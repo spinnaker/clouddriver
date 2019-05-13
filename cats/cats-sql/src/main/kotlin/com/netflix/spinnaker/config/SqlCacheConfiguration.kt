@@ -12,7 +12,11 @@ import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.Provider
 import com.netflix.spinnaker.cats.sql.SqlProviderRegistry
-import com.netflix.spinnaker.cats.sql.cache.*
+import com.netflix.spinnaker.cats.sql.cache.SpectatorSqlCacheMetrics
+import com.netflix.spinnaker.cats.sql.cache.SqlCacheMetrics
+import com.netflix.spinnaker.cats.sql.cache.SqlCleanupStaleOnDemandCachesAgent
+import com.netflix.spinnaker.cats.sql.cache.SqlNamedCacheFactory
+import com.netflix.spinnaker.cats.sql.cache.SqlTableMetricsAgent
 import com.netflix.spinnaker.clouddriver.cache.CustomSchedulableAgentIntervalProvider
 import com.netflix.spinnaker.clouddriver.cache.EurekaStatusNodeStatusProvider
 import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider

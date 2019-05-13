@@ -27,7 +27,12 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
 import com.netflix.spinnaker.clouddriver.elasticsearch.ElasticSearchClient
-import com.netflix.spinnaker.clouddriver.elasticsearch.model.*
+import com.netflix.spinnaker.clouddriver.elasticsearch.model.AccountModel
+import com.netflix.spinnaker.clouddriver.elasticsearch.model.InstanceModel
+import com.netflix.spinnaker.clouddriver.elasticsearch.model.InstanceTypeModel
+import com.netflix.spinnaker.clouddriver.elasticsearch.model.LocationModel
+import com.netflix.spinnaker.clouddriver.elasticsearch.model.ModelType
+import com.netflix.spinnaker.clouddriver.elasticsearch.model.TagModel
 import com.netflix.spinnaker.kork.core.RetrySupport
 import org.slf4j.LoggerFactory
 import java.util.concurrent.TimeUnit

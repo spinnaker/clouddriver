@@ -1,12 +1,17 @@
 package com.netflix.spinnaker.cats.sql
 
 import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.cats.cache.*
 import com.netflix.spinnaker.cats.cache.Cache.StoreType
 import com.netflix.spinnaker.cats.cache.Cache.StoreType.SQL
+import com.netflix.spinnaker.cats.cache.CacheData
+import com.netflix.spinnaker.cats.cache.CacheFilter
+import com.netflix.spinnaker.cats.cache.DefaultCacheData
+import com.netflix.spinnaker.cats.cache.WriteableCache
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.cats.sql.cache.SqlCache
-import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*
+import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.CLUSTERS
+import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.NAMED_IMAGES
+import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import kotlin.contracts.ExperimentalContracts

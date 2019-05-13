@@ -27,12 +27,11 @@ import org.springframework.context.annotation.Primary;
 
 import java.util.List;
 
-import static com.netflix.spinnaker.clouddriver.config.DualTaskRepositoryConfiguration.Properties;
 import static java.lang.String.format;
 
 @Configuration
 @ConditionalOnProperty("dual-task-repository.enabled")
-@EnableConfigurationProperties(Properties.class)
+@EnableConfigurationProperties(DualTaskRepositoryConfiguration.Properties.class)
 public class DualTaskRepositoryConfiguration {
 
   @Primary
