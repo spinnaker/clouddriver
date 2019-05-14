@@ -27,26 +27,18 @@ import groovy.transform.CompileStatic
 @CompileStatic
 class AzureLoadBalancer implements LoadBalancer {
   static enum AzureLoadBalancerType {
-    AZURE_LOAD_BALANCER,
-    AZURE_APPLICATION_GATEWAY
+    AZURE_LOAD_BALANCER("Azure Load Balancer"),
+    AZURE_APPLICATION_GATEWAY("Azure Application Gateway")
+
+    private String formattedType
+
+    private AzureLoadBalancerType(String formattedType) {
+      this.formattedType = formattedType
+    }
 
     @Override
     String toString() {
-      char[] value = name().toCharArray()
-      boolean capitalize = true
-      for(int i=0;i<value.length;i++) {
-        if(value[i] == '_') {
-          capitalize = true
-          value[i] = ' '
-        }else {
-          if(capitalize) {
-            capitalize = false
-          }else {
-            value[i] = Character.toLowerCase(value[i])
-          }
-        }
-      }
-      return new String(value)
+      formattedType
     }
   }
 

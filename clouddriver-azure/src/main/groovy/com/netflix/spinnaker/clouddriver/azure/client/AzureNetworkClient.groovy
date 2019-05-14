@@ -394,7 +394,7 @@ class AzureNetworkClient extends AzureBaseClient {
       throw new RuntimeException("Load balancer ${loadBalancerName} not found in resource group ${resourceGroupName}")
     }
 
-    null
+    return null
   }
 
   /**
@@ -415,7 +415,6 @@ class AzureNetworkClient extends AzureBaseClient {
         def chain = loadBalancer.update()
           .withoutBackend(lbAP.name())
 
-        // TODO: debug only; remove this as part of the cleanup
         String sgTag = loadBalancer.tags().get("serverGroups")
         String[] tags = sgTag.split(" ")
         String newTag = ""
@@ -525,7 +524,8 @@ class AzureNetworkClient extends AzureBaseClient {
     null
   }
 
-  // Find unused port range
+  // Find unused port range. The usedList is the type List<int[]> whose element is int[2]{portStart, portEnd}
+  // The usedList needs to be sorted in asc order for the element[0]
   private int findUnusedPortsRange(List<int[]> usedList, int start, int end, int targetLength) {
     int ret = start
     int retEnd = ret + targetLength
