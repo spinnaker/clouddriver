@@ -45,11 +45,12 @@ class KubernetesNamedAccountCredentialsInitializer {
     AccountCredentialsRepository accountCredentialsRepository,
     List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers
   ) {
-    synchronizeKubernetesAccounts(credentialFactory, kubernetesConfigurationProperties, null, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrappers)
+    synchronizeKubernetesAccounts(credentialFactory, kubernetesConfigurationProperties,
+      null, applicationContext, accountCredentialsRepository,
+      providerSynchronizerTypeWrappers)
   }
 
-  @Bean
-  List<? extends KubernetesNamedAccountCredentials> synchronizeKubernetesAccounts(
+  private List<? extends KubernetesNamedAccountCredentials> synchronizeKubernetesAccounts(
     KubernetesNamedAccountCredentials.CredentialFactory credentialFactory,
     KubernetesConfigurationProperties kubernetesConfigurationProperties,
     CatsModule catsModule,

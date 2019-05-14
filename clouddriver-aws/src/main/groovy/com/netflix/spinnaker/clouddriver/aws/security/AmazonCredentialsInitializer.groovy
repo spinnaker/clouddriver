@@ -70,14 +70,14 @@ class AmazonCredentialsInitializer {
     synchronizeAmazonAccounts(credentialsLoader, credentialsConfig, accountCredentialsRepository, defaultAccountConfigurationProperties, null, applicationContext, providerSynchronizerTypeWrappers)
   }
 
-  @Bean
-  List<? extends NetflixAmazonCredentials> synchronizeAmazonAccounts(CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader,
-                                                                     CredentialsConfig credentialsConfig,
-                                                                     AccountCredentialsRepository accountCredentialsRepository,
-                                                                     DefaultAccountConfigurationProperties defaultAccountConfigurationProperties,
-                                                                     CatsModule catsModule,
-                                                                     ApplicationContext applicationContext,
-                                                                     List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
+  private List<? extends NetflixAmazonCredentials> synchronizeAmazonAccounts(
+    CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader,
+    CredentialsConfig credentialsConfig,
+    AccountCredentialsRepository accountCredentialsRepository,
+    DefaultAccountConfigurationProperties defaultAccountConfigurationProperties,
+    CatsModule catsModule,
+    ApplicationContext applicationContext,
+    List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
     if (!credentialsConfig.accounts && !credentialsConfig.defaultAssumeRole) {
       def defaultEnvironment = defaultAccountConfigurationProperties.environment ?: defaultAccountConfigurationProperties.env
       def defaultAccountType = defaultAccountConfigurationProperties.accountType ?: defaultAccountConfigurationProperties.env

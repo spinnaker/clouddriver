@@ -30,11 +30,11 @@ class OracleCredentialsInitializer  {
     synchronizeOracleAccounts(clouddriverUserAgentApplicationName, oracleConfigurationProperties, null, accountCredentialsRepository)
   }
 
-  @Bean
-  List<? extends OracleNamedAccountCredentials> synchronizeOracleAccounts(String clouddriverUserAgentApplicationName,
-                                                                                  OracleConfigurationProperties oracleConfigurationProperties,
-                                                                                  CatsModule catsModule,
-                                                                                  AccountCredentialsRepository accountCredentialsRepository) {
+  private List<? extends OracleNamedAccountCredentials> synchronizeOracleAccounts(
+    String clouddriverUserAgentApplicationName,
+    OracleConfigurationProperties oracleConfigurationProperties,
+    CatsModule catsModule,
+    AccountCredentialsRepository accountCredentialsRepository) {
 
     def (ArrayList<OracleConfigurationProperties.ManagedAccount> accountsToAdd, List<String> namesOfDeletedAccounts) =
     ProviderUtils.calculateAccountDeltas(accountCredentialsRepository,

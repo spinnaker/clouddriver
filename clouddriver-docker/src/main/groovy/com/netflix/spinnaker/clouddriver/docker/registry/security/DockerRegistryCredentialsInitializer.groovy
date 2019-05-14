@@ -50,13 +50,14 @@ class DockerRegistryCredentialsInitializer {
     new DefaultDockerOkClientProvider()
   }
 
-  @Bean
-  List<? extends DockerRegistryNamedAccountCredentials> synchronizeDockerRegistryAccounts(DockerRegistryConfigurationProperties dockerRegistryConfigurationProperties,
-                                                                                          AccountCredentialsRepository accountCredentialsRepository,
-                                                                                          CatsModule catsModule,
-                                                                                          ApplicationContext applicationContext,
-                                                                                          List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers,
-                                                                                          DockerOkClientProvider dockerOkClientProvider) {
+  private List<? extends DockerRegistryNamedAccountCredentials> synchronizeDockerRegistryAccounts(
+    DockerRegistryConfigurationProperties dockerRegistryConfigurationProperties,
+    AccountCredentialsRepository accountCredentialsRepository,
+    CatsModule catsModule,
+    ApplicationContext applicationContext,
+    List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers,
+    DockerOkClientProvider dockerOkClientProvider) {
+    
     def (ArrayList<DockerRegistryConfigurationProperties.ManagedAccount> accountsToAdd, List<String> namesOfDeletedAccounts) =
     ProviderUtils.calculateAccountDeltas(accountCredentialsRepository, DockerRegistryNamedAccountCredentials,
       dockerRegistryConfigurationProperties.accounts)

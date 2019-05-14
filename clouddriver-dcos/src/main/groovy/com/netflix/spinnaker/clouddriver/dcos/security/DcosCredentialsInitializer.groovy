@@ -44,6 +44,7 @@ class DcosCredentialsInitializer {
   @Autowired Registry spectatorRegistry
 
   @Bean
+  @DependsOn("dockerRegistryNamedAccountCredentials")
   List<? extends DcosAccountCredentials> dcosCredentials(String clouddriverUserAgentApplicationName,
                                                          DcosConfigurationProperties dcosConfigurationProperties,
                                                          ApplicationContext applicationContext,
@@ -54,15 +55,14 @@ class DcosCredentialsInitializer {
     synchronizeDcosAccounts(clouddriverUserAgentApplicationName, dcosConfigurationProperties, null, applicationContext, accountCredentialsRepository, clientProvider, providerSynchronizerTypeWrappers)
   }
 
-  @Bean
-  @DependsOn("dockerRegistryNamedAccountCredentials")
-  List<? extends DcosAccountCredentials> synchronizeDcosAccounts(String clouddriverUserAgentApplicationName,
-                                                                 DcosConfigurationProperties dcosConfigurationProperties,
-                                                                 CatsModule catsModule,
-                                                                 ApplicationContext applicationContext,
-                                                                 AccountCredentialsRepository accountCredentialsRepository,
-                                                                 DcosClientProvider clientProvider,
-                                                                 List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
+  private List<? extends DcosAccountCredentials> synchronizeDcosAccounts(
+    String clouddriverUserAgentApplicationName,
+    DcosConfigurationProperties dcosConfigurationProperties,
+    CatsModule catsModule,
+    ApplicationContext applicationContext,
+    AccountCredentialsRepository accountCredentialsRepository,
+    DcosClientProvider clientProvider,
+    List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers) {
 
     // TODO what to do with clouddriverUserAgentApplicationName?
     Map<String, DcosConfigurationProperties.Cluster> clusterMap = new HashMap<>()

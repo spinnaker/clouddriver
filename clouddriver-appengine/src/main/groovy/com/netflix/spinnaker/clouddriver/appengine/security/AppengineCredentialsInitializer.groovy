@@ -30,10 +30,12 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class AppengineCredentialsInitializer {
   @Bean
-  List<? extends AppengineNamedAccountCredentials> appengineNamedAccountCredentials(String clouddriverUserAgentApplicationName,
-                                                                                    AppengineConfigurationProperties appengineConfigurationProperties,
-                                                                                    AccountCredentialsRepository accountCredentialsRepository,
-                                                                                    AppengineJobExecutor jobExecutor) {
+  List<? extends AppengineNamedAccountCredentials> appengineNamedAccountCredentials(
+    String clouddriverUserAgentApplicationName,
+    AppengineConfigurationProperties appengineConfigurationProperties,
+    AccountCredentialsRepository accountCredentialsRepository,
+    AppengineJobExecutor jobExecutor) {
+
     synchronizeAppengineAccounts(clouddriverUserAgentApplicationName,
                                  appengineConfigurationProperties,
                                  null,
@@ -41,12 +43,13 @@ class AppengineCredentialsInitializer {
                                  jobExecutor)
   }
 
-  @Bean
-  List<? extends AppengineNamedAccountCredentials> synchronizeAppengineAccounts(String clouddriverUserAgentApplicationName,
-                                                                                AppengineConfigurationProperties appengineConfigurationProperties,
-                                                                                CatsModule catsModule,
-                                                                                AccountCredentialsRepository accountCredentialsRepository,
-                                                                                AppengineJobExecutor jobExecutor) {
+  private List<? extends AppengineNamedAccountCredentials> synchronizeAppengineAccounts(
+    String clouddriverUserAgentApplicationName,
+    AppengineConfigurationProperties appengineConfigurationProperties,
+    CatsModule catsModule,
+    AccountCredentialsRepository accountCredentialsRepository,
+    AppengineJobExecutor jobExecutor) {
+
     def (ArrayList<AppengineConfigurationProperties.ManagedAccount> accountsToAdd, List<String> namesOfDeletedAccounts) =
       ProviderUtils.calculateAccountDeltas(accountCredentialsRepository,
                                            AppengineNamedAccountCredentials,

@@ -50,9 +50,7 @@ public class EcsCredentialsInitializer {
         credentialsLoader, credentialsConfig, accountCredentialsRepository);
   }
 
-  @Bean
-  @DependsOn("netflixAmazonCredentials")
-  public List<? extends NetflixAmazonCredentials> synchronizeECSAccounts(
+  private List<? extends NetflixAmazonCredentials> synchronizeECSAccounts(
       CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader,
       ECSCredentialsConfig ecsCredentialsConfig,
       AccountCredentialsRepository accountCredentialsRepository)

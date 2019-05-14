@@ -49,23 +49,28 @@ class GoogleCredentialsInitializer {
   }
 
   @Bean
-  List<? extends GoogleNamedAccountCredentials> googleNamedAccountCredentials(String clouddriverUserAgentApplicationName,
-                                                                              GoogleConfigurationProperties googleConfigurationProperties,
-                                                                              ApplicationContext applicationContext,
-                                                                              AccountCredentialsRepository accountCredentialsRepository,
-                                                                              List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers,
-                                                                              DeployDefaults googleDeployDefaults) {
-    synchronizeGoogleAccounts(clouddriverUserAgentApplicationName, googleConfigurationProperties, null, applicationContext, accountCredentialsRepository, providerSynchronizerTypeWrappers, googleDeployDefaults)
+  List<? extends GoogleNamedAccountCredentials> googleNamedAccountCredentials(
+    String clouddriverUserAgentApplicationName,
+    GoogleConfigurationProperties googleConfigurationProperties,
+    ApplicationContext applicationContext,
+    AccountCredentialsRepository accountCredentialsRepository,
+    List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers,
+    DeployDefaults googleDeployDefaults) {
+    
+    synchronizeGoogleAccounts(clouddriverUserAgentApplicationName, googleConfigurationProperties,
+      null, applicationContext, accountCredentialsRepository,
+      providerSynchronizerTypeWrappers, googleDeployDefaults)
   }
 
-  @Bean
-  List<? extends GoogleNamedAccountCredentials> synchronizeGoogleAccounts(String clouddriverUserAgentApplicationName,
-                                                                          GoogleConfigurationProperties googleConfigurationProperties,
-                                                                          CatsModule catsModule,
-                                                                          ApplicationContext applicationContext,
-                                                                          AccountCredentialsRepository accountCredentialsRepository,
-                                                                          List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers,
-                                                                          DeployDefaults googleDeployDefaults) {
+  private List<? extends GoogleNamedAccountCredentials> synchronizeGoogleAccounts(
+    String clouddriverUserAgentApplicationName,
+    GoogleConfigurationProperties googleConfigurationProperties,
+    CatsModule catsModule,
+    ApplicationContext applicationContext,
+    AccountCredentialsRepository accountCredentialsRepository,
+    List<ProviderSynchronizerTypeWrapper> providerSynchronizerTypeWrappers,
+    DeployDefaults googleDeployDefaults) {
+
     def (ArrayList<GoogleConfigurationProperties.ManagedAccount> accountsToAdd, List<String> namesOfDeletedAccounts) =
       ProviderUtils.calculateAccountDeltas(accountCredentialsRepository,
                                            GoogleNamedAccountCredentials,
