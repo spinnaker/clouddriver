@@ -16,20 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.listeners;
 
-
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
+import java.util.List;
 import org.springframework.cloud.context.scope.refresh.RefreshScopeRefreshedEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 class ConfigurationRefreshListener implements ApplicationListener<RefreshScopeRefreshedEvent> {
 
   private final List<CredentialsInitializerSynchronizable> credentialsSynchronizers;
 
-  public ConfigurationRefreshListener(List<CredentialsInitializerSynchronizable> credentialsSynchronizers) {
+  public ConfigurationRefreshListener(
+      List<CredentialsInitializerSynchronizable> credentialsSynchronizers) {
     this.credentialsSynchronizers = credentialsSynchronizers;
   }
 

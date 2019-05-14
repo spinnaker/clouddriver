@@ -65,14 +65,14 @@ class Main extends SpringBootServletInitializer {
     'netflix.account'        : '${netflix.environment}',
     'netflix.stack'          : 'test',
     'spring.config.additional-location' : '${user.home}/.spinnaker/',
-    'spring.profiles.active' : '${netflix.environment},local',
-    'spring.config.name'     : 'spinnaker,${spring.application.name}',
-    'spring.config.location' : '${user.home}/.spinnaker/'
+    'spring.profiles.active' : '${netflix.environment},local,composite',
+    'spring.config.name'     : 'spinnaker,${spring.application.name}'
   ]
 
   private static final Map<String, String> BOOTSTRAP_SYSTEM_PROPS = [
     'spring.application.name'               : 'clouddriver',
-    'spring.cloud.bootstrap.location'       : '${user.home}/.spinnaker/',
+    // default locations must be included pending the resolution of https://github.com/spring-cloud/spring-cloud-commons/issues/466
+    'spring.cloud.bootstrap.location'       : 'classpath:/,classpath:/config/,file:./,file:./config/,${user.home}/.spinnaker/',
     'spring.cloud.bootstrap.name'           : 'spinnakerconfig,${spring.application.name}config',
     'spring.cloud.config.server.bootstrap'  : 'true'
   ]

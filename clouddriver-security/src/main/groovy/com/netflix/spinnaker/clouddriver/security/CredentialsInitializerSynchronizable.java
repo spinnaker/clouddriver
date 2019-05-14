@@ -22,8 +22,8 @@ package com.netflix.spinnaker.clouddriver.security;
  */
 public interface CredentialsInitializerSynchronizable {
   /**
-   * Synchronize the Accounts and Agents managed by the provider with the latest configured accounts.
+   * Synchronize the Accounts and Agents managed by the provider with the latest configured
+   * accounts.
    */
-  default void synchronize() {
-  }
+  default void synchronize() {}
 }

@@ -25,11 +25,10 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent.CloudFoundr
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils;
-
-import javax.annotation.PostConstruct;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.PostConstruct;
 
 public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializerSynchronizable {
 
@@ -39,11 +38,12 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
   private final CatsModule catsModule;
   private final Registry registry;
 
-  public CloudFoundryCredentialsSynchronizer(CloudFoundryProvider cloudFoundryProvider,
-                                             CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties,
-                                             AccountCredentialsRepository accountCredentialsRepository,
-                                             CatsModule catsModule,
-                                             Registry registry) {
+  public CloudFoundryCredentialsSynchronizer(
+      CloudFoundryProvider cloudFoundryProvider,
+      CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties,
+      AccountCredentialsRepository accountCredentialsRepository,
+      CatsModule catsModule,
+      Registry registry) {
     this.cloudFoundryProvider = cloudFoundryProvider;
     this.cloudFoundryConfigurationProperties = cloudFoundryConfigurationProperties;
     this.accountCredentialsRepository = accountCredentialsRepository;
@@ -55,9 +55,11 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
   @PostConstruct
   @SuppressWarnings("unchecked")
   public void synchronize() {
-    List<?> deltas = ProviderUtils.calculateAccountDeltas(accountCredentialsRepository,
-      CloudFoundryCredentials.class,
-      cloudFoundryConfigurationProperties.getAccounts());
+    List<?> deltas =
+        ProviderUtils.calculateAccountDeltas(
+            accountCredentialsRepository,
+            CloudFoundryCredentials.class,
+            cloudFoundryConfigurationProperties.getAccounts());
 
     List<String> deletedAccountNames = (List<String>) deltas.get(1);
 
@@ -65,37 +67,44 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
     synchronizeAgentCache(getAddedAgents(), deletedAccountNames);
   }
 
-  private void synchronizeRepository(List<CloudFoundryConfigurationProperties.ManagedAccount> accounts) {
-    accounts.forEach(managedAccount -> {
-      CloudFoundryCredentials cloudFoundryAccountCredentials = new CloudFoundryCredentials(
-        managedAccount.getName(),
-        managedAccount.getAppsManagerUri(),
-        managedAccount.getMetricsUri(),
-        managedAccount.getApi(),
-        managedAccount.getUser(),
-        managedAccount.getPassword(),
-        managedAccount.getEnvironment()
-      );
-      accountCredentialsRepository.save(managedAccount.getName(), cloudFoundryAccountCredentials);
-    });
+  private void synchronizeRepository(
+      List<CloudFoundryConfigurationProperties.ManagedAccount> accounts) {
+    accounts.forEach(
+        managedAccount -> {
+          CloudFoundryCredentials cloudFoundryAccountCredentials =
+              new CloudFoundryCredentials(
+                  managedAccount.getName(),
+                  managedAccount.getAppsManagerUri(),
+                  managedAccount.getMetricsUri(),
+                  managedAccount.getApi(),
+                  managedAccount.getUser(),
+                  managedAccount.getPassword(),
+                  managedAccount.getEnvironment());
+          accountCredentialsRepository.save(
+              managedAccount.getName(), cloudFoundryAccountCredentials);
+        });
   }
 
   private void synchronizeAgentCache(List<Agent> addedAgents, List<String> deletedAccountNames) {
     cloudFoundryProvider.getAgents().addAll(addedAgents);
     ProviderUtils.rescheduleAgents(cloudFoundryProvider, addedAgents);
-    
+
     ProviderUtils.unscheduleAndDeregisterAgents(deletedAccountNames, catsModule);
   }
 
   private List<Agent> getAddedAgents() {
-    Set<String> existingAgentAccountNames = ProviderUtils.getScheduledAccounts(cloudFoundryProvider);
+    Set<String> existingAgentAccountNames =
+        ProviderUtils.getScheduledAccounts(cloudFoundryProvider);
 
-    Set<CloudFoundryCredentials> allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository,
-      CloudFoundryCredentials.class);
+    Set<CloudFoundryCredentials> allAccounts =
+        ProviderUtils.buildThreadSafeSetOfAccounts(
+            accountCredentialsRepository, CloudFoundryCredentials.class);
 
     return allAccounts.stream()
-      .filter(account -> !existingAgentAccountNames.contains(account.getName()))
-      .map(account -> new CloudFoundryCachingAgent(account.getName(), account.getClient(), registry))
-      .collect(Collectors.toList());
+        .filter(account -> !existingAgentAccountNames.contains(account.getName()))
+        .map(
+            account ->
+                new CloudFoundryCachingAgent(account.getName(), account.getClient(), registry))
+        .collect(Collectors.toList());
   }
 }

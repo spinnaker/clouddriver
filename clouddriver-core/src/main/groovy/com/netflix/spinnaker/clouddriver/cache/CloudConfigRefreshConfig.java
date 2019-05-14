@@ -18,38 +18,49 @@ package com.netflix.spinnaker.clouddriver.cache;
 
 import com.netflix.spinnaker.cats.cluster.DefaultAgentIntervalProvider;
 import com.netflix.spinnaker.clouddriver.refresh.CloudConfigRefreshScheduler;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.context.refresh.ContextRefresher;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
+import org.springframework.context.annotation.*;
+import org.springframework.core.type.AnnotatedTypeMetadata;
 
 /**
- * Create a {@link CloudConfigRefreshScheduler} to refresh the Spring Cloud Config Server
- * from an environment repository backend on a schedule that matches the cache refresh
- * schedule.
- *
- * The specified {@code @Profile}s are used by Spring Cloud Config Server to indicate which
- * environment repository backend(s) are used. Only configure a {@link CloudConfigRefreshScheduler}
- * if at least one Spring Cloud Config Server profile is active.
+ * Create a {@link CloudConfigRefreshScheduler} to refresh the Spring Cloud Config Server from an
+ * environment repository backend on a schedule that matches the cache refresh schedule.
  */
 @Configuration
 @AutoConfigureAfter({RedisCacheConfig.class, DynomiteCacheConfig.class})
-@Profile({"git", "vault", "jdbc", "credhub", "composite"})
+@Conditional(RemoteConfigSourceConfigured.class)
 public class CloudConfigRefreshConfig {
 
   @Bean
   @ConditionalOnBean(DefaultAgentIntervalProvider.class)
-  public CloudConfigRefreshScheduler intervalProviderConfigRefreshScheduler(ContextRefresher contextRefresher,
-                                                                            DefaultAgentIntervalProvider agentIntervalProvider) {
+  public CloudConfigRefreshScheduler intervalProviderConfigRefreshScheduler(
+      ContextRefresher contextRefresher, DefaultAgentIntervalProvider agentIntervalProvider) {
     return new CloudConfigRefreshScheduler(contextRefresher, agentIntervalProvider.getInterval());
   }
 
   @Bean
   @ConditionalOnMissingBean(DefaultAgentIntervalProvider.class)
-  public CloudConfigRefreshScheduler defaultIntervalConfigRefreshScheduler(ContextRefresher contextRefresher) {
+  public CloudConfigRefreshScheduler defaultIntervalConfigRefreshScheduler(
+      ContextRefresher contextRefresher) {
     return new CloudConfigRefreshScheduler(contextRefresher, 60);
+  }
+}
+
+class RemoteConfigSourceConfigured implements Condition {
+  @Override
+  public boolean matches(ConditionContext context, @NotNull AnnotatedTypeMetadata metadata) {
+    ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
+    if (beanFactory != null) {
+      return beanFactory.containsBean("git-env-repo0")
+          || beanFactory.containsBean("vault-env-repo0")
+          || beanFactory.containsBean("jdbc-env-repo0")
+          || beanFactory.containsBean("credhub-env-repo0");
+    }
+    return false;
   }
 }

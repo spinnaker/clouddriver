@@ -17,10 +17,9 @@
 package com.netflix.spinnaker.clouddriver.refresh;
 
 import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
-import org.springframework.cloud.context.refresh.ContextRefresher;
-
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.springframework.cloud.context.refresh.ContextRefresher;
 
 /**
  * Refresh the Spring Cloud Config context on a schedule. The configured interval should
@@ -32,8 +31,9 @@ public class CloudConfigRefreshScheduler implements Runnable {
   public CloudConfigRefreshScheduler(ContextRefresher contextRefresher, long interval) {
     this.contextRefresher = contextRefresher;
 
-    Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(CloudConfigRefreshScheduler.class.getSimpleName()))
-      .scheduleAtFixedRate(this, interval, interval, TimeUnit.SECONDS);
+    Executors.newSingleThreadScheduledExecutor(
+            new NamedThreadFactory(CloudConfigRefreshScheduler.class.getSimpleName()))
+        .scheduleAtFixedRate(this, interval, interval, TimeUnit.SECONDS);
   }
 
   @Override

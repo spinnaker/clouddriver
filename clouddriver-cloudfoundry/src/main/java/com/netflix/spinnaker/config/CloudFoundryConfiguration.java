@@ -23,15 +23,14 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvi
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentialsSynchronizer;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
+import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
-
-import java.util.Collections;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Configuration
 @EnableConfigurationProperties
@@ -46,13 +45,18 @@ public class CloudFoundryConfiguration {
   }
 
   @Bean
-  CloudFoundryCredentialsSynchronizer cloudFoundryCredentialsSynchronizer(CloudFoundryProvider cloudFoundryProvider,
-                                                                          CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties,
-                                                                          AccountCredentialsRepository accountCredentialsRepository,
-                                                                          CatsModule catsModule,
-                                                                          Registry registry) {
-    return new CloudFoundryCredentialsSynchronizer(cloudFoundryProvider, cloudFoundryConfigurationProperties,
-      accountCredentialsRepository, catsModule, registry);
+  CloudFoundryCredentialsSynchronizer cloudFoundryCredentialsSynchronizer(
+      CloudFoundryProvider cloudFoundryProvider,
+      CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties,
+      AccountCredentialsRepository accountCredentialsRepository,
+      CatsModule catsModule,
+      Registry registry) {
+    return new CloudFoundryCredentialsSynchronizer(
+        cloudFoundryProvider,
+        cloudFoundryConfigurationProperties,
+        accountCredentialsRepository,
+        catsModule,
+        registry);
   }
 
   @Bean
@@ -65,14 +69,5 @@ public class CloudFoundryConfiguration {
     return new OperationPoller(
         properties.getAsyncOperationTimeoutMillisecondsDefault(),
         properties.getAsyncOperationMaxPollingIntervalMilliseconds());
-  }
-
-  public static class CloudFoundryProviderSynchronizer {}
-
-  class CloudFoundrySynchronizerTypeWrapper implements ProviderSynchronizerTypeWrapper {
-    @Override
-    public Class getSynchronizerType() {
-      return CloudFoundryProviderSynchronizer.class;
-    }
   }
 }

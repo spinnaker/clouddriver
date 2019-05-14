@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.security;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.*;
 import com.netflix.spinnaker.cats.module.CatsModule;
@@ -28,25 +31,22 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class CloudFoundryCredentialsSynchronizerTest {
   private CloudFoundryCredentialsSynchronizer synchronizer;
 
   private final CloudFoundryConfigurationProperties configurationProperties =
-    new CloudFoundryConfigurationProperties();
-  private final AccountCredentialsRepository repository = new MapBackedAccountCredentialsRepository();
+      new CloudFoundryConfigurationProperties();
+  private final AccountCredentialsRepository repository =
+      new MapBackedAccountCredentialsRepository();
 
   private final CloudFoundryProvider provider = new CloudFoundryProvider(new ArrayList<>());
   private final TestAgentScheduler scheduler = new TestAgentScheduler();
@@ -62,8 +62,9 @@ class CloudFoundryCredentialsSynchronizerTest {
 
     provider.setAgentScheduler(scheduler);
 
-    synchronizer = new CloudFoundryCredentialsSynchronizer(provider, configurationProperties,
-      repository, catsModule, registry);
+    synchronizer =
+        new CloudFoundryCredentialsSynchronizer(
+            provider, configurationProperties, repository, catsModule, registry);
   }
 
   @Test
@@ -75,7 +76,9 @@ class CloudFoundryCredentialsSynchronizerTest {
     synchronizer.synchronize();
 
     assertThat(repository.getAll()).hasSize(1);
-    assertThat(repository.getOne("test1")).isNotNull().hasFieldOrPropertyWithValue("environment", "updated");
+    assertThat(repository.getOne("test1"))
+        .isNotNull()
+        .hasFieldOrPropertyWithValue("environment", "updated");
   }
 
   @Test
@@ -87,28 +90,27 @@ class CloudFoundryCredentialsSynchronizerTest {
 
     loadProviderFromRepository();
 
-    configurationProperties.setAccounts(Arrays.asList(
-      createAccount(2),
-      createAccount(3),
-      createAccount(5)));
+    configurationProperties.setAccounts(
+        Arrays.asList(createAccount(2), createAccount(3), createAccount(5)));
 
     synchronizer.synchronize();
 
     assertThat(repository.getAll()).hasSize(3);
     assertThat(repository.getAll())
-      .extracting(AccountCredentials::getName)
-      .containsExactlyInAnyOrder("test2", "test3", "test5");
+        .extracting(AccountCredentials::getName)
+        .containsExactlyInAnyOrder("test2", "test3", "test5");
 
     assertThat(provider.getAgents()).hasSize(3);
     assertThat(ProviderUtils.getScheduledAccounts(provider))
-      .containsExactlyInAnyOrder("test2", "test3", "test5");
+        .containsExactlyInAnyOrder("test2", "test3", "test5");
 
     assertThat(scheduler.getScheduledAccountNames()).containsExactly("test5");
     assertThat(scheduler.getUnscheduledAccountNames()).containsExactlyInAnyOrder("test1", "test4");
   }
 
   private CloudFoundryConfigurationProperties.ManagedAccount createAccount(int count) {
-    CloudFoundryConfigurationProperties.ManagedAccount account = new CloudFoundryConfigurationProperties.ManagedAccount();
+    CloudFoundryConfigurationProperties.ManagedAccount account =
+        new CloudFoundryConfigurationProperties.ManagedAccount();
     account.setName("test" + count);
     account.setApi("api.test" + count);
     account.setEnvironment("updated");
@@ -121,12 +123,15 @@ class CloudFoundryCredentialsSynchronizerTest {
   }
 
   private void loadProviderFromRepository() {
-    Set<CloudFoundryCredentials> accounts = ProviderUtils.buildThreadSafeSetOfAccounts(repository,
-      CloudFoundryCredentials.class);
+    Set<CloudFoundryCredentials> accounts =
+        ProviderUtils.buildThreadSafeSetOfAccounts(repository, CloudFoundryCredentials.class);
 
-    List<CloudFoundryCachingAgent> agents = accounts.stream()
-      .map(account -> new CloudFoundryCachingAgent(account.getName(), account.getClient(), registry))
-      .collect(Collectors.toList());
+    List<CloudFoundryCachingAgent> agents =
+        accounts.stream()
+            .map(
+                account ->
+                    new CloudFoundryCachingAgent(account.getName(), account.getClient(), registry))
+            .collect(Collectors.toList());
 
     provider.getAgents().addAll(agents);
   }
@@ -136,7 +141,10 @@ class CloudFoundryCredentialsSynchronizerTest {
     private List<String> unscheduledAccountNames = new ArrayList<>();
 
     @Override
-    public void schedule(Agent agent, AgentExecution agentExecution, ExecutionInstrumentation executionInstrumentation) {
+    public void schedule(
+        Agent agent,
+        AgentExecution agentExecution,
+        ExecutionInstrumentation executionInstrumentation) {
       if (agent instanceof AccountAware) {
         scheduledAccountNames.add(((AccountAware) agent).getAccountName());
       }
