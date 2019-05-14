@@ -92,21 +92,9 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
       it.attributes.processedCount = (it.attributes.processedCount ?: 0) + 1
     }
 
-    def cacheServerGroups = result.cacheResults[AZURE_SERVER_GROUPS.ns]
+    removeDeadCacheEntries(result, providerCache)
 
-    if (cacheServerGroups) {
-      cacheServerGroups.each { cacheServerGroup ->
-        if(!cacheServerGroup.relationships.containsKey(AZURE_INSTANCES.ns)) {
-          def serverGroupName = cacheServerGroup.attributes.serverGroup.name
-          removeDeadCacheEntries(result, providerCache, serverGroupName)
-        }
-      }
-
-      result
-    } else {
-      // run the cache cleanup routine on an empty server group list only for now
-      removeDeadCacheEntries(result, providerCache)
-    }
+    result
   }
 
   CacheResult removeDeadCacheEntries(CacheResult cacheResult, ProviderCache providerCache, String serverGroupName = "*") {
@@ -119,6 +107,7 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
         null
       }
     }
+    evictedSGList.removeAll(Collections.singleton(null))
     if (evictedSGList) {
       cacheResult.evictions[AZURE_SERVER_GROUPS.ns] = evictedSGList
     }
@@ -132,6 +121,7 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
         null
       }
     }
+    evictedInstanceList.removeAll(Collections.singleton(null))
     if (evictedInstanceList) {
       cacheResult.evictions[AZURE_INSTANCES.ns] = evictedInstanceList
     }

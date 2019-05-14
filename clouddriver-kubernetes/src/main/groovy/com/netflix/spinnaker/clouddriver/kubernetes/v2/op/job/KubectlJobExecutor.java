@@ -50,7 +50,7 @@ public class KubectlJobExecutor {
   @Value("${kubernetes.kubectl.executable:kubectl}")
   String executable;
 
-  @Value("${kubernetes.oAuth.executable:oauth2l}")
+  @Value("${kubernetes.o-auth.executable:oauth2l}")
   String oAuthExecutable;
 
   private final static String NO_RESOURCE_TYPE_ERROR = "doesn't have a resource type";
@@ -368,6 +368,28 @@ public class KubectlJobExecutor {
     return null;
   }
 
+  public Void replace(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+    List<String> command = kubectlAuthPrefix(credentials);
+
+    String manifestAsJson = gson.toJson(manifest);
+
+    // Read from stdin
+    command.add("replace");
+    command.add("-f");
+    command.add("-");
+
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(
+      command,
+      new ByteArrayInputStream(manifestAsJson.getBytes())
+    ));
+
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException("Replace failed: " + status.getError());
+    }
+
+    return null;
+  }
+
   private void logDebugMessages(String jobId, JobResult<String> jobResult) {
     if (jobResult != null) {
       log.info("{} stdout:\n{}", jobId, jobResult.getOutput());
@@ -467,10 +489,14 @@ public class KubectlJobExecutor {
     return status.getOutput();
   }
 
-  public Collection<KubernetesPodMetric> topPod(KubernetesV2Credentials credentials, String namespace) {
+  public Collection<KubernetesPodMetric> topPod(KubernetesV2Credentials credentials,
+    String namespace, String pod) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
     command.add("top");
     command.add("po");
+    if (pod != null) {
+      command.add(pod);
+    }
     command.add("--containers");
 
 

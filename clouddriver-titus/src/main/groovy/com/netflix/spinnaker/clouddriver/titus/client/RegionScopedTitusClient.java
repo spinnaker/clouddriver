@@ -28,8 +28,9 @@ import com.netflix.spinnaker.clouddriver.titus.client.model.Task;
 import com.netflix.spinnaker.kork.core.RetrySupport;
 import com.netflix.titus.grpc.protogen.*;
 import io.grpc.Status;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.util.*;
@@ -39,8 +40,9 @@ import java.util.stream.Collectors;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 
-@Slf4j
 public class RegionScopedTitusClient implements TitusClient {
+
+  private final Logger log = LoggerFactory.getLogger(getClass());
 
   /**
    * Default connect timeout in milliseconds
@@ -177,6 +179,16 @@ public class RegionScopedTitusClient implements TitusClient {
     // new Task(grpcBlockingStub.findTask(taskId));
     // return new Task(grpcBlockingStub.findTask(com.netflix.titus.grpc.protogen.TaskId.newBuilder().setId(taskId).build()));
     return null;
+  }
+
+  @Override
+  public void updateDisruptionBudget(JobDisruptionBudgetUpdateRequest request) {
+    JobDisruptionBudget disruptionBudget =  DisruptionBudgetHelper.convertJobDisruptionBudget(request.getDisruptionBudget());
+    TitusClientAuthenticationUtil.attachCaller(grpcBlockingStub).updateJobDisruptionBudget(JobDisruptionBudgetUpdate.newBuilder()
+      .setDisruptionBudget(disruptionBudget)
+      .setJobId(request.getJobId()
+      ).build()
+    );
   }
 
   @Override

@@ -98,6 +98,8 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
     Set<Artifact> boundArtifacts = new HashSet<>();
 
+    validateManifestsForRolloutStrategies(inputManifests);
+
     for (KubernetesManifest manifest : inputManifests) {
       if (StringUtils.isEmpty(manifest.getNamespace()) && manifest.getKind().isNamespaced()) {
         manifest.setNamespace(credentials.getDefaultNamespace());
@@ -111,6 +113,8 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       if (deployer == null) {
         throw new IllegalArgumentException("No deployer available for Kubernetes object kind '" + manifest.getKind().toString() + "', unable to continue.");
       }
+
+      KubernetesManifestAnnotater.validateAnnotationsForRolloutStrategies(manifest, description.getStrategy());
 
       getTask().updateStatus(OP_NAME, "Swapping out artifacts in " + manifest.getFullResourceName() + " from context...");
       ReplaceResult replaceResult = deployer.replaceArtifacts(manifest, artifacts, description.getAccount());
@@ -137,6 +141,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       boolean versioned = isVersioned(properties, strategy);
       boolean useSourceCapacity = isUseSourceCapacity(strategy);
       boolean recreate = isRecreate(strategy);
+      boolean replace = isReplace(strategy);
 
       KubernetesArtifactConverter converter = versioned ? properties.getVersionedConverter() : properties.getUnversionedConverter();
       KubernetesHandler deployer = properties.getHandler();
@@ -183,7 +188,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
       getTask().updateStatus(OP_NAME, "Submitting manifest " + manifest.getFullResourceName() + " to kubernetes master...");
       log.debug("Manifest in {} to be deployed: {}", accountName, manifest);
-      result.merge(deployer.deploy(credentials, manifest, recreate));
+      result.merge(deployer.deploy(credentials, manifest, recreate, replace));
 
       result.getCreatedArtifacts().add(artifact);
     }
@@ -205,6 +210,14 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
   private void applyTraffic(KubernetesManifestTraffic traffic, KubernetesManifest target) {
     traffic.getLoadBalancers().forEach(l -> attachLoadBalancer(l, target));
+  }
+
+  private void validateManifestsForRolloutStrategies(List<KubernetesManifest> manifests) {
+    if (description.getStrategy() != null && (manifests.size() != 1 || manifests.get(0).getKind() != KubernetesKind.REPLICA_SET)) {
+      throw new RuntimeException(
+        "Spinnaker can manage traffic for ReplicaSets only. Please deploy exactly one ReplicaSet manifest or disable rollout strategies."
+      );
+    }
   }
 
   private void attachLoadBalancer(String loadBalancerName, KubernetesManifest target) {
@@ -242,6 +255,10 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
   private boolean isRecreate(KubernetesManifestStrategy strategy) {
     return strategy.getRecreate() != null ? strategy.getRecreate() : false;
+  }
+
+  private boolean isReplace(KubernetesManifestStrategy strategy) {
+    return strategy.getReplace() != null ? strategy.getReplace() : false;
   }
 
   private boolean isUseSourceCapacity(KubernetesManifestStrategy strategy) {

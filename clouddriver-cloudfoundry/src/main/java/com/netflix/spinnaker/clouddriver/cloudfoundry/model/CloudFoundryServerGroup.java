@@ -100,6 +100,9 @@ public class CloudFoundryServerGroup extends CloudFoundryModel implements Server
   @JsonView(Views.Cache.class)
   List<CloudFoundryServiceInstance> serviceInstances;
 
+  @JsonView(Views.Cache.class)
+  CloudFoundryBuildInfo ciBuild;
+
   @Wither
   @JsonView(Views.Relationship.class)
   Set<CloudFoundryInstance> instances;
@@ -165,7 +168,8 @@ public class CloudFoundryServerGroup extends CloudFoundryModel implements Server
       "metricsUri", metricsUri,
       "droplet", droplet,
       "id", id,
-      "serviceInstances", serviceInstances)
+      "serviceInstances", serviceInstances,
+      "ciBuild", ciBuild)
       .toJavaMap();
   }
 

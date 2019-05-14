@@ -26,7 +26,7 @@ import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.UpsertLambdaFunctionAliasDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.amazonaws.services.lambda.model.AliasConfiguration;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
 
@@ -40,19 +40,21 @@ public class UpsertLambdaAliasAtomicOperation
 
   @Override
   public Object operate(List priorOutputs) {
-    LambdaFunction lambdaFunction = (LambdaFunction) lambdaFunctionProvider.getFunction(
-      description.getAccount(), description.getRegion(), description.getFunctionName()
-    );
 
+    String functionName = description.getFunctionName();
+    String region = description.getRegion();
+    String account = description.getAccount();
+    LambdaFunction cache = (LambdaFunction) lambdaFunctionProvider.getFunction(account, region, functionName);
+    List<AliasConfiguration> aliasConfigurations  = cache.getAliasConfigurations();
     boolean aliasExists = false;
 
-    for (AliasConfiguration aliasConfiguration : lambdaFunction.getAliasConfigurations()) {
+    for (AliasConfiguration aliasConfiguration : aliasConfigurations) {
       if (aliasConfiguration.getName().equalsIgnoreCase(description.getAliasName())) {
         aliasExists = true;
       }
     }
 
-    return aliasExists ? updateAliasResult(lambdaFunction) : createAliasResult(lambdaFunction);
+    return aliasExists ? updateAliasResult(cache) : createAliasResult(cache);
   }
 
   private UpdateAliasResult updateAliasResult(LambdaFunction cache) {
