@@ -6,12 +6,12 @@ if (gradle.includedCloudProviderProjects.contains(':clouddriver-oracle')) {
 }
 
 ext {
-  springConfigLocation = System.getProperty('spring.config.location', "${System.getProperty('user.home')}/.spinnaker/")
+  springConfigLocation = System.getProperty('spring.config.additional-location', "${System.getProperty('user.home')}/.spinnaker/")
 }
 
 mainClassName = 'com.netflix.spinnaker.clouddriver.Main'
 run {
-  systemProperty('spring.config.location', project.springConfigLocation)
+  systemProperty('spring.config.additional-location', project.springConfigLocation)
 }
 
 configurations.all {
@@ -30,7 +30,7 @@ dependencies {
   implementation project(":clouddriver-security")
   implementation project(":clouddriver-sql-mysql")
 
-  
+
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
@@ -50,7 +50,7 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-starter-actuator"
   implementation "org.springframework.boot:spring-boot-starter-json"
   implementation "org.springframework.boot:spring-boot-starter-web"
-  
+
   testImplementation project(":clouddriver-elasticsearch")
 
   testImplementation "org.springframework.boot:spring-boot-starter-test"
@@ -61,4 +61,3 @@ dependencies {
     implementation project(":${it}")
   }
 }
-
