@@ -58,7 +58,7 @@ class RemoteConfigSourceConfigured implements Condition {
     if (beanFactory != null) {
       return
       // beans added via Spring Cloud Config profile activation
-      beanFactory.containsBean("gitEnvironmentRepository")
+      beanFactory.containsBean("defaultEnvironmentRepository")
           || beanFactory.containsBean("vaultEnvironmentRepository")
           || beanFactory.containsBean("jdbcEnvironmentRepository")
           || beanFactory.containsBean("credhubEnvironmentRepository")

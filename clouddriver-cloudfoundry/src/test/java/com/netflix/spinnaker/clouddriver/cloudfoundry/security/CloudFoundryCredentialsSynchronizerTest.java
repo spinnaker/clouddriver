@@ -68,58 +68,54 @@ class CloudFoundryCredentialsSynchronizerTest {
   }
 
   @Test
-  void synchronizeWhenUpdating() {
-    repository.save("test1", createCredentials(1));
-
-    configurationProperties.setAccounts(Collections.singletonList(createAccount(1)));
-
-    synchronizer.synchronize();
-
-    assertThat(repository.getAll()).hasSize(1);
-    assertThat(repository.getOne("test1"))
-        .isNotNull()
-        .hasFieldOrPropertyWithValue("environment", "updated");
-  }
-
-  @Test
-  void synchronizeWhenAddingAndDeleting() {
-    repository.save("test1", createCredentials(1));
-    repository.save("test2", createCredentials(2));
-    repository.save("test3", createCredentials(3));
-    repository.save("test4", createCredentials(4));
+  void synchronize() {
+    repository.save("to-be-changed", createCredentials("to-be-changed"));
+    repository.save("unchanged2", createCredentials("unchanged2"));
+    repository.save("unchanged3", createCredentials("unchanged3"));
+    repository.save("to-be-deleted", createCredentials("to-be-deleted"));
 
     loadProviderFromRepository();
 
+    CloudFoundryConfigurationProperties.ManagedAccount changedAccount =
+        createAccount("to-be-changed");
+    changedAccount.setPassword("newpassword");
+
     configurationProperties.setAccounts(
-        Arrays.asList(createAccount(2), createAccount(3), createAccount(5)));
+        Arrays.asList(
+            createAccount("unchanged2"),
+            createAccount("unchanged3"),
+            createAccount("added"),
+            changedAccount));
 
     synchronizer.synchronize();
 
-    assertThat(repository.getAll()).hasSize(3);
     assertThat(repository.getAll())
         .extracting(AccountCredentials::getName)
-        .containsExactlyInAnyOrder("test2", "test3", "test5");
+        .containsExactlyInAnyOrder("unchanged2", "unchanged3", "added", "to-be-changed");
 
-    assertThat(provider.getAgents()).hasSize(3);
     assertThat(ProviderUtils.getScheduledAccounts(provider))
-        .containsExactlyInAnyOrder("test2", "test3", "test5");
+        .containsExactlyInAnyOrder("unchanged2", "unchanged3", "added", "to-be-changed");
 
-    assertThat(scheduler.getScheduledAccountNames()).containsExactly("test5");
-    assertThat(scheduler.getUnscheduledAccountNames()).containsExactlyInAnyOrder("test1", "test4");
+    assertThat(scheduler.getScheduledAccountNames())
+        .containsExactlyInAnyOrder("added", "to-be-changed");
+    assertThat(scheduler.getUnscheduledAccountNames())
+        .containsExactlyInAnyOrder("to-be-changed", "to-be-deleted");
   }
 
-  private CloudFoundryConfigurationProperties.ManagedAccount createAccount(int count) {
+  private CloudFoundryConfigurationProperties.ManagedAccount createAccount(String name) {
     CloudFoundryConfigurationProperties.ManagedAccount account =
         new CloudFoundryConfigurationProperties.ManagedAccount();
-    account.setName("test" + count);
-    account.setApi("api.test" + count);
-    account.setEnvironment("updated");
+    account.setName(name);
+    account.setApi("api." + name);
+    account.setUser("user-" + name);
+    account.setPassword("pwd-" + name);
 
     return account;
   }
 
-  private CloudFoundryCredentials createCredentials(int count) {
-    return new CloudFoundryCredentials("test" + count, "", "", "", "", "", "existing");
+  private CloudFoundryCredentials createCredentials(String name) {
+    return new CloudFoundryCredentials(
+        name, null, null, "api." + name, "user-" + name, "pwd-" + name, null);
   }
 
   private void loadProviderFromRepository() {

@@ -22,9 +22,11 @@ import com.netflix.spinnaker.cats.module.CatsModule;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent.CloudFoundryCachingAgent;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -53,25 +55,28 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
 
   @Override
   @PostConstruct
-  @SuppressWarnings("unchecked")
   public void synchronize() {
-    List<?> deltas =
-        ProviderUtils.calculateAccountDeltas(
-            accountCredentialsRepository,
-            CloudFoundryCredentials.class,
-            cloudFoundryConfigurationProperties.getAccounts());
+    List<String> deletedAccountNames =
+        getDeletedAccountNames(accountCredentialsRepository, cloudFoundryConfigurationProperties);
 
-    List<String> deletedAccountNames = (List<String>) deltas.get(1);
+    List<String> changedAccountNames =
+        synchronizeRepository(
+            cloudFoundryConfigurationProperties.getAccounts(), deletedAccountNames);
 
-    synchronizeRepository(cloudFoundryConfigurationProperties.getAccounts());
-    synchronizeAgentCache(getAddedAgents(), deletedAccountNames);
+    synchronizeAgentCache(changedAccountNames, deletedAccountNames);
   }
 
-  private void synchronizeRepository(
-      List<CloudFoundryConfigurationProperties.ManagedAccount> accounts) {
+  private List<String> synchronizeRepository(
+      List<CloudFoundryConfigurationProperties.ManagedAccount> accounts,
+      List<String> deletedAccountNames) {
+
+    List<String> changedAccountNames = new ArrayList<>();
+
+    deletedAccountNames.forEach(accountCredentialsRepository::delete);
+
     accounts.forEach(
         managedAccount -> {
-          CloudFoundryCredentials cloudFoundryAccountCredentials =
+          CloudFoundryCredentials credentials =
               new CloudFoundryCredentials(
                   managedAccount.getName(),
                   managedAccount.getAppsManagerUri(),
@@ -80,16 +85,50 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
                   managedAccount.getUser(),
                   managedAccount.getPassword(),
                   managedAccount.getEnvironment());
-          accountCredentialsRepository.save(
-              managedAccount.getName(), cloudFoundryAccountCredentials);
+
+          AccountCredentials existingCredentials =
+              accountCredentialsRepository.getOne(credentials.getName());
+          if (existingCredentials != null) {
+            if (!existingCredentials.equals(credentials)) {
+              accountCredentialsRepository.save(managedAccount.getName(), credentials);
+
+              changedAccountNames.add(managedAccount.getName());
+            }
+          } else {
+            accountCredentialsRepository.save(managedAccount.getName(), credentials);
+          }
         });
+
+    return changedAccountNames;
   }
 
-  private void synchronizeAgentCache(List<Agent> addedAgents, List<String> deletedAccountNames) {
+  private void synchronizeAgentCache(
+      List<String> changedAccountNames, List<String> deletedAccountNames) {
+    ProviderUtils.unscheduleAndDeregisterAgents(changedAccountNames, catsModule);
+    ProviderUtils.unscheduleAndDeregisterAgents(deletedAccountNames, catsModule);
+
+    List<Agent> addedAgents = getAddedAgents();
+
     cloudFoundryProvider.getAgents().addAll(addedAgents);
     ProviderUtils.rescheduleAgents(cloudFoundryProvider, addedAgents);
+  }
 
-    ProviderUtils.unscheduleAndDeregisterAgents(deletedAccountNames, catsModule);
+  private List<String> getDeletedAccountNames(
+      AccountCredentialsRepository accountCredentialsRepository,
+      CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties) {
+    List<String> existingNames =
+        accountCredentialsRepository.getAll().stream()
+            .map(AccountCredentials::getName)
+            .collect(Collectors.toList());
+
+    List<String> newNames =
+        cloudFoundryConfigurationProperties.getAccounts().stream()
+            .map(CloudFoundryConfigurationProperties.ManagedAccount::getName)
+            .collect(Collectors.toList());
+
+    return existingNames.stream()
+        .filter(name -> !newNames.contains(name))
+        .collect(Collectors.toList());
   }
 
   private List<Agent> getAddedAgents() {
