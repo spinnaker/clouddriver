@@ -382,7 +382,6 @@ class AzureServerGroupResourceTemplate {
 
       if(description.enableInboundNAT){
         tags.enableInboundNAT = description.enableInboundNAT ? "true" : "false"
-        tags.loadBalancerName = LB_NAME
         this.dependsOn.add("[concat('Microsoft.Network/loadBalancers/', variables('loadBalancerName'))]")
       }
 
@@ -799,6 +798,8 @@ class AzureServerGroupResourceTemplate {
       tags.stack = description.stack
       tags.detail = description.detail
       tags.createdTime = currentTime.toString()
+      // Mark self as an internal load balancer only for instance access
+      tags.internal = "1"
       if (description.clusterName) tags.cluster = description.clusterName
       if (description.name) tags.serverGroup = description.name
       if (description.securityGroupName) tags.securityGroupName = description.securityGroupName

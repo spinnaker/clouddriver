@@ -36,6 +36,7 @@ class AzureLoadBalancerDescription extends AzureResourceOpsDescription {
   List<String> serverGroups
   String appName
   String sessionPersistence
+  boolean internal
   List<AzureLoadBalancerProbe> probes = []
   List<AzureLoadBalancingRule> loadBalancingRules = []
   List<AzureLoadBalancerInboundNATRule> inboundNATRules = []
@@ -92,6 +93,7 @@ class AzureLoadBalancerDescription extends AzureResourceOpsDescription {
     description.createdTime = azureLoadBalancer.tags?.createdTime?.toLong()
     description.tags.putAll(azureLoadBalancer.tags)
     description.region = azureLoadBalancer.location()
+    description.internal = azureLoadBalancer.tags?.internal != null
 
     // Each load balancer backend address pool corresponds to a server group (except the "default_LB_BAP")
     description.serverGroups = []
