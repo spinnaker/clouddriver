@@ -179,14 +179,18 @@ public class Job {
 
     if (grpcJob.getJobDescriptor().getService().getServiceJobProcesses() != null) {
       serviceJobProcesses = new ServiceJobProcesses();
-      serviceJobProcesses.setDisableDecreaseDesired(grpcJob.getJobDescriptor().getService()
-        .getServiceJobProcesses()
-        .getDisableDecreaseDesired()
-      );
-      serviceJobProcesses.setDisableIncreaseDesired(grpcJob.getJobDescriptor().getService()
-        .getServiceJobProcesses()
-        .getDisableIncreaseDesired()
-      );
+      serviceJobProcesses.setDisableDecreaseDesired(
+          grpcJob
+              .getJobDescriptor()
+              .getService()
+              .getServiceJobProcesses()
+              .getDisableDecreaseDesired());
+      serviceJobProcesses.setDisableIncreaseDesired(
+          grpcJob
+              .getJobDescriptor()
+              .getService()
+              .getServiceJobProcesses()
+              .getDisableIncreaseDesired());
     }
   }
 
