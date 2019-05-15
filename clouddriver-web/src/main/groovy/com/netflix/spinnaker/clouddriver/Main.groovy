@@ -61,12 +61,15 @@ import java.security.Security
 class Main extends SpringBootServletInitializer {
 
   private static final Map<String, String> DEFAULT_PROPS = [
-    'netflix.environment'    : 'test',
-    'netflix.account'        : '${netflix.environment}',
-    'netflix.stack'          : 'test',
+    'netflix.environment'     : 'test',
+    'netflix.account'         : '${netflix.environment}',
+    'netflix.stack'           : 'test',
     'spring.config.additional-location' : '${user.home}/.spinnaker/',
-    'spring.profiles.active' : '${netflix.environment},local,composite',
-    'spring.config.name'     : 'spinnaker,${spring.application.name}'
+    'spring.profiles.active'  : '${netflix.environment},local',
+    // add the Spring Cloud Config "composite" profile to default to a configuration
+    // source that won't prevent app startup if custom configuration is not provided
+    'spring.profiles.include' : 'composite',
+    'spring.config.name'      : 'spinnaker,${spring.application.name}'
   ]
 
   private static final Map<String, String> BOOTSTRAP_SYSTEM_PROPS = [
@@ -104,7 +107,9 @@ class Main extends SpringBootServletInitializer {
 
   @Override
   SpringApplicationBuilder configure(SpringApplicationBuilder application) {
-    application.properties(DEFAULT_PROPS).sources(Main)
+    application
+      .properties(DEFAULT_PROPS)
+      .sources(Main)
   }
 }
 

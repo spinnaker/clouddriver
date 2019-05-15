@@ -56,7 +56,14 @@ class RemoteConfigSourceConfigured implements Condition {
   public boolean matches(ConditionContext context, @NotNull AnnotatedTypeMetadata metadata) {
     ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
     if (beanFactory != null) {
-      return beanFactory.containsBean("git-env-repo0")
+      return
+      // beans added via Spring Cloud Config profile activation
+      beanFactory.containsBean("gitEnvironmentRepository")
+          || beanFactory.containsBean("vaultEnvironmentRepository")
+          || beanFactory.containsBean("jdbcEnvironmentRepository")
+          || beanFactory.containsBean("credhubEnvironmentRepository")
+          // beans added via composite Spring Cloud Config profile
+          || beanFactory.containsBean("git-env-repo0")
           || beanFactory.containsBean("vault-env-repo0")
           || beanFactory.containsBean("jdbc-env-repo0")
           || beanFactory.containsBean("credhub-env-repo0");
