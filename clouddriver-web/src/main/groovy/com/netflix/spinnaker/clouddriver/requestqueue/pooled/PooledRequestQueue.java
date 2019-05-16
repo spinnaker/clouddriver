@@ -168,7 +168,8 @@ public class PooledRequestQueue implements RequestQueue {
   public void refreshCorePoolSize() {
     int currentCorePoolSize = executorService.getCorePoolSize();
     int desiredCorePoolSize =
-        dynamicConfigService.getConfig(Integer.class, "request-queue.pool-size", defaultCorePoolSize)
+        dynamicConfigService.getConfig(
+                Integer.class, "request-queue.pool-size", defaultCorePoolSize)
             + 1;
 
     if (desiredCorePoolSize != currentCorePoolSize) {
