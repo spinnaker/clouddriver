@@ -183,23 +183,24 @@ public class DeployCloudFoundryServerGroupAtomicOperation
             .map(HashMap::new)
             .orElse(new HashMap<>());
     final Artifact applicationArtifact = description.getApplicationArtifact();
-    if (applicationArtifact != null && MavenArtifactCredentials.TYPES.contains(applicationArtifact.getType())) {
+    if (applicationArtifact != null
+        && MavenArtifactCredentials.TYPES.contains(applicationArtifact.getType())) {
       if (applicationArtifact.getVersion() != null) {
         environmentVars.put(
-          ServerGroupMetaDataEnvVar.ArtifactName.envVarName, applicationArtifact.getName());
+            ServerGroupMetaDataEnvVar.ArtifactName.envVarName, applicationArtifact.getName());
         environmentVars.put(
-          ServerGroupMetaDataEnvVar.ArtifactVersion.envVarName, applicationArtifact.getVersion());
+            ServerGroupMetaDataEnvVar.ArtifactVersion.envVarName, applicationArtifact.getVersion());
         environmentVars.put(
-          ServerGroupMetaDataEnvVar.ArtifactUrl.envVarName, applicationArtifact.getLocation());
+            ServerGroupMetaDataEnvVar.ArtifactUrl.envVarName, applicationArtifact.getLocation());
       }
       final Map<String, Object> metadata = applicationArtifact.getMetadata();
       if (metadata != null) {
         final Map<String, String> buildInfo =
-          (Map<String, String>) applicationArtifact.getMetadata().get("build");
+            (Map<String, String>) applicationArtifact.getMetadata().get("build");
         if (buildInfo != null) {
           environmentVars.put(ServerGroupMetaDataEnvVar.JobName.envVarName, buildInfo.get("name"));
           environmentVars.put(
-            ServerGroupMetaDataEnvVar.JobNumber.envVarName, buildInfo.get("number"));
+              ServerGroupMetaDataEnvVar.JobNumber.envVarName, buildInfo.get("number"));
           environmentVars.put(ServerGroupMetaDataEnvVar.JobUrl.envVarName, buildInfo.get("url"));
         }
       }
