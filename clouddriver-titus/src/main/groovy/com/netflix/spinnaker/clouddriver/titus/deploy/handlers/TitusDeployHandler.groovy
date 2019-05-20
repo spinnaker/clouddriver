@@ -313,22 +313,25 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
       submitJobRequest = submitJobRequest.withDockerImageVersion(dockerImage.imageVersion)
     }
 
-    if (description.hardConstraints) {
-      description.hardConstraints.each { constraint ->
-        submitJobRequest.withConstraint(SubmitJobRequest.Constraint.hard(constraint))
-      }
+    // constraints map takes precedence when specified in the request
+    if(description.constraints.getHardConstraints() != null || description.constraints.getSoftConstraints() != null) {
+      submitJobRequest.withConstraints(description.constraints)
     }
-
-    if (description.softConstraints) {
-      description.softConstraints.each { constraint ->
-        submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(constraint))
-      }
+    else {
+        if (description.hardConstraints) {
+          description.hardConstraints.each { constraint ->
+            submitJobRequest.withConstraint(SubmitJobRequest.Constraint.hard(constraint))
+          }
+        }
+        if (description.softConstraints) {
+          description.softConstraints.each { constraint ->
+            submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(constraint))
+          }
+        }
+        if (description.jobType == "service" && !description.hardConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE) && !description.softConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE)) {
+          submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(SubmitJobRequest.Constraint.ZONE_BALANCE))
+        }
     }
-
-    if (description.jobType == "service" && !description.hardConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE) && !description.softConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE)) {
-      submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(SubmitJobRequest.Constraint.ZONE_BALANCE))
-    }
-
     if (description.jobType) {
       submitJobRequest.withJobType(description.jobType)
     }

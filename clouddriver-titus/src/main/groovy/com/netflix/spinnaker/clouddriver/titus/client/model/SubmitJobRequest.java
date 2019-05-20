@@ -16,10 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.titus.client.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Data;
 
 public class SubmitJobRequest {
   public static class Constraint {
@@ -56,6 +58,13 @@ public class SubmitJobRequest {
     }
   }
 
+  @Data
+  public static class Constraints {
+
+    public Map hardConstraints;
+    public Map softConstraints;
+  }
+
   private String credentials;
   private String jobType;
   private String application;
@@ -90,6 +99,9 @@ public class SubmitJobRequest {
   private List<String> securityGroups = null;
   private MigrationPolicy migrationPolicy = null;
   private DisruptionBudget disruptionBudget = null;
+
+  @JsonProperty("constraints")
+  private Constraints containerConstraints = null;
 
   public DisruptionBudget getDisruptionBudget() {
     return disruptionBudget;
@@ -270,6 +282,11 @@ public class SubmitJobRequest {
     return this;
   }
 
+  public SubmitJobRequest withConstraints(Constraints constraints) {
+    this.containerConstraints = constraints;
+    return this;
+  }
+
   // Getters
 
   public String getJobType() {
@@ -406,5 +423,10 @@ public class SubmitJobRequest {
 
   public MigrationPolicy getMigrationPolicy() {
     return migrationPolicy;
+  }
+
+  @JsonProperty("constraints")
+  public Constraints getContainerConstraints() {
+    return containerConstraints;
   }
 }
