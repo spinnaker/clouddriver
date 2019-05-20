@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@ConditionalOnProperty(value = ["caching.writeEnabled"], matchIfMissing = true)
+@ConditionalOnProperty(value = ["caching.write-enabled"], matchIfMissing = true)
 class SqlAgentSchedulerConfiguration {
 
   @Bean
@@ -36,12 +36,14 @@ class SqlAgentSchedulerConfiguration {
     "sql.enabled",
     "sql.scheduler.enabled"
   ])
-  fun sqlAgentScheduler(jooq: DSLContext,
-                        agentIntervalProvider: AgentIntervalProvider,
-                        nodeStatusProvider: NodeStatusProvider,
-                        dynamicConfigService: DynamicConfigService,
-                        @Value("\${sql.tableNamespace:#{null}}") tableNamespace: String?,
-                        sqlAgentProperties: SqlAgentProperties): AgentScheduler<*> {
+  fun sqlAgentScheduler(
+    jooq: DSLContext,
+    agentIntervalProvider: AgentIntervalProvider,
+    nodeStatusProvider: NodeStatusProvider,
+    dynamicConfigService: DynamicConfigService,
+    @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?,
+    sqlAgentProperties: SqlAgentProperties
+  ): AgentScheduler<*> {
     return SqlClusteredAgentScheduler(
       jooq = jooq,
       nodeIdentity = DefaultNodeIdentity(),

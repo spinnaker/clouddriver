@@ -45,6 +45,7 @@ import com.netflix.spinnaker.clouddriver.aws.provider.agent.InstanceCachingAgent
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.LaunchConfigCachingAgent
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ReservationReportCachingAgent
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext
@@ -154,7 +155,7 @@ class AwsProviderConfig {
           newlyAddedAgents << new ReservedInstancesCachingAgent(amazonClientProvider, credentials, region.name, objectMapper, registry)
           newlyAddedAgents << new AmazonCertificateCachingAgent(amazonClientProvider, credentials, region.name, objectMapper, registry)
 
-          if (dynamicConfigService.isEnabled("aws.features.cloudFormation", false)) {
+          if (dynamicConfigService.isEnabled("aws.features.cloud-formation", false)) {
             newlyAddedAgents << new AmazonCloudFormationCachingAgent(amazonClientProvider, credentials, region.name, registry)
           }
 

@@ -17,31 +17,32 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.KubernetesV2Manifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
 @Component
 @Slf4j
 public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManifestProvider {
-  @Getter
-  final private AccountCredentialsRepository credentialsRepository;
-  @Getter
-  final private KubernetesResourcePropertyRegistry registry;
+  @Getter private final AccountCredentialsRepository credentialsRepository;
+  @Getter private final KubernetesResourcePropertyRegistry registry;
 
   @Autowired
-  public KubernetesV2LiveManifestProvider(AccountCredentialsRepository credentialsRepository, KubernetesResourcePropertyRegistry registry) {
+  public KubernetesV2LiveManifestProvider(
+      AccountCredentialsRepository credentialsRepository,
+      KubernetesResourcePropertyRegistry registry) {
     this.credentialsRepository = credentialsRepository;
     this.registry = registry;
   }
@@ -64,9 +65,18 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
     }
 
     // TODO(lwander): move to debug once early users have validated this
-    log.info("Live call to lookup manifest '{}:{}' in namespace '{}' under account '{}'", parsedName.getRight(), parsedName.getLeft(), location, account);
-    KubernetesV2Credentials credentials = getCredentials(account).orElseThrow(() -> new IllegalStateException("Already verified that credentials are relevant"));
-    KubernetesManifest manifest = credentials.get(parsedName.getLeft(), location, parsedName.getRight());
+    log.info(
+        "Live call to lookup manifest '{}:{}' in namespace '{}' under account '{}'",
+        parsedName.getRight(),
+        parsedName.getLeft(),
+        location,
+        account);
+    KubernetesV2Credentials credentials =
+        getCredentials(account)
+            .orElseThrow(
+                () -> new IllegalStateException("Already verified that credentials are relevant"));
+    KubernetesManifest manifest =
+        credentials.get(parsedName.getLeft(), location, parsedName.getRight());
     if (manifest == null) {
       return null;
     }
@@ -76,15 +86,21 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
 
     List<KubernetesManifest> events = credentials.eventsFor(kind, namespace, parsedName.getRight());
 
-    // TODO kubectl top pod <name> -n <namespace>
-    // low-priority, pipeline-only mode doesn't need to see resource usage.
-    List<Map> metrics = Collections.emptyList();
+    List<KubernetesPodMetric.ContainerMetric> metrics = Collections.emptyList();
+    if (kind == KubernetesKind.POD && credentials.isMetrics()) {
+      metrics =
+          credentials.topPod(namespace, parsedName.getRight()).stream()
+              .map(KubernetesPodMetric::getContainerMetrics)
+              .flatMap(Collection::stream)
+              .collect(Collectors.toList());
+    }
 
     return buildManifest(account, manifest, events, metrics);
   }
 
   @Override
-  public List<KubernetesV2Manifest> getClusterAndSortAscending(String account, String location, String kind, String app, String cluster, Sort sort) {
+  public List<KubernetesV2Manifest> getClusterAndSortAscending(
+      String account, String location, String kind, String app, String cluster, Sort sort) {
     return Collections.emptyList();
   }
 }

@@ -16,13 +16,10 @@
 
 package com.netflix.spinnaker.config;
 
-import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
 import com.netflix.spinnaker.clouddriver.elasticsearch.ElasticSearchEntityTagger;
 import com.netflix.spinnaker.clouddriver.elasticsearch.converters.DeleteEntityTagsAtomicOperationConverter;
 import com.netflix.spinnaker.clouddriver.elasticsearch.converters.UpsertEntityTagsAtomicOperationConverter;
 import com.netflix.spinnaker.clouddriver.elasticsearch.model.ElasticSearchEntityTagsProvider;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import com.netflix.spinnaker.kork.core.RetrySupport;
 import io.searchbox.client.JestClient;
 import io.searchbox.client.JestClientFactory;
 import io.searchbox.client.config.HttpClientConfig;
@@ -33,7 +30,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConditionalOnProperty({"elasticSearch.connection"})
+@ConditionalOnProperty({"elastic-search.connection"})
 @ComponentScan({"com.netflix.spinnaker.clouddriver.elasticsearch"})
 @EnableConfigurationProperties(ElasticSearchConfigProperties.class)
 public class ElasticSearchConfig {
@@ -43,21 +40,24 @@ public class ElasticSearchConfig {
 
     JestClientFactory factory = new JestClientFactory();
 
-    HttpClientConfig.Builder builder = new HttpClientConfig.Builder(elasticSearchConnection)
-      .readTimeout(elasticSearchConfigProperties.getReadTimeout())
-      .connTimeout(elasticSearchConfigProperties.getConnectionTimeout())
-      .multiThreaded(true);
+    HttpClientConfig.Builder builder =
+        new HttpClientConfig.Builder(elasticSearchConnection)
+            .readTimeout(elasticSearchConfigProperties.getReadTimeout())
+            .connTimeout(elasticSearchConfigProperties.getConnectionTimeout())
+            .multiThreaded(true);
 
     factory.setHttpClientConfig(builder.build());
     return factory.getObject();
   }
 
   @Bean
-  ElasticSearchEntityTagger elasticSearchEntityTagger(ElasticSearchEntityTagsProvider elasticSearchEntityTagsProvider,
-                                                      UpsertEntityTagsAtomicOperationConverter upsertEntityTagsAtomicOperationConverter,
-                                                      DeleteEntityTagsAtomicOperationConverter deleteEntityTagsAtomicOperationConverter) {
+  ElasticSearchEntityTagger elasticSearchEntityTagger(
+      ElasticSearchEntityTagsProvider elasticSearchEntityTagsProvider,
+      UpsertEntityTagsAtomicOperationConverter upsertEntityTagsAtomicOperationConverter,
+      DeleteEntityTagsAtomicOperationConverter deleteEntityTagsAtomicOperationConverter) {
     return new ElasticSearchEntityTagger(
-      elasticSearchEntityTagsProvider, upsertEntityTagsAtomicOperationConverter, deleteEntityTagsAtomicOperationConverter
-    );
+        elasticSearchEntityTagsProvider,
+        upsertEntityTagsAtomicOperationConverter,
+        deleteEntityTagsAtomicOperationConverter);
   }
 }

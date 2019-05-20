@@ -21,10 +21,7 @@ import com.netflix.spinnaker.clouddriver.google.batch.GoogleBatchRequest;
 import com.netflix.spinnaker.clouddriver.google.security.AccountForClient;
 import java.io.IOException;
 
-/**
- * This class is syntactic sugar atop the static GoogleExecutor. By making it a trait, we can wrap
- * the calls with less in-line syntax.
- */
+/** This class is syntactic sugar atop the static GoogleExecutor. */
 public interface GoogleExecutorTraits {
 
   String TAG_BATCH_CONTEXT = GoogleExecutor.getTAG_BATCH_CONTEXT();

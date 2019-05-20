@@ -16,16 +16,24 @@
 
 package com.netflix.spinnaker.clouddriver
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig
+import org.springframework.boot.actuate.autoconfigure.elasticsearch.ElasticSearchJestHealthIndicatorAutoConfiguration
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.autoconfigure.batch.BatchAutoConfiguration
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration
+import org.springframework.boot.autoconfigure.elasticsearch.jest.JestAutoConfiguration
 import org.springframework.boot.autoconfigure.groovy.template.GroovyTemplateAutoConfiguration
+import org.springframework.boot.autoconfigure.gson.GsonAutoConfiguration
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 import org.springframework.boot.builder.SpringApplicationBuilder
-import org.springframework.boot.web.support.SpringBootServletInitializer
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
+import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder
 import org.springframework.scheduling.annotation.EnableScheduling
 import sun.net.InetAddressCachePolicy
 
@@ -41,21 +49,35 @@ import java.security.Security
   'com.netflix.spinnaker.clouddriver.config'
 ])
 @EnableAutoConfiguration(exclude = [
-    BatchAutoConfiguration,
-    GroovyTemplateAutoConfiguration,
-    DataSourceAutoConfiguration
+  BatchAutoConfiguration,
+  GroovyTemplateAutoConfiguration,
+  GsonAutoConfiguration,
+  DataSourceAutoConfiguration,
+  ElasticsearchAutoConfiguration,
+  ElasticSearchJestHealthIndicatorAutoConfiguration,
+  JestAutoConfiguration
 ])
 @EnableScheduling
 class Main extends SpringBootServletInitializer {
 
-  static final Map<String, String> DEFAULT_PROPS = [
-    'netflix.environment'    : 'test',
-    'netflix.account'        : '${netflix.environment}',
-    'netflix.stack'          : 'test',
-    'spring.config.location' : '${user.home}/.spinnaker/',
-    'spring.application.name': 'clouddriver',
-    'spring.config.name'     : 'spinnaker,${spring.application.name}',
-    'spring.profiles.active' : '${netflix.environment},local'
+  private static final Map<String, String> DEFAULT_PROPS = [
+    'netflix.environment'     : 'test',
+    'netflix.account'         : '${netflix.environment}',
+    'netflix.stack'           : 'test',
+    'spring.config.additional-location' : '${user.home}/.spinnaker/',
+    'spring.profiles.active'  : '${netflix.environment},local',
+    // add the Spring Cloud Config "composite" profile to default to a configuration
+    // source that won't prevent app startup if custom configuration is not provided
+    'spring.profiles.include' : 'composite',
+    'spring.config.name'      : 'spinnaker,${spring.application.name}'
+  ]
+
+  private static final Map<String, String> BOOTSTRAP_SYSTEM_PROPS = [
+    'spring.application.name'               : 'clouddriver',
+    // default locations must be included pending the resolution of https://github.com/spring-cloud/spring-cloud-commons/issues/466
+    'spring.cloud.bootstrap.location'       : 'classpath:/,classpath:/config/,file:./,file:./config/,${user.home}/.spinnaker/',
+    'spring.cloud.bootstrap.name'           : 'spinnakerconfig,${spring.application.name}config',
+    'spring.cloud.config.server.bootstrap'  : 'true'
   ]
 
   static {
@@ -65,18 +87,29 @@ class Main extends SpringBootServletInitializer {
      */
     InetAddressCachePolicy.cachePolicy = InetAddressCachePolicy.NEVER
     Security.setProperty('networkaddress.cache.ttl', '0')
+    System.setProperty("spring.main.allow-bean-definition-overriding", "true")
   }
 
   static void main(String... args) {
-    launchArgs = args
-    new SpringApplicationBuilder().properties(DEFAULT_PROPS).sources(Main).run(args)
+    BOOTSTRAP_SYSTEM_PROPS.findAll { key, value -> !System.getProperty(key)}
+      .each { key, value -> System.setProperty(key, value)}
+    new SpringApplicationBuilder()
+      .properties(DEFAULT_PROPS)
+      .sources(Main)
+      .run(args)
+  }
+
+  @Bean
+  @Primary
+  ObjectMapper jacksonObjectMapper(Jackson2ObjectMapperBuilder builder) {
+    return builder.createXmlMapper(false).build()
   }
 
   @Override
   SpringApplicationBuilder configure(SpringApplicationBuilder application) {
-    application.properties(DEFAULT_PROPS).sources(Main)
+    application
+      .properties(DEFAULT_PROPS)
+      .sources(Main)
   }
-
-  static String[] launchArgs = []
 }
 

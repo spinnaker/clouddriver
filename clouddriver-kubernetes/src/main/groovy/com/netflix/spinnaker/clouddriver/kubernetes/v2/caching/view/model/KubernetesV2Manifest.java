@@ -17,20 +17,19 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @Data
 @Builder
@@ -46,5 +45,5 @@ public class KubernetesV2Manifest implements Manifest {
   private Set<Artifact> artifacts = new HashSet<>();
   private List<KubernetesManifest> events = new ArrayList<>();
   private List<Warning> warnings = new ArrayList<>();
-  private List<Map> metrics = new ArrayList<>();
+  private List<KubernetesPodMetric.ContainerMetric> metrics = new ArrayList<>();
 }
