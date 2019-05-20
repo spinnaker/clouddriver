@@ -31,6 +31,10 @@ import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 public final class KubernetesKind {
+  @Getter
+  private static final List<KubernetesKind> values =
+      Collections.synchronizedList(new ArrayList<>());
+
   public static KubernetesKind API_SERVICE =
       new KubernetesKind(
           "apiService", KubernetesApiGroup.APIREGISTRATION_K8S_IO, null, false, false);
@@ -117,15 +121,13 @@ public final class KubernetesKind {
   private final String name;
   private final KubernetesApiGroup apiGroup;
   private final String alias;
-  private boolean isNamespaced;
+  @Getter private final boolean isNamespaced;
   // generally reserved for workloads, can be read as "does this belong to a spinnaker cluster?"
   private final boolean hasClusterRelationship;
   // was this kind found after spinnaker started?
-  private boolean isDynamic;
+  @Getter private final boolean isDynamic;
   // was this kind added by a user in their clouddriver.yml?
-  private boolean isRegistered;
-
-  @Getter private static List<KubernetesKind> values;
+  @Getter private final boolean isRegistered;
 
   private KubernetesKind(
       String name,
@@ -144,10 +146,6 @@ public final class KubernetesKind {
       boolean hasClusterRelationship,
       boolean isDynamic,
       boolean isRegistered) {
-    if (values == null) {
-      values = Collections.synchronizedList(new ArrayList<>());
-    }
-
     this.name = name;
     this.apiGroup = apiGroup;
     this.alias = alias;
@@ -158,20 +156,8 @@ public final class KubernetesKind {
     values.add(this);
   }
 
-  public boolean isNamespaced() {
-    return this.isNamespaced;
-  }
-
   public boolean hasClusterRelationship() {
     return this.hasClusterRelationship;
-  }
-
-  public boolean isDynamic() {
-    return this.isDynamic;
-  }
-
-  public boolean isRegistered() {
-    return this.isRegistered;
   }
 
   @Override
@@ -185,10 +171,10 @@ public final class KubernetesKind {
 
   @JsonCreator
   public static KubernetesKind fromString(String name) {
-    return fromString(name, true, true);
+    return fromString(name, true);
   }
 
-  public static KubernetesKind fromString(String name, boolean registered, boolean namespaced) {
+  public static KubernetesKind fromString(String name, boolean namespaced) {
     KubernetesApiGroup apiGroup;
     String kindName;
     String[] parts = StringUtils.split(name, ".", 2);
@@ -199,7 +185,7 @@ public final class KubernetesKind {
       kindName = name;
       apiGroup = null;
     }
-    return KubernetesKind.getOrRegisterKind(kindName, registered, namespaced, apiGroup);
+    return KubernetesKind.getOrRegisterKind(kindName, true, namespaced, apiGroup);
   }
 
   public static KubernetesKind getOrRegisterKind(
