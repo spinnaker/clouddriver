@@ -20,7 +20,6 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient
-import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.model.ServiceJobProcesses
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.ServiceJobProcessesRequest
@@ -30,15 +29,8 @@ import spock.lang.Subject
 class UpdateJobProcessesAtomicOperationSpec extends Specification {
 
   TitusClient titusClient = Mock(TitusClient)
-
-  TitusClientProvider titusClientProvider = Stub(TitusClientProvider) {
-    getTitusClient(_, _) >> titusClient
-  }
-
-  NetflixTitusCredentials testCredentials = new NetflixTitusCredentials(
-      'test', 'test', 'test', [new TitusRegion('us-east-1', 'test', 'http://foo', false, false, "blah", "blah", 7104, [])], 'test', 'test', 'test', 'test', false, '', 'mainvpc', [], "", false, false, false
-  )
-
+  TitusClientProvider titusClientProvider = Stub()
+  NetflixTitusCredentials testCredentials = Stub()
   ServiceJobProcesses serviceJobProcesses = new ServiceJobProcesses(
       disableIncreaseDesired : false,
       disableDecreaseDesired : true
@@ -54,6 +46,7 @@ class UpdateJobProcessesAtomicOperationSpec extends Specification {
   def setup() {
     Task task = Mock(Task)
     TaskRepository.threadLocalTask.set(task)
+    titusClientProvider.getTitusClient(_, _) >> titusClient
   }
 
   void 'UpdateJobProcessesOperation should update Titus job successfully'() {

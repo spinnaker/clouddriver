@@ -34,7 +34,7 @@ public class UpdateTitusJobProcessesAtomicOperationConverter
     extends AbstractAtomicOperationsCredentialsSupport {
 
   private final TitusClientProvider titusClientProvider;
-  private ObjectMapper objectMapper;
+  private final ObjectMapper objectMapper;
 
   @Autowired
   UpdateTitusJobProcessesAtomicOperationConverter(
