@@ -313,7 +313,12 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
       submitJobRequest = submitJobRequest.withDockerImageVersion(dockerImage.imageVersion)
     }
 
-    // constraints map takes precedence when specified in the request
+    /**
+     * Titus api now supports the ability to set key/value for hard & soft constraints,but the original
+     * interface we supported was just a list of keys , to make this change backwards compatable
+     * we give preference to they\ constraints key/value map vs soft & hard constraints list
+      */
+
     if(description.constraints.getHard() != null || description.constraints.getSoft() != null) {
       submitJobRequest.withConstraints(description.constraints)
     }

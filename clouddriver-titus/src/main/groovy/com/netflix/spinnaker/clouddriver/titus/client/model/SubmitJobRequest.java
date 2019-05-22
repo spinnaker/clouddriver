@@ -100,7 +100,7 @@ public class SubmitJobRequest {
   private MigrationPolicy migrationPolicy = null;
   private DisruptionBudget disruptionBudget = null;
 
-  @JsonProperty("constraints")
+
   private Constraints containerConstraints = null;
 
   public DisruptionBudget getDisruptionBudget() {
@@ -425,7 +425,7 @@ public class SubmitJobRequest {
     return migrationPolicy;
   }
 
-  @JsonProperty("constraints")
+
   public Constraints getContainerConstraints() {
     return containerConstraints;
   }
