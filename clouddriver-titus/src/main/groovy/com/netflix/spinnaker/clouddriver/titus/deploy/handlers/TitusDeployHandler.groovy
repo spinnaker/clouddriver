@@ -314,7 +314,7 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
     }
 
     // constraints map takes precedence when specified in the request
-    if(description.constraints.getHardConstraints() != null || description.constraints.getSoftConstraints() != null) {
+    if(description.constraints.getHard() != null || description.constraints.getSoft() != null) {
       submitJobRequest.withConstraints(description.constraints)
     }
     else {

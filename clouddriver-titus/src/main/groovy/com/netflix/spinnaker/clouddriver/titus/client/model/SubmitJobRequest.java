@@ -61,8 +61,8 @@ public class SubmitJobRequest {
   @Data
   public static class Constraints {
 
-    public Map hardConstraints;
-    public Map softConstraints;
+    public Map hard;
+    public Map soft;
   }
 
   private String credentials;

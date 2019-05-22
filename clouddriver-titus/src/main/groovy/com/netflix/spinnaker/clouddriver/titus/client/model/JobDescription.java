@@ -515,10 +515,10 @@ public class JobDescription {
     if (constraints != null) {
       Constraints.Builder constraintsBuilder = Constraints.newBuilder();
       containerBuilder.setHardConstraints(
-          constraintsBuilder.putAllConstraints(constraints.getHardConstraints()));
+          constraintsBuilder.putAllConstraints(constraints.getHard()));
       constraintsBuilder = Constraints.newBuilder();
       containerBuilder.setSoftConstraints(
-          constraintsBuilder.putAllConstraints(constraints.getSoftConstraints()));
+          constraintsBuilder.putAllConstraints(constraints.getSoft()));
     } else {
       if (!softConstraints.isEmpty()) {
         containerBuilder.setSoftConstraints(constraintTransformer(softConstraints));

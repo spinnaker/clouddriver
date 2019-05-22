@@ -85,11 +85,11 @@ class TitusDeployHandlerSpec extends Specification {
         'k2': 123
       ],
       constraints: [
-          "softConstraints" : [
+          soft: [
             "AvailabilityZone" : "us-east-1d",
             "exclusiveHost" : "us-east-1d"
           ],
-          "hardConstraints": [
+          hard: [
             "uniqueHost" : "us-east-1d"
           ]
       ],
@@ -101,8 +101,8 @@ class TitusDeployHandlerSpec extends Specification {
     titusClient.findJobsByApplication(_) >> []
 
     SubmitJobRequest.Constraints constraints =  new SubmitJobRequest.Constraints (
-        "hardConstraints":["uniqueHost":"us-east-1d"],
-        "softConstraints": ["AvailabilityZone":"us-east-1d", "exclusiveHost":"us-east-1d"]
+        hard:["uniqueHost":"us-east-1d"],
+        soft: ["AvailabilityZone":"us-east-1d", "exclusiveHost":"us-east-1d"]
     )
 
     titusDeployHandler.deployDefaults = [
