@@ -123,13 +123,13 @@ metadata:
     def cacheData = new DefaultCacheData(id, null, relationships)
 
     when:
-    def result = KubernetesCacheDataConverter.invertRelationships(cacheData)
+    def result = KubernetesCacheDataConverter.invertRelationships([cacheData])
 
     then:
     relationships.every {
       group, keys -> keys.every {
         key -> result.find {
-          data -> data.id == key && data.relationships.get(kind.toString()) == [id]
+          data -> data.id == key && data.relationships.get(kind.toString()) == [id] as Set
         } != null
       }
     }
@@ -159,13 +159,14 @@ metadata:
     def cacheData = new DefaultCacheData(id, attributes, [:])
 
     when:
-    def result = KubernetesCacheDataConverter.getClusterRelationships(account, cacheData)
+    def result = KubernetesCacheDataConverter.getClusterRelationships(account, [cacheData])
 
     then:
-    result.id == Keys.application(application)
-    result.relationships.clusters == [
+    result.size() == 1
+    result[0].id == Keys.application(application)
+    result[0].relationships.clusters == [
         Keys.cluster(account, application, cluster)
-    ]
+    ] as Set
 
     where:
     kind                       | cluster
