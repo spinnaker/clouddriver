@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.titus.client.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -99,7 +98,6 @@ public class SubmitJobRequest {
   private List<String> securityGroups = null;
   private MigrationPolicy migrationPolicy = null;
   private DisruptionBudget disruptionBudget = null;
-
 
   private Constraints containerConstraints = null;
 
@@ -424,7 +422,6 @@ public class SubmitJobRequest {
   public MigrationPolicy getMigrationPolicy() {
     return migrationPolicy;
   }
-
 
   public Constraints getContainerConstraints() {
     return containerConstraints;
