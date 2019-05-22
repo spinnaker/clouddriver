@@ -17,39 +17,24 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
-abstract class AbstractCloudFoundryAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
+abstract class AbstractCloudFoundryAtomicOperationConverter
+    extends AbstractAtomicOperationsCredentialsSupport {
   Optional<CloudFoundrySpace> findSpace(String region, CloudFoundryClient client) {
-    CloudFoundrySpace space = CloudFoundrySpace.fromRegion(region);
-
-    // fully populates the space guid which is what Cloud Foundry's API expects as an input, not the name.
-    Optional<CloudFoundrySpace> spaceOptional = client.getOrganizations()
-      .findByName(space.getOrganization().getName())
-      .map(org -> client.getSpaces().findByName(org.getId(), space.getName()));
-
-    spaceOptional.ifPresent(spaceCase -> {
-      if (!(space.getName().equals(spaceCase.getName()) &&
-        space.getOrganization().getName().equals(spaceCase.getOrganization().getName()))) {
-        throw new CloudFoundryApiException("Org or Space name not in correct case");
-      }
-    });
-
-    return spaceOptional;
+    return client.getOrganizations().findSpaceByRegion(region);
   }
 
   protected CloudFoundryClient getClient(Map<?, ?> input) {
@@ -57,7 +42,8 @@ abstract class AbstractCloudFoundryAtomicOperationConverter extends AbstractAtom
     return credentials.getClient();
   }
 
-  void downloadAndProcessManifest(ArtifactDownloader downloader, Artifact manifest, Consumer<Map> processManifest) {
+  void downloadAndProcessManifest(
+      ArtifactDownloader downloader, Artifact manifest, Consumer<Map> processManifest) {
     try {
       InputStream manifestInput = downloader.download(manifest);
       Yaml parser = new Yaml(new SafeConstructor());

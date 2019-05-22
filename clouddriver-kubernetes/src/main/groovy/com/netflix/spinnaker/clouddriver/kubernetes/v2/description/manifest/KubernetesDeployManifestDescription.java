@@ -20,26 +20,35 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
+import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-
-import java.util.List;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class KubernetesDeployManifestDescription extends KubernetesAtomicOperationDescription {
-  @Deprecated
-  KubernetesManifest manifest;
-  List<KubernetesManifest> manifests;
-  Moniker moniker;
-  List<Artifact> requiredArtifacts;
-  List<Artifact> optionalArtifacts;
-  Boolean versioned;
-  Source source;
-  Artifact manifestArtifact;
+  @Deprecated private KubernetesManifest manifest;
+  private List<KubernetesManifest> manifests;
+  private Moniker moniker;
+  private List<Artifact> requiredArtifacts;
+  private List<Artifact> optionalArtifacts;
+  private Boolean versioned;
+  private Source source;
+  private Artifact manifestArtifact;
+  private String namespaceOverride;
+
+  private boolean enableTraffic = true;
+  private List<String> services;
+  private Strategy strategy;
 
   public enum Source {
     artifact,
     text
+  }
+
+  public enum Strategy {
+    RED_BLACK,
+    HIGHLANDER,
+    NONE
   }
 }

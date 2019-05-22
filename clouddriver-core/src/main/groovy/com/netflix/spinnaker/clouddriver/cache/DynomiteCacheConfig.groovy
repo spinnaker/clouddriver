@@ -49,7 +49,9 @@ import java.util.concurrent.TimeUnit
 
 @Configuration
 @ConditionalOnExpression("\${dynomite.enabled:false} && \${dynomite.cache.enabled:false}")
-@EnableConfigurationProperties([DynomiteConfigurationProperties, RedisConfigurationProperties, GZipCompressionStrategyProperties])
+@EnableConfigurationProperties([DynomiteConfigurationProperties.class,
+  RedisConfigurationProperties.class,
+  GZipCompressionStrategyProperties.class])
 class DynomiteCacheConfig {
 
   @Bean
@@ -58,7 +60,7 @@ class DynomiteCacheConfig {
   }
 
   @Bean
-  @ConfigurationProperties("dynomite.connectionPool")
+  @ConfigurationProperties("dynomite.connection-pool")
   ConnectionPoolConfigurationImpl connectionPoolConfiguration(DynomiteConfigurationProperties dynomiteConfigurationProperties) {
     new ConnectionPoolConfigurationImpl(dynomiteConfigurationProperties.applicationName).withHashtag("{}")
   }

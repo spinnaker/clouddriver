@@ -19,11 +19,11 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.client.api;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Organization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Page;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Resource;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Space;
+import java.util.List;
 import retrofit.http.GET;
 import retrofit.http.Path;
 import retrofit.http.Query;
-
-import java.util.List;
 
 public interface OrganizationService {
   @GET("/v2/organizations")
@@ -31,4 +31,8 @@ public interface OrganizationService {
 
   @GET("/v2/organizations/{guid}")
   Resource<Organization> findById(@Path("guid") String guid);
+
+  @GET("/v2/organizations/{guid}/spaces")
+  Page<Space> getSpaceByName(
+      @Path("guid") String guid, @Query("page") Integer page, @Query("q") List<String> query);
 }

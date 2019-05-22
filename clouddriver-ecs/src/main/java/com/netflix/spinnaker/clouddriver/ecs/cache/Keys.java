@@ -16,14 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.cache;
 
-import com.google.common.base.CaseFormat;
-import com.netflix.spinnaker.clouddriver.cache.KeyParser;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH;
 import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID;
+
+import com.google.common.base.CaseFormat;
+import com.netflix.spinnaker.clouddriver.cache.KeyParser;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Keys implements KeyParser {
   public enum Namespace {
@@ -35,7 +34,8 @@ public class Keys implements KeyParser {
     TASK_DEFINITIONS,
     ALARMS,
     SCALABLE_TARGETS,
-    SECRETS;
+    SECRETS,
+    SERVICE_DISCOVERY_REGISTRIES;
 
     public final String ns;
 
@@ -86,14 +86,14 @@ public class Keys implements KeyParser {
     result.put("type", parts[1]);
     result.put("account", parts[2]);
 
-    if(!canParse(parts[1]) && parts[1].equals(HEALTH.getNs())){
+    if (!canParse(parts[1]) && parts[1].equals(HEALTH.getNs())) {
       result.put("region", parts[3]);
       result.put("taskId", parts[4]);
       return result;
     }
 
-
-    Namespace namespace = Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]));
+    Namespace namespace =
+        Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]));
 
     if (!namespace.equals(Namespace.IAM_ROLE)) {
       result.put("region", parts[3]);
@@ -123,6 +123,9 @@ public class Keys implements KeyParser {
         break;
       case SECRETS:
         result.put("secretName", parts[4]);
+        break;
+      case SERVICE_DISCOVERY_REGISTRIES:
+        result.put("serviceId", parts[4]);
         break;
       case SCALABLE_TARGETS:
         result.put("resource", parts[4]);
@@ -155,11 +158,13 @@ public class Keys implements KeyParser {
     return buildKey(HEALTH.getNs(), account, region, taskId);
   }
 
-  public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
+  public static String getContainerInstanceKey(
+      String account, String region, String containerInstanceArn) {
     return buildKey(Namespace.CONTAINER_INSTANCES.ns, account, region, containerInstanceArn);
   }
 
-  public static String getTaskDefinitionKey(String account, String region, String taskDefinitionArn) {
+  public static String getTaskDefinitionKey(
+      String account, String region, String taskDefinitionArn) {
     return buildKey(Namespace.TASK_DEFINITIONS.ns, account, region, taskDefinitionArn);
   }
 
@@ -179,7 +184,21 @@ public class Keys implements KeyParser {
     return buildKey(Namespace.SECRETS.ns, account, region, secretName);
   }
 
-  private static String buildKey(String namespace,String account, String region, String identifier){
-    return ID + SEPARATOR + namespace + SEPARATOR + account + SEPARATOR + region + SEPARATOR + identifier;
+  public static String getServiceDiscoveryRegistryKey(
+      String account, String region, String registryId) {
+    return buildKey(Namespace.SERVICE_DISCOVERY_REGISTRIES.ns, account, region, registryId);
+  }
+
+  private static String buildKey(
+      String namespace, String account, String region, String identifier) {
+    return ID
+        + SEPARATOR
+        + namespace
+        + SEPARATOR
+        + account
+        + SEPARATOR
+        + region
+        + SEPARATOR
+        + identifier;
   }
 }

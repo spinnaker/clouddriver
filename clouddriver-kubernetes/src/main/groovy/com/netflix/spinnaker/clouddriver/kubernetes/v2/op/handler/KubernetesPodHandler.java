@@ -17,12 +17,14 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_PRIORITY;
+
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -30,11 +32,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import io.kubernetes.client.models.V1Pod;
 import io.kubernetes.client.models.V1PodStatus;
-import org.springframework.stereotype.Component;
-
 import java.util.Map;
-
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_PRIORITY;
+import org.springframework.stereotype.Component;
 
 @Component
 public class KubernetesPodHandler extends KubernetesHandler {
@@ -44,8 +43,7 @@ public class KubernetesPodHandler extends KubernetesHandler {
             .replacePath("$.spec.containers.[?( @.image == \"{%name%}\" )].image")
             .findPath("$.spec.containers.*.image")
             .type(KubernetesArtifactType.DockerImage)
-            .build()
-    );
+            .build());
   }
 
   @Override
@@ -75,33 +73,29 @@ public class KubernetesPodHandler extends KubernetesHandler {
     V1PodStatus status = pod.getStatus();
 
     if (status == null) {
-      result.unstable("No status reported yet")
-          .unavailable("No availability reported");
+      result.unstable("No status reported yet").unavailable("No availability reported");
       return result;
     }
 
     // https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
     String phase = status.getPhase();
 
-    if (phase == null ) {
-      result.unstable("No phase reported yet")
-          .unavailable("No availability reported");
+    if (phase == null) {
+      result.unstable("No phase reported yet").unavailable("No availability reported");
     } else if (phase.equals("pending")) {
-      result.unstable("Pod is 'pending'")
-          .unavailable("Pod has not been scheduled yet");
+      result.unstable("Pod is 'pending'").unavailable("Pod has not been scheduled yet");
     } else if (phase.equals("unknown")) {
-      result.unstable("Pod has 'unknown' phase")
-          .unavailable("No availability reported");
+      result.unstable("Pod has 'unknown' phase").unavailable("No availability reported");
     } else if (phase.equals("failed")) {
-      result.failed("Pod has 'failed'")
-          .unavailable("Pod is not running");
+      result.failed("Pod has 'failed'").unavailable("Pod is not running");
     }
 
     return result;
   }
 
   @Override
-  public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
+  public Map<String, Object> hydrateSearchResult(
+      Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
     Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
     result.put("instanceId", result.get("name"));
 
@@ -109,7 +103,7 @@ public class KubernetesPodHandler extends KubernetesHandler {
   }
 
   @Override
-  public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesCoreCachingAgent.class;
+  protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
+    return KubernetesCoreCachingAgent::new;
   }
 }

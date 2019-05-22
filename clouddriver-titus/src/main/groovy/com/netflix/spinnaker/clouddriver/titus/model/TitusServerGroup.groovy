@@ -21,9 +21,11 @@ import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
+import com.netflix.spinnaker.clouddriver.titus.client.model.DisruptionBudget
 import com.netflix.spinnaker.clouddriver.titus.client.model.Efs
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.client.model.MigrationPolicy
+import com.netflix.spinnaker.clouddriver.titus.client.model.ServiceJobProcesses
 
 /**
  * Equivalent of a Titus {@link com.netflix.spinnaker.clouddriver.titus.client.model.Job}
@@ -52,6 +54,7 @@ class TitusServerGroup implements ServerGroup, Serializable {
   Map containerAttributes
   Set<Instance> instances = [] as Set
   ServerGroup.Capacity capacity
+  DisruptionBudget disruptionBudget
   TitusServerGroupResources resources = new TitusServerGroupResources()
   TitusServerGroupPlacement placement = new TitusServerGroupPlacement()
   boolean disabled
@@ -61,12 +64,14 @@ class TitusServerGroup implements ServerGroup, Serializable {
   int runtimeLimitSecs
   Map buildInfo
   MigrationPolicy migrationPolicy
+  ServiceJobProcesses serviceJobProcesses
 
   TitusServerGroup() {}
 
   TitusServerGroup(Job job, String account, String region) {
     id = job.id
     name = job.name
+    disruptionBudget = job.disruptionBudget
     image << [dockerImageName: job.applicationName]
     image << [dockerImageVersion: job.version]
     image << [dockerImageDigest: job.digest]
@@ -105,6 +110,7 @@ class TitusServerGroup implements ServerGroup, Serializable {
         "digest": "${image.dockerImageDigest}".toString()
       ]
     ]
+    serviceJobProcesses = job.serviceJobProcesses
   }
 
   @Override

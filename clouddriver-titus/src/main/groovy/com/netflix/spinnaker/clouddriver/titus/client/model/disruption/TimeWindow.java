@@ -17,33 +17,15 @@
 package com.netflix.spinnaker.clouddriver.titus.client.model.disruption;
 
 import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class TimeWindow {
   List<String> days;
   List<HourlyTimeWindow> hourlyTimeWindows;
   String timeZone;
-
-  public List<String> getDays() {
-    return days;
-  }
-
-  public void setDays(List<String> days) {
-    this.days = days;
-  }
-
-  public List<HourlyTimeWindow> getHourlyTimeWindows() {
-    return hourlyTimeWindows;
-  }
-
-  public void setHourlyTimeWindows(List<HourlyTimeWindow> hourlyTimeWindows) {
-    this.hourlyTimeWindows = hourlyTimeWindows;
-  }
-
-  public String getTimeZone() {
-    return timeZone;
-  }
-
-  public void setTimeZone(String timeZone) {
-    this.timeZone = timeZone;
-  }
 }

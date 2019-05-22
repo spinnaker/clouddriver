@@ -17,11 +17,13 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
+
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -29,19 +31,12 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
 import io.kubernetes.client.models.V1beta2DaemonSet;
 import io.kubernetes.client.models.V1beta2DaemonSetStatus;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
-
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
-
 @Component
-public class KubernetesDaemonSetHandler extends KubernetesHandler implements
-    CanResize,
-    CanPauseRollout,
-    CanResumeRollout,
-    CanUndoRollout,
-    ServerGroupHandler {
+public class KubernetesDaemonSetHandler extends KubernetesHandler
+    implements CanResize, CanPauseRollout, CanResumeRollout, CanUndoRollout, ServerGroupHandler {
 
   public KubernetesDaemonSetHandler() {
     registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
@@ -74,8 +69,8 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
   }
 
   @Override
-  public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesCoreCachingAgent.class;
+  protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
+    return KubernetesCoreCachingAgent::new;
   }
 
   @Override
@@ -83,12 +78,14 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
     if (manifest.isNewerThanObservedGeneration()) {
       return (new Status()).unknown();
     }
-    V1beta2DaemonSet v1beta2DaemonSet = KubernetesCacheDataConverter.getResource(manifest, V1beta2DaemonSet.class);
+    V1beta2DaemonSet v1beta2DaemonSet =
+        KubernetesCacheDataConverter.getResource(manifest, V1beta2DaemonSet.class);
     return status(v1beta2DaemonSet);
   }
 
   @Override
-  public Map<String, Object> hydrateSearchResult(Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
+  public Map<String, Object> hydrateSearchResult(
+      Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
     Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
     result.put("serverGroup", result.get("name"));
 
@@ -100,8 +97,7 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler implements
 
     V1beta2DaemonSetStatus status = daemonSet.getStatus();
     if (status == null) {
-      result.unstable("No status reported yet")
-          .unavailable("No availability reported");
+      result.unstable("No status reported yet").unavailable("No availability reported");
       return result;
     }
 

@@ -16,27 +16,25 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.ops;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.atIndex;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessStats;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.ScaleCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import org.assertj.core.util.Lists;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.atIndex;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFoundryAtomicOperationTest {
+class ScaleCloudFoundryServerGroupAtomicOperationTest
+    extends AbstractCloudFoundryAtomicOperationTest {
   private final ScaleCloudFoundryServerGroupDescription desc;
 
   ScaleCloudFoundryServerGroupAtomicOperationTest() {
@@ -51,13 +49,15 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFound
     OperationPoller poller = mock(OperationPoller.class);
 
     //noinspection unchecked
-    when(poller.waitForOperation(any(Supplier.class), any(), anyLong(), any(), any(), any())).thenReturn(ProcessStats.State.RUNNING);
+    when(poller.waitForOperation(any(Supplier.class), any(), any(), any(), any(), any()))
+        .thenReturn(ProcessStats.State.RUNNING);
 
-    ScaleCloudFoundryServerGroupAtomicOperation op = new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
+    ScaleCloudFoundryServerGroupAtomicOperation op =
+        new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
 
     assertThat(runOperation(op).getHistory())
-      .has(status("Resizing 'myapp'"), atIndex(1))
-      .has(status("Resized 'myapp'"), atIndex(2));
+        .has(status("Resizing 'myapp'"), atIndex(1))
+        .has(status("Resized 'myapp'"), atIndex(2));
   }
 
   @Test
@@ -65,9 +65,11 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFound
     OperationPoller poller = mock(OperationPoller.class);
 
     //noinspection unchecked
-    when(poller.waitForOperation(any(Supplier.class), any(), anyLong(), any(), any(), any())).thenReturn(ProcessStats.State.CRASHED);
+    when(poller.waitForOperation(any(Supplier.class), any(), any(), any(), any(), any()))
+        .thenReturn(ProcessStats.State.CRASHED);
 
-    ScaleCloudFoundryServerGroupAtomicOperation op = new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
+    ScaleCloudFoundryServerGroupAtomicOperation op =
+        new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
 
     Task task = runOperation(op);
     List<Object> resultObjects = task.getResultObjects();
@@ -76,7 +78,9 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFound
     assertThat(o).isInstanceOf(Map.class);
     Object ex = ((Map) o).get("EXCEPTION");
     assertThat(ex).isInstanceOf(CloudFoundryApiException.class);
-    assertThat(((CloudFoundryApiException) ex).getMessage()).isEqualTo("Cloud Foundry API returned with error(s): Failed to start 'myapp' which instead crashed");
+    assertThat(((CloudFoundryApiException) ex).getMessage())
+        .isEqualTo(
+            "Cloud Foundry API returned with error(s): Failed to start 'myapp' which instead crashed");
   }
 
   @Test
@@ -85,12 +89,14 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest extends AbstractCloudFound
     OperationPoller poller = mock(OperationPoller.class);
 
     //noinspection unchecked
-    when(poller.waitForOperation(any(Supplier.class), any(), anyLong(), any(), any(), any())).thenReturn(ProcessStats.State.DOWN);
+    when(poller.waitForOperation(any(Supplier.class), any(), any(), any(), any(), any()))
+        .thenReturn(ProcessStats.State.DOWN);
 
-    ScaleCloudFoundryServerGroupAtomicOperation op = new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
+    ScaleCloudFoundryServerGroupAtomicOperation op =
+        new ScaleCloudFoundryServerGroupAtomicOperation(poller, desc);
 
     assertThat(runOperation(op).getHistory())
-      .has(status("Resizing 'myapp'"), atIndex(1))
-      .has(status("Resized 'myapp'"), atIndex(2));
+        .has(status("Resizing 'myapp'"), atIndex(1))
+        .has(status("Resized 'myapp'"), atIndex(2));
   }
 }

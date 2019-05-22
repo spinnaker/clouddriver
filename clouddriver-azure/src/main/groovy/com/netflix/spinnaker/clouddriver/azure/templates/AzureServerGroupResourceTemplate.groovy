@@ -34,13 +34,15 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
+import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancer
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
-
+import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription.AzureInboundPortConfig
 import groovy.util.logging.Slf4j
 
 @Slf4j
 class AzureServerGroupResourceTemplate {
   static final String STORAGE_ACCOUNT_SUFFIX = "sa"
+  static String LB_NAME = null
 
   protected static ObjectMapper mapper = new ObjectMapper()
     .configure(SerializationFeature.INDENT_OUTPUT, true)
@@ -55,6 +57,14 @@ class AzureServerGroupResourceTemplate {
   static String getTemplate(AzureServerGroupDescription description) {
     ServerGroupTemplate template = new ServerGroupTemplate(description)
     mapper.writeValueAsString(template)
+  }
+
+  /**
+   * Initialize variables that will be used in mulitple places
+   * @param description Azure Server Group description object
+   */
+  private static void initializeCommonVariables(AzureServerGroupDescription description) {
+    LB_NAME = AzureUtilities.LB_NAME_PREFIX + description.name
   }
 
   /**
@@ -74,11 +84,17 @@ class AzureServerGroupResourceTemplate {
      * @param description
      */
     ServerGroupTemplate(AzureServerGroupDescription description) {
+      if (description.enableInboundNAT){
+        initializeCommonVariables(description)
+        resources.add(new PublicIpResource(properties: new PublicIPPropertiesWithDns()))
+        resources.add(new LoadBalancer(description))
+      }
+
       parameters = new ServerGroupTemplateParameters()
 
       //If it's custom,
       if (description.image.isCustom) {
-        variables = new CoreServerGroupTemplateVariables()
+        variables = new CoreServerGroupTemplateVariables(description)
       } else {
         variables = new ExtendedServerGroupTemplateVariables(description)
         resources.add(new StorageAccount(description))
@@ -93,7 +109,33 @@ class AzureServerGroupResourceTemplate {
 
   static class CoreServerGroupTemplateVariables implements TemplateVariables {
     final String apiVersion = "2018-10-01"
+    String publicIPAddressName = ""
+    String publicIPAddressID = ""
+    String publicIPAddressType = ""
+    String dnsNameForLBIP = ""
+    String loadBalancerBackend = ""
+    String loadBalancerFrontEnd = ""
+    String loadBalancerName = ""
+    String loadBalancerID = ""
+    String frontEndIPConfigID = ""
+    String inboundNatPoolName = ""
+
     CoreServerGroupTemplateVariables() {}
+
+    CoreServerGroupTemplateVariables(AzureServerGroupDescription description) {
+      if(description.enableInboundNAT){
+        publicIPAddressName = AzureUtilities.PUBLICIP_NAME_PREFIX + description.name
+        publicIPAddressID = "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]"
+        publicIPAddressType = "Dynamic"
+        dnsNameForLBIP = AzureUtilities.DNS_NAME_PREFIX + description.name.toLowerCase()
+        frontEndIPConfigID = "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations/', variables('loadBalancerName'), variables('loadBalancerFrontEnd'))]"
+        loadBalancerFrontEnd = AzureUtilities.LBFRONTEND_NAME_PREFIX + description.name
+        loadBalancerBackend = AzureUtilities.LBBACKEND_NAME_PREFIX + description.name
+        loadBalancerName = LB_NAME
+        loadBalancerID = "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"
+        inboundNatPoolName = AzureUtilities.INBOUND_NATPOOL_PREFIX + description.name
+      }
+    }
   }
 
   /**
@@ -118,7 +160,8 @@ class AzureServerGroupResourceTemplate {
      * @param description
      */
     ExtendedServerGroupTemplateVariables(AzureServerGroupDescription description) {
-      super()
+      super(description)
+
       vhdContainerName = description.name.toLowerCase()
       osType = new OsType(description)
       imageReference = "[variables('osType')]"
@@ -139,11 +182,13 @@ class AzureServerGroupResourceTemplate {
    */
   static class ServerGroupTemplateParameters {
     LocationParameter location = new LocationParameter(["description": "Location to deploy"])
-    SubnetParameter subnetId = new SubnetParameter(["description": "Subnet Resource ID"])
+    SubnetParameter subnetId = new SubnetParameter(["description": "Subnet Resource ID"], "")
     AppGatewayAddressPoolParameter appGatewayAddressPoolId = new AppGatewayAddressPoolParameter(["description": "App Gateway backend address pool resource ID"])
     VMUserNameParameter vmUserName = new VMUserNameParameter(["description": "Admin username on all VMs"], "")
     VMPasswordParameter vmPassword = new VMPasswordParameter(["description": "Admin password on all VMs"], "")
     VMSshPublicKeyParameter vmSshPublicKey = new VMSshPublicKeyParameter(["description": "SSH public key on all VMs"], "")
+    LoadBalancerPoolParameter loadBalancerAddressPoolId = new LoadBalancerPoolParameter(["description": "Load balancer pool ID"], "")
+    LoadBalancerNatPoolParameter loadBalancerNatPoolId = new LoadBalancerNatPoolParameter(["description": "Load balancer NAT pool ID"], "")
 
     // The default value of custom data cannot be "" otherwise Azure service will run into error complaining "custom data must be in Base64".
     CustomDataParameter customData = new CustomDataParameter(["description":"custom data to pass down to the virtual machine(s)"], "sample custom data")
@@ -151,9 +196,9 @@ class AzureServerGroupResourceTemplate {
 
   /* Server Group Parameters */
   static String subnetParameterName = "subnetId"
-  static class SubnetParameter extends StringParameter {
-    SubnetParameter(Map<String, String> metadata) {
-      super(metadata)
+  static class SubnetParameter extends StringParameterWithDefault {
+    SubnetParameter(Map<String, String> metadata, String defaultValue) {
+      super(metadata, defaultValue)
     }
   }
 
@@ -168,6 +213,20 @@ class AzureServerGroupResourceTemplate {
   static class AppGatewayAddressPoolParameter extends StringParameter {
     AppGatewayAddressPoolParameter(Map<String, String> metadata) {
       super(metadata)
+    }
+  }
+
+  static String loadBalancerAddressPoolParameterName = "loadBalancerAddressPoolId"
+  static class LoadBalancerPoolParameter extends StringParameterWithDefault {
+    LoadBalancerPoolParameter(Map<String, String> metadata, String defaultValue) {
+      super(metadata, defaultValue)
+    }
+  }
+
+  static String loadBalancerNatPoolParameterName = "loadBalancerNatPoolId"
+  static class LoadBalancerNatPoolParameter extends StringParameterWithDefault {
+    LoadBalancerNatPoolParameter(Map<String, String> metadata, String defaultValue) {
+      super(metadata, defaultValue)
     }
   }
 
@@ -304,17 +363,27 @@ class AzureServerGroupResourceTemplate {
       def currentTime = System.currentTimeMillis()
       tags = [:]
       tags.createdTime = currentTime.toString()
+      if (description.subnetId) tags.subnetId = description.subnetId
+      if (description.securityGroupName) tags.securityGroupName = description.securityGroupName
+
       if (description.instanceTags != null) {
         tags << description.instanceTags
       }
 
       // debug only; can be removed as part of the tags cleanup
       if (description.appGatewayName) tags.appGatewayName = description.appGatewayName
+      if (description.loadBalancerName) tags.loadBalancerName = description.loadBalancerName
       // will need this when cloning a server group
       if (description.image.imageName) tags.imageName = description.image.imageName
 
       if(description.zones != null && description.zones.size() != 0) {
         zones = description.zones.asList()
+      }
+
+      if(description.enableInboundNAT){
+        tags.enableInboundNAT = description.enableInboundNAT ? "true" : "false"
+        tags.loadBalancerName = LB_NAME
+        this.dependsOn.add("[concat('Microsoft.Network/loadBalancers/', variables('loadBalancerName'))]")
       }
 
       properties = new VirtualMachineScaleSetProperty(description)
@@ -450,6 +519,7 @@ class AzureServerGroupResourceTemplate {
   static class NetworkInterfaceConfigurationProperty {
     boolean primary
     ArrayList<NetworkInterfaceIPConfiguration> ipConfigurations = []
+    NetworkSecurityGroup networkSecurityGroup
 
     /**
      *
@@ -458,6 +528,17 @@ class AzureServerGroupResourceTemplate {
     NetworkInterfaceConfigurationProperty(AzureServerGroupDescription description) {
       primary = true
       ipConfigurations.add(new NetworkInterfaceIPConfiguration(description))
+      if(description.loadBalancerType == AzureLoadBalancer.AzureLoadBalancerType.AZURE_LOAD_BALANCER.toString()) {
+        networkSecurityGroup = new NetworkSecurityGroup(description.securityGroupName)
+      }
+    }
+  }
+
+  static class NetworkSecurityGroup {
+    String id
+
+    NetworkSecurityGroup(String name) {
+      this.id = "[resourceId('Microsoft.Network/networkSecurityGroups', '${name}')]"
     }
   }
 
@@ -474,7 +555,7 @@ class AzureServerGroupResourceTemplate {
      */
     NetworkInterfaceIPConfiguration(AzureServerGroupDescription description) {
       name = AzureUtilities.IPCONFIG_NAME_PREFIX + description.getIdentifier()
-      properties = new NetworkInterfaceIPConfigurationsProperty()
+      properties = new NetworkInterfaceIPConfigurationsProperty(description)
     }
   }
 
@@ -484,14 +565,26 @@ class AzureServerGroupResourceTemplate {
   static class NetworkInterfaceIPConfigurationsProperty {
     NetworkInterfaceIPConfigurationSubnet subnet
     ArrayList<AppGatewayBackendAddressPool> ApplicationGatewayBackendAddressPools = []
+    ArrayList<LoadBalancerBackendAddressPool> loadBalancerBackendAddressPools = []
+    ArrayList<LoadBalancerInboundNatPoolId> loadBalancerInboundNatPools = []
 
     /**
      *
      * @param description
      */
-    NetworkInterfaceIPConfigurationsProperty() {
-      subnet = new NetworkInterfaceIPConfigurationSubnet()
-      ApplicationGatewayBackendAddressPools.add(new AppGatewayBackendAddressPool())
+    NetworkInterfaceIPConfigurationsProperty(AzureServerGroupDescription description) {
+      if(description.loadBalancerType == AzureLoadBalancer.AzureLoadBalancerType.AZURE_LOAD_BALANCER.toString()) {
+        subnet = new NetworkInterfaceIPConfigurationSubnet(description)
+        loadBalancerBackendAddressPools.add(new ExistLoadBalancerBackendAddressPool())
+        loadBalancerInboundNatPools.add(new ExistLoadBalancerInboundNatPoolId())
+      }else {
+        subnet = new NetworkInterfaceIPConfigurationSubnet(null)
+        if(description.enableInboundNAT) {
+          loadBalancerBackendAddressPools.add(new LoadBalancerBackendAddressPool())
+          loadBalancerInboundNatPools.add(new LoadBalancerInboundNatPoolId())
+        }
+        ApplicationGatewayBackendAddressPools.add(new AppGatewayBackendAddressPool())
+      }
     }
   }
 
@@ -501,8 +594,37 @@ class AzureServerGroupResourceTemplate {
   static class NetworkInterfaceIPConfigurationSubnet {
     String id
 
-    NetworkInterfaceIPConfigurationSubnet() {
-      id = "[parameters('${subnetParameterName}')]"
+    NetworkInterfaceIPConfigurationSubnet(AzureServerGroupDescription description) {
+      if(description == null) id = "[parameters('${subnetParameterName}')]"
+      else id = "[resourceId('Microsoft.Network/virtualNetworks/subnets', '${description.vnet}', '${description.subnet}')]"
+    }
+  }
+
+  static class LoadBalancerBackendAddressPool {
+    String id
+
+    LoadBalancerBackendAddressPool() {
+      id = "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('loadBalancerBackend'))]"
+    }
+  }
+
+  static class LoadBalancerInboundNatPoolId extends IdRef {
+    LoadBalancerInboundNatPoolId() {
+      id = "[resourceId('Microsoft.Network/loadBalancers/inboundNatPools', variables('loadBalancerName'), variables('inboundNatPoolName'))]"
+    }
+  }
+
+  static class ExistLoadBalancerBackendAddressPool {
+    String id
+
+    ExistLoadBalancerBackendAddressPool() {
+      id = "[parameters('${loadBalancerAddressPoolParameterName}')]"
+    }
+  }
+
+  static class ExistLoadBalancerInboundNatPoolId extends IdRef {
+    ExistLoadBalancerInboundNatPoolId() {
+      id = "[parameters('${loadBalancerNatPoolParameterName}')]"
     }
   }
 
@@ -659,6 +781,98 @@ class AzureServerGroupResourceTemplate {
     CustomScriptExtensionSettings(AzureServerGroupDescription description) {
       commandToExecute = description.customScriptsSettings.commandToExecute
       fileUris = description.customScriptsSettings.fileUris
+    }
+  }
+
+  /**** Load Balancer Resource ****/
+  static class LoadBalancer extends DependingResource {
+    LoadBalancerProperties properties
+
+    LoadBalancer(AzureServerGroupDescription description) {
+      apiVersion = "[variables('apiVersion')]"
+      name = "[variables('loadBalancerName')]"
+      type = "Microsoft.Network/loadBalancers"
+      location = "[parameters('${locationParameterName}')]"
+      def currentTime = System.currentTimeMillis()
+      tags = [:]
+      tags.appName = description.application
+      tags.stack = description.stack
+      tags.detail = description.detail
+      tags.createdTime = currentTime.toString()
+      if (description.clusterName) tags.cluster = description.clusterName
+      if (description.name) tags.serverGroup = description.name
+      if (description.securityGroupName) tags.securityGroupName = description.securityGroupName
+
+      this.dependsOn.add("[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]")
+
+      properties = new LoadBalancerProperties(description)
+    }
+  }
+
+  static class LoadBalancerProperties {
+    ArrayList<FrontEndIpConfiguration> frontendIPConfigurations = []
+    ArrayList<BackEndAddressPool> backendAddressPools = []
+    ArrayList<InboundNatPool> inboundNatPools = []
+
+    LoadBalancerProperties(AzureServerGroupDescription description) {
+      frontendIPConfigurations.add(new FrontEndIpConfiguration())
+      backendAddressPools.add(new BackEndAddressPool())
+      description.inboundPortConfigs?.each {
+        inboundNatPools.add(new InboundNatPool(it))
+      }
+    }
+  }
+
+  static class FrontEndIpConfiguration {
+    String name
+    FrontEndIpProperties properties
+
+    FrontEndIpConfiguration() {
+      name = "[variables('loadBalancerFrontEnd')]"
+      properties = new FrontEndIpProperties("[variables('publicIPAddressID')]")
+    }
+  }
+
+  static class FrontEndIpProperties {
+    IdRef publicIpAddress
+
+    FrontEndIpProperties(String id) {
+      publicIpAddress = new IdRef(id)
+    }
+  }
+
+  static class BackEndAddressPool {
+    String name
+
+    BackEndAddressPool() {
+      name = "[variables('loadBalancerBackEnd')]"
+    }
+  }
+
+
+  static class InboundNatPool {
+    String name
+    InboundNatPoolProperties properties
+
+    InboundNatPool(AzureInboundPortConfig inboundPortConfig) {
+      name = inboundPortConfig.name
+      properties = new InboundNatPoolProperties(inboundPortConfig)
+    }
+  }
+
+  static class InboundNatPoolProperties {
+    IdRef frontendIPConfiguration
+    String protocol
+    int frontendPortRangeStart
+    int frontendPortRangeEnd
+    int backendPort
+
+    InboundNatPoolProperties(AzureInboundPortConfig inboundPortConfig) {
+      frontendIPConfiguration = new IdRef("[variables('frontEndIPConfigID')]")
+      protocol = inboundPortConfig.protocol
+      frontendPortRangeStart = inboundPortConfig.frontEndPortRangeStart
+      frontendPortRangeEnd = inboundPortConfig.frontEndPortRangeEnd
+      backendPort = inboundPortConfig.backendPort
     }
   }
 }

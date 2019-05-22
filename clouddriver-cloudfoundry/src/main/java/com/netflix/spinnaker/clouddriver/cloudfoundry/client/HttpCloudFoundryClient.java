@@ -28,16 +28,7 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Response;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import okio.Buffer;
-import okio.BufferedSource;
-import retrofit.RequestInterceptor;
-import retrofit.RestAdapter;
-import retrofit.client.OkClient;
-import retrofit.converter.JacksonConverter;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
@@ -46,6 +37,15 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import okio.Buffer;
+import okio.BufferedSource;
+import retrofit.RequestInterceptor;
+import retrofit.RestAdapter;
+import retrofit.client.OkClient;
+import retrofit.converter.JacksonConverter;
 
 public class HttpCloudFoundryClient implements CloudFoundryClient {
   private final String apiHost;
@@ -65,56 +65,86 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
   private Routes routes;
   private Applications applications;
   private ServiceInstances serviceInstances;
+  private ServiceKeys serviceKeys;
 
-  private final RequestInterceptor oauthInterceptor = new RequestInterceptor() {
-    @Override
-    public void intercept(RequestFacade request) {
-      refreshTokenIfNecessary();
-      request.addHeader("Authorization", "bearer " + token.getAccessToken());
-    }
-  };
+  private final RequestInterceptor oauthInterceptor =
+      new RequestInterceptor() {
+        @Override
+        public void intercept(RequestFacade request) {
+          refreshTokenIfNecessary();
+          request.addHeader("Authorization", "bearer " + token.getAccessToken());
+        }
+      };
 
   private static class RetryableApiException extends RuntimeException {
+    RetryableApiException() {
+      super();
+    }
+
+    RetryableApiException(String message, Throwable cause) {
+      super(message, cause);
+    }
   }
 
   Response createRetryInterceptor(Interceptor.Chain chain) {
-    Retry retry = Retry.of("cf.api.call", RetryConfig.custom()
-      .retryExceptions(RetryableApiException.class)
-      .build());
+    final String callName = "cf.api.call";
+    Retry retry =
+        Retry.of(
+            callName, RetryConfig.custom().retryExceptions(RetryableApiException.class).build());
 
     AtomicReference<Response> lastResponse = new AtomicReference<>();
     try {
-      return retry.executeCallable(() -> {
-        Response response = chain.proceed(chain.request());
-        lastResponse.set(response);
+      return retry.executeCallable(
+          () -> {
+            Response response = chain.proceed(chain.request());
+            lastResponse.set(response);
 
-        switch (response.code()) {
-          case 401:
-            BufferedSource source = response.body().source();
-            source.request(Long.MAX_VALUE); // request the entire body
-            Buffer buffer = source.buffer();
-            String body = buffer.clone().readString(Charset.forName("UTF-8"));
-            if (!body.contains("Bad credentials")) {
-              refreshToken();
-              response = chain.proceed(chain.request().newBuilder().header("Authorization", "bearer " + token.getAccessToken()).build());
-              lastResponse.set(response);
+            switch (response.code()) {
+              case 401:
+                BufferedSource source = response.body().source();
+                source.request(Long.MAX_VALUE); // request the entire body
+                Buffer buffer = source.buffer();
+                String body = buffer.clone().readString(Charset.forName("UTF-8"));
+                if (!body.contains("Bad credentials")) {
+                  refreshToken();
+                  response =
+                      chain.proceed(
+                          chain
+                              .request()
+                              .newBuilder()
+                              .header("Authorization", "bearer " + token.getAccessToken())
+                              .build());
+                  lastResponse.set(response);
+                }
+                break;
+              case 502:
+              case 503:
+              case 504:
+                // after retries fail, the response body for these status codes will get wrapped up
+                // into a CloudFoundryApiException
+                throw new RetryableApiException();
             }
-            break;
-          case 502:
-          case 503:
-          case 504:
-            // after retries fail, the response body for these status codes will get wrapped up into a CloudFoundryApiException
-            throw new RetryableApiException();
-        }
 
-        return response;
-      });
+            return response;
+          });
+    } catch (SocketTimeoutException e) {
+      throw new RetryableApiException("Timeout " + callName, e);
     } catch (Exception e) {
-      return lastResponse.get();
+      final Response response = lastResponse.get();
+      if (response == null) {
+        throw new IllegalStateException(e);
+      }
+      return response;
     }
   }
 
-  public HttpCloudFoundryClient(String account, String appsManagerUri, String metricsUri, String apiHost, String user, String password) {
+  public HttpCloudFoundryClient(
+      String account,
+      String appsManagerUri,
+      String metricsUri,
+      String apiHost,
+      String user,
+      String password) {
     this.apiHost = apiHost;
     this.user = user;
     this.password = password;
@@ -124,20 +154,21 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
 
     okHttpClient.setHostnameVerifier((s, sslSession) -> true);
 
-    TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-      @Override
-      public void checkClientTrusted(X509Certificate[] x509Certificates, String s) {
-      }
+    TrustManager[] trustAllCerts =
+        new TrustManager[] {
+          new X509TrustManager() {
+            @Override
+            public void checkClientTrusted(X509Certificate[] x509Certificates, String s) {}
 
-      @Override
-      public void checkServerTrusted(X509Certificate[] x509Certificates, String s) {
-      }
+            @Override
+            public void checkServerTrusted(X509Certificate[] x509Certificates, String s) {}
 
-      @Override
-      public X509Certificate[] getAcceptedIssuers() {
-        return new X509Certificate[0];
-      }
-    }};
+            @Override
+            public X509Certificate[] getAcceptedIssuers() {
+              return new X509Certificate[0];
+            }
+          }
+        };
 
     ObjectMapper mapper = new ObjectMapper();
     mapper.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
@@ -157,18 +188,29 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
 
     okHttpClient.setSslSocketFactory(sslContext.getSocketFactory());
 
-    this.uaaService = new RestAdapter.Builder()
-      .setEndpoint("https://" + apiHost.replaceAll("^api\\.", "login."))
-      .setClient(new OkClient(okHttpClient)).setConverter(jacksonConverter)
-      .build()
-      .create(AuthenticationService.class);
+    this.uaaService =
+        new RestAdapter.Builder()
+            .setEndpoint("https://" + apiHost.replaceAll("^api\\.", "login."))
+            .setClient(new OkClient(okHttpClient))
+            .setConverter(jacksonConverter)
+            .build()
+            .create(AuthenticationService.class);
 
     this.organizations = new Organizations(createService(OrganizationService.class));
     this.spaces = new Spaces(createService(SpaceService.class), organizations);
-    this.applications = new Applications(account, appsManagerUri, metricsUri, createService(ApplicationService.class), spaces);
+    this.applications =
+        new Applications(
+            account, appsManagerUri, metricsUri, createService(ApplicationService.class), spaces);
     this.domains = new Domains(createService(DomainService.class), organizations);
-    this.serviceInstances = new ServiceInstances(createService(ServiceInstanceService.class), createService(ConfigService.class), organizations, spaces);
-    this.routes = new Routes(account, createService(RouteService.class), applications, domains, spaces);
+    this.serviceInstances =
+        new ServiceInstances(
+            createService(ServiceInstanceService.class),
+            createService(ConfigService.class),
+            organizations,
+            spaces);
+    this.routes =
+        new Routes(account, createService(RouteService.class), applications, domains, spaces);
+    this.serviceKeys = new ServiceKeys(createService(ServiceKeyService.class), spaces);
   }
 
   private void refreshTokenIfNecessary() {
@@ -187,12 +229,12 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
 
   private <S> S createService(Class<S> serviceClass) {
     return new RestAdapter.Builder()
-      .setEndpoint("https://" + apiHost)
-      .setClient(new OkClient(okHttpClient))
-      .setConverter(jacksonConverter)
-      .setRequestInterceptor(oauthInterceptor)
-      .build()
-      .create(serviceClass);
+        .setEndpoint("https://" + apiHost)
+        .setClient(new OkClient(okHttpClient))
+        .setConverter(jacksonConverter)
+        .setRequestInterceptor(oauthInterceptor)
+        .build()
+        .create(serviceClass);
   }
 
   @Override
@@ -223,5 +265,10 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
   @Override
   public ServiceInstances getServiceInstances() {
     return serviceInstances;
+  }
+
+  @Override
+  public ServiceKeys getServiceKeys() {
+    return serviceKeys;
   }
 }

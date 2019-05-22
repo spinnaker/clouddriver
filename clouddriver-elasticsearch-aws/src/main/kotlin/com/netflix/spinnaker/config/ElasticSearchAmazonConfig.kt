@@ -28,15 +28,17 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@ConditionalOnProperty("elasticSearch.caching.enabled")
+@ConditionalOnProperty("elastic-search.caching.enabled")
 open class ElasticSearchAmazonConfig {
   @Bean
-  open fun elasticSearchAmazonCachingAgentProvider(objectMapper: ObjectMapper,
-                                                   jestClient: JestClient,
-                                                   retrySupport: RetrySupport,
-                                                   registry: Registry,
-                                                   amazonClientProvider: AmazonClientProvider,
-                                                   accountCredentialsProvider: AccountCredentialsProvider) =
+  open fun elasticSearchAmazonCachingAgentProvider(
+    objectMapper: ObjectMapper,
+    jestClient: JestClient,
+    retrySupport: RetrySupport,
+    registry: Registry,
+    amazonClientProvider: AmazonClientProvider,
+    accountCredentialsProvider: AccountCredentialsProvider
+  ) =
     ElasticSearchAmazonCachingAgentProvider(
       objectMapper,
       jestClient,
