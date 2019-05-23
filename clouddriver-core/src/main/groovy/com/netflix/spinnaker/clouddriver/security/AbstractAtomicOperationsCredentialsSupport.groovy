@@ -37,10 +37,6 @@ abstract class AbstractAtomicOperationsCredentialsSupport implements AtomicOpera
 
   }
 
-  ObjectMapper getObjectMapper() {
-    return objectMapper
-  }
-
   def <T extends AccountCredentials> T getCredentialsObject(String name) {
     if (name == null) {
       throw new InvalidRequestException("credential name is required")
