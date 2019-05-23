@@ -19,23 +19,35 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.converter.manifest;
 
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.DEPLOY_MANIFEST;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesV2ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeployManifestDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest.KubernetesDeployManifestOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @KubernetesOperation(DEPLOY_MANIFEST)
 @Component
 public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsCredentialsSupport {
+
+  private static final String KIND_VALUE_LIST = "list";
+  private static final String KIND_LIST_ITEMS_KEY = "items";
+
   @Autowired private KubernetesResourcePropertyRegistry registry;
 
   @Autowired private KubernetesV2ArtifactProvider artifactProvider;
@@ -50,13 +62,64 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
 
   @Override
   public KubernetesDeployManifestDescription convertDescription(Map input) {
-    return (KubernetesDeployManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesDeployManifestDescription.class);
+    KubernetesDeployManifestDescription mainDescription =
+        (KubernetesDeployManifestDescription)
+            KubernetesAtomicOperationConverterHelper.convertDescription(
+                input, this, KubernetesDeployManifestDescription.class);
+    return convertListDescription(mainDescription, getObjectMapper());
   }
 
   @Override
   public boolean acceptsVersion(ProviderVersion version) {
     return version == ProviderVersion.v2;
+  }
+
+  /**
+   * If present, converts a KubernetesManifest of kind List into a list of KubernetesManifest
+   * objects.
+   *
+   * @param mainDescription deploy manifest description as received.
+   * @param objectMapper used to generate the input deploy manifest description.
+   * @return updated description.
+   */
+  @SuppressWarnings("unchecked")
+  private KubernetesDeployManifestDescription convertListDescription(
+      KubernetesDeployManifestDescription mainDescription, ObjectMapper objectMapper) {
+
+    if (mainDescription.getManifests() == null) {
+      return mainDescription;
+    }
+
+    List<KubernetesManifest> updatedManifestList =
+        mainDescription.getManifests().stream()
+            .flatMap(
+                singleManifest -> {
+                  if (singleManifest == null
+                      || StringUtils.isEmpty(singleManifest.getKindName())
+                      || !singleManifest.getKindName().equalsIgnoreCase(KIND_VALUE_LIST)) {
+                    return Stream.of(singleManifest);
+                  }
+
+                  Collection<Object> items =
+                      (Collection<Object>) singleManifest.get(KIND_LIST_ITEMS_KEY);
+
+                  if (items == null) {
+                    return Stream.of();
+                  }
+
+                  return items.stream()
+                      .map(
+                          i ->
+                              objectMapper
+                                  .copy()
+                                  .configure(
+                                      DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                                  .convertValue(i, KubernetesManifest.class));
+                })
+            .collect(Collectors.toList());
+
+    mainDescription.setManifests(updatedManifestList);
+
+    return mainDescription;
   }
 }
