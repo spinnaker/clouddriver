@@ -21,6 +21,7 @@ import static com.netflix.spinnaker.clouddriver.deploy.DeploymentResult.*;
 import static com.netflix.spinnaker.clouddriver.deploy.DeploymentResult.Deployment.*;
 import static java.util.stream.Collectors.toList;
 
+import com.netflix.spinnaker.clouddriver.artifacts.maven.MavenArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryCloudProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
@@ -182,23 +183,37 @@ public class DeployCloudFoundryServerGroupAtomicOperation
             .map(HashMap::new)
             .orElse(new HashMap<>());
     final Artifact applicationArtifact = description.getApplicationArtifact();
-    if (applicationArtifact.getVersion() != null) {
-      environmentVars.put(
-          ServerGroupMetaDataEnvVar.ArtifactName.envVarName, applicationArtifact.getName());
-      environmentVars.put(
-          ServerGroupMetaDataEnvVar.ArtifactVersion.envVarName, applicationArtifact.getVersion());
-      environmentVars.put(
-          ServerGroupMetaDataEnvVar.ArtifactUrl.envVarName, applicationArtifact.getLocation());
-    }
-    final Map<String, Object> metadata = applicationArtifact.getMetadata();
-    if (metadata != null) {
-      final Map<String, String> buildInfo =
-          (Map<String, String>) applicationArtifact.getMetadata().get("build");
-      if (buildInfo != null) {
-        environmentVars.put(ServerGroupMetaDataEnvVar.JobName.envVarName, buildInfo.get("name"));
-        environmentVars.put(
-            ServerGroupMetaDataEnvVar.JobNumber.envVarName, buildInfo.get("number"));
-        environmentVars.put(ServerGroupMetaDataEnvVar.JobUrl.envVarName, buildInfo.get("url"));
+    if (applicationArtifact != null
+        && MavenArtifactCredentials.TYPES.contains(applicationArtifact.getType())) {
+      description
+          .getArtifactCredentials()
+          .resolveArtifactName(applicationArtifact)
+          .map(
+              resolvedName ->
+                  environmentVars.put(
+                      ServerGroupMetaDataEnvVar.ArtifactName.envVarName, resolvedName));
+      description
+          .getArtifactCredentials()
+          .resolveArtifactVersion(applicationArtifact)
+          .map(
+              resolvedVersion ->
+                  environmentVars.put(
+                      ServerGroupMetaDataEnvVar.ArtifactVersion.envVarName, resolvedVersion));
+      Optional.ofNullable(applicationArtifact.getLocation())
+          .map(
+              artifactUrl ->
+                  environmentVars.put(
+                      ServerGroupMetaDataEnvVar.ArtifactUrl.envVarName, artifactUrl));
+      final Map<String, Object> metadata = applicationArtifact.getMetadata();
+      if (metadata != null) {
+        final Map<String, String> buildInfo =
+            (Map<String, String>) applicationArtifact.getMetadata().get("build");
+        if (buildInfo != null) {
+          environmentVars.put(ServerGroupMetaDataEnvVar.JobName.envVarName, buildInfo.get("name"));
+          environmentVars.put(
+              ServerGroupMetaDataEnvVar.JobNumber.envVarName, buildInfo.get("number"));
+          environmentVars.put(ServerGroupMetaDataEnvVar.JobUrl.envVarName, buildInfo.get("url"));
+        }
       }
     }
 
