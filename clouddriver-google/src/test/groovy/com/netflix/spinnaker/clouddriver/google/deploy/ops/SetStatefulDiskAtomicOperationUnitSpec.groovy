@@ -6,8 +6,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeOperationRequest
 import com.netflix.spinnaker.clouddriver.google.deploy.description.SetStatefulDiskDescription
 import com.netflix.spinnaker.clouddriver.google.compute.GoogleServerGroupManagers
-import com.netflix.spinnaker.clouddriver.google.compute.GoogleServerGroupManagersFactory
-
+import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeApiFactory
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import com.netflix.spinnaker.clouddriver.google.security.FakeGoogleCredentials
@@ -27,7 +26,7 @@ class SetStatefulDiskAtomicOperationUnitSpec extends Specification {
 
   Task task
   GoogleClusterProvider clusterProvider
-  GoogleServerGroupManagersFactory serverGroupManagersFactory
+  GoogleComputeApiFactory computeApiFactory
   GoogleServerGroupManagers serverGroupManagers
   GoogleNamedAccountCredentials credentials
 
@@ -37,8 +36,8 @@ class SetStatefulDiskAtomicOperationUnitSpec extends Specification {
 
     serverGroupManagers = Mock(GoogleServerGroupManagers)
 
-    serverGroupManagersFactory = Mock(GoogleServerGroupManagersFactory) {
-      _ * getManagers(*_) >> serverGroupManagers
+    computeApiFactory = Mock(GoogleComputeApiFactory) {
+      _ * createServerGroupManagers(*_) >> serverGroupManagers
     }
 
     clusterProvider = Mock(GoogleClusterProvider) {
@@ -53,7 +52,7 @@ class SetStatefulDiskAtomicOperationUnitSpec extends Specification {
       region: REGION,
       deviceName: DEVICE_NAME,
       credentials: CREDENTIALS)
-    def operation = new SetStatefulDiskAtomicOperation(clusterProvider, serverGroupManagersFactory, description)
+    def operation = new SetStatefulDiskAtomicOperation(clusterProvider, computeApiFactory, description)
     def updateOp = Mock(GoogleComputeOperationRequest)
     def getManagerRequest = { new InstanceGroupManager() }
     _ * serverGroupManagers.get() >> getManagerRequest
