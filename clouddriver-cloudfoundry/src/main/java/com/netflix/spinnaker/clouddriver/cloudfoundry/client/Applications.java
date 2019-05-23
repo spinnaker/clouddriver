@@ -524,7 +524,7 @@ public class Applications {
         .orElse(Build.State.FAILED)) {
       case FAILED:
         throw new CloudFoundryApiException(
-            "Failed to build droplet or there is not enough resources available");
+            "Failed to build droplet or there are not enough resources available");
       case STAGED:
         return true;
       default:
