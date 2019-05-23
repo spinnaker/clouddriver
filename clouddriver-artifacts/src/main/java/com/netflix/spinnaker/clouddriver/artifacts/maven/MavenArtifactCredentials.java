@@ -54,11 +54,13 @@ public class MavenArtifactCredentials implements ArtifactCredentials {
   private static final String LATEST = "LATEST";
   private static final String MAVEN_METADATA_XML = "maven-metadata.xml";
 
+  public static final List<String> TYPES = singletonList("maven/file");
+
   private final MavenArtifactAccount account;
   private final OkHttpClient okHttpClient;
   private final RepositoryLayout repositoryLayout;
 
-  @Getter private final List<String> types = singletonList("maven/file");
+  @Getter private final List<String> types = TYPES;
 
   public MavenArtifactCredentials(MavenArtifactAccount account, OkHttpClient okHttpClient) {
     this.account = account;
@@ -117,6 +119,23 @@ public class MavenArtifactCredentials implements ArtifactCredentials {
     } catch (IOException | ArtifactDownloadException e) {
       throw new IllegalStateException(
           "Unable to download artifact with reference '" + artifact.getReference() + "'", e);
+    }
+  }
+
+  public Optional<String> resolveArtifactName(Artifact artifact) {
+    try {
+      final DefaultArtifact aetherArtifact = new DefaultArtifact(artifact.getReference());
+      return Optional.of(aetherArtifact.getGroupId() + ":" + aetherArtifact.getArtifactId());
+    } catch (Exception e) {
+      return Optional.empty();
+    }
+  }
+
+  public Optional<String> resolveArtifactVersion(Artifact artifact) {
+    try {
+      return resolveVersion(new DefaultArtifact(artifact.getReference()));
+    } catch (Exception e) {
+      return Optional.empty();
     }
   }
 

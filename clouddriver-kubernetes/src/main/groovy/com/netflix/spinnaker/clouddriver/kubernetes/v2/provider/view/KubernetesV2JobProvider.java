@@ -18,14 +18,17 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.provider.view;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.KubernetesV2Manifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.KubernetesV2JobStatus;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.JobProvider;
 import com.netflix.spinnaker.clouddriver.model.Manifest;
 import com.netflix.spinnaker.clouddriver.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import io.kubernetes.client.models.V1Job;
+import io.kubernetes.client.models.V1Pod;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -51,7 +54,30 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
 
   public KubernetesV2JobStatus collectJob(String account, String location, String id) {
     V1Job job = getKubernetesJob(account, location, id);
+    if (job == null) {
+      return null;
+    }
     KubernetesV2JobStatus jobStatus = new KubernetesV2JobStatus(job, account);
+    KubernetesV2Credentials credentials =
+        (KubernetesV2Credentials)
+            accountCredentialsProvider.getCredentials(account).getCredentials();
+
+    Map<String, String> selector = job.getSpec().getSelector().getMatchLabels();
+    List<KubernetesManifest> pods =
+        credentials.list(
+            KubernetesKind.POD,
+            jobStatus.getLocation(),
+            KubernetesSelectorList.fromMatchLabels(selector));
+
+    jobStatus.setPods(
+        pods.stream()
+            .map(
+                p -> {
+                  V1Pod pod = KubernetesCacheDataConverter.getResource(p, V1Pod.class);
+                  return new KubernetesV2JobStatus.PodStatus(pod);
+                })
+            .collect(Collectors.toList()));
+
     return jobStatus;
   }
 
@@ -78,10 +104,6 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
   }
 
   private V1Job getKubernetesJob(String account, String location, String id) {
-    KubernetesV2Credentials credentials =
-        (KubernetesV2Credentials)
-            accountCredentialsProvider.getCredentials(account).getCredentials();
-
     List<Manifest> manifests =
         manifestProviderList.stream()
             .map(p -> p.getManifest(account, location, id))
@@ -89,8 +111,7 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
             .collect(Collectors.toList());
 
     if (manifests.isEmpty()) {
-      throw new IllegalStateException(
-          "Could not find Kubernetes manifest " + id + " in namespace " + location);
+      return null;
     }
 
     KubernetesManifest jobManifest = ((KubernetesV2Manifest) manifests.get(0)).getManifest();
