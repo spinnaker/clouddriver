@@ -90,6 +90,9 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
       return mainDescription;
     }
 
+    ObjectMapper objectMapperCopy = objectMapper.copy();
+    objectMapperCopy.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
     List<KubernetesManifest> updatedManifestList =
         mainDescription.getManifests().stream()
             .flatMap(
@@ -108,13 +111,7 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
                   }
 
                   return items.stream()
-                      .map(
-                          i ->
-                              objectMapper
-                                  .copy()
-                                  .configure(
-                                      DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                                  .convertValue(i, KubernetesManifest.class));
+                      .map(i -> objectMapperCopy.convertValue(i, KubernetesManifest.class));
                 })
             .collect(Collectors.toList());
 
