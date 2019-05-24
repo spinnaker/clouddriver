@@ -149,15 +149,15 @@ public class Job {
     allocateIpAddress = true;
     submittedAt = new Date(grpcJob.getStatus().getTimestamp());
     constraints = new SubmitJobRequest.Constraints();
-    if (grpcJob.getJobDescriptor().getContainer().getHardConstraints().getConstraintsMap()
-        != null) {
-      constraints.setHard(
-          grpcJob.getJobDescriptor().getContainer().getHardConstraints().getConstraintsMap());
+    Map hardConstraintsMap =
+        grpcJob.getJobDescriptor().getContainer().getHardConstraints().getConstraintsMap();
+    if (hardConstraintsMap != null) {
+      constraints.setHard(hardConstraintsMap);
     }
-    if (grpcJob.getJobDescriptor().getContainer().getSoftConstraints().getConstraintsMap()
-        != null) {
-      constraints.setSoft(
-          grpcJob.getJobDescriptor().getContainer().getSoftConstraints().getConstraintsMap());
+    Map softConstraintsMap =
+        grpcJob.getJobDescriptor().getContainer().getSoftConstraints().getConstraintsMap();
+    if (softConstraintsMap != null) {
+      constraints.setSoft(softConstraintsMap);
     }
     softConstraints = new ArrayList<String>();
     softConstraints.addAll(
