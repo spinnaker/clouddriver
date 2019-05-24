@@ -19,8 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.converter.manifest;
 
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.DEPLOY_MANIFEST;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.converters.KubernetesAtomicOperationConverterHelper;
@@ -66,7 +64,7 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
         (KubernetesDeployManifestDescription)
             KubernetesAtomicOperationConverterHelper.convertDescription(
                 input, this, KubernetesDeployManifestDescription.class);
-    return convertListDescription(mainDescription, getObjectMapper());
+    return convertListDescription(mainDescription);
   }
 
   @Override
@@ -79,19 +77,15 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
    * objects.
    *
    * @param mainDescription deploy manifest description as received.
-   * @param objectMapper used to generate the input deploy manifest description.
    * @return updated description.
    */
   @SuppressWarnings("unchecked")
   private KubernetesDeployManifestDescription convertListDescription(
-      KubernetesDeployManifestDescription mainDescription, ObjectMapper objectMapper) {
+      KubernetesDeployManifestDescription mainDescription) {
 
     if (mainDescription.getManifests() == null) {
       return mainDescription;
     }
-
-    ObjectMapper objectMapperCopy = objectMapper.copy();
-    objectMapperCopy.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     List<KubernetesManifest> updatedManifestList =
         mainDescription.getManifests().stream()
@@ -111,7 +105,7 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
                   }
 
                   return items.stream()
-                      .map(i -> objectMapperCopy.convertValue(i, KubernetesManifest.class));
+                      .map(i -> getObjectMapper().convertValue(i, KubernetesManifest.class));
                 })
             .collect(Collectors.toList());
 
