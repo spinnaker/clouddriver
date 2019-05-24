@@ -71,6 +71,8 @@ public class Job {
   private String jobState;
   private ServiceJobProcesses serviceJobProcesses;
 
+  private SubmitJobRequest.Constraints constraints;
+
   public Job() {}
 
   public Job(
@@ -146,6 +148,17 @@ public class Job {
     iamProfile = grpcJob.getJobDescriptor().getContainer().getSecurityProfile().getIamRole();
     allocateIpAddress = true;
     submittedAt = new Date(grpcJob.getStatus().getTimestamp());
+    constraints = new SubmitJobRequest.Constraints();
+    if (grpcJob.getJobDescriptor().getContainer().getHardConstraints().getConstraintsMap()
+        != null) {
+      constraints.setHard(
+          grpcJob.getJobDescriptor().getContainer().getHardConstraints().getConstraintsMap());
+    }
+    if (grpcJob.getJobDescriptor().getContainer().getSoftConstraints().getConstraintsMap()
+        != null) {
+      constraints.setSoft(
+          grpcJob.getJobDescriptor().getContainer().getSoftConstraints().getConstraintsMap());
+    }
     softConstraints = new ArrayList<String>();
     softConstraints.addAll(
         grpcJob
@@ -570,5 +583,13 @@ public class Job {
 
   public void setServiceJobProcesses(ServiceJobProcesses serviceJobProcesses) {
     this.serviceJobProcesses = serviceJobProcesses;
+  }
+
+  public SubmitJobRequest.Constraints getConstraints() {
+    return constraints;
+  }
+
+  public void setConstraints(SubmitJobRequest.Constraints constraints) {
+    this.constraints = constraints;
   }
 }
