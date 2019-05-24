@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2019 OpsMX, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 
 import java.util.concurrent.TimeUnit;
+
 import lombok.Builder;
-import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -27,12 +27,11 @@ import org.springframework.stereotype.Component;
 import static java.lang.Math.toIntExact;
 
 @Component
-@Slf4j
 public class KubernetesV2CacheConfig {
       //sudhakaropsmx:To make logical cache configurable
 	  private static int cacheTtlSeconds = toIntExact(TimeUnit.MINUTES.toSeconds(10));
 	
-	  @Value("${kubernetes.v2.cacheTtl}")
+	  @Value("${kubernetes.v2.cacheTtlSeconds}")
 	  public void setExternalLogicalTtlSeconds(String externalLogicalTtlSeconds) {
 		if(externalLogicalTtlSeconds != null) {
 			cacheTtlSeconds =  toIntExact(Integer.valueOf(externalLogicalTtlSeconds));
