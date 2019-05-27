@@ -58,6 +58,18 @@ class UpsertAzureLoadBalancerAtomicOperation implements AtomicOperation<Map> {
 
       task.updateStatus(BASE_PHASE, "Beginning load balancer deployment")
 
+      if(description.dnsName) {
+        if(description.dnsName.isBlank()){
+          throw new RuntimeException("Specified dns name $description.dnsName cannot be blank")
+        }
+
+        // Check dns name conflict
+        def isDnsNameAvailable = description.credentials.networkClient.checkDnsNameAvailability(description.dnsName)
+        if (!isDnsNameAvailable) {
+          throw new RuntimeException("Specified dns name $description.dnsName has conflict")
+        }
+      }
+
       description.name = description.loadBalancerName
       def loadBalancerDescription = description.credentials.networkClient.getLoadBalancer(resourceGroupName, description.name)
 
