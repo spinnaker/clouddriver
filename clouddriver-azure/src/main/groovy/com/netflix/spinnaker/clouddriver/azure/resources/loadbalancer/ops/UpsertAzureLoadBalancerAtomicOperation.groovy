@@ -76,6 +76,7 @@ class UpsertAzureLoadBalancerAtomicOperation implements AtomicOperation<Map> {
       if(loadBalancerDescription) {
         description.serverGroups = loadBalancerDescription.serverGroups
         description.trafficEnabledSG = loadBalancerDescription.trafficEnabledSG
+        description.publicIpName = loadBalancerDescription.publicIpName
       }
       Deployment deployment = description.credentials.resourceManagerClient.createResourceFromTemplate(
         AzureLoadBalancerResourceTemplate.getTemplate(description),

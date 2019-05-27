@@ -84,7 +84,12 @@ class AzureLoadBalancerResourceTemplate {
 
       loadBalancerName = description.loadBalancerName.toLowerCase()
       virtualNetworkName = AzureUtilities.VNET_NAME_PREFIX + resourceGroupName.toLowerCase()
-      publicIPAddressName = AzureUtilities.PUBLICIP_NAME_PREFIX + description.loadBalancerName.toLowerCase()
+      if (description.publicIpName) {
+        // reuse the existing public IP (this is an edit operation)
+        publicIPAddressName = description.publicIpName
+      } else {
+        publicIPAddressName = AzureUtilities.PUBLICIP_NAME_PREFIX + description.loadBalancerName.toLowerCase()
+      }
       loadBalancerFrontEnd = AzureUtilities.LBFRONTEND_NAME_PREFIX + description.loadBalancerName.toLowerCase()
       loadBalancerBackEnd = description.trafficEnabledSG ? description.trafficEnabledSG : DEFAULT_BACKEND_POOL
       dnsNameForLBIP = description.dnsName ?: DnsSettings.getUniqueDNSName(description.loadBalancerName.toLowerCase())
