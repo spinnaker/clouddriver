@@ -67,10 +67,7 @@ public interface TitusClient {
   public void updateDisruptionBudget(
       JobDisruptionBudgetUpdateRequest jobDisruptionBudgetUpdateRequest);
 
-  /**
-   * @param serviceJobProcessesRequest
-   * @return
-   */
+  /** @param serviceJobProcessesRequest */
   public void updateScalingProcesses(ServiceJobProcessesRequest serviceJobProcessesRequest);
 
   /** @param resizeJobRequest */
