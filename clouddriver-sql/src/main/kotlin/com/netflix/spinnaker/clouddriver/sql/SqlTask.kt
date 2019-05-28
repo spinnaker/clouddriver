@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class SqlTask(
   private val id: String,
   @JsonIgnore internal val ownerId: String,
-  @JsonIgnore internal val requestId: String,
+  internal val requestId: String,
   @JsonIgnore internal val startTimeMs: Long,
   private val repository: SqlTaskRepository
 ) : Task {
@@ -46,6 +46,7 @@ class SqlTask(
   override fun getId() = id
   override fun getOwnerId() = ownerId
   override fun getStartTimeMs() = startTimeMs
+  override fun getRequestId() = requestId
 
   override fun getResultObjects(): MutableList<Any> {
     refresh()

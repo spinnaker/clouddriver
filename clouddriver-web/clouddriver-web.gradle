@@ -27,6 +27,7 @@ dependencies {
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
+  implementation project(":clouddriver-saga")
   implementation project(":clouddriver-security")
   implementation project(":clouddriver-sql-mysql")
 
@@ -45,6 +46,7 @@ dependencies {
   implementation "com.netflix.spinnaker.kork:kork-swagger"
   implementation "com.netflix.spinnaker.kork:kork-web"
   implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "de.huxhorn.sulky:de.huxhorn.sulky.ulid"
   implementation "org.codehaus.groovy:groovy-all"
   implementation "org.slf4j:slf4j-api"
   implementation "org.springframework.boot:spring-boot-starter-actuator"

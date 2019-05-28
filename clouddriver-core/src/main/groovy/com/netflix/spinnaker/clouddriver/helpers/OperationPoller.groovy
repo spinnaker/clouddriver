@@ -70,6 +70,9 @@ class OperationPoller {
         pollOperation(operation, ifDone, getTimeout(timeoutSeconds)), task, resourceString, basePhase)
   }
 
+  /**
+   * TODO(rz): Should generify this method.
+   */
   static Object retryWithBackoff(Function operation, long backOff, int maxRetries) {
     int retries = 0
     Object result
