@@ -70,6 +70,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     def tasksId = registry.createId('tasks')
     def existingTask = taskRepository.getByClientRequestId(clientRequestId)
     if (existingTask) {
+      // TODO(rz): Is this going to become a problem for resuming work?
       return existingTask
     }
     def task = taskRepository.create(TASK_PHASE, "Initializing Orchestration Task...", clientRequestId)
