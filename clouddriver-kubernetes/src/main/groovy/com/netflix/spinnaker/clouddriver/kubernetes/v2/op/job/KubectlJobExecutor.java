@@ -88,7 +88,7 @@ public class KubectlJobExecutor {
     command.add("view");
     command.add("-o");
     String jsonPath = "{.contexts[?(@.name==\"" + configCurrentContext + "\")].context.namespace}";
-    command.add("\"jsonPath=" + jsonPath + "\"");
+    command.add("\"jsonpath=" + jsonPath + "\"");
 
     JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
@@ -610,7 +610,8 @@ public class KubectlJobExecutor {
 
     if (header.length <= 2) {
       log.warn(
-          "Unexpected metric format -- no metrics to report based on table header {}.", header);
+          "Unexpected metric format -- no metrics to report based on table header {}.",
+          Arrays.asList(header));
       return new ArrayList<>();
     }
 
