@@ -16,7 +16,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.converter.manifest
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.gson.Gson
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
@@ -26,13 +25,12 @@ import spock.lang.Specification
 
 class KubernetesDeployManifestConverterTest extends Specification {
 
-  def converter = new KubernetesDeployManifestConverter()
+  def converter = new KubernetesDeployManifestConverter(
+    Mock(AccountCredentialsProvider), new ObjectMapper(), null, null)
   def inputMap = new HashMap()
   def manifestList = new ArrayList()
-  def gsonObj = new Gson()
 
   def setup() {
-    converter.accountCredentialsProvider = Mock(AccountCredentialsProvider)
     converter.accountCredentialsProvider.getCredentials("kubernetes") >> Mock(KubernetesNamedAccountCredentials)
     converter.objectMapper = new ObjectMapper()
 
@@ -44,8 +42,8 @@ class KubernetesDeployManifestConverterTest extends Specification {
     given:
     def deploymentJson = KubernetesManifest.class.getResource("deployment-manifest.json").getText("utf-8")
     def serviceJson = KubernetesManifest.class.getResource("service-manifest.json").getText("utf-8")
-    def deploymentMap = gsonObj.fromJson(deploymentJson, Map.class)
-    def serviceMap = gsonObj.fromJson(serviceJson, Map.class)
+    def deploymentMap = converter.objectMapper.readValue(deploymentJson, Map.class)
+    def serviceMap = converter.objectMapper.readValue(serviceJson, Map.class)
     manifestList.add(deploymentMap)
     manifestList.add(serviceMap)
 
@@ -67,7 +65,7 @@ class KubernetesDeployManifestConverterTest extends Specification {
     ]
     def listJson = KubernetesManifest.class.getResource("list-manifest.json").getText("utf-8")
     def template = templateEngine.createTemplate(listJson).make(binding)
-    def listMap = gsonObj.fromJson(template.toString(), Map.class)
+    def listMap = converter.objectMapper.readValue(template.toString(), Map.class)
     manifestList.add(listMap)
 
     when:
@@ -93,7 +91,7 @@ class KubernetesDeployManifestConverterTest extends Specification {
   void "input with custom resource definition is deserialized"() {
     given:
     def crdJson = KubernetesManifest.class.getResource("crd-manifest.json").getText("utf-8")
-    def crdMap = gsonObj.fromJson(crdJson, Map.class)
+    def crdMap = converter.objectMapper.readValue(crdJson, Map.class)
     manifestList.add(crdMap)
 
     when:
@@ -113,7 +111,7 @@ class KubernetesDeployManifestConverterTest extends Specification {
     ]
     def listJson = KubernetesManifest.class.getResource("list-manifest.json").getText("utf-8")
     def template = templateEngine.createTemplate(listJson).make(binding)
-    def listMap = gsonObj.fromJson(template.toString(), Map.class)
+    def listMap = converter.objectMapper.readValue(template.toString(), Map.class)
     manifestList.add(listMap)
 
     when:

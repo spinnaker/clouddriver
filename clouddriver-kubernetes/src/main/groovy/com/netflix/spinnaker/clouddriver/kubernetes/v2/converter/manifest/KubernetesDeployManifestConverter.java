@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.converter.manifest;
 
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.DEPLOY_MANIFEST;
 
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesV2ArtifactProvider;
@@ -29,6 +29,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest.KubernetesDeployManifestOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import java.util.Collection;
 import java.util.List;
@@ -46,11 +47,21 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
   private static final String KIND_VALUE_LIST = "list";
   private static final String KIND_LIST_ITEMS_KEY = "items";
 
-  @Autowired private KubernetesResourcePropertyRegistry registry;
+  private final KubernetesResourcePropertyRegistry registry;
 
-  @Autowired private KubernetesV2ArtifactProvider artifactProvider;
+  private final KubernetesV2ArtifactProvider artifactProvider;
 
-  @Autowired private ArtifactDownloader artifactDownloader;
+  @Autowired
+  public KubernetesDeployManifestConverter(
+      AccountCredentialsProvider accountCredentialsProvider,
+      ObjectMapper objectMapper,
+      KubernetesResourcePropertyRegistry registry,
+      KubernetesV2ArtifactProvider artifactProvider) {
+    this.setAccountCredentialsProvider(accountCredentialsProvider);
+    this.setObjectMapper(objectMapper);
+    this.registry = registry;
+    this.artifactProvider = artifactProvider;
+  }
 
   @Override
   public AtomicOperation convertOperation(Map input) {
