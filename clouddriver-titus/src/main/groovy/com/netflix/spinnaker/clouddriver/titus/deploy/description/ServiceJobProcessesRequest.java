@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 The original authors.
+ * Copyright 2019 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model
+package com.netflix.spinnaker.clouddriver.titus.deploy.description;
 
-import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
+import com.netflix.spinnaker.clouddriver.titus.client.model.ServiceJobProcesses;
+import lombok.Data;
 
-class DeleteAzureLoadBalancerDescription extends AzureResourceOpsDescription {
-  String loadBalancerName
-  String region
+@Data
+public class ServiceJobProcessesRequest extends AbstractTitusCredentialsDescription {
+
+  ServiceJobProcesses serviceJobProcesses;
+  String region;
+  String jobId;
 }
