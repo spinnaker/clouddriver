@@ -27,6 +27,17 @@ public interface ManifestProvider<T extends Manifest> {
 
   T getManifest(String account, String location, String name);
 
+  T getManifest(String account, String location, String name, boolean includeEvents);
+
   List<T> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort);
+
+  List<T> getClusterAndSortAscending(
+      String account,
+      String location,
+      String kind,
+      String app,
+      String cluster,
+      Sort sort,
+      boolean includeEvents);
 }

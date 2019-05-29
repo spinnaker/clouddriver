@@ -49,6 +49,12 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
 
   @Override
   public KubernetesV2Manifest getManifest(String account, String location, String name) {
+    return getManifest(account, location, name, true);
+  }
+
+  @Override
+  public KubernetesV2Manifest getManifest(
+      String account, String location, String name, boolean includeEvents) {
     if (!isAccountRelevant(account)) {
       return null;
     }
@@ -84,7 +90,10 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
     String namespace = manifest.getNamespace();
     KubernetesKind kind = manifest.getKind();
 
-    List<KubernetesManifest> events = credentials.eventsFor(kind, namespace, parsedName.getRight());
+    List<KubernetesManifest> events =
+        !includeEvents
+            ? Collections.emptyList()
+            : credentials.eventsFor(kind, namespace, parsedName.getRight());
 
     List<KubernetesPodMetric.ContainerMetric> metrics = Collections.emptyList();
     if (kind == KubernetesKind.POD && credentials.isMetrics()) {
@@ -101,6 +110,18 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
   @Override
   public List<KubernetesV2Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
+    return Collections.emptyList();
+  }
+
+  @Override
+  public List<KubernetesV2Manifest> getClusterAndSortAscending(
+      String account,
+      String location,
+      String kind,
+      String app,
+      String cluster,
+      Sort sort,
+      boolean includeEvents) {
     return Collections.emptyList();
   }
 }
