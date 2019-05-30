@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.google.api.services.compute.model.AutoscalingPolicy
 import com.google.api.services.compute.model.InstanceGroupManagerActionsSummary
 import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPolicy
+import com.google.api.services.iam.v1.model.ServiceAccount
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerView
@@ -56,7 +57,11 @@ class GoogleServerGroup implements GoogleLabeledResource {
   Boolean discovery = false
   String networkName
   Boolean canIpForward = false
+  Boolean enableSecureBoot = false
+  Boolean enableVtpm = false
+  Boolean enableIntegrityMonitoring = false
   Set<String> instanceTemplateTags = []
+  Set<ServiceAccount> instanceTemplateServiceAccounts = []
   Map<String, String> instanceTemplateLabels = [:]
   String selfLink
   InstanceGroupManagerActionsSummary currentActions
@@ -109,7 +114,11 @@ class GoogleServerGroup implements GoogleLabeledResource {
     Boolean disabled = GoogleServerGroup.this.disabled
     String networkName = GoogleServerGroup.this.networkName
     Boolean canIpForward = GoogleServerGroup.this.canIpForward
+    Boolean enableSecureBoot = GoogleServerGroup.this.enableSecureBoot
+    Boolean enableVtpm = GoogleServerGroup.this.enableVtpm
+    Boolean enableIntegrityMonitoring = GoogleServerGroup.this.enableIntegrityMonitoring
     Set<String> instanceTemplateTags = GoogleServerGroup.this.instanceTemplateTags
+    Set<ServiceAccount> instanceTemplateServiceAccounts = GoogleServerGroup.this.instanceTemplateServiceAccounts
     Map<String, String> instanceTemplateLabels = GoogleServerGroup.this.instanceTemplateLabels
     String selfLink = GoogleServerGroup.this.selfLink
     Boolean discovery = GoogleServerGroup.this.discovery
@@ -218,6 +227,7 @@ class GoogleServerGroup implements GoogleLabeledResource {
     Map getProviderMetadata() {
       [
         tags: GoogleServerGroup.this.launchConfig?.instanceTemplate?.properties?.tags?.items,
+        serviceAccounts: GoogleServerGroup.this.launchConfig?.instanceTemplate?.properties?.serviceAccounts,
         networkName: GoogleServerGroup.this.networkName
       ]
     }

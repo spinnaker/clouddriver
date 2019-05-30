@@ -17,10 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
+
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -29,12 +31,9 @@ import io.kubernetes.client.models.V2alpha1CronJob;
 import io.kubernetes.client.models.V2alpha1CronJobStatus;
 import org.springframework.stereotype.Component;
 
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
-
 @Component
-public class KubernetesCronJobHandler extends KubernetesHandler implements
-  CanDelete,
-  ServerGroupHandler {
+public class KubernetesCronJobHandler extends KubernetesHandler
+    implements CanDelete, ServerGroupHandler {
 
   public KubernetesCronJobHandler() {
     registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
@@ -68,25 +67,24 @@ public class KubernetesCronJobHandler extends KubernetesHandler implements
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    V2alpha1CronJob v2alpha1CronJob = KubernetesCacheDataConverter.getResource(manifest, V2alpha1CronJob.class);
+    V2alpha1CronJob v2alpha1CronJob =
+        KubernetesCacheDataConverter.getResource(manifest, V2alpha1CronJob.class);
     return status(v2alpha1CronJob);
   }
 
   @Override
-  public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesCoreCachingAgent.class;
+  protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
+    return KubernetesCoreCachingAgent::new;
   }
 
   private Status status(V2alpha1CronJob job) {
     Status result = new Status();
     V2alpha1CronJobStatus status = job.getStatus();
     if (status == null) {
-      result.unstable("No status reported yet")
-          .unavailable("No availability reported");
+      result.unstable("No status reported yet").unavailable("No availability reported");
       return result;
     }
 
     return result;
   }
-
 }

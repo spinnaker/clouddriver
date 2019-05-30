@@ -29,13 +29,13 @@ class EnableDisablePercentageCategorizer<T> {
    *
    * @note modified + unmodified should be the total list of instances managed by one server group
    */
-  static List<T> getInstancesToModify(List<T> modified, List<T> unmodified, int desiredPercentage) {
+  static <T> List<T> getInstancesToModify(List<T> modified, List<T> unmodified, int desiredPercentage) {
     if (desiredPercentage < 0 || desiredPercentage > 100) {
       throw new RuntimeException("Desired target percentage must be between 0 and 100 inclusive")
     }
 
     int totalSize = modified.size() + unmodified.size()
-    int newSize = (int) Math.ceil(totalSize * (float) (desiredPercentage / 100))
+    int newSize = (int) Math.ceil(totalSize * desiredPercentage / 100.0)
 
     int returnSize = modified.size() > newSize ? 0 : newSize - modified.size()
 

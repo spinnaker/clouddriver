@@ -16,29 +16,30 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class KubernetesPodMetric {
-  String podName;
-  List<ContainerMetric> containerMetrics = new ArrayList<>();
+  private String podName;
+  @Builder.Default private List<ContainerMetric> containerMetrics = new ArrayList<>();
 
   @Data
   @Builder
   @NoArgsConstructor
   @AllArgsConstructor
+  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class ContainerMetric {
-    String containerName;
-    Map<String, String> metrics;
+    private String containerName;
+    private Map<String, String> metrics;
   }
 }

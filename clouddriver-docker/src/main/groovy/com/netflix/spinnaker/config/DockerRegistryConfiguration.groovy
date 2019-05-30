@@ -21,7 +21,6 @@ import com.netflix.spinnaker.clouddriver.docker.registry.config.DockerRegistryCo
 import com.netflix.spinnaker.clouddriver.docker.registry.health.DockerRegistryHealthIndicator
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryCredentialsInitializer
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
-import org.springframework.beans.factory.config.ConfigurableBeanFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -29,19 +28,17 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
-import org.springframework.context.annotation.Scope
 import org.springframework.scheduling.annotation.EnableScheduling
 
 @Configuration
 @EnableConfigurationProperties
 @EnableScheduling
-@ConditionalOnProperty('dockerRegistry.enabled')
+@ConditionalOnProperty('docker-registry.enabled')
 @ComponentScan(["com.netflix.spinnaker.clouddriver.docker.registry"])
 @Import([ DockerRegistryCredentialsInitializer ])
 class DockerRegistryConfiguration {
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
-  @ConfigurationProperties("dockerRegistry")
+  @ConfigurationProperties("docker-registry")
   DockerRegistryConfigurationProperties dockerRegistryConfigurationProperties() {
     new DockerRegistryConfigurationProperties()
   }

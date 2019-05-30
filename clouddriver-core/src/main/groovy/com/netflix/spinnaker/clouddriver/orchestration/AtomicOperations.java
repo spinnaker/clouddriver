@@ -16,10 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.orchestration;
 
-/**
- * A class that holds the names of ALL the kato operations as constants
- *
- */
+/** A class that holds the names of ALL the kato operations as constants */
 public final class AtomicOperations {
 
   // Server Group operations
@@ -37,14 +34,20 @@ public final class AtomicOperations {
   public static final String MIGRATE_CLUSTER_CONFIGURATIONS = "migrateClusterConfigurations";
   public static final String START_SERVER_GROUP = "startServerGroup";
   public static final String STOP_SERVER_GROUP = "stopServerGroup";
+  public static final String SET_STATEFUL_DISK = "setStatefulDisk";
+  public static final String UPSERT_DISRUPTION_BUDGET = "upsertDisruptionBudget";
+  public static final String UPDATE_JOB_PROCESSES = "updateJobProcesses";
 
   // Instance operations
   public static final String REBOOT_INSTANCES = "rebootInstances";
   public static final String TERMINATE_INSTANCES = "terminateInstances";
-  public static final String TERMINATE_INSTANCE_AND_DECREMENT = "terminateInstanceAndDecrementServerGroup";
+  public static final String TERMINATE_INSTANCE_AND_DECREMENT =
+      "terminateInstanceAndDecrementServerGroup";
   public static final String ATTACH_CLASSIC_LINK_VPC = "attachClassicLinkVpc";
-  public static final String REGISTER_INSTANCES_WITH_LOAD_BALANCER = "registerInstancesWithLoadBalancer";
-  public static final String DEREGISTER_INSTANCES_FROM_LOAD_BALANCER = "deregisterInstancesFromLoadBalancer";
+  public static final String REGISTER_INSTANCES_WITH_LOAD_BALANCER =
+      "registerInstancesWithLoadBalancer";
+  public static final String DEREGISTER_INSTANCES_FROM_LOAD_BALANCER =
+      "deregisterInstancesFromLoadBalancer";
   public static final String MAP_LOAD_BALANCERS = "mapLoadBalancers";
   public static final String UNMAP_LOAD_BALANCERS = "unmapLoadBalancers";
   public static final String ENABLE_INSTANCES_IN_DISCOVERY = "enableInstancesInDiscovery";
@@ -93,6 +96,8 @@ public final class AtomicOperations {
   public static final String DEREGISTER_IMAGE = "deleteImage";
 
   // Service operations
+  public static final String CREATE_SERVICE_KEY = "createServiceKey";
+  public static final String DELETE_SERVICE_KEY = "deleteServiceKey";
   public static final String DEPLOY_SERVICE = "deployService";
   public static final String DESTROY_SERVICE = "destroyService";
   public static final String SHARE_SERVICE = "shareService";

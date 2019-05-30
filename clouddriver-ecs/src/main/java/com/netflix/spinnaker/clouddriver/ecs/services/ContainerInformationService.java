@@ -29,14 +29,13 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.TaskHealth;
 import com.netflix.spinnaker.clouddriver.ecs.security.ECSCredentialsConfig;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ContainerInformationService {
@@ -49,12 +48,13 @@ public class ContainerInformationService {
   private final ContainerInstanceCacheClient containerInstanceCacheClient;
 
   @Autowired
-  public ContainerInformationService(ECSCredentialsConfig ecsCredentialsConfig,
-                                     TaskCacheClient taskCacheClient,
-                                     ServiceCacheClient serviceCacheClient,
-                                     TaskHealthCacheClient taskHealthCacheClient,
-                                     EcsInstanceCacheClient ecsInstanceCacheClient,
-                                     ContainerInstanceCacheClient containerInstanceCacheClient) {
+  public ContainerInformationService(
+      ECSCredentialsConfig ecsCredentialsConfig,
+      TaskCacheClient taskCacheClient,
+      ServiceCacheClient serviceCacheClient,
+      TaskHealthCacheClient taskHealthCacheClient,
+      EcsInstanceCacheClient ecsInstanceCacheClient,
+      ContainerInstanceCacheClient containerInstanceCacheClient) {
     this.ecsCredentialsConfig = ecsCredentialsConfig;
     this.taskCacheClient = taskCacheClient;
     this.serviceCacheClient = serviceCacheClient;
@@ -63,42 +63,67 @@ public class ContainerInformationService {
     this.containerInstanceCacheClient = containerInstanceCacheClient;
   }
 
-  public List<Map<String, Object>> getHealthStatus(String taskId, String serviceName, String accountName, String region) {
+  public List<Map<String, Object>> getHealthStatus(
+      String taskId, String serviceName, String accountName, String region) {
     String serviceCacheKey = Keys.getServiceKey(accountName, region, serviceName);
     Service service = serviceCacheClient.get(serviceCacheKey);
 
     String healthKey = Keys.getTaskHealthKey(accountName, region, taskId);
     TaskHealth taskHealth = taskHealthCacheClient.get(healthKey);
 
-    if (service == null || taskHealth == null) {
-      List<Map<String, Object>> healthMetrics = new ArrayList<>();
+    String taskKey = Keys.getTaskKey(accountName, region, taskId);
+    Task task = taskCacheClient.get(taskKey);
 
+    List<Map<String, Object>> healthMetrics = new ArrayList<>();
+
+    // Load balancer-based health
+    if (service == null || taskHealth == null) {
       Map<String, Object> loadBalancerHealth = new HashMap<>();
       loadBalancerHealth.put("instanceId", taskId);
       loadBalancerHealth.put("state", "Unknown");
       loadBalancerHealth.put("type", "loadBalancer");
 
       healthMetrics.add(loadBalancerHealth);
-      return healthMetrics;
+    } else {
+      List<LoadBalancer> loadBalancers = service.getLoadBalancers();
+      // There should only be 1 based on AWS documentation.
+      if (loadBalancers.size() == 1) {
+        Map<String, Object> loadBalancerHealth = new HashMap<>();
+        loadBalancerHealth.put("instanceId", taskId);
+        loadBalancerHealth.put("state", taskHealth.getState());
+        loadBalancerHealth.put("type", taskHealth.getType());
+
+        healthMetrics.add(loadBalancerHealth);
+      } else if (loadBalancers.size() >= 2) {
+        throw new IllegalArgumentException(
+            "Cannot have more than 1 load balancer while checking ECS health.");
+      }
     }
 
-    List<LoadBalancer> loadBalancers = service.getLoadBalancers();
-    //There should only be 1 based on AWS documentation.
-    if (loadBalancers.size() == 1) {
-
-      List<Map<String, Object>> healthMetrics = new ArrayList<>();
-      Map<String, Object> loadBalancerHealth = new HashMap<>();
-      loadBalancerHealth.put("instanceId", taskId);
-      loadBalancerHealth.put("state", taskHealth.getState());
-      loadBalancerHealth.put("type", taskHealth.getType());
-
-      healthMetrics.add(loadBalancerHealth);
-      return healthMetrics;
-    } else if (loadBalancers.size() >= 2) {
-      throw new IllegalArgumentException("Cannot have more than 1 load balancer while checking ECS health.");
+    // Task-based health
+    if (task != null) {
+      Map<String, Object> taskPlatformHealth = new HashMap<>();
+      taskPlatformHealth.put("instanceId", taskId);
+      taskPlatformHealth.put("type", "ecs");
+      taskPlatformHealth.put("healthClass", "platform");
+      taskPlatformHealth.put("state", toPlatformHealthState(task.getLastStatus()));
+      healthMetrics.add(taskPlatformHealth);
     }
-    return null;
 
+    return healthMetrics;
+  }
+
+  private String toPlatformHealthState(String ecsTaskStatus) {
+    switch (ecsTaskStatus) {
+      case "PROVISIONING":
+      case "PENDING":
+      case "ACTIVATING":
+        return "Starting";
+      case "RUNNING":
+        return "Unknown";
+      default:
+        return "Down";
+    }
   }
 
   public String getClusterArn(String accountName, String region, String taskId) {
@@ -136,7 +161,7 @@ public class ContainerInformationService {
     }
 
     Instance instance = getEc2Instance(accountName, region, task);
-    if(instance == null){
+    if (instance == null) {
       return null;
     }
 
@@ -150,20 +175,26 @@ public class ContainerInformationService {
       return ec2Instance.getPlacement().getAvailabilityZone();
     }
 
-    // TODO for tasks not placed on an instance (e.g. Fargate), determine the zone from the network interface attachment
+    // TODO for tasks not placed on an instance (e.g. Fargate), determine the zone from the network
+    // interface attachment
     return null;
   }
 
-  public Instance getEc2Instance(String ecsAccount, String region, Task task){
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(ecsAccount, region, task.getContainerInstanceArn());
-    ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
+  public Instance getEc2Instance(String ecsAccount, String region, Task task) {
+    String containerInstanceCacheKey =
+        Keys.getContainerInstanceKey(ecsAccount, region, task.getContainerInstanceArn());
+    ContainerInstance containerInstance =
+        containerInstanceCacheClient.get(containerInstanceCacheKey);
     if (containerInstance == null) {
       return null;
     }
 
-    Set<Instance> instances = ecsInstanceCacheClient.find(containerInstance.getEc2InstanceId(), getAwsAccountName(ecsAccount), region);
+    Set<Instance> instances =
+        ecsInstanceCacheClient.find(
+            containerInstance.getEc2InstanceId(), getAwsAccountName(ecsAccount), region);
     if (instances.size() > 1) {
-      throw new IllegalArgumentException("There cannot be more than 1 EC2 container instance for a given region and instance ID.");
+      throw new IllegalArgumentException(
+          "There cannot be more than 1 EC2 container instance for a given region and instance ID.");
     } else if (instances.size() == 0) {
       return null;
     }

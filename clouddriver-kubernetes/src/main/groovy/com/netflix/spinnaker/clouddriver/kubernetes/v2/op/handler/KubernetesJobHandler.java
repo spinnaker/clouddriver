@@ -17,10 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
+
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -29,17 +31,13 @@ import io.kubernetes.client.models.V1Job;
 import io.kubernetes.client.models.V1JobCondition;
 import io.kubernetes.client.models.V1JobSpec;
 import io.kubernetes.client.models.V1JobStatus;
-import org.springframework.stereotype.Component;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
+import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesJobHandler extends KubernetesHandler implements
-  ServerGroupHandler {
+public class KubernetesJobHandler extends KubernetesHandler implements ServerGroupHandler {
 
   public KubernetesJobHandler() {
     registerReplacer(ArtifactReplacerFactory.dockerImageReplacer());
@@ -78,16 +76,15 @@ public class KubernetesJobHandler extends KubernetesHandler implements
   }
 
   @Override
-  public Class<? extends KubernetesV2CachingAgent> cachingAgentClass() {
-    return KubernetesCoreCachingAgent.class;
+  protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
+    return KubernetesCoreCachingAgent::new;
   }
 
   private Status status(V1Job job) {
     Status result = new Status();
     V1JobStatus status = job.getStatus();
     if (status == null) {
-      result.unstable("No status reported yet")
-          .unavailable("No availability reported");
+      result.unstable("No status reported yet").unavailable("No availability reported");
       return result;
     }
 
@@ -116,6 +113,7 @@ public class KubernetesJobHandler extends KubernetesHandler implements
   }
 
   private boolean jobFailed(V1JobCondition condition) {
-    return "Failed".equalsIgnoreCase(condition.getType()) && "True".equalsIgnoreCase(condition.getStatus());
+    return "Failed".equalsIgnoreCase(condition.getType())
+        && "True".equalsIgnoreCase(condition.getStatus());
   }
 }

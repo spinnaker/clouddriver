@@ -20,10 +20,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Data;
 
 public class SubmitJobRequest {
   public static class Constraint {
-    enum ConstraintType {SOFT, HARD}
+    enum ConstraintType {
+      SOFT,
+      HARD
+    }
 
     public static final String UNIQUE_HOST = "UniqueHost";
     public static final String ZONE_BALANCE = "ZoneBalance";
@@ -51,6 +55,13 @@ public class SubmitJobRequest {
     public String getConstraint() {
       return constraint;
     }
+  }
+
+  @Data
+  public static class Constraints {
+
+    public Map hard;
+    public Map soft;
   }
 
   private String credentials;
@@ -87,6 +98,8 @@ public class SubmitJobRequest {
   private List<String> securityGroups = null;
   private MigrationPolicy migrationPolicy = null;
   private DisruptionBudget disruptionBudget = null;
+
+  private Constraints containerConstraints = null;
 
   public DisruptionBudget getDisruptionBudget() {
     return disruptionBudget;
@@ -267,8 +280,12 @@ public class SubmitJobRequest {
     return this;
   }
 
-  // Getters
+  public SubmitJobRequest withConstraints(Constraints constraints) {
+    this.containerConstraints = constraints;
+    return this;
+  }
 
+  // Getters
 
   public String getJobType() {
     return jobType;
@@ -338,7 +355,9 @@ public class SubmitJobRequest {
     return dockerImageVersion;
   }
 
-  public String getDockerDigest() { return dockerDigest; }
+  public String getDockerDigest() {
+    return dockerDigest;
+  }
 
   public boolean getAllocateIpAddress() {
     return allocateIpAddress;
@@ -404,4 +423,7 @@ public class SubmitJobRequest {
     return migrationPolicy;
   }
 
+  public Constraints getContainerConstraints() {
+    return containerConstraints;
+  }
 }

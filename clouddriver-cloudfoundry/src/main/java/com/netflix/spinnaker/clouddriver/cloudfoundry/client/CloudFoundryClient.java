@@ -28,4 +28,6 @@ public interface CloudFoundryClient {
   Applications getApplications();
 
   ServiceInstances getServiceInstances();
+
+  ServiceKeys getServiceKeys();
 }

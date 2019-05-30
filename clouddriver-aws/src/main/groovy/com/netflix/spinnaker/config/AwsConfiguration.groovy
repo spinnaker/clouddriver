@@ -19,10 +19,9 @@ package com.netflix.spinnaker.config
 import com.amazonaws.retry.RetryPolicy.BackoffStrategy
 import com.amazonaws.retry.RetryPolicy.RetryCondition
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.awsobjectmapper.AmazonObjectMapper
+import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.Agent
-import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.aws.AwsConfigurationProperties
 import com.netflix.spinnaker.clouddriver.aws.agent.CleanupAlarmsAgent
 import com.netflix.spinnaker.clouddriver.aws.agent.CleanupDetachedInstancesAgent
@@ -42,30 +41,21 @@ import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonServerGroup
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsCleanupProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonClusterProvider
-import com.netflix.spinnaker.clouddriver.aws.security.AWSProxy
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentialsInitializer
-import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig
+import com.netflix.spinnaker.clouddriver.aws.security.*
 import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig.Builder
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.services.IdGenerator
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import com.netflix.spinnaker.kork.aws.AwsComponents
-import org.springframework.beans.factory.config.ConfigurableBeanFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.ComponentScan
-import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.DependsOn
-import org.springframework.context.annotation.Import
-import org.springframework.context.annotation.Scope
+import org.springframework.context.annotation.*
 
 import java.util.concurrent.ConcurrentHashMap
 
@@ -110,8 +100,9 @@ class AwsConfiguration {
   }
 
   @Bean
+  @Qualifier("amazonObjectMapper")
   ObjectMapper amazonObjectMapper() {
-    return new AmazonObjectMapper()
+    return new AmazonObjectMapperConfigurer().createConfigured()
   }
 
   @Bean
@@ -222,27 +213,11 @@ class AwsConfiguration {
     new SecurityGroupLookupFactory(amazonClientProvider, accountCredentialsRepository)
   }
 
-  @Bean
-  AwsCleanupProviderSynchronizerTypeWrapper awsCleanupProviderSynchronizerTypeWrapper() {
-    new AwsCleanupProviderSynchronizerTypeWrapper()
-  }
-
-  class AwsCleanupProviderSynchronizerTypeWrapper implements ProviderSynchronizerTypeWrapper {
-    @Override
-    Class getSynchronizerType() {
-      return AwsCleanupProviderSynchronizer
-    }
-  }
-
-  class AwsCleanupProviderSynchronizer {}
-
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  @Bean
-  AwsCleanupProviderSynchronizer synchronizeAwsCleanupProvider(AwsConfigurationProperties awsConfigurationProperties,
-                                                               AwsCleanupProvider awsCleanupProvider,
-                                                               AmazonClientProvider amazonClientProvider,
-                                                               AccountCredentialsRepository accountCredentialsRepository,
-                                                               DeployDefaults deployDefaults) {
+  private static void synchronizeAwsCleanupProvider(AwsConfigurationProperties awsConfigurationProperties,
+                                                    AwsCleanupProvider awsCleanupProvider,
+                                                    AmazonClientProvider amazonClientProvider,
+                                                    AccountCredentialsRepository accountCredentialsRepository,
+                                                    DeployDefaults deployDefaults) {
     def scheduledAccounts = ProviderUtils.getScheduledAccounts(awsCleanupProvider)
     Set<NetflixAmazonCredentials> allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, NetflixAmazonCredentials)
 
@@ -267,8 +242,6 @@ class AwsConfiguration {
       awsCleanupProvider.agents.add(new CleanupDetachedInstancesAgent(amazonClientProvider, accountCredentialsRepository))
     }
     awsCleanupProvider.agents.addAll(newlyAddedAgents)
-
-    new AwsCleanupProviderSynchronizer()
   }
 
   @Bean

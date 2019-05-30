@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.security
 
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import spock.lang.Specification
@@ -26,18 +27,19 @@ class KubernetesV2CredentialsSpec extends Specification {
   KubectlJobExecutor kubectlJobExecutor = Stub(KubectlJobExecutor)
   String NAMESPACE = "my-namespace"
 
-  private getBuilder() {
-    return new KubernetesV2Credentials.Builder()
-      .registry(registry)
-      .jobExecutor(kubectlJobExecutor)
-      .namespaces([NAMESPACE])
+  private buildCredentials(KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+    return new KubernetesV2Credentials(registry, kubectlJobExecutor, managedAccount)
   }
 
   void "Built-in Kubernetes kinds are considered valid by default"() {
     when:
-    KubernetesV2Credentials credentials = getBuilder()
-      .checkPermissionsOnStartup(false)
-      .build()
+    KubernetesV2Credentials credentials = buildCredentials(
+      new KubernetesConfigurationProperties.ManagedAccount(
+        namespaces: [NAMESPACE],
+        checkPermissionsOnStartup: false,
+      )
+    )
+    credentials.initialize()
 
     then:
     credentials.isValidKind(KubernetesKind.DEPLOYMENT) == true
@@ -46,10 +48,14 @@ class KubernetesV2CredentialsSpec extends Specification {
 
   void "Built-in Kubernetes kinds are considered valid by default when kinds is empty"() {
     when:
-    KubernetesV2Credentials credentials = getBuilder()
-      .checkPermissionsOnStartup(false)
-      .kinds([])
-      .build()
+    KubernetesV2Credentials credentials = buildCredentials(
+      new KubernetesConfigurationProperties.ManagedAccount(
+        namespaces: [NAMESPACE],
+        checkPermissionsOnStartup: false,
+        kinds: []
+      )
+    )
+    credentials.initialize()
 
     then:
     credentials.isValidKind(KubernetesKind.DEPLOYMENT) == true
@@ -58,10 +64,14 @@ class KubernetesV2CredentialsSpec extends Specification {
 
   void "Only explicitly listed kinds are valid when kinds is not empty"() {
     when:
-    KubernetesV2Credentials credentials = getBuilder()
-      .checkPermissionsOnStartup(false)
-      .kinds(["deployment"])
-      .build()
+    KubernetesV2Credentials credentials = buildCredentials(
+      new KubernetesConfigurationProperties.ManagedAccount(
+        namespaces: [NAMESPACE],
+        checkPermissionsOnStartup: false,
+        kinds: ["deployment"]
+      )
+    )
+    credentials.initialize()
 
     then:
     credentials.isValidKind(KubernetesKind.DEPLOYMENT) == true
@@ -70,10 +80,14 @@ class KubernetesV2CredentialsSpec extends Specification {
 
   void "Explicitly omitted kinds are not valid"() {
     when:
-    KubernetesV2Credentials credentials = getBuilder()
-      .checkPermissionsOnStartup(false)
-      .omitKinds(["deployment"])
-      .build()
+    KubernetesV2Credentials credentials = buildCredentials(
+      new KubernetesConfigurationProperties.ManagedAccount(
+        namespaces: [NAMESPACE],
+        checkPermissionsOnStartup: false,
+        omitKinds: ["deployment"]
+      )
+    )
+    credentials.initialize()
 
     then:
     credentials.isValidKind(KubernetesKind.DEPLOYMENT) == false
@@ -82,9 +96,13 @@ class KubernetesV2CredentialsSpec extends Specification {
 
   void "Kinds that are not readable are considered invalid"() {
     when:
-    KubernetesV2Credentials credentials = getBuilder()
-      .checkPermissionsOnStartup(true)
-      .build()
+    KubernetesV2Credentials credentials = buildCredentials(
+      new KubernetesConfigurationProperties.ManagedAccount(
+        namespaces: [NAMESPACE],
+        checkPermissionsOnStartup: true,
+      )
+    )
+    credentials.initialize()
 
     then:
     kubectlJobExecutor.list(_, { it.contains(KubernetesKind.DEPLOYMENT) }, _, _) >> {

@@ -18,28 +18,37 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.converters;
 
+import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.aws.AmazonOperation;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.DeleteAmazonSnapshotDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.DeleteAmazonSnapshotAtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
-import org.springframework.stereotype.Component;
-
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 @AmazonOperation(AtomicOperations.DELETE_SNAPSHOT)
 @Component
-public class DeleteAmazonSnapshotAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
+public class DeleteAmazonSnapshotAtomicOperationConverter
+    extends AbstractAtomicOperationsCredentialsSupport {
+  private final Registry registry;
+
+  @Autowired
+  public DeleteAmazonSnapshotAtomicOperationConverter(Registry registry) {
+    this.registry = registry;
+  }
+
   @Override
   public AtomicOperation convertOperation(Map input) {
-    return new DeleteAmazonSnapshotAtomicOperation(convertDescription(input));
+    return new DeleteAmazonSnapshotAtomicOperation(convertDescription(input), registry);
   }
 
   @Override
   public DeleteAmazonSnapshotDescription convertDescription(Map input) {
-    DeleteAmazonSnapshotDescription converted = getObjectMapper()
-      .convertValue(input, DeleteAmazonSnapshotDescription.class);
+    DeleteAmazonSnapshotDescription converted =
+        getObjectMapper().convertValue(input, DeleteAmazonSnapshotDescription.class);
     converted.setCredentials(getCredentialsObject((String) input.get("credentials")));
     return converted;
   }

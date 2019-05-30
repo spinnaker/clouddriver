@@ -16,8 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.titus.client.model;
 
-import com.netflix.titus.grpc.protogen.*;
+import static com.netflix.titus.grpc.protogen.JobDisruptionBudget.PolicyCase.*;
+import static com.netflix.titus.grpc.protogen.JobDisruptionBudget.RateCase.*;
 
+import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.*;
+import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.ContainerHealthProvider;
+import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.TimeWindow;
+import com.netflix.titus.grpc.protogen.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -62,15 +67,21 @@ public class Job {
   private List<String> softConstraints;
   private Efs efs;
   private MigrationPolicy migrationPolicy;
+  private DisruptionBudget disruptionBudget;
   private String jobState;
+  private ServiceJobProcesses serviceJobProcesses;
 
-  public Job() {
-  }
+  private SubmitJobRequest.Constraints constraints;
 
-  public Job(com.netflix.titus.grpc.protogen.Job grpcJob, List<com.netflix.titus.grpc.protogen.Task> grpcTasks) {
+  public Job() {}
+
+  public Job(
+      com.netflix.titus.grpc.protogen.Job grpcJob,
+      List<com.netflix.titus.grpc.protogen.Task> grpcTasks) {
     id = grpcJob.getId();
 
-    if (grpcJob.getJobDescriptor().getJobSpecCase().getNumber() == JobDescriptor.BATCH_FIELD_NUMBER) {
+    if (grpcJob.getJobDescriptor().getJobSpecCase().getNumber()
+        == JobDescriptor.BATCH_FIELD_NUMBER) {
       type = "batch";
       BatchJobSpec batchJobSpec = grpcJob.getJobDescriptor().getBatch();
       instancesMin = batchJobSpec.getSize();
@@ -81,7 +92,8 @@ public class Job {
       retries = batchJobSpec.getRetryPolicy().getImmediate().getRetries();
     }
 
-    if (grpcJob.getJobDescriptor().getJobSpecCase().getNumber() == JobDescriptor.SERVICE_FIELD_NUMBER) {
+    if (grpcJob.getJobDescriptor().getJobSpecCase().getNumber()
+        == JobDescriptor.SERVICE_FIELD_NUMBER) {
       type = "service";
       ServiceJobSpec serviceSpec = grpcJob.getJobDescriptor().getService();
       inService = serviceSpec.getEnabled();
@@ -91,13 +103,16 @@ public class Job {
       instancesDesired = serviceSpec.getCapacity().getDesired();
       migrationPolicy = new MigrationPolicy();
       com.netflix.titus.grpc.protogen.MigrationPolicy policy = serviceSpec.getMigrationPolicy();
-      if (policy.getPolicyCase().equals(com.netflix.titus.grpc.protogen.MigrationPolicy.PolicyCase.SELFMANAGED)) {
+      if (policy
+          .getPolicyCase()
+          .equals(com.netflix.titus.grpc.protogen.MigrationPolicy.PolicyCase.SELFMANAGED)) {
         migrationPolicy.setType("selfManaged");
       } else {
         migrationPolicy.setType("systemDefault");
       }
     }
 
+    addDisruptionBudget(grpcJob);
     labels = grpcJob.getJobDescriptor().getAttributesMap();
     containerAttributes = grpcJob.getJobDescriptor().getContainer().getAttributesMap();
     user = grpcJob.getJobDescriptor().getOwner().getTeamEmail();
@@ -113,7 +128,9 @@ public class Job {
     applicationName = grpcJob.getJobDescriptor().getContainer().getImage().getName();
     version = grpcJob.getJobDescriptor().getContainer().getImage().getTag();
     digest = grpcJob.getJobDescriptor().getContainer().getImage().getDigest();
-    entryPoint = grpcJob.getJobDescriptor().getContainer().getEntryPointList().stream().collect(Collectors.joining(" "));
+    entryPoint =
+        grpcJob.getJobDescriptor().getContainer().getEntryPointList().stream()
+            .collect(Collectors.joining(" "));
     capacityGroup = grpcJob.getJobDescriptor().getCapacityGroup();
     cpu = (int) grpcJob.getJobDescriptor().getContainer().getResources().getCpu();
     memory = grpcJob.getJobDescriptor().getContainer().getResources().getMemoryMB();
@@ -124,20 +141,47 @@ public class Job {
     jobGroupStack = grpcJob.getJobDescriptor().getJobGroupInfo().getStack();
     jobGroupDetail = grpcJob.getJobDescriptor().getJobGroupInfo().getDetail();
     environment = grpcJob.getJobDescriptor().getContainer().getEnvMap();
-    securityGroups = grpcJob.getJobDescriptor().getContainer().getSecurityProfile().getSecurityGroupsList().stream().collect(Collectors.toList());
+    securityGroups =
+        grpcJob.getJobDescriptor().getContainer().getSecurityProfile().getSecurityGroupsList()
+            .stream()
+            .collect(Collectors.toList());
     iamProfile = grpcJob.getJobDescriptor().getContainer().getSecurityProfile().getIamRole();
     allocateIpAddress = true;
     submittedAt = new Date(grpcJob.getStatus().getTimestamp());
+    constraints = new SubmitJobRequest.Constraints();
+    Map hardConstraintsMap =
+        grpcJob.getJobDescriptor().getContainer().getHardConstraints().getConstraintsMap();
+    if (hardConstraintsMap != null) {
+      constraints.setHard(hardConstraintsMap);
+    }
+    Map softConstraintsMap =
+        grpcJob.getJobDescriptor().getContainer().getSoftConstraints().getConstraintsMap();
+    if (softConstraintsMap != null) {
+      constraints.setSoft(softConstraintsMap);
+    }
     softConstraints = new ArrayList<String>();
-    softConstraints.addAll(grpcJob.getJobDescriptor().getContainer().getSoftConstraints().getConstraintsMap().keySet());
+    softConstraints.addAll(
+        grpcJob
+            .getJobDescriptor()
+            .getContainer()
+            .getSoftConstraints()
+            .getConstraintsMap()
+            .keySet());
     hardConstraints = new ArrayList<String>();
-    hardConstraints.addAll(grpcJob.getJobDescriptor().getContainer().getHardConstraints().getConstraintsMap().keySet());
+    hardConstraints.addAll(
+        grpcJob
+            .getJobDescriptor()
+            .getContainer()
+            .getHardConstraints()
+            .getConstraintsMap()
+            .keySet());
 
     jobState = grpcJob.getStatus().getState().toString();
 
     if (grpcJob.getJobDescriptor().getContainer().getResources().getEfsMountsCount() > 0) {
       efs = new Efs();
-      ContainerResources.EfsMount firstMount = grpcJob.getJobDescriptor().getContainer().getResources().getEfsMounts(0);
+      ContainerResources.EfsMount firstMount =
+          grpcJob.getJobDescriptor().getContainer().getResources().getEfsMounts(0);
       efs.setEfsId(firstMount.getEfsId());
       efs.setMountPerm(firstMount.getMountPerm().toString());
       efs.setMountPoint(firstMount.getMountPoint());
@@ -146,6 +190,83 @@ public class Job {
       }
     }
 
+    if (grpcJob.getJobDescriptor().getService().getServiceJobProcesses() != null) {
+      serviceJobProcesses = new ServiceJobProcesses();
+      serviceJobProcesses.setDisableDecreaseDesired(
+          grpcJob
+              .getJobDescriptor()
+              .getService()
+              .getServiceJobProcesses()
+              .getDisableDecreaseDesired());
+      serviceJobProcesses.setDisableIncreaseDesired(
+          grpcJob
+              .getJobDescriptor()
+              .getService()
+              .getServiceJobProcesses()
+              .getDisableIncreaseDesired());
+    }
+  }
+
+  private void addDisruptionBudget(com.netflix.titus.grpc.protogen.Job grpcJob) {
+    JobDisruptionBudget budget = grpcJob.getJobDescriptor().getDisruptionBudget();
+    disruptionBudget = new DisruptionBudget();
+    if (budget.getContainerHealthProvidersList() != null) {
+      disruptionBudget.setContainerHealthProviders(
+          budget.getContainerHealthProvidersList().stream()
+              .map(c -> new ContainerHealthProvider(c.getName()))
+              .collect(Collectors.toList()));
+    }
+    if (RATEUNLIMITED.equals(budget.getRateCase())) {
+      disruptionBudget.setRateUnlimited(true);
+    }
+    if (RATEPERCENTAGEPERHOUR.equals(budget.getRateCase())) {
+      disruptionBudget.setRatePercentagePerHour(
+          new RatePercentagePerHour(
+              budget.getRatePercentagePerHour().getMaxPercentageOfContainersRelocatedInHour()));
+    }
+    if (RATEPERINTERVAL.equals(budget.getRateCase())) {
+      disruptionBudget.setRatePerInterval(
+          new RatePerInterval(
+              budget.getRatePerInterval().getIntervalMs(),
+              budget.getRatePerInterval().getLimitPerInterval()));
+    }
+    if (RATEPERCENTAGEPERINTERVAL.equals(budget.getRateCase())) {
+      disruptionBudget.setRatePercentagePerInterval(
+          new RatePercentagePerInterval(
+              budget.getRatePercentagePerInterval().getIntervalMs(),
+              budget.getRatePercentagePerInterval().getPercentageLimitPerInterval()));
+    }
+
+    if (SELFMANAGED.equals(budget.getPolicyCase())) {
+      disruptionBudget.setSelfManaged(
+          new SelfManaged(budget.getSelfManaged().getRelocationTimeMs()));
+    }
+    if (AVAILABILITYPERCENTAGELIMIT.equals(budget.getPolicyCase())) {
+      disruptionBudget.setAvailabilityPercentageLimit(
+          new AvailabilityPercentageLimit(
+              budget.getAvailabilityPercentageLimit().getPercentageOfHealthyContainers()));
+    }
+    if (UNHEALTHYTASKSLIMIT.equals(budget.getPolicyCase())) {
+      disruptionBudget.setUnhealthyTasksLimit(
+          new UnhealthyTasksLimit(budget.getUnhealthyTasksLimit().getLimitOfUnhealthyContainers()));
+    }
+    if (RELOCATIONLIMIT.equals(budget.getPolicyCase())) {
+      disruptionBudget.setRelocationLimit(
+          new RelocationLimit(budget.getRelocationLimit().getLimit()));
+    }
+    if (budget.getTimeWindowsList() != null) {
+      disruptionBudget.setTimeWindows(
+          budget.getTimeWindowsList().stream()
+              .map(
+                  w ->
+                      new TimeWindow(
+                          w.getDaysList().stream().map(Enum::name).collect(Collectors.toList()),
+                          w.getHourlyTimeWindowsList().stream()
+                              .map(t -> new HourlyTimeWindow(t.getStartHour(), t.getEndHour()))
+                              .collect(Collectors.toList()),
+                          w.getTimeZone()))
+              .collect(Collectors.toList()));
+    }
   }
 
   public String getId() {
@@ -440,8 +561,35 @@ public class Job {
     return jobState;
   }
 
-  public void setDigest(String digest) { this.digest = digest; }
+  public void setDigest(String digest) {
+    this.digest = digest;
+  }
 
-  public String getDigest() { return digest; }
+  public String getDigest() {
+    return digest;
+  }
 
+  public DisruptionBudget getDisruptionBudget() {
+    return disruptionBudget;
+  }
+
+  public void setDisruptionBudget(DisruptionBudget disruptionBudget) {
+    this.disruptionBudget = disruptionBudget;
+  }
+
+  public ServiceJobProcesses getServiceJobProcesses() {
+    return serviceJobProcesses;
+  }
+
+  public void setServiceJobProcesses(ServiceJobProcesses serviceJobProcesses) {
+    this.serviceJobProcesses = serviceJobProcesses;
+  }
+
+  public SubmitJobRequest.Constraints getConstraints() {
+    return constraints;
+  }
+
+  public void setConstraints(SubmitJobRequest.Constraints constraints) {
+    this.constraints = constraints;
+  }
 }

@@ -17,9 +17,9 @@
 package com.netflix.spinnaker.clouddriver.titus.client;
 
 import com.netflix.spinnaker.clouddriver.titus.client.model.*;
+import com.netflix.spinnaker.clouddriver.titus.deploy.description.ServiceJobProcessesRequest;
 import com.netflix.titus.grpc.protogen.JobChangeNotification;
 import com.netflix.titus.grpc.protogen.ObserveJobsQuery;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -63,29 +63,26 @@ public interface TitusClient {
    */
   public Task getTask(String taskId);
 
-  /**
-   * @param resizeJobRequest
-   */
+  /** @param jobDisruptionBudgetUpdateRequest */
+  public void updateDisruptionBudget(
+      JobDisruptionBudgetUpdateRequest jobDisruptionBudgetUpdateRequest);
+
+  /** @param serviceJobProcessesRequest */
+  public void updateScalingProcesses(ServiceJobProcessesRequest serviceJobProcessesRequest);
+
+  /** @param resizeJobRequest */
   public void resizeJob(ResizeJobRequest resizeJobRequest);
 
-  /**
-   * @param activateJobRequest
-   */
+  /** @param activateJobRequest */
   public void activateJob(ActivateJobRequest activateJobRequest);
 
-  /**
-   * @param shouldEnable
-   */
+  /** @param shouldEnable */
   public void setAutoscaleEnabled(String jobId, boolean shouldEnable);
 
-  /**
-   * @param terminateJobRequest
-   */
+  /** @param terminateJobRequest */
   public void terminateJob(TerminateJobRequest terminateJobRequest);
 
-  /**
-   * @param terminateTasksAndShrinkJob
-   */
+  /** @param terminateTasksAndShrinkJob */
   public void terminateTasksAndShrink(TerminateTasksAndShrinkJobRequest terminateTasksAndShrinkJob);
 
   /**
@@ -94,24 +91,22 @@ public interface TitusClient {
    */
   public Map logsDownload(String taskId);
 
-  /**
-   * @return
-   */
+  /** @return */
   public TitusHealth getHealth();
 
-  /**
-   * @return
-   */
+  /** @return */
   public List<Job> getAllJobsWithTasks();
 
   /**
    * For use in TitusV2ClusterCachingAgent
+   *
    * @return all jobs w/o task detail that are managed by Spinnaker
    */
   public List<Job> getAllJobsWithoutTasks();
 
   /**
    * For use in TitusInstanceCachingAgent
+   *
    * @return all tasks managed by Spinnaker
    */
   public List<Task> getAllTasks();
@@ -121,5 +116,4 @@ public interface TitusClient {
   public Map<String, List<String>> getTaskIdsForJobIds();
 
   public Iterator<JobChangeNotification> observeJobs(ObserveJobsQuery observeJobsQuery);
-
 }

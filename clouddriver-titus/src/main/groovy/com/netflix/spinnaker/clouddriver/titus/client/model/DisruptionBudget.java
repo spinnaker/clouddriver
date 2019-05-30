@@ -17,10 +17,9 @@
 package com.netflix.spinnaker.clouddriver.titus.client.model;
 
 import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.*;
-import lombok.Data;
-
 import java.io.Serializable;
 import java.util.List;
+import lombok.Data;
 
 @Data
 public class DisruptionBudget implements Serializable {
@@ -28,7 +27,8 @@ public class DisruptionBudget implements Serializable {
   UnhealthyTasksLimit unhealthyTasksLimit;
   RelocationLimit relocationLimit;
   RatePercentagePerHour ratePercentagePerHour;
-  RateUnlimited rateUnlimited;
+
+  boolean rateUnlimited;
   List<TimeWindow> timeWindows;
   List<ContainerHealthProvider> containerHealthProviders;
   SelfManaged selfManaged;

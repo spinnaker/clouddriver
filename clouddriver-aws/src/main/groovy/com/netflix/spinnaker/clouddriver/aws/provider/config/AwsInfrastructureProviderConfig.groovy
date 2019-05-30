@@ -16,10 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.config
 
-import com.netflix.awsobjectmapper.AmazonObjectMapper
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.Agent
-import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonElasticIpCachingAgent
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonInstanceTypeCachingAgent
@@ -33,11 +32,10 @@ import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
-import org.springframework.beans.factory.config.ConfigurableBeanFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.DependsOn
-import org.springframework.context.annotation.Scope
 
 import java.util.concurrent.ConcurrentHashMap
 
@@ -47,7 +45,7 @@ class AwsInfrastructureProviderConfig {
   @DependsOn('netflixAmazonCredentials')
   AwsInfrastructureProvider awsInfrastructureProvider(AmazonClientProvider amazonClientProvider,
                                                       AccountCredentialsRepository accountCredentialsRepository,
-                                                      AmazonObjectMapper amazonObjectMapper,
+                                                      @Qualifier("amazonObjectMapper") ObjectMapper amazonObjectMapper,
                                                       Registry registry,
                                                       EddaTimeoutConfig eddaTimeoutConfig) {
     def awsInfrastructureProvider =
@@ -63,28 +61,12 @@ class AwsInfrastructureProviderConfig {
     awsInfrastructureProvider
   }
 
-  @Bean
-  AwsInfrastructureProviderSynchronizerTypeWrapper awsInfrastructureProviderSynchronizerTypeWrapper() {
-    new AwsInfrastructureProviderSynchronizerTypeWrapper()
-  }
-
-  class AwsInfrastructureProviderSynchronizerTypeWrapper implements ProviderSynchronizerTypeWrapper {
-    @Override
-    Class getSynchronizerType() {
-      return AwsInfrastructureProviderSynchronizer
-    }
-  }
-
-  class AwsInfrastructureProviderSynchronizer {}
-
-  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-  @Bean
-  AwsInfrastructureProviderSynchronizer synchronizeAwsInfrastructureProvider(AwsInfrastructureProvider awsInfrastructureProvider,
-                                                                             AmazonClientProvider amazonClientProvider,
-                                                                             AccountCredentialsRepository accountCredentialsRepository,
-                                                                             AmazonObjectMapper amazonObjectMapper,
-                                                                             Registry registry,
-                                                                             EddaTimeoutConfig eddaTimeoutConfig) {
+  private static void synchronizeAwsInfrastructureProvider(AwsInfrastructureProvider awsInfrastructureProvider,
+                                                           AmazonClientProvider amazonClientProvider,
+                                                           AccountCredentialsRepository accountCredentialsRepository,
+                                                           @Qualifier("amazonObjectMapper") ObjectMapper amazonObjectMapper,
+                                                           Registry registry,
+                                                           EddaTimeoutConfig eddaTimeoutConfig) {
     def scheduledAccounts = ProviderUtils.getScheduledAccounts(awsInfrastructureProvider)
     def allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, NetflixAmazonCredentials)
 
@@ -114,7 +96,5 @@ class AwsInfrastructureProviderConfig {
         }
       }
     }
-
-    new AwsInfrastructureProviderSynchronizer()
   }
 }

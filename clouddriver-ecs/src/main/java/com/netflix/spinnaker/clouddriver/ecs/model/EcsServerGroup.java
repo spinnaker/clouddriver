@@ -18,11 +18,10 @@ package com.netflix.spinnaker.clouddriver.ecs.model;
 
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.Map;
 import java.util.Set;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
@@ -39,6 +38,7 @@ public class EcsServerGroup implements ServerGroup {
   Set<String> loadBalancers;
   Set<String> securityGroups;
   Map<String, Object> launchConfig;
+  Image image;
   InstanceCounts instanceCounts;
   Capacity capacity;
   ImagesSummary imagesSummary;
@@ -63,4 +63,10 @@ public class EcsServerGroup implements ServerGroup {
     Integer desiredCapacity;
   }
 
+  @Data
+  @NoArgsConstructor
+  public static class Image {
+    public String imageId;
+    public String name;
+  }
 }

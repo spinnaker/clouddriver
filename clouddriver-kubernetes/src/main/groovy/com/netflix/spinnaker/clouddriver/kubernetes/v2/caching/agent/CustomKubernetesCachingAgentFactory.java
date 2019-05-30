@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent;
 
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
@@ -24,12 +26,10 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+import java.util.List;
 
 public class CustomKubernetesCachingAgentFactory {
   public static KubernetesV2OnDemandCachingAgent create(
@@ -40,8 +40,7 @@ public class CustomKubernetesCachingAgentFactory {
       Registry registry,
       int agentIndex,
       int agentCount,
-      Long agentInterval
-  ) {
+      Long agentInterval) {
     return new Agent(
         kind,
         namedAccountCredentials,
@@ -50,8 +49,7 @@ public class CustomKubernetesCachingAgentFactory {
         registry,
         agentIndex,
         agentCount,
-        agentInterval
-    );
+        agentInterval);
   }
 
   private static class Agent extends KubernetesV2OnDemandCachingAgent {
@@ -65,29 +63,33 @@ public class CustomKubernetesCachingAgentFactory {
         Registry registry,
         int agentIndex,
         int agentCount,
-        Long agentInterval
-    ) {
-      super(namedAccountCredentials, propertyRegistry, objectMapper, registry, agentIndex, agentCount, agentInterval);
+        Long agentInterval) {
+      super(
+          namedAccountCredentials,
+          propertyRegistry,
+          objectMapper,
+          registry,
+          agentIndex,
+          agentCount,
+          agentInterval);
       this.kind = kind;
     }
 
     @Override
-    protected KubernetesKind primaryKind() {
-      return this.kind;
+    protected List<KubernetesKind> primaryKinds() {
+      return Collections.singletonList(this.kind);
     }
 
     @Override
-    final public Collection<AgentDataType> getProvidedDataTypes() {
+    public final Collection<AgentDataType> getProvidedDataTypes() {
       return Collections.unmodifiableSet(
-          new HashSet<>(Collections.singletonList(
-              AUTHORITATIVE.forType(this.kind.toString())
-          ))
-      );
+          new HashSet<>(Collections.singletonList(AUTHORITATIVE.forType(this.kind.toString()))));
     }
 
     @Override
     public String getAgentType() {
-      return String.format("%s/CustomKubernetes(%s)[%d/%d]", accountName, kind, agentIndex + 1, agentCount);
+      return String.format(
+          "%s/CustomKubernetes(%s)[%d/%d]", accountName, kind, agentIndex + 1, agentCount);
     }
   }
 }

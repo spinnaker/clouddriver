@@ -18,24 +18,24 @@ package com.netflix.spinnaker.clouddriver.appengine
 
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest
-import com.netflix.spinnaker.clouddriver.jobs.JobStatus
+import com.netflix.spinnaker.clouddriver.jobs.JobResult
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 @Component
 class AppengineJobExecutor {
-  @Value('${appengine.jobSleepMs:1000}')
+  @Value('${appengine.job-sleep-ms:1000}')
   Long sleepMs
 
   @Autowired
   JobExecutor jobExecutor
 
   void runCommand(List<String> command) {
-    JobStatus jobStatus = jobExecutor.runJob(new JobRequest(command))
-    if (jobStatus.getResult() == JobStatus.Result.FAILURE && jobStatus.getStdOut()) {
-      String stdOut = jobStatus.getStdOut()
-      String stdErr = jobStatus.getStdErr()
+    JobResult<String> jobStatus = jobExecutor.runJob(new JobRequest(command))
+    if (jobStatus.getResult() == JobResult.Result.FAILURE && jobStatus.getStdOut()) {
+      String stdOut = jobStatus.getOutput()
+      String stdErr = jobStatus.getError()
       throw new IllegalArgumentException("$stdOut + $stdErr")
     }
   }
