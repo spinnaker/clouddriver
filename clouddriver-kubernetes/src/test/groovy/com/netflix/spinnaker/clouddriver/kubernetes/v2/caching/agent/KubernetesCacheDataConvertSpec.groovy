@@ -126,13 +126,13 @@ metadata:
     def result = KubernetesCacheDataConverter.invertRelationships(cacheData)
 
     then:
-    relationships.collect {
-      group, keys -> keys.collect {
+    relationships.every {
+      group, keys -> keys.every {
         key -> result.find {
           data -> data.id == key && data.relationships.get(kind.toString()) == [id]
         } != null
-      }.inject true, { a, b -> a && b }
-    }.inject true, { a, b -> a && b }
+      }
+    }
 
     where:
     kind                       | version                           | relationships
@@ -142,6 +142,36 @@ metadata:
     KubernetesKind.REPLICA_SET | KubernetesApiVersion.APPS_V1BETA1 | ["deployment": [Keys.infrastructure(KubernetesKind.DEPLOYMENT, "account", "namespace", "a-name")]]
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1           | ["cluster": [Keys.cluster("account", "app", "name")], "application": [Keys.application("blarg")]]
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1           | ["cluster": [Keys.cluster("account", "app", "name")], "application": [Keys.application("blarg"), Keys.application("asdfasdf")]]
+  }
+
+  @Unroll
+  def "given a cache data entry, determines cluster relationships"() {
+    setup:
+    def account = "account"
+    def application = "app"
+    def id = Keys.infrastructure(kind, account, "namespace", cluster)
+    def attributes = [
+      moniker: [
+        app: application,
+        cluster: cluster
+      ]
+    ]
+    def cacheData = new DefaultCacheData(id, attributes, [:])
+
+    when:
+    def result = KubernetesCacheDataConverter.getClusterRelationships(account, cacheData)
+
+    then:
+    result.id == Keys.application(application)
+    result.relationships.clusters == [
+        Keys.cluster(account, application, cluster)
+    ]
+
+    where:
+    kind                       | cluster
+    KubernetesKind.REPLICA_SET | "my-app-321"
+    KubernetesKind.DEPLOYMENT  | "my-app"
+    KubernetesKind.POD         | "my-app-321-abcd"
   }
 
   @Unroll
