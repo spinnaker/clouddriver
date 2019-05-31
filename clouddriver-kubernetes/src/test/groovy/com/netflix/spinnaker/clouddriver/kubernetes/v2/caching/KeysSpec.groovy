@@ -133,8 +133,7 @@ class KeysSpec extends Specification {
     parsedInfrastructureKey.kubernetesKind == KubernetesKind.CLUSTER_ROLE
     parsedInfrastructureKey.account == "k8s"
     parsedInfrastructureKey.namespace == ""
-    // This is currently incorrect; the semicolons in the resource name should be replaced by colons
-    parsedInfrastructureKey.name == "system;controller;resourcequota-controller"
+    parsedInfrastructureKey.name == "system:controller:resourcequota-controller"
   }
 
   @Unroll

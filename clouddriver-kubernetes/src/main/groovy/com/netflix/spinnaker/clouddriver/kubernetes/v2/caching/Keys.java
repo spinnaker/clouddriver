@@ -131,8 +131,10 @@ public class Keys {
       return Optional.empty();
     }
 
-    for (String part : parts) {
-      part.replaceAll(";", ":");
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].contains(";")) {
+        parts[i] = parts[i].replaceAll(";", ":");
+      }
     }
 
     try {
