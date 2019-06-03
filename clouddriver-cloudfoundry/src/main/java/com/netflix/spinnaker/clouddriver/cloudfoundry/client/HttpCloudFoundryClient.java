@@ -151,31 +151,15 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
       String metricsUri,
       String apiHost,
       String user,
-      String password) {
+      String password,
+      boolean skipSslValidation) {
     this.apiHost = apiHost;
     this.user = user;
     this.password = password;
 
-    this.okHttpClient = new OkHttpClient();
+    this.okHttpClient = createHttpClient(skipSslValidation);
+
     okHttpClient.interceptors().add(this::createRetryInterceptor);
-
-    okHttpClient.setHostnameVerifier((s, sslSession) -> true);
-
-    TrustManager[] trustAllCerts =
-        new TrustManager[] {
-          new X509TrustManager() {
-            @Override
-            public void checkClientTrusted(X509Certificate[] x509Certificates, String s) {}
-
-            @Override
-            public void checkServerTrusted(X509Certificate[] x509Certificates, String s) {}
-
-            @Override
-            public X509Certificate[] getAcceptedIssuers() {
-              return new X509Certificate[0];
-            }
-          }
-        };
 
     ObjectMapper mapper = new ObjectMapper();
     mapper.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
@@ -208,6 +192,42 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
     this.routes =
         new Routes(account, createService(RouteService.class), applications, domains, spaces);
     this.serviceKeys = new ServiceKeys(createService(ServiceKeyService.class), spaces);
+  }
+
+  private static OkHttpClient createHttpClient(boolean skipSslValidation) {
+    OkHttpClient client = new OkHttpClient();
+
+    if (skipSslValidation) {
+      client.setHostnameVerifier((s, sslSession) -> true);
+
+      TrustManager[] trustAllCerts =
+          new TrustManager[] {
+            new X509TrustManager() {
+              @Override
+              public void checkClientTrusted(X509Certificate[] x509Certificates, String s) {}
+
+              @Override
+              public void checkServerTrusted(X509Certificate[] x509Certificates, String s) {}
+
+              @Override
+              public X509Certificate[] getAcceptedIssuers() {
+                return new X509Certificate[0];
+              }
+            }
+          };
+
+      SSLContext sslContext;
+      try {
+        sslContext = SSLContext.getInstance("SSL");
+        sslContext.init(null, trustAllCerts, new SecureRandom());
+      } catch (KeyManagementException | NoSuchAlgorithmException e) {
+        throw new RuntimeException(e);
+      }
+
+      client.setSslSocketFactory(sslContext.getSocketFactory());
+    }
+
+    return client;
   }
 
   private void refreshTokenIfNecessary() {
