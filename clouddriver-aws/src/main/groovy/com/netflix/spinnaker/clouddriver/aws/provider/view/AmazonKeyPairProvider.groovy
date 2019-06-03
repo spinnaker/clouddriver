@@ -40,7 +40,14 @@ class AmazonKeyPairProvider implements KeyPairProvider<AmazonKeyPair> {
 
   @Override
   Set<AmazonKeyPair> getAll() {
-    cacheView.getAll(KEY_PAIRS.ns, RelationshipCacheFilter.none()).collect { CacheData cacheData ->
+    cacheView.getAll(
+      KEY_PAIRS.ns,
+      cacheView.filterIdentifiers(
+        KEY_PAIRS.ns,
+        Keys.getKeyPairKey('*','*','*')
+      ),
+      RelationshipCacheFilter.none()
+    ).collect { CacheData cacheData ->
       Map<String, String> parts = Keys.parse(cacheData.id)
       new AmazonKeyPair(
         parts.account,

@@ -25,10 +25,11 @@ def cloudProviderProjects = [
   'gce': [':clouddriver-consul', ':clouddriver-google', ':clouddriver-google-common'],
   'kubernetes': [':clouddriver-kubernetes', ':clouddriver-docker'],
   'openstack': [':clouddriver-openstack'],
-  'oracle': [':clouddriver-oracle']
+  'oracle': [':clouddriver-oracle'],
+  'tencent': [':clouddriver-tencent']
 ]
 cloudProviderProjects.put('gcp', cloudProviderProjects['appengine'] + cloudProviderProjects['gce'] + cloudProviderProjects['kubernetes'])
-cloudProviderProjects.put('titus', cloudProviderProjects['aws'] + ':clouddriver-titus')
+//cloudProviderProjects.put('titus', cloudProviderProjects['aws'] + ':clouddriver-titus')
 cloudProviderProjects.put('all', cloudProviderProjects.collectMany {_, proj -> proj}) // Include all cloud providers.
 
 // Set as an ext variable so that build scripts can access it
