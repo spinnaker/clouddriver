@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import lombok.extern.slf4j.Slf4j;
 import okio.Buffer;
 import okio.BufferedSource;
 import retrofit.RequestInterceptor;
@@ -48,6 +49,7 @@ import retrofit.RestAdapter;
 import retrofit.client.OkClient;
 import retrofit.converter.JacksonConverter;
 
+@Slf4j
 public class HttpCloudFoundryClient implements CloudFoundryClient {
   private final String apiHost;
   private final String user;
@@ -183,16 +185,6 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
 
     this.jacksonConverter = new JacksonConverter(mapper);
 
-    SSLContext sslContext;
-    try {
-      sslContext = SSLContext.getInstance("SSL");
-      sslContext.init(null, trustAllCerts, new SecureRandom());
-    } catch (KeyManagementException | NoSuchAlgorithmException e) {
-      throw new RuntimeException(e);
-    }
-
-    okHttpClient.setSslSocketFactory(sslContext.getSocketFactory());
-
     this.uaaService =
         new RestAdapter.Builder()
             .setEndpoint("https://" + apiHost.replaceAll("^api\\.", "login."))
@@ -228,7 +220,12 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
   }
 
   private void refreshToken() {
-    token = uaaService.passwordToken("password", user, password, "cf", "");
+    try {
+      token = uaaService.passwordToken("password", user, password, "cf", "");
+    } catch (Exception e) {
+      log.warn("Failed to obtain a token", e);
+      throw e;
+    }
     tokenExpirationNs.addAndGet(Duration.ofSeconds(token.getExpiresIn()).toNanos());
   }
 
