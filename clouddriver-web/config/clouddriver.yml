@@ -267,6 +267,16 @@ cf:
 oracle:
   enabled: ${ORACLE_ENABLED:false}
 
+tencent:
+  enabled: true
+  accounts:
+    - name: my-tencent-account
+      project: my-tencent-project
+      secretId: ${TENCENTCLOUD_SECRET_ID}
+      secretKey: ${TENCENTCLOUD_SECRET_KEY}
+      regions: ["ap-guangzhou","ap-shanghai"]
+      
+
 spring:
   jackson:
     mapper:

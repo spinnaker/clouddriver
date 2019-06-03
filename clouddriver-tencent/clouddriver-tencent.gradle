@@ -1,0 +1,29 @@
+
+dependencies {
+  testCompile group: 'junit', name: 'junit', version: '4.12'
+
+  compile group: 'com.tencentcloudapi', name: 'tencentcloud-sdk-java', version: '3.0.74'
+  implementation project(":clouddriver-kubernetes")
+  implementation project(":clouddriver-core")
+  implementation project(":cats:cats-core")
+  implementation project(":clouddriver-docker")
+  implementation project(":clouddriver-security")
+
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "org.codehaus.groovy:groovy-all"
+
+  implementation "com.github.fge:json-patch:1.9"
+  implementation "com.google.guava:guava"
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.kork:kork-config"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.netflix.spinnaker.kork:kork-security"
+  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+}
