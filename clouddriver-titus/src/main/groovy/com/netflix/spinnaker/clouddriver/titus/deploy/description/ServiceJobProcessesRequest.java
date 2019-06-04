@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Schibsted Media Group.
+ * Copyright 2019 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.aws.model;
 
-import java.util.List;
-import java.util.Optional;
+package com.netflix.spinnaker.clouddriver.titus.deploy.description;
 
-public interface CloudFormationProvider<T extends CloudFormationStack> {
+import com.netflix.spinnaker.clouddriver.titus.client.model.ServiceJobProcesses;
+import lombok.Data;
 
-  List<T> list(String account, String region);
+@Data
+public class ServiceJobProcessesRequest extends AbstractTitusCredentialsDescription {
 
-  Optional<T> get(String stackId);
+  ServiceJobProcesses serviceJobProcesses;
+  String region;
+  String jobId;
 }
