@@ -132,8 +132,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     this.liveNamespaceSupplier =
         Suppliers.memoizeWithExpiration(
-            () ->
-                jobExecutor
+            () -> {
+              try {
+                return jobExecutor
                     .list(
                         this,
                         Collections.singletonList(KubernetesKind.NAMESPACE),
@@ -141,7 +142,13 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                         new KubernetesSelectorList())
                     .stream()
                     .map(KubernetesManifest::getName)
-                    .collect(Collectors.toList()),
+                    .collect(Collectors.toList());
+              } catch (KubectlException e) {
+                log.error(
+                    "Could not list namespaces for account {}: {}", accountName, e.getMessage());
+                return new ArrayList<>();
+              }
+            },
             NAMESPACE_EXPIRY_SECONDS,
             TimeUnit.SECONDS);
 
@@ -270,13 +277,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     if (!namespaces.isEmpty()) {
       result = namespaces;
     } else {
-      try {
-        result = liveNamespaceSupplier.get();
-
-      } catch (KubectlException e) {
-        log.warn("Could not list namespaces for account {}: {}", accountName, e.getMessage());
-        return new ArrayList<>();
-      }
+      result = liveNamespaceSupplier.get();
     }
 
     if (!omitNamespaces.isEmpty()) {
