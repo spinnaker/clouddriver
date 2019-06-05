@@ -36,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Getter
-@JsonIgnoreProperties({"credentials", "client"})
+@JsonIgnoreProperties({"credentials", "client", "password"})
 public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryClient> {
 
   private final String name;
