@@ -156,7 +156,13 @@ public class CreateServerGroupAtomicOperation
             .withEnvironment(containerEnvironment)
             .withCpu(description.getComputeUnits())
             .withMemoryReservation(description.getReservedMemory())
-            .withImage(description.getDockerImageAddress());
+            .withImage(description.getDockerImageAddress())
+            .withMountPoints(description.getMountPoints());
+
+    final Collection<String> containerCommand = description.getCommand();
+    if (containerCommand != null) {
+      containerDefinition.setCommand(containerCommand);
+    }
 
     Collection<PortMapping> portMappings = new LinkedList<>();
 
@@ -238,7 +244,8 @@ public class CreateServerGroupAtomicOperation
     RegisterTaskDefinitionRequest request =
         new RegisterTaskDefinitionRequest()
             .withContainerDefinitions(containerDefinitions)
-            .withFamily(EcsServerGroupNameResolver.getEcsFamilyName(newServerGroupName));
+            .withFamily(EcsServerGroupNameResolver.getEcsFamilyName(newServerGroupName))
+            .withVolumes(description.getVolumes());
     if (description.getNetworkMode() != null && !description.getNetworkMode().equals("default")) {
       request.withNetworkMode(description.getNetworkMode());
     }

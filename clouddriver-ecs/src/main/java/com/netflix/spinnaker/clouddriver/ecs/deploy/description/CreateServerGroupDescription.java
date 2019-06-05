@@ -16,8 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
+import com.amazonaws.services.ecs.model.MountPoint;
 import com.amazonaws.services.ecs.model.PlacementConstraint;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
+import com.amazonaws.services.ecs.model.Volume;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,8 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Map<String, String> environmentVariables;
   Map<String, String> tags;
 
+  List<String> command;
+
   String dockerImageAddress;
   String dockerImageCredentialsSecret;
 
@@ -57,6 +61,9 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   String subnetType;
   Boolean associatePublicIpAddress;
   Integer healthCheckGracePeriodSeconds;
+
+  List<Volume> volumes;
+  List<MountPoint> mountPoints;
 
   String launchType;
   String platformVersion;
