@@ -365,7 +365,9 @@ class AutoScalingClient extends AbstractTencentServiceClient {
       def request = new RegisterTargetsRequest()
       request.loadBalancerId = flb.loadBalancerId
       request.listenerId = flb.listenerId
-      request.locationId = flb?.locationId
+      if (flb?.locationId) {
+        request.locationId = flb?.locationId
+      }
       request.targets = targets.collect {
         return new Target(
           instanceId: it.instanceId,
@@ -401,7 +403,9 @@ class AutoScalingClient extends AbstractTencentServiceClient {
       def request = new DeregisterTargetsRequest()
       request.loadBalancerId = flb.loadBalancerId
       request.listenerId = flb.listenerId
-      request.locationId = flb?.locationId
+      if (flb?.locationId) {
+        request.locationId = flb?.locationId
+      }
       request.targets = targets.collect {
         return new Target(
           instanceId: it.instanceId,
