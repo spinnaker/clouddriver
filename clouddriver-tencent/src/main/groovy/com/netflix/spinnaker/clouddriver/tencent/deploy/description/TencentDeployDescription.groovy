@@ -13,7 +13,7 @@ class TencentDeployDescription extends AbstractTencentCredentialsDescription imp
    */
   String application
   String stack
-  String freeFormDetails
+  String detail
   String region
   String accountName
   String serverGroupName
