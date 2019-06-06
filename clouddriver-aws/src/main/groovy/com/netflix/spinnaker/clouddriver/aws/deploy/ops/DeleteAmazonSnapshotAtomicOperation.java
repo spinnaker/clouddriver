@@ -63,7 +63,13 @@ public class DeleteAmazonSnapshotAtomicOperation implements AtomicOperation<Void
           .getAmazonEC2(description.getCredentials(), description.getRegion())
           .deleteSnapshot(new DeleteSnapshotRequest().withSnapshotId(description.getSnapshotId()));
     } catch (Exception e) {
-      registry.counter(deleteSnapshotTaskId.withTag("success", false)).increment();
+      registry
+          .counter(
+              deleteSnapshotTaskId
+                  .withTag("success", false)
+                  .withTag("region", description.getRegion())
+                  .withTag("account", description.getAccount()))
+          .increment();
       log.error(
           String.format(
               "Failed to delete snapshotId: %s , region: %s , account: %s",
@@ -71,7 +77,13 @@ public class DeleteAmazonSnapshotAtomicOperation implements AtomicOperation<Void
           e);
       throw e;
     }
-    registry.counter(deleteSnapshotTaskId.withTag("success", true)).increment();
+    registry
+        .counter(
+            deleteSnapshotTaskId
+                .withTag("success", true)
+                .withTag("region", description.getRegion())
+                .withTag("account", description.getAccount()))
+        .increment();
 
     getTask()
         .updateStatus(
