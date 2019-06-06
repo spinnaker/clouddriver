@@ -5,29 +5,30 @@ import com.google.api.services.compute.ComputeRequest;
 import com.google.api.services.compute.model.InstanceGroupManager;
 import com.google.api.services.compute.model.Operation;
 import com.google.api.services.compute.model.RegionInstanceGroupManagersAbandonInstancesRequest;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.google.GoogleExecutor;
+import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeOperationRequestImpl.OperationWaiter;
+import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil;
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller;
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
-class RegionGoogleServerGroupManagers extends AbstractGoogleServerGroupManagers {
+final class RegionGoogleServerGroupManagers extends AbstractGoogleServerGroupManagers {
 
   private final Compute.RegionInstanceGroupManagers managers;
-  private final GoogleOperationPoller operationPoller;
   private final String region;
 
   RegionGoogleServerGroupManagers(
       GoogleNamedAccountCredentials credentials,
-      GoogleOperationPoller operationPoller,
+      GoogleOperationPoller poller,
       Registry registry,
       String instanceGroupName,
       String region) {
-    super(credentials, registry, instanceGroupName);
+    super(credentials, poller, registry, instanceGroupName);
     this.managers = credentials.getCompute().regionInstanceGroupManagers();
-    this.operationPoller = operationPoller;
     this.region = region;
   }
 
@@ -56,8 +57,18 @@ class RegionGoogleServerGroupManagers extends AbstractGoogleServerGroupManagers 
   }
 
   @Override
-  WaitableComputeOperation wrapOperation(Operation operation) {
-    return new RegionalOperation(operation, getCredentials(), operationPoller);
+  OperationWaiter getOperationWaiter(
+      GoogleNamedAccountCredentials credentials, GoogleOperationPoller poller) {
+    return (operation, task, phase) ->
+        poller.waitForRegionalOperation(
+            credentials.getCompute(),
+            credentials.getProject(),
+            GCEUtil.getLocalName(operation.getRegion()),
+            operation.getName(),
+            /* timeoutSeconds= */ null,
+            task,
+            GCEUtil.getLocalName(operation.getTargetLink()),
+            phase);
   }
 
   @Override
@@ -66,8 +77,8 @@ class RegionGoogleServerGroupManagers extends AbstractGoogleServerGroupManagers 
   }
 
   @Override
-  List<String> getRegionOrZoneTags() {
-    return ImmutableList.of(
+  Map<String, String> getRegionOrZoneTags() {
+    return ImmutableMap.of(
         GoogleExecutor.getTAG_SCOPE(),
         GoogleExecutor.getSCOPE_REGIONAL(),
         GoogleExecutor.getTAG_REGION(),

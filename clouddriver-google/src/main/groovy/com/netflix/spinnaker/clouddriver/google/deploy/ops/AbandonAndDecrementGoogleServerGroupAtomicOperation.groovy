@@ -71,7 +71,7 @@ class AbandonAndDecrementGoogleServerGroupAtomicOperation extends GoogleAtomicOp
     def instanceUrls = GCEUtil.collectInstanceUrls(serverGroup, instanceIds)
 
     def serverGroupManagers = serverGroupManagersFactory.getManagers(credentials, serverGroup)
-    serverGroupManagers.abandonInstances(instanceUrls)
+    serverGroupManagers.abandonInstances(instanceUrls).execute()
 
     task.updateStatus BASE_PHASE, "Done abandoning and decrementing instances " +
       "(${description.instanceIds.join(", ")}) from server group $serverGroupName in $region."

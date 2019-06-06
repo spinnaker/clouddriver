@@ -13,11 +13,11 @@ import java.util.List;
  */
 public interface GoogleServerGroupManagers {
 
-  WaitableComputeOperation abandonInstances(List<String> instances) throws IOException;
+  GoogleComputeOperationRequest abandonInstances(List<String> instances) throws IOException;
 
-  WaitableComputeOperation delete() throws IOException;
+  GoogleComputeOperationRequest delete() throws IOException;
 
-  InstanceGroupManager get() throws IOException;
+  GoogleComputeRequest<InstanceGroupManager> get() throws IOException;
 
-  WaitableComputeOperation update(InstanceGroupManager content) throws IOException;
+  GoogleComputeOperationRequest update(InstanceGroupManager content) throws IOException;
 }
