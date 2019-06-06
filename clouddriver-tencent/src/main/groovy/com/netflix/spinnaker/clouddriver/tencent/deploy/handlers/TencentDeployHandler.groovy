@@ -51,7 +51,7 @@ class TencentDeployHandler implements DeployHandler<TencentDeployDescription> {
 
     task.updateStatus BASE_PHASE, "Looking up next sequence..."
 
-    def serverGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.freeFormDetails, false)
+    def serverGroupName = serverGroupNameResolver.resolveNextServerGroupName(description.application, description.stack, description.detail, false)
 
     task.updateStatus BASE_PHASE, "Produced server group name: $serverGroupName"
 
