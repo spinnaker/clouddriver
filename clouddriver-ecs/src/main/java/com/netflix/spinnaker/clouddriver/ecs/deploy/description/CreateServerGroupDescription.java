@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 import com.amazonaws.services.ecs.model.PlacementConstraint;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.List;
 import java.util.Map;
 import lombok.Data;
@@ -66,6 +67,12 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Map<String, String> dockerLabels;
 
   List<ServiceDiscoveryAssociation> serviceDiscoveryAssociations;
+
+  boolean useTaskDefinitionArtifact;
+  Artifact resolvedTaskDefinitionArtifact;
+  String taskDefinitionArtifactAccount;
+  Map<String, String> containerToImageMap;
+  String loadBalancedContainer;
 
   @Override
   public String getRegion() {
