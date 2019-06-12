@@ -25,7 +25,7 @@ class TencentInstanceTypeProvider implements InstanceTypeProvider<TencentInstanc
 
   @Override
   Set<TencentInstanceType> getAll() {
-    cacheView.getAll(
+    def instance_type_set = cacheView.getAll(
       INSTANCE_TYPES.ns,
       cacheView.filterIdentifiers(
         INSTANCE_TYPES.ns,
@@ -34,5 +34,10 @@ class TencentInstanceTypeProvider implements InstanceTypeProvider<TencentInstanc
       RelationshipCacheFilter.none()).collect {
       objectMapper.convertValue(it.attributes.instanceType, TencentInstanceType)
     }
+
+
+    def orderByFamilyAndCpuAndMem = new OrderBy([{it.instanceFamily}, { it.cpu }, { it.mem }])
+    instance_type_set.sort(orderByFamilyAndCpuAndMem)
+    return instance_type_set
   }
 }

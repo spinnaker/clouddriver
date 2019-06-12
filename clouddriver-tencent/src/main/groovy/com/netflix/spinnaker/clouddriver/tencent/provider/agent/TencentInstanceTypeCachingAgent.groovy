@@ -45,6 +45,7 @@ class TencentInstanceTypeCachingAgent extends AbstractTencentCachingAgent {
         account: this.accountName,
         region: this.region,
         zone: it.zone,
+        instanceFamily: it.instanceFamily,
         cpu: it.getCPU(),
         mem: it.getMemory()
       )

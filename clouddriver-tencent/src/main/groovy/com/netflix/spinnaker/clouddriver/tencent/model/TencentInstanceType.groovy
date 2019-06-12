@@ -11,4 +11,5 @@ class TencentInstanceType implements InstanceType {
   String account
   Integer cpu
   Integer mem
+  String instanceFamily
 }
