@@ -46,7 +46,7 @@ import org.openstack4j.model.network.ext.status.LbPoolV2Status
 import org.openstack4j.model.network.ext.status.ListenerV2Status
 import org.openstack4j.model.network.ext.status.LoadBalancerV2Status
 import org.openstack4j.model.network.ext.status.MemberV2Status
-import org.openstack4j.openstack.networking.domain.ext.ListItem
+import org.openstack4j.openstack.octavia.domain.ListItem
 import spock.lang.Shared
 import spock.lang.Specification
 

@@ -39,7 +39,7 @@ import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccoun
 import com.netflix.spinnaker.clouddriver.openstack.utils.DateUtils
 import groovy.util.logging.Slf4j
 import org.openstack4j.model.heat.Stack
-import org.openstack4j.model.network.ext.status.LoadBalancerV2Status
+import org.openstack4j.model.octavia.status.LoadBalancerV2Status
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future

@@ -24,8 +24,8 @@ import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.StackPoolMemberAwa
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import groovy.util.logging.Slf4j
-import org.openstack4j.model.network.ext.ListenerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2
+import org.openstack4j.model.octavia.ListenerV2
+import org.openstack4j.model.octavia.LoadBalancerV2
 
 /**
  * Removes an openstack load balancer.

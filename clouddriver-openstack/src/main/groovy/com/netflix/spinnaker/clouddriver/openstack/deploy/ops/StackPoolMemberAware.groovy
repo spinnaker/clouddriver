@@ -19,8 +19,8 @@ package com.netflix.spinnaker.clouddriver.openstack.deploy.ops
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.MemberData
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackCredentials
-import org.openstack4j.model.network.ext.ListenerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2
+import org.openstack4j.model.octavia.ListenerV2
+import org.openstack4j.model.octavia.LoadBalancerV2
 
 trait StackPoolMemberAware {
 
@@ -77,7 +77,7 @@ trait StackPoolMemberAware {
     Map<String, Object> resources = memberData.collectEntries {
       [
         ("member-$it.loadBalancerName-$it.listenerShortId-$it.externalPort-$it.internalPort".toString()): [
-          type      : "OS::Neutron::LBaaS::PoolMember",
+          type      : "OS::Octavia::PoolMember",
           properties: [
             address      : [get_param: "address"],
             pool         : it.poolId,

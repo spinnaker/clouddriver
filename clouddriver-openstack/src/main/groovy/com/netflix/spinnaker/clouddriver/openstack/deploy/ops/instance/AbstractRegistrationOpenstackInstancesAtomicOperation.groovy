@@ -26,8 +26,8 @@ import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackPro
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.loadbalancer.LoadBalancerChecker
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import org.openstack4j.model.network.ext.ListenerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2
+import org.openstack4j.model.octavia.ListenerV2
+import org.openstack4j.model.octavia.LoadBalancerV2
 
 /**
  * Base class that will handle both load balancer registration and deregistration.

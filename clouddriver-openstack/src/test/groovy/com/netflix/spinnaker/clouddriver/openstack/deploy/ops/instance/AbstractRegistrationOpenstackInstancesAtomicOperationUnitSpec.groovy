@@ -30,7 +30,7 @@ import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccoun
 import org.openstack4j.model.network.ext.LbProvisioningStatus
 import org.openstack4j.model.network.ext.ListenerV2
 import org.openstack4j.model.network.ext.LoadBalancerV2
-import org.openstack4j.openstack.networking.domain.ext.ListItem
+import org.openstack4j.openstack.octavia.domain.ListItem
 import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll

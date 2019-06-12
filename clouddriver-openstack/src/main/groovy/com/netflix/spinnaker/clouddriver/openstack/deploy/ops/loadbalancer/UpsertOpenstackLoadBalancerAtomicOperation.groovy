@@ -32,10 +32,10 @@ import org.openstack4j.model.compute.FloatingIP
 import org.openstack4j.model.network.NetFloatingIP
 import org.openstack4j.model.network.Network
 import org.openstack4j.model.network.Port
-import org.openstack4j.model.network.ext.HealthMonitorV2
-import org.openstack4j.model.network.ext.LbPoolV2
-import org.openstack4j.model.network.ext.ListenerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2
+import org.openstack4j.model.octavia.HealthMonitorV2
+import org.openstack4j.model.octavia.LbPoolV2
+import org.openstack4j.model.octavia.ListenerV2
+import org.openstack4j.model.octavia.LoadBalancerV2
 
 class UpsertOpenstackLoadBalancerAtomicOperation extends AbstractOpenstackLoadBalancerAtomicOperation implements AtomicOperation<Map>, TaskStatusAware {
   OpenstackLoadBalancerDescription description

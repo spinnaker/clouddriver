@@ -27,10 +27,10 @@ import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackCredentials
 import com.netflix.spinnaker.clouddriver.openstack.task.TaskStatusAware
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import org.openstack4j.model.heat.Stack
-import org.openstack4j.model.network.ext.LbPoolV2
-import org.openstack4j.model.network.ext.ListenerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2
-import org.openstack4j.openstack.networking.domain.ext.ListItem
+import org.openstack4j.model.octavia.LbPoolV2
+import org.openstack4j.model.octavia.ListenerV2
+import org.openstack4j.model.octavia.LoadBalancerV2
+import org.openstack4j.openstack.octavia.domain.ListItem
 
 abstract class AbstractOpenstackLoadBalancerAtomicOperation implements TaskStatusAware, StackPoolMemberAware, LoadBalancerResolver {
 

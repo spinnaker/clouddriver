@@ -23,17 +23,17 @@ import com.netflix.spinnaker.clouddriver.openstack.domain.LoadBalancerResolver
 import org.apache.commons.lang.StringUtils
 import org.openstack4j.api.Builders
 import org.openstack4j.model.common.ActionResponse
-import org.openstack4j.model.network.ext.HealthMonitorType
-import org.openstack4j.model.network.ext.HealthMonitorV2
-import org.openstack4j.model.network.ext.LbMethod
-import org.openstack4j.model.network.ext.LbPoolV2
-import org.openstack4j.model.network.ext.ListenerProtocol
-import org.openstack4j.model.network.ext.ListenerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2StatusTree
-import org.openstack4j.model.network.ext.MemberV2
-import org.openstack4j.model.network.ext.MemberV2Update
-import org.openstack4j.model.network.ext.Protocol
+import org.openstack4j.model.octavia.HealthMonitorType
+import org.openstack4j.model.octavia.HealthMonitorV2
+import org.openstack4j.model.octavia.LbMethod
+import org.openstack4j.model.octavia.LbPoolV2
+import org.openstack4j.model.octavia.ListenerProtocol
+import org.openstack4j.model.octavia.ListenerV2
+import org.openstack4j.model.octavia.LoadBalancerV2
+import org.openstack4j.model.octavia.LoadBalancerV2StatusTree
+import org.openstack4j.model.octavia.MemberV2
+import org.openstack4j.model.octavia.MemberV2Update
+import org.openstack4j.model.octavia.Protocol
 
 class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, OpenstackRequestHandler, OpenstackIdentityAware, LoadBalancerResolver {
 
@@ -49,14 +49,14 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   List<? extends LoadBalancerV2> getLoadBalancers(final String region) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().loadbalancer().list()
+      getRegionClient(region).octavia().loadBalancerV2().list()
     }
   }
 
   @Override
   LoadBalancerV2 createLoadBalancer(final String region, final String name, final String description, final String subnetId) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().loadbalancer().create(Builders.loadbalancerV2()
+      getRegionClient(region).octavia().loadBalancerV2().create(Builders.octavia().loadBalancerV2()
         .name(name)
         .description(description)
         .subnetId(subnetId)
@@ -67,21 +67,21 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   LoadBalancerV2 getLoadBalancer(final String region, final String id) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().loadbalancer().get(id)
+      getRegionClient(region).octavia().loadBalancerV2().get(id)
     }
   }
 
   @Override
   ActionResponse deleteLoadBalancer(String region, String id) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().loadbalancer().delete(id)
+      getRegionClient(region).octavia().loadBalancerV2().delete(id)
     }
   }
 
   @Override
   LoadBalancerV2 getLoadBalancerByName(final String region, final String name) {
     handleRequest {
-      List<? extends LoadBalancerV2> lbs = getRegionClient(region).networking().lbaasV2().loadbalancer().list(['name':name])
+      List<? extends LoadBalancerV2> lbs = getRegionClient(region).octavia().loadBalancerV2().list(['name':name])
       lbs.size() > 0 ? lbs.first() : null
     }
   }
@@ -89,14 +89,14 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   List<? extends ListenerV2> getListeners(final String region) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().listener().list()
+      getRegionClient(region).octavia().listenerV2().list()
     }
   }
 
   @Override
   ListenerV2 createListener(final String region, final String name, final String externalProtocol, final Integer externalPort, final String description, final String loadBalancerId) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().listener().create(Builders.listenerV2()
+      getRegionClient(region).octavia().listenerV2().create(Builders.octavia().listenerV2()
         .name(name)
         .description(description)
         .loadBalancerId(loadBalancerId)
@@ -110,7 +110,7 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   ListenerV2 getListener(final String region, final String id) {
     ListenerV2 result = handleRequest {
-      getRegionClient(region).networking().lbaasV2().listener().get(id)
+      getRegionClient(region).octavia().listenerV2().get(id)
     }
 
     if (!result) {
@@ -122,21 +122,21 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   ActionResponse deleteListener(final String region, final String id) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().listener().delete(id)
+      getRegionClient(region).octavia().listenerV2().delete(id)
     }
   }
 
   @Override
   List<? extends LbPoolV2> getPools(final String region) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().lbPool().list()
+      getRegionClient(region).octavia().lbPoolV2().list()
     }
   }
 
   @Override
   LbPoolV2 createPool(final String region, final String name, final String internalProtocol, final String method, final String listenerId) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().lbPool().create(Builders.lbpoolV2()
+      getRegionClient(region).octavia().lbPoolV2().create(Builders.octavia().lbPoolV2()
         .name(name)
         .lbMethod(LbMethod.forValue(method))
         .listenerId(listenerId)
@@ -149,7 +149,7 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   LbPoolV2 getPool(final String region, final String id) {
     LbPoolV2 result = handleRequest {
-      getRegionClient(region).networking().lbaasV2().lbPool().get(id)
+      getRegionClient(region).octavia().lbPoolV2().get(id)
     }
 
     if (!result) {
@@ -161,7 +161,7 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   LbPoolV2 updatePool(final String region, final String id, final String method) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().lbPool().update(id, Builders.lbPoolV2Update()
+      getRegionClient(region).octavia().lbPoolV2().update(id, Builders.octavia().lbPoolV2Update()
         .lbMethod(LbMethod.forValue(method))
         .adminStateUp(Boolean.TRUE)
         .build())
@@ -171,35 +171,35 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   ActionResponse deletePool(final String region, final String id) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().lbPool().delete(id)
+      getRegionClient(region).octavia().lbPoolV2().delete(id)
     }
   }
 
   @Override
   List<? extends HealthMonitorV2> getHealthMonitors(final String region) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().healthMonitor().list()
+      getRegionClient(region).octavia().healthMonitorV2().list()
     }
   }
 
   @Override
   ActionResponse deleteMonitor(final String region, final String id) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().healthMonitor().delete(id)
+      getRegionClient(region).octavia().healthMonitorV2().delete(id)
     }
   }
 
   @Override
   HealthMonitorV2 getMonitor(final String region, final String id) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().healthMonitor().get(id)
+      getRegionClient(region).octavia().healthMonitorV2().get(id)
     }
   }
 
   @Override
   HealthMonitorV2 createMonitor(final String region, final String poolId, final HealthMonitor healthMonitor) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().healthMonitor().create(Builders.healthmonitorV2()
+      getRegionClient(region).octavia().healthMonitorV2().create(Builders.octavia().healthMonitorV2()
         .poolId(poolId)
         .type(HealthMonitorType.forValue(healthMonitor.type?.name()))
         .delay(healthMonitor.delay)
@@ -216,7 +216,7 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   HealthMonitorV2 updateMonitor(final String region, final String id, final HealthMonitor healthMonitor) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().healthMonitor().update(id, Builders.healthMonitorV2Update()
+      getRegionClient(region).octavia().healthMonitorV2().update(id, Builders.octavia().healthMonitorV2Update()
         .delay(healthMonitor.delay)
         .expectedCodes(healthMonitor.expectedCodes?.join(','))
         .httpMethod(healthMonitor.httpMethod)
@@ -243,7 +243,7 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   String getMemberIdForInstance(String region, String ip, String lbPoolId) {
     String memberId = handleRequest {
-      client.useRegion(region).networking().lbaasV2().lbPool().listMembers(lbPoolId)?.find { m -> m.address == ip }?.id
+      client.useRegion(region).octavia().lbPoolV2().listMembers(lbPoolId)?.find { m -> m.address == ip }?.id
     }
     if (StringUtils.isEmpty(memberId)) {
       throw new OpenstackProviderException("Instance with ip ${ip} is not associated with any load balancer memberships")
@@ -254,9 +254,9 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   MemberV2 addMemberToLoadBalancerPool(String region, String ip, String lbPoolId, String subnetId, Integer internalPort, int weight) {
     MemberV2 member = handleRequest {
-      client.useRegion(region).networking().lbaasV2().lbPool().createMember(
+      client.useRegion(region).octavia().lbPoolV2().createMember(
         lbPoolId,
-        Builders.memberV2().address(ip).subnetId(subnetId).protocolPort(internalPort).weight(weight).build()
+        Builders.octavia().memberV2().address(ip).subnetId(subnetId).protocolPort(internalPort).weight(weight).build()
       )
     }
     if (!member) {
@@ -268,22 +268,22 @@ class OpenstackLoadBalancerV2Provider implements OpenstackLoadBalancerProvider, 
   @Override
   ActionResponse removeMemberFromLoadBalancerPool(String region, String lbPoolId, String memberId) {
     handleRequest {
-      client.useRegion(region).networking().lbaasV2().lbPool().deleteMember(lbPoolId, memberId)
+      client.useRegion(region).octavia().lbPoolV2().deleteMember(lbPoolId, memberId)
     }
   }
 
   @Override
   LoadBalancerV2StatusTree getLoadBalancerStatusTree(final String region, final String id) {
     handleRequest {
-      getRegionClient(region).networking().lbaasV2().loadbalancer().statusTree(id)
+      getRegionClient(region).octavia().loadBalancerV2().statusTree(id)
     }
   }
 
   @Override
   MemberV2 updatePoolMemberStatus(final String region, final String poolId, final String memberId, final boolean status) {
     handleRequest {
-      MemberV2Update update = Builders.memberV2Update().adminStateUp(status).build()
-      getRegionClient(region).networking().lbaasV2().lbPool().updateMember(poolId, memberId, update)
+      MemberV2Update update = Builders.octavia().memberV2Update().adminStateUp(status).build()
+      getRegionClient(region).octavia().lbPoolV2().updateMember(poolId, memberId, update)
     }
   }
 }

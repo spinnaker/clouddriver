@@ -30,7 +30,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import groovy.util.logging.Slf4j
 import org.openstack4j.model.compute.Server
 import org.openstack4j.model.heat.Stack
-import org.openstack4j.model.network.ext.LoadBalancerV2StatusTree
+import org.openstack4j.model.octavia.LoadBalancerV2StatusTree
 import retrofit.RetrofitError
 
 import java.util.concurrent.CompletableFuture

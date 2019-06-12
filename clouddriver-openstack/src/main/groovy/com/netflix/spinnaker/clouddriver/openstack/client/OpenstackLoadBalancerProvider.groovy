@@ -18,12 +18,12 @@ package com.netflix.spinnaker.clouddriver.openstack.client
 
 import com.netflix.spinnaker.clouddriver.openstack.domain.HealthMonitor
 import org.openstack4j.model.common.ActionResponse
-import org.openstack4j.model.network.ext.HealthMonitorV2
-import org.openstack4j.model.network.ext.LbPoolV2
-import org.openstack4j.model.network.ext.ListenerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2StatusTree
-import org.openstack4j.model.network.ext.MemberV2
+import org.openstack4j.model.octavia.HealthMonitorV2
+import org.openstack4j.model.octavia.LbPoolV2
+import org.openstack4j.model.octavia.ListenerV2
+import org.openstack4j.model.octavia.LoadBalancerV2
+import org.openstack4j.model.octavia.LoadBalancerV2StatusTree
+import org.openstack4j.model.octavia.MemberV2
 
 /**
  * Operations associated to load balancer and relevant building blocks.

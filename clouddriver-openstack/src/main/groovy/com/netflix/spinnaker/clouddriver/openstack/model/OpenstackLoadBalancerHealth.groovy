@@ -31,7 +31,8 @@ class OpenstackLoadBalancerHealth {
   enum PlatformStatus {
     ONLINE,
     OFFLINE,
-    DISABLED
+    DISABLED,
+    ERROR
 
     HealthState toHealthState() {
       this == ONLINE ? HealthState.Up : HealthState.Down

@@ -36,14 +36,14 @@ import com.netflix.spinnaker.clouddriver.openstack.model.OpenstackLoadBalancerHe
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import groovy.util.logging.Slf4j
 import org.openstack4j.model.network.Port
-import org.openstack4j.model.network.ext.HealthMonitorV2
-import org.openstack4j.model.network.ext.LbPoolV2
-import org.openstack4j.model.network.ext.ListenerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2
-import org.openstack4j.model.network.ext.LoadBalancerV2StatusTree
-import org.openstack4j.model.network.ext.status.LbPoolV2Status
-import org.openstack4j.model.network.ext.status.ListenerV2Status
-import org.openstack4j.model.network.ext.status.MemberV2Status
+import org.openstack4j.model.octavia.HealthMonitorV2
+import org.openstack4j.model.octavia.LbPoolV2
+import org.openstack4j.model.octavia.ListenerV2
+import org.openstack4j.model.octavia.LoadBalancerV2
+import org.openstack4j.model.octavia.LoadBalancerV2StatusTree
+import org.openstack4j.model.octavia.status.LbPoolV2Status
+import org.openstack4j.model.octavia.status.ListenerV2Status
+import org.openstack4j.model.octavia.status.MemberV2Status
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future

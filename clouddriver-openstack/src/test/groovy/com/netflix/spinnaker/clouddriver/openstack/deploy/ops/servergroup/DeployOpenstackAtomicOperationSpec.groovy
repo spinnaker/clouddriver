@@ -35,7 +35,7 @@ import org.openstack4j.model.network.Subnet
 import org.openstack4j.model.network.ext.ListenerV2
 import org.openstack4j.model.network.ext.LoadBalancerV2
 import org.openstack4j.openstack.heat.domain.HeatStack
-import org.openstack4j.openstack.networking.domain.ext.ListItem
+import org.openstack4j.openstack.octavia.domain.ListItem
 import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll
@@ -332,7 +332,7 @@ parameters:
     description: "Server address for autoscaling group resource"
 resources:
   member-mockpool-99-null-null:
-    type: "OS::Neutron::LBaaS::PoolMember"
+    type: "OS::Octavia::PoolMember"
     properties:
       address:
         get_param: "address"

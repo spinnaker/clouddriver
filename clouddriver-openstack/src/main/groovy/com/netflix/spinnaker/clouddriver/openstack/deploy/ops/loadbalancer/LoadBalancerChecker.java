@@ -20,8 +20,8 @@ import com.netflix.spinnaker.clouddriver.openstack.client.BlockingStatusChecker;
 import com.netflix.spinnaker.clouddriver.openstack.config.OpenstackConfigurationProperties.LbaasConfig;
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException;
 import org.openstack4j.model.common.ActionResponse;
-import org.openstack4j.model.network.ext.LbProvisioningStatus;
-import org.openstack4j.model.network.ext.LoadBalancerV2;
+import org.openstack4j.model.octavia.LbProvisioningStatus;
+import org.openstack4j.model.octavia.LoadBalancerV2;
 
 class LoadBalancerChecker implements BlockingStatusChecker.StatusChecker<LoadBalancerV2> {
   Operation operation;
