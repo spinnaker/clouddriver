@@ -220,7 +220,7 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
     def extensionProfile = scaleSet?.virtualMachineProfile()?.extensionProfile()
     if (extensionProfile) {
       def customScriptExtensionSettings = extensionProfile.extensions().find({
-        it.type() == AzureUtilities.AZURE_CUSTOM_SCRIPT_EXT_TYPE_LINUX ||
+          it.type() == AzureUtilities.AZURE_CUSTOM_SCRIPT_EXT_TYPE_LINUX ||
           it.type() == AzureUtilities.AZURE_CUSTOM_SCRIPT_EXT_TYPE_WINDOWS
       })?.settings()
       //def customScriptExtensionSettings = extensionProfile.extensions.find({it.type=="CustomScript"}).settings
