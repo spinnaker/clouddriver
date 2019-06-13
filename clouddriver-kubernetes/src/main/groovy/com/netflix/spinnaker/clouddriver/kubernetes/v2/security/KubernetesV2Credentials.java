@@ -18,7 +18,8 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.base.Suppliers;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
@@ -65,7 +66,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final Clock clock;
   private final KubectlJobExecutor jobExecutor;
 
-  @Getter private final String accountName;
+  private final String accountName;
   @Getter private final List<String> namespaces;
   @Getter private final List<String> omitNamespaces;
   private final List<KubernetesKind> kinds;
@@ -90,8 +91,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter private final boolean debug;
 
   private String cachedDefaultNamespace;
-  private final com.google.common.base.Supplier<List<String>> liveNamespaceSupplier;
-  private final com.google.common.base.Supplier<List<KubernetesKind>> liveCrdSupplier;
+  private final Supplier<List<String>> liveNamespaceSupplier;
+  private final Supplier<List<KubernetesKind>> liveCrdSupplier;
 
   public KubernetesV2Credentials(
       Registry registry,
@@ -131,9 +132,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.debug = managedAccount.getDebug();
 
     this.liveNamespaceSupplier =
-        Suppliers.memoizeWithExpiration(
-            () ->
-                jobExecutor
+        Memoizer.memoizeWithExpiration(
+            () -> {
+              try {
+                return jobExecutor
                     .list(
                         this,
                         Collections.singletonList(KubernetesKind.NAMESPACE),
@@ -141,12 +143,18 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                         new KubernetesSelectorList())
                     .stream()
                     .map(KubernetesManifest::getName)
-                    .collect(Collectors.toList()),
+                    .collect(Collectors.toList());
+              } catch (KubectlException e) {
+                log.error(
+                    "Could not list namespaces for account {}: {}", accountName, e.getMessage());
+                return new ArrayList<>();
+              }
+            },
             NAMESPACE_EXPIRY_SECONDS,
             TimeUnit.SECONDS);
 
     this.liveCrdSupplier =
-        Suppliers.memoizeWithExpiration(
+        Memoizer.memoizeWithExpiration(
             () -> {
               try {
                 return this.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
@@ -175,6 +183,30 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
             },
             CRD_EXPIRY_SECONDS,
             TimeUnit.SECONDS);
+  }
+
+  /**
+   * Thin wrapper around a Caffeine cache that handles memoizing a supplier function with expiration
+   */
+  private static class Memoizer<T> implements Supplier<T> {
+    private static String CACHE_KEY = "key";
+    LoadingCache<String, T> cache;
+
+    private Memoizer(Supplier<T> supplier, long expirySeconds, TimeUnit timeUnit) {
+      this.cache =
+          Caffeine.newBuilder()
+              .expireAfterWrite(expirySeconds, timeUnit)
+              .build(key -> supplier.get());
+    }
+
+    public T get() {
+      return cache.get(CACHE_KEY);
+    }
+
+    public static <U> Memoizer<U> memoizeWithExpiration(
+        Supplier<U> supplier, long expirySeconds, TimeUnit timeUnit) {
+      return new Memoizer<>(supplier, expirySeconds, timeUnit);
+    }
   }
 
   public enum InvalidKindReason {
@@ -245,7 +277,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       }
     } catch (Exception e) {
       log.debug(
-          "Error encountered looking up default namespace, defaulting to {}", DEFAULT_NAMESPACE, e);
+          "Error encountered looking up default namespace in account '{}', defaulting to {}",
+          accountName,
+          DEFAULT_NAMESPACE,
+          e);
       return DEFAULT_NAMESPACE;
     }
   }
@@ -270,13 +305,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     if (!namespaces.isEmpty()) {
       result = namespaces;
     } else {
-      try {
-        result = liveNamespaceSupplier.get();
-
-      } catch (KubectlException e) {
-        log.warn("Could not list namespaces for account {}: {}", accountName, e.getMessage());
-        return new ArrayList<>();
-      }
+      result = liveNamespaceSupplier.get();
     }
 
     if (!omitNamespaces.isEmpty()) {
@@ -318,14 +347,14 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     if (metrics) {
       try {
-        log.info("Checking if pod metrics are readable...");
+        log.info("Checking if pod metrics are readable for account {}...", accountName);
         topPod(checkNamespace, null);
       } catch (Exception e) {
         log.warn(
             "Could not read pod metrics in account '{}' for reason: {}",
             accountName,
             e.getMessage());
-        log.debug("Reading logs failed with exception: ", e);
+        log.debug("Reading logs for account '{}' failed with exception: ", accountName, e);
         metrics = false;
       }
     }
@@ -333,7 +362,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private boolean canReadKind(KubernetesKind kind, String checkNamespace) {
     try {
-      log.info("Checking if {} is readable...", kind);
+      log.info("Checking if {} is readable in account '{}'...", kind, accountName);
       if (kind.isNamespaced()) {
         list(kind, checkNamespace);
       } else {
@@ -346,7 +375,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           kind,
           accountName,
           e.getMessage());
-      log.debug("Reading kind '{}' failed with exception: ", kind, e);
+      log.debug("Reading kind '{}' in account '{}' failed with exception: ", kind, accountName, e);
       return false;
     }
   }

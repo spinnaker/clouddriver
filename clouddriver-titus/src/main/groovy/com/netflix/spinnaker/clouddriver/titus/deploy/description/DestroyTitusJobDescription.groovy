@@ -1,5 +1,6 @@
 /*
- * Copyright 2016 Netflix, Inc.
+ *
+ * Copyright 2019 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -12,14 +13,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
+package com.netflix.spinnaker.clouddriver.titus.deploy.description
 
-package com.netflix.spinnaker.clouddriver.model
+import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable
 
-enum HealthState {
-  Failed, Down, OutOfService, Unknown, Starting, Succeeded, Up
-
-  static HealthState fromString(String name) {
-    values().find { it.name().equalsIgnoreCase(name) } ?: Unknown
-  }
+class DestroyTitusJobDescription extends AbstractTitusCredentialsDescription {
+  String region
+  String jobId
+  String user
 }

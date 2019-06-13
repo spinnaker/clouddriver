@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Netflix, Inc.
+ * Copyright 2019 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.model
+package com.netflix.spinnaker.clouddriver.aws.security.sdkclient;
 
-enum HealthState {
-  Failed, Down, OutOfService, Unknown, Starting, Succeeded, Up
-
-  static HealthState fromString(String name) {
-    values().find { it.name().equalsIgnoreCase(name) } ?: Unknown
+class EddaException extends Exception {
+  EddaException(String message, Throwable cause) {
+    super(message, cause);
   }
 }
