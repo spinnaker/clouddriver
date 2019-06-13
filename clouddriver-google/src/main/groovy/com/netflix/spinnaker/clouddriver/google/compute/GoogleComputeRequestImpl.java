@@ -69,4 +69,8 @@ class GoogleComputeRequestImpl<T> implements GoogleComputeRequest<T> {
         .flatMap(e -> Stream.of(e.getKey(), e.getValue()))
         .collect(toList());
   }
+
+  public ComputeRequest<T> getRequest() {
+    return request;
+  }
 }
