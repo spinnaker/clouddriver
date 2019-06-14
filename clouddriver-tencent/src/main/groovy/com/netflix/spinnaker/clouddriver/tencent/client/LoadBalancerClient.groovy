@@ -185,9 +185,11 @@ class LoadBalancerClient {
      req.setLoadBalancerId(loadBalancerId)
      req.setPorts(listener.port)
      req.setProtocol(listener.protocol)
+     def listenerName = listener.protocol + listener.port
      if (listener.listenerName?.length() > 0 ) {
-       req.setListenerNames(listener.listenerName)
+        listenerName = listener.listenerName
      }
+     req.setListenerNames(listenerName)
      if (listener.protocol in ["TCP","UDP"]) {
        if (listener.sessionExpireTime != null) {
          req.setSessionExpireTime(listener.sessionExpireTime)
