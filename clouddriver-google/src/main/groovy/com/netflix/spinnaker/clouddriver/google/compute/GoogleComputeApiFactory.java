@@ -55,6 +55,10 @@ public class GoogleComputeApiFactory {
             credentials, operationPoller, registry, serverGroup.getName(), serverGroup.getZone());
   }
 
+  public Images createImages(GoogleNamedAccountCredentials credentials) {
+    return new Images(credentials, registry);
+  }
+
   public InstanceTemplates createInstanceTemplates(GoogleNamedAccountCredentials credentials) {
     return new InstanceTemplates(credentials, operationPoller, registry);
   }
