@@ -79,6 +79,8 @@ class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
         zone: it.placement.zone,
         vpcId: it.virtualPrivateCloud.vpcId,
         subnetId: it.virtualPrivateCloud.subnetId,
+        privateIpAddresses: it.privateIpAddresses,
+        publicIpAddresses: it.publicIpAddresses,
         imageId: it.imageId,
         instanceType: it.instanceType,
         securityGroupIds: it.securityGroupIds,
