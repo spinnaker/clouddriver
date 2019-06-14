@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.google.compute;
 
+import com.google.api.services.compute.ComputeRequest;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller;
@@ -63,7 +64,9 @@ public class GoogleComputeApiFactory {
     return new InstanceTemplates(credentials, operationPoller, registry);
   }
 
-  public <T> ComputeBatchRequest<T> createBatchRequest(GoogleNamedAccountCredentials credentials) {
+  public <RequestT extends ComputeRequest<ResponseT>, ResponseT>
+      ComputeBatchRequest<RequestT, ResponseT> createBatchRequest(
+          GoogleNamedAccountCredentials credentials) {
     return new ComputeBatchRequest<>(
         credentials.getCompute(), registry, clouddriverUserAgentApplicationName, batchExecutor);
   }

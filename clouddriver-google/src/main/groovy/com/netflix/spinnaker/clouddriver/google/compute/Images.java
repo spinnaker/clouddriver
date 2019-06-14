@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.google.compute;
 
+import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.ComputeRequest;
 import com.google.api.services.compute.model.ImageList;
 import com.google.common.collect.ImmutableMap;
@@ -21,13 +22,15 @@ public class Images {
     this.registry = registry;
   }
 
-  public GoogleComputeRequest<ImageList> list(String project) throws IOException {
+  public GoogleComputeRequest<Compute.Images.List, ImageList> list(String project)
+      throws IOException {
 
-    ComputeRequest<ImageList> request = credentials.getCompute().images().list(project);
+    Compute.Images.List request = credentials.getCompute().images().list(project);
     return wrapRequest(request, "list");
   }
 
-  private <T> GoogleComputeRequest<T> wrapRequest(ComputeRequest<T> request, String api) {
+  private <RequestT extends ComputeRequest<ResponseT>, ResponseT>
+      GoogleComputeRequest<RequestT, ResponseT> wrapRequest(RequestT request, String api) {
     return new GoogleComputeRequestImpl<>(request, registry, getMetricName(api), TAGS);
   }
 

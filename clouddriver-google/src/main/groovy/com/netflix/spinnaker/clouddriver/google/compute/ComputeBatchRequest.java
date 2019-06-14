@@ -29,7 +29,7 @@ import lombok.AllArgsConstructor;
 import lombok.Value;
 import org.apache.http.client.HttpResponseException;
 
-public class ComputeBatchRequest<T> {
+public class ComputeBatchRequest<RequestT extends ComputeRequest<ResponseT>, ResponseT> {
 
   // Platform-specified max to not overwhelm batch backends.
   @VisibleForTesting static final int MAX_BATCH_SIZE = 100;
@@ -40,7 +40,7 @@ public class ComputeBatchRequest<T> {
   private final Registry registry;
   private final String userAgent;
   private final ListeningExecutorService executor;
-  private final List<QueuedRequest<T>> queuedRequests;
+  private final List<QueuedRequest<RequestT, ResponseT>> queuedRequests;
 
   ComputeBatchRequest(
       Compute compute, Registry registry, String userAgent, ListeningExecutorService executor) {
@@ -51,10 +51,9 @@ public class ComputeBatchRequest<T> {
     this.queuedRequests = new ArrayList<>();
   }
 
-  public void queue(GoogleComputeRequest<T> request, JsonBatchCallback<T> callback) {
-    // TODO(plumpy): add #getRequest() to GoogleComputeRequest. Clients are going to need it anyway.
-    queuedRequests.add(
-        new QueuedRequest<>(((GoogleComputeRequestImpl<T>) request).getRequest(), callback));
+  public void queue(
+      GoogleComputeRequest<RequestT, ResponseT> request, JsonBatchCallback<ResponseT> callback) {
+    queuedRequests.add(new QueuedRequest<>(request.getRequest(), callback));
   }
 
   public void execute(String batchContext) throws IOException {
@@ -62,7 +61,8 @@ public class ComputeBatchRequest<T> {
       return;
     }
 
-    List<List<QueuedRequest<T>>> requestPartitions = partition(queuedRequests, MAX_BATCH_SIZE);
+    List<List<QueuedRequest<RequestT, ResponseT>>> requestPartitions =
+        partition(queuedRequests, MAX_BATCH_SIZE);
     List<BatchRequest> queuedBatches = createBatchRequests(requestPartitions);
 
     String statusCode = "500";
@@ -122,8 +122,8 @@ public class ComputeBatchRequest<T> {
     }
   }
 
-  private List<BatchRequest> createBatchRequests(List<List<QueuedRequest<T>>> requestPartitions)
-      throws IOException {
+  private List<BatchRequest> createBatchRequests(
+      List<List<QueuedRequest<RequestT, ResponseT>>> requestPartitions) throws IOException {
 
     List<BatchRequest> queuedBatches = new ArrayList<>();
 
@@ -165,9 +165,9 @@ public class ComputeBatchRequest<T> {
 
   @Value
   @AllArgsConstructor
-  private static class QueuedRequest<T> {
-    private ComputeRequest<T> request;
-    private JsonBatchCallback<T> callback;
+  private static class QueuedRequest<RequestT extends ComputeRequest<ResponseT>, ResponseT> {
+    private RequestT request;
+    private JsonBatchCallback<ResponseT> callback;
   }
 
   private static class FailFastFuture extends AbstractFuture<Void> {

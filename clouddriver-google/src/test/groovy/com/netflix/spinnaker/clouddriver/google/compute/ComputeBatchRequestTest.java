@@ -51,7 +51,7 @@ public class ComputeBatchRequestTest {
 
     Compute compute = computeWithResponses();
 
-    ComputeBatchRequest<Object> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -63,7 +63,7 @@ public class ComputeBatchRequestTest {
 
     Compute compute = computeWithResponses(() -> successBatchResponse(1));
 
-    ComputeBatchRequest<Image> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -82,7 +82,7 @@ public class ComputeBatchRequestTest {
     Compute compute =
         computeWithResponses(() -> successBatchResponse(ComputeBatchRequest.MAX_BATCH_SIZE));
 
-    ComputeBatchRequest<Image> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -106,7 +106,7 @@ public class ComputeBatchRequestTest {
             () -> successBatchResponse(ComputeBatchRequest.MAX_BATCH_SIZE),
             () -> successBatchResponse(37));
 
-    ComputeBatchRequest<Image> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -134,7 +134,7 @@ public class ComputeBatchRequestTest {
 
     Compute compute = computeWithResponses(() -> batchResponse(responseContent.toString()));
 
-    ComputeBatchRequest<Image> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -170,7 +170,7 @@ public class ComputeBatchRequestTest {
               }
             });
 
-    ComputeBatchRequest<Image> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -193,7 +193,7 @@ public class ComputeBatchRequestTest {
             () -> successBatchResponse(ComputeBatchRequest.MAX_BATCH_SIZE),
             () -> successBatchResponse(37));
 
-    ComputeBatchRequest<Image> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -235,7 +235,7 @@ public class ComputeBatchRequestTest {
               throw new IOException("uh oh");
             });
 
-    ComputeBatchRequest<Image> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -277,7 +277,7 @@ public class ComputeBatchRequestTest {
               throw new HttpResponseException(404, "uh oh");
             });
 
-    ComputeBatchRequest<Image> batchRequest =
+    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
         new ComputeBatchRequest<>(
             compute, registry, USER_AGENT, MoreExecutors.newDirectExecutorService());
 
@@ -310,7 +310,8 @@ public class ComputeBatchRequestTest {
     assertThat(counter.actualCount()).isEqualTo(55);
   }
 
-  private static GoogleComputeRequest<Image> request(Compute compute) throws IOException {
+  private static GoogleComputeRequest<Compute.Images.Get, Image> request(Compute compute)
+      throws IOException {
     return new GoogleComputeRequestImpl<>(
         compute.images().get("project", "image-name"),
         new DefaultRegistry(),
