@@ -24,6 +24,8 @@ class TencentInstance implements Instance, TencentBasicResource {
   TencentTargetHealth targetHealth
   String vpcId
   String subnetId
+  List<String> privateIpAddresses = []
+  List<String> publicIpAddresses = []
   String instanceType
   String imageId
   List<String> securityGroupIds = []
