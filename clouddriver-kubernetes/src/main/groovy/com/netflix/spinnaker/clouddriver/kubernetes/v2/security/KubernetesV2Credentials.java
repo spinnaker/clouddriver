@@ -22,6 +22,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
+import com.netflix.spinnaker.clouddriver.data.ConfigFileService;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
@@ -97,7 +98,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   public KubernetesV2Credentials(
       Registry registry,
       KubectlJobExecutor jobExecutor,
-      KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+      KubernetesConfigurationProperties.ManagedAccount managedAccount,
+      ConfigFileService configFileService) {
     this.registry = registry;
     this.clock = registry.clock();
     this.jobExecutor = jobExecutor;
@@ -116,7 +118,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     this.kubectlExecutable = managedAccount.getKubectlExecutable();
     this.kubectlRequestTimeoutSeconds = managedAccount.getKubectlRequestTimeoutSeconds();
-    this.kubeconfigFile = managedAccount.getKubeconfigFile();
+    this.kubeconfigFile =
+        configFileService.getLocalPath(managedAccount.getKubeconfigFile(), "kube", "config");
     this.serviceAccount = managedAccount.getServiceAccount();
     this.context = managedAccount.getContext();
 

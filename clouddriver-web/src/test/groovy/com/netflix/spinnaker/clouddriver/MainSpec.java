@@ -24,7 +24,12 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest(classes = {Main.class})
-@TestPropertySource(properties = {"redis.enabled = false", "sql.enabled = false"})
+@TestPropertySource(
+    properties = {
+      "redis.enabled = false",
+      "sql.enabled = false",
+      "spring.cloud.config.server.git.uri = test"
+    })
 public class MainSpec {
   @Test
   public void startupTest() {}
