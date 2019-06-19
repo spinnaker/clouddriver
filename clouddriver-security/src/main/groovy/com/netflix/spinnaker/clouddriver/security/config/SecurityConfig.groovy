@@ -41,6 +41,7 @@ class SecurityConfig {
   static class OperationsSecurityConfigurationProperties {
     SecurityAction onMissingSecuredCheck = SecurityAction.WARN
     SecurityAction onMissingValidator = SecurityAction.WARN
+    boolean allowUnauthenticatedImageTagging = false
   }
 
   static enum SecurityAction {

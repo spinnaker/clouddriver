@@ -26,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationDescriptionPreProcessor
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationNotFoundException
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationsRegistry
 import com.netflix.spinnaker.clouddriver.orchestration.OrchestrationProcessor
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -167,14 +168,21 @@ class OperationsController {
         } else {
           log.warn(
             "No validator found for operation `${description?.class?.simpleName}` and cloud provider $cloudProvider"
-          );
+          )
         }
 
-        allowedAccountValidators.each {
-          it.validate(username, allowedAccounts, description, errors)
-        }
+        if (k == AtomicOperations.UPSERT_IMAGE_TAGS && opsSecurityConfigProps.allowUnauthenticatedImageTagging) {
+          log.warn(
+            "Skipping authentication for operation `${description?.class?.simpleName}` and cloud provider " +
+              "$cloudProvider because `operations.security.allowUnauthenticatedImageTagging` is `true`"
+          )
+        } else {
+          allowedAccountValidators.each {
+            it.validate(username, allowedAccounts, description, errors)
+          }
 
-        descriptionAuthorizer.authorize(description, errors)
+          descriptionAuthorizer.authorize(description, errors)
+        }
 
         AtomicOperation atomicOperation = converter.convertOperation(v)
         if (!atomicOperation) {
