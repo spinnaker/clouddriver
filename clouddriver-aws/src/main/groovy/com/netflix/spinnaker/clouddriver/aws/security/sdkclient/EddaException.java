@@ -1,5 +1,4 @@
 /*
- *
  * Copyright 2019 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
@@ -13,22 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
-package com.netflix.spinnaker.clouddriver.titus.deploy.description
 
-import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable
+package com.netflix.spinnaker.clouddriver.aws.security.sdkclient;
 
-class DestroyTitusJobDescription extends AbstractTitusCredentialsDescription implements ApplicationNameable{
-  String region
-  String jobId
-  String user
-
-  Set<String> applications
-  boolean requiresApplicationRestriction = true
-
-  @Override
-  boolean requiresApplicationRestriction() {
-    return requiresApplicationRestriction
+class EddaException extends Exception {
+  EddaException(String message, Throwable cause) {
+    super(message, cause);
   }
 }
