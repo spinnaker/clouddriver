@@ -17,9 +17,9 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
 import java.time.ZonedDateTime;
-import lombok.Data;
+import lombok.Value;
 
-@Data
+@Value
 public class Task {
   private final String guid;
   private final String name;

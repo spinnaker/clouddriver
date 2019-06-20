@@ -17,9 +17,9 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
 import javax.annotation.Nullable;
-import lombok.Data;
+import lombok.Value;
 
-@Data
+@Value
 public class CreateTask {
   @Nullable private final String name;
   private final String command;
