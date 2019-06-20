@@ -21,11 +21,6 @@ import java.util.List;
 
 public class NoopManifestProvider implements ManifestProvider<Manifest> {
   @Override
-  public Manifest getManifest(String account, String location, String name) {
-    return null;
-  }
-
-  @Override
   public Manifest getManifest(String account, String location, String name, boolean includeEvents) {
     return null;
   }
@@ -33,18 +28,6 @@ public class NoopManifestProvider implements ManifestProvider<Manifest> {
   @Override
   public List<Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
-    return null;
-  }
-
-  @Override
-  public List<Manifest> getClusterAndSortAscending(
-      String account,
-      String location,
-      String kind,
-      String app,
-      String cluster,
-      Sort sort,
-      boolean includeEvents) {
     return null;
   }
 }

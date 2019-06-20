@@ -61,11 +61,6 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
   }
 
   @Override
-  public KubernetesV2Manifest getManifest(String account, String location, String name) {
-    return getManifest(account, location, name, true);
-  }
-
-  @Override
   public KubernetesV2Manifest getManifest(
       String account, String location, String name, boolean includeEvents) {
     if (!isAccountRelevant(account)) {
@@ -105,18 +100,6 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
   @Override
   public List<KubernetesV2Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
-    return getClusterAndSortAscending(account, location, kind, app, cluster, sort, true);
-  }
-
-  @Override
-  public List<KubernetesV2Manifest> getClusterAndSortAscending(
-      String account,
-      String location,
-      String kind,
-      String app,
-      String cluster,
-      Sort sort,
-      boolean includeEvents) {
     KubernetesResourceProperties properties =
         registry.get(account, KubernetesKind.fromString(kind));
     if (properties == null) {
@@ -133,9 +116,7 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
                     .map(
                         cd ->
                             fromCacheData(
-                                cd,
-                                account,
-                                includeEvents)) // todo(lwander) perf improvement by checking
+                                cd, account, false)) // todo(lwander) perf improvement by checking
                     // namespace
                     // before converting
                     .filter(Objects::nonNull)
@@ -155,16 +136,16 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
     String key = data.getId();
 
     List<KubernetesManifest> events =
-        !includeEvents
-            ? Collections.emptyList()
-            : cacheUtils
+        includeEvents
+            ? cacheUtils
                 .getTransitiveRelationship(
                     kind.toString(),
                     Collections.singletonList(key),
                     KubernetesKind.EVENT.toString())
                 .stream()
                 .map(KubernetesCacheDataConverter::getManifest)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList())
+            : Collections.emptyList();
 
     String metricKey = Keys.metric(kind, account, namespace, manifest.getName());
     List<KubernetesPodMetric.ContainerMetric> metrics =

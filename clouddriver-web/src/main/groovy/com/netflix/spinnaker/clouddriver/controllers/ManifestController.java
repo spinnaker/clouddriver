@@ -77,7 +77,8 @@ public class ManifestController {
                 provider -> {
                   try {
                     return requestQueue.execute(
-                        account, () -> provider.getManifest(account, location, name));
+                        account,
+                        () -> provider.getManifest(account, location, name, includeEvents));
                   } catch (Throwable t) {
                     log.warn("Failed to read manifest ", t);
                     return null;
@@ -117,9 +118,7 @@ public class ManifestController {
       @PathVariable String kind,
       @PathVariable String app,
       @PathVariable String cluster,
-      @PathVariable Criteria criteria,
-      @RequestParam(value = "includeEvents", required = false, defaultValue = "true")
-          boolean includeEvents) {
+      @PathVariable Criteria criteria) {
     final String request =
         String.format(
             "(account: %s, location: %s, kind: %s, app %s, cluster: %s, criteria: %s)",
@@ -134,13 +133,7 @@ public class ManifestController {
                             account,
                             () ->
                                 p.getClusterAndSortAscending(
-                                    account,
-                                    location,
-                                    kind,
-                                    app,
-                                    cluster,
-                                    criteria.getSort(),
-                                    includeEvents));
+                                    account, location, kind, app, cluster, criteria.getSort()));
                   } catch (Throwable t) {
                     log.warn("Failed to read {}", request, t);
                     return null;
