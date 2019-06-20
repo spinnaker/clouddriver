@@ -28,10 +28,7 @@ public class Tasks {
   private final TaskService api;
 
   public Task createTask(String applicationGuid, String command, String name) {
-
-    CreateTask createTask = new CreateTask();
-    createTask.setCommand(command);
-    createTask.setName(name);
+    CreateTask createTask = new CreateTask(name, command);
 
     return safelyCall(() -> api.createTask(applicationGuid, createTask))
         .orElseThrow(ResourceNotFoundException::new);

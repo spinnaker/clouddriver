@@ -21,11 +21,11 @@ import lombok.Data;
 
 @Data
 public class Task {
-  private String guid;
-  private String name;
-  private State state;
-  private ZonedDateTime createdAt;
-  private ZonedDateTime updatedAt;
+  private final String guid;
+  private final String name;
+  private final State state;
+  private final ZonedDateTime createdAt;
+  private final ZonedDateTime updatedAt;
 
   public enum State {
     SUCCEEDED,

@@ -21,7 +21,6 @@ import lombok.Data;
 
 @Data
 public class CreateTask {
-  private String command;
-
-  @Nullable private String name;
+  @Nullable private final String name;
+  private final String command;
 }
