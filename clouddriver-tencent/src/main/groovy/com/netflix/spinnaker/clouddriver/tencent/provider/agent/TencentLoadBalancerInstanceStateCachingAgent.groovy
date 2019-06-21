@@ -116,8 +116,12 @@ class TencentLoadBalancerInstanceStateCachingAgent implements CachingAgent, Heal
       for (listenerHealth in listenerHealths) {
         def listenerId = listenerHealth.listenerId
         def ruleHealths = listenerHealth.rules
+        def protocol = listenerHealth.protocol
         for (ruleHealth in ruleHealths) {
-          def locationId = ruleHealth.locationId
+          def locationId = ''
+          if (protocol == 'HTTP' || protocol == 'HTTPS') {
+            locationId = ruleHealth.locationId
+          }
           def instanceHealths = ruleHealth.targets
           for (instanceHealth in instanceHealths) {
             def targetId = instanceHealth.targetId
