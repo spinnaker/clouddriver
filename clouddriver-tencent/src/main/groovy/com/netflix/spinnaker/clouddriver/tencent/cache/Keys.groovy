@@ -195,6 +195,6 @@ class Keys implements KeyParser {
   }
 
   static String getTargetHealthKey(String loadBalancerId, String listenerId, String locationId, String instanceId, String account, String region) {
-    "$TencentCloudProvider.ID:$Namespace.HEALTH_CHECKS:$account:$region:$loadBalancerId:$listenerId:$instanceId"
+    "$TencentCloudProvider.ID:$Namespace.HEALTH_CHECKS:$account:$region:$loadBalancerId:$listenerId:$locationId:$instanceId"
   }
 }

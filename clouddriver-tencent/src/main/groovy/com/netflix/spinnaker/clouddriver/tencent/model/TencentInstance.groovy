@@ -21,7 +21,7 @@ class TencentInstance implements Instance, TencentBasicResource {
   Long launchTime
   String zone
   TencentInstanceHealth instanceHealth
-  TencentTargetHealth targetHealth
+  List<TencentTargetHealth> targetHealths = []
   String vpcId
   String subnetId
   List<String> privateIpAddresses = []
@@ -50,8 +50,10 @@ class TencentInstance implements Instance, TencentBasicResource {
     if (instanceHealth) {
       healths << objectMapper.convertValue(instanceHealth, new TypeReference<Map<String, Object>>() {})
     }
-    if (targetHealth) {
-      healths << objectMapper.convertValue(targetHealth, new TypeReference<Map<String, Object>>() {})
+    if (targetHealths) {
+      for (targetHealth in targetHealths) {
+        healths << objectMapper.convertValue(targetHealth, new TypeReference<Map<String, Object>>() {})
+      }
     }
     return healths as List<Map<String, Object>>
   }
