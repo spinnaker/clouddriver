@@ -128,30 +128,40 @@ resources:
       cooldown: {get_param: scaledown_cooldown}
       scaling_adjustment: {get_param: scaledown_adjustment}
   meter_alarm_high:
-    type: OS::Ceilometer::Alarm
+    type: OS::Aodh::GnocchiAggregationByResourcesAlarm
     properties:
       description: Scale up if the average meter_name > scaleup_threshold for scaleup_period seconds
-      meter_name: {get_param: autoscaling_type}
-      statistic: avg
-      period: {get_param: scaleup_period}
+      metric: {get_param: autoscaling_type}
+      aggregation_method: mean
+      granularity: {get_param: scaleup_period}
       evaluation_periods: 1
+      resource_type: instance
       threshold: {get_param: scaleup_threshold}
       alarm_actions:
         - {get_attr: [web_server_scaleup_policy, alarm_url]}
-      matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      ## matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      query:
+        list_join:
+          - ''
+          - - {'=': {server_group: {get_param: "OS::stack_id"}}}
       comparison_operator: gt
   meter_alarm_low:
-    type: OS::Ceilometer::Alarm
+    type: OS::Aodh::GnocchiAggregationByResourcesAlarm
     properties:
       description: Scale up if the average meter_name < scaledown_threshold for scaledown_period seconds
-      meter_name: {get_param: autoscaling_type}
-      statistic: avg
-      period: {get_param: scaledown_period}
+      metric: {get_param: autoscaling_type}
+      aggregation_method: mean
+      granularity: {get_param: scaledown_period}
       evaluation_periods: 1
+      resource_type: instance
       threshold: {get_param: scaledown_threshold}
       alarm_actions:
         - {get_attr: [web_server_scaledown_policy, alarm_url]}
-      matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      ## matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      query:
+        list_join:
+          - ''
+          - - {'=': {server_group: {get_param: "OS::stack_id"}}}
       comparison_operator: lt
 outputs:
   OS::stack_id:
