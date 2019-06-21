@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Pivotal, Inc.
+ * Copyright 2019 Pivotal, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,18 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2;
+package com.netflix.spinnaker.clouddriver.cloudfoundry.job;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
-import java.util.Map;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.AbstractCloudFoundryDescription;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryServerGroup;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
-public class ApplicationEnv {
-  private SystemEnv systemEnvJson;
-  private Map<String, Object> environmentJson;
+@EqualsAndHashCode(callSuper = true)
+public class CloudFoundryRunJobOperationDescription extends AbstractCloudFoundryDescription {
 
-  @Data
-  public static class SystemEnv {
-    @JsonProperty("VCAP_SERVICES")
-    private Map<String, List<ServiceInstance>> vcapServices;
-  }
+  private CloudFoundryServerGroup serverGroup;
+  private String jobName;
+  private String command;
 }
