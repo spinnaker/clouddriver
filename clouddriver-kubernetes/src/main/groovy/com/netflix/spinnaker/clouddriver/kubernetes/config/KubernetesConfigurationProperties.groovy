@@ -20,9 +20,16 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpi
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import com.netflix.spinnaker.fiat.model.resources.Permissions
 import groovy.transform.ToString
+import lombok.Data
+import org.springframework.beans.factory.DisposableBean
+import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.cloud.context.config.annotation.RefreshScope
+import org.springframework.stereotype.Component
 
+@Component
 @ToString(includeNames = true)
-class KubernetesConfigurationProperties {
+@ConfigurationProperties("kubernetes")
+class KubernetesConfigurationProperties implements DisposableBean {
   private static final Integer DEFAULT_CACHE_THREADS = 1
 
   @ToString(includeNames = true)
@@ -63,6 +70,11 @@ class KubernetesConfigurationProperties {
   }
 
   List<ManagedAccount> accounts = []
+
+  @Override
+  void destroy() {
+    this.accounts = []
+  }
 }
 
 @ToString(includeNames = true)

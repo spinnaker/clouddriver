@@ -16,17 +16,25 @@
 
 package com.netflix.spinnaker.config
 
+import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndicator
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialsSynchronizer
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials.CredentialFactory
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentialsInitializer
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1ProviderConfig
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2ProviderConfig
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.cloud.context.config.annotation.RefreshScope
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.DependsOn
 import org.springframework.scheduling.annotation.EnableScheduling
 
 @Configuration
@@ -34,10 +42,9 @@ import org.springframework.scheduling.annotation.EnableScheduling
 @EnableScheduling
 @ConditionalOnProperty('kubernetes.enabled')
 @ComponentScan(["com.netflix.spinnaker.clouddriver.kubernetes"])
-@Import([ KubernetesNamedAccountCredentialsInitializer ])
 class KubernetesConfiguration {
+
   @Bean
-  @ConfigurationProperties("kubernetes")
   KubernetesConfigurationProperties kubernetesConfigurationProperties() {
     new KubernetesConfigurationProperties()
   }
@@ -51,4 +58,30 @@ class KubernetesConfiguration {
   KubernetesUtil kubernetesUtil() {
     new KubernetesUtil()
   }
+
+  @Bean
+  KubernetesCredentialsSynchronizer kubernetesCredentialsSynchronizer(
+    AccountCredentialsRepository accountCredentialsRepository,
+    KubernetesConfigurationProperties kubernetesConfigurationProperties,
+    KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+    CredentialFactory credentialFactory
+  ) {
+    return new KubernetesCredentialsSynchronizer(
+      accountCredentialsRepository,
+      kubernetesConfigurationProperties,
+      kubernetesSpinnakerKindMap,
+      credentialFactory
+    )
+  }
+
+  @Bean
+  @DependsOn('kubernetesCredentialsSynchronizer')
+  List<? extends  KubernetesNamedAccountCredentials> kubernetesNamedAccountCredentials(
+    AccountCredentialsRepository accountCredentialsRepository
+  ) {
+    accountCredentialsRepository.all.findAll{ credentials ->
+      credentials instanceof KubernetesNamedAccountCredentials
+    } as List<KubernetesNamedAccountCredentials>
+  }
+
 }
