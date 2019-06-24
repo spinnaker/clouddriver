@@ -274,7 +274,7 @@ public class KubernetesCacheDataConverter {
     return mapper.convertValue(o, KubernetesManifest.class);
   }
 
-  public static <T> T getResource(KubernetesManifest manifest, Class<T> clazz) {
+  public static <T> T getResource(Object manifest, Class<T> clazz) {
     // A little hacky, but the only way to deserialize any timestamps using string constructors
     return json.deserialize(json.serialize(manifest), clazz);
   }
