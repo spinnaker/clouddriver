@@ -199,12 +199,7 @@ public class KubernetesCacheDataConverter {
     logMalformedManifest(() -> "Converting " + manifest + " to a cached resource", manifest);
 
     KubernetesKind kind = manifest.getKind();
-    boolean hasClusterRelationship = false;
-    boolean isNamespaced = true;
-    if (kind != null) {
-      hasClusterRelationship = kind.hasClusterRelationship();
-      isNamespaced = kind.isNamespaced();
-    }
+    boolean hasClusterRelationship = kind != null && kind.hasClusterRelationship();
 
     KubernetesApiVersion apiVersion = manifest.getApiVersion();
     String name = manifest.getName();
