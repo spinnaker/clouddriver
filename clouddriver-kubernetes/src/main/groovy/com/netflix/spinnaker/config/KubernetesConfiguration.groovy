@@ -22,15 +22,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndic
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialsSynchronizer
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials.CredentialFactory
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentialsInitializer
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1ProviderConfig
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2ProviderConfig
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.cloud.context.config.annotation.RefreshScope
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
@@ -64,13 +60,15 @@ class KubernetesConfiguration {
     AccountCredentialsRepository accountCredentialsRepository,
     KubernetesConfigurationProperties kubernetesConfigurationProperties,
     KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
-    CredentialFactory credentialFactory
+    CredentialFactory credentialFactory,
+    CatsModule catsModule
   ) {
     return new KubernetesCredentialsSynchronizer(
       accountCredentialsRepository,
       kubernetesConfigurationProperties,
       kubernetesSpinnakerKindMap,
-      credentialFactory
+      credentialFactory,
+      catsModule
     )
   }
 
