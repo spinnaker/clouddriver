@@ -670,7 +670,6 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
       attributes.put("region", region.getName());
       attributes.put("account", account.getName());
       attributes.put("targetGroups", data.targetGroupNames);
-
       Map<String, Collection<String>> relationships = serverGroupCache.getRelationships();
       relationships.computeIfAbsent(APPLICATIONS.ns, key -> new HashSet<>()).add(data.appNameKey);
       relationships.computeIfAbsent(CLUSTERS.ns, key -> new HashSet<>()).add(data.clusterKey);

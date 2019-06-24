@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.titus.caching.providers
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
@@ -30,6 +31,7 @@ import com.netflix.spinnaker.clouddriver.titus.caching.TitusCachingProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchema
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchemaUtil
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.TitusRegistryService
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.client.model.Task
 import com.netflix.spinnaker.clouddriver.titus.model.TitusCluster
@@ -39,7 +41,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-
+import retrofit.RetrofitError
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
 import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*
 
@@ -57,6 +59,9 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
 
   @Autowired
   private final CachingSchemaUtil cachingSchemaUtil
+
+  @Autowired
+  private final TitusRegistryService titusRegistryService;
 
   @Autowired
   TitusClusterProvider(TitusCloudProvider titusCloudProvider,
@@ -185,6 +190,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     serverGroup.placement.region = region
     serverGroup.scalingPolicies = serverGroupData.attributes.scalingPolicies
     serverGroup.targetGroups = serverGroupData.attributes.targetGroups
+    serverGroup.buildInfo.jenkins = getBuildInformation(job.applicationName,job.version)
     if (includeDetails) {
       serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns), Collections.singletonList(serverGroupData)).values()
       if (serverGroup.targetGroups) {
@@ -356,5 +362,28 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
   private Collection<CacheData> resolveRelationshipData(CacheData source, String relationship, Closure<Boolean> relFilter) {
     Collection<String> filteredRelationships = source.relationships[relationship]?.findAll(relFilter)
     filteredRelationships ? cacheView.getAll(relationship, filteredRelationships) : []
+  }
+
+  private Map getBuildInformation(String applicationName, String version) {
+    try {
+      TitusRegistryService.BuildInfo buildInfo = titusRegistryService.getBuildInformation(applicationName, version)
+      Map<String, Object> v1Compatibility = objectMapper.readValue(buildInfo.getHistory().get(0).getV1Compatibility(), new TypeReference<HashMap<String, Object>>() {
+      })
+      Map<String, Object> labels = (Map) ((Map) v1Compatibility.get("config")).get("Labels")
+      Map<String, Object> buildInformation = new HashMap() {
+        {
+          put("number", labels.get("jenkins-build"))
+          put("name", labels.get("jenkins-job"))
+          put("host", labels.get("jenkins-host"))
+        }
+      }
+      buildInformation
+    } catch (RetrofitError e) {
+      if (e.kind == RetrofitError.Kind.HTTP && e.response.status == 404) {
+        log.warn("BuildInformation for image {} with version {} not found",applicationName,version)
+      } else {
+        throw e
+      }
+    }
   }
 }

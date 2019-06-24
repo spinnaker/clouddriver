@@ -27,6 +27,7 @@ dependencies {
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-eureka")
   implementation project(":clouddriver-security")
+  implementation project(":clouddriver-docker")
 
   annotationProcessor "org.projectlombok:lombok"
   compileOnly "org.projectlombok:lombok"
@@ -52,6 +53,8 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "org.yaml:snakeyaml:1.24"
+  implementation "com.squareup.retrofit:retrofit"
+  implementation "com.squareup.retrofit:converter-jackson"
 
   testImplementation "cglib:cglib-nodep"
   testImplementation "junit:junit"
