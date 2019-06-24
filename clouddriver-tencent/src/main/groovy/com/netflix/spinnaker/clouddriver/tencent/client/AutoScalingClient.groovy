@@ -349,6 +349,29 @@ class AutoScalingClient extends AbstractTencentServiceClient {
     }
   }
 
+  def describeAutoScalingActivities(String asaId) {
+    try {
+      def request = new DescribeAutoScalingActivitiesRequest()
+      request.activityIds = [asaId]
+      def response = client.DescribeAutoScalingActivities(request)
+      response
+    } catch (TencentCloudSDKException e) {
+      throw new TencentOperationException(e.toString())
+    }
+  }
+
+  def detachInstances(def asgId, def instanceIds) {
+    try {
+      def request = new DetachInstancesRequest()
+      request.instanceIds = instanceIds
+      request.autoScalingGroupId = asgId
+      DetachInstancesResponse response = client.DetachInstances(request)
+      response
+    } catch(TencentCloudSDKException e) {
+      throw new TencentOperationException(e.toString())
+    }
+  }
+
   void removeInstances(def asgId, def instanceIds) {
     try {
       def request = new RemoveInstancesRequest()
