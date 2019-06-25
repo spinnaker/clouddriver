@@ -52,6 +52,7 @@ class AutoScalingClient extends AbstractTencentServiceClient {
         createAutoScalingGroupResponse.autoScalingGroupId
       } catch (TencentCloudSDKException e) {
         // if create auto scaling group failed, delete launch configuration.
+        sleep(5000)  // wait for a while before delete launch configuration
         log.error(e.toString())
         DeleteLaunchConfigurationRequest request = new DeleteLaunchConfigurationRequest()
         request.launchConfigurationId = launchConfigurationId
