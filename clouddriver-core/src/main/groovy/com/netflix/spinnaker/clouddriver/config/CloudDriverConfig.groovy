@@ -37,7 +37,6 @@ import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
-import com.netflix.spinnaker.clouddriver.data.ConfigFileService
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionAuthorizer
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider
 import com.netflix.spinnaker.clouddriver.model.CloudMetricProvider
@@ -90,9 +89,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.cloud.config.server.EnableConfigServer
-import org.springframework.cloud.config.server.environment.EnvironmentRepository
-import org.springframework.cloud.config.server.resource.ResourceRepository
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -114,7 +110,6 @@ import java.time.Clock
 ])
 @PropertySource(value = "classpath:META-INF/clouddriver-core.properties", ignoreResourceNotFound = true)
 @EnableConfigurationProperties(ProjectClustersCachingAgentProperties)
-@EnableConfigServer
 class CloudDriverConfig {
 
   @Bean
@@ -292,12 +287,6 @@ class CloudDriverConfig {
   @ConditionalOnMissingBean(ElasticIpProvider)
   ElasticIpProvider noopElasticIpProvider() {
     new NoopElasticIpProvider()
-  }
-
-  @Bean
-  ConfigFileService configFileService(ResourceRepository resourceRepository,
-                                      EnvironmentRepository environmentRepository) {
-    new ConfigFileService(resourceRepository, environmentRepository)
   }
 
   @Bean

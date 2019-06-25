@@ -40,7 +40,9 @@ import org.springframework.core.io.ByteArrayResource;
 
 class ConfigFileServiceTest {
   private static final String TEST_FILE_NAME = "testfile";
-  private static final String CLOUD_TEST_FILE_NAME = "cloudconfig:" + TEST_FILE_NAME;
+  private static final String TEST_FILE_PATH =
+      Paths.get(System.getProperty("java.io.tmpdir"), TEST_FILE_NAME).toString();
+  private static final String CLOUD_TEST_FILE_NAME = "configserver:" + TEST_FILE_NAME;
   private static final String TEST_FILE_CONTENTS = "test file contents";
 
   private ResourceRepository resourceRepository = mock(ResourceRepository.class);
@@ -55,15 +57,15 @@ class ConfigFileServiceTest {
 
   @AfterEach
   void tearDown() throws IOException {
-    Files.deleteIfExists(Paths.get(TEST_FILE_NAME));
+    Files.deleteIfExists(Paths.get(TEST_FILE_PATH));
   }
 
   @Test
   void getLocalPathWhenFileExists() throws IOException {
     createExpectedFile();
 
-    String fileName = configFileService.getLocalPath(TEST_FILE_NAME, "test", ".file");
-    assertThat(fileName).isEqualTo(TEST_FILE_NAME);
+    String fileName = configFileService.getLocalPath(TEST_FILE_PATH, "test", ".file");
+    assertThat(fileName).isEqualTo(TEST_FILE_PATH);
   }
 
   @Test
@@ -71,8 +73,8 @@ class ConfigFileServiceTest {
     RuntimeException exception =
         assertThrows(
             RuntimeException.class,
-            () -> configFileService.getLocalPath(TEST_FILE_NAME, "test", ".file"));
-    assertThat(exception.getMessage()).contains(TEST_FILE_NAME);
+            () -> configFileService.getLocalPath(TEST_FILE_PATH, "test", ".file"));
+    assertThat(exception.getMessage()).contains(TEST_FILE_PATH);
   }
 
   @Test
@@ -105,7 +107,7 @@ class ConfigFileServiceTest {
   void getContentsWhenFileExists() throws IOException {
     createExpectedFile();
 
-    String contents = configFileService.getContents(TEST_FILE_NAME);
+    String contents = configFileService.getContents(TEST_FILE_PATH);
     assertThat(contents).isEqualTo(TEST_FILE_CONTENTS);
   }
 
@@ -132,7 +134,7 @@ class ConfigFileServiceTest {
   }
 
   private void createExpectedFile() throws IOException {
-    File file = new File(TEST_FILE_NAME);
+    File file = new File(TEST_FILE_PATH);
     file.deleteOnExit();
 
     FileWriter fileWriter = new FileWriter(file);

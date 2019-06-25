@@ -157,7 +157,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
               KubernetesManifest.class,
               namerRegistry.getNamingStrategy(managedAccount.getNamingStrategy()));
       return new KubernetesV2Credentials(
-          spectatorRegistry, jobExecutor, managedAccount, configFileService);
+          spectatorRegistry, jobExecutor, managedAccount, getKubeconfigFile(managedAccount));
     }
 
     private void validateAccount(KubernetesConfigurationProperties.ManagedAccount managedAccount) {

@@ -119,9 +119,9 @@ public class ConfigFileService {
       Path filePath = Paths.get(path);
       return new String(Files.readAllBytes(filePath));
     } catch (FileNotFoundException e) {
-      throw new RuntimeException("File \"" + path + "\" not found or is not readable");
+      throw new RuntimeException("File \"" + path + "\" not found or is not readable", e);
     } catch (IOException e) {
-      throw new RuntimeException("Exception reading file " + path);
+      throw new RuntimeException("Exception reading file " + path, e);
     }
   }
 
@@ -131,7 +131,7 @@ public class ConfigFileService {
       InputStream inputStream = getClass().getResourceAsStream(filePath);
       return IOUtils.toString(inputStream, StandardCharsets.UTF_8);
     } catch (IOException e) {
-      throw new RuntimeException("Exception reading classpath resource \"" + path + "\"");
+      throw new RuntimeException("Exception reading classpath resource \"" + path + "\"", e);
     }
   }
 
