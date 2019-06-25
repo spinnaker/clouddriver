@@ -16,11 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
+import java.beans.ConstructorProperties;
 import javax.annotation.Nullable;
 import lombok.Value;
 
 @Value
 public class CreateTask {
-  @Nullable private final String name;
-  private final String command;
+  @Nullable private String name;
+  private String command;
+
+  // required to make jackson work with @Value
+  @ConstructorProperties({"name", "command"})
+  public CreateTask(@Nullable String name, String command) {
+    this.name = name;
+    this.command = command;
+  }
 }

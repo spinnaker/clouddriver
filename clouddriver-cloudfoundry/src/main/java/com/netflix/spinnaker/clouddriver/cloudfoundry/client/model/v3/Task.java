@@ -16,20 +16,36 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
+import java.beans.ConstructorProperties;
 import java.time.ZonedDateTime;
 import lombok.Value;
 
 @Value
 public class Task {
-  private final String guid;
-  private final String name;
-  private final State state;
-  private final ZonedDateTime createdAt;
-  private final ZonedDateTime updatedAt;
+  private String guid;
+  private String name;
+  private State state;
+  private ZonedDateTime createdAt;
+  private ZonedDateTime updatedAt;
 
   public enum State {
     SUCCEEDED,
     RUNNING,
     FAILED
+  }
+
+  // required to make jackson work with @Value
+  @ConstructorProperties({"guid", "name", "state", "createdAt", "updatedAt"})
+  public Task(
+      String guid,
+      String name,
+      Task.State state,
+      ZonedDateTime createdAt,
+      ZonedDateTime updatedAt) {
+    this.guid = guid;
+    this.name = name;
+    this.state = state;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 }
