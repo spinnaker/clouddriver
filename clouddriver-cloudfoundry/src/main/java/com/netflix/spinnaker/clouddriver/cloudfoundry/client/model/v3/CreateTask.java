@@ -16,19 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
-import java.beans.ConstructorProperties;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import javax.annotation.Nullable;
+import lombok.Builder;
 import lombok.Value;
 
 @Value
+@JsonDeserialize(builder = CreateTask.CreateTaskBuilder.class)
+@Builder
 public class CreateTask {
   @Nullable private String name;
   private String command;
 
-  // required to make jackson work with @Value
-  @ConstructorProperties({"name", "command"})
-  public CreateTask(@Nullable String name, String command) {
-    this.name = name;
-    this.command = command;
-  }
+  @JsonPOJOBuilder(withPrefix = "")
+  public static class CreateTaskBuilder {}
 }

@@ -16,11 +16,15 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3;
 
-import java.beans.ConstructorProperties;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import java.time.ZonedDateTime;
+import lombok.Builder;
 import lombok.Value;
 
 @Value
+@JsonDeserialize(builder = Task.TaskBuilder.class)
+@Builder
 public class Task {
   private String guid;
   private String name;
@@ -34,18 +38,6 @@ public class Task {
     FAILED
   }
 
-  // required to make jackson work with @Value
-  @ConstructorProperties({"guid", "name", "state", "createdAt", "updatedAt"})
-  public Task(
-      String guid,
-      String name,
-      Task.State state,
-      ZonedDateTime createdAt,
-      ZonedDateTime updatedAt) {
-    this.guid = guid;
-    this.name = name;
-    this.state = state;
-    this.createdAt = createdAt;
-    this.updatedAt = updatedAt;
-  }
+  @JsonPOJOBuilder(withPrefix = "")
+  public static class TaskBuilder {}
 }
