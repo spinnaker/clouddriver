@@ -313,16 +313,15 @@ public class Applications {
                                         .build()))
                 .collect(toList());
 
-    Map<String, String> environmentVars =
+    Map<String, Object> environmentVars =
         applicationEnv == null || applicationEnv.getEnvironmentJson() == null
             ? emptyMap()
             : applicationEnv.getEnvironmentJson();
 
     final CloudFoundryBuildInfo buildInfo = getBuildInfoFromEnvVars(environmentVars);
     final ArtifactInfo artifactInfo = getArtifactInfoFromEnvVars(environmentVars);
-    final String pipelineId = environmentVars.get(ServerGroupMetaDataEnvVar.PipelineId.envVarName);
-    Arrays.asList(ServerGroupMetaDataEnvVar.values())
-        .forEach(envVar -> environmentVars.remove(envVar.envVarName));
+    final String pipelineId =
+        getEnvironmentVar(environmentVars, ServerGroupMetaDataEnvVar.PipelineId);
 
     String healthCheckType = null;
     String healthCheckHttpEndpoint = null;
@@ -375,19 +374,26 @@ public class Applications {
         .build();
   }
 
-  private CloudFoundryBuildInfo getBuildInfoFromEnvVars(Map<String, String> environmentVars) {
+  private String getEnvironmentVar(
+      Map<String, Object> environmentVars, ServerGroupMetaDataEnvVar var) {
+    return Optional.ofNullable(environmentVars.get(var.envVarName))
+        .map(Object::toString)
+        .orElse(null);
+  }
+
+  private CloudFoundryBuildInfo getBuildInfoFromEnvVars(Map<String, Object> environmentVars) {
     return CloudFoundryBuildInfo.builder()
-        .jobName(environmentVars.get(ServerGroupMetaDataEnvVar.JobName.envVarName))
-        .jobNumber(environmentVars.get(ServerGroupMetaDataEnvVar.JobNumber.envVarName))
-        .jobUrl(environmentVars.get(ServerGroupMetaDataEnvVar.JobUrl.envVarName))
+        .jobName(getEnvironmentVar(environmentVars, ServerGroupMetaDataEnvVar.JobName))
+        .jobNumber(getEnvironmentVar(environmentVars, ServerGroupMetaDataEnvVar.JobNumber))
+        .jobUrl(getEnvironmentVar(environmentVars, ServerGroupMetaDataEnvVar.JobUrl))
         .build();
   }
 
-  private ArtifactInfo getArtifactInfoFromEnvVars(Map<String, String> environmentVars) {
+  private ArtifactInfo getArtifactInfoFromEnvVars(Map<String, Object> environmentVars) {
     return ArtifactInfo.builder()
-        .name(environmentVars.get(ServerGroupMetaDataEnvVar.ArtifactName.envVarName))
-        .version(environmentVars.get(ServerGroupMetaDataEnvVar.ArtifactVersion.envVarName))
-        .url(environmentVars.get(ServerGroupMetaDataEnvVar.ArtifactUrl.envVarName))
+        .name(getEnvironmentVar(environmentVars, ServerGroupMetaDataEnvVar.ArtifactName))
+        .version(getEnvironmentVar(environmentVars, ServerGroupMetaDataEnvVar.ArtifactVersion))
+        .url(getEnvironmentVar(environmentVars, ServerGroupMetaDataEnvVar.ArtifactUrl))
         .build();
   }
 
