@@ -97,6 +97,17 @@ class ConfigFileServiceTest {
   }
 
   @Test
+  void getLocalPathWhenConfigServerNotConfigured() {
+    configFileService = new ConfigFileService();
+
+    RuntimeException exception =
+        assertThrows(
+            RuntimeException.class,
+            () -> configFileService.getLocalPath(CLOUD_TEST_FILE_NAME, "test", ".file"));
+    assertThat(exception.getMessage()).contains(CLOUD_TEST_FILE_NAME);
+  }
+
+  @Test
   void getLocalPathWhenContentProvided() {
     String fileName =
         configFileService.getLocalPathForContents(TEST_FILE_CONTENTS, "test", ".file");

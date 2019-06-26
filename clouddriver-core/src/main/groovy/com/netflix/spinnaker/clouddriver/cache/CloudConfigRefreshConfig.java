@@ -37,28 +37,40 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
  */
 @Configuration
 @AutoConfigureAfter({RedisCacheConfig.class, DynomiteCacheConfig.class})
-@Conditional(RemoteConfigSourceConfigured.class)
-@EnableConfigServer
 public class CloudConfigRefreshConfig {
 
-  @Bean
-  ConfigFileService configFileService(
-      ResourceRepository resourceRepository, EnvironmentRepository environmentRepository) {
-    return new ConfigFileService(resourceRepository, environmentRepository);
+  @Configuration
+  @Conditional(RemoteConfigSourceConfigured.class)
+  @EnableConfigServer
+  static class RemoteConfigSourceConfiguration {
+    @Bean
+    ConfigFileService configFileService(
+        ResourceRepository resourceRepository, EnvironmentRepository environmentRepository) {
+      return new ConfigFileService(resourceRepository, environmentRepository);
+    }
+
+    @Bean
+    @ConditionalOnBean(DefaultAgentIntervalProvider.class)
+    public CloudConfigRefreshScheduler intervalProviderConfigRefreshScheduler(
+        ContextRefresher contextRefresher, DefaultAgentIntervalProvider agentIntervalProvider) {
+      return new CloudConfigRefreshScheduler(contextRefresher, agentIntervalProvider.getInterval());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(DefaultAgentIntervalProvider.class)
+    public CloudConfigRefreshScheduler defaultIntervalConfigRefreshScheduler(
+        ContextRefresher contextRefresher) {
+      return new CloudConfigRefreshScheduler(contextRefresher, 60);
+    }
   }
 
-  @Bean
-  @ConditionalOnBean(DefaultAgentIntervalProvider.class)
-  public CloudConfigRefreshScheduler intervalProviderConfigRefreshScheduler(
-      ContextRefresher contextRefresher, DefaultAgentIntervalProvider agentIntervalProvider) {
-    return new CloudConfigRefreshScheduler(contextRefresher, agentIntervalProvider.getInterval());
-  }
-
-  @Bean
-  @ConditionalOnMissingBean(DefaultAgentIntervalProvider.class)
-  public CloudConfigRefreshScheduler defaultIntervalConfigRefreshScheduler(
-      ContextRefresher contextRefresher) {
-    return new CloudConfigRefreshScheduler(contextRefresher, 60);
+  @Configuration
+  static class DefaultConfiguration {
+    @Bean
+    @ConditionalOnMissingBean(ConfigFileService.class)
+    ConfigFileService configFileService() {
+      return new ConfigFileService();
+    }
   }
 }
 

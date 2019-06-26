@@ -136,26 +136,27 @@ public class ConfigFileService {
   }
 
   private String retrieveFromConfigServer(String path) {
-    if (resourceRepository != null && environmentRepository != null) {
-      try {
-        String fileName = path.substring(CONFIG_SERVER_RESOURCE_PREFIX.length());
-        Resource resource = this.resourceRepository.findOne(applicationName, null, null, fileName);
-        try (InputStream inputStream = resource.getInputStream()) {
-          Environment environment = this.environmentRepository.findOne(applicationName, null, null);
-
-          String text = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-          StandardEnvironment preparedEnvironment =
-              EnvironmentPropertySource.prepareEnvironment(environment);
-          return EnvironmentPropertySource.resolvePlaceholders(preparedEnvironment, text);
-        }
-      } catch (NoSuchResourceException e) {
-        throw new RuntimeException(
-            "The resource \"" + path + "\" was not found in config server", e);
-      } catch (IOException e) {
-        throw new RuntimeException("Exception reading config server resource \"" + path + "\"", e);
-      }
+    if (resourceRepository == null || environmentRepository == null) {
+      throw new RuntimeException(
+          "Config Server repository not configured for resource \"" + path + "\"");
     }
-    return null;
+
+    try {
+      String fileName = path.substring(CONFIG_SERVER_RESOURCE_PREFIX.length());
+      Resource resource = this.resourceRepository.findOne(applicationName, null, null, fileName);
+      try (InputStream inputStream = resource.getInputStream()) {
+        Environment environment = this.environmentRepository.findOne(applicationName, null, null);
+
+        String text = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+        StandardEnvironment preparedEnvironment =
+            EnvironmentPropertySource.prepareEnvironment(environment);
+        return EnvironmentPropertySource.resolvePlaceholders(preparedEnvironment, text);
+      }
+    } catch (NoSuchResourceException e) {
+      throw new RuntimeException("The resource \"" + path + "\" was not found in config server", e);
+    } catch (IOException e) {
+      throw new RuntimeException("Exception reading config server resource \"" + path + "\"", e);
+    }
   }
 
   private String writeToTempFile(String contents, String tempFilePrefix, String tempFileSuffix) {
