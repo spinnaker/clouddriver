@@ -104,7 +104,7 @@ public class Keys {
     List<String> components =
         Arrays.stream(elems)
             .map(s -> s == null ? "" : s.toString())
-            .map(s -> s.replaceAll(":", ";"))
+            .map(s -> s.contains(":") ? s.replaceAll(":", ";") : s)
             .collect(Collectors.toList());
     components.add(0, provider);
     return String.join(":", components);
