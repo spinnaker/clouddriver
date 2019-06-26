@@ -16,13 +16,19 @@
 
 package com.netflix.spinnaker.config
 
+import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.module.CatsModule
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndicator
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialsSynchronizer
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials.CredentialFactory
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1Provider
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1ProviderConfig
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2Provider
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2ProviderConfig
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -32,6 +38,8 @@ import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.DependsOn
 import org.springframework.scheduling.annotation.EnableScheduling
+
+import java.util.concurrent.ConcurrentHashMap
 
 @Configuration
 @EnableConfigurationProperties
@@ -56,11 +64,24 @@ class KubernetesConfiguration {
   }
 
   @Bean
+  KubernetesV1Provider kubernetesV1Provider(KubernetesCloudProvider kubernetesCloudProvider) {
+    new KubernetesV1Provider(kubernetesCloudProvider, Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()))
+  }
+
+  @Bean
+  KubernetesV2Provider kubernetesV2Provider() {
+    new KubernetesV2Provider()
+  }
+
+  @Bean
+  @DependsOn(['kubernetesV1Provider', 'kubernetesV2Provider'])
   KubernetesCredentialsSynchronizer kubernetesCredentialsSynchronizer(
     AccountCredentialsRepository accountCredentialsRepository,
     KubernetesConfigurationProperties kubernetesConfigurationProperties,
     KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
     CredentialFactory credentialFactory,
+    KubernetesV2ProviderConfig kubernetesV2ProviderConfig,
+    KubernetesV1ProviderConfig kubernetesV1ProviderConfig,
     CatsModule catsModule
   ) {
     return new KubernetesCredentialsSynchronizer(
@@ -68,7 +89,9 @@ class KubernetesConfiguration {
       kubernetesConfigurationProperties,
       kubernetesSpinnakerKindMap,
       credentialFactory,
-      catsModule
+      catsModule,
+      kubernetesV2ProviderConfig,
+      kubernetesV1ProviderConfig
     )
   }
 

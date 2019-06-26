@@ -21,10 +21,15 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNa
 
 import com.netflix.spinnaker.cats.module.CatsModule;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1ProviderConfig;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2ProviderConfig;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils;
+
+import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -37,18 +42,24 @@ public class KubernetesCredentialsSynchronizer implements CredentialsInitializer
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final CredentialFactory credentialFactory;
   private final CatsModule catsModule;
+  private final KubernetesV2ProviderConfig kubernetesV2ProviderConfig;
+  private final KubernetesV1ProviderConfig  kubernetesV1ProviderConfig;
 
   public KubernetesCredentialsSynchronizer(
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
       CredentialFactory credentialFactory,
-      CatsModule catsModule) {
+      CatsModule catsModule,
+      KubernetesV2ProviderConfig kubernetesV2ProviderConfig,
+      KubernetesV1ProviderConfig kubernetesV1ProviderConfig) {
     this.accountCredentialsRepository = accountCredentialsRepository;
     this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
     this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
     this.credentialFactory = credentialFactory;
     this.catsModule = catsModule;
+    this.kubernetesV2ProviderConfig = kubernetesV2ProviderConfig;
+    this.kubernetesV1ProviderConfig = kubernetesV1ProviderConfig;
   }
 
   @Override
@@ -63,8 +74,7 @@ public class KubernetesCredentialsSynchronizer implements CredentialsInitializer
 
     List<ManagedAccount> accountsToAdd = (List<ManagedAccount>) accountDelta.get(0);
     List<String> deletedAccounts = (List<String>) accountDelta.get(1);
-
-    ProviderUtils.unscheduleAndDeregisterAgents(deletedAccounts, catsModule);
+    List<String> changedAccounts = new ArrayList<>();
 
     accountsToAdd.forEach(
         managedAccount -> {
@@ -72,10 +82,23 @@ public class KubernetesCredentialsSynchronizer implements CredentialsInitializer
             KubernetesNamedAccountCredentials credentials =
                 new KubernetesNamedAccountCredentials(
                     managedAccount, kubernetesSpinnakerKindMap, credentialFactory);
+
+            AccountCredentials existingCredentials = accountCredentialsRepository.getOne(managedAccount.getName());
+
+            if (existingCredentials != null && !existingCredentials.equals(credentials)) {
+              changedAccounts.add(managedAccount.getName());
+            }
+
             accountCredentialsRepository.save(managedAccount.getName(), credentials);
           } catch (Exception e) {
             log.info("Could not load account {} for Kubernetes", managedAccount.getName());
           }
         });
+
+    ProviderUtils.unscheduleAndDeregisterAgents(deletedAccounts, catsModule);
+    ProviderUtils.unscheduleAndDeregisterAgents(changedAccounts, catsModule);
+
+    kubernetesV2ProviderConfig.synchronizeKubernetesV2Provider();
+    kubernetesV1ProviderConfig.synchronizeKubernetesV1Provider();
   }
 }

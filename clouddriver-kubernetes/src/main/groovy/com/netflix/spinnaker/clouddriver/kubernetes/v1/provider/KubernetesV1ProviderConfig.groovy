@@ -17,8 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v1.provider
 
-import com.netflix.spinnaker.cats.agent.Agent
-import com.netflix.spinnaker.cats.thread.NamedThreadFactory
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.agent.KubernetesV1CachingAgentDispatcher
@@ -26,47 +24,30 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import groovy.util.logging.Slf4j
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.DependsOn
+import org.springframework.stereotype.Component
 
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
-
-@Configuration
+@Component
 @Slf4j
-class KubernetesV1ProviderConfig implements Runnable {
-  @Bean
-  @DependsOn('kubernetesNamedAccountCredentials')
-  KubernetesV1Provider kubernetesV1Provider(KubernetesCloudProvider kubernetesCloudProvider,
-                                            AccountCredentialsRepository accountCredentialsRepository,
-                                            KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher) {
-    this.kubernetesV1Provider = new KubernetesV1Provider(kubernetesCloudProvider, Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()))
-    this.kubernetesCloudProvider = kubernetesCloudProvider
-    this.accountCredentialsRepository = accountCredentialsRepository
-    this.kubernetesV1CachingAgentDispatcher = kubernetesV1CachingAgentDispatcher
-
-    ScheduledExecutorService poller = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(KubernetesV1ProviderConfig.class.getSimpleName()))
-
-    poller.scheduleAtFixedRate(this, 0, 30, TimeUnit.SECONDS)
-
-    kubernetesV1Provider
-  }
+class KubernetesV1ProviderConfig {
 
   private KubernetesV1Provider kubernetesV1Provider
   private KubernetesCloudProvider kubernetesCloudProvider
   private AccountCredentialsRepository accountCredentialsRepository
   private KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher
 
-  @Override
-  void run() {
-    synchronizeKubernetesV1Provider(kubernetesV1Provider, accountCredentialsRepository)
+  KubernetesV1ProviderConfig(
+    KubernetesV1Provider kubernetesV1Provider,
+    KubernetesCloudProvider kubernetesCloudProvider,
+    AccountCredentialsRepository accountCredentialsRepository,
+    KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher
+  ) {
+    this.kubernetesV1Provider = kubernetesV1Provider
+    this.kubernetesCloudProvider = kubernetesCloudProvider
+    this.accountCredentialsRepository = accountCredentialsRepository
+    this.kubernetesV1CachingAgentDispatcher = kubernetesV1CachingAgentDispatcher
   }
 
-  private void synchronizeKubernetesV1Provider(KubernetesV1Provider kubernetesV1Provider,
-                                               AccountCredentialsRepository accountCredentialsRepository) {
+  void synchronizeKubernetesV1Provider() {
     def allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, KubernetesNamedAccountCredentials, ProviderVersion.v1)
 
     kubernetesV1Provider.agents.clear()

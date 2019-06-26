@@ -18,8 +18,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 
 import com.netflix.spinnaker.cats.agent.Agent;
-import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
@@ -31,36 +29,24 @@ import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
+import org.springframework.stereotype.Component;
 
-@Configuration
+@Component
 @Slf4j
-class KubernetesV2ProviderConfig {
-  @Bean
-  @DependsOn("kubernetesNamedAccountCredentials")
-  KubernetesV2Provider kubernetesV2Provider(
-      KubernetesCloudProvider kubernetesCloudProvider,
-      AccountCredentialsRepository accountCredentialsRepository,
-      KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
-      KubernetesResourcePropertyRegistry kubernetesResourcePropertyRegistry) {
-    this.kubernetesV2Provider = new KubernetesV2Provider();
+public class KubernetesV2ProviderConfig {
+
+  public KubernetesV2ProviderConfig(
+    KubernetesV2Provider kubernetesV2Provider,
+    AccountCredentialsRepository accountCredentialsRepository,
+    KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
+    KubernetesResourcePropertyRegistry kubernetesResourcePropertyRegistry
+  ){
+    this.kubernetesV2Provider = kubernetesV2Provider;
     this.accountCredentialsRepository = accountCredentialsRepository;
     this.kubernetesV2CachingAgentDispatcher = kubernetesV2CachingAgentDispatcher;
     this.kubernetesResourcePropertyRegistry = kubernetesResourcePropertyRegistry;
-
-    ScheduledExecutorService poller =
-        Executors.newSingleThreadScheduledExecutor(
-            new NamedThreadFactory(KubernetesV2ProviderConfig.class.getSimpleName()));
-
-    synchronizeKubernetesV2Provider(kubernetesV2Provider, accountCredentialsRepository);
-
-    return kubernetesV2Provider;
   }
 
   private KubernetesV2Provider kubernetesV2Provider;
@@ -68,9 +54,7 @@ class KubernetesV2ProviderConfig {
   private KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher;
   private KubernetesResourcePropertyRegistry kubernetesResourcePropertyRegistry;
 
-  private void synchronizeKubernetesV2Provider(
-      KubernetesV2Provider kubernetesV2Provider,
-      AccountCredentialsRepository accountCredentialsRepository) {
+  public void synchronizeKubernetesV2Provider() {
     Set<KubernetesNamedAccountCredentials> allAccounts =
         ProviderUtils.buildThreadSafeSetOfAccounts(
             accountCredentialsRepository,
