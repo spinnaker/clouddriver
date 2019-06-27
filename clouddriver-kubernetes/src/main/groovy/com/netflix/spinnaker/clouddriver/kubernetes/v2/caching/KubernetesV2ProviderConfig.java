@@ -18,59 +18,116 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 
 import com.netflix.spinnaker.cats.agent.Agent;
+import com.netflix.spinnaker.cats.module.CatsModule;
 import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.security.ProviderUtils;
-import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
+import com.netflix.spinnaker.clouddriver.security.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
+import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 
-@Configuration
 @Slf4j
-class KubernetesV2ProviderConfig {
-  @Bean
-  @DependsOn("kubernetesNamedAccountCredentials")
-  KubernetesV2Provider kubernetesV2Provider(
-      KubernetesCloudProvider kubernetesCloudProvider,
-      AccountCredentialsRepository accountCredentialsRepository,
-      KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
-      KubernetesResourcePropertyRegistry kubernetesResourcePropertyRegistry) {
-    this.kubernetesV2Provider = new KubernetesV2Provider();
-    this.accountCredentialsRepository = accountCredentialsRepository;
-    this.kubernetesV2CachingAgentDispatcher = kubernetesV2CachingAgentDispatcher;
-    this.kubernetesResourcePropertyRegistry = kubernetesResourcePropertyRegistry;
-
-    ScheduledExecutorService poller =
-        Executors.newSingleThreadScheduledExecutor(
-            new NamedThreadFactory(KubernetesV2ProviderConfig.class.getSimpleName()));
-
-    synchronizeKubernetesV2Provider(kubernetesV2Provider, accountCredentialsRepository);
-
-    return kubernetesV2Provider;
-  }
+public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchronizable {
 
   private KubernetesV2Provider kubernetesV2Provider;
   private AccountCredentialsRepository accountCredentialsRepository;
   private KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher;
   private KubernetesResourcePropertyRegistry kubernetesResourcePropertyRegistry;
+  private KubernetesConfigurationProperties kubernetesConfigurationProperties;
+  private KubernetesNamedAccountCredentials.CredentialFactory credentialFactory;
+  private KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+  private CatsModule catsModule;
 
-  private void synchronizeKubernetesV2Provider(
+  public KubernetesV2ProviderConfig(
       KubernetesV2Provider kubernetesV2Provider,
-      AccountCredentialsRepository accountCredentialsRepository) {
+      AccountCredentialsRepository accountCredentialsRepository,
+      KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
+      KubernetesResourcePropertyRegistry kubernetesResourcePropertyRegistry,
+      KubernetesConfigurationProperties kubernetesConfigurationProperties,
+      KubernetesNamedAccountCredentials.CredentialFactory credentialFactory,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+      CatsModule catsModule) {
+    this.kubernetesV2Provider = kubernetesV2Provider;
+    this.accountCredentialsRepository = accountCredentialsRepository;
+    this.kubernetesV2CachingAgentDispatcher = kubernetesV2CachingAgentDispatcher;
+    this.kubernetesResourcePropertyRegistry = kubernetesResourcePropertyRegistry;
+    this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
+    this.credentialFactory = credentialFactory;
+    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
+    this.catsModule = catsModule;
+
+    ScheduledExecutorService poller =
+        Executors.newSingleThreadScheduledExecutor(
+            new NamedThreadFactory(KubernetesV2ProviderConfig.class.getSimpleName()));
+  }
+
+  @Override
+  @PostConstruct
+  public void synchronize() {
+    synchronizeAccountCredentials();
+    synchronizeKubernetesV2Provider();
+  }
+
+  private void synchronizeAccountCredentials() {
+    List<String> deletedAccounts = getDeletedAccountNames();
+    List<String> changedAccounts = new ArrayList<>();
+
+    deletedAccounts.forEach(accountCredentialsRepository::delete);
+
+    kubernetesConfigurationProperties.getAccounts().stream()
+        .filter(a -> ProviderVersion.v2.equals(a.getProviderVersion()))
+        .forEach(
+            managedAccount -> {
+              KubernetesNamedAccountCredentials credentials =
+                  new KubernetesNamedAccountCredentials(
+                      managedAccount, kubernetesSpinnakerKindMap, credentialFactory);
+
+              AccountCredentials existingCredentials =
+                  accountCredentialsRepository.getOne(managedAccount.getName());
+              if (existingCredentials != null && !existingCredentials.equals(credentials)) {
+                changedAccounts.add(managedAccount.getName());
+              }
+
+              accountCredentialsRepository.save(managedAccount.getName(), credentials);
+            });
+
+    ProviderUtils.unscheduleAndDeregisterAgents(deletedAccounts, catsModule);
+    ProviderUtils.unscheduleAndDeregisterAgents(changedAccounts, catsModule);
+  }
+
+  private List<String> getDeletedAccountNames() {
+    List<String> existingNames =
+        accountCredentialsRepository.getAll().stream()
+            .filter(
+                (AccountCredentials c) ->
+                    KubernetesCloudProvider.getID().equals(c.getCloudProvider()))
+            .filter((AccountCredentials c) -> ProviderVersion.v2.equals(c.getProviderVersion()))
+            .map(AccountCredentials::getName)
+            .collect(Collectors.toList());
+
+    List<String> newNames =
+        kubernetesConfigurationProperties.getAccounts().stream()
+            .map(KubernetesConfigurationProperties.ManagedAccount::getName)
+            .collect(Collectors.toList());
+
+    return existingNames.stream()
+        .filter(name -> !newNames.contains(name))
+        .collect(Collectors.toList());
+  }
+
+  private void synchronizeKubernetesV2Provider() {
     Set<KubernetesNamedAccountCredentials> allAccounts =
         ProviderUtils.buildThreadSafeSetOfAccounts(
             accountCredentialsRepository,
