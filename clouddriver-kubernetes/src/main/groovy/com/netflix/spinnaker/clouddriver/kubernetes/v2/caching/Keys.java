@@ -20,15 +20,14 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.Kind.KUBERNETES_METRIC;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -188,11 +187,8 @@ public class Keys {
     }
   }
 
-  @Data
   public abstract static class CacheKey {
-    private Kind kind;
-    private String provider = KubernetesCloudProvider.getID();
-    private String type;
+    private static final String provider = "kubernetes.v2";
 
     public abstract String getGroup();
 
@@ -200,21 +196,21 @@ public class Keys {
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
   public abstract static class LogicalKey extends CacheKey {
-    private Kind kind = Kind.LOGICAL;
+    @Getter private static final Kind kind = Kind.LOGICAL;
 
     public abstract LogicalKind getLogicalKind();
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
   public static class ArtifactCacheKey extends CacheKey {
-    private Kind kind = Kind.ARTIFACT;
-    private String type;
-    private String name;
-    private String location;
-    private String version;
+    @Getter private static final Kind kind = Kind.ARTIFACT;
+    private final String type;
+    private final String name;
+    private final String location;
+    private final String version;
 
     public ArtifactCacheKey(String[] parts) {
       if (parts.length != 6) {
@@ -239,10 +235,10 @@ public class Keys {
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
   public static class ApplicationCacheKey extends LogicalKey {
-    private LogicalKind logicalKind = LogicalKind.APPLICATIONS;
-    private String name;
+    private static final LogicalKind logicalKind = LogicalKind.APPLICATIONS;
+    private final String name;
 
     public ApplicationCacheKey(String[] parts) {
       if (parts.length != 4) {
@@ -250,6 +246,11 @@ public class Keys {
       }
 
       name = parts[3];
+    }
+
+    @Override
+    public LogicalKind getLogicalKind() {
+      return logicalKind;
     }
 
     @Override
@@ -264,12 +265,12 @@ public class Keys {
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
   public static class ClusterCacheKey extends LogicalKey {
-    private LogicalKind logicalKind = LogicalKind.CLUSTERS;
-    private String account;
-    private String application;
-    private String name;
+    private static final LogicalKind logicalKind = LogicalKind.CLUSTERS;
+    private final String account;
+    private final String application;
+    private final String name;
 
     public ClusterCacheKey(String[] parts) {
       if (parts.length != 6) {
@@ -279,6 +280,11 @@ public class Keys {
       account = parts[3];
       application = parts[4];
       name = parts[5];
+    }
+
+    @Override
+    public LogicalKind getLogicalKind() {
+      return logicalKind;
     }
 
     @Override
@@ -293,13 +299,13 @@ public class Keys {
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
   public static class InfrastructureCacheKey extends CacheKey {
-    private Kind kind = Kind.INFRASTRUCTURE;
-    private KubernetesKind kubernetesKind;
-    private String account;
-    private String namespace;
-    private String name;
+    @Getter private static final Kind kind = Kind.INFRASTRUCTURE;
+    private final KubernetesKind kubernetesKind;
+    private final String account;
+    private final String namespace;
+    private final String name;
 
     public InfrastructureCacheKey(String[] parts) {
       if (parts.length != 6) {
@@ -325,13 +331,13 @@ public class Keys {
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
   public static class MetricCacheKey extends CacheKey {
-    private Kind kind = KUBERNETES_METRIC;
-    private KubernetesKind kubernetesKind;
-    private String account;
-    private String namespace;
-    private String name;
+    @Getter private static final Kind kind = KUBERNETES_METRIC;
+    private final KubernetesKind kubernetesKind;
+    private final String account;
+    private final String namespace;
+    private final String name;
 
     public MetricCacheKey(String[] parts) {
       if (parts.length != 6) {
