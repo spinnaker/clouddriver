@@ -35,7 +35,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestMetadata;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
@@ -65,20 +64,12 @@ public class KubernetesCacheDataConverter {
   // consensus on this yet.
   @Getter private static final List<KubernetesKind> stickyKinds = Arrays.asList(SERVICE, POD);
 
-  public static void convertAsArtifact(
+  public static Optional<Keys.CacheKey> convertAsArtifact(
       KubernetesCacheData kubernetesCacheData, String account, KubernetesManifest manifest) {
-    KubernetesCachingProperties cachingProperties =
-        KubernetesManifestAnnotater.getCachingProperties(manifest);
-    if (cachingProperties.isIgnore()) {
-      return;
-    }
-
-    logMalformedManifest(() -> "Converting " + manifest + " to a cached artifact", manifest);
-
     String namespace = manifest.getNamespace();
     Optional<Artifact> optional = KubernetesManifestAnnotater.getArtifact(manifest);
     if (!optional.isPresent()) {
-      return;
+      return Optional.empty();
     }
 
     Artifact artifact = optional.get();
@@ -101,7 +92,7 @@ public class KubernetesCacheDataConverter {
               + namespace
               + ":"
               + manifest.getFullResourceName());
-      return;
+      return Optional.empty();
     }
 
     Map<String, Object> attributes =
@@ -115,10 +106,9 @@ public class KubernetesCacheDataConverter {
     Keys.CacheKey key =
         new Keys.ArtifactCacheKey(
             artifact.getType(), artifact.getName(), artifact.getLocation(), artifact.getVersion());
-    Keys.CacheKey owner = new Keys.InfrastructureCacheKey(manifest, account);
 
     kubernetesCacheData.addItem(key, attributes);
-    kubernetesCacheData.addRelationship(key, owner);
+    return Optional.of(key);
   }
 
   public static Collection<CacheData> dedupCacheData(Collection<CacheData> input) {
@@ -241,18 +231,18 @@ public class KubernetesCacheDataConverter {
               + ":"
               + manifest.getFullResourceName());
     } else {
-      boolean hasClusterRelationship = kind != null && kind.hasClusterRelationship();
-      Optional<Artifact> optional = KubernetesManifestAnnotater.getArtifact(manifest);
-      KubernetesManifestMetadata metadata =
-          KubernetesManifestMetadata.builder().moniker(moniker).artifact(optional).build();
-      kubernetesCacheData.addRelationships(
-          key, annotatedRelationships(account, metadata, hasClusterRelationship));
+      if (kind != null && kind.hasClusterRelationship()) {
+        kubernetesCacheData.addRelationships(key, annotatedRelationships(account, moniker));
+      }
     }
 
     kubernetesCacheData.addRelationships(
         key, ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
     kubernetesCacheData.addRelationships(
         key, implicitRelationships(manifest, account, resourceRelationships));
+
+    KubernetesCacheDataConverter.convertAsArtifact(kubernetesCacheData, account, manifest)
+        .ifPresent(artifactKey -> kubernetesCacheData.addRelationship(key, artifactKey));
   }
 
   public static List<KubernetesPodMetric.ContainerMetric> getMetrics(CacheData cacheData) {
@@ -293,26 +283,14 @@ public class KubernetesCacheDataConverter {
     return new DefaultCacheData(id, ttlSeconds, attributes, relationships);
   }
 
-  private static Set<Keys.CacheKey> annotatedRelationships(
-      String account, KubernetesManifestMetadata metadata, boolean hasClusterRelationship) {
-    Moniker moniker = metadata.getMoniker();
+  private static Set<Keys.CacheKey> annotatedRelationships(String account, Moniker moniker) {
     String application = moniker.getApp();
-    Optional<Artifact> optional = metadata.getArtifact();
-
     Set<Keys.CacheKey> cacheRelationships = new HashSet<>();
 
-    optional.ifPresent(
-        a -> {
-          cacheRelationships.add(
-              new Keys.ArtifactCacheKey(a.getType(), a.getName(), a.getLocation(), a.getVersion()));
-        });
-
-    if (hasClusterRelationship) {
-      cacheRelationships.add(new Keys.ApplicationCacheKey(application));
-      String cluster = moniker.getCluster();
-      if (StringUtils.isNotEmpty(cluster)) {
-        cacheRelationships.add(new Keys.ClusterCacheKey(account, application, cluster));
-      }
+    cacheRelationships.add(new Keys.ApplicationCacheKey(application));
+    String cluster = moniker.getCluster();
+    if (StringUtils.isNotEmpty(cluster)) {
+      cacheRelationships.add(new Keys.ClusterCacheKey(account, application, cluster));
     }
 
     return cacheRelationships;

@@ -170,9 +170,6 @@ public abstract class KubernetesV2CachingAgent
                     rs,
                     relationships.get(rs),
                     credentials.isOnlySpinnakerManaged());
-
-                KubernetesCacheDataConverter.convertAsArtifact(
-                    kubernetesCacheData, accountName, rs);
               } catch (Exception e) {
                 log.warn("{}: Failure converting {}", getAgentType(), rs, e);
               }
