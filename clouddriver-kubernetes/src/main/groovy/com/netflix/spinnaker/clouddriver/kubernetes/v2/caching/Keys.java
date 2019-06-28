@@ -225,7 +225,7 @@ public class Keys {
 
     @Override
     public String toString() {
-      return createKey(kind, type, name, version);
+      return createKey(kind, type, name, location, version);
     }
 
     @Override
@@ -289,7 +289,7 @@ public class Keys {
 
     @Override
     public String toString() {
-      return createKey(getKind(), logicalKind, account, name);
+      return createKey(getKind(), logicalKind, account, application, name);
     }
 
     @Override
