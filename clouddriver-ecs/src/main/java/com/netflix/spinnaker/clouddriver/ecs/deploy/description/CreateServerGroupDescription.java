@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -36,13 +37,13 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
 
   String portProtocol;
 
-  Integer computeUnits;
-  Integer reservedMemory;
+  @Nullable Integer computeUnits;
+  @Nullable Integer reservedMemory;
 
   Map<String, String> environmentVariables;
   Map<String, String> tags;
 
-  String dockerImageAddress;
+  @Nullable String dockerImageAddress;
   String dockerImageCredentialsSecret;
 
   ServerGroup.Capacity capacity;

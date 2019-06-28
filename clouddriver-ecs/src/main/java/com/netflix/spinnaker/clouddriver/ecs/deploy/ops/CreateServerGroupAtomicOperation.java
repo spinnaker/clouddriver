@@ -319,7 +319,11 @@ public class CreateServerGroupAtomicOperation
         });
 
     if (FARGATE_LAUNCH_TYPE.equals(description.getLaunchType())) {
-      requestTemplate.setExecutionRoleArn(ecsServiceRole);
+      String templateExecutionRole = requestTemplate.getExecutionRoleArn();
+
+      if (templateExecutionRole == null || templateExecutionRole.isEmpty()) {
+        requestTemplate.setExecutionRoleArn(ecsServiceRole);
+      }
     }
     requestTemplate.setFamily(newServerGroupName);
 
