@@ -76,13 +76,25 @@ public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchro
   @Override
   @PostConstruct
   public void synchronize() {
-    synchronizeAccountCredentials();
-    synchronizeKubernetesV2Provider();
+    List<String> newAndChangedAccounts = synchronizeAccountCredentials();
+
+    // we only want to initialize caching agents for new or updated accounts
+    Set<KubernetesNamedAccountCredentials> allAccounts =
+        ProviderUtils.buildThreadSafeSetOfAccounts(
+                accountCredentialsRepository,
+                KubernetesNamedAccountCredentials.class,
+                ProviderVersion.v2)
+            .stream()
+            .filter(account -> newAndChangedAccounts.contains(account.getName()))
+            .collect(Collectors.toSet());
+
+    synchronizeKubernetesV2Provider(allAccounts);
   }
 
-  private void synchronizeAccountCredentials() {
+  private List<String> synchronizeAccountCredentials() {
     List<String> deletedAccounts = getDeletedAccountNames();
     List<String> changedAccounts = new ArrayList<>();
+    List<String> newAndChangedAccounts = new ArrayList<>();
 
     deletedAccounts.forEach(accountCredentialsRepository::delete);
 
@@ -94,10 +106,20 @@ public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchro
                   new KubernetesNamedAccountCredentials(
                       managedAccount, kubernetesSpinnakerKindMap, credentialFactory);
 
+              KubernetesV2Credentials v2Credentials =
+                  (KubernetesV2Credentials) credentials.getCredentials();
+              v2Credentials.initialize();
+
               AccountCredentials existingCredentials =
                   accountCredentialsRepository.getOne(managedAccount.getName());
-              if (existingCredentials != null && !existingCredentials.equals(credentials)) {
+
+              if (existingCredentials == null) {
+                // account didn't previously exist
+                newAndChangedAccounts.add(managedAccount.getName());
+              } else if (existingCredentials != null && !existingCredentials.equals(credentials)) {
+                // account exists but has changed
                 changedAccounts.add(managedAccount.getName());
+                newAndChangedAccounts.add(managedAccount.getName());
               }
 
               accountCredentialsRepository.save(managedAccount.getName(), credentials);
@@ -105,6 +127,8 @@ public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchro
 
     ProviderUtils.unscheduleAndDeregisterAgents(deletedAccounts, catsModule);
     ProviderUtils.unscheduleAndDeregisterAgents(changedAccounts, catsModule);
+
+    return newAndChangedAccounts;
   }
 
   private List<String> getDeletedAccountNames() {
@@ -127,12 +151,7 @@ public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchro
         .collect(Collectors.toList());
   }
 
-  private void synchronizeKubernetesV2Provider() {
-    Set<KubernetesNamedAccountCredentials> allAccounts =
-        ProviderUtils.buildThreadSafeSetOfAccounts(
-            accountCredentialsRepository,
-            KubernetesNamedAccountCredentials.class,
-            ProviderVersion.v2);
+  private void synchronizeKubernetesV2Provider(Set<KubernetesNamedAccountCredentials> allAccounts) {
 
     try {
       for (KubernetesNamedAccountCredentials credentials : allAccounts) {
@@ -151,7 +170,6 @@ public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchro
                     log.warn("Error encountered registering {}: ", cr, e);
                   }
                 });
-        v2Credentials.initialize();
 
         List<Agent> newlyAddedAgents =
             kubernetesV2CachingAgentDispatcher.buildAllCachingAgents(credentials).stream()

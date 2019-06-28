@@ -40,13 +40,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -586,5 +580,58 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         return result;
       }
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof KubernetesV2Credentials)) {
+      return false;
+    }
+
+    KubernetesV2Credentials that = (KubernetesV2Credentials) o;
+    return accountName.equals(that.accountName)
+        && Objects.equals(namespaces, that.namespaces)
+        && Objects.equals(omitNamespaces, that.omitNamespaces)
+        && Objects.equals(kinds, that.kinds)
+        && Objects.equals(omitKinds, that.omitKinds)
+        && Objects.equals(customResources, that.customResources)
+        && Objects.equals(kubectlExecutable, that.kubectlExecutable)
+        && Objects.equals(kubectlRequestTimeoutSeconds, that.kubectlRequestTimeoutSeconds)
+        && Objects.equals(kubeconfigFile, that.kubeconfigFile)
+        && Objects.equals(serviceAccount, that.serviceAccount)
+        && Objects.equals(context, that.context)
+        && Objects.equals(onlySpinnakerManaged, that.onlySpinnakerManaged)
+        && Objects.equals(liveManifestCalls, that.liveManifestCalls)
+        && Objects.equals(checkPermissionsOnStartup, that.checkPermissionsOnStartup)
+        && Objects.equals(cachingPolicies, that.cachingPolicies)
+        && Objects.equals(oAuthServiceAccount, that.oAuthServiceAccount)
+        && Objects.equals(oAuthScopes, that.oAuthScopes)
+        && Objects.equals(metrics, that.metrics)
+        && Objects.equals(debug, that.debug);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        accountName,
+        namespaces,
+        omitNamespaces,
+        kinds,
+        omitKinds,
+        customResources,
+        kubectlExecutable,
+        kubectlRequestTimeoutSeconds,
+        kubeconfigFile,
+        serviceAccount,
+        context,
+        onlySpinnakerManaged,
+        liveManifestCalls,
+        checkPermissionsOnStartup,
+        cachingPolicies,
+        oAuthServiceAccount,
+        oAuthScopes,
+        metrics,
+        debug);
   }
 }

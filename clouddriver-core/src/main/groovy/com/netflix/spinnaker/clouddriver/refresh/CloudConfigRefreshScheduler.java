@@ -19,8 +19,6 @@ package com.netflix.spinnaker.clouddriver.refresh;
 import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.context.refresh.ContextRefresher;
 
 /**

@@ -74,13 +74,20 @@ class KubernetesV1ProviderConfig implements CredentialsInitializerSynchronizable
   @Override
   @PostConstruct
   void synchronize() {
-    synchronizeAccountCredentials()
-    synchronizeKubernetesV1Provider()
+    List<String> newAndChangedAccounts = synchronizeAccountCredentials()
+
+    Set<KubernetesNamedAccountCredentials> allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(
+      accountCredentialsRepository, KubernetesNamedAccountCredentials, ProviderVersion.v1).stream()
+      .filter { account -> newAndChangedAccounts.contains(account.getName()) }
+      .collect(Collectors.toSet())
+
+    synchronizeKubernetesV1Provider(allAccounts)
   }
 
-  private void synchronizeAccountCredentials() {
+  private List<String> synchronizeAccountCredentials() {
     List<String> deletedAccounts = getDeletedAccountNames()
     List<String> changedAccounts = new ArrayList<>()
+    List<String> newAndChangedAccounts = new ArrayList<>()
 
     deletedAccounts.forEach { a -> accountCredentialsRepository.delete(a) }
 
@@ -92,8 +99,11 @@ class KubernetesV1ProviderConfig implements CredentialsInitializerSynchronizable
         )
 
         AccountCredentials existingCredentials = accountCredentialsRepository.getOne(managedAccount.getName())
-        if (existingCredentials != null && !existingCredentials.equals(credentials)) {
+        if (existingCredentials == null ){
+          newAndChangedAccounts.add(managedAccount.getName())
+        } else if (existingCredentials != null && !existingCredentials.equals(credentials)) {
           changedAccounts.add(managedAccount.getName())
+          newAndChangedAccounts.add(managedAccount.getName())
         }
 
         accountCredentialsRepository.save(managedAccount.getName(), credentials)
@@ -101,6 +111,8 @@ class KubernetesV1ProviderConfig implements CredentialsInitializerSynchronizable
 
     ProviderUtils.unscheduleAndDeregisterAgents(deletedAccounts, catsModule)
     ProviderUtils.unscheduleAndDeregisterAgents(changedAccounts, catsModule)
+
+    return newAndChangedAccounts
   }
 
   private List<String> getDeletedAccountNames() {
@@ -119,8 +131,7 @@ class KubernetesV1ProviderConfig implements CredentialsInitializerSynchronizable
       .collect(Collectors.toList())
   }
 
-  private void synchronizeKubernetesV1Provider() {
-    def allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, KubernetesNamedAccountCredentials, ProviderVersion.v1)
+  private void synchronizeKubernetesV1Provider(Set<KubernetesNamedAccountCredentials> allAccounts) {
 
     kubernetesV1Provider.agents.clear()
 

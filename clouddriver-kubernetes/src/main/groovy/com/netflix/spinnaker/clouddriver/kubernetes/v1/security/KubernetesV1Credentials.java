@@ -33,13 +33,7 @@ import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.client.Config;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import javax.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +50,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
   private final HashSet<String> dynamicRegistries = new HashSet<>();
   private final boolean configureImagePullSecrets;
   private List<String> oldNamespaces;
+  private final String kubeconfigFile;
 
   public KubernetesV1Credentials(
       String name,
@@ -71,6 +66,8 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
       List<LinkedDockerRegistryConfiguration> dockerRegistries,
       Registry spectatorRegistry,
       AccountCredentialsRepository accountCredentialsRepository) {
+    this.kubeconfigFile = kubeconfigFile;
+
     if (dockerRegistries == null || dockerRegistries.size() == 0) {
       throw new IllegalArgumentException(
           "Docker registries for Kubernetes account " + name + " are required.");
@@ -111,7 +108,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
     this.repository = repository;
     this.LOG = LoggerFactory.getLogger(KubernetesV1Credentials.class);
     this.configureImagePullSecrets = true;
-
+    this.kubeconfigFile = "";
     configureDockerRegistries();
   }
 
@@ -293,5 +290,31 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
       return false;
     }
     return secrets.contains(secret);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof KubernetesV1Credentials)) {
+      return false;
+    }
+    KubernetesV1Credentials that = (KubernetesV1Credentials) o;
+    return Objects.equals(namespaces, that.namespaces)
+        && Objects.equals(omitNamespaces, that.omitNamespaces)
+        && Objects.equals(dockerRegistries, that.dockerRegistries)
+        && Objects.equals(imagePullSecrets, that.imagePullSecrets)
+        && Objects.equals(configureImagePullSecrets, that.configureImagePullSecrets)
+        && Objects.equals(kubeconfigFile, that.kubeconfigFile);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        namespaces,
+        omitNamespaces,
+        dockerRegistries,
+        imagePullSecrets,
+        configureImagePullSecrets,
+        kubeconfigFile);
   }
 }

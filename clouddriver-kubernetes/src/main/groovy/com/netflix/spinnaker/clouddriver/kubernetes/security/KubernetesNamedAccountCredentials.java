@@ -30,11 +30,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
@@ -190,5 +186,40 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
 
       return System.getProperty("user.home") + "/.kube/config";
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof KubernetesNamedAccountCredentials)) {
+      return false;
+    }
+
+    KubernetesNamedAccountCredentials that = (KubernetesNamedAccountCredentials) o;
+    return name.equals(that.name)
+        && Objects.equals(providerVersion, that.providerVersion)
+        && Objects.equals(environment, that.environment)
+        && Objects.equals(accountType, that.accountType)
+        && Objects.equals(skin, that.skin)
+        && Objects.equals(cacheThreads, that.cacheThreads)
+        && Objects.equals(credentials, that.credentials)
+        && Objects.equals(requiredGroupMembership, that.requiredGroupMembership)
+        && Objects.equals(permissions, that.permissions)
+        && Objects.equals(cacheIntervalSeconds, that.cacheIntervalSeconds);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        name,
+        providerVersion,
+        environment,
+        accountType,
+        skin,
+        cacheThreads,
+        credentials,
+        requiredGroupMembership,
+        permissions,
+        cacheIntervalSeconds);
   }
 }
