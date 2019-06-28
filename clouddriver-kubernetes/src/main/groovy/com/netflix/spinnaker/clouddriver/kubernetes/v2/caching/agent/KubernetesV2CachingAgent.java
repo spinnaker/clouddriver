@@ -44,7 +44,6 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 public abstract class KubernetesV2CachingAgent
@@ -155,43 +154,39 @@ public abstract class KubernetesV2CachingAgent
   }
 
   protected CacheResult buildCacheResult(Map<KubernetesKind, List<KubernetesManifest>> resources) {
+    KubernetesCacheData kubernetesCacheData = new KubernetesCacheData();
     Map<KubernetesManifest, List<KubernetesManifest>> relationships =
         loadSecondaryResourceRelationships(resources);
 
-    List<CacheData> resourceData =
-        resources.values().stream()
-            .flatMap(Collection::stream)
-            .peek(m -> RegistryUtils.removeSensitiveKeys(propertyRegistry, accountName, m))
-            .map(
-                rs -> {
-                  try {
-                    CacheData cacheData =
-                        KubernetesCacheDataConverter.convertAsResource(
-                            accountName, rs, relationships.get(rs));
-                    if (credentials.isOnlySpinnakerManaged()
-                        && StringUtils.isEmpty(
-                            (String) cacheData.getAttributes().get("application"))) {
-                      return null;
-                    } else {
-                      return cacheData;
-                    }
-                  } catch (Exception e) {
-                    log.warn("{}: Failure converting {} as resource", getAgentType(), rs, e);
-                    return null;
-                  }
-                })
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+    resources.values().stream()
+        .flatMap(Collection::stream)
+        .peek(m -> RegistryUtils.removeSensitiveKeys(propertyRegistry, accountName, m))
+        .forEach(
+            rs -> {
+              try {
+                KubernetesCacheDataConverter.convertAsResource(
+                    kubernetesCacheData,
+                    accountName,
+                    rs,
+                    relationships.get(rs),
+                    credentials.isOnlySpinnakerManaged());
 
-    resourceData.addAll(KubernetesCacheDataConverter.invertRelationships(resourceData));
+                KubernetesCacheDataConverter.convertAsArtifact(
+                    kubernetesCacheData, accountName, rs);
+              } catch (Exception e) {
+                log.warn("{}: Failure converting {}", getAgentType(), rs, e);
+              }
+            });
 
-    resourceData.addAll(
-        resources.values().stream()
-            .flatMap(Collection::stream)
-            .map(rs -> KubernetesCacheDataConverter.convertAsArtifact(accountName, rs))
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
+    List<CacheData> resourceData = kubernetesCacheData.toCacheData();
 
+    // TODO(ezimanyi): The call to getClusterRelationships is necessary because we create
+    // infrastructure -> cluster and infrastructure -> application relationships above,
+    // but we don't create cluster -> application relationships. Update convertAsResource
+    // and convertAsArtifact to also create this link and remove the call below.
+    // Once we remove this call, we can also remove the call to dedupCacheData, as we'll
+    // be directly using the result of KubernetesCacheData.toCacheData() which is
+    // guaranteed not to contain duplicates.
     resourceData.addAll(
         KubernetesCacheDataConverter.getClusterRelationships(accountName, resourceData));
 

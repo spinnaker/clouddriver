@@ -71,12 +71,18 @@ metadata:
     KubernetesManifestAnnotater.annotateManifest(manifest, moniker)
 
     when:
-    def cacheData = KubernetesCacheDataConverter.convertAsResource(account, manifest, [])
+    KubernetesCacheData kubernetesCacheData = new KubernetesCacheData()
+    KubernetesCacheDataConverter.convertAsResource(kubernetesCacheData, account, manifest, [], false)
+    def optional = kubernetesCacheData.toCacheData().stream().filter({
+      cd -> cd.id == Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name)
+    }).findFirst()
 
     then:
     if (application == null) {
       true
     } else {
+      optional.isPresent()
+      def cacheData = optional.get()
       cacheData.relationships.get(Keys.LogicalKind.APPLICATIONS.toString()) == [Keys.ApplicationCacheKey.createKey(application)]
       if (cluster) {
         cacheData.relationships.get(Keys.LogicalKind.CLUSTERS.toString()) == [Keys.ClusterCacheKey.createKey(account, application, cluster)]
@@ -106,7 +112,7 @@ metadata:
     def result = KubernetesCacheDataConverter.ownerReferenceRelationships(account, namespace, ownerRefs)
 
     then:
-    result.get(kind.toString()) == [Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name)]
+    result.contains(new Keys.InfrastructureCacheKey(kind, account, namespace, name))
 
     where:
     kind                       | apiVersion                              | account           | cluster       | namespace        | name
