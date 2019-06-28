@@ -232,7 +232,7 @@ public class KubernetesCacheDataConverter {
               + manifest.getFullResourceName());
     } else {
       if (kind != null && kind.hasClusterRelationship()) {
-        kubernetesCacheData.addRelationships(key, annotatedRelationships(account, moniker));
+        addLogicalRelationships(kubernetesCacheData, key, account, moniker);
       }
     }
 
@@ -283,17 +283,21 @@ public class KubernetesCacheDataConverter {
     return new DefaultCacheData(id, ttlSeconds, attributes, relationships);
   }
 
-  private static Set<Keys.CacheKey> annotatedRelationships(String account, Moniker moniker) {
+  private static void addLogicalRelationships(
+      KubernetesCacheData kubernetesCacheData,
+      Keys.CacheKey infrastructureKey,
+      String account,
+      Moniker moniker) {
     String application = moniker.getApp();
-    Set<Keys.CacheKey> cacheRelationships = new HashSet<>();
+    Keys.CacheKey applicationKey = new Keys.ApplicationCacheKey(application);
+    kubernetesCacheData.addRelationship(infrastructureKey, applicationKey);
 
-    cacheRelationships.add(new Keys.ApplicationCacheKey(application));
     String cluster = moniker.getCluster();
     if (StringUtils.isNotEmpty(cluster)) {
-      cacheRelationships.add(new Keys.ClusterCacheKey(account, application, cluster));
+      Keys.CacheKey clusterKey = new Keys.ClusterCacheKey(account, application, cluster);
+      kubernetesCacheData.addRelationship(infrastructureKey, clusterKey);
+      kubernetesCacheData.addRelationship(applicationKey, clusterKey);
     }
-
-    return cacheRelationships;
   }
 
   static void addSingleRelationship(

@@ -177,19 +177,8 @@ public abstract class KubernetesV2CachingAgent
 
     List<CacheData> resourceData = kubernetesCacheData.toCacheData();
 
-    // TODO(ezimanyi): The call to getClusterRelationships is necessary because we create
-    // infrastructure -> cluster and infrastructure -> application relationships above,
-    // but we don't create cluster -> application relationships. Update convertAsResource
-    // and convertAsArtifact to also create this link and remove the call below.
-    // Once we remove this call, we can also remove the call to dedupCacheData, as we'll
-    // be directly using the result of KubernetesCacheData.toCacheData() which is
-    // guaranteed not to contain duplicates.
-    resourceData.addAll(
-        KubernetesCacheDataConverter.getClusterRelationships(accountName, resourceData));
-
     Map<String, Collection<CacheData>> entries =
-        KubernetesCacheDataConverter.stratifyCacheDataByGroup(
-            KubernetesCacheDataConverter.dedupCacheData(resourceData));
+        KubernetesCacheDataConverter.stratifyCacheDataByGroup(resourceData);
     KubernetesCacheDataConverter.logStratifiedCacheData(getAgentType(), entries);
 
     return new DefaultCacheResult(entries);
