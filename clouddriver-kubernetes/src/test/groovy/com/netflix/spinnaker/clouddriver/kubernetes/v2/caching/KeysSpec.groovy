@@ -31,7 +31,7 @@ class KeysSpec extends Specification {
   @Unroll
   def "produces correct app keys #key"() {
     expect:
-    Keys.application(application) == key
+    Keys.ApplicationCacheKey.createKey(application) == key
 
     where:
     application || key
@@ -42,7 +42,7 @@ class KeysSpec extends Specification {
   @Unroll
   def "produces correct cluster keys #key"() {
     expect:
-    Keys.cluster(account, application, cluster) == key
+    Keys.ClusterCacheKey.createKey(account, application, cluster) == key
 
     where:
     account | application | cluster   || key
@@ -53,7 +53,7 @@ class KeysSpec extends Specification {
   @Unroll
   def "produces correct infra keys #key"() {
     expect:
-    Keys.infrastructure(kind, account, namespace, name) == key
+    Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name) == key
 
     where:
     kind                       | apiVersion                              | account | namespace   | name      || key

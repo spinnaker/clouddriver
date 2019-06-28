@@ -100,7 +100,7 @@ public class Keys {
 
   private static final String provider = "kubernetes.v2";
 
-  private static String createKey(Object... elems) {
+  private static String createKeyFromParts(Object... elems) {
     List<String> components =
         Arrays.stream(elems)
             .map(s -> s == null ? "" : s.toString())
@@ -108,31 +108,6 @@ public class Keys {
             .collect(Collectors.toList());
     components.add(0, provider);
     return String.join(":", components);
-  }
-
-  public static String artifact(String type, String name, String location, String version) {
-    return createKey(Kind.ARTIFACT, type, name, location, version);
-  }
-
-  public static String application(String name) {
-    return createKey(Kind.LOGICAL, LogicalKind.APPLICATIONS, name);
-  }
-
-  public static String cluster(String account, String application, String name) {
-    return createKey(Kind.LOGICAL, LogicalKind.CLUSTERS, account, application, name);
-  }
-
-  public static String infrastructure(
-      KubernetesKind kind, String account, String namespace, String name) {
-    return createKey(Kind.INFRASTRUCTURE, kind, account, namespace, name);
-  }
-
-  public static String infrastructure(KubernetesManifest manifest, String account) {
-    return infrastructure(manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
-  }
-
-  public static String metric(KubernetesKind kind, String account, String namespace, String name) {
-    return createKey(KUBERNETES_METRIC, kind, account, namespace, name);
   }
 
   public static Optional<CacheKey> parseKey(String key) {
@@ -223,9 +198,13 @@ public class Keys {
       version = parts[5];
     }
 
+    public static String createKey(String type, String name, String location, String version) {
+      return createKeyFromParts(kind, type, name, location, version);
+    }
+
     @Override
     public String toString() {
-      return createKey(kind, type, name, location, version);
+      return createKeyFromParts(kind, type, name, location, version);
     }
 
     @Override
@@ -248,6 +227,10 @@ public class Keys {
       name = parts[3];
     }
 
+    public static String createKey(String name) {
+      return createKeyFromParts(getKind(), logicalKind, name);
+    }
+
     @Override
     public LogicalKind getLogicalKind() {
       return logicalKind;
@@ -255,7 +238,7 @@ public class Keys {
 
     @Override
     public String toString() {
-      return createKey(getKind(), logicalKind, name);
+      return createKeyFromParts(getKind(), logicalKind, name);
     }
 
     @Override
@@ -282,6 +265,10 @@ public class Keys {
       name = parts[5];
     }
 
+    public static String createKey(String account, String application, String name) {
+      return createKeyFromParts(getKind(), logicalKind, account, application, name);
+    }
+
     @Override
     public LogicalKind getLogicalKind() {
       return logicalKind;
@@ -289,7 +276,7 @@ public class Keys {
 
     @Override
     public String toString() {
-      return createKey(getKind(), logicalKind, account, application, name);
+      return createKeyFromParts(getKind(), logicalKind, account, application, name);
     }
 
     @Override
@@ -319,9 +306,18 @@ public class Keys {
       name = parts[5];
     }
 
+    public static String createKey(
+        KubernetesKind kubernetesKind, String account, String namespace, String name) {
+      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
+    }
+
+    public static String createKey(KubernetesManifest manifest, String account) {
+      return createKey(manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
+    }
+
     @Override
     public String toString() {
-      return createKey(kind, kubernetesKind, account, namespace, name);
+      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
     }
 
     @Override
@@ -350,9 +346,14 @@ public class Keys {
       name = parts[5];
     }
 
+    public static String createKey(
+        KubernetesKind kubernetesKind, String account, String namespace, String name) {
+      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
+    }
+
     @Override
     public String toString() {
-      return createKey(kind, kubernetesKind, account, namespace, name);
+      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
     }
 
     @Override
