@@ -133,7 +133,10 @@ class TencentLoadBalancerCachingAgent implements OnDemandAgent, CachingAgent, Ac
         it.listenerId
       } as List<String>
       //all listener's targets
-      def lbTargetList = client.getLBTargetList(loadBalancer.id, listenerIdList)
+      def lbTargetList = []
+      if (listenerIdList.size() > 0) {
+        lbTargetList = client.getLBTargetList(loadBalancer.id, listenerIdList)
+      }
 
       def listeners = queryListeners.collect {
         def listener = new TencentLoadBalancerListener()
