@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent;
 
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.POD;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.SERVICE;
 import static java.lang.Math.toIntExact;
@@ -49,7 +48,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
 public class KubernetesCacheDataConverter {
@@ -300,26 +298,6 @@ public class KubernetesCacheDataConverter {
     }
   }
 
-  static void addSingleRelationship(
-      Map<String, Collection<String>> relationships,
-      String account,
-      String namespace,
-      String fullName) {
-    Pair<KubernetesKind, String> triple = KubernetesManifest.fromFullResourceName(fullName);
-    KubernetesKind kind = triple.getLeft();
-    String name = triple.getRight();
-
-    Collection<String> keys = relationships.get(kind.toString());
-
-    if (keys == null) {
-      keys = new ArrayList<>();
-    }
-
-    keys.add(Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name));
-
-    relationships.put(kind.toString(), keys);
-  }
-
   private static Set<Keys.CacheKey> implicitRelationships(
       KubernetesManifest source, String account, List<KubernetesManifest> manifests) {
     String namespace = source.getNamespace();
@@ -396,39 +374,6 @@ public class KubernetesCacheDataConverter {
             });
   }
 
-  static List<CacheData> getClusterRelationships(String accountName, List<CacheData> resourceData) {
-    Map<String, List<Moniker>> monikers =
-        resourceData.stream()
-            .map(KubernetesCacheDataConverter::getMoniker)
-            .filter(Objects::nonNull)
-            .filter(m -> m.getApp() != null && m.getCluster() != null)
-            .collect(Collectors.groupingBy(Moniker::getApp));
-
-    return monikers.entrySet().stream()
-        .map(
-            e ->
-                KubernetesCacheDataConverter.getApplicationClusterRelationships(
-                    accountName, e.getKey(), e.getValue()))
-        .collect(Collectors.toList());
-  }
-
-  private static CacheData getApplicationClusterRelationships(
-      String account, String application, List<Moniker> monikers) {
-    Set<String> clusterRelationships =
-        monikers.stream()
-            .map(m -> Keys.ClusterCacheKey.createKey(account, application, m.getCluster()))
-            .collect(Collectors.toSet());
-
-    Map<String, Object> attributes = new HashMap<>();
-    Map<String, Collection<String>> relationships = new HashMap<>();
-    relationships.put(CLUSTERS.toString(), clusterRelationships);
-    return defaultCacheData(
-        Keys.ApplicationCacheKey.createKey(application),
-        logicalTtlSeconds,
-        attributes,
-        relationships);
-  }
-
   static void logStratifiedCacheData(
       String agentType, Map<String, Collection<CacheData>> stratifiedCacheData) {
     for (Map.Entry<String, Collection<CacheData>> entry : stratifiedCacheData.entrySet()) {
@@ -441,13 +386,6 @@ public class KubernetesCacheDataConverter {
               + " entries and "
               + relationshipCount(entry.getValue())
               + " relationships");
-    }
-  }
-
-  static void logMalformedManifests(
-      Supplier<String> contextMessage, List<KubernetesManifest> relationships) {
-    for (KubernetesManifest relationship : relationships) {
-      logMalformedManifest(contextMessage, relationship);
     }
   }
 

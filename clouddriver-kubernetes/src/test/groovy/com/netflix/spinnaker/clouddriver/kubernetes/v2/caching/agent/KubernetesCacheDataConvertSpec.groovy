@@ -151,37 +151,6 @@ metadata:
   }
 
   @Unroll
-  def "given a cache data entry, determines cluster relationships"() {
-    setup:
-    def account = "account"
-    def application = "app"
-    def id = Keys.InfrastructureCacheKey.createKey(kind, account, "namespace", cluster)
-    def attributes = [
-      moniker: [
-        app: application,
-        cluster: cluster
-      ]
-    ]
-    def cacheData = new DefaultCacheData(id, attributes, [:])
-
-    when:
-    def result = KubernetesCacheDataConverter.getClusterRelationships(account, [cacheData])
-
-    then:
-    result.size() == 1
-    result[0].id == Keys.ApplicationCacheKey.createKey(application)
-    result[0].relationships.clusters == [
-      Keys.ClusterCacheKey.createKey(account, application, cluster)
-    ] as Set
-
-    where:
-    kind                       | cluster
-    KubernetesKind.REPLICA_SET | "my-app-321"
-    KubernetesKind.DEPLOYMENT  | "my-app"
-    KubernetesKind.POD         | "my-app-321-abcd"
-  }
-
-  @Unroll
   def "correctly builds cache data entry for pod metrics"() {
     setup:
     def account = "my-account"
