@@ -265,7 +265,7 @@ public class CreateServerGroupAtomicOperation
     return request;
   }
 
-  private RegisterTaskDefinitionRequest makeTaskDefinitionRequestFromArtifact(
+  protected RegisterTaskDefinitionRequest makeTaskDefinitionRequestFromArtifact(
       String ecsServiceRole, String newServerGroupName) {
 
     File artifactFile =
@@ -325,7 +325,7 @@ public class CreateServerGroupAtomicOperation
         requestTemplate.setExecutionRoleArn(ecsServiceRole);
       }
     }
-    requestTemplate.setFamily(newServerGroupName);
+    requestTemplate.setFamily(EcsServerGroupNameResolver.getEcsFamilyName(newServerGroupName));
 
     return requestTemplate;
   }
