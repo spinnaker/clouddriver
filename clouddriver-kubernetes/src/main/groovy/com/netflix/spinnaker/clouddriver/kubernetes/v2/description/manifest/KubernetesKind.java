@@ -124,7 +124,8 @@ public final class KubernetesKind {
   public static final KubernetesKind NONE =
       new KubernetesKind("none", KubernetesApiGroup.NONE, null, true, false);
 
-  @EqualsAndHashCode.Include @Nonnull private final String name;
+  @Nonnull private final String name;
+  @EqualsAndHashCode.Include @Nonnull private final String lcName;
   @Nonnull private final KubernetesApiGroup apiGroup;
   @EqualsAndHashCode.Include @Nullable private final KubernetesApiGroup customApiGroup;
 
@@ -155,6 +156,7 @@ public final class KubernetesKind {
       boolean isDynamic,
       boolean isRegistered) {
     this.name = name;
+    this.lcName = name.toLowerCase();
     this.apiGroup = apiGroup;
     if (apiGroup.isNativeGroup()) {
       this.customApiGroup = null;
