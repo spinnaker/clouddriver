@@ -32,6 +32,7 @@ class KubernetesKindSpec extends Specification {
 
     where:
     name                    | expectedKind
+    ""                      | KubernetesKind.NONE
     "replicaSet"            | KubernetesKind.REPLICA_SET
     "replicaSet.extensions" | KubernetesKind.REPLICA_SET
     "replicaSet.apps"       | KubernetesKind.REPLICA_SET
