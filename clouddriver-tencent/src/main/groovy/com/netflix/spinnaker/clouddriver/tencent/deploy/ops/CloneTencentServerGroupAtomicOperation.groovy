@@ -8,6 +8,7 @@ import com.netflix.spinnaker.clouddriver.tencent.deploy.description.TencentDeplo
 import com.netflix.spinnaker.clouddriver.tencent.deploy.handlers.TencentDeployHandler
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentClusterProvider
 import org.springframework.beans.factory.annotation.Autowired
+import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient
 
 class CloneTencentServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
 
@@ -72,6 +73,20 @@ class CloneTencentServerGroupAtomicOperation implements AtomicOperation<Deployme
       // newDescription.instanceTypes = description.instanceTypes ?: sourceLaunchConfig.instanceTypes as List
       newDescription.instanceMarketOptionsRequest = description.instanceMarketOptionsRequest ?: sourceLaunchConfig.instanceMarketOptionsRequest as Map
       newDescription.instanceTypesCheckPolicy = description.instanceTypesCheckPolicy ?: sourceLaunchConfig.instanceTypesCheckPolicy
+
+
+
+      if (description.instanceTags) {
+        newDescription.instanceTags = description.instanceTags
+      } else if (newDescription.instanceTags) {
+        def cloneInstanceTags = []
+        for (tag in newDescription.instanceTags) {
+          if (tag.key != AutoScalingClient.defaultServerGroupTagKey) {
+            cloneInstanceTags.add(tag)
+          }
+        }
+        newDescription.instanceTags = cloneInstanceTags
+      }
     }
 
     def sourceAutoScalingGroup = sourceServerGroup.asg
