@@ -644,6 +644,43 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     containerDefinition.memoryReservation == 512
   }
 
+  def 'should fail if network mode in artifact does not match description'() {
+    given:
+    def resolvedArtifact = [
+      name: "taskdef.json",
+      reference: "fake.github.com/repos/org/repo/taskdef.json",
+      artifactAccount: "my-github-acct",
+      type: "github/file"
+    ]
+    def registerTaskDefRequest =
+      new RegisterTaskDefinitionRequest()
+        .withContainerDefinitions([new ContainerDefinition()])
+        .withNetworkMode("bridge")
+    def description = Mock(CreateServerGroupDescription)
+    description.getApplication() >> 'v1'
+    description.getStack() >> 'ecs'
+    description.getFreeFormDetails() >> 'test'
+    description.ecsClusterName = 'test-cluster'
+    description.getLaunchType() >> 'FARGATE'
+    description.getNetworkMode() >> 'awsvpc'
+    description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
+
+    def operation = new CreateServerGroupAtomicOperation(description)
+    operation.artifactDownloader = artifactDownloader
+    operation.mapper = objectMapper
+
+    artifactDownloader.download(_) >> new ByteArrayInputStream()
+    objectMapper.readValue(_,_) >> registerTaskDefRequest
+
+    when:
+    operation.makeTaskDefinitionRequestFromArtifact("test-role", "v1-ecs-test-v001")
+
+    then:
+    IllegalArgumentException exception = thrown()
+    exception.message ==
+      "Task definition networkMode does not match server group value. Found 'bridge' but expected 'awsvpc'"
+  }
+
   def 'should set additional environment variables'() {
     given:
     def description = Mock(CreateServerGroupDescription)

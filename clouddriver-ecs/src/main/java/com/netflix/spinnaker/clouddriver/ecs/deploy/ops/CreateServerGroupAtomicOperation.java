@@ -278,6 +278,18 @@ public class CreateServerGroupAtomicOperation
       throw new UncheckedIOException(e);
     }
 
+    String templateMode = requestTemplate.getNetworkMode();
+    if (templateMode != null
+        && !templateMode.isEmpty()
+        && !templateMode.equals(description.getNetworkMode())) {
+      throw new IllegalArgumentException(
+          "Task definition networkMode does not match server group value. Found '"
+              + templateMode
+              + "' but expected '"
+              + description.getNetworkMode()
+              + "'");
+    }
+
     List<ContainerDefinition> containers = requestTemplate.getContainerDefinitions();
     if (containers.size() == 0) {
       throw new IllegalArgumentException(
