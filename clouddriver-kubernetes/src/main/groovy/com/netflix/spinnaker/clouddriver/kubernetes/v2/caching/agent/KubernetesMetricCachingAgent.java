@@ -102,10 +102,7 @@ public class KubernetesMetricCachingAgent extends KubernetesCachingAgent<Kuberne
             KubernetesCacheDataConverter.convertPodMetric(
                 kubernetesCacheData, accountName, metric));
 
-    List<CacheData> cacheData = kubernetesCacheData.toCacheData();
-
-    Map<String, Collection<CacheData>> entries =
-        KubernetesCacheDataConverter.stratifyCacheDataByGroup(cacheData);
+    Map<String, Collection<CacheData>> entries = kubernetesCacheData.toStratifiedCacheData();
     KubernetesCacheDataConverter.logStratifiedCacheData(getAgentType(), entries);
 
     return new DefaultCacheResult(entries);

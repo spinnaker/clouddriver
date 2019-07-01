@@ -44,7 +44,6 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -332,47 +331,5 @@ public class KubernetesCacheDataConverter {
     return data.getRelationships().values().stream()
         .map(Collection::size)
         .reduce(0, (a, b) -> a + b);
-  }
-
-  @Builder
-  private static class CacheDataKeyPair {
-    Keys.CacheKey key;
-    CacheData cacheData;
-  }
-
-  static Map<String, Collection<CacheData>> stratifyCacheDataByGroup(
-      Collection<CacheData> ungroupedCacheData) {
-    return ungroupedCacheData.stream()
-        .map(
-            cd ->
-                CacheDataKeyPair.builder()
-                    .cacheData(cd)
-                    .key(
-                        Keys.parseKey(cd.getId())
-                            .orElseThrow(
-                                () ->
-                                    new IllegalStateException(
-                                        "Cache data produced with illegal key format "
-                                            + cd.getId())))
-                    .build())
-        .filter(
-            kp -> {
-              // given that we now have large caching agents that are authoritative for huge chunks
-              // of the cache,
-              // it's possible that some resources (like events) still point to deleted resources.
-              // these won't have
-              // any attributes, but if we add a cache entry here, the deleted item will still be
-              // cached
-              if (kp.key instanceof Keys.InfrastructureCacheKey) {
-                return !(kp.cacheData.getAttributes() == null
-                    || kp.cacheData.getAttributes().isEmpty());
-              } else {
-                return true;
-              }
-            })
-        .collect(
-            Collectors.groupingBy(
-                kp -> kp.key.getGroup(),
-                Collectors.mapping(kp -> kp.cacheData, Collectors.toCollection(ArrayList::new))));
   }
 }
