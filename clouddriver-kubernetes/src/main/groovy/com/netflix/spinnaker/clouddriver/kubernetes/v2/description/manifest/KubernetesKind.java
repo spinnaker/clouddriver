@@ -33,6 +33,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Slf4j
 public final class KubernetesKind {
   @Getter
