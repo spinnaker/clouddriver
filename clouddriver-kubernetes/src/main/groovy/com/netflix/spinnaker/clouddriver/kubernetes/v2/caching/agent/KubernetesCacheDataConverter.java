@@ -150,9 +150,9 @@ public class KubernetesCacheDataConverter {
     return defaultCacheData(id, ttl, attributes, relationships);
   }
 
-  public static CacheData convertPodMetric(
-      String account, String namespace, KubernetesPodMetric podMetric) {
+  public static CacheData convertPodMetric(String account, KubernetesPodMetric podMetric) {
     String podName = podMetric.getPodName();
+    String namespace = podMetric.getNamespace();
     Map<String, Object> attributes =
         new ImmutableMap.Builder<String, Object>()
             .put("name", podName)

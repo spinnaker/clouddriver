@@ -158,11 +158,12 @@ metadata:
     def podName = "pod-name"
     def podMetric = KubernetesPodMetric.builder()
       .podName(podName)
+      .namespace(namespace)
       .containerMetrics(containerMetrics)
       .build()
 
     when:
-    def cacheData = KubernetesCacheDataConverter.convertPodMetric(account, namespace, podMetric)
+    def cacheData = KubernetesCacheDataConverter.convertPodMetric(account, podMetric)
 
     then:
     cacheData.attributes == [

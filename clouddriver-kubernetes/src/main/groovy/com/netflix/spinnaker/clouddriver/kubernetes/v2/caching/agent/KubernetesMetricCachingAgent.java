@@ -30,6 +30,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.Collection;
@@ -69,15 +70,13 @@ public class KubernetesMetricCachingAgent extends KubernetesCachingAgent<Kuberne
     log.info(getAgentType() + ": agent is starting");
     reloadNamespaces();
 
-    KubernetesCacheData kubernetesCacheData = new KubernetesCacheData();
-    List<CacheData> cacheData =
+    List<KubernetesPodMetric> podMetrics =
         namespaces
             .parallelStream()
             .map(
                 n -> {
                   try {
-                    return credentials.topPod(n, null).stream()
-                        .map(m -> KubernetesCacheDataConverter.convertPodMetric(accountName, n, m));
+                    return credentials.topPod(n, null);
                   } catch (KubectlJobExecutor.KubectlException e) {
                     if (e.getMessage().contains("not available")) {
                       log.warn(
@@ -87,14 +86,19 @@ public class KubernetesMetricCachingAgent extends KubernetesCachingAgent<Kuberne
                               + accountName
                               + "' have not been recorded yet.",
                           getAgentType());
-                      return null;
+                      return Collections.<KubernetesPodMetric>emptyList();
                     } else {
                       throw e;
                     }
                   }
                 })
+            .flatMap(Collection::stream)
             .filter(Objects::nonNull)
-            .flatMap(x -> x)
+            .collect(Collectors.toList());
+
+    List<CacheData> cacheData =
+        podMetrics.stream()
+            .map(m -> KubernetesCacheDataConverter.convertPodMetric(accountName, m))
             .collect(Collectors.toList());
 
     List<CacheData> invertedRelationships =
