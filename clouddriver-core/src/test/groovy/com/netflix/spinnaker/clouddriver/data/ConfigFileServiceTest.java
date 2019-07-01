@@ -64,16 +64,14 @@ class ConfigFileServiceTest {
   void getLocalPathWhenFileExists() throws IOException {
     createExpectedFile();
 
-    String fileName = configFileService.getLocalPath(TEST_FILE_PATH, "test", ".file");
+    String fileName = configFileService.getLocalPath(TEST_FILE_PATH);
     assertThat(fileName).isEqualTo(TEST_FILE_PATH);
   }
 
   @Test
   void getLocalPathWhenFileDoesNotExist() {
     RuntimeException exception =
-        assertThrows(
-            RuntimeException.class,
-            () -> configFileService.getLocalPath(TEST_FILE_PATH, "test", ".file"));
+        assertThrows(RuntimeException.class, () -> configFileService.getLocalPath(TEST_FILE_PATH));
     assertThat(exception.getMessage()).contains(TEST_FILE_PATH);
   }
 
@@ -81,8 +79,8 @@ class ConfigFileServiceTest {
   void getLocalPathWhenFileInConfigServer() {
     expectFileInConfigServer();
 
-    String fileName = configFileService.getLocalPath(CLOUD_TEST_FILE_NAME, "test", ".file");
-    assertThat(baseName(fileName)).startsWith("test").endsWith(".file");
+    String fileName = configFileService.getLocalPath(CLOUD_TEST_FILE_NAME);
+    assertThat(fileName).isEqualTo(TEST_FILE_PATH);
   }
 
   @Test
@@ -91,8 +89,7 @@ class ConfigFileServiceTest {
 
     RuntimeException exception =
         assertThrows(
-            RuntimeException.class,
-            () -> configFileService.getLocalPath(CLOUD_TEST_FILE_NAME, "test", ".file"));
+            RuntimeException.class, () -> configFileService.getLocalPath(CLOUD_TEST_FILE_NAME));
     assertThat(exception.getMessage()).contains(CLOUD_TEST_FILE_NAME);
   }
 
@@ -102,16 +99,14 @@ class ConfigFileServiceTest {
 
     RuntimeException exception =
         assertThrows(
-            RuntimeException.class,
-            () -> configFileService.getLocalPath(CLOUD_TEST_FILE_NAME, "test", ".file"));
+            RuntimeException.class, () -> configFileService.getLocalPath(CLOUD_TEST_FILE_NAME));
     assertThat(exception.getMessage()).contains(CLOUD_TEST_FILE_NAME);
   }
 
   @Test
   void getLocalPathWhenContentProvided() {
-    String fileName =
-        configFileService.getLocalPathForContents(TEST_FILE_CONTENTS, "test", ".file");
-    assertThat(baseName(fileName)).startsWith("test").endsWith(".file");
+    String fileName = configFileService.getLocalPathForContents(TEST_FILE_CONTENTS, TEST_FILE_NAME);
+    assertThat(fileName).isEqualTo(TEST_FILE_PATH);
   }
 
   @Test
@@ -138,10 +133,6 @@ class ConfigFileServiceTest {
         assertThrows(
             RuntimeException.class, () -> configFileService.getContents(CLOUD_TEST_FILE_NAME));
     assertThat(exception.getMessage()).contains(CLOUD_TEST_FILE_NAME);
-  }
-
-  private String baseName(String fileName) {
-    return new File(fileName).getName();
   }
 
   private void createExpectedFile() throws IOException {

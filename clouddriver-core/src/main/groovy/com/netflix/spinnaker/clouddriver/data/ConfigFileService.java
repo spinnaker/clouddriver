@@ -16,16 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.data;
 
-import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -60,11 +58,12 @@ public class ConfigFileService {
     this.environmentRepository = environmentRepository;
   }
 
-  public String getLocalPath(String path, String tempFilePrefix, String tempFileSuffix) {
+  public String getLocalPath(String path) {
     if (StringUtils.isNotEmpty(path)) {
       if (isCloudConfigResource(path)) {
         String configServerContents = retrieveFromConfigServer(path);
-        return writeToTempFile(configServerContents, tempFilePrefix, tempFileSuffix);
+        return writeToTempFile(
+            configServerContents, getResourceName(path, CONFIG_SERVER_RESOURCE_PREFIX));
       } else {
         return verifyLocalPath(path);
       }
@@ -73,10 +72,9 @@ public class ConfigFileService {
     return null;
   }
 
-  public String getLocalPathForContents(
-      String contents, String tempFilePrefix, String tempFileSuffix) {
+  public String getLocalPathForContents(String contents, String path) {
     if (StringUtils.isNotEmpty(contents)) {
-      return writeToTempFile(contents, tempFilePrefix, tempFileSuffix);
+      return writeToTempFile(contents, path);
     }
 
     return null;
@@ -127,7 +125,7 @@ public class ConfigFileService {
 
   private String retrieveFromClasspath(String path) {
     try {
-      String filePath = path.substring(CLASSPATH_FILE_PREFIX.length());
+      String filePath = getResourceName(path, CLASSPATH_FILE_PREFIX);
       InputStream inputStream = getClass().getResourceAsStream(filePath);
       return IOUtils.toString(inputStream, StandardCharsets.UTF_8);
     } catch (IOException e) {
@@ -142,7 +140,7 @@ public class ConfigFileService {
     }
 
     try {
-      String fileName = path.substring(CONFIG_SERVER_RESOURCE_PREFIX.length());
+      String fileName = getResourceName(path, CONFIG_SERVER_RESOURCE_PREFIX);
       Resource resource = this.resourceRepository.findOne(applicationName, null, null, fileName);
       try (InputStream inputStream = resource.getInputStream()) {
         Environment environment = this.environmentRepository.findOne(applicationName, null, null);
@@ -159,28 +157,34 @@ public class ConfigFileService {
     }
   }
 
-  private String writeToTempFile(String contents, String tempFilePrefix, String tempFileSuffix) {
+  private String getResourceName(String path, String prefix) {
+    return path.substring(prefix.length());
+  }
+
+  private String writeToTempFile(String contents, String resourceName) {
     try {
-      File tempFile = File.createTempFile(tempFilePrefix, tempFileSuffix);
-      tempFile.deleteOnExit();
+      Path tempDirPath = Paths.get(System.getProperty("java.io.tmpdir"), resourceName);
+      createParentDirsIfNecessary(tempDirPath);
+      Files.write(
+          tempDirPath,
+          contents.getBytes(),
+          StandardOpenOption.WRITE,
+          StandardOpenOption.CREATE,
+          StandardOpenOption.TRUNCATE_EXISTING);
 
-      BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile));
-      writer.write(contents);
-      writer.close();
+      log.info("Configuration for {} written to local file {}", resourceName, tempDirPath);
 
-      log.info(
-          "Configuration for {} written to temporary file {}",
-          tempFilePrefix,
-          tempFile.getAbsolutePath());
-
-      return tempFile.getAbsolutePath();
+      return tempDirPath.toString();
     } catch (IOException e) {
       throw new RuntimeException(
-          "Exception writing temporary file with prefix \""
-              + tempFilePrefix
-              + "\": "
-              + e.getMessage(),
+          "Exception writing local file for resource \"" + resourceName + "\": " + e.getMessage(),
           e);
+    }
+  }
+
+  private void createParentDirsIfNecessary(Path tempDirPath) throws IOException {
+    if (Files.notExists(tempDirPath) && tempDirPath.getParent() != null) {
+      Files.createDirectories(tempDirPath.getParent());
     }
   }
 }

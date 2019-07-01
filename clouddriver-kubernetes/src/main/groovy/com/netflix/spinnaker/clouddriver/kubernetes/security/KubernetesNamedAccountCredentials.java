@@ -180,12 +180,12 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
     private String getKubeconfigFile(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
       if (StringUtils.isNotEmpty(managedAccount.getKubeconfigFile())) {
-        return configFileService.getLocalPath(managedAccount.getKubeconfigFile(), "kube", "config");
+        return configFileService.getLocalPath(managedAccount.getKubeconfigFile());
       }
 
       if (StringUtils.isNotEmpty(managedAccount.getKubeconfigContents())) {
         return configFileService.getLocalPathForContents(
-            managedAccount.getKubeconfigContents(), "kube", "config");
+            managedAccount.getKubeconfigContents(), managedAccount.getName());
       }
 
       return System.getProperty("user.home") + "/.kube/config";
