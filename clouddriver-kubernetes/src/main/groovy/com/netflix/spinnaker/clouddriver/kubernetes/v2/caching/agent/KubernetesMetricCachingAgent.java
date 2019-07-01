@@ -96,19 +96,16 @@ public class KubernetesMetricCachingAgent extends KubernetesCachingAgent<Kuberne
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
-    List<CacheData> cacheData =
-        podMetrics.stream()
-            .map(m -> KubernetesCacheDataConverter.convertPodMetric(accountName, m))
-            .collect(Collectors.toList());
+    KubernetesCacheData kubernetesCacheData = new KubernetesCacheData();
+    podMetrics.forEach(
+        metric ->
+            KubernetesCacheDataConverter.convertPodMetric(
+                kubernetesCacheData, accountName, metric));
 
-    List<CacheData> invertedRelationships =
-        KubernetesCacheDataConverter.invertRelationships(cacheData);
-
-    cacheData.addAll(invertedRelationships);
+    List<CacheData> cacheData = kubernetesCacheData.toCacheData();
 
     Map<String, Collection<CacheData>> entries =
-        KubernetesCacheDataConverter.stratifyCacheDataByGroup(
-            KubernetesCacheDataConverter.dedupCacheData(cacheData));
+        KubernetesCacheDataConverter.stratifyCacheDataByGroup(cacheData);
     KubernetesCacheDataConverter.logStratifiedCacheData(getAgentType(), entries);
 
     return new DefaultCacheResult(entries);

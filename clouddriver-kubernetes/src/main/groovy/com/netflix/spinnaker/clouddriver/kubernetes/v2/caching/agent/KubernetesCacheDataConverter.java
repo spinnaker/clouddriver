@@ -109,21 +109,6 @@ public class KubernetesCacheDataConverter {
     return Optional.of(key);
   }
 
-  public static Collection<CacheData> dedupCacheData(Collection<CacheData> input) {
-    Map<String, CacheData> cacheDataById = new HashMap<>();
-    for (CacheData cd : input) {
-      String id = cd.getId();
-      if (cacheDataById.containsKey(id)) {
-        CacheData other = cacheDataById.get(id);
-        cd = mergeCacheData(cd, other);
-      }
-
-      cacheDataById.put(id, cd);
-    }
-
-    return cacheDataById.values();
-  }
-
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
     String id = current.getId();
     Map<String, Object> attributes = new HashMap<>(current.getAttributes());
@@ -150,7 +135,8 @@ public class KubernetesCacheDataConverter {
     return defaultCacheData(id, ttl, attributes, relationships);
   }
 
-  public static CacheData convertPodMetric(String account, KubernetesPodMetric podMetric) {
+  public static void convertPodMetric(
+      KubernetesCacheData kubernetesCacheData, String account, KubernetesPodMetric podMetric) {
     String podName = podMetric.getPodName();
     String namespace = podMetric.getNamespace();
     Map<String, Object> attributes =
@@ -160,18 +146,10 @@ public class KubernetesCacheDataConverter {
             .put("metrics", podMetric.getContainerMetrics())
             .build();
 
-    Map<String, Collection<String>> relationships =
-        new HashMap<>(
-            new ImmutableMap.Builder<String, Collection<String>>()
-                .put(
-                    POD.toString(),
-                    Collections.singletonList(
-                        Keys.InfrastructureCacheKey.createKey(POD, account, namespace, podName)))
-                .build());
-
-    String id = Keys.MetricCacheKey.createKey(POD, account, namespace, podName);
-
-    return defaultCacheData(id, infrastructureTtlSeconds, attributes, relationships);
+    Keys.CacheKey key = new Keys.MetricCacheKey(POD, account, namespace, podName);
+    kubernetesCacheData.addItem(key, attributes);
+    kubernetesCacheData.addRelationship(
+        key, new Keys.InfrastructureCacheKey(POD, account, namespace, podName));
   }
 
   public static void convertAsResource(
@@ -253,10 +231,6 @@ public class KubernetesCacheDataConverter {
     return mapper.convertValue(cacheData.getAttributes().get("manifest"), KubernetesManifest.class);
   }
 
-  public static Moniker getMoniker(CacheData cacheData) {
-    return mapper.convertValue(cacheData.getAttributes().get("moniker"), Moniker.class);
-  }
-
   public static KubernetesManifest convertToManifest(Object o) {
     return mapper.convertValue(o, KubernetesManifest.class);
   }
@@ -314,64 +288,6 @@ public class KubernetesCacheDataConverter {
     return references.stream()
         .map(r -> new Keys.InfrastructureCacheKey(r.getKind(), account, namespace, r.getName()))
         .collect(Collectors.toSet());
-  }
-
-  /**
-   * To ensure the entire relationship graph is bidirectional, invert any relationship entries here
-   * to point back at the resource being cached (key).
-   */
-  static List<CacheData> invertRelationships(List<CacheData> resourceData) {
-    Map<String, Set<String>> inverted = new HashMap<>();
-    resourceData.forEach(
-        cacheData ->
-            cacheData.getRelationships().values().stream()
-                .flatMap(Collection::stream)
-                .forEach(
-                    r -> inverted.computeIfAbsent(r, k -> new HashSet<>()).add(cacheData.getId())));
-
-    return inverted.entrySet().stream()
-        .map(e -> KubernetesCacheDataConverter.buildInverseRelationship(e.getKey(), e.getValue()))
-        .filter(Optional::isPresent)
-        .map(Optional::get)
-        .collect(Collectors.toList());
-  }
-
-  private static Optional<CacheData> buildInverseRelationship(
-      String key, Set<String> relationshipKeys) {
-    Map<String, Collection<String>> relationships = new HashMap<>();
-    for (String relationshipKey : relationshipKeys) {
-      Keys.CacheKey parsedKey =
-          Keys.parseKey(relationshipKey)
-              .orElseThrow(
-                  () ->
-                      new IllegalStateException(
-                          "Cache data produced with illegal key format " + relationshipKey));
-      relationships
-          .computeIfAbsent(parsedKey.getGroup(), k -> new HashSet<>())
-          .add(relationshipKey);
-    }
-
-    /*
-     * Worth noting the strange behavior here. If we are inverting a relationship to create a cache data for
-     * either a cluster or an application we need to insert attributes to ensure the cache data gets entered into
-     * the cache. If we are caching anything else, we don't want competing agents to overwrite attributes, so
-     * we leave them blank.
-     */
-    return Keys.parseKey(key)
-        .map(
-            k -> {
-              Map<String, Object> attributes;
-              int ttl;
-              if (Keys.LogicalKind.isLogicalGroup(k.getGroup())) {
-                ttl = logicalTtlSeconds;
-                attributes =
-                    new ImmutableMap.Builder<String, Object>().put("name", k.getName()).build();
-              } else {
-                ttl = infrastructureTtlSeconds;
-                attributes = new HashMap<>();
-              }
-              return defaultCacheData(key, ttl, attributes, relationships);
-            });
   }
 
   static void logStratifiedCacheData(
