@@ -70,7 +70,7 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
 
   @Override
   public Collection<String> getApplications() {
-    return new ArrayList<>(Arrays.asList(application));
+    return Arrays.asList(application);
   }
 
   @Nonnull

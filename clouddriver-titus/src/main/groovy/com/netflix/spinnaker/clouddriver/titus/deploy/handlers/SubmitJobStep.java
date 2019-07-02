@@ -23,7 +23,6 @@ import com.netflix.spinnaker.clouddriver.titus.JobType;
 import com.netflix.spinnaker.clouddriver.titus.TitusException;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient;
 import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest;
-import com.netflix.spinnaker.clouddriver.titus.deploy.TitusServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.kork.core.RetrySupport;
 import io.grpc.Status;
@@ -36,10 +35,29 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SubmitJobStep implements SagaStepFunction {
 
+  private final TitusClient titusClient;
   private final RetrySupport retrySupport;
 
-  public SubmitJobStep(RetrySupport retrySupport) {
+  public SubmitJobStep(TitusClient titusClient, RetrySupport retrySupport) {
+    this.titusClient = titusClient;
     this.retrySupport = retrySupport;
+  }
+
+  private static boolean isServiceExceptionRetryable(
+      TitusDeployDescription description, StatusRuntimeException e) {
+    String statusDescription = e.getStatus().getDescription();
+    return JobType.SERVICE.value().equals(description.getJobType())
+        && (e.getStatus().getCode() == Status.RESOURCE_EXHAUSTED.getCode()
+            || e.getStatus().getCode() == Status.INVALID_ARGUMENT.getCode())
+        && (statusDescription != null
+            && (statusDescription.contains("Job sequence id reserved by another pending job")
+                || statusDescription.contains("Constraint violation - job with group sequence")));
+  }
+
+  private static boolean isStatusCodeRetryable(Status.Code code) {
+    return code == Status.UNAVAILABLE.getCode()
+        || code == Status.INTERNAL.getCode()
+        || code == Status.DEADLINE_EXCEEDED.getCode();
   }
 
   /**
@@ -49,7 +67,6 @@ public class SubmitJobStep implements SagaStepFunction {
    */
   @Override
   public StepResult apply(SagaState sagaState) {
-    final TitusClient titusClient = sagaState.getRequired("titusClient");
     final SubmitJobRequest submitJobRequest = sagaState.getRequired("submitJobRequest");
     final TitusDeployDescription description = sagaState.getRequired("description");
     final String[] nextServerGroupName = {sagaState.getRequired("nextServerGroupName")};
@@ -74,7 +91,11 @@ public class SubmitJobStep implements SagaStepFunction {
                     retryCount[0]++;
                   }
                   nextServerGroupName[0] =
-                      regenerateJobName(sagaState, description, submitJobRequest, titusClient);
+                      TitusJobNameResolver.resolveJobName(
+                          titusClient, description, submitJobRequest);
+
+                  sagaState.appendLog("Resolved server group name to '%s'", nextServerGroupName[0]);
+
                   sagaState.appendLog(
                       "Retrying with %s after %s attempts", nextServerGroupName[0], retryCount[0]);
                   throw e;
@@ -109,61 +130,5 @@ public class SubmitJobStep implements SagaStepFunction {
     newState.put("jobUri", jobUri);
 
     return new DefaultStepResult(newState);
-  }
-
-  /**
-   * TODO(rz): Not super stoked about this method existing here when virtually the same code exists
-   * in PrepareDeploymentStep, but I'm also getting lazy.
-   */
-  private String regenerateJobName(
-      SagaState state,
-      TitusDeployDescription description,
-      SubmitJobRequest submitJobRequest,
-      TitusClient titusClient) {
-    if (JobType.BATCH.value().equals(submitJobRequest.getJobType())) {
-      submitJobRequest.withJobName(description.getApplication());
-      return description.getApplication();
-    }
-    String nextServerGroupName;
-    TitusServerGroupNameResolver serverGroupNameResolver =
-        new TitusServerGroupNameResolver(titusClient, description.getRegion());
-    if (description.getSequence() != null) {
-      nextServerGroupName =
-          serverGroupNameResolver.generateServerGroupName(
-              description.getApplication(),
-              description.getStack(),
-              description.getFreeFormDetails(),
-              description.getSequence(),
-              false);
-    } else {
-      nextServerGroupName =
-          serverGroupNameResolver.resolveNextServerGroupName(
-              description.getApplication(),
-              description.getStack(),
-              description.getFreeFormDetails(),
-              false);
-    }
-    submitJobRequest.withJobName(nextServerGroupName);
-
-    state.appendLog("Resolved server group name to '%s'", nextServerGroupName);
-
-    return nextServerGroupName;
-  }
-
-  private static boolean isServiceExceptionRetryable(
-      TitusDeployDescription description, StatusRuntimeException e) {
-    String statusDescription = e.getStatus().getDescription();
-    return JobType.SERVICE.value().equals(description.getJobType())
-        && (e.getStatus().getCode() == Status.RESOURCE_EXHAUSTED.getCode()
-            || e.getStatus().getCode() == Status.INVALID_ARGUMENT.getCode())
-        && (statusDescription != null
-            && (statusDescription.contains("Job sequence id reserved by another pending job")
-                || statusDescription.contains("Constraint violation - job with group sequence")));
-  }
-
-  private static boolean isStatusCodeRetryable(Status.Code code) {
-    return code == Status.UNAVAILABLE.getCode()
-        || code == Status.INTERNAL.getCode()
-        || code == Status.DEADLINE_EXCEEDED.getCode();
   }
 }

@@ -122,7 +122,7 @@ class DefaultSagaProcessorSpec extends Specification {
     and:
     Saga saga = newSaga("sagaid", [hello: "world"], null) {
       newStep(it, "one") {
-        it.states([new DefaultSagaState(SagaStatus.SUCCEEDED, [hello: "world"], [:])])
+        it.states([new DefaultSagaState(SagaStatus.SUCCEEDED, [hello: "world"])])
         it.fn({ EmptyStepResult.instance })
       }
       newStep(it, "two") {
@@ -149,7 +149,7 @@ class DefaultSagaProcessorSpec extends Specification {
       it.status = SagaStatus.RUNNING
     }) {
       newStep(it, "one") {
-        it.states([new DefaultSagaState(SagaStatus.TERMINAL_FATAL, [hello: "world"], [:])])
+        it.states([new DefaultSagaState(SagaStatus.TERMINAL_FATAL, [hello: "world"])])
         it.fn({ EmptyStepResult.instance })
       }
     }
@@ -171,7 +171,7 @@ class DefaultSagaProcessorSpec extends Specification {
       it.status = SagaStatus.RUNNING
     }) {
       newStep(it, "one") {
-        it.states([new DefaultSagaState(SagaStatus.TERMINAL, [hello: "world"], [:])])
+        it.states([new DefaultSagaState(SagaStatus.TERMINAL, [hello: "world"])])
         it.attempt = 4
         it.fn({ EmptyStepResult.instance })
       }

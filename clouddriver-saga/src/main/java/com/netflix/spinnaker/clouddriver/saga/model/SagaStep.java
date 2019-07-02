@@ -47,7 +47,7 @@ public class SagaStep {
     return states.stream()
         .min(Comparable::compareTo)
         .map(SagaState::getStatus)
-        .orElse(SagaStatus.RUNNING);
+        .orElse(SagaStatus.NOT_STARTED);
   }
 
   @SuppressWarnings("unchecked")

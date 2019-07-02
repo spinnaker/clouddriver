@@ -149,7 +149,7 @@ class TitusDeployHandlerSpec extends Specification {
     DeploymentResult deploymentResult = titusDeployHandler.handle(titusDeployDescription, [])
 
     then:
-//    noExceptionThrown()
+    noExceptionThrown()
     deploymentResult != null
     deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains('us-east-1:api-test-v000')
     deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion['us-east-1'] == 'api-test-v000'
@@ -207,7 +207,7 @@ class TitusDeployHandlerSpec extends Specification {
     DeploymentResult deploymentResult = titusDeployHandler.handle(titusDeployDescription, [])
 
     then:
-//    noExceptionThrown()
+    noExceptionThrown()
     deploymentResult != null
     deploymentResult.serverGroupNames && deploymentResult.serverGroupNames.contains('us-east-1:api-test-v000')
     deploymentResult.serverGroupNameByRegion && deploymentResult.serverGroupNameByRegion['us-east-1'] == 'api-test-v000'

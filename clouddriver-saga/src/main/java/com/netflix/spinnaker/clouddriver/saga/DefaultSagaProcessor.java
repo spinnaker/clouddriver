@@ -90,6 +90,16 @@ public class DefaultSagaProcessor implements SagaProcessor {
       log.info("Starting step: {}:{} (attempt: {})", saga.getId(), step.getId(), step.getAttempt());
 
       ProcessStepResult<T> result = processStep(saga, step, latestState);
+
+      sagaInterceptors.forEach(
+          i -> {
+            log.debug(
+                "Invoking {} on {}:{}", i.getClass().getSimpleName(), saga.getId(), step.getId());
+            i.afterProcessingStep(saga, step, result.result);
+          });
+
+      log.info("Finished step: {}:{}", saga.getId(), step.getId());
+
       if (result.result != null) {
         return result.result;
       }
@@ -142,6 +152,9 @@ public class DefaultSagaProcessor implements SagaProcessor {
     try {
       stepResult = step.getFn().apply(stepState);
     } catch (Exception e) {
+      log.error(
+          "Error occurred while attempting to apply step {}:{}", saga.getId(), step.getId(), e);
+
       step.setAttempt(step.getAttempt() + 1);
       stepState.setStatus(SagaStatus.TERMINAL);
 
