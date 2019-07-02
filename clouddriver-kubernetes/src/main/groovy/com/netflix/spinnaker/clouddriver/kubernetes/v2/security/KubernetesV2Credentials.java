@@ -67,6 +67,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter private final List<String> omitNamespaces;
   private final List<KubernetesKind> kinds;
   private final Map<KubernetesKind, InvalidKindReason> omitKinds;
+  private final Map<KubernetesKind, InvalidKindReason> omitKindsComputed = new HashMap<>();
   @Getter private final List<CustomKubernetesResource> customResources;
 
   @Getter private final String kubectlExecutable;
@@ -237,7 +238,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     } else if (!this.kinds.isEmpty()) {
       return !kinds.contains(kind) ? InvalidKindReason.MISSING_FROM_ALLOWED_KINDS : null;
     } else {
-      return this.omitKinds.getOrDefault(kind, null);
+      InvalidKindReason omittedByConfigReason = this.omitKinds.getOrDefault(kind, null);
+      if (omittedByConfigReason != null) {
+        return omittedByConfigReason;
+      }
+      return this.omitKindsComputed.getOrDefault(kind, null);
     }
   }
 
@@ -342,7 +347,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
             .filter(k -> !omitKinds.keySet().contains(k))
             .filter(k -> !canReadKind(k, checkNamespace))
             .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
-    omitKinds.putAll(unreadableKinds);
+    omitKindsComputed.putAll(unreadableKinds);
 
     if (metrics) {
       try {

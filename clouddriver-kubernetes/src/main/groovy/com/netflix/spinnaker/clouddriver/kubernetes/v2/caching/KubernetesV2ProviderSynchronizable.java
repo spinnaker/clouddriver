@@ -106,10 +106,6 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
                   new KubernetesNamedAccountCredentials(
                       managedAccount, kubernetesSpinnakerKindMap, credentialFactory);
 
-              KubernetesV2Credentials v2Credentials =
-                  (KubernetesV2Credentials) credentials.getCredentials();
-              v2Credentials.initialize();
-
               AccountCredentials existingCredentials =
                   accountCredentialsRepository.getOne(managedAccount.getName());
 
@@ -170,7 +166,7 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
                     log.warn("Error encountered registering {}: ", cr, e);
                   }
                 });
-
+        v2Credentials.initialize();
         List<Agent> newlyAddedAgents =
             kubernetesV2CachingAgentDispatcher.buildAllCachingAgents(credentials).stream()
                 .map(c -> (Agent) c)
