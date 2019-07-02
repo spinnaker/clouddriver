@@ -39,7 +39,7 @@ import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchronizable {
+public class KubernetesV2ProviderSynchronizable implements CredentialsInitializerSynchronizable {
 
   private KubernetesV2Provider kubernetesV2Provider;
   private AccountCredentialsRepository accountCredentialsRepository;
@@ -50,7 +50,7 @@ public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchro
   private KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private CatsModule catsModule;
 
-  public KubernetesV2ProviderConfig(
+  public KubernetesV2ProviderSynchronizable(
       KubernetesV2Provider kubernetesV2Provider,
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
@@ -70,7 +70,7 @@ public class KubernetesV2ProviderConfig implements CredentialsInitializerSynchro
 
     ScheduledExecutorService poller =
         Executors.newSingleThreadScheduledExecutor(
-            new NamedThreadFactory(KubernetesV2ProviderConfig.class.getSimpleName()));
+            new NamedThreadFactory(KubernetesV2ProviderSynchronizable.class.getSimpleName()));
   }
 
   @Override

@@ -37,7 +37,7 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.stream.Collectors
 
 @Slf4j
-class KubernetesV1ProviderConfig implements CredentialsInitializerSynchronizable {
+class KubernetesV1ProviderSynchronizable implements CredentialsInitializerSynchronizable {
 
   private KubernetesV1Provider kubernetesV1Provider
   private KubernetesCloudProvider kubernetesCloudProvider
@@ -48,7 +48,7 @@ class KubernetesV1ProviderConfig implements CredentialsInitializerSynchronizable
   private KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap
   private CatsModule catsModule
 
-  KubernetesV1ProviderConfig(
+  KubernetesV1ProviderSynchronizable(
     KubernetesV1Provider kubernetesV1Provider,
     KubernetesCloudProvider kubernetesCloudProvider,
     AccountCredentialsRepository accountCredentialsRepository,
@@ -67,7 +67,7 @@ class KubernetesV1ProviderConfig implements CredentialsInitializerSynchronizable
     this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap
     this.catsModule = catsModule
 
-    ScheduledExecutorService poller = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(KubernetesV1ProviderConfig.class.getSimpleName()))
+    ScheduledExecutorService poller = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(KubernetesV1ProviderSynchronizable.class.getSimpleName()))
 
   }
 

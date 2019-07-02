@@ -24,10 +24,10 @@ import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndic
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1Provider
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1ProviderConfig
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1ProviderSynchronizable
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.agent.KubernetesV1CachingAgentDispatcher
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2Provider
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2ProviderConfig
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2ProviderSynchronizable
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentDispatcher
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
@@ -80,7 +80,7 @@ class KubernetesConfiguration {
   }
 
   @Bean
-  KubernetesV2ProviderConfig kubernetesV2ProviderConfig(
+  KubernetesV2ProviderSynchronizable kubernetesV2ProviderSynchronizable(
     KubernetesV2Provider kubernetesV2Provider,
     AccountCredentialsRepository accountCredentialsRepository,
     KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
@@ -90,7 +90,7 @@ class KubernetesConfiguration {
     KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
     CatsModule catsModule
   ){
-    new KubernetesV2ProviderConfig(
+    new KubernetesV2ProviderSynchronizable(
       kubernetesV2Provider,
       accountCredentialsRepository,
       kubernetesV2CachingAgentDispatcher,
@@ -103,7 +103,7 @@ class KubernetesConfiguration {
   }
 
   @Bean
-  KubernetesV1ProviderConfig kubernetesV1ProviderConfig(
+  KubernetesV1ProviderSynchronizable kubernetesV1ProviderSynchronizable(
     KubernetesV1Provider kubernetesV1Provider,
     KubernetesCloudProvider kubernetesCloudProvider,
     AccountCredentialsRepository accountCredentialsRepository,
@@ -113,7 +113,7 @@ class KubernetesConfiguration {
     KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
     CatsModule catsModule
   ) {
-    new KubernetesV1ProviderConfig(
+    new KubernetesV1ProviderSynchronizable(
       kubernetesV1Provider,
       kubernetesCloudProvider,
       accountCredentialsRepository,
