@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.clouddriver.titus.deploy.handlers;
 
+import static java.lang.String.format;
+
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.TargetGroupLookupHelper;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
@@ -39,18 +41,11 @@ import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.Container
 import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.HourlyTimeWindow;
 import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.RatePercentagePerInterval;
 import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.TimeWindow;
-import com.netflix.spinnaker.clouddriver.titus.deploy.TitusServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
-import com.netflix.spinnaker.clouddriver.titus.exceptions.IllegalOperationStateException;
 import com.netflix.spinnaker.clouddriver.titus.exceptions.JobNotFoundException;
 import com.netflix.spinnaker.clouddriver.titus.model.DockerImage;
 import com.netflix.spinnaker.config.AwsConfiguration;
 import com.netflix.spinnaker.kork.exceptions.IntegrationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,8 +53,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import static java.lang.String.format;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Prepares a final TitusDeployDescription for the TitusDeployHandler. */
 public class PrepareDeploymentStep extends AbstractTitusDeployStep implements SagaStepFunction {
@@ -75,6 +72,7 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
       "spinnaker.useApplicationDefaultSecurityGroup";
   private static final String LABEL_TARGET_GROUPS = "spinnaker.targetGroups";
 
+  private final TitusClient titusClient;
   private final AwsLookupUtil awsLookupUtil;
   private final AwsConfiguration.DeployDefaults deployDefaults;
   private final RegionScopedProviderFactory regionScopedProviderFactory;
@@ -84,12 +82,14 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
   public PrepareDeploymentStep(
       AccountCredentialsRepository accountCredentialsRepository,
       TitusClientProvider titusClientProvider,
+      TitusClient titusClient,
       AwsLookupUtil awsLookupUtil,
       AwsConfiguration.DeployDefaults deployDefaults,
       RegionScopedProviderFactory regionScopedProviderFactory,
       AccountCredentialsProvider accountCredentialsProvider,
       TargetGroupLookupHelper targetGroupLookupHelper) {
     super(accountCredentialsRepository, titusClientProvider);
+    this.titusClient = titusClient;
     this.awsLookupUtil = awsLookupUtil;
     this.deployDefaults = deployDefaults;
     this.regionScopedProviderFactory = regionScopedProviderFactory;
@@ -110,159 +110,14 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
 
   @Override
   public StepResult apply(SagaState state) {
-    final TitusDeployDescription description =
-        state.get("description", TitusDeployDescription.class);
-    if (description == null) {
-      // TODO(rz): Update kork-exceptions to make additional methods use a fluent interface
-      IntegrationException e =
-          new IllegalOperationStateException(
-              "Expected a 'description' state object, but none was defined");
-      e.setRetryable(false);
-      throw e;
-    }
-
+    final TitusDeployDescription description = state.getRequired("description");
     final TitusDeployHandler.Front50Application front50Application =
         state.get("front50Application");
 
     final String asgName = description.getSource().getAsgName();
     if (!isNullOrEmpty(asgName)) {
       log.trace("Source present, getting details: {}", asgName);
-      Names sourceName = Names.parseName(asgName);
-      description.setApplication(
-          description.getApplication() != null
-              ? description.getApplication()
-              : sourceName.getApp());
-      description.setStack(
-          description.getStack() != null ? description.getStack() : sourceName.getStack());
-      description.setFreeFormDetails(
-          description.getFreeFormDetails() != null
-              ? description.getFreeFormDetails()
-              : sourceName.getDetail());
-
-      TitusDeployDescription.Source source = description.getSource();
-
-      TitusClient sourceClient = buildSourceTitusClient(source);
-      if (sourceClient == null) {
-        // TODO(rz): Specific exception.
-        throw new IntegrationException(
-            "Unable to find a Titus client for deployment source: {}", asgName);
-      }
-
-      Job sourceJob = sourceClient.findJobByName(source.getAsgName());
-      if (sourceJob == null) {
-        throw new JobNotFoundException(
-            format(
-                "Unable to locate source (%s:%s:%s)",
-                source.getAccount(), source.getRegion(), source.getAsgName()));
-      }
-
-      state.appendLog(
-          format(
-              "Copying deployment details from (%s:%s:%s)",
-              source.getAccount(), source.getRegion(), source.getAsgName()));
-
-      if (isNullOrEmpty(description.getSecurityGroups())) {
-        description.setSecurityGroups(sourceJob.getSecurityGroups());
-      }
-      if (isNullOrEmpty(description.getImageId())) {
-        String imageVersion =
-            (sourceJob.getVersion() == null) ? sourceJob.getDigest() : sourceJob.getVersion();
-        description.setImageId(format("%s:%s", sourceJob.getApplicationName(), imageVersion));
-      }
-
-      if (description.getSource().getUseSourceCapacity()) {
-        description.getCapacity().setMin(sourceJob.getInstancesMin());
-        description.getCapacity().setMax(sourceJob.getInstancesMax());
-        description.getCapacity().setDesired(sourceJob.getInstancesDesired());
-      }
-
-      if (description.getServiceJobProcesses() != null) {
-        description
-            .getServiceJobProcesses()
-            .setDisableDecreaseDesired(
-                sourceJob.getServiceJobProcesses().isDisableDecreaseDesired());
-        description
-            .getServiceJobProcesses()
-            .setDisableIncreaseDesired(
-                sourceJob.getServiceJobProcesses().isDisableIncreaseDesired());
-      }
-
-      description
-          .getResources()
-          .setAllocateIpAddress(
-              orDefault(
-                  description.getResources().isAllocateIpAddress(),
-                  sourceJob.isAllocateIpAddress()));
-      description
-          .getResources()
-          .setCpu(orDefault(description.getResources().getCpu(), sourceJob.getCpu()));
-      description
-          .getResources()
-          .setDisk(orDefault(description.getResources().getDisk(), sourceJob.getDisk()));
-      description
-          .getResources()
-          .setGpu(orDefault(description.getResources().getGpu(), sourceJob.getGpu()));
-      description
-          .getResources()
-          .setMemory(orDefault(description.getResources().getMemory(), sourceJob.getMemory()));
-      description
-          .getResources()
-          .setNetworkMbps(
-              orDefault(description.getResources().getNetworkMbps(), sourceJob.getNetworkMbps()));
-      description.setRetries(orDefault(description.getRetries(), sourceJob.getRetries()));
-      description.setRuntimeLimitSecs(
-          orDefault(description.getRuntimeLimitSecs(), sourceJob.getRuntimeLimitSecs()));
-      description.setEfs(orDefault(description.getEfs(), sourceJob.getEfs()));
-      description.setEntryPoint(orDefault(description.getEntryPoint(), sourceJob.getEntryPoint()));
-      description.setIamProfile(orDefault(description.getIamProfile(), sourceJob.getIamProfile()));
-      description.setCapacityGroup(
-          orDefault(description.getCapacityGroup(), sourceJob.getCapacityGroup()));
-      description.setInService(orDefault(description.getInService(), sourceJob.isInService()));
-      description.setJobType(orDefault(description.getJobType(), JobType.SERVICE.value()));
-
-      if (isNullOrEmpty(description.getLabels())) {
-        description.getLabels().putAll(sourceJob.getLabels());
-      }
-      if (isNullOrEmpty(description.getEnv())) {
-        description.getEnv().putAll(sourceJob.getEnvironment());
-      }
-      if (isNullOrEmpty(description.getContainerAttributes())) {
-        description.getContainerAttributes().putAll(sourceJob.getContainerAttributes());
-      }
-
-      configureDisruptionBudget(description, sourceJob, front50Application);
-
-      if (isNullOrEmpty(description.getHardConstraints())) {
-        description.setHardConstraints(new ArrayList<>());
-      }
-      if (isNullOrEmpty(description.getSoftConstraints())) {
-        description.setSoftConstraints(new ArrayList<>());
-      }
-      if (description.getSoftConstraints().isEmpty() && !sourceJob.getSoftConstraints().isEmpty()) {
-        sourceJob
-            .getSoftConstraints()
-            .forEach(
-                softConstraint -> {
-                  if (!description.getHardConstraints().contains(softConstraint)) {
-                    description.getSoftConstraints().add(softConstraint);
-                  }
-                });
-      }
-      if (description.getHardConstraints().isEmpty() && !sourceJob.getHardConstraints().isEmpty()) {
-        sourceJob
-            .getHardConstraints()
-            .forEach(
-                hardConstraint -> {
-                  if (!description.getSoftConstraints().contains(hardConstraint)) {
-                    description.getHardConstraints().add(hardConstraint);
-                  }
-                });
-      }
-
-      if (sourceJob.getLabels() != null
-          && "false".equals(sourceJob.getLabels().get(USE_APPLICATION_DEFAULT_SG_LABEL))) {
-        description.setUseApplicationDefaultSecurityGroup(false);
-      }
+      mergeSourceDetailsIntoDescription(state, description, front50Application);
     } else {
       configureDisruptionBudget(description, null, front50Application);
     }
@@ -275,8 +130,7 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
 
     DockerImage dockerImage = new DockerImage(description.getImageId());
 
-    if (description.getInterestingHealthProviderNames() != null
-        && !description.getInterestingHealthProviderNames().isEmpty()) {
+    if (!isNullOrEmpty(description.getInterestingHealthProviderNames())) {
       description
           .getLabels()
           .put(
@@ -285,6 +139,9 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
     }
 
     configureAppDefaultSecurityGroup(description);
+
+    SubmitJobRequest submitJobRequest = description.toSubmitJobRequest(dockerImage);
+
     Set<String> securityGroups = resolveSecurityGroups(state, description);
 
     if (JobType.SERVICE.value().equals(description.getJobType())
@@ -309,8 +166,6 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
       securityGroups.add(applicationSecurityGroup);
     }
 
-    SubmitJobRequest submitJobRequest = description.toSubmitJobRequest(dockerImage);
-
     if (!securityGroups.isEmpty()) {
       submitJobRequest.withSecurityGroups(new ArrayList<>(securityGroups));
     }
@@ -331,13 +186,13 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
                 LABEL_TARGET_GROUPS,
                 String.join(",", targetGroupLookupResult.getTargetGroupARNs()));
       }
-    } else if (description.getLabels().containsKey(LABEL_TARGET_GROUPS)) {
+    } else {
       description.getLabels().remove(LABEL_TARGET_GROUPS);
     }
 
     state.appendLog("Resolving job name");
     String nextServerGroupName =
-        resolveJobName(description, submitJobRequest, state.get("titusClient"));
+        TitusJobNameResolver.resolveJobName(titusClient, description, submitJobRequest);
     state.appendLog("Resolved server group name to %s", nextServerGroupName);
 
     Map<String, Object> result = new HashMap<>();
@@ -364,6 +219,145 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
           || "systemDefault".equals(description.getMigrationPolicy().getType())) {
         description.setDisruptionBudget(getDefaultDisruptionBudget(application));
       }
+    }
+  }
+
+  private void mergeSourceDetailsIntoDescription(
+      SagaState state,
+      TitusDeployDescription description,
+      TitusDeployHandler.Front50Application front50Application) {
+    // If cluster name info was not provided, use the fields from the source asg.
+    Names sourceName = Names.parseName(description.getSource().getAsgName());
+    description.setApplication(
+        description.getApplication() != null ? description.getApplication() : sourceName.getApp());
+    description.setStack(
+        description.getStack() != null ? description.getStack() : sourceName.getStack());
+    description.setFreeFormDetails(
+        description.getFreeFormDetails() != null
+            ? description.getFreeFormDetails()
+            : sourceName.getDetail());
+
+    TitusDeployDescription.Source source = description.getSource();
+
+    TitusClient sourceClient = buildSourceTitusClient(source);
+    if (sourceClient == null) {
+      // TODO(rz): Specific exception.
+      throw new IntegrationException(
+          "Unable to find a Titus client for deployment source: {}",
+          description.getSource().getAsgName());
+    }
+
+    Job sourceJob = sourceClient.findJobByName(source.getAsgName());
+    if (sourceJob == null) {
+      throw new JobNotFoundException(
+          format(
+              "Unable to locate source (%s:%s:%s)",
+              source.getAccount(), source.getRegion(), source.getAsgName()));
+    }
+
+    state.appendLog(
+        format(
+            "Copying deployment details from (%s:%s:%s)",
+            source.getAccount(), source.getRegion(), source.getAsgName()));
+
+    if (isNullOrEmpty(description.getSecurityGroups())) {
+      description.setSecurityGroups(sourceJob.getSecurityGroups());
+    }
+    if (isNullOrEmpty(description.getImageId())) {
+      String imageVersion =
+          (sourceJob.getVersion() == null) ? sourceJob.getDigest() : sourceJob.getVersion();
+      description.setImageId(format("%s:%s", sourceJob.getApplicationName(), imageVersion));
+    }
+
+    if (description.getSource().getUseSourceCapacity()) {
+      description.getCapacity().setMin(sourceJob.getInstancesMin());
+      description.getCapacity().setMax(sourceJob.getInstancesMax());
+      description.getCapacity().setDesired(sourceJob.getInstancesDesired());
+    }
+
+    if (description.getServiceJobProcesses() != null) {
+      description
+          .getServiceJobProcesses()
+          .setDisableDecreaseDesired(sourceJob.getServiceJobProcesses().isDisableDecreaseDesired());
+      description
+          .getServiceJobProcesses()
+          .setDisableIncreaseDesired(sourceJob.getServiceJobProcesses().isDisableIncreaseDesired());
+    }
+
+    description
+        .getResources()
+        .setAllocateIpAddress(
+            orDefault(
+                description.getResources().isAllocateIpAddress(), sourceJob.isAllocateIpAddress()));
+    description
+        .getResources()
+        .setCpu(orDefault(description.getResources().getCpu(), sourceJob.getCpu()));
+    description
+        .getResources()
+        .setDisk(orDefault(description.getResources().getDisk(), sourceJob.getDisk()));
+    description
+        .getResources()
+        .setGpu(orDefault(description.getResources().getGpu(), sourceJob.getGpu()));
+    description
+        .getResources()
+        .setMemory(orDefault(description.getResources().getMemory(), sourceJob.getMemory()));
+    description
+        .getResources()
+        .setNetworkMbps(
+            orDefault(description.getResources().getNetworkMbps(), sourceJob.getNetworkMbps()));
+    description.setRetries(orDefault(description.getRetries(), sourceJob.getRetries()));
+    description.setRuntimeLimitSecs(
+        orDefault(description.getRuntimeLimitSecs(), sourceJob.getRuntimeLimitSecs()));
+    description.setEfs(orDefault(description.getEfs(), sourceJob.getEfs()));
+    description.setEntryPoint(orDefault(description.getEntryPoint(), sourceJob.getEntryPoint()));
+    description.setIamProfile(orDefault(description.getIamProfile(), sourceJob.getIamProfile()));
+    description.setCapacityGroup(
+        orDefault(description.getCapacityGroup(), sourceJob.getCapacityGroup()));
+    description.setInService(orDefault(description.getInService(), sourceJob.isInService()));
+    description.setJobType(orDefault(description.getJobType(), JobType.SERVICE.value()));
+
+    if (isNullOrEmpty(description.getLabels())) {
+      description.getLabels().putAll(sourceJob.getLabels());
+    }
+    if (isNullOrEmpty(description.getEnv())) {
+      description.getEnv().putAll(sourceJob.getEnvironment());
+    }
+    if (isNullOrEmpty(description.getContainerAttributes())) {
+      description.getContainerAttributes().putAll(sourceJob.getContainerAttributes());
+    }
+
+    configureDisruptionBudget(description, sourceJob, front50Application);
+
+    if (isNullOrEmpty(description.getHardConstraints())) {
+      description.setHardConstraints(new ArrayList<>());
+    }
+    if (isNullOrEmpty(description.getSoftConstraints())) {
+      description.setSoftConstraints(new ArrayList<>());
+    }
+    if (description.getSoftConstraints().isEmpty() && !sourceJob.getSoftConstraints().isEmpty()) {
+      sourceJob
+          .getSoftConstraints()
+          .forEach(
+              softConstraint -> {
+                if (!description.getHardConstraints().contains(softConstraint)) {
+                  description.getSoftConstraints().add(softConstraint);
+                }
+              });
+    }
+    if (description.getHardConstraints().isEmpty() && !sourceJob.getHardConstraints().isEmpty()) {
+      sourceJob
+          .getHardConstraints()
+          .forEach(
+              hardConstraint -> {
+                if (!description.getSoftConstraints().contains(hardConstraint)) {
+                  description.getHardConstraints().add(hardConstraint);
+                }
+              });
+    }
+
+    if (sourceJob.getLabels() != null
+        && "false".equals(sourceJob.getLabels().get(USE_APPLICATION_DEFAULT_SG_LABEL))) {
+      description.setUseApplicationDefaultSecurityGroup(false);
     }
   }
 
@@ -395,9 +389,7 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
     if (!description.getUseApplicationDefaultSecurityGroup()) {
       description.getLabels().put(USE_APPLICATION_DEFAULT_SG_LABEL, "false");
     } else {
-      if (description.getLabels().containsKey(USE_APPLICATION_DEFAULT_SG_LABEL)) {
-        description.getLabels().remove(USE_APPLICATION_DEFAULT_SG_LABEL);
-      }
+      description.getLabels().remove(USE_APPLICATION_DEFAULT_SG_LABEL);
     }
   }
 
@@ -458,39 +450,6 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
     state.appendLog("Finished resolving Security Groups");
 
     return securityGroups;
-  }
-
-  private String resolveJobName(
-      TitusDeployDescription description,
-      SubmitJobRequest submitJobRequest,
-      TitusClient titusClient) {
-    if (JobType.BATCH.value().equals(submitJobRequest.getJobType())) {
-      submitJobRequest.withJobName(description.getApplication());
-      return description.getApplication();
-    }
-
-    String nextServerGroupName;
-    TitusServerGroupNameResolver serverGroupNameResolver =
-        new TitusServerGroupNameResolver(titusClient, description.getRegion());
-    if (description.getSequence() != null) {
-      nextServerGroupName =
-          serverGroupNameResolver.generateServerGroupName(
-              description.getApplication(),
-              description.getStack(),
-              description.getFreeFormDetails(),
-              description.getSequence(),
-              false);
-    } else {
-      nextServerGroupName =
-          serverGroupNameResolver.resolveNextServerGroupName(
-              description.getApplication(),
-              description.getStack(),
-              description.getFreeFormDetails(),
-              false);
-    }
-    submitJobRequest.withJobName(nextServerGroupName);
-
-    return nextServerGroupName;
   }
 
   static class SecurityGroupNotFoundException extends TitusException {

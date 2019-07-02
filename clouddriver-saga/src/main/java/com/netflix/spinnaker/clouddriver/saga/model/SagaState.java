@@ -56,21 +56,6 @@ public interface SagaState extends Comparable {
   @Nonnull
   <T> T getRequired(@Nonnull String key, @Nonnull Class<T> stateType);
 
-  /**
-   * Put a runtime-only object into the SagaState.
-   *
-   * <p>Any values added to the SagaState through this method must be re-populated on subsequent
-   * runs of a SagaExecution. If you need to add persistent state, it must be output though a
-   * StepResult.
-   *
-   * <p>TODO(rz): This should just get removed. Force runtime state to be injected into steps some
-   * other way.
-   *
-   * @param key The name of the object
-   * @param object The object to store
-   */
-  void put(@Nonnull String key, @Nullable Object object);
-
   void appendLog(@Nonnull String message);
 
   default void appendLog(@Nonnull String message, @Nonnull Object... arguments) {
@@ -85,9 +70,11 @@ public interface SagaState extends Comparable {
    *
    * <p>Error information will not be carried forward.
    *
+   * @deprecated Use `copy` instead
    * @param stepResult The data to merge into a new SagaState object
    * @return The pair of SagaStates, left being the new state and right the prior state
    */
+  @Deprecated
   @Nonnull
   Pair<SagaState, SagaState> merge(@Nullable StepResult stepResult);
 

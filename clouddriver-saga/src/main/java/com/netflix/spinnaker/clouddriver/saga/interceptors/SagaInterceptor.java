@@ -15,14 +15,23 @@
  */
 package com.netflix.spinnaker.clouddriver.saga.interceptors;
 
+import com.netflix.spinnaker.clouddriver.saga.SagaResult;
 import com.netflix.spinnaker.clouddriver.saga.model.Saga;
 import com.netflix.spinnaker.clouddriver.saga.model.SagaStep;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.springframework.core.Ordered;
 
 public interface SagaInterceptor extends Ordered {
 
-  boolean shouldSkipStep(@Nonnull SagaStep sagaStep);
+  default boolean shouldSkipStep(@Nonnull SagaStep sagaStep) {
+    return false;
+  }
 
-  boolean shouldFailSaga(@Nonnull Saga saga, @Nonnull SagaStep sagaStep);
+  default boolean shouldFailSaga(@Nonnull Saga saga, @Nonnull SagaStep sagaStep) {
+    return false;
+  }
+
+  default void afterProcessingStep(
+      @Nonnull Saga saga, @Nonnull SagaStep sagaStep, @Nullable SagaResult<?> stepResult) {}
 }

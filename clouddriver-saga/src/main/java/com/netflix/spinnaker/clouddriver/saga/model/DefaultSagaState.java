@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,31 +40,25 @@ public class DefaultSagaState implements SagaState {
 
   @Nonnull private final Instant version;
   @Nonnull private final Map<String, Object> persistedStore;
-  @Nonnull private final Map<String, Object> runtimeStore;
   @Nonnull private final List<String> logs = new ArrayList<>();
   @Nonnull private SagaStatus status;
   @Nullable private Error error;
 
   public DefaultSagaState(@Nonnull Map<String, Object> inputs) {
-    this(Instant.now(), SagaStatus.RUNNING, new HashMap<>(inputs), new HashMap<>());
+    this(Instant.now(), SagaStatus.RUNNING, new HashMap<>(inputs));
   }
 
-  public DefaultSagaState(
-      @Nonnull SagaStatus status,
-      @Nonnull Map<String, Object> persistedStore,
-      @Nonnull Map<String, Object> runtimeStore) {
-    this(Instant.now(), status, persistedStore, runtimeStore);
+  public DefaultSagaState(@Nonnull SagaStatus status, @Nonnull Map<String, Object> persistedStore) {
+    this(Instant.now(), status, persistedStore);
   }
 
   public DefaultSagaState(
       @Nonnull Instant version,
       @Nonnull SagaStatus status,
-      @Nonnull Map<String, Object> persistedStore,
-      @Nonnull Map<String, Object> runtimeStore) {
+      @Nonnull Map<String, Object> persistedStore) {
     this.version = version;
     this.status = status;
     this.persistedStore = persistedStore;
-    this.runtimeStore = runtimeStore;
   }
 
   @Nonnull
@@ -126,9 +119,7 @@ public class DefaultSagaState implements SagaState {
   @Nullable
   @Override
   public <T> T get(@Nonnull String key) {
-    return (T)
-        Optional.ofNullable(getInternal(Backend.RUNTIME, key))
-            .orElse(getInternal(Backend.PERSISTED, key));
+    return (T) getInternal(key);
   }
 
   @Nonnull
@@ -152,8 +143,8 @@ public class DefaultSagaState implements SagaState {
   }
 
   @SuppressWarnings("unchecked")
-  private <T> T getInternal(@Nonnull Backend backend, @Nonnull String key) {
-    Object o = ((backend == Backend.RUNTIME) ? runtimeStore : persistedStore).get(key);
+  private <T> T getInternal(@Nonnull String key) {
+    Object o = persistedStore.get(key);
     if (o == null) {
       return null;
     }
@@ -161,13 +152,8 @@ public class DefaultSagaState implements SagaState {
       return (T) o;
     } catch (ClassCastException e) {
       throw new DesiredTypeMismatchException(
-          format("State value for '%s' in '%s' does not match expected type", key, backend), e);
+          format("State value for '%s' does not match expected type", key), e);
     }
-  }
-
-  @Override
-  public void put(@Nonnull String key, @Nullable Object object) {
-    runtimeStore.put(key, object);
   }
 
   @Override
@@ -187,17 +173,13 @@ public class DefaultSagaState implements SagaState {
     if (stepResult != null) {
       persistedStore.putAll(stepResult.getResults());
     }
-    Map<String, Object> runtimeStore = new HashMap<>(this.runtimeStore);
-
-    return new Pair<>(new DefaultSagaState(this.status, persistedStore, runtimeStore), this);
+    return new Pair<>(new DefaultSagaState(this.status, persistedStore), this);
   }
 
   @Nonnull
   @Override
   public SagaState copy(@Nonnull Consumer<SagaState> customizer) {
-    SagaState state =
-        new DefaultSagaState(
-            Instant.now(), status, new HashMap<>(persistedStore), new HashMap<>(runtimeStore));
+    SagaState state = new DefaultSagaState(Instant.now(), status, new HashMap<>(persistedStore));
     customizer.accept(state);
     return state;
   }
@@ -205,11 +187,6 @@ public class DefaultSagaState implements SagaState {
   @Override
   public int compareTo(@Nonnull Object o) {
     return ((DefaultSagaState) o).version.compareTo(this.version);
-  }
-
-  private enum Backend {
-    PERSISTED,
-    RUNTIME
   }
 
   public static class DesiredTypeMismatchException extends SystemException {

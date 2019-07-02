@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.clouddriver.titus.deploy.handlers;
 
-import static com.netflix.spinnaker.clouddriver.saga.SagaKatoBridgeDsl.StepBuilder.newStep;
+import static com.netflix.spinnaker.clouddriver.saga.KatoSagaBridgeDsl.StepBuilder.newStep;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -11,8 +11,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler;
-import com.netflix.spinnaker.clouddriver.saga.EmptyStepResult;
-import com.netflix.spinnaker.clouddriver.saga.SagaKatoBridgeDsl;
+import com.netflix.spinnaker.clouddriver.saga.KatoSagaBridgeDsl;
 import com.netflix.spinnaker.clouddriver.saga.SagaProcessor;
 import com.netflix.spinnaker.clouddriver.saga.SagaResult;
 import com.netflix.spinnaker.clouddriver.saga.model.Saga;
@@ -21,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusException;
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil;
+import com.netflix.spinnaker.clouddriver.titus.client.TitusClient;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.config.AwsConfiguration;
 import com.netflix.spinnaker.kork.core.RetrySupport;
@@ -101,22 +101,13 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
   @Override
   public TitusDeploymentResult handle(
       final TitusDeployDescription inputDescription, List priorOutputs) {
-    // TODO(rz): Would be neat to add an OperationStepProvider that would allow extensions to
-    // override stepBuilders?
+    TitusClient titusClient =
+        titusClientProvider.getTitusClient(
+            inputDescription.getCredentials(), inputDescription.getRegion());
+
     Saga saga =
-        new SagaKatoBridgeDsl()
+        new KatoSagaBridgeDsl()
             .inputs(ImmutableMap.of("description", inputDescription))
-            .step(
-                newStep("setup", "initializing")
-                    .fn(
-                        (state) -> {
-                          state.put(
-                              "titusClient",
-                              titusClientProvider.getTitusClient(
-                                  inputDescription.getCredentials(), inputDescription.getRegion()));
-                          return EmptyStepResult.getInstance();
-                        })
-                    .build())
             .step(
                 newStep("loadFront50App", "loading application attributes")
                     .fn(new LoadFront50AppStep(front50Service, objectMapper))
@@ -127,6 +118,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
                         new PrepareDeploymentStep(
                             accountCredentialsRepository,
                             titusClientProvider,
+                            titusClient,
                             awsLookupUtil,
                             deployDefaults,
                             regionScopedProviderFactory,
@@ -135,7 +127,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
                     .build())
             .step(
                 newStep("submitJob", "submitting job request to Titus")
-                    .fn(new SubmitJobStep(retrySupport))
+                    .fn(new SubmitJobStep(titusClient, retrySupport))
                     .build())
             .step(
                 newStep("copyScalingPolicies", "copy scaling policies")
@@ -175,7 +167,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
 
   public static class Front50Application {
     private String email;
-    private Boolean platformHealthOnly;
+    private boolean platformHealthOnly;
 
     public String getEmail() {
       return email;
@@ -185,11 +177,11 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
       this.email = email;
     }
 
-    public Boolean getPlatformHealthOnly() {
+    public boolean getPlatformHealthOnly() {
       return platformHealthOnly;
     }
 
-    public void setPlatformHealthOnly(Boolean platformHealthOnly) {
+    public void setPlatformHealthOnly(boolean platformHealthOnly) {
       this.platformHealthOnly = platformHealthOnly;
     }
   }
