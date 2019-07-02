@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubeconfigFileHasher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesApiClientConfig;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.api.KubernetesApiAdaptor;
@@ -51,6 +52,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
   private final boolean configureImagePullSecrets;
   private List<String> oldNamespaces;
   private final String kubeconfigFile;
+  private final String kubeconfigFileHash;
 
   public KubernetesV1Credentials(
       String name,
@@ -82,6 +84,8 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
         new KubernetesApiClientConfig(
             kubeconfigFile, context, cluster, user, userAgent, serviceAccount);
 
+    this.kubeconfigFileHash = KubeconfigFileHasher.hashKubeconfigFile(this.kubeconfigFile);
+
     this.apiAdaptor = new KubernetesApiAdaptor(name, config, spectatorRegistry);
     this.apiClientAdaptor = new KubernetesClientApiAdapter(name, configClient, spectatorRegistry);
     this.namespaces = namespaces != null ? namespaces : new ArrayList<>();
@@ -90,7 +94,6 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
     this.repository = accountCredentialsRepository;
     this.LOG = LoggerFactory.getLogger(KubernetesV1Credentials.class);
     this.configureImagePullSecrets = configureImagePullSecrets;
-
     configureDockerRegistries();
   }
 
@@ -109,6 +112,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
     this.LOG = LoggerFactory.getLogger(KubernetesV1Credentials.class);
     this.configureImagePullSecrets = true;
     this.kubeconfigFile = "";
+    this.kubeconfigFileHash = "";
     configureDockerRegistries();
   }
 
@@ -304,7 +308,8 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
         && Objects.equals(dockerRegistries, that.dockerRegistries)
         && Objects.equals(imagePullSecrets, that.imagePullSecrets)
         && Objects.equals(configureImagePullSecrets, that.configureImagePullSecrets)
-        && Objects.equals(kubeconfigFile, that.kubeconfigFile);
+        && Objects.equals(kubeconfigFile, that.kubeconfigFile)
+        && Objects.equals(kubeconfigFileHash, that.kubeconfigFileHash);
   }
 
   @Override
@@ -315,6 +320,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
         dockerRegistries,
         imagePullSecrets,
         configureImagePullSecrets,
-        kubeconfigFile);
+        kubeconfigFile,
+        this.kubeconfigFileHash);
   }
 }

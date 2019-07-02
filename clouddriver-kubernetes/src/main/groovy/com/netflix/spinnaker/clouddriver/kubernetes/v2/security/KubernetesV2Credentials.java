@@ -25,6 +25,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubeconfigFileHasher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
@@ -71,6 +72,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter private final String kubectlExecutable;
   @Getter private final Integer kubectlRequestTimeoutSeconds;
   @Getter private final String kubeconfigFile;
+  @Getter private final String kubeconfigFileHash;
   @Getter private final boolean serviceAccount;
   @Getter private final String context;
 
@@ -113,6 +115,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.kubectlExecutable = managedAccount.getKubectlExecutable();
     this.kubectlRequestTimeoutSeconds = managedAccount.getKubectlRequestTimeoutSeconds();
     this.kubeconfigFile = kubeconfigFile;
+    this.kubeconfigFileHash = KubeconfigFileHasher.hashKubeconfigFile(kubeconfigFile);
     this.serviceAccount = managedAccount.getServiceAccount();
     this.context = managedAccount.getContext();
 
@@ -599,6 +602,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         && Objects.equals(kubectlExecutable, that.kubectlExecutable)
         && Objects.equals(kubectlRequestTimeoutSeconds, that.kubectlRequestTimeoutSeconds)
         && Objects.equals(kubeconfigFile, that.kubeconfigFile)
+        && Objects.equals(kubeconfigFileHash, that.kubeconfigFileHash)
         && Objects.equals(serviceAccount, that.serviceAccount)
         && Objects.equals(context, that.context)
         && Objects.equals(onlySpinnakerManaged, that.onlySpinnakerManaged)
@@ -623,6 +627,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         kubectlExecutable,
         kubectlRequestTimeoutSeconds,
         kubeconfigFile,
+        kubeconfigFileHash,
         serviceAccount,
         context,
         onlySpinnakerManaged,
