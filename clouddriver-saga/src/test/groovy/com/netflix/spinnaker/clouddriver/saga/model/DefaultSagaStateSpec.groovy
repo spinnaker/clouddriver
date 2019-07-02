@@ -28,8 +28,7 @@ class DefaultSagaStateSpec extends Specification {
   SagaState subject = new DefaultSagaState(
     Instant.EPOCH,
     SagaStatus.RUNNING,
-    [myString: "myValue", myStringInt: "1", anObject: [nested: "nested value!"]],
-    [something: [hello: "runtime"]],
+    [myString: "myValue", myStringInt: "1", anObject: [nested: "nested value!"]]
   )
 
   def "get persisted state data"() {
@@ -40,16 +39,6 @@ class DefaultSagaStateSpec extends Specification {
     subject.get("myStringInt") == "1"
     subject.get("anObject") == [nested: "nested value!"]
     subject.get("no exist") == null
-  }
-
-  def "put and get runtime data"() {
-    given:
-    subject.put("runtimez", "very yes")
-
-    expect:
-    subject.get("myString") == "myValue"
-    subject.get("runtimez") == "very yes"
-    !subject.persistedState.containsKey("runtimez")
   }
 
   def "records logs in fifo order"() {

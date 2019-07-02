@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.saga.model;
+package com.netflix.spinnaker.clouddriver.saga
 
-public enum SagaStatus {
-  NOT_STARTED,
-  RUNNING,
-  SUCCEEDED,
-  TERMINAL,
-  TERMINAL_FATAL
-}
+interface SagaCommand
+
+data class SubmitSagaCommand(
+  val inputs: Map<String, Any?>,
+  val provenance: String
+) : SagaCommand

@@ -40,28 +40,28 @@ import lombok.extern.slf4j.Slf4j;
 /** A bridge DSL between the Saga format of structuring AtomicOperations and V1 Tasks. */
 @Beta
 @Slf4j
-public class SagaKatoBridgeDsl {
+public class KatoSagaBridgeDsl {
 
   @Nonnull private final Task task;
   @Nonnull private final Saga.SagaBuilder sagaBuilder = Saga.builder();
   @Nonnull private final List<SagaStep.SagaStepBuilder> stepBuilders = new ArrayList<>();
 
-  public SagaKatoBridgeDsl() {
+  public KatoSagaBridgeDsl() {
     this.task = TaskRepository.threadLocalTask.get();
   }
 
   /** For testing purposes only */
-  private SagaKatoBridgeDsl(Task task) {
+  private KatoSagaBridgeDsl(Task task) {
     this.task = task;
   }
 
-  public SagaKatoBridgeDsl inputs(@Nonnull Map<String, Object> inputs) {
+  public KatoSagaBridgeDsl inputs(@Nonnull Map<String, Object> inputs) {
     sagaBuilder.inputs(inputs);
     sagaBuilder.checksum(Checksum.md5(inputs));
     return this;
   }
 
-  public SagaKatoBridgeDsl step(@Nonnull SagaStep.SagaStepBuilder sagaStepBuilder) {
+  public KatoSagaBridgeDsl step(@Nonnull SagaStep.SagaStepBuilder sagaStepBuilder) {
     stepBuilders.add(sagaStepBuilder);
     return this;
   }
@@ -96,10 +96,7 @@ public class SagaKatoBridgeDsl {
     saga.getSteps()
         .addAll(
             stepBuilders.stream()
-                .map(
-                    builder -> {
-                      return builder.saga(saga).build();
-                    })
+                .map(builder -> builder.saga(saga).build())
                 .collect(Collectors.toList()));
 
     return saga;
@@ -137,7 +134,7 @@ public class SagaKatoBridgeDsl {
       return SagaStep.builder()
           .id(id)
           .label(label)
-          .attempt(0)
+          .attempt(1)
           .fn(function)
           .states(new ArrayList<>())
           .createdAt(now)

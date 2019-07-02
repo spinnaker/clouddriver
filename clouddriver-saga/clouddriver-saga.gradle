@@ -1,5 +1,6 @@
-dependencies {
+apply from: "$rootDir/gradle/kotlin.gradle"
 
+dependencies {
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"

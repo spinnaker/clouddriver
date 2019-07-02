@@ -22,7 +22,7 @@ import com.netflix.spinnaker.clouddriver.saga.repository.MemorySagaRepository
 import org.springframework.context.ApplicationEventPublisher
 import spock.lang.Specification
 
-import static com.netflix.spinnaker.clouddriver.saga.SagaKatoBridgeDsl.StepBuilder.newStep
+import static com.netflix.spinnaker.clouddriver.saga.KatoSagaBridgeDsl.StepBuilder.newStep
 
 class SagaIntegrationSpec extends Specification {
 
@@ -31,7 +31,7 @@ class SagaIntegrationSpec extends Specification {
     SagaProcessor sagaProcessor = new DefaultSagaProcessor(new MemorySagaRepository(), new NoopRegistry(), Mock(ApplicationEventPublisher), [])
 
     and:
-    Saga saga = new SagaKatoBridgeDsl(new DefaultTask("id"))
+    Saga saga = new KatoSagaBridgeDsl(new DefaultTask("id"))
       .inputs([:])
       .step(newStep("prepare", "preparing some datas")
         .fn({ state ->

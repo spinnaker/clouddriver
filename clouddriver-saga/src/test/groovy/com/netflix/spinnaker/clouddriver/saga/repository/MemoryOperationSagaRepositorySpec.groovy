@@ -57,8 +57,7 @@ class MemoryOperationSagaRepositorySpec extends Specification {
     def v2State = new DefaultSagaState(
       Instant.now(),
       SagaStatus.RUNNING,
-      [hello: "friends"],
-      [:],
+      [hello: "friends"]
     )
     step.states.add(v2State)
 
