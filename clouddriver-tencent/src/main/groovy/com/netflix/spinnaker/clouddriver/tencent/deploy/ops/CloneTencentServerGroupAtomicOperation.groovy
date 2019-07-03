@@ -79,9 +79,9 @@ class CloneTencentServerGroupAtomicOperation implements AtomicOperation<Deployme
 
       if (description.instanceTags) {
         newDescription.instanceTags = description.instanceTags
-      } else if (newDescription.instanceTags) {
+      } else if (sourceLaunchConfig.instanceTags) {
         def cloneInstanceTags = []
-        for (tag in newDescription.instanceTags) {
+        for (tag in sourceLaunchConfig.instanceTags) {
           if (tag.key != AutoScalingClient.defaultServerGroupTagKey) {
             cloneInstanceTags.add(tag)
           }
