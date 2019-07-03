@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Netflix, Inc.
+ * Copyright 2019 Armory
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.security;
 
 import com.google.common.hash.Hashing;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +27,7 @@ public class KubeconfigFileHasher {
   public static String hashKubeconfigFile(String filepath) {
     try {
       byte[] contents = Files.readAllBytes(Paths.get(filepath));
-      return Hashing.sha256().hashString(new String(contents), StandardCharsets.UTF_8).toString();
+      return Hashing.sha256().hashBytes(contents).toString();
     } catch (Exception e) {
       log.warn("failed to hash kubeconfig file at {}: {}", filepath, e);
       return "";

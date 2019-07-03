@@ -105,7 +105,6 @@ class KubernetesConfiguration {
   @Bean
   KubernetesV1ProviderSynchronizable kubernetesV1ProviderSynchronizable(
     KubernetesV1Provider kubernetesV1Provider,
-    KubernetesCloudProvider kubernetesCloudProvider,
     AccountCredentialsRepository accountCredentialsRepository,
     KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher,
     KubernetesConfigurationProperties kubernetesConfigurationProperties,
@@ -115,7 +114,6 @@ class KubernetesConfiguration {
   ) {
     new KubernetesV1ProviderSynchronizable(
       kubernetesV1Provider,
-      kubernetesCloudProvider,
       accountCredentialsRepository,
       kubernetesV1CachingAgentDispatcher,
       kubernetesConfigurationProperties,

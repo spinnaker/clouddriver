@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v1.security;
 
+import static lombok.EqualsAndHashCode.Include;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.netflix.spectator.api.Registry;
@@ -36,23 +38,34 @@ import io.fabric8.kubernetes.client.Config;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
 import javax.validation.ConstraintViolationException;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@Data
 public class KubernetesV1Credentials implements KubernetesCredentials {
   private final KubernetesApiAdaptor apiAdaptor;
   private KubernetesClientApiAdapter apiClientAdaptor;
-  private final List<String> namespaces;
-  private final List<String> omitNamespaces;
-  private final List<LinkedDockerRegistryConfiguration> dockerRegistries;
-  private final HashMap<String, Set<String>> imagePullSecrets = new HashMap<>();
+
+  @Include private final List<String> namespaces;
+
+  @Include private final List<String> omitNamespaces;
+
+  @Include private final List<LinkedDockerRegistryConfiguration> dockerRegistries;
+
+  @Include private final HashMap<String, Set<String>> imagePullSecrets = new HashMap<>();
   private final Logger LOG;
   private final AccountCredentialsRepository repository;
   private final HashSet<String> dynamicRegistries = new HashSet<>();
-  private final boolean configureImagePullSecrets;
+
+  @Include private final boolean configureImagePullSecrets;
   private List<String> oldNamespaces;
-  private final String kubeconfigFile;
-  private final String kubeconfigFileHash;
+
+  @Include private final String kubeconfigFile;
+
+  @Include private final String kubeconfigFileHash;
 
   public KubernetesV1Credentials(
       String name,
@@ -294,33 +307,5 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
       return false;
     }
     return secrets.contains(secret);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof KubernetesV1Credentials)) {
-      return false;
-    }
-    KubernetesV1Credentials that = (KubernetesV1Credentials) o;
-    return Objects.equals(namespaces, that.namespaces)
-        && Objects.equals(omitNamespaces, that.omitNamespaces)
-        && Objects.equals(dockerRegistries, that.dockerRegistries)
-        && Objects.equals(imagePullSecrets, that.imagePullSecrets)
-        && Objects.equals(configureImagePullSecrets, that.configureImagePullSecrets)
-        && Objects.equals(kubeconfigFile, that.kubeconfigFile)
-        && Objects.equals(kubeconfigFileHash, that.kubeconfigFileHash);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        namespaces,
-        omitNamespaces,
-        dockerRegistries,
-        imagePullSecrets,
-        configureImagePullSecrets,
-        kubeconfigFile,
-        this.kubeconfigFileHash);
   }
 }

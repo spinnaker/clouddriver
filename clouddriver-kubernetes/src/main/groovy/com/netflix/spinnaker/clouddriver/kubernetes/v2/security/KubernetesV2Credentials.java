@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 
+import static lombok.EqualsAndHashCode.Include;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -46,11 +48,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class KubernetesV2Credentials implements KubernetesCredentials {
   private static final int CRD_EXPIRY_SECONDS = 30;
   private static final int NAMESPACE_EXPIRY_SECONDS = 30;
@@ -62,31 +66,49 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final Clock clock;
   private final KubectlJobExecutor jobExecutor;
 
-  private final String accountName;
-  @Getter private final List<String> namespaces;
-  @Getter private final List<String> omitNamespaces;
-  private final List<KubernetesKind> kinds;
-  private final Map<KubernetesKind, InvalidKindReason> omitKinds;
-  private final Map<KubernetesKind, InvalidKindReason> omitKindsComputed = new HashMap<>();
-  @Getter private final List<CustomKubernetesResource> customResources;
+  @Include private final String accountName;
 
-  @Getter private final String kubectlExecutable;
-  @Getter private final Integer kubectlRequestTimeoutSeconds;
-  @Getter private final String kubeconfigFile;
-  @Getter private final String kubeconfigFileHash;
-  @Getter private final boolean serviceAccount;
-  @Getter private final String context;
+  @Include @Getter private final List<String> namespaces;
 
-  @Getter private final boolean onlySpinnakerManaged;
-  @Getter private final boolean liveManifestCalls;
-  private final boolean checkPermissionsOnStartup;
-  @Getter private final List<KubernetesCachingPolicy> cachingPolicies;
+  @Include @Getter private final List<String> omitNamespaces;
 
-  @JsonIgnore @Getter private final String oAuthServiceAccount;
-  @JsonIgnore @Getter private final List<String> oAuthScopes;
+  @Include private final List<KubernetesKind> kinds;
 
-  @Getter private boolean metrics;
-  @Getter private final boolean debug;
+  @Include List<String> omitKinds;
+
+  private final Map<KubernetesKind, InvalidKindReason> omitKindsComputed;
+
+  @Include @Getter private final List<CustomKubernetesResource> customResources;
+
+  @Include @Getter private final String kubectlExecutable;
+
+  @Include @Getter private final Integer kubectlRequestTimeoutSeconds;
+
+  @Include @Getter private final String kubeconfigFile;
+
+  @Include private final String kubeconfigFileHash;
+
+  @Include @Getter private final boolean serviceAccount;
+
+  @Include @Getter private final String context;
+
+  @Include @Getter private final boolean onlySpinnakerManaged;
+
+  @Include @Getter private final boolean liveManifestCalls;
+
+  @Include private final boolean checkPermissionsOnStartup;
+
+  @Include @Getter private final List<KubernetesCachingPolicy> cachingPolicies;
+
+  @Include @JsonIgnore @Getter private final String oAuthServiceAccount;
+
+  @Include @JsonIgnore @Getter private final List<String> oAuthScopes;
+
+  @Include @Getter private boolean metrics;
+
+  @Getter private boolean metricsComputed;
+
+  @Include @Getter private final boolean debug;
 
   private String cachedDefaultNamespace;
   private final Supplier<List<String>> liveNamespaceSupplier;
@@ -104,13 +126,18 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.accountName = managedAccount.getName();
     this.namespaces = managedAccount.getNamespaces();
     this.omitNamespaces = managedAccount.getOmitNamespaces();
-    this.kinds = KubernetesKind.getOrRegisterKinds(managedAccount.getKinds());
-    this.omitKinds =
+    this.kinds = KubernetesKind.registeredStringList(managedAccount.getKinds());
+    // omitKinds is a simple placeholder that we can use to compare one instance to another
+    // when refreshing credentials.
+    this.omitKinds = managedAccount.getOmitKinds();
+
+    this.omitKindsComputed =
         managedAccount.getOmitKinds().stream()
             .map(KubernetesKind::fromString)
             .collect(
                 Collectors.toMap(
                     k -> k, k -> InvalidKindReason.EXPLICITLY_OMITTED_BY_CONFIGURATION));
+
     this.customResources = managedAccount.getCustomResources();
 
     this.kubectlExecutable = managedAccount.getKubectlExecutable();
@@ -129,6 +156,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.oAuthScopes = managedAccount.getoAuthScopes();
 
     this.metrics = managedAccount.getMetrics();
+    this.metricsComputed = managedAccount.getMetrics();
+
     this.debug = managedAccount.getDebug();
 
     this.liveNamespaceSupplier =
@@ -238,10 +267,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     } else if (!this.kinds.isEmpty()) {
       return !kinds.contains(kind) ? InvalidKindReason.MISSING_FROM_ALLOWED_KINDS : null;
     } else {
-      InvalidKindReason omittedByConfigReason = this.omitKinds.getOrDefault(kind, null);
-      if (omittedByConfigReason != null) {
-        return omittedByConfigReason;
-      }
       return this.omitKindsComputed.getOrDefault(kind, null);
     }
   }
@@ -343,13 +368,13 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     Map<KubernetesKind, InvalidKindReason> unreadableKinds =
         allKinds
             .parallelStream()
-            .filter(k -> !k.equals(KubernetesKind.NONE))
-            .filter(k -> !omitKinds.keySet().contains(k))
+            .filter(k -> k != KubernetesKind.NONE)
+            .filter(k -> !omitKindsComputed.keySet().contains(k))
             .filter(k -> !canReadKind(k, checkNamespace))
             .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
     omitKindsComputed.putAll(unreadableKinds);
 
-    if (metrics) {
+    if (metricsComputed) {
       try {
         log.info("Checking if pod metrics are readable for account {}...", accountName);
         topPod(checkNamespace, null);
@@ -359,7 +384,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
             accountName,
             e.getMessage());
         log.debug("Reading logs for account '{}' failed with exception: ", accountName, e);
-        metrics = false;
+        metricsComputed = false;
       }
     }
   }
@@ -588,60 +613,5 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         return result;
       }
     }
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof KubernetesV2Credentials)) {
-      return false;
-    }
-
-    KubernetesV2Credentials that = (KubernetesV2Credentials) o;
-    return accountName.equals(that.accountName)
-        && Objects.equals(namespaces, that.namespaces)
-        && Objects.equals(omitNamespaces, that.omitNamespaces)
-        && Objects.equals(kinds, that.kinds)
-        && Objects.equals(omitKinds, that.omitKinds)
-        && Objects.equals(customResources, that.customResources)
-        && Objects.equals(kubectlExecutable, that.kubectlExecutable)
-        && Objects.equals(kubectlRequestTimeoutSeconds, that.kubectlRequestTimeoutSeconds)
-        && Objects.equals(kubeconfigFile, that.kubeconfigFile)
-        && Objects.equals(kubeconfigFileHash, that.kubeconfigFileHash)
-        && Objects.equals(serviceAccount, that.serviceAccount)
-        && Objects.equals(context, that.context)
-        && Objects.equals(onlySpinnakerManaged, that.onlySpinnakerManaged)
-        && Objects.equals(liveManifestCalls, that.liveManifestCalls)
-        && Objects.equals(checkPermissionsOnStartup, that.checkPermissionsOnStartup)
-        && Objects.equals(cachingPolicies, that.cachingPolicies)
-        && Objects.equals(oAuthServiceAccount, that.oAuthServiceAccount)
-        && Objects.equals(oAuthScopes, that.oAuthScopes)
-        && Objects.equals(metrics, that.metrics)
-        && Objects.equals(debug, that.debug);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        accountName,
-        namespaces,
-        omitNamespaces,
-        kinds,
-        omitKinds,
-        customResources,
-        kubectlExecutable,
-        kubectlRequestTimeoutSeconds,
-        kubeconfigFile,
-        kubeconfigFileHash,
-        serviceAccount,
-        context,
-        onlySpinnakerManaged,
-        liveManifestCalls,
-        checkPermissionsOnStartup,
-        cachingPolicies,
-        oAuthServiceAccount,
-        oAuthScopes,
-        metrics,
-        debug);
   }
 }

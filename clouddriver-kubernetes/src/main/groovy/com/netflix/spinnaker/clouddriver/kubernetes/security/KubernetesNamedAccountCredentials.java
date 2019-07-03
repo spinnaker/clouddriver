@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.security;
 
+import static lombok.EqualsAndHashCode.Include;
+
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.data.ConfigFileService;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
@@ -31,25 +33,38 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.*;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Getter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
     implements AccountCredentials<C> {
   private final String cloudProvider = "kubernetes";
-  private final String name;
-  private final ProviderVersion providerVersion;
-  private final String environment;
-  private final String accountType;
-  private final String skin;
-  private final int cacheThreads;
-  private final C credentials;
-  private final List<String> requiredGroupMembership;
-  private final Permissions permissions;
-  private final Long cacheIntervalSeconds;
+
+  @Include private final String name;
+
+  @Include private final ProviderVersion providerVersion;
+
+  @Include private final String environment;
+
+  @Include private final String accountType;
+
+  @Include private final String skin;
+
+  @Include private final int cacheThreads;
+
+  @Include private final C credentials;
+
+  @Include private final List<String> requiredGroupMembership;
+
+  @Include private final Permissions permissions;
+
+  @Include private final Long cacheIntervalSeconds;
+
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
 
   public KubernetesNamedAccountCredentials(
@@ -186,40 +201,5 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
 
       return System.getProperty("user.home") + "/.kube/config";
     }
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof KubernetesNamedAccountCredentials)) {
-      return false;
-    }
-
-    KubernetesNamedAccountCredentials that = (KubernetesNamedAccountCredentials) o;
-    return name.equals(that.name)
-        && Objects.equals(providerVersion, that.providerVersion)
-        && Objects.equals(environment, that.environment)
-        && Objects.equals(accountType, that.accountType)
-        && Objects.equals(skin, that.skin)
-        && Objects.equals(cacheThreads, that.cacheThreads)
-        && Objects.equals(credentials, that.credentials)
-        && Objects.equals(requiredGroupMembership, that.requiredGroupMembership)
-        && Objects.equals(permissions, that.permissions)
-        && Objects.equals(cacheIntervalSeconds, that.cacheIntervalSeconds);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        name,
-        providerVersion,
-        environment,
-        accountType,
-        skin,
-        cacheThreads,
-        credentials,
-        requiredGroupMembership,
-        permissions,
-        cacheIntervalSeconds);
   }
 }
