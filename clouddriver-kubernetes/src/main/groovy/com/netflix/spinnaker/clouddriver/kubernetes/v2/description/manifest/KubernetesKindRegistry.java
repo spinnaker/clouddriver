@@ -74,13 +74,13 @@ public class KubernetesKindRegistry {
     Predicate<KubernetesKind> groupMatches =
         kind -> {
           // Exact match
-          if (Objects.equals(kind.getApiGroup(), apiGroup)) {
+          if (Objects.equals(kind.getScopedKind().getApiGroup(), apiGroup)) {
             return true;
           }
 
           // If we have not specified an API group, default to finding a native kind that matches
           if (apiGroup == null || apiGroup.isNativeGroup()) {
-            return kind.getApiGroup().isNativeGroup();
+            return kind.getScopedKind().getApiGroup().isNativeGroup();
           }
 
           return false;
@@ -89,7 +89,7 @@ public class KubernetesKindRegistry {
     return values.stream()
         .filter(
             v ->
-                v.getName().equalsIgnoreCase(name)
+                v.getScopedKind().getName().equalsIgnoreCase(name)
                     || (v.getAlias() != null && v.getAlias().equalsIgnoreCase(name)))
         .filter(groupMatches)
         .findAny();
