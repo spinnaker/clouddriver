@@ -126,7 +126,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.accountName = managedAccount.getName();
     this.namespaces = managedAccount.getNamespaces();
     this.omitNamespaces = managedAccount.getOmitNamespaces();
-    this.kinds = KubernetesKind.registeredStringList(managedAccount.getKinds());
+    this.kinds = KubernetesKind.getOrRegisterKinds(managedAccount.getKinds());
     // omitKinds is a simple placeholder that we can use to compare one instance to another
     // when refreshing credentials.
     this.omitKinds = managedAccount.getOmitKinds();
