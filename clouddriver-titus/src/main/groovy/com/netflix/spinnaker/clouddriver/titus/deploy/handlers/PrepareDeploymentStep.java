@@ -15,8 +15,6 @@
  */
 package com.netflix.spinnaker.clouddriver.titus.deploy.handlers;
 
-import static java.lang.String.format;
-
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.TargetGroupLookupHelper;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
@@ -46,6 +44,11 @@ import com.netflix.spinnaker.clouddriver.titus.exceptions.JobNotFoundException;
 import com.netflix.spinnaker.clouddriver.titus.model.DockerImage;
 import com.netflix.spinnaker.config.AwsConfiguration;
 import com.netflix.spinnaker.kork.exceptions.IntegrationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -53,10 +56,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static java.lang.String.format;
 
 /** Prepares a final TitusDeployDescription for the TitusDeployHandler. */
 public class PrepareDeploymentStep extends AbstractTitusDeployStep implements SagaStepFunction {
@@ -269,19 +270,10 @@ public class PrepareDeploymentStep extends AbstractTitusDeployStep implements Sa
       description.setImageId(format("%s:%s", sourceJob.getApplicationName(), imageVersion));
     }
 
-    if (description.getSource().getUseSourceCapacity()) {
+    if (description.getSource() != null && description.getSource().getUseSourceCapacity()) {
       description.getCapacity().setMin(sourceJob.getInstancesMin());
       description.getCapacity().setMax(sourceJob.getInstancesMax());
       description.getCapacity().setDesired(sourceJob.getInstancesDesired());
-    }
-
-    if (description.getServiceJobProcesses() != null) {
-      description
-          .getServiceJobProcesses()
-          .setDisableDecreaseDesired(sourceJob.getServiceJobProcesses().isDisableDecreaseDesired());
-      description
-          .getServiceJobProcesses()
-          .setDisableIncreaseDesired(sourceJob.getServiceJobProcesses().isDisableIncreaseDesired());
     }
 
     description
