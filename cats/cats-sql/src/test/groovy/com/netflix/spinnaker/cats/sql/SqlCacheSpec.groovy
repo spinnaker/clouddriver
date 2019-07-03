@@ -30,6 +30,19 @@ class SqlCacheSpec extends WriteableCacheSpec {
     currentDatabase.context.dropSchemaIfExists("test")
   }
 
+  def 'should handle invalid type'() {
+    given:
+    def data = createData('blerp', [a: 'b'])
+    ((SqlCache) cache).merge('foo.bar', data)
+
+    when:
+    def retrieved = ((SqlCache) cache).getAll('foo.bar')
+
+    then:
+    retrieved.size() == 1
+    retrieved.findAll { it.id == "blerp" }.size() == 1
+  }
+
   def 'should not write an item if it is unchanged'() {
     setup:
     def data = createData('blerp', [a: 'b'])
