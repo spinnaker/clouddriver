@@ -56,6 +56,7 @@ class CloneTencentServerGroupAtomicOperation implements AtomicOperation<Deployme
     newDescription.region = description.region ?: sourceRegion
     newDescription.application = description.application ?: sourceServerGroup.moniker.app
     newDescription.stack = description.stack ?: sourceServerGroup.moniker.stack
+    newDescription.detail = description.detail ?: sourceServerGroup.moniker.detail
 
     def sourceLaunchConfig = sourceServerGroup.launchConfig
     if (sourceLaunchConfig) {
@@ -105,7 +106,7 @@ class CloneTencentServerGroupAtomicOperation implements AtomicOperation<Deployme
       newDescription.defaultCooldown = description.defaultCooldown ?: sourceAutoScalingGroup.defaultCooldown as Integer
       newDescription.terminationPolicies = description.terminationPolicies ?: sourceAutoScalingGroup.terminationPolicies as List
       newDescription.loadBalancerIds = description.loadBalancerIds ?: sourceAutoScalingGroup.loadBalancerIds as List
-      newDescription.forwardLoadBalancers = description.forwardLoadBalancers ?: sourceAutoScalingGroup.forwardLoadBalancers as List
+      newDescription.forwardLoadBalancers = description.forwardLoadBalancers ?: sourceAutoScalingGroup.forwardLoadBalancerSet as List
       newDescription.retryPolicy = description.retryPolicy ?: sourceAutoScalingGroup.retryPolicy
       newDescription.zonesCheckPolicy = description.zonesCheckPolicy ?: sourceAutoScalingGroup.zoneCheckPolicy
     }
