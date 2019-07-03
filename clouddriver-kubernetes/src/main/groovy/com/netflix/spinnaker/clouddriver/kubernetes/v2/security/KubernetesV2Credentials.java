@@ -107,7 +107,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.accountName = managedAccount.getName();
     this.namespaces = managedAccount.getNamespaces();
     this.omitNamespaces = managedAccount.getOmitNamespaces();
-    this.kinds = KubernetesKind.registeredStringList(managedAccount.getKinds());
+    this.kinds = KubernetesKind.getOrRegisterKinds(managedAccount.getKinds());
     this.omitKinds =
         managedAccount.getOmitKinds().stream()
             .map(KubernetesKind::fromString)
@@ -334,7 +334,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     // otherwise, checking all namespaces for all kinds is too expensive in large clusters (imagine
     // a cluster with 100s of namespaces).
     String checkNamespace = namespaces.get(0);
-    List<KubernetesKind> allKinds = KubernetesKind.getValues();
+    List<KubernetesKind> allKinds = KubernetesKind.getRegisteredKinds();
 
     log.info(
         "Checking permissions on configured kinds for account {}... {}", accountName, allKinds);
