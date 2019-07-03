@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component
 class AutoScalingClient extends AbstractTencentServiceClient {
   final String endPoint = "as.tencentcloudapi.com"
   static String defaultServerGroupTagKey = "spinnaker:server-group-name"
+  final Integer DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME = 1000
 
   private AsClient client
   private ClbClient clbClient // todo move to load balancer client ?
@@ -384,25 +385,35 @@ class AutoScalingClient extends AbstractTencentServiceClient {
     }
   }
 
-  void attachAutoScalingInstancesToForwardClb(def flb, def targets) {
-    try {
-      def request = new RegisterTargetsRequest()
-      request.loadBalancerId = flb.loadBalancerId
-      request.listenerId = flb.listenerId
-      if (flb?.locationId) {
-        request.locationId = flb?.locationId
-      }
-      request.targets = targets.collect {
-        return new Target(
-          instanceId: it.instanceId,
-          weight: it.weight,
-          port: it.port
-        )
-      }
+  void attachAutoScalingInstancesToForwardClb(def flb, def targets, boolean retry = false) {
+    def retry_count = 0
+    while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
+      try {
+        retry_count = retry_count + 1
+        def request = new RegisterTargetsRequest()
+        request.loadBalancerId = flb.loadBalancerId
+        request.listenerId = flb.listenerId
+        if (flb?.locationId) {
+          request.locationId = flb?.locationId
+        }
+        request.targets = targets.collect {
+          return new Target(
+            instanceId: it.instanceId,
+            weight: it.weight,
+            port: it.port
+          )
+        }
 
-      clbClient.RegisterTargets(request)
-    } catch (TencentCloudSDKException e) {
-      throw new TencentCloudSDKException(e.toString())
+        clbClient.RegisterTargets(request)
+        break
+      } catch (TencentCloudSDKException e) {
+        if (e.toString().contains("FailedOperation") && retry) {
+          log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
+          sleep(500)
+        } else {
+          throw new TencentCloudSDKException(e.toString())
+        }
+      }
     }
   }
 
@@ -422,25 +433,34 @@ class AutoScalingClient extends AbstractTencentServiceClient {
     }
   }
 
-  void detachAutoScalingInstancesFromForwardClb(def flb, def targets) {
-    try {
-      def request = new DeregisterTargetsRequest()
-      request.loadBalancerId = flb.loadBalancerId
-      request.listenerId = flb.listenerId
-      if (flb?.locationId) {
-        request.locationId = flb?.locationId
-      }
-      request.targets = targets.collect {
-        return new Target(
-          instanceId: it.instanceId,
-          weight: it.weight,
-          port: it.port
-        )
-      }
+  void detachAutoScalingInstancesFromForwardClb(def flb, def targets, boolean retry = false) {
+    def retry_count = 0
+    while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
+      try {
+        retry_count = retry_count + 1
+        def request = new DeregisterTargetsRequest()
+        request.loadBalancerId = flb.loadBalancerId
+        request.listenerId = flb.listenerId
+        if (flb?.locationId) {
+          request.locationId = flb?.locationId
+        }
+        request.targets = targets.collect {
+          return new Target(
+            instanceId: it.instanceId,
+            weight: it.weight,
+            port: it.port
+          )
+        }
 
-      clbClient.DeregisterTargets(request)
-    } catch (TencentCloudSDKException e) {
-      throw new TencentCloudSDKException(e.toString())
+        clbClient.DeregisterTargets(request)
+        break
+      } catch (TencentCloudSDKException e) {
+        if (e.toString().contains("FailedOperation") && retry) {
+          log.info("lb service throw FailedOperation error, probably $flb.loadBalancerId is locked, will retry later.")
+          sleep(500)
+        } else {
+          throw new TencentCloudSDKException(e.toString())
+        }      }
     }
   }
 

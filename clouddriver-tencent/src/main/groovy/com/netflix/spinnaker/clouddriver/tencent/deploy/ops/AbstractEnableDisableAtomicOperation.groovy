@@ -215,7 +215,7 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
     if (targets) {
       task.updateStatus basePhase, "Forward load balancer has targets $forwardLbTargets " +
         "targets $targets in both auto scaling group and load balancer will be detached from load balancer $flbId."
-      client.detachAutoScalingInstancesFromForwardClb flb, targets
+      client.detachAutoScalingInstancesFromForwardClb flb, targets, true
     } else {
       task.updateStatus basePhase, "Instances $inServiceInstanceIds are not attached with load balancer $flbId"
     }
@@ -241,7 +241,7 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
 
     if (inServiceTargets) {
       task.updateStatus basePhase, "In service targets $inServiceTargets will be attached to forward load balancer $flbId"
-      client.attachAutoScalingInstancesToForwardClb flb, inServiceTargets
+      client.attachAutoScalingInstancesToForwardClb flb, inServiceTargets, true
     } else {
       task.updateStatus basePhase, "No instances need to be attached to forward load balancer $flbId"
     }
