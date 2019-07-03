@@ -171,6 +171,6 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
     private String account;
     private String region;
     private String asgName;
-    private Boolean useSourceCapacity;
+    private boolean useSourceCapacity;
   }
 }
