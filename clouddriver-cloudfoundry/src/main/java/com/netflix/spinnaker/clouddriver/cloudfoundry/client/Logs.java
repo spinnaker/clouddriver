@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Pivotal, Inc.
+ * Copyright 2019 Pivotal, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,18 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client;
 
-public interface CloudFoundryClient {
-  Spaces getSpaces();
+import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.safelyCall;
 
-  Organizations getOrganizations();
+import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.DopplerService;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.cloudfoundry.dropsonde.events.EventFactory.Envelope;
 
-  Domains getDomains();
+@RequiredArgsConstructor
+public class Logs {
+  private final DopplerService api;
 
-  Routes getRoutes();
-
-  Applications getApplications();
-
-  ServiceInstances getServiceInstances();
-
-  ServiceKeys getServiceKeys();
-
-  Tasks getTasks();
-
-  Logs getLogs();
+  public List<Envelope> recentLogs(String applicationGuid) {
+    return safelyCall(() -> api.recentLogs(applicationGuid)).get();
+  }
 }
