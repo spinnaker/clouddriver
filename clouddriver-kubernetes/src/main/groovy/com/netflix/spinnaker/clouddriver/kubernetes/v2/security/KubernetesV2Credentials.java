@@ -104,7 +104,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Include @JsonIgnore @Getter private final List<String> oAuthScopes;
 
-  @Include @Getter private boolean metrics;
+  @Include private boolean metrics;
 
   @Getter private boolean metricsComputed;
 

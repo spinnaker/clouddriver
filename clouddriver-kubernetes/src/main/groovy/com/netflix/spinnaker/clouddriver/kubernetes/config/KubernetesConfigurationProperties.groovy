@@ -67,7 +67,7 @@ class KubernetesConfigurationProperties {
 }
 
 @ToString(includeNames = true)
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode
 class LinkedDockerRegistryConfiguration {
   @EqualsAndHashCode.Include
   String accountName
