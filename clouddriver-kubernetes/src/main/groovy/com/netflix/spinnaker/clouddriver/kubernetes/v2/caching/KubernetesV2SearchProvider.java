@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind;
@@ -40,9 +41,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -161,31 +163,33 @@ public class KubernetesV2SearchProvider implements SearchProvider {
     return result;
   }
 
-  private Map<String, List<String>> getKeysRelatedToLogicalMatches(String matchQuery) {
+  private static Stream<KeyRelationship> getRelationships(CacheData cacheData) {
+    Keys.CacheKey cacheKey = Keys.parseKey(cacheData.getId()).orElse(null);
+    if (!(cacheKey instanceof LogicalKey)) {
+      return Stream.empty();
+    }
+    return cacheData.getRelationships().values().stream()
+        .flatMap(Collection::stream)
+        .filter(Objects::nonNull)
+        .map(k -> new KeyRelationship(k, (LogicalKey) cacheKey));
+  }
+
+  private Map<String, List<Keys.LogicalKey>> getKeysRelatedToLogicalMatches(String matchQuery) {
     return logicalTypes.stream()
-        .map(
-            type ->
-                cacheUtils.getAllDataMatchingPattern(type, matchQuery).stream()
-                    .map(
-                        e ->
-                            e.getRelationships().values().stream()
-                                .flatMap(Collection::stream)
-                                .filter(Objects::nonNull)
-                                .map(k -> new ImmutablePair<>(k, e.getId())))
-                    .flatMap(x -> x))
-        .flatMap(x -> x)
+        .map(type -> cacheUtils.getAllDataMatchingPattern(type, matchQuery))
+        .flatMap(Collection::stream)
+        .flatMap(KubernetesV2SearchProvider::getRelationships)
         .collect(
             Collectors.groupingBy(
-                Pair::getLeft,
-                Collectors.reducing(
-                    Collections.emptyList(),
-                    i -> Collections.singletonList(i.getRight()),
-                    (a, b) -> {
-                      List<String> res = new ArrayList<>();
-                      res.addAll(a);
-                      res.addAll(b);
-                      return res;
-                    })));
+                KeyRelationship::getInfrastructureKey,
+                Collectors.mapping(KeyRelationship::getLogicalKey, Collectors.toList())));
+  }
+
+  @Getter
+  @RequiredArgsConstructor
+  private static class KeyRelationship {
+    private final String infrastructureKey;
+    private final Keys.LogicalKey logicalKey;
   }
 
   // TODO(lwander): use filters
@@ -226,24 +230,17 @@ public class KubernetesV2SearchProvider implements SearchProvider {
             .collect(Collectors.toList());
 
     // Search 'logical' caches (clusters, apps) for indirect matches
-    Map<String, List<String>> keyToAllLogicalKeys = getKeysRelatedToLogicalMatches(matchQuery);
+    Map<String, List<Keys.LogicalKey>> keyToAllLogicalKeys =
+        getKeysRelatedToLogicalMatches(matchQuery);
     results.addAll(
         keyToAllLogicalKeys.entrySet().stream()
             .map(
                 kv -> {
                   Map<String, Object> result = convertKeyToMap(kv.getKey());
-                  if (result == null) {
-                    return null;
+                  if (result != null) {
+                    kv.getValue()
+                        .forEach(k -> result.put(k.getLogicalKind().singular(), k.getName()));
                   }
-
-                  kv.getValue().stream()
-                      .map(Keys::parseKey)
-                      .filter(Optional::isPresent)
-                      .map(Optional::get)
-                      .filter(LogicalKey.class::isInstance)
-                      .map(k -> (LogicalKey) k)
-                      .forEach(k -> result.put(k.getLogicalKind().singular(), k.getName()));
-
                   return result;
                 })
             .filter(Objects::nonNull)
