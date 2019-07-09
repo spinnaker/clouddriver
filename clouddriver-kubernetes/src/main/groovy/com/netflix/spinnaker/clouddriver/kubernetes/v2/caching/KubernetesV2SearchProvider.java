@@ -151,9 +151,9 @@ public class KubernetesV2SearchProvider implements SearchProvider {
     } else if (parsedKey instanceof Keys.LogicalKey) {
       Keys.LogicalKey logicalKey = (Keys.LogicalKey) parsedKey;
 
-      result = mapper.convertValue(parsedKey, new TypeReference<Map<String, Object>>() {});
+      result = mapper.convertValue(logicalKey, new TypeReference<Map<String, Object>>() {});
       result.put(logicalKey.getLogicalKind().singular(), logicalKey.getName());
-      type = parsedKey.getGroup();
+      type = logicalKey.getGroup();
     } else {
       log.warn("Unknown key type " + parsedKey + ", ignoring.");
       return null;
@@ -221,19 +221,15 @@ public class KubernetesV2SearchProvider implements SearchProvider {
     typesToSearch.retainAll(allCaches);
 
     // Search caches directly
-    List<Map<String, Object>> results =
+    Stream<Map<String, Object>> directResults =
         typesToSearch.stream()
             .map(type -> cacheUtils.getAllKeysMatchingPattern(type, matchQuery))
             .flatMap(Collection::stream)
-            .map(this::convertKeyToMap)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+            .map(this::convertKeyToMap);
 
     // Search 'logical' caches (clusters, apps) for indirect matches
-    Map<String, List<Keys.LogicalKey>> keyToAllLogicalKeys =
-        getKeysRelatedToLogicalMatches(matchQuery);
-    results.addAll(
-        keyToAllLogicalKeys.entrySet().stream()
+    Stream<Map<String, Object>> relatedResults =
+        getKeysRelatedToLogicalMatches(matchQuery).entrySet().stream()
             .map(
                 kv -> {
                   Map<String, Object> result = convertKeyToMap(kv.getKey());
@@ -242,17 +238,12 @@ public class KubernetesV2SearchProvider implements SearchProvider {
                         .forEach(k -> result.put(k.getLogicalKind().singular(), k.getName()));
                   }
                   return result;
-                })
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
+                });
 
-    results =
-        results.stream()
-            .filter(
-                r -> typesToMatch.contains(r.get("type")) || typesToMatch.contains(r.get("group")))
-            .collect(Collectors.toList());
-
-    return results;
+    return Stream.concat(directResults, relatedResults)
+        .filter(Objects::nonNull)
+        .filter(r -> typesToMatch.contains(r.get("type")) || typesToMatch.contains(r.get("group")))
+        .collect(Collectors.toList());
   }
 
   private static <T> List<T> paginateResults(
