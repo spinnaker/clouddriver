@@ -163,22 +163,27 @@ public class KubernetesV2SearchProvider implements SearchProvider {
     return result;
   }
 
-  private static Stream<KeyRelationship> getRelationships(CacheData cacheData) {
+  private static Stream<KeyRelationship> getMatchingRelationships(
+      CacheData cacheData, Set<String> typesToSearch) {
     Keys.CacheKey cacheKey = Keys.parseKey(cacheData.getId()).orElse(null);
     if (!(cacheKey instanceof LogicalKey)) {
       return Stream.empty();
     }
-    return cacheData.getRelationships().values().stream()
+    Map<String, Collection<String>> relationships = cacheData.getRelationships();
+    return typesToSearch.stream()
+        .map(relationships::get)
+        .filter(Objects::nonNull)
         .flatMap(Collection::stream)
         .filter(Objects::nonNull)
         .map(k -> new KeyRelationship(k, (LogicalKey) cacheKey));
   }
 
-  private Map<String, List<Keys.LogicalKey>> getKeysRelatedToLogicalMatches(String matchQuery) {
+  private Map<String, List<Keys.LogicalKey>> getKeysRelatedToLogicalMatches(
+      String matchQuery, Set<String> typesToSearch) {
     return logicalTypes.stream()
         .map(type -> cacheUtils.getAllDataMatchingPattern(type, matchQuery))
         .flatMap(Collection::stream)
-        .flatMap(KubernetesV2SearchProvider::getRelationships)
+        .flatMap(cd -> getMatchingRelationships(cd, typesToSearch))
         .collect(
             Collectors.groupingBy(
                 KeyRelationship::getInfrastructureKey,
@@ -197,7 +202,6 @@ public class KubernetesV2SearchProvider implements SearchProvider {
       String query, List<String> types, Map<String, String> filters) {
     String matchQuery = String.format("*%s*", query.toLowerCase());
     Set<String> typesToSearch = new HashSet<>(types);
-    Set<String> typesToMatch = new HashSet<>(types);
 
     // We add k8s versions of Spinnaker types here to ensure that (for example) replica sets are
     // returned when server groups are requested.
@@ -220,6 +224,10 @@ public class KubernetesV2SearchProvider implements SearchProvider {
     // Remove caches that we can't search
     typesToSearch.retainAll(allCaches);
 
+    if (typesToSearch.isEmpty()) {
+      return Collections.emptyList();
+    }
+
     // Search caches directly
     Stream<Map<String, Object>> directResults =
         typesToSearch.stream()
@@ -229,7 +237,7 @@ public class KubernetesV2SearchProvider implements SearchProvider {
 
     // Search 'logical' caches (clusters, apps) for indirect matches
     Stream<Map<String, Object>> relatedResults =
-        getKeysRelatedToLogicalMatches(matchQuery).entrySet().stream()
+        getKeysRelatedToLogicalMatches(matchQuery, typesToSearch).entrySet().stream()
             .map(
                 kv -> {
                   Map<String, Object> result = convertKeyToMap(kv.getKey());
@@ -242,7 +250,7 @@ public class KubernetesV2SearchProvider implements SearchProvider {
 
     return Stream.concat(directResults, relatedResults)
         .filter(Objects::nonNull)
-        .filter(r -> typesToMatch.contains(r.get("type")) || typesToMatch.contains(r.get("group")))
+        .filter(result -> typesToSearch.contains(result.get("group")))
         .collect(Collectors.toList());
   }
 
