@@ -207,7 +207,7 @@ public class KubernetesV2SearchProvider implements SearchProvider {
                     return null;
                   }
                 })
-            .filter(Objects::nonNull)
+            .filter(k -> k != null && k != KubernetesSpinnakerKindMap.SpinnakerKind.UNCLASSIFIED)
             .map(kindMap::translateSpinnakerKind)
             .flatMap(Collection::stream)
             .map(KubernetesKind::toString)
