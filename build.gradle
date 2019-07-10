@@ -104,6 +104,10 @@ subprojects { project ->
       jvmArgs '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=7102'
     }
   }
+
+  tasks.withType(Javadoc) {
+    failOnError = false
+  }
 }
 
 defaultTasks ':clouddriver-web:run'
