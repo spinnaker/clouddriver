@@ -13,43 +13,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.clouddriver.appengine.deploy;
 
-package com.netflix.spinnaker.clouddriver.appengine.deploy
-
-import java.util.concurrent.Semaphore
+import java.util.HashMap;
+import java.util.concurrent.Semaphore;
+import java.util.function.Supplier;
 
 public class AppengineMutexRepository {
-  private static HashMap<String, Mutex> mutexRepository = new HashMap<>()
+  private static HashMap<String, Mutex> mutexRepository = new HashMap<>();
 
-  public static <T> T atomicWrapper(String mutexKey, Closure<T> doOperation) {
+  public static <T> T atomicWrapper(String mutexKey, Supplier<T> doOperation)
+      throws InterruptedException {
     if (!mutexRepository.containsKey(mutexKey)) {
-      mutexRepository.put(mutexKey, new Mutex())
+      mutexRepository.put(mutexKey, new Mutex());
     }
-    Mutex mutex = mutexRepository.get(mutexKey)
 
-    mutex.lock()
+    Mutex mutex = mutexRepository.get(mutexKey);
+
+    mutex.lock();
     try {
-      return doOperation()
+      return doOperation.get();
     } finally {
-      mutex.unlock()
+      mutex.unlock();
     }
   }
 
   private static class Mutex {
-    private Semaphore sem
+    private Semaphore sem;
 
-    public void lock() {
+    public void lock() throws InterruptedException {
       if (sem == null) {
-        sem = new Semaphore(1)
+        sem = new Semaphore(1);
       }
-      sem.acquire()
+
+      sem.acquire();
     }
 
     public void unlock() {
       if (sem == null) {
-        throw new IllegalStateException("Attempt made to unlock mutex that was never locked")
+        throw new IllegalStateException("Attempt made to unlock mutex that was never locked");
       }
-      sem.release()
+
+      sem.release();
     }
   }
 }
