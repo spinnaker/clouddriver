@@ -15,46 +15,23 @@
  */
 package com.netflix.spinnaker.clouddriver.appengine.deploy;
 
-import java.util.HashMap;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 public class AppengineMutexRepository {
-  private static HashMap<String, Mutex> mutexRepository = new HashMap<>();
+  private static final ConcurrentHashMap<String, Lock> mutexRepository = new ConcurrentHashMap<>();
 
   public static <T> T atomicWrapper(String mutexKey, Supplier<T> doOperation)
       throws InterruptedException {
-    if (!mutexRepository.containsKey(mutexKey)) {
-      mutexRepository.put(mutexKey, new Mutex());
-    }
+    final Lock lock = mutexRepository.computeIfAbsent(mutexKey, k -> new ReentrantLock());
 
-    Mutex mutex = mutexRepository.get(mutexKey);
-
-    mutex.lock();
+    lock.lockInterruptibly();
     try {
       return doOperation.get();
     } finally {
-      mutex.unlock();
-    }
-  }
-
-  private static class Mutex {
-    private Semaphore sem;
-
-    public void lock() throws InterruptedException {
-      if (sem == null) {
-        sem = new Semaphore(1);
-      }
-
-      sem.acquire();
-    }
-
-    public void unlock() {
-      if (sem == null) {
-        throw new IllegalStateException("Attempt made to unlock mutex that was never locked");
-      }
-
-      sem.release();
+      lock.unlock();
     }
   }
 }
