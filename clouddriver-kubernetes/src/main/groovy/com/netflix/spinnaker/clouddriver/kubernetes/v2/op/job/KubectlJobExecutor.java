@@ -577,6 +577,39 @@ public class KubectlJobExecutor {
     return status.getOutput();
   }
 
+  public List<String> apiResources(KubernetesV2Credentials credentials) {
+    List<String> command = kubectlAuthPrefix(credentials);
+    command.add("api-resources");
+    command.add("-o=name");
+
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
+
+    // api-resources can return a non-zero status code but still return data
+    // log here as a warning
+    if (!status.getResult().equals(JobResult.Result.SUCCESS)) {
+      log.warn("There was an error reading api-resources. All available kinds may not be present.");
+    }
+
+    String output = status.getOutput().trim();
+    if (StringUtils.isEmpty(output)) {
+      return new ArrayList<>();
+    }
+
+    String[] lines = output.split("\n");
+    if (lines.length < 1) {
+      return new ArrayList<>();
+    }
+    List<String> resourcePlurals = new ArrayList<>();
+    for (int i = 0; i < lines.length; i++) {
+      String[] resource = lines[i].split("\\.", 0);
+      if (resource.length >= 1) {
+        resourcePlurals.add(resource[0]);
+      }
+    }
+
+    return resourcePlurals;
+  }
+
   public Collection<KubernetesPodMetric> topPod(
       KubernetesV2Credentials credentials, String namespace, String pod) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
