@@ -1,0 +1,21 @@
+apply from: "$rootDir/gradle/kotlin.gradle"
+apply from: "$rootDir/gradle/spek.gradle"
+
+dependencies {
+  compileOnly "org.projectlombok:lombok"
+  annotationProcessor "org.projectlombok:lombok"
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  implementation "com.netflix.spinnaker.kork:kork-core"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.google.guava:guava"
+  implementation "com.google.code.findbugs:jsr305"
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.springframework.boot:spring-boot-actuator"
+
+  testImplementation "cglib:cglib-nodep"
+  testImplementation "org.objenesis:objenesis"
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "org.springframework:spring-test"
+}

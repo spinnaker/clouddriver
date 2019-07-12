@@ -39,15 +39,16 @@ include 'cats:cats-core',
   'cats:cats-test',
   'cats:cats-sql',
   'clouddriver-artifacts',
+  'clouddriver-bom',
   'clouddriver-core',
   'clouddriver-core-tck',
   'clouddriver-elasticsearch',
+  'clouddriver-saga',
+  'clouddriver-scattergather',
   'clouddriver-security',
   'clouddriver-sql',
   'clouddriver-sql-mysql',
-  'clouddriver-web',
-  'clouddriver-scattergather',
-  'clouddriver-bom'
+  'clouddriver-web'
 include(*gradle.ext.includedCloudProviderProjects)
 
 def setBuildFile(project) {
