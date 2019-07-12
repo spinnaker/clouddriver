@@ -16,21 +16,33 @@
 
 package com.netflix.spinnaker.clouddriver.titus.deploy.handlers
 
-import com.netflix.spinnaker.config.AwsConfiguration
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
+import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
+import com.netflix.spinnaker.clouddriver.saga.DefaultSagaProcessor
+import com.netflix.spinnaker.clouddriver.saga.interceptors.DefaultSagaInterceptor
+import com.netflix.spinnaker.clouddriver.saga.repository.MemorySagaRepository
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient
 import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription
+import com.netflix.spinnaker.config.AwsConfiguration
+import org.springframework.context.ApplicationEventPublisher
 import spock.lang.Specification
 import spock.lang.Subject
 
+/**
+ * TODO(rz): Add specs for individual tests; use this as an api spec instead
+ */
 class TitusDeployHandlerSpec extends Specification {
   NetflixTitusCredentials netflixTitusCredentials = Mock(NetflixTitusCredentials)
   def accountCredentialsProvider = Mock(AccountCredentialsProvider) {
@@ -55,11 +67,35 @@ class TitusDeployHandlerSpec extends Specification {
     'test', 'test', 'test', [new TitusRegion('us-east-1', 'test', 'http://foo', false, false, "blah", "blah", 7104, [])], 'test', 'test', 'test', 'test', false, '', 'mainvpc', [], "", false, false, false
   )
 
+  RegionScopedProviderFactory regionScopedProviderFactory = Mock()
+  Front50Service front50Service = Mock() {
+    getApplication(_) >> { [email: "example@example.com", platformHealthOnly: false] }
+  }
+  AwsLookupUtil awsLookupUtil = Mock()
+
   @Subject
-  TitusDeployHandler titusDeployHandler = new TitusDeployHandler(titusClientProvider, accountCredentialsRepository)
+  TitusDeployHandler titusDeployHandler = new TitusDeployHandler(
+    titusClientProvider,
+    accountCredentialsProvider,
+    accountCredentialsRepository,
+    regionScopedProviderFactory,
+    front50Service,
+    [addAppGroupToServerGroup: false] as AwsConfiguration.DeployDefaults,
+    awsLookupUtil,
+    new DefaultSagaProcessor(
+      new MemorySagaRepository(),
+      new NoopRegistry(),
+      Mock(ApplicationEventPublisher),
+      [new DefaultSagaInterceptor()]
+    ),
+    new ObjectMapper()
+  )
 
   def setup() {
-    Task task = Mock(Task)
+    Task task = Mock(Task) {
+      getId() >> "taskid"
+      getRequestId() >> "requestid"
+    }
     TaskRepository.threadLocalTask.set(task)
   }
 
@@ -82,38 +118,32 @@ class TitusDeployHandlerSpec extends Specification {
       ],
       containerAttributes: [
         'k1': 'value1',
-        'k2': 123
+        'k2': '123'
       ],
         serviceJobProcesses: [
           "disableIncreaseDesired": true,
           "disableDecreaseDesired": true
         ],
       constraints: [
-          soft: [
-            "AvailabilityZone" : "us-east-1d",
-            "exclusiveHost" : "us-east-1d"
-          ],
-          hard: [
-            "uniqueHost" : "us-east-1d"
-          ]
-      ],
-        hardConstraints: [],
-        softConstraints: [
-            "ZoneBalance"
+        soft: [
+          "AvailabilityZone" : "us-east-1d",
+          "exclusiveHost" : "us-east-1d"
+        ],
+        hard: [
+          "uniqueHost" : "us-east-1d"
         ]
+      ],
+      hardConstraints: [],
+      softConstraints: [
+        "ZoneBalance"
+      ]
     )
     titusClient.findJobsByApplication(_) >> []
 
     SubmitJobRequest.Constraints constraints =  new SubmitJobRequest.Constraints (
-        hard:["uniqueHost":"us-east-1d"],
-        soft: ["AvailabilityZone":"us-east-1d", "exclusiveHost":"us-east-1d"]
+      hard:["uniqueHost":"us-east-1d"],
+      soft: ["AvailabilityZone":"us-east-1d", "exclusiveHost":"us-east-1d"]
     )
-
-    titusDeployHandler.deployDefaults = [
-      addAppGroupToServerGroup: false
-    ] as AwsConfiguration.DeployDefaults
-
-    titusDeployHandler.accountCredentialsProvider = accountCredentialsProvider
 
     when:
     DeploymentResult deploymentResult = titusDeployHandler.handle(titusDeployDescription, [])
@@ -164,7 +194,7 @@ class TitusDeployHandlerSpec extends Specification {
         ],
         containerAttributes: [
             'k1': 'value1',
-            'k2': 123
+            'k2': '123'
         ],
         hardConstraints: [],
         softConstraints: [
@@ -172,11 +202,6 @@ class TitusDeployHandlerSpec extends Specification {
         ]
     )
     titusClient.findJobsByApplication(_) >> []
-    titusDeployHandler.deployDefaults = [
-        addAppGroupToServerGroup: false
-    ] as AwsConfiguration.DeployDefaults
-
-    titusDeployHandler.accountCredentialsProvider = accountCredentialsProvider
 
     when:
     DeploymentResult deploymentResult = titusDeployHandler.handle(titusDeployDescription, [])
@@ -206,5 +231,4 @@ class TitusDeployHandlerSpec extends Specification {
           it.constraints[0] != null
     } as SubmitJobRequest) >> "123456"
   }
-
 }
