@@ -142,6 +142,57 @@ class UpsertAmazonLoadBalancerClassicAtomicOperationSpec extends Specification {
     0 * _
   }
 
+  void "should replace invalid characters in load balancer name"() {
+    given:
+    def existingLoadBalancers = []
+    description.vpcId = "vpcId"
+    description.subnetType = 'internal'
+    description.name = null
+    description.clusterName = "foo_bar-baz"
+
+    when:
+    operation.operate([])
+
+    then:
+    1 * mockSubnetAnalyzer.getSubnetIdsForZones(['us-east-1a'], 'internal', SubnetTarget.ELB, 1) >> ["subnet-1"]
+    1 * loadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest(loadBalancerNames: ["foobar-baz-frontend"])) >>
+      new DescribeLoadBalancersResult(loadBalancerDescriptions: existingLoadBalancers)
+    1 * loadBalancing.createLoadBalancer(new CreateLoadBalancerRequest(
+      loadBalancerName: "foobar-baz-frontend",
+      listeners: [
+        new Listener(protocol: "HTTP", loadBalancerPort: 80, instanceProtocol: "HTTP", instancePort: 8501)
+      ],
+      availabilityZones: [],
+      subnets: ["subnet-1"],
+      securityGroups: ["sg-1234"],
+      scheme: "internal",
+      tags: []
+    )) >> new CreateLoadBalancerResult(dNSName: "dnsName1")
+    1 * loadBalancing.configureHealthCheck(new ConfigureHealthCheckRequest(
+      loadBalancerName: "foobar-baz-frontend",
+      healthCheck: new HealthCheck(
+        target: "HTTP:7001/health",
+        interval: 10,
+        timeout: 5,
+        unhealthyThreshold: 2,
+        healthyThreshold: 10
+      )
+    ))
+
+    1 * ingressLoadBalancerBuilder.ingressApplicationLoadBalancerGroup(*_) >> new IngressLoadBalancerBuilder.IngressLoadBalancerGroupResult("sg-1234", "kato-elb")
+
+    1 * loadBalancing.modifyLoadBalancerAttributes(new ModifyLoadBalancerAttributesRequest(
+      loadBalancerName: "foobar-baz-frontend",
+      loadBalancerAttributes: new LoadBalancerAttributes(
+        crossZoneLoadBalancing: new CrossZoneLoadBalancing(enabled: true),
+        connectionDraining: new ConnectionDraining(enabled: false),
+        additionalAttributes: [],
+        connectionSettings:  new ConnectionSettings(idleTimeout: 60)
+      )
+    ))
+    0 * _
+  }
+
   void "should fail updating a load balancer with no security groups in VPC"() {
     given:
     def existingLoadBalancers = [

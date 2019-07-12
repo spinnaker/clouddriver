@@ -71,8 +71,9 @@ class AmazonLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadBalan
   Set<AmazonLoadBalancer> getApplicationLoadBalancers(String applicationName) {
     Set<String> loadBalancerKeys = []
     Set<String> targetGroupKeys = []
+    String normalizedAppName = applicationName.replaceAll('[._]', '')
 
-    CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName))
+    CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(normalizedAppName))
 
     Collection<CacheData> applicationServerGroups = []
     if (application) {
@@ -105,11 +106,11 @@ class AmazonLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadBalan
     }
 
     // Add load balancers that were created as a part of this application
-    Collection<String> loadBalancerKeyMatches = allLoadBalancerKeys.findAll { applicationMatcher(it, applicationName) }
+    Collection<String> loadBalancerKeyMatches = allLoadBalancerKeys.findAll { applicationMatcher(it, normalizedAppName) }
     loadBalancerKeys.addAll(loadBalancerKeyMatches)
 
     // Add target groups that were created as a part of this application
-    Collection<String> targetGroupKeyMatches = allTargetGroupKeys.findAll { applicationMatcher(it, applicationName) }
+    Collection<String> targetGroupKeyMatches = allTargetGroupKeys.findAll { applicationMatcher(it, normalizedAppName) }
     targetGroupKeys.addAll(targetGroupKeyMatches)
 
     // Add load balancer keys for all target groups that are associated with the application
@@ -171,7 +172,7 @@ class AmazonLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadBalan
 
     // resolve additional target group details
     targetGroupServerGroupProviders.each {
-      allTargetGroups = it.getServerGroups(applicationName, allTargetGroups, targetGroupData)
+      allTargetGroups = it.getServerGroups(normalizedAppName, allTargetGroups, targetGroupData)
     }
 
     // Combine the groups of server groups since it's just a lookup

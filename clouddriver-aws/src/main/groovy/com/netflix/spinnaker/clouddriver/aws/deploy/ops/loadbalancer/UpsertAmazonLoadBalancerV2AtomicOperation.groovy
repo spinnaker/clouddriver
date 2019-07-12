@@ -82,7 +82,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperation implements AtomicOperation<Upser
       def region = entry.key
       def availabilityZones = entry.value
       def regionScopedProvider = regionScopedProviderFactory.forRegion(description.credentials, region)
-      def loadBalancerName = description.name ?: "${description.clusterName}-frontend".toString()
+      def loadBalancerName = (description.name ?: "${description.clusterName}-frontend").replaceAll('[._]', '').toString()
 
       //maintains bwc with the contains internal check.
       boolean isInternal = description.getIsInternal() != null ? description.getIsInternal() : description.subnetType?.contains('internal')
