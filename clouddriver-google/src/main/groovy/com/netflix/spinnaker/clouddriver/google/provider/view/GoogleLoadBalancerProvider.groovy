@@ -53,21 +53,32 @@ class GoogleLoadBalancerProvider implements LoadBalancerProvider<GoogleLoadBalan
 
   @Override
   Set<GoogleLoadBalancerView> getApplicationLoadBalancers(String application) {
-    def pattern = Keys.getLoadBalancerKey("*", "*", "${application}*")
-    def identifiers = cacheView.filterIdentifiers(LOAD_BALANCERS.ns, pattern)
+    String pattern = Keys.getLoadBalancerKey("*", "*", "${application}*")
+    Collection<String> identifiers = cacheView.filterIdentifiers(LOAD_BALANCERS.ns, pattern)
 
-    def applicationServerGroups = cacheView.getAll(
+    // It is possible to configure a server group in application A to use a load balancer from
+    // application B. Therefore, if (and only if) we have not already retrieved load balancer
+    // identifiers for all applications, we need to retrieve identifiers for every load balancer
+    // associated with a server group from this application.
+    if (application != null && !application.isEmpty()) {
+      Collection<CacheData> applicationServerGroups = cacheView.getAll(
         SERVER_GROUPS.ns,
         cacheView.filterIdentifiers(SERVER_GROUPS.ns, "${GoogleCloudProvider.ID}:*:${application}-*")
-    )
-    applicationServerGroups.each { CacheData serverGroup ->
-      identifiers.addAll(serverGroup.relationships[LOAD_BALANCERS.ns] ?: [])
+      )
+      applicationServerGroups.each { CacheData serverGroup ->
+        Collection<String> relatedLoadBalancers = serverGroup.relationships[LOAD_BALANCERS.ns] ?: []
+        relatedLoadBalancers.each { String lb ->
+          if (!identifiers.contains(lb)) {
+            identifiers.add(lb)
+          }
+        }
+      }
     }
 
     // TODO(duftler): De-frigga this.
 
     cacheView.getAll(LOAD_BALANCERS.ns,
-                     identifiers.unique(),
+                     identifiers,
                      RelationshipCacheFilter.include(SERVER_GROUPS.ns, INSTANCES.ns)).collect { CacheData loadBalancerCacheData ->
       loadBalancersFromCacheData(loadBalancerCacheData, (loadBalancerCacheData?.relationships?.get(INSTANCES.ns) ?: []) as Set)
     } as Set
