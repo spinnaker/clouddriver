@@ -70,6 +70,8 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     def tasksId = registry.createId('tasks')
     def existingTask = taskRepository.getByClientRequestId(clientRequestId)
     if (existingTask) {
+      // TODO(rz): This branch will need some love for sagas...
+      // If the task exists, but the saga is in a failed state, we'll want to resume the saga on this process.
       return existingTask
     }
     def task = taskRepository.create(TASK_PHASE, "Initializing Orchestration Task...", clientRequestId)
