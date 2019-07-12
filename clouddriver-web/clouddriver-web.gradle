@@ -27,6 +27,7 @@ dependencies {
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
+  implementation project(":clouddriver-saga")
   implementation project(":clouddriver-security")
   implementation project(":clouddriver-sql-mysql")
 
