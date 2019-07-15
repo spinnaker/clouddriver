@@ -368,15 +368,18 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     long startTime = System.nanoTime();
 
     // compute list of kinds we explicitly know the server doesn't support
-    Set<KubernetesKind.ScopedKind> availableResources = jobExecutor.apiResources(this);
+    try {
+      Set<KubernetesKind.ScopedKind> availableResources = jobExecutor.apiResources(this);
+      Map<KubernetesKind, InvalidKindReason> unavailableKinds =
+          allKinds.stream()
+              .filter(k -> k != KubernetesKind.NONE)
+              .filter(k -> !availableResources.contains(k.getScopedKind()))
+              .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
 
-    Map<KubernetesKind, InvalidKindReason> unavailableKinds =
-        allKinds.stream()
-            .filter(k -> k != KubernetesKind.NONE)
-            .filter(k -> !availableResources.contains(k.getScopedKind()))
-            .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
-
-    omitKindsComputed.putAll(unavailableKinds);
+      omitKindsComputed.putAll(unavailableKinds);
+    } catch (Exception e) {
+      log.warn("Failed to evaluate kinds available on server. {}.", e.getMessage());
+    }
 
     Map<KubernetesKind, InvalidKindReason> unreadableKinds =
         allKinds

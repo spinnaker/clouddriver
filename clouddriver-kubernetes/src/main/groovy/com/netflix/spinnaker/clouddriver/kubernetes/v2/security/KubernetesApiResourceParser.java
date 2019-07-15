@@ -26,9 +26,18 @@ public class KubernetesApiResourceParser {
   public static Set<KubernetesKind.ScopedKind> parse(String input) {
     String[] lines = input.trim().split("\n");
     String headerRow = lines[0];
+    int nameIndex = headerRow.indexOf("NAME");
     int apiGroupIndex = headerRow.indexOf("APIGROUP");
     int namespaceIndex = headerRow.indexOf("NAMESPACED");
     int kindIndex = headerRow.indexOf("KIND");
+
+    // we expect NAME to be at index 0 of the first row
+    // if it isn't, then we didn't get the data in the
+    // format we expected
+    if (nameIndex != 0) {
+      throw new IllegalArgumentException(
+          "api-resources input not in the proper format. expected to find NAME header.");
+    }
 
     Set<KubernetesKind.ScopedKind> kinds = new HashSet<>();
 

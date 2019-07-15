@@ -607,11 +607,7 @@ public class KubectlJobExecutor {
 
     JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    if (!status.getResult().equals(JobResult.Result.SUCCESS)) {
-      return false;
-    }
-
-    return true;
+    return status.getResult() == JobResult.Result.SUCCESS;
   }
 
   public boolean authCanINamespaced(
@@ -624,11 +620,7 @@ public class KubectlJobExecutor {
 
     JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
-    if (!status.getResult().equals(JobResult.Result.SUCCESS)) {
-      return false;
-    }
-
-    return true;
+    return status.getResult() == JobResult.Result.SUCCESS;
   }
 
   public Collection<KubernetesPodMetric> topPod(
