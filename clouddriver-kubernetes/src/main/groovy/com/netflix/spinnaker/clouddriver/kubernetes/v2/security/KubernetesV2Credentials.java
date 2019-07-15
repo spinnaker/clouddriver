@@ -37,12 +37,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor.KubectlException;
-import io.kubernetes.client.ApiClient;
-import io.kubernetes.client.apis.AuthorizationV1Api;
 import io.kubernetes.client.models.V1DeleteOptions;
-import io.kubernetes.client.models.V1SelfSubjectAccessReview;
-import io.kubernetes.client.models.V1SelfSubjectAccessReviewBuilder;
-import io.kubernetes.client.util.Config;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -201,13 +196,12 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                           String name = names.get("kind");
 
                           String group = (String) spec.getOrDefault("group", "");
-                          String plural = (String) names.getOrDefault("plural", "");
                           KubernetesApiGroup kubernetesApiGroup =
                               KubernetesApiGroup.fromString(group);
                           boolean isNamespaced = scope.equalsIgnoreCase("namespaced");
 
                           return KubernetesKind.getOrRegisterKind(
-                              name, false, isNamespaced, kubernetesApiGroup, plural);
+                              name, false, isNamespaced, kubernetesApiGroup);
                         })
                     .collect(Collectors.toList());
               } catch (KubectlException e) {
@@ -374,12 +368,12 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     long startTime = System.nanoTime();
 
     // compute list of kinds we explicitly know the server doesn't support
-    List<String> availableResources = jobExecutor.apiResources(this);
+    Set<KubernetesKind.ScopedKind> availableResources = jobExecutor.apiResources(this);
+
     Map<KubernetesKind, InvalidKindReason> unavailableKinds =
-        allKinds
-            .parallelStream()
+        allKinds.stream()
             .filter(k -> k != KubernetesKind.NONE)
-            .filter(k -> !availableResources.contains(k.getPlural()))
+            .filter(k -> !availableResources.contains(k.getScopedKind()))
             .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
 
     omitKindsComputed.putAll(unavailableKinds);
@@ -413,56 +407,23 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private boolean canReadKind(KubernetesKind kind, String checkNamespace) {
     log.info("Checking if {} is readable in account '{}'...", kind, accountName);
-    try {
-      boolean allowed = canReadKindRbac(kind, checkNamespace);
-      String readable = allowed ? "readable" : "not readable";
-      log.info("{} is {} in account {} using SelfSubjectAccessReview", kind, readable, accountName);
-      return allowed;
-    } catch (Exception e) {
-      log.warn(
-          "Call to SelfSubjectAccessReview for {} in account {} failed. Defaulting to legacy check.",
+    boolean allowed;
+    if (kind.isNamespaced()) {
+      allowed =
+          jobExecutor.authCanINamespaced(
+              this, checkNamespace, kind.getScopedKind().getName(), "list");
+    } else {
+      allowed = jobExecutor.authCanI(this, kind.getScopedKind().getName(), "list");
+    }
+
+    if (!allowed) {
+      log.info(
+          "Kind {} will not be cached in account '{}' because it cannot be listed.",
           kind,
           accountName);
     }
 
-    try {
-      if (kind.isNamespaced()) {
-        list(kind, checkNamespace);
-      } else {
-        list(kind, null);
-      }
-      return true;
-    } catch (Exception e) {
-      log.info(
-          "Kind '{}' will not be cached in account '{}' for reason: '{}'",
-          kind,
-          accountName,
-          e.getMessage());
-      log.debug("Reading kind '{}' in account '{}' failed with exception: ", kind, accountName, e);
-      return false;
-    }
-  }
-
-  private boolean canReadKindRbac(KubernetesKind kind, String checkNamespace) throws Exception {
-    ApiClient client = Config.fromConfig(this.kubeconfigFile);
-    V1SelfSubjectAccessReview body =
-        new V1SelfSubjectAccessReviewBuilder()
-            .withApiVersion("authorization.k8s.io/v1")
-            .withKind("SelfSubjectAccessReview")
-            .withNewSpec()
-            .withNewResourceAttributes()
-            .withName(kind.getScopedKind().getName())
-            .withGroup(kind.getScopedKind().getApiGroup().toString())
-            .withNamespace(checkNamespace)
-            .withVerb("list")
-            .endResourceAttributes()
-            .endSpec()
-            .build();
-
-    V1SelfSubjectAccessReview review =
-        new AuthorizationV1Api(client).createSelfSubjectAccessReview(body, "false", false, "false");
-
-    return review.getStatus().isAllowed();
+    return allowed;
   }
 
   public KubernetesManifest get(KubernetesKind kind, String namespace, String name) {
