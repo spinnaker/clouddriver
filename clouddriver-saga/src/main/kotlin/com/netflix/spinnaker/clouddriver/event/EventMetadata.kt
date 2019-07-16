@@ -13,4 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.saga
+package com.netflix.spinnaker.clouddriver.event
+
+import java.time.Instant
+
+/**
+ * Metadata for a [SpinEvent].
+ *
+ * @param version The aggregate version that originated this event
+ * @param timestamp The time at which the event was created
+ * @param serviceVersion The version of clouddriver that created the event
+ * @param provenance Where the event was generated and by what
+ */
+data class EventMetadata(
+  val version: Long,
+  val timestamp: Instant = Instant.now(),
+  val serviceVersion: String = "unknown",
+  val provenance: String = "unknown"
+)

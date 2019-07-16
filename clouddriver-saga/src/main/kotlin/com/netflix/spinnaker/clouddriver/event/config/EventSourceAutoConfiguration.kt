@@ -13,21 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.config
+package com.netflix.spinnaker.clouddriver.event.config
 
 import com.netflix.spinnaker.clouddriver.event.EventPublisher
-import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
-import com.netflix.spinnaker.clouddriver.event.persistence.MemoryEventRepository
+import com.netflix.spinnaker.clouddriver.event.SpringEventPublisher
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
 
+/**
+ * Auto-configures the event sourcing library.
+ *
+ * TODO(rz): Should add a composite [EventPublisher] so [SpringEventPublisher] is always wired up
+ */
 @Configuration
-class EventSourceConfiguration {
+@Import(MemoryEventRepositoryConfig::class)
+class EventSourceAutoConfiguration {
 
   @Bean
-  @ConditionalOnMissingBean(EventRepository::class)
-  fun eventRepository(eventPublisher: EventPublisher): EventRepository {
-    return MemoryEventRepository(eventPublisher)
-  }
+  @ConditionalOnMissingBean(EventPublisher::class)
+  fun eventPublisher(
+    applicationEventPublisher: ApplicationEventPublisher,
+    eventConverters: List<SpringEventPublisher.SpinEventConverter>
+  ): EventPublisher =
+    SpringEventPublisher(applicationEventPublisher, eventConverters)
 }

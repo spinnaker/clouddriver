@@ -26,6 +26,38 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
 
 /**
+ * The brains for the Saga framework, it's entire purpose is to apply a single event and handle the overall business
+ * rules of how Saga events should be handled. By staying entirely out of the workflow aspects, a Saga can lay the
+ * tracks out in front of itself at runtime.
+ *
+ * For every [SagaEvent], there is 0 to N [SagaEventHandler]. A [SagaEventHandler] can require 1 to N prerequisite
+ * [SagaEvent]s before being invoked, similarly each [SagaEventHandler] can emit 0 to N events, allowing complex
+ * fork & join operations.
+ *
+ * A Saga must have all of its required events present in the event log before it is considered completed and
+ * similarly, must have all of its compensation events present in the event log before it is considered rolled back.
+ *
+ * When creating a new saga, it should first be saved, then applied. Saga changes will be saved automatically
+ * by the [SagaService] once it has been initially created.
+ *
+ * ```
+ * val saga = Saga(
+ *   name = "aws://v1.Deploy",
+ *   id = "my-correlation-id",
+ *   requiredEvents = listOf(
+ *     Front50AppLoaded::javaClass.simpleName,
+ *     AmazonDeployCreated::javaClass.simpleName,
+ *     // ...
+ *   ),
+ *   compensationEvents = listOf(
+ *     // ...
+ *   )
+ * )
+ *
+ * sagaService.save(saga)
+ * sagaService.apply(saga.name, saga.id, AwsDeployCreated(description, priorOutputs)
+ * ```
+ *
  * TODO(rz): Metrics
  */
 @Beta
@@ -47,13 +79,14 @@ class SagaService(
   /**
    * TODO(rz): A little save-happy on Sagas in this method
    * TODO(rz): Exception handling
+   * TODO(rz): Implement input checksum verification (somewhere? Maybe not in here...)
    */
   fun apply(sagaName: String, sagaId: String, event: SagaEvent) {
     log.debug("Applying $sagaName/$sagaId: $event")
 
     val saga = get(sagaName, sagaId)
 
-    val events = eventRepository.list(sagaName, sagaId)
+    val events = getEvents(sagaName, sagaId)
 
     if (isDuplicate(events, event)) {
       log.info("Received duplicate event for saga '${saga.name}/${saga.id}', skipping: ${event.javaClass.simpleName}")
@@ -101,6 +134,16 @@ class SagaService(
     }
     eventRepository.save(saga.name, saga.id, event.metadata.version, emittedEvents)
   }
+
+  private fun getEvents(sagaName: String, sagaId: String): List<SagaEvent> =
+    eventRepository.list(sagaName, sagaId).let {
+      if (it.any { e -> e !is SagaEvent }) {
+        // TODO(rz): Should probably log error & filter the events out instead?
+        throw SystemException("One or more events for Saga are not of SagaEvent type")
+      }
+      @Suppress("UNCHECKED_CAST")
+      it as List<SagaEvent>
+    }
 
   /**
    * Check if the event has already been applied.

@@ -15,8 +15,13 @@
  */
 package com.netflix.spinnaker.clouddriver.event
 
-import com.netflix.spinnaker.clouddriver.event.models.EventMetadata
-
+/**
+ * The base event class for the event sourcing library.
+ *
+ * @param aggregateType The type of aggregate the event is for
+ * @param aggregateId The id of the aggregate the event is for
+ * @property metadata Associated metadata about the event; not actually part of the "event proper"
+ */
 abstract class SpinEvent(
   val aggregateType: String,
   val aggregateId: String

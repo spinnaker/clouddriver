@@ -15,7 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.event.persistence
 
-import com.netflix.spinnaker.clouddriver.saga.SagaEvent
+import com.netflix.spinnaker.clouddriver.event.SpinEvent
 
 /**
  * The [EventRepository] is responsible for reading and writing immutable event logs from a persistent store.
@@ -23,9 +23,12 @@ import com.netflix.spinnaker.clouddriver.saga.SagaEvent
  * There's deliberately no eviction API. It's expected that each [EventRepository] implementation will implement
  * that functionality on their own, including invocation apis and/or scheduling; tailoring to the operational
  * needs of that backend.
+ *
+ * TODO(rz): Add snapshots
+ * TODO(rz): Add delta saves & event hydration
  */
 interface EventRepository {
-  fun save(aggregateType: String, aggregateId: String, originatingVersion: Long, events: List<SagaEvent>)
+  fun save(aggregateType: String, aggregateId: String, originatingVersion: Long, events: List<SpinEvent>)
 
-  fun list(aggregateType: String, aggregateId: String): List<SagaEvent>
+  fun list(aggregateType: String, aggregateId: String): List<SpinEvent>
 }

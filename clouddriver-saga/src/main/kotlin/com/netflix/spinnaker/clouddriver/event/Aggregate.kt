@@ -13,10 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.event.models
+package com.netflix.spinnaker.clouddriver.event
 
-data class Aggregate(
+/**
+ * The identifiable collection of an event log.
+ *
+ * Aggregates are grouped by a [type] which should be unique for each domain entity, with unique
+ * [id] values therein. A [version] field is used to ensure business logic is operating on the
+ * latest event state; any modification to an [Aggregate] event log will increment this value.
+ * When an operation is attempted on an [version] which is not head, the event framework will
+ * reject the change.
+ */
+class Aggregate(
   val type: String,
   val id: String,
-  val version: Long
-)
+  var version: Long
+) {
+  fun incrementVersion() = version++
+}
