@@ -13,4 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.event.persistence
+package com.netflix.spinnaker.clouddriver.event.exceptions
+
+import com.netflix.spinnaker.kork.exceptions.SystemException
+
+/**
+ * Thrown when one or more [SpinEvent] have been rejected from being committed to an [Aggregate].
+ *
+ * The process which originated the event must be retryable.
+ */
+class AggregateChangeRejectedException(message: String) : SystemException(message) {
+  override fun getRetryable() = true
+}

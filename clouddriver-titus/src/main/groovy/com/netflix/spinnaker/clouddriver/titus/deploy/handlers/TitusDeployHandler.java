@@ -6,7 +6,6 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler;
 import com.netflix.spinnaker.clouddriver.saga.SagaService;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
-import com.netflix.spinnaker.clouddriver.saga.utils.Checksum;
 import com.netflix.spinnaker.clouddriver.titus.JobType;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.Front50AppLoaded;
@@ -16,6 +15,7 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployPrepared
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusLoadBalancersApplied;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusScalingPoliciesApplied;
+import com.netflix.spinnaker.clouddriver.util.Checksum;
 import groovy.util.logging.Slf4j;
 import java.util.Arrays;
 import java.util.Collections;
@@ -59,7 +59,6 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
         new Saga(
             "titus://v1.CreateServerGroup",
             Optional.ofNullable(getTask().getRequestId()).orElse(getTask().getId()),
-            "titusDeployHandler",
             requiredEvents,
             Collections.emptyList());
 

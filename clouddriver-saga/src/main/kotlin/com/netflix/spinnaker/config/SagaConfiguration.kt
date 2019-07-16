@@ -15,38 +15,10 @@
  */
 package com.netflix.spinnaker.config
 
-import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.clouddriver.event.EventPublisher
-import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
-import com.netflix.spinnaker.clouddriver.saga.LocalSagaEventPublisher
-import com.netflix.spinnaker.clouddriver.saga.SagaEventHandlerProvider
-import com.netflix.spinnaker.clouddriver.saga.SagaService
-import com.netflix.spinnaker.clouddriver.saga.persistence.MemorySagaRepository
-import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.context.annotation.Bean
+import com.netflix.spinnaker.clouddriver.saga.config.SagaAutoConfiguration
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
 
 @Configuration
-class SagaConfiguration {
-
-  @Bean
-  fun sagaEventHandlerProvider(): SagaEventHandlerProvider = SagaEventHandlerProvider()
-
-  @Bean
-  @ConditionalOnMissingBean(SagaRepository::class)
-  fun sagaRepository(eventRepository: EventRepository): SagaRepository {
-    return MemorySagaRepository(eventRepository)
-  }
-
-  @Bean
-  fun sagaService(sagaRepository: SagaRepository, eventRepository: EventRepository, registry: Registry): SagaService {
-    return SagaService(sagaRepository, eventRepository, SagaEventHandlerProvider(), registry)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean(EventPublisher::class)
-  fun eventPublisher(sagaService: SagaService): EventPublisher {
-    return LocalSagaEventPublisher(sagaService)
-  }
-}
+@Import(SagaAutoConfiguration::class)
+class SagaConfiguration

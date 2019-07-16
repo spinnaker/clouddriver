@@ -18,6 +18,14 @@ package com.netflix.spinnaker.clouddriver.saga.models
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
 
+/**
+ * The primary domain model of the Saga framework.
+ *
+ * @param name The name of the Saga type. This should be shared across all same-type Sagas (e.g. aws deploys)
+ * @param id The Saga instance ID
+ * @param requiredEvents A list of event names that must be saved to the Saga before it is considered completed
+ * @param compensationEvents A list of event names that must be saved for the Saga to be considered rolled back
+ */
 class Saga(
   val name: String,
   val id: String,
