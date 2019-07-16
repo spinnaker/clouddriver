@@ -15,6 +15,13 @@
  */
 package com.netflix.spinnaker.clouddriver.event
 
+/**
+ * The event sourcing library event publisher.
+ *
+ * This library assumes that events are persisted first into a durable store and then propagated out
+ * to subscribers afterwards. There is no contract on immediacy or locality of events being delivered
+ * to subscribers: This is left entirely to the implementation.
+ */
 interface EventPublisher {
   fun publish(event: SpinEvent)
 }

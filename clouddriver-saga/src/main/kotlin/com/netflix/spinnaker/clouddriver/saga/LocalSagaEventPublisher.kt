@@ -18,6 +18,12 @@ package com.netflix.spinnaker.clouddriver.saga
 import com.netflix.spinnaker.clouddriver.event.EventPublisher
 import com.netflix.spinnaker.clouddriver.event.SpinEvent
 
+/**
+ * An [EventPublisher] that immediately applies any events provided to it on the current thread.
+ *
+ * This implementation's purpose is to keep compatibility with Clouddriver 1.x kato task behavior, where all
+ * aspects of an operation were executed as a single thread process until completion or error.
+ */
 class LocalSagaEventPublisher(
   private val sagaService: SagaService
 ) : EventPublisher {
