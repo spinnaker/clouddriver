@@ -17,10 +17,21 @@ package com.netflix.spinnaker.clouddriver.saga.persistence
 
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 
+/**
+ * Provides a thin DSL above [EventRepository] for persisting and retrieving Sagas.
+ */
 interface SagaRepository {
 
-//  fun list(type: String?): List<Saga>
+  /**
+   * Get a [Saga] by its [type] and [id].
+   *
+   * @param type The type of Saga (e.g. awsDeploy, awsCreateLoadBalancer, etc)
+   * @param id The specific ID of the Saga
+   */
   fun get(type: String, id: String): Saga?
+
+  /**
+   * Save a [Saga] as a [SagaSaved] event.
+   */
   fun save(saga: Saga)
-//  fun delete(type: String, id: String)
 }

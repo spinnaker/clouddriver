@@ -37,16 +37,14 @@ class SagaEventHandlerProvider : ApplicationContextAware {
     this.applicationContext = applicationContext
   }
 
-  /**
-   * TODO(rz): I'm doing naughty things in here...
-   */
   fun getMatching(saga: Saga, event: SagaEvent): List<SagaEventHandler<SagaEvent>> {
     val eventType = event.javaClass
     val eventTypeName = eventType.simpleName
 
     @Suppress("UNCHECKED_CAST")
     val matchingHandlers = applicationContext.getBeansOfType(SagaEventHandler::class.java)
-      .filter { handlerMatchesEvent(it.value, event, saga.getEvents()) } as List<SagaEventHandler<*>>
+      .values
+      .filter { handlerMatchesEvent(it, event, saga.getEvents()) } as List<SagaEventHandler<*>>
 
     if (matchingHandlers.isEmpty()) {
       log.error("Could not resolve EventHandler for event: $eventTypeName")
@@ -63,9 +61,17 @@ class SagaEventHandlerProvider : ApplicationContextAware {
 
   private fun handlerMatchesEvent(handler: SagaEventHandler<*>, event: SagaEvent, events: List<SagaEvent>): Boolean {
     val handlerType = ResolvableType.forClass(SagaEventHandler::class.java, handler.javaClass)
+    handlerType.resolve()
 
     val genericEventType = handlerType.getGeneric(0)
-    if (!genericEventType.isAssignableFrom(UnionedSagaEvent::class.java)) {
+    genericEventType.resolve()
+
+    if (genericEventType.rawClass == null) {
+      log.error("No generic event type, this should never happen: ${handler.javaClass.simpleName}, ${event.javaClass.simpleName}")
+      return false
+    }
+
+    if (!UnionedSagaEvent::class.java.isAssignableFrom(genericEventType.rawClass)) {
       return genericEventType.isAssignableFrom(event::class.java)
     }
 
