@@ -4,9 +4,11 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler;
+import com.netflix.spinnaker.clouddriver.event.EventMetadata;
 import com.netflix.spinnaker.clouddriver.saga.SagaService;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.clouddriver.titus.JobType;
+import com.netflix.spinnaker.clouddriver.titus.TitusException;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.Front50AppLoaded;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployCompleted;
@@ -17,6 +19,7 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusLoadBalancersA
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusScalingPoliciesApplied;
 import com.netflix.spinnaker.clouddriver.util.Checksum;
 import groovy.util.logging.Slf4j;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -43,8 +46,8 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
       final TitusDeployDescription inputDescription, List priorOutputs) {
     List<String> requiredEvents =
         Arrays.asList(
-            Front50AppLoaded.class.getSimpleName(),
             TitusDeployCreated.class.getSimpleName(),
+            Front50AppLoaded.class.getSimpleName(),
             TitusDeployPrepared.class.getSimpleName(),
             TitusJobSubmitted.class.getSimpleName(),
             TitusDeployCompleted.class.getSimpleName());
@@ -54,6 +57,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
       requiredEvents.add(TitusScalingPoliciesApplied.class.getSimpleName());
     }
 
+    // TODO(rz): This needs to be re-entrant
     // TODO(rz): compensation events
     Saga saga =
         new Saga(
@@ -64,17 +68,27 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
 
     String checksum = Checksum.md5(inputDescription);
 
-    sagaService.save(saga);
-    sagaService.apply(
-        saga.getName(),
-        saga.getId(),
+    sagaService.save(saga, true);
+
+    // TODO(rz): Change this to a command and then send into the CommandBus, which will handle
+    // getting it into the
+    // event store, etc.
+    TitusDeployCreated titusDeployCreated =
         new TitusDeployCreated(
-            saga.getName(), saga.getId(), inputDescription, priorOutputs, checksum));
+            saga.getName(), saga.getId(), inputDescription, priorOutputs, checksum);
+    titusDeployCreated.setMetadata(
+        new EventMetadata(0, saga.getVersion(), Instant.now(), "unknown", "unknown"));
 
-    TitusDeployCompleted event =
-        sagaService.get(saga.getName(), saga.getId()).getLastEvent(TitusDeployCompleted.class);
-
-    return event.getDeploymentResult();
+    sagaService.apply(titusDeployCreated);
+    return sagaService.awaitCompletion(
+        saga,
+        completedSaga -> {
+          TitusDeployCompleted event = completedSaga.getLastEvent(TitusDeployCompleted.class);
+          if (event == null) {
+            throw new TitusException("Saga failed to complete successfully");
+          }
+          return event.getDeploymentResult();
+        });
   }
 
   @Override

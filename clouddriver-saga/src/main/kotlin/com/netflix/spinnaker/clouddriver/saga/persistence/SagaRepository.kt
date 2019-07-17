@@ -15,12 +15,15 @@
  */
 package com.netflix.spinnaker.clouddriver.saga.persistence
 
+import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 
 /**
  * Provides a thin DSL above [EventRepository] for persisting and retrieving Sagas.
  */
 interface SagaRepository {
+
+  fun list(criteria: ListCriteria): List<Saga>
 
   /**
    * Get a [Saga] by its [type] and [id].
@@ -33,5 +36,9 @@ interface SagaRepository {
   /**
    * Save a [Saga] as a [SagaSaved] event.
    */
-  fun save(saga: Saga)
+  fun save(saga: Saga, additionalEvents: List<SagaEvent>? = null)
+
+  data class ListCriteria(
+    val running: Boolean?
+  )
 }

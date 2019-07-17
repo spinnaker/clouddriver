@@ -28,6 +28,4 @@ class Aggregate(
   val type: String,
   val id: String,
   var version: Long
-) {
-  fun incrementVersion() = version++
-}
+)

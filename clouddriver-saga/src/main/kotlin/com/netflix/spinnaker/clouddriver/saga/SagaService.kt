@@ -17,10 +17,13 @@ package com.netflix.spinnaker.clouddriver.saga
 
 import com.google.common.annotations.Beta
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.clouddriver.event.EventListener
+import com.netflix.spinnaker.clouddriver.event.EventPublisher
+import com.netflix.spinnaker.clouddriver.event.SpinEvent
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
+import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
-import com.netflix.spinnaker.kork.exceptions.SystemException
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
@@ -65,37 +68,43 @@ class SagaService(
   private val sagaRepository: SagaRepository,
   private val eventRepository: EventRepository,
   private val eventHandlerProvider: SagaEventHandlerProvider,
+  eventPublisher: EventPublisher,
   private val registry: Registry
-) : ApplicationContextAware {
+) : ApplicationContextAware, EventListener {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private lateinit var applicationContext: ApplicationContext
+
+  init {
+    eventPublisher.register(this)
+  }
+
+  override fun onEvent(event: SpinEvent) {
+    if (event is SagaEvent) {
+      apply(event)
+    }
+  }
 
   override fun setApplicationContext(applicationContext: ApplicationContext) {
     this.applicationContext = applicationContext
   }
 
   /**
-   * TODO(rz): A little save-happy on Sagas in this method
+   * TODO(rz): A little save-happy on Sagas in this method: That will make things harder for everything.
    * TODO(rz): Exception handling
-   * TODO(rz): Implement input checksum verification (somewhere? Maybe not in here...)
    */
-  fun apply(sagaName: String, sagaId: String, event: SagaEvent) {
+  fun apply(event: SagaEvent) {
+    requireSynthesizedEventMetadata(event)
+
+    val sagaName = event.sagaName
+    val sagaId = event.sagaId
     log.debug("Applying $sagaName/$sagaId: $event")
 
     val saga = get(sagaName, sagaId)
 
-    val events = getEvents(sagaName, sagaId)
-
-    if (isDuplicate(events, event)) {
-      log.info("Received duplicate event for saga '${saga.name}/${saga.id}', skipping: ${event.javaClass.simpleName}")
-      return
-    }
-
-    if (!isEventOutOfOrder(saga, events, event)) {
-      log.error("Received out-of-order event for saga '${saga.name}/${saga.id}', throwing away: ${event.javaClass.simpleName}")
-      // TODO(rz): Worth alerting on this
+    if (isEventOutOfOrder(saga, event)) {
+      log.warn("Received out-of-order event for saga '${saga.name}/${saga.id}', ignoring: ${event.javaClass.simpleName}")
       return
     }
 
@@ -105,14 +114,16 @@ class SagaService(
       return
     }
 
-    handlers.forEach {
-      applySingleHandler(it, saga, event)
-    }
+    val emittedEvents = handlers
+      .flatMap { handler ->
+        log.info("Applying handler '${handler.javaClass.simpleName}' on ${event.javaClass.simpleName}: " +
+          "${saga.name}/{$saga.id}")
+        handler.apply(event, saga)
+      }
 
-    if (allEventsOccurred(saga)) {
+    if (allRequiredEventsApplied(saga)) {
       log.debug("All required events have occurred, completing: $sagaName/$sagaId")
       saga.completed = true
-      sagaRepository.save(saga)
       handlers.forEach { it.finalize(event, saga) }
     }
 
@@ -120,55 +131,50 @@ class SagaService(
     if (isErrorEvent(saga, event)) {
       log.warn("An error event has been emitted, compensating: $sagaName/$sagaId")
       saga.compensating = true
-      sagaRepository.save(saga)
       handlers.forEach { it.compensate(event, saga) }
     }
+
+    saga.setSequence(event.metadata.sequence)
+    sagaRepository.save(saga, emittedEvents)
   }
 
-  private fun applySingleHandler(handler: SagaEventHandler<SagaEvent>, saga: Saga, event: SagaEvent) {
-    log.info("Applying handler '${handler.javaClass.simpleName}' on ${event.javaClass.simpleName}: " +
-      "${saga.name}/{$saga.id}")
-    val emittedEvents = handler.apply(event, saga)
-    if (saga.dirty) {
-      sagaRepository.save(saga)
-    }
-    eventRepository.save(saga.name, saga.id, event.metadata.version, emittedEvents)
+  private fun isEventOutOfOrder(saga: Saga, event: SagaEvent): Boolean = false
+//    saga.getSequence() + 1 != event.metadata.sequence
+
+  private fun allRequiredEventsApplied(saga: Saga): Boolean {
+    val maxRequiredEventVersion = eventRepository.list(saga.name, saga.id)
+      .filter { saga.getRequiredEvents().contains(it.javaClass.simpleName) }
+      .map { it.metadata.sequence }
+      .max()
+      ?: -1
+    return maxRequiredEventVersion >= saga.getSequence()
   }
 
-  private fun getEvents(sagaName: String, sagaId: String): List<SagaEvent> =
-    eventRepository.list(sagaName, sagaId).let {
-      if (it.any { e -> e !is SagaEvent }) {
-        // TODO(rz): Should probably log error & filter the events out instead?
-        throw SystemException("One or more events for Saga are not of SagaEvent type")
-      }
-      @Suppress("UNCHECKED_CAST")
-      it as List<SagaEvent>
+  // TODO(rz): Well this code is obviously not done
+  private fun isErrorEvent(saga: Saga, event: SagaEvent): Boolean = false
+
+  private fun requireSynthesizedEventMetadata(event: SagaEvent) {
+    try {
+      event.metadata.originatingVersion
+    } catch (e: UninitializedPropertyAccessException) {
+      // If this is thrown, it's a core bug in the library.
+      throw SagaSystemException("Event metadata has not been synthesized yet", e)
     }
-
-  /**
-   * Check if the event has already been applied.
-   */
-  private fun isDuplicate(events: List<SagaEvent>, event: SagaEvent): Boolean =
-    events.contains(event)
-
-  /**
-   * Check if the event has been received out-of-order.
-   *
-   * The next event should always be n+1 of the Saga.
-   */
-  private fun isEventOutOfOrder(saga: Saga, events: List<SagaEvent>, event: SagaEvent): Boolean =
-    saga.getVersion() + 1 == event.metadata.version
-
-  private fun allEventsOccurred(saga: Saga): Boolean =
-    eventRepository.list(saga.name, saga.id).map { it.javaClass.simpleName }.containsAll(saga.getRequiredEvents())
-
-  private fun isErrorEvent(saga: Saga, event: SagaEvent): Boolean = event is SagaInternalErrorOccurred
+  }
 
   fun get(sagaName: String, sagaId: String): Saga {
-    return sagaRepository.get(sagaName, sagaId) ?: throw SystemException("It should definitely exist at this point")
+    return sagaRepository.get(sagaName, sagaId) ?: throw SagaSystemException("Saga must be saved before applying")
   }
 
-  fun save(saga: Saga) {
+  fun save(saga: Saga, onlyIfMissing: Boolean = false) {
+    if (onlyIfMissing && sagaRepository.get(saga.name, saga.id) != null) {
+      return
+    }
     sagaRepository.save(saga)
+  }
+
+  fun <T> awaitCompletion(saga: Saga, callback: (completedSaga: Saga) -> T?): T? {
+    // TODO(rz): This would need to change if we had an async event publisher... but we don't right now.
+    return callback(get(saga.name, saga.id))
   }
 }

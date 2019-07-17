@@ -51,7 +51,7 @@ class MemoryEventRepository(
   override fun save(aggregateType: String, aggregateId: String, originatingVersion: Long, events: List<SpinEvent>) {
     registry.counter(aggregateWriteCountId).increment()
 
-    val aggregate = getAggregate(aggregateType, aggregateId, originatingVersion)
+    val aggregate = getAggregate(aggregateType, aggregateId)
 
     if (aggregate.version != originatingVersion) {
       // If this is being thrown, ensure that the originating process is retried on the latest aggregate version
@@ -61,16 +61,18 @@ class MemoryEventRepository(
         "(version: ${aggregate.version}, originatingVersion: $originatingVersion)")
     }
 
+    val currentSequence = this.events[aggregate]!!.map { it.metadata.sequence }.max() ?: 0
     events.forEachIndexed { index, sagaEvent ->
       // TODO(rz): Plugin more metadata (provenance, serviceVersion, etc)
       sagaEvent.metadata = EventMetadata(
-        aggregate.version + (index + 1)
+        sequence = currentSequence + (index + 1),
+        originatingVersion = originatingVersion
       )
     }
 
     registry.counter(eventWriteCountId).increment(events.size.toLong())
     this.events[aggregate]!!.addAll(events)
-    aggregate.incrementVersion()
+    aggregate.version = aggregate.version + 1
 
     events.forEach { eventPublisher.publish(it) }
 
@@ -87,17 +89,12 @@ class MemoryEventRepository(
       ?: throw MissingAggregateEventsException(aggregateType, aggregateId)
   }
 
-  private fun getAggregate(aggregateType: String, aggregateId: String, originatingVersion: Long? = null): Aggregate {
+  private fun getAggregate(aggregateType: String, aggregateId: String): Aggregate {
     registry.counter(aggregateReadCountId).increment()
 
     val agg = events.keys.find { it.type == aggregateType && it.id == aggregateId }
     if (agg != null) {
       return agg
-    }
-
-    if (originatingVersion != null && originatingVersion > 0) {
-      // Just don't pass an originating version if you know the aggregate is new.
-      throw AggregateChangeRejectedException("An originating version greater than 0 was provided for a new aggregate")
     }
 
     val aggregate = Aggregate(
@@ -111,7 +108,7 @@ class MemoryEventRepository(
     return aggregate
   }
 
-  @Scheduled(fixedDelayString = "spinnaker.clouddriver.eventing.memory-repository.cleanup-job-delay-ms")
+  @Scheduled(fixedDelayString = "\${spinnaker.clouddriver.eventing.memory-repository.cleanup-job-delay-ms:60000}")
   private fun cleanup() {
     registry.counter(eventReadCountId).increment()
 
