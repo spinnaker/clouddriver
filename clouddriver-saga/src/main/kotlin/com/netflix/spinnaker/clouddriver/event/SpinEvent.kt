@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.clouddriver.event
 
+import java.util.UUID
+
 /**
  * The base event class for the event sourcing library.
  *
@@ -26,5 +28,7 @@ abstract class SpinEvent(
   val aggregateType: String,
   val aggregateId: String
 ) {
+  val id = UUID.randomUUID().toString()
+
   lateinit var metadata: EventMetadata
 }

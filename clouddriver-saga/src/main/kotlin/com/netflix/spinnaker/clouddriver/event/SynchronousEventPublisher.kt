@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,18 +15,25 @@
  */
 package com.netflix.spinnaker.clouddriver.event
 
-/**
- * The event sourcing library event publisher.
- *
- * This library assumes that events are persisted first into a durable store and then propagated out
- * to subscribers afterwards. There is no contract on immediacy or locality of events being delivered
- * to subscribers: This is left entirely to the implementation.
- */
-interface EventPublisher {
-  fun register(listener: EventListener)
-  fun publish(event: SpinEvent)
-}
+import org.slf4j.LoggerFactory
 
-interface EventListener {
-  fun onEvent(event: SpinEvent)
+class SynchronousEventPublisher : EventPublisher {
+
+  private val log by lazy { LoggerFactory.getLogger(javaClass) }
+
+  private val listeners: MutableList<EventListener> = mutableListOf()
+
+  override fun register(listener: EventListener) {
+    listeners.add(listener)
+  }
+
+  override fun publish(event: SpinEvent) {
+    listeners.forEach {
+      try {
+        it.onEvent(event)
+      } catch (e: Exception) {
+        log.error("EventListener generated an error", e)
+      }
+    }
+  }
 }

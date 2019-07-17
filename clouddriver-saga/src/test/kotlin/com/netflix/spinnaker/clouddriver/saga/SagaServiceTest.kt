@@ -15,19 +15,61 @@
  */
 package com.netflix.spinnaker.clouddriver.saga
 
+import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.clouddriver.event.EventMetadata
+import com.netflix.spinnaker.clouddriver.event.EventPublisher
+import com.netflix.spinnaker.clouddriver.event.SynchronousEventPublisher
+import com.netflix.spinnaker.clouddriver.event.config.MemoryEventRepositoryConfigProperties
+import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
+import com.netflix.spinnaker.clouddriver.event.persistence.MemoryEventRepository
+import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
+import com.netflix.spinnaker.clouddriver.saga.models.Saga
+import com.netflix.spinnaker.clouddriver.saga.persistence.DefaultSagaRepository
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import io.mockk.every
+import io.mockk.mockk
+import strikt.api.expectThrows
 
 class SagaServiceTest : JUnit5Minutests {
 
-  fun tests() = rootContext {
+  fun tests() = rootContext<Fixture> {
+
+    fixture {
+      Fixture()
+    }
 
     context("applying a non-existent saga") {
-      test("throws an illegal state exception") {}
+      test("throws system exception") {
+        val saga = Saga(
+          name = "noexist",
+          id = "nope",
+          requiredEvents = listOf(),
+          compensationEvents = listOf()
+        )
+        expectThrows<SagaSystemException> {
+          subject.apply(EmptyEvent(saga))
+        }
+      }
     }
 
     context("applying an event to a saga") {
-      test("no matching event handler does nothing") {}
+      test("no matching event handler does nothing") {
+        val saga = Saga(
+          name = "test",
+          id = "1",
+          requiredEvents = listOf(),
+          compensationEvents = listOf()
+        )
+
+        every { handlerProvider.getMatching(any(), any()) } returns listOf()
+
+        subject.save(saga)
+        subject.apply(EmptyEvent(saga).apply {
+          metadata = EventMetadata(version = 0L)
+        })
+      }
+
       test("a matching event handler applies the event") {}
       test("a duplicate event is ignored") {}
       test("an event applied out-of-order is ignored") {}
@@ -44,4 +86,26 @@ class SagaServiceTest : JUnit5Minutests {
       test("calls the compensate method of a handler") {}
     }
   }
+
+  inner class Fixture {
+    val eventPublisher: EventPublisher = SynchronousEventPublisher()
+
+    val eventRepository: EventRepository = MemoryEventRepository(
+      MemoryEventRepositoryConfigProperties(),
+      eventPublisher,
+      NoopRegistry()
+    )
+
+    val handlerProvider: SagaEventHandlerProvider = mockk(relaxed = true)
+
+    val subject: SagaService = SagaService(
+      DefaultSagaRepository(eventRepository),
+      eventRepository,
+      handlerProvider,
+      eventPublisher,
+      NoopRegistry()
+    )
+  }
+
+  inner class EmptyEvent(saga: Saga) : SagaEvent(saga.name, saga.id)
 }

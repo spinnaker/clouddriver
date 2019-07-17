@@ -20,13 +20,15 @@ import java.time.Instant
 /**
  * Metadata for a [SpinEvent].
  *
- * @param version The aggregate version that originated this event
+ * @param sequence Auto-incrementing number for event ordering
+ * @param originatingVersion The aggregate version that originated this event
  * @param timestamp The time at which the event was created
  * @param serviceVersion The version of clouddriver that created the event
  * @param provenance Where the event was generated and by what
  */
 data class EventMetadata(
-  val version: Long,
+  val sequence: Long,
+  val originatingVersion: Long,
   val timestamp: Instant = Instant.now(),
   val serviceVersion: String = "unknown",
   val provenance: String = "unknown"
