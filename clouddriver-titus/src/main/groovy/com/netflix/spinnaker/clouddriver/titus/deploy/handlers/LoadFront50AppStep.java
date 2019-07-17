@@ -30,13 +30,17 @@ import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class LoadFront50AppStep implements SagaEventHandler<TitusDeployCreated> {
   private static final Logger log = LoggerFactory.getLogger(LoadFront50AppStep.class);
 
   private final Front50Service front50Service;
   private final ObjectMapper objectMapper;
 
+  @Autowired
   public LoadFront50AppStep(Front50Service front50Service, ObjectMapper objectMapper) {
     this.front50Service = front50Service;
     this.objectMapper = objectMapper;
