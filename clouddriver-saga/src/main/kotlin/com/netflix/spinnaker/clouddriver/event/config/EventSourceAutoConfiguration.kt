@@ -16,9 +16,8 @@
 package com.netflix.spinnaker.clouddriver.event.config
 
 import com.netflix.spinnaker.clouddriver.event.EventPublisher
-import com.netflix.spinnaker.clouddriver.event.SpringEventPublisher
+import com.netflix.spinnaker.clouddriver.event.SynchronousEventPublisher
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
@@ -34,9 +33,5 @@ class EventSourceAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(EventPublisher::class)
-  fun eventPublisher(
-    applicationEventPublisher: ApplicationEventPublisher,
-    eventConverters: List<SpringEventPublisher.SpinEventConverter>
-  ): EventPublisher =
-    SpringEventPublisher(applicationEventPublisher, eventConverters)
+  fun eventPublisher(): EventPublisher = SynchronousEventPublisher()
 }

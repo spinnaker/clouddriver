@@ -33,8 +33,10 @@ object Checksum {
     .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
     .disable(SerializationFeature.INDENT_OUTPUT)
 
+  @JvmStatic
   fun md5(inputs: Any): String = md5(mapper.convertValue(inputs))
 
+  @JvmStatic
   fun md5(inputs: Map<String, Any?>): String {
 
     val bytes = try {

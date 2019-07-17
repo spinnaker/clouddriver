@@ -28,11 +28,15 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusLoadBalancersA
 import java.util.Collections;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class AddLoadBalancersStep implements SagaEventHandler<TitusJobSubmitted> {
 
   private final TitusClientProvider titusClientProvider;
 
+  @Autowired
   public AddLoadBalancersStep(TitusClientProvider titusClientProvider) {
     this.titusClientProvider = titusClientProvider;
   }

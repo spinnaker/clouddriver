@@ -52,14 +52,18 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /** Prepares a final TitusDeployDescription for the TitusDeployHandler. */
+@Component
 public class PrepareTitusDeploymentStep extends AbstractTitusDeployStep
     implements SagaEventHandler<Front50AppLoaded> {
 
@@ -74,29 +78,27 @@ public class PrepareTitusDeploymentStep extends AbstractTitusDeployStep
       "spinnaker.useApplicationDefaultSecurityGroup";
   private static final String LABEL_TARGET_GROUPS = "spinnaker.targetGroups";
 
-  private final TitusClient titusClient;
   private final AwsLookupUtil awsLookupUtil;
-  private final AwsConfiguration.DeployDefaults deployDefaults;
   private final RegionScopedProviderFactory regionScopedProviderFactory;
   private final AccountCredentialsProvider accountCredentialsProvider;
+  private final AwsConfiguration.DeployDefaults deployDefaults;
   private final TargetGroupLookupHelper targetGroupLookupHelper;
 
+  @Autowired
   public PrepareTitusDeploymentStep(
       AccountCredentialsRepository accountCredentialsRepository,
       TitusClientProvider titusClientProvider,
-      TitusClient titusClient,
       AwsLookupUtil awsLookupUtil,
-      AwsConfiguration.DeployDefaults deployDefaults,
       RegionScopedProviderFactory regionScopedProviderFactory,
       AccountCredentialsProvider accountCredentialsProvider,
-      TargetGroupLookupHelper targetGroupLookupHelper) {
+      AwsConfiguration.DeployDefaults deployDefaults,
+      Optional<TargetGroupLookupHelper> targetGroupLookupHelper) {
     super(accountCredentialsRepository, titusClientProvider);
-    this.titusClient = titusClient;
     this.awsLookupUtil = awsLookupUtil;
-    this.deployDefaults = deployDefaults;
     this.regionScopedProviderFactory = regionScopedProviderFactory;
     this.accountCredentialsProvider = accountCredentialsProvider;
-    this.targetGroupLookupHelper = targetGroupLookupHelper;
+    this.deployDefaults = deployDefaults;
+    this.targetGroupLookupHelper = targetGroupLookupHelper.orElse(new TargetGroupLookupHelper());
   }
 
   private static <T> T orDefault(T input, T defaultValue) {
@@ -113,6 +115,10 @@ public class PrepareTitusDeploymentStep extends AbstractTitusDeployStep
   @NotNull
   @Override
   public List<SagaEvent> apply(@NotNull Front50AppLoaded event, @NotNull Saga saga) {
+    final TitusClient titusClient =
+        titusClientProvider.getTitusClient(
+            event.getDescription().getCredentials(), event.getDescription().getRegion());
+
     final TitusDeployDescription description = event.getDescription();
     final TitusDeployHandler.Front50Application front50Application = event.getFront50App();
 

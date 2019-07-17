@@ -15,7 +15,6 @@
  */
 package com.netflix.spinnaker.clouddriver.saga.persistence
 
-import com.netflix.spinnaker.clouddriver.event.SpinEvent
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.SagaSaved
@@ -27,6 +26,8 @@ class DefaultSagaRepository(
 ) : SagaRepository {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
+
+  override fun list(criteria: SagaRepository.ListCriteria): List<Saga> = TODO()
 
   override fun get(type: String, id: String): Saga? {
     val events = eventRepository.list(type, id)
@@ -44,25 +45,22 @@ class DefaultSagaRepository(
           name = it.name,
           id = it.id,
           requiredEvents = it.getRequiredEvents(),
-          compensationEvents = it.compensationEvents
+          compensationEvents = it.compensationEvents,
+          sequence = it.getSequence()
         )
       }
-      .apply {
-        val invalidEvents = mutableListOf<SpinEvent>()
-
-        @Suppress("UNCHECKED_CAST")
-        hydrateEvents(events.filterNotTo(invalidEvents) { it is SagaEvent }.toList() as List<SagaEvent>)
-
-        if (invalidEvents.isNotEmpty()) {
-          log.error("Non-SagaEvents detected for $type/$id: ${invalidEvents.joinToString(",") { it.javaClass.simpleName }}")
-        }
+      .also { saga ->
+        saga.hydrateEvents(events.filterIsInstance<SagaEvent>())
       }
   }
 
-  override fun save(saga: Saga) {
-    eventRepository.save(saga.name, saga.id, saga.getVersion(), listOf(
-      // TODO(rz): It'd be nice if we just saved the delta and hydrate the Saga instead
-      SagaSaved(saga, "TODO reason")
-    ))
+  override fun save(saga: Saga, additionalEvents: List<SagaEvent>?) {
+    // TODO(rz): The saga should just record internal events that have occurred (SagaSequenceUpdated, SagaCompleted, etc) then save those
+    val events: MutableList<SagaEvent> = mutableListOf(SagaSaved(saga))
+    events.addAll(saga.getPendingEvents())
+    if (additionalEvents != null) {
+      events.addAll(additionalEvents)
+    }
+    eventRepository.save(saga.name, saga.id, saga.getVersion(), events)
   }
 }

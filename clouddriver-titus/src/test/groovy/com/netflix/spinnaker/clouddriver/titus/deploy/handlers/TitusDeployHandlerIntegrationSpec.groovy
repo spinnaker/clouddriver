@@ -1,11 +1,11 @@
 /*
- * Copyright 2015 Netflix, Inc.
+ * Copyright 2019 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,19 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.netflix.spinnaker.clouddriver.titus.deploy.handlers
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
-import com.netflix.spinnaker.clouddriver.saga.DefaultSagaProcessor
-import com.netflix.spinnaker.clouddriver.saga.interceptors.DefaultSagaInterceptor
-import com.netflix.spinnaker.clouddriver.saga.repository.MemorySagaRepository
+import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler
+import com.netflix.spinnaker.clouddriver.saga.SagaService
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider
@@ -35,15 +32,14 @@ import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription
-import com.netflix.spinnaker.config.AwsConfiguration
-import org.springframework.context.ApplicationEventPublisher
+import com.netflix.spinnaker.kork.core.RetrySupport
+import org.springframework.context.ApplicationContext
+import spock.lang.Ignore
 import spock.lang.Specification
 import spock.lang.Subject
 
-/**
- * TODO(rz): Add specs for individual tests; use this as an api spec instead
- */
-class TitusDeployHandlerSpec extends Specification {
+@Ignore("Write tests for the individual steps instead")
+class TitusDeployHandlerIntegrationSpec extends Specification {
   NetflixTitusCredentials netflixTitusCredentials = Mock(NetflixTitusCredentials)
   def accountCredentialsProvider = Mock(AccountCredentialsProvider) {
     getCredentials("test") >> {
@@ -73,23 +69,32 @@ class TitusDeployHandlerSpec extends Specification {
   }
   AwsLookupUtil awsLookupUtil = Mock()
 
+  ApplicationContext applicationContext = Mock() {
+    getBeansOfType(SagaEventHandler) >> {
+      [
+        addLoadBalancersStep: new AddLoadBalancersStep(titusClientProvider),
+        copyScalingPoliciesStep: new CopyScalingPoliciesStep(accountCredentialsRepository, titusClientProvider),
+        finalizeDeploymentStep: new FinalizeDeploymentStep(accountCredentialsProvider),
+        loadFront50AppStep: new LoadFront50AppStep(front50Service, new ObjectMapper()),
+        prepareTitusDeploymentStep: new PrepareTitusDeploymentStep(
+          accountCredentialsRepository,
+          titusClientProvider,
+          titusClient,
+          awsLookupUtil,
+          null,
+          regionScopedProviderFactory,
+          accountCredentialsProvider,
+          null
+        ),
+        submitJobStep: new SubmitJobStep(titusClient, new RetrySupport())
+      ]
+    }
+  }
+
+  SagaService sagaService = Mock()
+
   @Subject
-  TitusDeployHandler titusDeployHandler = new TitusDeployHandler(
-    titusClientProvider,
-    accountCredentialsProvider,
-    accountCredentialsRepository,
-    regionScopedProviderFactory,
-    front50Service,
-    [addAppGroupToServerGroup: false] as AwsConfiguration.DeployDefaults,
-    awsLookupUtil,
-    new DefaultSagaProcessor(
-      new MemorySagaRepository(),
-      new NoopRegistry(),
-      Mock(ApplicationEventPublisher),
-      [new DefaultSagaInterceptor()]
-    ),
-    new ObjectMapper()
-  )
+  TitusDeployHandler titusDeployHandler = new TitusDeployHandler(sagaService)
 
   def setup() {
     Task task = Mock(Task) {
@@ -120,10 +125,10 @@ class TitusDeployHandlerSpec extends Specification {
         'k1': 'value1',
         'k2': '123'
       ],
-        serviceJobProcesses: [
-          "disableIncreaseDesired": true,
-          "disableDecreaseDesired": true
-        ],
+      serviceJobProcesses: [
+        "disableIncreaseDesired": true,
+        "disableDecreaseDesired": true
+      ],
       constraints: [
         soft: [
           "AvailabilityZone" : "us-east-1d",
@@ -170,36 +175,36 @@ class TitusDeployHandlerSpec extends Specification {
         it.allocateIpAddress == titusDeployDescription.resources.allocateIpAddress &&
         it.labels.get("interestingHealthProviderNames") == "Titus,Discovery" &&
         it.containerConstraints == constraints
-        it.serviceJobProcesses == titusDeployDescription.serviceJobProcesses
+      it.serviceJobProcesses == titusDeployDescription.serviceJobProcesses
     } as SubmitJobRequest) >> "123456"
   }
 
   void 'TitusDeployHandler with constraints should submit a Titus job successfully'() {
     given:
     TitusDeployDescription titusDeployDescription = new TitusDeployDescription(
-        application: 'api',
-        stack: 'test',
-        freeFormDetails: '',
-        region: 'us-east-1',
-        jobType: 'service',
-        subnet: 'vpc0',
-        imageId: 'api.server:master-201506020033-trusty-7366606',
-        capacity: [desired: 1, min: 1, max: 2],
-        resources: [cpu: 2, memory: 4, disk: 4000, ports: [7001], allocateIpAddress: true],
-        env: ['netflix.environment': 'test'],
-        credentials: testCredentials,
-        interestingHealthProviderNames: [
-            "Titus",
-            "Discovery"
-        ],
-        containerAttributes: [
-            'k1': 'value1',
-            'k2': '123'
-        ],
-        hardConstraints: [],
-        softConstraints: [
-            "ZoneBalance"
-        ]
+      application: 'api',
+      stack: 'test',
+      freeFormDetails: '',
+      region: 'us-east-1',
+      jobType: 'service',
+      subnet: 'vpc0',
+      imageId: 'api.server:master-201506020033-trusty-7366606',
+      capacity: [desired: 1, min: 1, max: 2],
+      resources: [cpu: 2, memory: 4, disk: 4000, ports: [7001], allocateIpAddress: true],
+      env: ['netflix.environment': 'test'],
+      credentials: testCredentials,
+      interestingHealthProviderNames: [
+        "Titus",
+        "Discovery"
+      ],
+      containerAttributes: [
+        'k1': 'value1',
+        'k2': '123'
+      ],
+      hardConstraints: [],
+      softConstraints: [
+        "ZoneBalance"
+      ]
     )
     titusClient.findJobsByApplication(_) >> []
 
@@ -214,21 +219,21 @@ class TitusDeployHandlerSpec extends Specification {
     accountCredentialsProvider.getCredentials(_) >> netflixTitusCredentials
     1 * titusClient.submitJob({
       it.jobName == 'api-test-v000' &&
-          it.dockerImageName == 'api.server' &&
-          it.dockerImageVersion == 'master-201506020033-trusty-7366606' &&
-          it.instancesMin == titusDeployDescription.capacity.min &&
-          it.instancesMax == titusDeployDescription.capacity.max &&
-          it.instancesDesired == titusDeployDescription.capacity.desired &&
-          it.cpu == titusDeployDescription.resources.cpu &&
-          it.memory == titusDeployDescription.resources.memory &&
-          it.disk == titusDeployDescription.resources.disk &&
-          it.ports == titusDeployDescription.resources.ports &&
-          it.env == titusDeployDescription.env &&
-          it.application == titusDeployDescription.application &&
-          it.allocateIpAddress == titusDeployDescription.resources.allocateIpAddress &&
-          it.labels.get("interestingHealthProviderNames") == "Titus,Discovery" &&
-          it.containerConstraints == null &&
-          it.constraints[0] != null
+        it.dockerImageName == 'api.server' &&
+        it.dockerImageVersion == 'master-201506020033-trusty-7366606' &&
+        it.instancesMin == titusDeployDescription.capacity.min &&
+        it.instancesMax == titusDeployDescription.capacity.max &&
+        it.instancesDesired == titusDeployDescription.capacity.desired &&
+        it.cpu == titusDeployDescription.resources.cpu &&
+        it.memory == titusDeployDescription.resources.memory &&
+        it.disk == titusDeployDescription.resources.disk &&
+        it.ports == titusDeployDescription.resources.ports &&
+        it.env == titusDeployDescription.env &&
+        it.application == titusDeployDescription.application &&
+        it.allocateIpAddress == titusDeployDescription.resources.allocateIpAddress &&
+        it.labels.get("interestingHealthProviderNames") == "Titus,Discovery" &&
+        it.containerConstraints == null &&
+        it.constraints[0] != null
     } as SubmitJobRequest) >> "123456"
   }
 }

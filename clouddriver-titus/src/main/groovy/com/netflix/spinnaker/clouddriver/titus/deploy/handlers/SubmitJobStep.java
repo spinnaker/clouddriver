@@ -19,6 +19,7 @@ import com.netflix.spinnaker.clouddriver.saga.SagaEvent;
 import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.clouddriver.titus.JobType;
+import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusException;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient;
 import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest;
@@ -32,15 +33,19 @@ import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 @Slf4j
+@Component
 public class SubmitJobStep implements SagaEventHandler<TitusDeployPrepared> {
 
-  private final TitusClient titusClient;
+  private final TitusClientProvider titusClientProvider;
   private final RetrySupport retrySupport;
 
-  public SubmitJobStep(TitusClient titusClient, RetrySupport retrySupport) {
-    this.titusClient = titusClient;
+  @Autowired
+  public SubmitJobStep(TitusClientProvider titusClientProvider, RetrySupport retrySupport) {
+    this.titusClientProvider = titusClientProvider;
     this.retrySupport = retrySupport;
   }
 
@@ -69,6 +74,10 @@ public class SubmitJobStep implements SagaEventHandler<TitusDeployPrepared> {
   @NotNull
   @Override
   public List<SagaEvent> apply(@NotNull TitusDeployPrepared event, @NotNull Saga saga) {
+    final TitusClient titusClient =
+        titusClientProvider.getTitusClient(
+            event.getDescription().getCredentials(), event.getDescription().getRegion());
+
     final SubmitJobRequest submitJobRequest = event.getSubmitJobRequest();
     final TitusDeployDescription description = event.getDescription();
     final String[] nextServerGroupName = {event.getNextServerGroupName()};
