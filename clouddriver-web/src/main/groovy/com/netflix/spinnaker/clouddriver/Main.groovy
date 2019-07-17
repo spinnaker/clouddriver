@@ -75,7 +75,7 @@ class Main extends SpringBootServletInitializer {
   private static final Map<String, String> BOOTSTRAP_SYSTEM_PROPS = [
     'spring.application.name'               : 'clouddriver',
     // default locations must be included pending the resolution of https://github.com/spring-cloud/spring-cloud-commons/issues/466
-    'spring.cloud.bootstrap.location'       : 'classpath:/,classpath:/config/,file:./,file:./config/,${user.home}/.spinnaker/',
+    'spring.cloud.bootstrap.location'       : 'classpath:/,classpath:/config/,file:./,file:./config/,/opt/spinnaker/config/,${user.home}/.spinnaker/',
     'spring.cloud.bootstrap.name'           : 'spinnakerconfig,${spring.application.name}config',
     'spring.cloud.config.server.bootstrap'  : 'true'
   ]
