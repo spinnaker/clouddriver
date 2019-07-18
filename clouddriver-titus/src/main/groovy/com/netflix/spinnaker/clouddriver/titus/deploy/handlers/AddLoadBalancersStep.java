@@ -62,21 +62,20 @@ public class AddLoadBalancersStep implements SagaEventHandler<TitusJobSubmitted>
 
     TargetGroupLookupHelper.TargetGroupLookupResult targetGroups =
         event.getTargetGroupLookupResult();
-    if (targetGroups == null) {
-      return Collections.emptyList();
+
+    if (targetGroups != null) {
+      String jobUri = event.getJobUri();
+
+      targetGroups
+          .getTargetGroupARNs()
+          .forEach(
+              targetGroupArn -> {
+                loadBalancerClient.addLoadBalancer(jobUri, targetGroupArn);
+                saga.log("Attached %s to %s", targetGroupArn, jobUri);
+              });
+
+      saga.log("Load balancers applied");
     }
-
-    String jobUri = event.getJobUri();
-
-    targetGroups
-        .getTargetGroupARNs()
-        .forEach(
-            targetGroupArn -> {
-              loadBalancerClient.addLoadBalancer(jobUri, targetGroupArn);
-              saga.log("Attached %s to %s", targetGroupArn, jobUri);
-            });
-
-    saga.log("Load balancers applied");
 
     return Collections.singletonList(new TitusLoadBalancersApplied(saga.getName(), saga.getId()));
   }
