@@ -25,12 +25,15 @@ import org.jetbrains.annotations.NotNull;
 public class TitusDeployCompleted extends SagaEvent {
 
   @Nonnull private final TitusDeploymentResult deploymentResult;
+  @Nonnull private final String titusAccountId;
 
   public TitusDeployCompleted(
       @NotNull String sagaName,
       @NotNull String sagaId,
-      @Nonnull TitusDeploymentResult deploymentResult) {
+      @Nonnull TitusDeploymentResult deploymentResult,
+      @Nonnull String titusAccountId) {
     super(sagaName, sagaId);
     this.deploymentResult = deploymentResult;
+    this.titusAccountId = titusAccountId;
   }
 }

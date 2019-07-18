@@ -1,4 +1,4 @@
-apply from: "$rootDir/gradle/kotlin.gradle"
+
 
 dependencies {
   annotationProcessor "org.springframework.boot:spring-boot-autoconfigure-processor"

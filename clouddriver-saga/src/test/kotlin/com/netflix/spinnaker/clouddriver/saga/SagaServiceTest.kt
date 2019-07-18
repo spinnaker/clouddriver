@@ -44,6 +44,7 @@ class SagaServiceTest : JUnit5Minutests {
         val saga = Saga(
           name = "noexist",
           id = "nope",
+          completionHandler = "handler",
           requiredEvents = listOf(),
           compensationEvents = listOf()
         )
@@ -58,6 +59,7 @@ class SagaServiceTest : JUnit5Minutests {
         val saga = Saga(
           name = "test",
           id = "1",
+          completionHandler = "handler",
           requiredEvents = listOf(),
           compensationEvents = listOf()
         )
@@ -104,7 +106,9 @@ class SagaServiceTest : JUnit5Minutests {
       handlerProvider,
       eventPublisher,
       NoopRegistry()
-    )
+    ).apply {
+      setApplicationContext(mockk())
+    }
   }
 
   inner class EmptyEvent(saga: Saga) : SagaEvent(saga.name, saga.id)
