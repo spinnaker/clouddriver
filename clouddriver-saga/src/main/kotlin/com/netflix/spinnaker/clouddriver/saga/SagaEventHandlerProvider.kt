@@ -67,18 +67,38 @@ class SagaEventHandlerProvider : ApplicationContextAware {
     genericEventType.resolve()
 
     if (genericEventType.rawClass == null) {
-      log.error("No generic event type, this should never happen: ${handler.javaClass.simpleName}, ${event.javaClass.simpleName}")
+      log.error("No generic event type, this should never happen: " +
+        "${handler.javaClass.simpleName}, ${event.javaClass.simpleName}")
       return false
     }
 
-    if (!UnionedSagaEvent::class.java.isAssignableFrom(genericEventType.rawClass)) {
-      return genericEventType.isAssignableFrom(event::class.java)
+    return matchTypes(genericEventType, event::class.java, events)
+  }
+
+  private fun matchTypes(
+    genericEventType: ResolvableType,
+    eventType: Class<out SagaEvent>,
+    appliedEvents: List<SagaEvent>
+  ): Boolean {
+    if (!CompositeSagaEvent::class.java.isAssignableFrom(genericEventType.rawClass)) {
+      return genericEventType.isAssignableFrom(eventType)
     }
 
-    return allRequiredEventsExist(
-      genericEventType,
-      events.map { it.javaClass.simpleName }.plus(event.javaClass.simpleName)
-    )
+    if (UnionedSagaEvent::class.java.isAssignableFrom(genericEventType.rawClass)) {
+      return allRequiredEventsExist(
+        genericEventType,
+        appliedEvents.map { it.javaClass.simpleName }.plus(eventType.simpleName)
+      )
+    }
+
+    val nestedCompositeEvents = genericEventType
+      .generics
+      .filter { CompositeSagaEvent::class.java.isAssignableFrom(it.rawClass) }
+    if (nestedCompositeEvents.isEmpty()) {
+      return genericEventType.generics.any { it.isAssignableFrom(eventType) }
+    }
+
+    return nestedCompositeEvents.all { matchTypes(it, eventType, appliedEvents) }
   }
 
   private fun allRequiredEventsExist(unionEventType: ResolvableType, seenEventNames: List<String>): Boolean =

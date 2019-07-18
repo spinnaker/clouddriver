@@ -46,7 +46,6 @@ class EventSourceSystemTest : JUnit5Minutests {
           expectThat(ctx.getBean("eventRepository")).isA<MemoryEventRepository>()
           expect {
             that(ctx.getBean("eventRepository")).describedAs("eventRepository").isA<MemoryEventRepository>()
-            that(ctx.getBean("eventPublisher")).describedAs("eventPublisher").isA<SpringEventPublisher>()
           }
         }
     }

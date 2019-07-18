@@ -66,7 +66,7 @@ class SagaServiceTest : JUnit5Minutests {
 
         subject.save(saga)
         subject.apply(EmptyEvent(saga).apply {
-          metadata = EventMetadata(version = 0L)
+          metadata = EventMetadata(sequence = 0L, originatingVersion = 0L)
         })
       }
 

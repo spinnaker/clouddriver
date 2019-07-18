@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.saga.models
 
+import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
@@ -79,6 +80,11 @@ class Saga(
   fun addEvent(event: SagaEvent) {
     dirty = true
     this.pendingEvents.add(event)
+  }
+
+  @VisibleForTesting
+  fun addEventForTest(event: SagaEvent) {
+    this.events.add(event)
   }
 
   fun hydrateEvents(events: List<SagaEvent>) {

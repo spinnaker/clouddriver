@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.clouddriver.titus.deploy.handlers;
 
+import static java.lang.String.format;
+
 import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent;
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent;
 import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler;
@@ -29,14 +31,11 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployComplete
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusLoadBalancersApplied;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusScalingPoliciesApplied;
+import java.util.Collections;
+import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.Collections;
-import java.util.List;
-
-import static java.lang.String.format;
 
 @Component
 public class FinalizeDeploymentStep
