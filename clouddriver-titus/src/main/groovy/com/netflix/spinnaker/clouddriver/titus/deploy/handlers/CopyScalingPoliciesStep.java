@@ -149,7 +149,4 @@ public class CopyScalingPoliciesStep extends AbstractTitusDeployStep
 
   @Override
   public void compensate(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {}
-
-  @Override
-  public void finalize(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {}
 }

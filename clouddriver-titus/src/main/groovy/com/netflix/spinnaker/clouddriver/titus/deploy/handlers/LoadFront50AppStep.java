@@ -77,7 +77,4 @@ public class LoadFront50AppStep implements SagaEventHandler<TitusDeployCreated> 
 
   @Override
   public void compensate(@NotNull TitusDeployCreated event, @NotNull Saga saga) {}
-
-  @Override
-  public void finalize(@NotNull TitusDeployCreated event, @NotNull Saga saga) {}
 }

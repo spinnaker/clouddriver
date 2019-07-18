@@ -74,7 +74,6 @@ class TitusDeployHandlerIntegrationSpec extends Specification {
       [
         addLoadBalancersStep: new AddLoadBalancersStep(titusClientProvider),
         copyScalingPoliciesStep: new CopyScalingPoliciesStep(accountCredentialsRepository, titusClientProvider),
-        finalizeDeploymentStep: new FinalizeDeploymentStep(accountCredentialsProvider),
         loadFront50AppStep: new LoadFront50AppStep(front50Service, new ObjectMapper()),
         prepareTitusDeploymentStep: new PrepareTitusDeploymentStep(
           accountCredentialsRepository,

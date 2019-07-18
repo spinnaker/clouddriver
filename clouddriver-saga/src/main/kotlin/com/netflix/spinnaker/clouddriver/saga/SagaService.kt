@@ -21,10 +21,14 @@ import com.netflix.spinnaker.clouddriver.event.EventListener
 import com.netflix.spinnaker.clouddriver.event.EventPublisher
 import com.netflix.spinnaker.clouddriver.event.SpinEvent
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
+import com.netflix.spinnaker.clouddriver.saga.exceptions.InvalidSagaCompletionHandlerException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import org.slf4j.LoggerFactory
+import org.springframework.beans.BeansException
+import org.springframework.beans.factory.BeanNotOfRequiredTypeException
+import org.springframework.beans.factory.NoSuchBeanDefinitionException
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
 
@@ -47,6 +51,7 @@ import org.springframework.context.ApplicationContextAware
  * val saga = Saga(
  *   name = "aws://v1.Deploy",
  *   id = "my-correlation-id",
+ *   completionHandler = "myCompletionHandlerBeanName",
  *   requiredEvents = listOf(
  *     Front50AppLoaded::javaClass.simpleName,
  *     AmazonDeployCreated::javaClass.simpleName,
@@ -81,6 +86,7 @@ class SagaService(
   }
 
   override fun onEvent(event: SpinEvent) {
+    // TODO(rz): `apply` would only occur via Commands; this method could disappear
     if (event is SagaEvent) {
       apply(event)
     }
@@ -124,7 +130,6 @@ class SagaService(
     if (allRequiredEventsApplied(saga)) {
       log.debug("All required events have occurred, completing: $sagaName/$sagaId")
       saga.completed = true
-      handlers.forEach { it.finalize(event, saga) }
     }
 
     // Check for an error event last: It's possible an event handler has been provided to handle it explicitly
@@ -147,7 +152,7 @@ class SagaService(
       .map { it.metadata.sequence }
       .max()
       ?: -1
-    return maxRequiredEventVersion >= saga.getSequence()
+    return maxRequiredEventVersion <= saga.getSequence()
   }
 
   // TODO(rz): Well this code is obviously not done
@@ -170,11 +175,37 @@ class SagaService(
     if (onlyIfMissing && sagaRepository.get(saga.name, saga.id) != null) {
       return
     }
+
+    // Just asserting that the completion handler actually exists
+    getCompletionHandler(saga)
+
     sagaRepository.save(saga)
   }
 
-  fun <T> awaitCompletion(saga: Saga, callback: (completedSaga: Saga) -> T?): T? {
-    // TODO(rz): This would need to change if we had an async event publisher... but we don't right now.
-    return callback(get(saga.name, saga.id))
+  fun <T> awaitCompletion(saga: Saga): T? {
+    // TODO(rz): This obviously doesn't "await" anything; it's a placeholder for when the event publisher is async.
+    return get(saga.name, saga.id).let { completedSaga ->
+      @Suppress("UNCHECKED_CAST")
+      getCompletionHandler(completedSaga)?.apply(completedSaga) as T
+    }
   }
+
+  private fun getCompletionHandler(saga: Saga): SagaCompletionHandler<*>? =
+    saga.completionHandler
+      ?.let { completionHandler ->
+        try {
+          applicationContext.getBean(completionHandler, SagaCompletionHandler::class.java)
+        } catch (e: NoSuchBeanDefinitionException) {
+          throw InvalidSagaCompletionHandlerException.notFound(saga.completionHandler, saga.name, e)
+        } catch (e: BeanNotOfRequiredTypeException) {
+          throw InvalidSagaCompletionHandlerException.invalidType(
+            saga.completionHandler,
+            saga.name,
+            applicationContext.getType(saga.completionHandler)?.simpleName ?: "unknown",
+            e
+          )
+        } catch (e: BeansException) {
+          throw InvalidSagaCompletionHandlerException("Could not load saga completion handler", e)
+        }
+      }
 }

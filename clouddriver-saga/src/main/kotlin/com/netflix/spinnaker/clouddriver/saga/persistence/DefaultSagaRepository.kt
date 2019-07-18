@@ -44,6 +44,7 @@ class DefaultSagaRepository(
         Saga(
           name = it.name,
           id = it.id,
+          completionHandler = it.completionHandler,
           requiredEvents = it.getRequiredEvents(),
           compensationEvents = it.compensationEvents,
           sequence = it.getSequence()

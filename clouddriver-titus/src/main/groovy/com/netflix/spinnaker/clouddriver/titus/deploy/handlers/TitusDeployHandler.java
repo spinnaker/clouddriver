@@ -5,9 +5,11 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler;
 import com.netflix.spinnaker.clouddriver.event.EventMetadata;
+import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent;
 import com.netflix.spinnaker.clouddriver.saga.SagaService;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.clouddriver.titus.JobType;
+import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusException;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.Front50AppLoaded;
@@ -57,11 +59,14 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
       requiredEvents.add(TitusScalingPoliciesApplied.class.getSimpleName());
     }
 
-    // TODO(rz): This needs to be re-entrant
+    // TODO(rz): This needs to be re-entrant: Would be nice to pass this off to a
+    // "StartTitusDeployCommand" which
+    // looks up if it needs to either create a new deploy or resume one that already started
     // TODO(rz): compensation events
     Saga saga =
         new Saga(
             "titus://v1.CreateServerGroup",
+            "titusDeployCompletionHandler",
             Optional.ofNullable(getTask().getRequestId()).orElse(getTask().getId()),
             requiredEvents,
             Collections.emptyList());
@@ -71,8 +76,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
     sagaService.save(saga, true);
 
     // TODO(rz): Change this to a command and then send into the CommandBus, which will handle
-    // getting it into the
-    // event store, etc.
+    // getting it into the event store, setting metadata, etc.
     TitusDeployCreated titusDeployCreated =
         new TitusDeployCreated(
             saga.getName(), saga.getId(), inputDescription, priorOutputs, checksum);
@@ -80,15 +84,30 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
         new EventMetadata(0, saga.getVersion(), Instant.now(), "unknown", "unknown"));
 
     sagaService.apply(titusDeployCreated);
-    return sagaService.awaitCompletion(
-        saga,
-        completedSaga -> {
-          TitusDeployCompleted event = completedSaga.getLastEvent(TitusDeployCompleted.class);
-          if (event == null) {
-            throw new TitusException("Saga failed to complete successfully");
-          }
-          return event.getDeploymentResult();
-        });
+    TitusDeployCompleted completedEvent = sagaService.awaitCompletion(saga);
+
+    if (completedEvent == null) {
+      // TODO(rz): Gross
+      throw new TitusException(
+          "Failed to complete titus deployment: Did not receive completed event");
+    }
+
+    // TODO(rz): Ew, side effects...
+    completedEvent
+        .getDeploymentResult()
+        .getServerGroupNames()
+        .forEach(
+            serverGroupName ->
+                inputDescription
+                    .getEvents()
+                    .add(
+                        new CreateServerGroupEvent(
+                            TitusCloudProvider.ID,
+                            completedEvent.getTitusAccountId(),
+                            inputDescription.getRegion(),
+                            serverGroupName)));
+
+    return completedEvent.getDeploymentResult();
   }
 
   @Override
