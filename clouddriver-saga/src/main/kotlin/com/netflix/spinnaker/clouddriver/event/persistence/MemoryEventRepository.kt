@@ -74,6 +74,8 @@ class MemoryEventRepository(
     this.events[aggregate]!!.addAll(events)
     aggregate.version = aggregate.version + 1
 
+    log.debug("Saved $aggregateType/$aggregateId@${aggregate.version}")
+
     events.forEach { eventPublisher.publish(it) }
 
     cleanup()

@@ -25,19 +25,28 @@ import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
  *
  * @param name The name of the Saga type. This should be shared across all same-type Sagas (e.g. aws deploys)
  * @param id The Saga instance ID
+ * @param completionHandler The bean name of the [SagaCompletionHandler] that will be called on finalization of a Saga
+ *                          If no bean is provided, nothing will be automatically invoked on completion.
  * @param requiredEvents A list of event names that must be saved to the Saga before it is considered completed
  * @param compensationEvents A list of event names that must be saved for the Saga to be considered rolled back
  */
 class Saga(
   val name: String,
   val id: String,
+  val completionHandler: String?,
   requiredEvents: List<String>,
   val compensationEvents: List<String>,
   private var sequence: Long = 0
 ) {
 
-  constructor(name: String, id: String, requiredEvents: List<String>, compensationEvents: List<String>) :
-    this(name, id, requiredEvents, compensationEvents, 0)
+  constructor(
+    name: String,
+    id: String,
+    completionHandler: String,
+    requiredEvents: List<String>,
+    compensationEvents: List<String>
+  ) :
+    this(name, id, completionHandler, requiredEvents, compensationEvents, 0)
 
   private val events: MutableList<SagaEvent> = mutableListOf()
   private val requiredEvents: MutableList<String> = requiredEvents.toMutableList()
@@ -115,6 +124,7 @@ class Saga(
   }
 
   fun <T : SagaEvent> getLastEvent(clazz: Class<T>): T? {
+    // TODO(rz): Should change this to return the last event of the given type instead.
     val event = events.lastOrNull() ?: return null
     if (!clazz.isAssignableFrom(event.javaClass)) {
       throw IllegalStateException("Expected ${clazz.simpleName}, got ${event.javaClass.simpleName}")

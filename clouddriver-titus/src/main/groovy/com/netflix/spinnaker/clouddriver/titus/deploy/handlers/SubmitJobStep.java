@@ -148,7 +148,4 @@ public class SubmitJobStep implements SagaEventHandler<TitusDeployPrepared> {
 
   @Override
   public void compensate(@NotNull TitusDeployPrepared event, @NotNull Saga saga) {}
-
-  @Override
-  public void finalize(@NotNull TitusDeployPrepared event, @NotNull Saga saga) {}
 }
