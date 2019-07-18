@@ -22,10 +22,10 @@ import io.mockk.every
 import io.mockk.mockk
 import org.springframework.context.ApplicationContext
 import strikt.api.expectThat
+import strikt.assertions.contains
 import strikt.assertions.containsExactly
 import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.isEmpty
-import strikt.assertions.isEqualTo
 
 class SagaEventHandlerProviderTest : JUnit5Minutests {
 
@@ -37,33 +37,40 @@ class SagaEventHandlerProviderTest : JUnit5Minutests {
 
     context("matching an event to handlers") {
       test("an event without a matching handler") {
-        val event = UnmatchedEvent(saga.name, saga.id)
+        val event = AnotherEvent(saga.name, saga.id)
         expectThat(subject.getMatching(saga, event)).isEmpty()
       }
 
       test("an event with one matching handler") {
         val event = EmptyEvent(saga.name, saga.id)
         expectThat(subject.getMatching(saga, event)) {
-          get { size }.isEqualTo(1)
           containsExactly(emptyHandler)
         }
       }
 
       test("an event with multiple matching handlers") {
-        val event = HelloEvent(saga.name, saga.id, "hi")
+        val event = HelloEvent(saga.name, saga.id)
         expectThat(subject.getMatching(saga, event)) {
-          get { size }.isEqualTo(2)
-          containsExactlyInAnyOrder(textHandler, helloHandler)
+          containsExactlyInAnyOrder(helloHandler, eitherHandler)
         }
       }
 
       test("an event with a matching union handler") {
-        saga.addEvent(EmptyEvent(saga.name, saga.id))
+        saga.addEventForTest(GoodbyeEvent(saga.name, saga.id))
 
-        val event = HelloEvent(saga.name, saga.id, "hi")
+        val event = HelloEvent(saga.name, saga.id)
         expectThat(subject.getMatching(saga, event)) {
-          get { size }.isEqualTo(3)
-          containsExactlyInAnyOrder(textHandler, helloHandler, unionHandler)
+          containsExactlyInAnyOrder(helloHandler, unionHandler, eitherHandler, megaHandler)
+        }
+      }
+
+      test("events with a matching either handler") {
+        expectThat(subject.getMatching(saga, HelloEvent(saga.name, saga.id))) {
+          contains(eitherHandler)
+        }
+
+        expectThat(subject.getMatching(saga, GoodbyeEvent(saga.name, saga.id))) {
+          contains(eitherHandler)
         }
       }
     }
@@ -82,23 +89,26 @@ class SagaEventHandlerProviderTest : JUnit5Minutests {
     }
 
     val emptyHandler = EmptySagaEventHandler()
-    val textHandler = HelloSagaEventHandler()
     val helloHandler = HelloSagaEventHandler()
     val unionHandler = UnionSagaEventHandler()
+    val eitherHandler = EitherSagaEventHandler()
+    val megaHandler = MegaCompositeSagaEventHandler()
 
     init {
       every { applicationContext.getBeansOfType(SagaEventHandler::class.java) } returns mapOf(
         "empty" to emptyHandler,
-        "text" to textHandler,
         "hello" to helloHandler,
-        "union" to unionHandler
+        "union" to unionHandler,
+        "either" to eitherHandler,
+        "mega" to megaHandler
       )
     }
   }
 
   inner class EmptyEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
-  inner class HelloEvent(sagaName: String, sagaId: String, val text: String) : SagaEvent(sagaName, sagaId)
-  inner class UnmatchedEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+  inner class HelloEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+  inner class AnotherEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+  inner class GoodbyeEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
 
   inner class EmptySagaEventHandler : SagaEventHandler<EmptyEvent> {
     override fun apply(event: EmptyEvent, saga: Saga): List<SagaEvent> = listOf()
@@ -106,7 +116,13 @@ class SagaEventHandlerProviderTest : JUnit5Minutests {
   inner class HelloSagaEventHandler : SagaEventHandler<HelloEvent> {
     override fun apply(event: HelloEvent, saga: Saga): List<SagaEvent> = listOf()
   }
-  inner class UnionSagaEventHandler : SagaEventHandler<UnionSagaEvent2<EmptyEvent, HelloEvent>> {
-    override fun apply(event: UnionSagaEvent2<EmptyEvent, HelloEvent>, saga: Saga): List<SagaEvent> = listOf()
+  inner class UnionSagaEventHandler : SagaEventHandler<UnionSagaEvent2<HelloEvent, GoodbyeEvent>> {
+    override fun apply(event: UnionSagaEvent2<HelloEvent, GoodbyeEvent>, saga: Saga): List<SagaEvent> = listOf()
+  }
+  inner class EitherSagaEventHandler : SagaEventHandler<EitherSagaEvent2<HelloEvent, GoodbyeEvent>> {
+    override fun apply(event: EitherSagaEvent2<HelloEvent, GoodbyeEvent>, saga: Saga): List<SagaEvent> = listOf()
+  }
+  inner class MegaCompositeSagaEventHandler : SagaEventHandler<EitherSagaEvent2<AnotherEvent, UnionSagaEvent2<HelloEvent, GoodbyeEvent>>> {
+    override fun apply(event: EitherSagaEvent2<AnotherEvent, UnionSagaEvent2<HelloEvent, GoodbyeEvent>>, saga: Saga): List<SagaEvent> = listOf()
   }
 }
