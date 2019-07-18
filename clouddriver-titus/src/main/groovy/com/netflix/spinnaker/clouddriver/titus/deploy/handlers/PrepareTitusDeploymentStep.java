@@ -459,11 +459,6 @@ public class PrepareTitusDeploymentStep extends AbstractTitusDeployStep
     // Nothing to compensate here
   }
 
-  @Override
-  public void finalize(@NotNull Front50AppLoaded event, @NotNull Saga saga) {
-    // No finalization required
-  }
-
   static class SecurityGroupNotFoundException extends TitusException {
     SecurityGroupNotFoundException(String message) {
       super(message);

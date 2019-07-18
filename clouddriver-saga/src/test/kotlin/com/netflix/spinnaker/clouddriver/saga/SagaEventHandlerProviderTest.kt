@@ -81,6 +81,7 @@ class SagaEventHandlerProviderTest : JUnit5Minutests {
     var saga = Saga(
       name = "deploy",
       id = "1",
+      completionHandler = "completionHandler",
       requiredEvents = listOf(EmptyEvent::class.java.simpleName, HelloEvent::class.java.simpleName),
       compensationEvents = listOf()
     )

@@ -83,7 +83,4 @@ public class AddLoadBalancersStep implements SagaEventHandler<TitusJobSubmitted>
 
   @Override
   public void compensate(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {}
-
-  @Override
-  public void finalize(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {}
 }

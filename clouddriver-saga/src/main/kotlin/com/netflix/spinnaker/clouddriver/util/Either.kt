@@ -13,28 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.event
+package com.netflix.spinnaker.clouddriver.util
 
-import org.slf4j.LoggerFactory
+import com.netflix.spinnaker.kork.exceptions.SystemException
 
-class SynchronousEventPublisher : EventPublisher {
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
-
-  private val listeners: MutableList<EventListener> = mutableListOf()
-
-  override fun register(listener: EventListener) {
-    listeners.add(listener)
-  }
-
-  override fun publish(event: SpinEvent) {
-    listeners.forEach {
-      try {
-        it.onEvent(event)
-        log.trace("Published event: $event")
-      } catch (e: Exception) {
-        log.error("EventListener generated an error", e)
-      }
+class Either<A, B>(
+  val a: A?,
+  val b: B?
+) {
+  init {
+    if (a == null && b == null) {
+      throw IllegalArgumentsException()
+    }
+    if (a != null && b != null) {
+      throw IllegalArgumentsException()
     }
   }
+
+  private class IllegalArgumentsException : SystemException("Only one type of Either<A, B> must be set")
 }
