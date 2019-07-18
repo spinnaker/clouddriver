@@ -73,7 +73,8 @@ public class CopyScalingPoliciesStep extends AbstractTitusDeployStep
     if (sourceClient == null) {
       // No source, no copying.
       saga.log("Not applying scaling policies: No source to copy from");
-      return Collections.emptyList();
+      return Collections.singletonList(
+          new TitusScalingPoliciesApplied(saga.getName(), saga.getId()));
     }
 
     TitusAutoscalingClient autoscalingClient =

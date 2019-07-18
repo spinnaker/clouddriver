@@ -24,6 +24,7 @@ import groovy.util.logging.Slf4j;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,13 +47,14 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
   @Override
   public TitusDeploymentResult handle(
       final TitusDeployDescription inputDescription, List priorOutputs) {
+
     List<String> requiredEvents =
-        Arrays.asList(
-            TitusDeployCreated.class.getSimpleName(),
-            Front50AppLoaded.class.getSimpleName(),
-            TitusDeployPrepared.class.getSimpleName(),
-            TitusJobSubmitted.class.getSimpleName(),
-            TitusDeployCompleted.class.getSimpleName());
+        new LinkedList<>(
+            Arrays.asList(
+                TitusDeployCreated.class.getSimpleName(),
+                Front50AppLoaded.class.getSimpleName(),
+                TitusDeployPrepared.class.getSimpleName(),
+                TitusJobSubmitted.class.getSimpleName()));
 
     if (JobType.SERVICE.value().equals(inputDescription.getJobType())) {
       requiredEvents.add(TitusLoadBalancersApplied.class.getSimpleName());
@@ -62,6 +64,8 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
     // TODO(rz): This needs to be re-entrant: Would be nice to pass this off to a
     // "StartTitusDeployCommand" which
     // looks up if it needs to either create a new deploy or resume one that already started
+    requiredEvents.add(TitusDeployCompleted.class.getSimpleName());
+
     // TODO(rz): compensation events
     Saga saga =
         new Saga(
