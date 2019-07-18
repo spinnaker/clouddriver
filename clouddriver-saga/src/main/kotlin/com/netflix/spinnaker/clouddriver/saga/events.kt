@@ -98,30 +98,30 @@ interface EitherSagaEvent : CompositeSagaEvent
 
 class EitherSagaEvent2<A : SagaEvent, B : SagaEvent>(
   saga: Saga,
-  val a: A,
-  val b: B
+  val a: A?,
+  val b: B?
 ) : SagaEvent(saga.name, saga.id), EitherSagaEvent
 
 class EitherSagaEvent3<A : SagaEvent, B : SagaEvent, C : SagaEvent>(
   saga: Saga,
-  val a: A,
-  val b: B,
-  val c: C
+  val a: A?,
+  val b: B?,
+  val c: C?
 ) : SagaEvent(saga.name, saga.id), EitherSagaEvent
 
 class EitherSagaEvent4<A : SagaEvent, B : SagaEvent, C : SagaEvent, D : SagaEvent>(
   saga: Saga,
-  val a: A,
-  val b: B,
-  val c: C,
-  val d: D
+  val a: A?,
+  val b: B?,
+  val c: C?,
+  val d: D?
 ) : SagaEvent(saga.name, saga.id), EitherSagaEvent
 
 class EitherSagaEvent5<A : SagaEvent, B : SagaEvent, C : SagaEvent, D : SagaEvent, E : SagaEvent>(
   saga: Saga,
-  val a: A,
-  val b: B,
-  val c: C,
-  val d: D,
-  val e: E
+  val a: A?,
+  val b: B?,
+  val c: C?,
+  val d: D?,
+  val e: E?
 ) : SagaEvent(saga.name, saga.id), EitherSagaEvent
