@@ -76,7 +76,7 @@ class SagaEventHandlerProviderTest : JUnit5Minutests {
     }
   }
 
-  inner class Fixture {
+  private inner class Fixture {
     var applicationContext: ApplicationContext = mockk()
     var saga = Saga(
       name = "deploy",
@@ -106,24 +106,24 @@ class SagaEventHandlerProviderTest : JUnit5Minutests {
     }
   }
 
-  inner class EmptyEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
-  inner class HelloEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
-  inner class AnotherEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
-  inner class GoodbyeEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+  private inner class EmptyEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+  private inner class HelloEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+  private inner class AnotherEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+  private inner class GoodbyeEvent(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
 
-  inner class EmptySagaEventHandler : SagaEventHandler<EmptyEvent> {
+  private inner class EmptySagaEventHandler : SagaEventHandler<EmptyEvent> {
     override fun apply(event: EmptyEvent, saga: Saga): List<SagaEvent> = listOf()
   }
-  inner class HelloSagaEventHandler : SagaEventHandler<HelloEvent> {
+  private inner class HelloSagaEventHandler : SagaEventHandler<HelloEvent> {
     override fun apply(event: HelloEvent, saga: Saga): List<SagaEvent> = listOf()
   }
-  inner class UnionSagaEventHandler : SagaEventHandler<UnionSagaEvent2<HelloEvent, GoodbyeEvent>> {
+  private inner class UnionSagaEventHandler : SagaEventHandler<UnionSagaEvent2<HelloEvent, GoodbyeEvent>> {
     override fun apply(event: UnionSagaEvent2<HelloEvent, GoodbyeEvent>, saga: Saga): List<SagaEvent> = listOf()
   }
-  inner class EitherSagaEventHandler : SagaEventHandler<EitherSagaEvent2<HelloEvent, GoodbyeEvent>> {
+  private inner class EitherSagaEventHandler : SagaEventHandler<EitherSagaEvent2<HelloEvent, GoodbyeEvent>> {
     override fun apply(event: EitherSagaEvent2<HelloEvent, GoodbyeEvent>, saga: Saga): List<SagaEvent> = listOf()
   }
-  inner class MegaCompositeSagaEventHandler : SagaEventHandler<EitherSagaEvent2<AnotherEvent, UnionSagaEvent2<HelloEvent, GoodbyeEvent>>> {
+  private inner class MegaCompositeSagaEventHandler : SagaEventHandler<EitherSagaEvent2<AnotherEvent, UnionSagaEvent2<HelloEvent, GoodbyeEvent>>> {
     override fun apply(event: EitherSagaEvent2<AnotherEvent, UnionSagaEvent2<HelloEvent, GoodbyeEvent>>, saga: Saga): List<SagaEvent> = listOf()
   }
 }
