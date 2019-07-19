@@ -70,8 +70,8 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
     Saga saga =
         new Saga(
             "titus://v1.CreateServerGroup",
-            "titusDeployCompletionHandler",
             Optional.ofNullable(getTask().getRequestId()).orElse(getTask().getId()),
+            null,
             requiredEvents,
             Collections.emptyList());
 

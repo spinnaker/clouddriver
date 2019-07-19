@@ -36,7 +36,7 @@ import kotlin.reflect.KClass
 @Configuration
 @ConditionalOnProperty("spinnaker.clouddriver.eventing.memory-repository.enabled", matchIfMissing = true)
 @EnableConfigurationProperties(MemoryEventRepositoryConfigProperties::class)
-class MemoryEventRepositoryConfig {
+open class MemoryEventRepositoryConfig {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -45,13 +45,13 @@ class MemoryEventRepositoryConfig {
   }
 
   @Bean
-  fun eventRepository(properties: MemoryEventRepositoryConfigProperties, eventPublisher: EventPublisher, registry: Registry): EventRepository =
+  open fun eventRepository(properties: MemoryEventRepositoryConfigProperties, eventPublisher: EventPublisher, registry: Registry): EventRepository =
     MemoryEventRepository(properties, eventPublisher, registry)
 }
 
 @MemoryEventRepositoryConfigProperties.SpinValidated
 @ConfigurationProperties("spinnaker.clouddriver.eventing.memory-repository")
-class MemoryEventRepositoryConfigProperties {
+open class MemoryEventRepositoryConfigProperties {
   /**
    * The max age of an [Aggregate]. One of this and [maxAggregatesCount] must be set.
    */
