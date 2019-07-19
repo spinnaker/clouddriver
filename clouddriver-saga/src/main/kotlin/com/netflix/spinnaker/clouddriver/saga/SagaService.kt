@@ -79,6 +79,8 @@ class SagaService(
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
+  private val sagaEventFactory = SagaEventFactory(eventRepository)
+
   private lateinit var applicationContext: ApplicationContext
 
   init {
@@ -116,19 +118,20 @@ class SagaService(
 
     val handlers = eventHandlerProvider.getMatching(saga, event)
     if (handlers.isEmpty()) {
-      log.warn("No EventHandlers found for event, ignoring: ${event.javaClass.simpleName}")
+      log.debug("No EventHandlers found for event, ignoring: ${event.javaClass.simpleName}")
       return
     }
 
     val emittedEvents = handlers
       .flatMap { handler ->
-        log.info("Applying handler '${handler.javaClass.simpleName}' on ${event.javaClass.simpleName}: " +
+        log.debug("Applying handler '${handler.javaClass.simpleName}' on ${event.javaClass.simpleName}: " +
           "${saga.name}/{$saga.id}")
-        handler.apply(event, saga)
+        val handlerEvent = sagaEventFactory.buildCompositeEventForHandler(saga, handler, event)
+        handler.apply(handlerEvent, saga)
       }
 
     if (allRequiredEventsApplied(saga)) {
-      log.debug("All required events have occurred, completing: $sagaName/$sagaId")
+      log.info("All required events have occurred, completing: $sagaName/$sagaId")
       saga.completed = true
     }
 
@@ -147,12 +150,18 @@ class SagaService(
 //    saga.getSequence() + 1 != event.metadata.sequence
 
   private fun allRequiredEventsApplied(saga: Saga): Boolean {
-    val maxRequiredEventVersion = eventRepository.list(saga.name, saga.id)
+    val appliedRequiredEvents = eventRepository.list(saga.name, saga.id)
       .filter { saga.getRequiredEvents().contains(it.javaClass.simpleName) }
+
+    if (!appliedRequiredEvents.map { it.javaClass.simpleName }.containsAll(saga.getRequiredEvents())) {
+      return false
+    }
+
+    val maxRequiredEventVersion = appliedRequiredEvents
       .map { it.metadata.sequence }
       .max()
-      ?: -1
-    return maxRequiredEventVersion <= saga.getSequence()
+
+    return maxRequiredEventVersion != null && maxRequiredEventVersion <= saga.getSequence()
   }
 
   // TODO(rz): Well this code is obviously not done

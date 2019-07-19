@@ -29,9 +29,9 @@ import org.springframework.context.annotation.Import
  */
 @Configuration
 @Import(MemoryEventRepositoryConfig::class)
-class EventSourceAutoConfiguration {
+open class EventSourceAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(EventPublisher::class)
-  fun eventPublisher(): EventPublisher = SynchronousEventPublisher()
+  open fun eventPublisher(): EventPublisher = SynchronousEventPublisher()
 }
