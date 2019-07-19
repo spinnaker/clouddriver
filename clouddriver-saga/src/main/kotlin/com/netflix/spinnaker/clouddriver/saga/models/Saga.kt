@@ -42,7 +42,7 @@ class Saga(
   constructor(
     name: String,
     id: String,
-    completionHandler: String,
+    completionHandler: String?,
     requiredEvents: List<String>,
     compensationEvents: List<String>
   ) :

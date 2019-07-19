@@ -47,12 +47,12 @@ class SagaEventHandlerProvider : ApplicationContextAware {
       .filter { handlerMatchesEvent(it, event, saga.getEvents()) } as List<SagaEventHandler<*>>
 
     if (matchingHandlers.isEmpty()) {
-      log.error("Could not resolve EventHandler for event: $eventTypeName")
+      log.trace("Could not resolve EventHandler for event: $eventTypeName")
       return listOf()
     }
 
     matchingHandlers.joinToString(",") { it.javaClass.simpleName }.also {
-      log.debug("Resolved ${matchingHandlers.size} EventHandlers ($it) for event: $eventTypeName")
+      log.trace("Resolved ${matchingHandlers.size} EventHandlers ($it) for event: $eventTypeName")
     }
 
     @Suppress("UNCHECKED_CAST")

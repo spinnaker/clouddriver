@@ -33,19 +33,19 @@ import org.springframework.context.annotation.Import
 @Configuration
 @Import(EventSourceAutoConfiguration::class)
 @EnableConfigurationProperties(SagaProperties::class)
-class SagaAutoConfiguration {
+open class SagaAutoConfiguration {
 
   @Bean
-  fun sagaEventHandlerProvider(): SagaEventHandlerProvider = SagaEventHandlerProvider()
+  open fun sagaEventHandlerProvider(): SagaEventHandlerProvider = SagaEventHandlerProvider()
 
   @Bean
   @ConditionalOnMissingBean(SagaRepository::class)
-  fun sagaRepository(eventRepository: EventRepository): SagaRepository {
+  open fun sagaRepository(eventRepository: EventRepository): SagaRepository {
     return DefaultSagaRepository(eventRepository)
   }
 
   @Bean
-  fun sagaService(
+  open fun sagaService(
     sagaRepository: SagaRepository,
     eventRepository: EventRepository,
     eventHandlerProvider: SagaEventHandlerProvider,
@@ -56,4 +56,4 @@ class SagaAutoConfiguration {
 }
 
 @ConfigurationProperties("spinnaker.clouddriver.sagas")
-class SagaProperties
+open class SagaProperties

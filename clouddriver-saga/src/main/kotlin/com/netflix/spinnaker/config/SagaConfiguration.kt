@@ -21,4 +21,4 @@ import org.springframework.context.annotation.Import
 
 @Configuration
 @Import(SagaAutoConfiguration::class)
-class SagaConfiguration
+open class SagaConfiguration
