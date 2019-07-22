@@ -57,7 +57,7 @@ public class AddLoadBalancersStep implements SagaEventHandler<TitusJobSubmitted>
     if (loadBalancerClient == null) {
       // TODO(rz): This definitely doesn't seem like something to casually skip?
       saga.log("Unable to create load balancing client in target account/region");
-      return Collections.emptyList();
+      return Collections.singletonList(new TitusLoadBalancersApplied(saga.getName(), saga.getId()));
     }
 
     TargetGroupLookupHelper.TargetGroupLookupResult targetGroups =
