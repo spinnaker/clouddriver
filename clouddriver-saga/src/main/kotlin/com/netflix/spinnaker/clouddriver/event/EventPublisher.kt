@@ -23,7 +23,6 @@ package com.netflix.spinnaker.clouddriver.event
  * to subscribers: This is left entirely to the implementation.
  */
 interface EventPublisher {
-  fun register(listener: EventListener)
   fun publish(event: SpinEvent)
 }
 

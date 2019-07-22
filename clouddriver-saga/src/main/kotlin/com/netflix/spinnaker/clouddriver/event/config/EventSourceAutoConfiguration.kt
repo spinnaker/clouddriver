@@ -24,8 +24,6 @@ import org.springframework.context.annotation.Import
 
 /**
  * Auto-configures the event sourcing library.
- *
- * TODO(rz): Should add a composite [EventPublisher] so [SpringEventPublisher] is always wired up
  */
 @Configuration
 @Import(MemoryEventRepositoryConfig::class)
@@ -33,5 +31,6 @@ open class EventSourceAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(EventPublisher::class)
-  open fun eventPublisher(): EventPublisher = SynchronousEventPublisher()
+  open fun eventPublisher(): EventPublisher =
+    SynchronousEventPublisher()
 }

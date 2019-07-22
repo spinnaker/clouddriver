@@ -52,8 +52,8 @@ class EventSourceSystemTest : JUnit5Minutests {
   }
 
   @Configuration
-  class DependencyConfiguration {
+  open class DependencyConfiguration {
     @Bean
-    fun registry(): Registry = NoopRegistry()
+    open fun registry(): Registry = NoopRegistry()
   }
 }

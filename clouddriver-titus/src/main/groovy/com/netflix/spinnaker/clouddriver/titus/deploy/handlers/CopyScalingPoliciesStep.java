@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
+import com.netflix.spinnaker.clouddriver.titus.JobType;
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusUtils;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusAutoscalingClient;
@@ -62,10 +63,16 @@ public class CopyScalingPoliciesStep extends AbstractTitusDeployStep
   public List<SagaEvent> apply(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {
     final TitusDeployDescription description = event.getDescription();
 
+    if (JobType.BATCH.value().equals(description.getJobType())) {
+      // Batch jobs don't get scaling policies
+      return Collections.emptyList();
+    }
+
     if (!description.isCopySourceScalingPolicies()
         || !description.getCopySourceScalingPoliciesAndActions()) {
       saga.log("Not applying scaling policies: None to apply");
-      return Collections.emptyList();
+      return Collections.singletonList(
+          new TitusScalingPoliciesApplied(saga.getName(), saga.getId()));
     }
 
     TitusDeployDescription.Source source = description.getSource();
@@ -82,13 +89,15 @@ public class CopyScalingPoliciesStep extends AbstractTitusDeployStep
             description.getCredentials(), description.getRegion());
     if (autoscalingClient == null) {
       saga.log("Unable to create client in target account/region; policies will not be copied");
-      return Collections.emptyList();
+      return Collections.singletonList(
+          new TitusScalingPoliciesApplied(saga.getName(), saga.getId()));
     }
 
     TitusAutoscalingClient sourceAutoscalingClient = buildSourceAutoscalingClient(source);
     if (sourceAutoscalingClient == null) {
       saga.log("Unable to create client in source account/region; policies will not be copied");
-      return Collections.emptyList();
+      return Collections.singletonList(
+          new TitusScalingPoliciesApplied(saga.getName(), saga.getId()));
     }
 
     Job sourceJob = sourceClient.findJobByName(source.getAsgName());

@@ -51,7 +51,9 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
     List<String> requiredEvents =
         new LinkedList<>(
             Arrays.asList(
-                TitusDeployCreated.class.getSimpleName(),
+                // TODO(rz): TitusDeployCreated should be emitted as result of a Command; not used
+                // as a command.
+                //                TitusDeployCreated.class.getSimpleName(),
                 Front50AppLoaded.class.getSimpleName(),
                 TitusDeployPrepared.class.getSimpleName(),
                 TitusJobSubmitted.class.getSimpleName()));
@@ -88,7 +90,10 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
         new EventMetadata(0, saga.getVersion(), Instant.now(), "unknown", "unknown"));
 
     sagaService.apply(titusDeployCreated);
-    TitusDeployCompleted completedEvent = sagaService.awaitCompletion(saga);
+
+    TitusDeployCompleted completedEvent =
+        sagaService.awaitCompletion(
+            saga, completedSaga -> completedSaga.getLastEvent(TitusDeployCompleted.class));
 
     if (completedEvent == null) {
       // TODO(rz): Gross

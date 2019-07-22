@@ -92,11 +92,11 @@ class Saga(
   }
 
   @VisibleForTesting
-  fun addEventForTest(event: SagaEvent) {
+  internal fun addEventForTest(event: SagaEvent) {
     this.events.add(event)
   }
 
-  fun hydrateEvents(events: List<SagaEvent>) {
+  internal fun hydrateEvents(events: List<SagaEvent>) {
     if (this.events.isEmpty()) {
       this.events.addAll(events)
     }
@@ -124,13 +124,7 @@ class Saga(
   }
 
   fun <T : SagaEvent> getLastEvent(clazz: Class<T>): T? {
-    // TODO(rz): Should change this to return the last event of the given type instead.
-    val event = events.lastOrNull() ?: return null
-    if (!clazz.isAssignableFrom(event.javaClass)) {
-      throw IllegalStateException("Expected ${clazz.simpleName}, got ${event.javaClass.simpleName}")
-    }
-    @Suppress("UNCHECKED_CAST")
-    return event as T
+    return events.last { clazz.isAssignableFrom(it.javaClass) } as T?
   }
 
   fun log(message: String) {

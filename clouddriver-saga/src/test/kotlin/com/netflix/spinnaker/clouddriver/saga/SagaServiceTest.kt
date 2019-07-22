@@ -17,7 +17,6 @@ package com.netflix.spinnaker.clouddriver.saga
 
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.clouddriver.event.EventMetadata
-import com.netflix.spinnaker.clouddriver.event.EventPublisher
 import com.netflix.spinnaker.clouddriver.event.SynchronousEventPublisher
 import com.netflix.spinnaker.clouddriver.event.config.MemoryEventRepositoryConfigProperties
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
@@ -29,6 +28,7 @@ import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.every
 import io.mockk.mockk
+import org.springframework.context.ApplicationContext
 import strikt.api.expectThrows
 
 class SagaServiceTest : JUnit5Minutests {
@@ -44,7 +44,7 @@ class SagaServiceTest : JUnit5Minutests {
         val saga = Saga(
           name = "noexist",
           id = "nope",
-          completionHandler = "handler",
+          completionHandler = null,
           requiredEvents = listOf(),
           compensationEvents = listOf()
         )
@@ -59,7 +59,7 @@ class SagaServiceTest : JUnit5Minutests {
         val saga = Saga(
           name = "test",
           id = "1",
-          completionHandler = "handler",
+          completionHandler = null,
           requiredEvents = listOf(),
           compensationEvents = listOf()
         )
@@ -90,7 +90,7 @@ class SagaServiceTest : JUnit5Minutests {
   }
 
   inner class Fixture {
-    val eventPublisher: EventPublisher = SynchronousEventPublisher()
+    val eventPublisher: SynchronousEventPublisher = SynchronousEventPublisher()
 
     val eventRepository: EventRepository = MemoryEventRepository(
       MemoryEventRepositoryConfigProperties(),
@@ -104,10 +104,12 @@ class SagaServiceTest : JUnit5Minutests {
       DefaultSagaRepository(eventRepository),
       eventRepository,
       handlerProvider,
-      eventPublisher,
       NoopRegistry()
-    ).apply {
-      setApplicationContext(mockk())
+    )
+
+    val applicationContext: ApplicationContext = mockk(relaxed = true) {
+      eventPublisher.setApplicationContext(this)
+      subject.setApplicationContext(this)
     }
   }
 

@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.saga
 import com.google.common.annotations.Beta
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.event.EventListener
-import com.netflix.spinnaker.clouddriver.event.EventPublisher
 import com.netflix.spinnaker.clouddriver.event.SpinEvent
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
 import com.netflix.spinnaker.clouddriver.saga.exceptions.InvalidSagaCompletionHandlerException
@@ -73,7 +72,6 @@ class SagaService(
   private val sagaRepository: SagaRepository,
   private val eventRepository: EventRepository,
   private val eventHandlerProvider: SagaEventHandlerProvider,
-  eventPublisher: EventPublisher,
   private val registry: Registry
 ) : ApplicationContextAware, EventListener {
 
@@ -83,13 +81,14 @@ class SagaService(
 
   private lateinit var applicationContext: ApplicationContext
 
-  init {
-    eventPublisher.register(this)
-  }
-
   override fun onEvent(event: SpinEvent) {
     // TODO(rz): `apply` would only occur via Commands; this method could disappear
     if (event is SagaEvent) {
+      if (event is SagaSaved || event is SagaLogAppended) {
+        // Ignoring this internal noise; these events are basically just for tracing
+        log.debug("Ignoring internal event: $event")
+        return
+      }
       apply(event)
     }
   }
@@ -99,10 +98,11 @@ class SagaService(
   }
 
   /**
-   * TODO(rz): A little save-happy on Sagas in this method: That will make things harder for everything.
    * TODO(rz): Exception handling
+   * TODO(rz): Add compensation handling
    */
   fun apply(event: SagaEvent) {
+    // metric: received events counter (event name, action [ignored, applied, failed, total])
     requireSynthesizedEventMetadata(event)
 
     val sagaName = event.sagaName
@@ -117,29 +117,22 @@ class SagaService(
     }
 
     val handlers = eventHandlerProvider.getMatching(saga, event)
-    if (handlers.isEmpty()) {
-      log.debug("No EventHandlers found for event, ignoring: ${event.javaClass.simpleName}")
-      return
+    val emittedEvents: List<SagaEvent> = if (handlers.isEmpty()) {
+      log.debug("No EventHandlers found for event: ${event.javaClass.simpleName}")
+      listOf()
+    } else {
+      handlers
+        .flatMap { handler ->
+          val handlerEvent = sagaEventFactory.buildCompositeEventForHandler(saga, handler, event)
+          log.debug("Applying handler '${handler.javaClass.simpleName}' on ${event.javaClass.simpleName}: " +
+            "${saga.name}/{$saga.id}")
+          handler.apply(handlerEvent, saga)
+        }
     }
 
-    val emittedEvents = handlers
-      .flatMap { handler ->
-        log.debug("Applying handler '${handler.javaClass.simpleName}' on ${event.javaClass.simpleName}: " +
-          "${saga.name}/{$saga.id}")
-        val handlerEvent = sagaEventFactory.buildCompositeEventForHandler(saga, handler, event)
-        handler.apply(handlerEvent, saga)
-      }
-
-    if (allRequiredEventsApplied(saga)) {
+    if (allRequiredEventsApplied(saga, event)) {
       log.info("All required events have occurred, completing: $sagaName/$sagaId")
       saga.completed = true
-    }
-
-    // Check for an error event last: It's possible an event handler has been provided to handle it explicitly
-    if (isErrorEvent(saga, event)) {
-      log.warn("An error event has been emitted, compensating: $sagaName/$sagaId")
-      saga.compensating = true
-      handlers.forEach { it.compensate(event, saga) }
     }
 
     saga.setSequence(event.metadata.sequence)
@@ -149,8 +142,8 @@ class SagaService(
   private fun isEventOutOfOrder(saga: Saga, event: SagaEvent): Boolean = false
 //    saga.getSequence() + 1 != event.metadata.sequence
 
-  private fun allRequiredEventsApplied(saga: Saga): Boolean {
-    val appliedRequiredEvents = eventRepository.list(saga.name, saga.id)
+  private fun allRequiredEventsApplied(saga: Saga, applyingEvent: SagaEvent): Boolean {
+    val appliedRequiredEvents = eventRepository.list(saga.name, saga.id).plus(applyingEvent)
       .filter { saga.getRequiredEvents().contains(it.javaClass.simpleName) }
 
     if (!appliedRequiredEvents.map { it.javaClass.simpleName }.containsAll(saga.getRequiredEvents())) {
@@ -163,9 +156,6 @@ class SagaService(
 
     return maxRequiredEventVersion != null && maxRequiredEventVersion <= saga.getSequence()
   }
-
-  // TODO(rz): Well this code is obviously not done
-  private fun isErrorEvent(saga: Saga, event: SagaEvent): Boolean = false
 
   private fun requireSynthesizedEventMetadata(event: SagaEvent) {
     try {
@@ -197,6 +187,10 @@ class SagaService(
       @Suppress("UNCHECKED_CAST")
       getCompletionHandler(completedSaga)?.apply(completedSaga) as T
     }
+  }
+
+  fun <T> awaitCompletion(saga: Saga, callback: (Saga) -> T?): T? {
+    return get(saga.name, saga.id).let(callback)
   }
 
   private fun getCompletionHandler(saga: Saga): SagaCompletionHandler<*>? =
