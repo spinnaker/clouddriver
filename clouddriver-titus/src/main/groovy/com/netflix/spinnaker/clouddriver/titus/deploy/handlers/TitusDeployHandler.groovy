@@ -334,9 +334,6 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
             submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(constraint))
           }
         }
-        if (description.jobType == "service" && !description.hardConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE) && !description.softConstraints?.contains(SubmitJobRequest.Constraint.ZONE_BALANCE)) {
-          submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(SubmitJobRequest.Constraint.ZONE_BALANCE))
-        }
     }
     if (description.jobType) {
       submitJobRequest.withJobType(description.jobType)
@@ -394,11 +391,6 @@ class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
       description.capacity.min = sourceJob.instancesMin
       description.capacity.max = sourceJob.instancesMax
       description.capacity.desired = sourceJob.instancesDesired
-    }
-
-    if(description.serviceJobProcesses) {
-         description.serviceJobProcesses.disableDecreaseDesired = sourceJob.serviceJobProcesses.disableDecreaseDesired
-           description.serviceJobProcesses.disableIncreaseDesired = sourceJob.serviceJobProcesses.disableIncreaseDesired
     }
 
     description.resources.cpu = description.resources.cpu ?: sourceJob.cpu
