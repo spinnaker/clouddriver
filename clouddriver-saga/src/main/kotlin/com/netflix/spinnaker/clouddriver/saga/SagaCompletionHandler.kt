@@ -17,6 +17,11 @@ package com.netflix.spinnaker.clouddriver.saga
 
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 
+/**
+ * The completion handler is used as a way of registering Beans as a callback once a particular [Saga]
+ * has been completed. Using this allows a Saga to finalize & return data in both successful and failed states.
+ * Its results and actions are performed outside of the [Saga] lifecycle and thus will not be persisted.
+ */
 interface SagaCompletionHandler<T> {
   fun apply(completedSaga: Saga): T?
 }

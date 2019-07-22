@@ -34,7 +34,7 @@ class SagaEventFactory(
     handler: SagaEventHandler<*>,
     applyingEvent: SagaEvent
   ): SagaEvent {
-    log.debug("Building event for handler '${handler.javaClass.simpleName}' from '${applyingEvent.javaClass.simpleName}")
+    log.debug("Building event for handler '${handler.javaClass.simpleName}' from '${applyingEvent.javaClass.simpleName}'")
 
     val handlerType = ResolvableType.forClass(SagaEventHandler::class.java, handler.javaClass)
     handlerType.resolve()

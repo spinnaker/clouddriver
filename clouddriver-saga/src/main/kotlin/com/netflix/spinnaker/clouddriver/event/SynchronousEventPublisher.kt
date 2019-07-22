@@ -16,25 +16,30 @@
 package com.netflix.spinnaker.clouddriver.event
 
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationContext
+import org.springframework.context.ApplicationContextAware
 
-class SynchronousEventPublisher : EventPublisher {
+class SynchronousEventPublisher : EventPublisher, ApplicationContextAware {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
-  private val listeners: MutableList<EventListener> = mutableListOf()
-
-  override fun register(listener: EventListener) {
-    listeners.add(listener)
-  }
+  private lateinit var context: ApplicationContext
 
   override fun publish(event: SpinEvent) {
-    listeners.forEach {
-      try {
-        it.onEvent(event)
-        log.trace("Published event: $event")
-      } catch (e: Exception) {
-        log.error("EventListener generated an error", e)
+    context.getBeansOfType(EventListener::class.java).values.toList()
+      .also {
+        log.trace("Publishing event: $event to ${it.joinToString(",")}")
+      }.forEach {
+        try {
+          it.onEvent(event)
+        } catch (e: Exception) {
+          // TODO(rz): Feels like we should try escaping early here
+          log.error("EventListener generated an error", e)
+        }
       }
-    }
+  }
+
+  override fun setApplicationContext(applicationContext: ApplicationContext) {
+    context = applicationContext
   }
 }

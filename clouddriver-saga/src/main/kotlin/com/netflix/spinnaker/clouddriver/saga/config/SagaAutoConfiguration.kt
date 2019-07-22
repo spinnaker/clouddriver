@@ -16,7 +16,6 @@
 package com.netflix.spinnaker.clouddriver.saga.config
 
 import com.netflix.spectator.api.Registry
-import com.netflix.spinnaker.clouddriver.event.EventPublisher
 import com.netflix.spinnaker.clouddriver.event.config.EventSourceAutoConfiguration
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
 import com.netflix.spinnaker.clouddriver.saga.SagaEventHandlerProvider
@@ -49,10 +48,9 @@ open class SagaAutoConfiguration {
     sagaRepository: SagaRepository,
     eventRepository: EventRepository,
     eventHandlerProvider: SagaEventHandlerProvider,
-    eventPublisher: EventPublisher,
     registry: Registry
   ): SagaService =
-    SagaService(sagaRepository, eventRepository, eventHandlerProvider, eventPublisher, registry)
+    SagaService(sagaRepository, eventRepository, eventHandlerProvider, registry)
 }
 
 @ConfigurationProperties("spinnaker.clouddriver.sagas")
