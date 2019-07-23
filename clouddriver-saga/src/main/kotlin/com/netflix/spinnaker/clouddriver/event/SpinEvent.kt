@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.event
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import java.util.UUID
 
 /**
@@ -24,6 +25,11 @@ import java.util.UUID
  * @param aggregateId The id of the aggregate the event is for
  * @property metadata Associated metadata about the event; not actually part of the "event proper"
  */
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.NAME,
+  include = JsonTypeInfo.As.PROPERTY,
+  property = "spinEventType"
+)
 abstract class SpinEvent(
   val aggregateType: String,
   val aggregateId: String

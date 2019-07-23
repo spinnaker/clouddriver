@@ -27,10 +27,12 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.assertThrows
 import strikt.api.expectThat
+import strikt.assertions.containsExactly
 import strikt.assertions.get
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isSameInstanceAs
+import strikt.assertions.map
 
 class MemoryEventRepositoryTest : JUnit5Minutests {
 
@@ -91,6 +93,36 @@ class MemoryEventRepositoryTest : JUnit5Minutests {
 
       verify { eventPublisher.publish(event) }
       confirmVerified(eventPublisher)
+    }
+
+    context("listing aggregates") {
+      val event1 = MyEvent("type1", "id", "one")
+      val event2 = MyEvent("type2", "id", "two")
+      val event3 = MyEvent("type3", "id", "three")
+
+      test("not providing a type") {
+        listOf(event1, event2, event3).forEach { subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it)) }
+
+        expectThat(subject.listAggregates(null)) {
+          map { it.type }.containsExactly("type1", "type2", "type3")
+        }
+      }
+
+      test("providing a type") {
+        listOf(event1, event2, event3).forEach { subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it)) }
+
+        expectThat(subject.listAggregates(event1.aggregateType)) {
+          map { it.type }.containsExactly("type1")
+        }
+      }
+
+      test("providing a non-existent type") {
+        listOf(event1, event2, event3).forEach { subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it)) }
+
+        expectThat(subject.listAggregates("unknown")) {
+          isEmpty()
+        }
+      }
     }
   }
 

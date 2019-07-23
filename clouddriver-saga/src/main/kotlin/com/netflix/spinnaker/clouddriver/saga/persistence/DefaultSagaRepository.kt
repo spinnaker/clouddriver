@@ -27,7 +27,19 @@ class DefaultSagaRepository(
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
-  override fun list(criteria: SagaRepository.ListCriteria): List<Saga> = TODO()
+  override fun list(criteria: SagaRepository.ListCriteria): List<Saga> {
+    val sagas = if (criteria.names != null && criteria.names.isNotEmpty()) {
+      criteria.names.flatMap { eventRepository.listAggregates(it) }
+    } else {
+      eventRepository.listAggregates(null)
+    }.mapNotNull { get(it.type, it.id) }
+
+    return if (criteria.running == null) {
+      sagas
+    } else {
+      sagas.filter { it.completed != criteria.running }
+    }
+  }
 
   override fun get(type: String, id: String): Saga? {
     val events = eventRepository.list(type, id)
