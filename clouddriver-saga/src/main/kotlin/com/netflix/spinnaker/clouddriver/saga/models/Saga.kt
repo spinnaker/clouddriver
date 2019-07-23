@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.clouddriver.saga.models
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
@@ -112,10 +114,12 @@ class Saga(
     dirty = true
   }
 
+  @JsonIgnoreProperties("saga")
   fun getEvents(): List<SagaEvent> {
     return events.toList()
   }
 
+  @JsonIgnore
   fun getPendingEvents(): List<SagaEvent> {
     val pending = mutableListOf<SagaEvent>()
     pending.addAll(pendingEvents)
