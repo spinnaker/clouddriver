@@ -91,6 +91,15 @@ class MemoryEventRepository(
       ?: throw MissingAggregateEventsException(aggregateType, aggregateId)
   }
 
+  override fun listAggregates(aggregateType: String?): List<Aggregate> {
+    val aggregates = events.keys
+    return if (aggregateType != null) {
+      aggregates.filter { it.type == aggregateType }
+    } else {
+      aggregates.toList()
+    }
+  }
+
   private fun getAggregate(aggregateType: String, aggregateId: String): Aggregate {
     registry.counter(aggregateReadCountId).increment()
 

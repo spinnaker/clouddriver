@@ -71,7 +71,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
     // TODO(rz): compensation events
     Saga saga =
         new Saga(
-            "titus://v1.CreateServerGroup",
+            "titus.Deploy",
             Optional.ofNullable(getTask().getRequestId()).orElse(getTask().getId()),
             null,
             requiredEvents,
