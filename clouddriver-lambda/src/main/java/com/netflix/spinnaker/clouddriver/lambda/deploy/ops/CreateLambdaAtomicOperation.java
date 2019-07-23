@@ -19,7 +19,9 @@ package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.CreateFunctionRequest;
 import com.amazonaws.services.lambda.model.CreateFunctionResult;
+import com.amazonaws.services.lambda.model.Environment;
 import com.amazonaws.services.lambda.model.FunctionCode;
+import com.amazonaws.services.lambda.model.VpcConfig;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.CreateLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.HashMap;
@@ -68,6 +70,18 @@ public class CreateLambdaAtomicOperation
 
     request.setCode(code);
     request.setTags(objTag);
+
+    Map<String, String> envVariables = description.getEnvVariables();
+    if (null != envVariables) {
+      request.setEnvironment(new Environment().withVariables(envVariables));
+    }
+
+    if (null != description.getSecurityGroupIds() || null != description.getSubnetIds()) {
+      request.setVpcConfig(
+          new VpcConfig()
+              .withSecurityGroupIds(description.getSecurityGroupIds())
+              .withSubnetIds(description.getSubnetIds()));
+    }
 
     CreateFunctionResult result = client.createFunction(request);
     updateTaskStatus("Finished Creation of AWS Lambda Function Operation...");

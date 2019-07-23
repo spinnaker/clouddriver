@@ -38,4 +38,8 @@ public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescr
   List<Map<String, String>> tags;
 
   Boolean publish;
+
+  Map<String, String> envVariables;
+  List<String> subnetIds;
+  List<String> securityGroupIds;
 }
