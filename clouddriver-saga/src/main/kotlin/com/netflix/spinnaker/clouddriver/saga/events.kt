@@ -65,6 +65,42 @@ class SagaLogAppended(
   )
 }
 
+class SagaSequenceUpdated(
+  sagaName: String,
+  sagaId: String,
+  val oldValue: Long,
+  val newValue: Long
+) : SagaEvent(sagaName, sagaId)
+
+class SagaRequiredEventsAdded(
+  sagaName: String,
+  sagaId: String,
+  val eventNames: List<String>,
+  val currentNumOfEvents: Int
+) : SagaEvent(sagaName, sagaId)
+
+class SagaRequiredEventsRemoved(
+  sagaName: String,
+  sagaId: String,
+  val eventNames: List<String>,
+  val currentNumOfEvents: Int
+) : SagaEvent(sagaName, sagaId)
+
+class SagaCompleted(
+  sagaName: String,
+  sagaId: String
+) : SagaEvent(sagaName, sagaId)
+
+class SagaInCompensation(
+  sagaName: String,
+  sagaId: String
+) : SagaEvent(sagaName, sagaId)
+
+class SagaCompensated(
+  sagaName: String,
+  sagaId: String
+) : SagaEvent(sagaName, sagaId)
+
 interface CompositeSagaEvent
 
 interface UnionedSagaEvent : CompositeSagaEvent

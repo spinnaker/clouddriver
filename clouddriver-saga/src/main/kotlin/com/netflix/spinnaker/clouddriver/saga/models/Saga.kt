@@ -20,6 +20,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
+import com.netflix.spinnaker.clouddriver.saga.SagaSaved
+import com.netflix.spinnaker.clouddriver.saga.SagaSequenceUpdated
+import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsAdded
+import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsRemoved
+import com.netflix.spinnaker.clouddriver.saga.SagaInCompensation
+import com.netflix.spinnaker.clouddriver.saga.SagaCompleted
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 
 /**
@@ -62,6 +68,10 @@ class Saga(
   var completed: Boolean = false
     set(value) {
       if (value != field) {
+        addEvent(SagaCompleted(
+          name,
+          id
+        ))
         dirty = true
         field = value
       }
@@ -70,6 +80,20 @@ class Saga(
   var compensating: Boolean = false
     set(value) {
       if (value != field) {
+        addEvent(SagaInCompensation(
+          name,
+          id
+        ))
+
+        dirty = true
+        field = value
+      }
+    }
+
+  var saved: Boolean = false
+    set(value) {
+      if (value != field) {
+        addEvent(SagaSaved(this))
         dirty = true
         field = value
       }
@@ -82,6 +106,23 @@ class Saga(
   fun addRequiredEvent(event: String) {
     dirty = true
     requiredEvents.add(event)
+    addEvent(SagaRequiredEventsAdded(
+      name,
+      id,
+      eventNames = listOf(event.javaClass.name),
+      currentNumOfEvents = requiredEvents.size
+    ))
+  }
+
+  fun removeRequireEvent(event: String) {
+    dirty = true
+    requiredEvents.remove(event)
+    addEvent(SagaRequiredEventsRemoved(
+      name,
+      id,
+      eventNames = listOf(event.javaClass.name),
+      currentNumOfEvents = requiredEvents.size
+    ))
   }
 
   fun getRequiredEvents(): List<String> {
@@ -110,6 +151,14 @@ class Saga(
     if (sequence > appliedEventVersion) {
       throw SagaSystemException("Attempting to set the saga sequence to an event version in the past")
     }
+
+    addEvent(SagaSequenceUpdated(
+      name,
+      id,
+      oldValue = sequence,
+      newValue = appliedEventVersion
+    ))
+
     sequence = appliedEventVersion
     dirty = true
   }
