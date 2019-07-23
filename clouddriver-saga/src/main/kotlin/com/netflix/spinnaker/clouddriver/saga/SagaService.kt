@@ -92,7 +92,6 @@ class SagaService(
     // TODO(rz): `apply` would only occur via Commands; this method could disappear
     if (event is SagaEvent) {
       when (event) {
-          is SagaSaved,
           is SagaLogAppended,
           is SagaSequenceUpdated,
           is SagaRequiredEventsAdded,
@@ -151,7 +150,7 @@ class SagaService(
 
     if (allRequiredEventsApplied(saga, event)) {
       log.info("All required events have occurred, completing: $sagaName/$sagaId")
-      saga.completed = true
+      saga.complete()
     }
 
     saga.setSequence(event.metadata.sequence)

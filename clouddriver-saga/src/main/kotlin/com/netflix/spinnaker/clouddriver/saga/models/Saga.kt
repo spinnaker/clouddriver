@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
-import com.netflix.spinnaker.clouddriver.saga.SagaSaved
 import com.netflix.spinnaker.clouddriver.saga.SagaSequenceUpdated
 import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsAdded
 import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsRemoved
@@ -60,68 +59,34 @@ class Saga(
   private val requiredEvents: MutableList<String> = requiredEvents.toMutableList()
   private val pendingEvents: MutableList<SagaEvent> = mutableListOf()
 
-  var dirty: Boolean = false
-    private set(value) {
-      field = value
-    }
+  fun complete(success: Boolean = true) {
+    addEvent(SagaCompleted(
+      name,
+      id,
+      success))
+  }
 
-  var completed: Boolean = false
-    set(value) {
-      if (value != field) {
-        addEvent(SagaCompleted(
-          name,
-          id
-        ))
-        dirty = true
-        field = value
-      }
-    }
-
-  var compensating: Boolean = false
-    set(value) {
-      if (value != field) {
-        addEvent(SagaInCompensation(
-          name,
-          id
-        ))
-
-        dirty = true
-        field = value
-      }
-    }
-
-  var saved: Boolean = false
-    set(value) {
-      if (value != field) {
-        addEvent(SagaSaved(this))
-        dirty = true
-        field = value
-      }
-    }
+  fun isCompensating(): Boolean = events.filterIsInstance<SagaInCompensation>().isNotEmpty()
 
   fun getVersion(): Long {
     return events.map { it.metadata.originatingVersion }.max()?.let { it + 1 } ?: 0
   }
 
   fun addRequiredEvent(event: String) {
-    dirty = true
     requiredEvents.add(event)
     addEvent(SagaRequiredEventsAdded(
       name,
       id,
-      eventNames = listOf(event.javaClass.name),
-      currentNumOfEvents = requiredEvents.size
+      eventNames = listOf(event)
     ))
   }
 
   fun removeRequireEvent(event: String) {
-    dirty = true
     requiredEvents.remove(event)
     addEvent(SagaRequiredEventsRemoved(
       name,
       id,
-      eventNames = listOf(event.javaClass.name),
-      currentNumOfEvents = requiredEvents.size
+      eventNames = listOf(event)
     ))
   }
 
@@ -130,7 +95,6 @@ class Saga(
   }
 
   fun addEvent(event: SagaEvent) {
-    dirty = true
     this.pendingEvents.add(event)
   }
 
@@ -160,7 +124,6 @@ class Saga(
     ))
 
     sequence = appliedEventVersion
-    dirty = true
   }
 
   @JsonIgnoreProperties("saga")

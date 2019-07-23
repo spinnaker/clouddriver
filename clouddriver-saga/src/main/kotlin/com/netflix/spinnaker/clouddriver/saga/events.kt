@@ -31,10 +31,6 @@ abstract class SagaEvent(
     @JsonIgnore get() = aggregateId
 }
 
-@JsonTypeName("sagaSaved")
-class SagaSaved(
-  val saga: Saga
-) : SagaEvent(saga.name, saga.id)
 
 @JsonTypeName("sagaInternalErrorOccurred")
 class SagaInternalErrorOccurred(
@@ -65,6 +61,7 @@ class SagaLogAppended(
   )
 }
 
+@JsonTypeName("sagaSequenceUpdated")
 class SagaSequenceUpdated(
   sagaName: String,
   sagaId: String,
@@ -72,30 +69,34 @@ class SagaSequenceUpdated(
   val newValue: Long
 ) : SagaEvent(sagaName, sagaId)
 
+@JsonTypeName("sagaRequiredEventsAdded")
 class SagaRequiredEventsAdded(
   sagaName: String,
   sagaId: String,
-  val eventNames: List<String>,
-  val currentNumOfEvents: Int
+  val eventNames: List<String>
 ) : SagaEvent(sagaName, sagaId)
 
+@JsonTypeName("sagaRequiredEventsRemoved")
 class SagaRequiredEventsRemoved(
   sagaName: String,
   sagaId: String,
-  val eventNames: List<String>,
-  val currentNumOfEvents: Int
+  val eventNames: List<String>
 ) : SagaEvent(sagaName, sagaId)
 
+@JsonTypeName("sagaCompleted")
 class SagaCompleted(
   sagaName: String,
-  sagaId: String
+  sagaId: String,
+  val success: Boolean
 ) : SagaEvent(sagaName, sagaId)
 
+@JsonTypeName("sagaInCompensation")
 class SagaInCompensation(
   sagaName: String,
   sagaId: String
 ) : SagaEvent(sagaName, sagaId)
 
+@JsonTypeName("sagaCompensated")
 class SagaCompensated(
   sagaName: String,
   sagaId: String
