@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.clouddriver.saga
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonTypeName
 import com.netflix.spinnaker.clouddriver.event.SpinEvent
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 
@@ -23,16 +25,18 @@ abstract class SagaEvent(
   sagaId: String
 ) : SpinEvent(sagaName, sagaId) {
   val sagaName
-    get() = aggregateType
+    @JsonIgnore get() = aggregateType
 
   val sagaId
-    get() = aggregateId
+    @JsonIgnore get() = aggregateId
 }
 
+@JsonTypeName("sagaSaved")
 class SagaSaved(
   val saga: Saga
 ) : SagaEvent(saga.name, saga.id)
 
+@JsonTypeName("sagaInternalErrorOccurred")
 class SagaInternalErrorOccurred(
   sagaName: String,
   sagaId: String,
@@ -42,6 +46,7 @@ class SagaInternalErrorOccurred(
   val data: Map<String, String> = mapOf()
 ) : SagaEvent(sagaName, sagaId)
 
+@JsonTypeName("sagaLogAppended")
 class SagaLogAppended(
   sagaName: String,
   sagaId: String,
