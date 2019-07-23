@@ -20,6 +20,9 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.event.EventListener
 import com.netflix.spinnaker.clouddriver.event.SpinEvent
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
+import com.netflix.spinnaker.clouddriver.saga.SagaService.EventApplyState.APPLIED
+import com.netflix.spinnaker.clouddriver.saga.SagaService.EventApplyState.NO_HANDLER
+import com.netflix.spinnaker.clouddriver.saga.SagaService.EventApplyState.OUT_OF_ORDER
 import com.netflix.spinnaker.clouddriver.saga.exceptions.InvalidSagaCompletionHandlerException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
@@ -81,6 +84,10 @@ class SagaService(
 
   private lateinit var applicationContext: ApplicationContext
 
+  private val eventsId = registry.createId("saga.events")
+  private val appliedEventsId = registry.createId("saga.events.applied")
+  private val failedEventsId = registry.createId("saga.events.failed")
+
   override fun onEvent(event: SpinEvent) {
     // TODO(rz): `apply` would only occur via Commands; this method could disappear
     if (event is SagaEvent) {
@@ -113,12 +120,14 @@ class SagaService(
 
     if (isEventOutOfOrder(saga, event)) {
       log.warn("Received out-of-order event for saga '${saga.name}/${saga.id}', ignoring: ${event.javaClass.simpleName}")
+      registry.counter(eventsId.withTags(STATE_LABEL, OUT_OF_ORDER.name, TYPE_LABEL, event.javaClass.simpleName)).increment()
       return
     }
 
     val handlers = eventHandlerProvider.getMatching(saga, event)
     val emittedEvents: List<SagaEvent> = if (handlers.isEmpty()) {
       log.debug("No EventHandlers found for event: ${event.javaClass.simpleName}")
+      registry.counter(eventsId.withTags(STATE_LABEL, NO_HANDLER.name, TYPE_LABEL, event.javaClass.simpleName)).increment()
       listOf()
     } else {
       handlers
@@ -129,6 +138,7 @@ class SagaService(
           handler.apply(handlerEvent, saga)
         }
     }
+    registry.counter(eventsId.withTags(STATE_LABEL, APPLIED.name, TYPE_LABEL, event.javaClass.simpleName)).increment()
 
     if (allRequiredEventsApplied(saga, event)) {
       log.info("All required events have occurred, completing: $sagaName/$sagaId")
@@ -211,4 +221,16 @@ class SagaService(
           throw InvalidSagaCompletionHandlerException("Could not load saga completion handler", e)
         }
       }
+
+  private enum class EventApplyState {
+    OUT_OF_ORDER,
+    APPLIED,
+    FAILED,
+    NO_HANDLER
+  }
+
+  companion object {
+    private const val STATE_LABEL = "state"
+    private const val TYPE_LABEL = "type"
+  }
 }

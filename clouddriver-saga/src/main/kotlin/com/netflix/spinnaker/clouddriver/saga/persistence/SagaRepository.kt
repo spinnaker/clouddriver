@@ -39,6 +39,7 @@ interface SagaRepository {
   fun save(saga: Saga, additionalEvents: List<SagaEvent>? = null)
 
   data class ListCriteria(
-    val running: Boolean?
+    val running: Boolean? = null,
+    val names: List<String>? = null
   )
 }

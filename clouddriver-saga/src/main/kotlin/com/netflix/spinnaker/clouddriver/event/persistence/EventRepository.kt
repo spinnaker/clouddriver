@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.event.persistence
 
+import com.netflix.spinnaker.clouddriver.event.Aggregate
 import com.netflix.spinnaker.clouddriver.event.SpinEvent
 
 /**
@@ -31,4 +32,6 @@ interface EventRepository {
   fun save(aggregateType: String, aggregateId: String, originatingVersion: Long, events: List<SpinEvent>)
 
   fun list(aggregateType: String, aggregateId: String): List<SpinEvent>
+
+  fun listAggregates(aggregateType: String?): List<Aggregate>
 }
