@@ -17,17 +17,46 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.client;
 
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClientUtils.safelyCall;
+import static java.util.stream.Collectors.joining;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.api.DopplerService;
+import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.cloudfoundry.dropsonde.events.EventFactory.Envelope;
+import org.cloudfoundry.dropsonde.events.EventFactory.Envelope.EventType;
+import org.cloudfoundry.dropsonde.events.LogFactory.LogMessage;
 
 @RequiredArgsConstructor
 public class Logs {
   private final DopplerService api;
 
+  public String recentApplicationLogs(String applicationGuid, int instanceIndex) {
+    return recentLogsFiltered(applicationGuid, "APP/PROC/WEB", instanceIndex);
+  }
+
+  public String recentTaskLogs(String applicationGuid, String taskName) {
+    return recentLogsFiltered(applicationGuid, "APP/TASK/" + taskName, 0);
+  }
+
   public List<Envelope> recentLogs(String applicationGuid) {
-    return safelyCall(() -> api.recentLogs(applicationGuid)).get();
+    return safelyCall(() -> api.recentLogs(applicationGuid))
+        .orElseThrow(IllegalStateException::new);
+  }
+
+  private String recentLogsFiltered(
+      String applicationGuid, String logSourceFilter, int instanceIndex) {
+    List<Envelope> envelopes = recentLogs(applicationGuid);
+
+    return envelopes.stream()
+        .filter(e -> e.getEventType().equals(EventType.LogMessage))
+        .map(Envelope::getLogMessage)
+        .filter(
+            logMessage ->
+                logSourceFilter.equals(logMessage.getSourceType())
+                    && logMessage.getSourceInstance().equals(String.valueOf(instanceIndex)))
+        .sorted(Comparator.comparingLong(LogMessage::getTimestamp))
+        .map(msg -> msg.getMessage().toStringUtf8())
+        .collect(joining("\n"));
   }
 }
