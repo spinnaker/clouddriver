@@ -32,6 +32,11 @@ import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion
 import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription
+import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps.AddLoadBalancersStep
+import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps.CopyScalingPoliciesStep
+import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps.LoadFront50AppStep
+import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps.PrepareTitusDeploymentStep
+import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps.SubmitJobStep
 import com.netflix.spinnaker.kork.core.RetrySupport
 import org.springframework.context.ApplicationContext
 import spock.lang.Ignore
