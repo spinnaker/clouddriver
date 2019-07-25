@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.titus.deploy.handlers;
+package com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps;
 
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent;
 import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler;
@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.titus.TitusUtils;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployCompleted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
+import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.TitusDeploymentResult;
 import java.util.Collections;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;

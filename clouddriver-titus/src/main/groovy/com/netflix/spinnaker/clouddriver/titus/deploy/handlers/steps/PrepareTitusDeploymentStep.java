@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.titus.deploy.handlers;
+package com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps;
 
 import static java.lang.String.format;
 
@@ -43,6 +43,7 @@ import com.netflix.spinnaker.clouddriver.titus.client.model.disruption.TimeWindo
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.Front50AppLoaded;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployPrepared;
+import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.TitusDeployHandler;
 import com.netflix.spinnaker.clouddriver.titus.exceptions.JobNotFoundException;
 import com.netflix.spinnaker.clouddriver.titus.model.DockerImage;
 import com.netflix.spinnaker.config.AwsConfiguration;

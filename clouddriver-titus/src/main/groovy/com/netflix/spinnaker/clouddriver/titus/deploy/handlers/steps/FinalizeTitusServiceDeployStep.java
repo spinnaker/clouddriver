@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.titus.deploy.handlers;
+package com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps;
 
 import static java.lang.String.format;
 
@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployComplete
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusLoadBalancersApplied;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusScalingPoliciesApplied;
+import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.TitusDeploymentResult;
 import java.util.Collections;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
