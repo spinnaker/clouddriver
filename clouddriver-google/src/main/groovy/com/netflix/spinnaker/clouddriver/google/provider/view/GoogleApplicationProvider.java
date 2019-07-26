@@ -24,7 +24,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
@@ -35,6 +34,8 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleApplication;
 import com.netflix.spinnaker.clouddriver.model.Application;
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,14 +67,25 @@ final class GoogleApplicationProvider implements ApplicationProvider {
     return data.stream().map(this::applicationFromCacheData).collect(toSet());
   }
 
+  public CacheData getApplicationCacheData(String name) {
+    return cacheView.get(
+        APPLICATIONS.getNs(),
+        Keys.getApplicationKey(name),
+        RelationshipCacheFilter.include(CLUSTERS.getNs(), INSTANCES.getNs()));
+  }
+
+  public Set<String> getApplicationClusterIdentifiers(CacheData applicationCacheData) {
+    return getRelationships(applicationCacheData, CLUSTERS);
+  }
+
+  public Set<String> getApplicationInstanceIdentifiers(CacheData applicationCacheData) {
+    return getRelationships(applicationCacheData, INSTANCES);
+  }
+
   @Override
   public Application getApplication(String name) {
+    CacheData cacheData = getApplicationCacheData(name);
 
-    CacheData cacheData =
-        cacheView.get(
-            APPLICATIONS.getNs(),
-            Keys.getApplicationKey(name),
-            RelationshipCacheFilter.include(CLUSTERS.getNs(), INSTANCES.getNs()));
     if (cacheData == null) {
       return null;
     }
@@ -91,7 +103,7 @@ final class GoogleApplicationProvider implements ApplicationProvider {
 
     GoogleApplication.View applicationView = application.getView();
 
-    Collection<String> clusters = getRelationships(cacheData, CLUSTERS);
+    Set<String> clusters = getApplicationClusterIdentifiers(cacheData);
     clusters.forEach(
         key -> {
           Map<String, String> parsedKey = Keys.parse(key);
@@ -102,14 +114,14 @@ final class GoogleApplicationProvider implements ApplicationProvider {
         });
 
     List<Map<String, String>> instances =
-        getRelationships(cacheData, INSTANCES).stream().map(Keys::parse).collect(toList());
+        getApplicationInstanceIdentifiers(cacheData).stream().map(Keys::parse).collect(toList());
     applicationView.setInstances(instances);
 
     return applicationView;
   }
 
-  private Collection<String> getRelationships(CacheData cacheData, Namespace namespace) {
-    Collection<String> result = cacheData.getRelationships().get(namespace.getNs());
-    return result != null ? result : ImmutableSet.of();
+  private Set<String> getRelationships(CacheData cacheData, Namespace namespace) {
+    Collection<String> relationships = cacheData.getRelationships().get(namespace.getNs());
+    return relationships == null ? Collections.emptySet() : new HashSet<>(relationships);
   }
 }
