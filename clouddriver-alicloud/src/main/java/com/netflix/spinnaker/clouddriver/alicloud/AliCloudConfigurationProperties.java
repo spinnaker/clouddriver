@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Netflix, Inc.
+ * Copyright 2019 Alibaba Group.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,6 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.aws.bastion
+package com.netflix.spinnaker.clouddriver.alicloud;
 
-import org.springframework.boot.context.properties.ConfigurationProperties
-
-@ConfigurationProperties("bastion")
-class BastionProperties {
-  Boolean enabled
-  String host
-  String user
-  Integer port
-  String proxyCluster
-  String proxyRegion
-  String accountIamRole
-}
+public class AliCloudConfigurationProperties {}
