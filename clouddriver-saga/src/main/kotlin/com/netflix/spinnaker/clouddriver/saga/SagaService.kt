@@ -91,12 +91,20 @@ class SagaService(
   override fun onEvent(event: SpinEvent) {
     // TODO(rz): `apply` would only occur via Commands; this method could disappear
     if (event is SagaEvent) {
-      if (event is SagaSaved || event is SagaLogAppended) {
-        // Ignoring this internal noise; these events are basically just for tracing
-        log.debug("Ignoring internal event: $event")
-        return
+      when (event) {
+        is SagaLogAppended,
+        is SagaSequenceUpdated,
+        is SagaRequiredEventsAdded,
+        is SagaRequiredEventsRemoved,
+        is SagaInCompensation,
+        is SagaCompensated,
+        is SagaCompleted -> {
+          // Ignoring this internal noise; these events are basically just for tracing
+          log.debug("Ignoring internal event: $event")
+          return
+        }
+        else -> apply(event)
       }
-      apply(event)
     }
   }
 
@@ -142,7 +150,7 @@ class SagaService(
 
     if (allRequiredEventsApplied(saga, event)) {
       log.info("All required events have occurred, completing: $sagaName/$sagaId")
-      saga.completed = true
+      saga.complete()
     }
 
     saga.setSequence(event.metadata.sequence)
