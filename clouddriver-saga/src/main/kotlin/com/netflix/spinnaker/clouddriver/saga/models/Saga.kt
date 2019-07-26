@@ -20,6 +20,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.google.common.annotations.VisibleForTesting
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
+import com.netflix.spinnaker.clouddriver.saga.SagaSequenceUpdated
+import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsAdded
+import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsRemoved
+import com.netflix.spinnaker.clouddriver.saga.SagaInCompensation
+import com.netflix.spinnaker.clouddriver.saga.SagaCompleted
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 
 /**
@@ -54,34 +59,44 @@ class Saga(
   private val requiredEvents: MutableList<String> = requiredEvents.toMutableList()
   private val pendingEvents: MutableList<SagaEvent> = mutableListOf()
 
-  var dirty: Boolean = false
-    private set(value) {
-      field = value
-    }
-
   var completed: Boolean = false
     set(value) {
       if (value != field) {
-        dirty = true
         field = value
       }
     }
 
-  var compensating: Boolean = false
-    set(value) {
-      if (value != field) {
-        dirty = true
-        field = value
-      }
-    }
+  fun complete(success: Boolean = true) {
+    completed = true
+    addEvent(SagaCompleted(
+      name,
+      id,
+      success
+    ))
+  }
+
+  fun isCompensating(): Boolean = events.filterIsInstance<SagaInCompensation>().isNotEmpty()
 
   fun getVersion(): Long {
     return events.map { it.metadata.originatingVersion }.max()?.let { it + 1 } ?: 0
   }
 
   fun addRequiredEvent(event: String) {
-    dirty = true
     requiredEvents.add(event)
+    addEvent(SagaRequiredEventsAdded(
+      name,
+      id,
+      eventNames = listOf(event)
+    ))
+  }
+
+  fun removeRequiredEvent(event: String) {
+    requiredEvents.remove(event)
+    addEvent(SagaRequiredEventsRemoved(
+      name,
+      id,
+      eventNames = listOf(event)
+    ))
   }
 
   fun getRequiredEvents(): List<String> {
@@ -89,7 +104,6 @@ class Saga(
   }
 
   fun addEvent(event: SagaEvent) {
-    dirty = true
     this.pendingEvents.add(event)
   }
 
@@ -110,8 +124,15 @@ class Saga(
     if (sequence > appliedEventVersion) {
       throw SagaSystemException("Attempting to set the saga sequence to an event version in the past")
     }
+
+    addEvent(SagaSequenceUpdated(
+      id,
+      name,
+      oldValue = sequence,
+      newValue = appliedEventVersion
+    ))
+
     sequence = appliedEventVersion
-    dirty = true
   }
 
   @JsonIgnoreProperties("saga")
