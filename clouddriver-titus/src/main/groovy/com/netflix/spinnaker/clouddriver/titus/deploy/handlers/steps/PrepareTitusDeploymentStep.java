@@ -281,7 +281,7 @@ public class PrepareTitusDeploymentStep extends AbstractTitusDeployStep
       description.setImageId(format("%s:%s", sourceJob.getApplicationName(), imageVersion));
     }
 
-    if (description.getSource() != null && description.getSource().getUseSourceCapacity()) {
+    if (description.getSource() != null && description.getSource().isUseSourceCapacity()) {
       description.getCapacity().setMin(sourceJob.getInstancesMin());
       description.getCapacity().setMax(sourceJob.getInstancesMax());
       description.getCapacity().setDesired(sourceJob.getInstancesDesired());
