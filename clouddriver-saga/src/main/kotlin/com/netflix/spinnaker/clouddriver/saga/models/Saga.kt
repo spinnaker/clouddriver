@@ -18,13 +18,14 @@ package com.netflix.spinnaker.clouddriver.saga.models
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.google.common.annotations.VisibleForTesting
+import com.netflix.spinnaker.clouddriver.saga.SagaCompleted
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
+import com.netflix.spinnaker.clouddriver.saga.SagaInCompensation
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
-import com.netflix.spinnaker.clouddriver.saga.SagaSequenceUpdated
 import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsAdded
 import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsRemoved
-import com.netflix.spinnaker.clouddriver.saga.SagaInCompensation
-import com.netflix.spinnaker.clouddriver.saga.SagaCompleted
+import com.netflix.spinnaker.clouddriver.saga.SagaSequenceUpdated
+import com.netflix.spinnaker.clouddriver.saga.exceptions.EventNotFoundException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 
 /**
@@ -59,21 +60,15 @@ class Saga(
   private val requiredEvents: MutableList<String> = requiredEvents.toMutableList()
   private val pendingEvents: MutableList<SagaEvent> = mutableListOf()
 
-  var completed: Boolean = false
-    set(value) {
-      if (value != field) {
-        field = value
-      }
-    }
-
   fun complete(success: Boolean = true) {
-    completed = true
     addEvent(SagaCompleted(
       name,
       id,
       success
     ))
   }
+
+  fun isComplete(): Boolean = events.filterIsInstance<SagaCompleted>().isNotEmpty()
 
   fun isCompensating(): Boolean = events.filterIsInstance<SagaInCompensation>().isNotEmpty()
 
@@ -141,15 +136,22 @@ class Saga(
   }
 
   @JsonIgnore
-  fun getPendingEvents(): List<SagaEvent> {
+  fun getPendingEvents(flush: Boolean = true): List<SagaEvent> {
     val pending = mutableListOf<SagaEvent>()
     pending.addAll(pendingEvents)
-    pendingEvents.clear()
+    if (flush) {
+      pendingEvents.clear()
+    }
     return pending.toList()
   }
 
   fun <T : SagaEvent> getLastEvent(clazz: Class<T>): T? {
-    return events.last { clazz.isAssignableFrom(it.javaClass) } as T?
+    try {
+      @Suppress("UNCHECKED_CAST")
+      return getEvents().lastOrNull { clazz.isAssignableFrom(it.javaClass) } as T?
+    } catch (e: NoSuchElementException) {
+      throw EventNotFoundException("Could not find event by type: ${clazz.simpleName}", e)
+    }
   }
 
   fun log(message: String) {
