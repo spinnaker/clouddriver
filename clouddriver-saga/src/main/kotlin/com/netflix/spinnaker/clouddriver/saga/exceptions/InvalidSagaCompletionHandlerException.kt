@@ -15,8 +15,6 @@
  */
 package com.netflix.spinnaker.clouddriver.saga.exceptions
 
-import com.netflix.spinnaker.kork.exceptions.IntegrationException
-
 /**
  * Thrown when a Saga's configured `completionHandler` property cannot be resolved to a Bean in the
  * ApplicationContext.
@@ -24,7 +22,7 @@ import com.netflix.spinnaker.kork.exceptions.IntegrationException
 class InvalidSagaCompletionHandlerException(
   message: String,
   cause: Throwable
-) : IntegrationException(message, cause) {
+) : SagaIntegrationException(message, cause) {
   companion object {
     fun notFound(handlerName: String, sagaName: String, cause: Exception): InvalidSagaCompletionHandlerException =
       InvalidSagaCompletionHandlerException(

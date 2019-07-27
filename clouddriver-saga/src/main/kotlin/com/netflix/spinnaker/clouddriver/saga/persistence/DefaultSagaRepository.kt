@@ -37,7 +37,7 @@ class DefaultSagaRepository(
     return if (criteria.running == null) {
       sagas
     } else {
-      sagas.filter { it.completed != criteria.running }
+      sagas.filter { it.isComplete() != criteria.running }
     }
   }
 

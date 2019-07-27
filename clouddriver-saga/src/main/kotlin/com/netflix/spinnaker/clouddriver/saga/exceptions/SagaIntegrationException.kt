@@ -15,9 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.saga.exceptions
 
-import com.netflix.spinnaker.kork.exceptions.SystemException
+import com.netflix.spinnaker.kork.exceptions.IntegrationException
 
-open class SagaSystemException(message: String, cause: Throwable?) :
-  SystemException(message, cause), SagaException {
-  constructor(message: String) : this(message, null)
-}
+open class SagaIntegrationException(message: String, cause: Throwable?) :
+  IntegrationException(message, cause), SagaException
