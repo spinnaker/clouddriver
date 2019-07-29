@@ -26,7 +26,6 @@ import com.netflix.spinnaker.clouddriver.cache.CacheConfig
 import com.netflix.spinnaker.clouddriver.cache.NoopOnDemandCacheUpdater
 import com.netflix.spinnaker.clouddriver.cache.OnDemandCacheUpdater
 import com.netflix.spinnaker.clouddriver.core.CloudProvider
-
 import com.netflix.spinnaker.clouddriver.core.NoopAtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.core.NoopCloudProvider
 import com.netflix.spinnaker.clouddriver.core.ProjectClustersService
@@ -81,6 +80,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
+import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import com.netflix.spinnaker.kork.core.RetrySupport
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate
@@ -330,11 +330,13 @@ class CloudDriverConfig {
   @Bean
   DescriptionAuthorizer descriptionAuthorizer(Registry registry,
                                               ObjectMapper objectMapper,
-                                              Optional<FiatPermissionEvaluator> fiatPermissionEvaluator) {
+                                              Optional<FiatPermissionEvaluator> fiatPermissionEvaluator,
+                                              SecurityConfig.OperationsSecurityConfigurationProperties opsSecurityConfigProps) {
     return new DescriptionAuthorizer(
       registry,
       objectMapper,
-      fiatPermissionEvaluator
+      fiatPermissionEvaluator,
+      opsSecurityConfigProps
     )
   }
 }
