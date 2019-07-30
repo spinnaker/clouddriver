@@ -47,6 +47,14 @@ public class GoogleComputeApiFactory {
     this.batchExecutor = batchExecutor;
   }
 
+  public Images createImages(GoogleNamedAccountCredentials credentials) {
+    return new Images(credentials, operationPoller, registry);
+  }
+
+  public InstanceTemplates createInstanceTemplates(GoogleNamedAccountCredentials credentials) {
+    return new InstanceTemplates(credentials, operationPoller, registry);
+  }
+
   public GoogleServerGroupManagers createServerGroupManagers(
       GoogleNamedAccountCredentials credentials, GoogleServerGroup.View serverGroup) {
     return serverGroup.getRegional()
@@ -54,14 +62,6 @@ public class GoogleComputeApiFactory {
             credentials, operationPoller, registry, serverGroup.getName(), serverGroup.getRegion())
         : new ZoneGoogleServerGroupManagers(
             credentials, operationPoller, registry, serverGroup.getName(), serverGroup.getZone());
-  }
-
-  public Images createImages(GoogleNamedAccountCredentials credentials) {
-    return new Images(credentials, registry);
-  }
-
-  public InstanceTemplates createInstanceTemplates(GoogleNamedAccountCredentials credentials) {
-    return new InstanceTemplates(credentials, operationPoller, registry);
   }
 
   public <RequestT extends ComputeRequest<ResponseT>, ResponseT>
