@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.saga.exceptions.InvalidSagaCompletionHa
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
+import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.BeansException
 import org.springframework.beans.factory.BeanNotOfRequiredTypeException
@@ -93,14 +94,14 @@ class SagaService(
     if (event is SagaEvent) {
       when (event) {
         is SagaLogAppended,
-        is SagaSequenceUpdated,
         is SagaRequiredEventsAdded,
         is SagaRequiredEventsRemoved,
         is SagaInCompensation,
         is SagaCompensated,
-        is SagaCompleted -> {
+        is SagaCompleted,
+        is SagaSaved -> {
           // Ignoring this internal noise; these events are basically just for tracing
-          log.debug("Ignoring internal event: $event")
+          log.trace("Ignoring internal event: $event")
           return
         }
         else -> apply(event)
@@ -113,11 +114,9 @@ class SagaService(
   }
 
   /**
-   * TODO(rz): Exception handling
    * TODO(rz): Add compensation handling
    */
   fun apply(event: SagaEvent) {
-    // metric: received events counter (event name, action [ignored, applied, failed, total])
     requireSynthesizedEventMetadata(event)
 
     val sagaName = event.sagaName
@@ -143,7 +142,24 @@ class SagaService(
           val handlerEvent = sagaEventFactory.buildCompositeEventForHandler(saga, handler, event)
           log.debug("Applying handler '${handler.javaClass.simpleName}' on ${event.javaClass.simpleName}: " +
             "${saga.name}/{$saga.id}")
-          handler.apply(handlerEvent, saga)
+          try {
+            handler.apply(handlerEvent, saga)
+          } catch (e: Exception) {
+            log.error("Failed applying event ${event.javaClass.simpleName} by handler '${handler.javaClass.simpleName}'", e)
+
+            if (e is SpinnakerException && e.retryable == true) {
+              saga.addEvent(SagaEventHandlerErrorOccurred(
+                saga.name,
+                saga.id,
+                handler.javaClass.simpleName,
+                e,
+                true
+              ))
+              return@flatMap listOf<SagaEvent>()
+            } else {
+              throw e
+            }
+          }
         }
     }
     registry.counter(eventsId.withTags(STATE_LABEL, APPLIED.name, TYPE_LABEL, event.javaClass.simpleName)).increment()
@@ -157,9 +173,17 @@ class SagaService(
     sagaRepository.save(saga, emittedEvents)
   }
 
+  /**
+   * TODO(rz): Implement.
+   */
   private fun isEventOutOfOrder(saga: Saga, event: SagaEvent): Boolean = false
 //    saga.getSequence() + 1 != event.metadata.sequence
 
+  /**
+   * Checks the history of applied events (including the [applyingEvent]) to see if all required events have been
+   * applied. If true, the Saga will be marked as completed, however the SagaService will continue to process
+   * events for it if there are still unapplied events left to process.
+   */
   private fun allRequiredEventsApplied(saga: Saga, applyingEvent: SagaEvent): Boolean {
     val appliedRequiredEvents = eventRepository.list(saga.name, saga.id).plus(applyingEvent)
       .filter { saga.getRequiredEvents().contains(it.javaClass.simpleName) }
@@ -175,6 +199,9 @@ class SagaService(
     return maxRequiredEventVersion != null && maxRequiredEventVersion <= saga.getSequence()
   }
 
+  /**
+   * Event metadata is synthesized lazily; if it hasn't, then there's a bug in the Saga framework.
+   */
   private fun requireSynthesizedEventMetadata(event: SagaEvent) {
     try {
       event.metadata.originatingVersion
@@ -184,6 +211,9 @@ class SagaService(
     }
   }
 
+  /**
+   * Get a Saga. An exception will be thrown if the Saga cannot be found.
+   */
   fun get(sagaName: String, sagaId: String): Saga {
     return sagaRepository.get(sagaName, sagaId) ?: throw SagaSystemException("Saga must be saved before applying")
   }
