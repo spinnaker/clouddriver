@@ -1,0 +1,86 @@
+#CircleCI config schema is versioned. 
+version: 2.1
+
+# orbs are config packages to include.
+orbs:
+  gradle: circleci/gradle@1.0.11
+  slack: circleci/slack@3.3.0
+
+workflows:
+  build_and_test:
+    jobs:
+      - build
+
+jobs:
+  build:
+    docker:
+      - image: cimg/openjdk:8u222-b10-stable
+    steps:
+      - checkout
+      - run:
+          name: Generate Cache Checksum
+          command: find . -name 'build.gradle' | sort | xargs cat | shasum | awk '{print
+            $1}' > /tmp/gradle_cache_seed
+      - restore_cache:
+          keys: 
+            - gradle-{{ checksum "/tmp/gradle_cache_seed" }}
+            - gradle-
+      - run:
+          name: Install
+          command: |
+            GRADLE="./gradlew -PenablePublishing=true --no-daemon --max-workers=1"
+            export GRADLE_OPTS="-Xmx1g -Xms1g"
+
+            if [ "x$CIRCLE_PULL_REQUEST" != "x" ]; then
+              echo -e "Assemble Pull Request #$CIRCLE_PULL_REQUEST => Branch [$CIRCLE_BRANCH]"
+              $GRADLE assemble
+            elif [ "$CIRCLE_PULL_REQUEST" == "" ] && [ "$CIRCLE_TAG" == "" ]; then
+              echo -e 'Assemble Branch with Snapshot => Branch ['$CIRCLE_BRANCH']'
+              $GRADLE -Prelease.CIRCLEci=true -x test assemble
+            elif [ "$CIRCLE_PULL_REQUEST" == "" ] && [ "$CIRCLE_TAG" != "" ]; then
+              echo -e 'Assemble Branch for Release => Branch ['$CIRCLE_BRANCH']  Tag ['$CIRCLE_TAG']'
+              $GRADLE -Prelease.CIRCLEci=true -x test assemble
+            else
+              echo -e 'WARN: Should not be here => Branch ['$CIRCLE_BRANCH']  Tag ['$CIRCLE_TAG']  Pull Request ['$CIRCLE_PULL_REQUEST']'
+              $GRADLE assemble
+            fi
+
+
+      - run:
+          name: Build
+          command: |
+            GRADLE="./gradlew -PenablePublishing=true --no-daemon --max-workers=1"
+            #export GRADLE_OPTS="-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap"
+            export GRADLE_OPTS="-Xmx1g -Xms1g"
+
+            if [ "x$CIRCLE_PULL_REQUEST" != "x" ]; then
+              echo -e "Build Pull Request #$CIRCLE_PULL_REQUEST => Branch [$CIRCLE_BRANCH]"
+              $GRADLE build javadoc
+            elif [ "$CIRCLE_PULL_REQUEST" == "" ] && [ "$CIRCLE_TAG" == "" ]; then
+              echo -e 'Build Branch with Snapshot => Branch ['$CIRCLE_BRANCH']'
+              $GRADLE -Prelease.travisci=true -PbintrayUser="${bintrayUser}" -PbintrayKey="${bintrayKey}" -x test build snapshot --stacktrace
+            elif [ "$CIRCLE_PULL_REQUEST" == "" ] && [ "$CIRCLE_TAG" != "" ]; then
+              echo -e 'Build Branch for Release => Branch ['$CIRCLE_BRANCH']  Tag ['$CIRCLE_TAG']'
+              case "$CIRCLE_TAG" in
+              version-*)
+                ;; # Ignore Spinnaker product release tags.
+              *-rc\.*)
+                $GRADLE -Prelease.travisci=true -Prelease.useLastTag=true -PbintrayUser="${bintrayUser}" -PbintrayKey="${bintrayKey}" -x test candidate --stacktrace
+                ;;
+              *)
+                $GRADLE -Prelease.travisci=true -Prelease.useLastTag=true -PbintrayUser="${bintrayUser}" -PbintrayKey="${bintrayKey}" -x test final --stacktrace
+                ;;
+              esac
+            else
+              echo -e 'WARN: Should not be here => Branch ['$CIRCLE_BRANCH']  Tag ['$CIRCLE_TAG']  Pull Request ['$CIRCLE_PULL_REQUEST']'
+              $GRADLE build
+            fi
+      - save_cache:
+          when: always
+          paths:
+          - ~/.gradle/caches
+          - ~/.gradle/wrapper
+          key: gradle-{{ checksum "/tmp/gradle_cache_seed" }}
+      - slack/notify
+
+
