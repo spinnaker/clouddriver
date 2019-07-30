@@ -46,6 +46,15 @@ class SagaInternalErrorOccurred(
   val data: Map<String, String> = mapOf()
 ) : SagaEvent(sagaName, sagaId)
 
+@JsonTypeName("sagaEventHandlerErrorOccurred")
+class SagaEventHandlerErrorOccurred(
+  sagaName: String,
+  sagaId: String,
+  val handlerName: String,
+  val error: Exception,
+  val retryable: Boolean
+) : SagaEvent(sagaName, sagaId)
+
 @JsonTypeName("sagaLogAppended")
 class SagaLogAppended(
   sagaName: String,
@@ -64,14 +73,6 @@ class SagaLogAppended(
     val retryable: Boolean = true
   )
 }
-
-@JsonTypeName("sagaSequenceUpdated")
-class SagaSequenceUpdated(
-  sagaName: String,
-  sagaId: String,
-  val oldValue: Long,
-  val newValue: Long
-) : SagaEvent(sagaName, sagaId)
 
 @JsonTypeName("sagaRequiredEventsAdded")
 class SagaRequiredEventsAdded(

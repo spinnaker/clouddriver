@@ -24,7 +24,6 @@ import com.netflix.spinnaker.clouddriver.saga.SagaInCompensation
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
 import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsAdded
 import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsRemoved
-import com.netflix.spinnaker.clouddriver.saga.SagaSequenceUpdated
 import com.netflix.spinnaker.clouddriver.saga.exceptions.EventNotFoundException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 
@@ -115,18 +114,10 @@ class Saga(
 
   fun getSequence(): Long = sequence
 
-  fun setSequence(appliedEventVersion: Long) {
+  internal fun setSequence(appliedEventVersion: Long) {
     if (sequence > appliedEventVersion) {
       throw SagaSystemException("Attempting to set the saga sequence to an event version in the past")
     }
-
-    addEvent(SagaSequenceUpdated(
-      id,
-      name,
-      oldValue = sequence,
-      newValue = appliedEventVersion
-    ))
-
     sequence = appliedEventVersion
   }
 
