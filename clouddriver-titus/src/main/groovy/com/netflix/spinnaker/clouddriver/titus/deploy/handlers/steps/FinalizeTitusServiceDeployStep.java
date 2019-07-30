@@ -15,15 +15,12 @@
  */
 package com.netflix.spinnaker.clouddriver.titus.deploy.handlers.steps;
 
-import static java.lang.String.format;
-
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent;
 import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler;
 import com.netflix.spinnaker.clouddriver.saga.UnionSagaEvent3;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusUtils;
-import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployCompleted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusLoadBalancersApplied;
@@ -33,7 +30,9 @@ import java.util.Collections;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class FinalizeTitusServiceDeployStep
     implements SagaEventHandler<
         UnionSagaEvent3<
@@ -53,25 +52,13 @@ public class FinalizeTitusServiceDeployStep
           UnionSagaEvent3<TitusJobSubmitted, TitusScalingPoliciesApplied, TitusLoadBalancersApplied>
               event,
       @NotNull Saga saga) {
-    final TitusDeployDescription description = event.getA().getDescription();
-    final String nextServerGroupName = event.getA().getNextServerGroupName();
-    final String jobUri = event.getA().getJobUri();
-
-    TitusDeploymentResult deploymentResult = new TitusDeploymentResult();
-
-    deploymentResult.setServerGroupNames(
-        Collections.singletonList(format("%s:%s", description.getRegion(), nextServerGroupName)));
-    deploymentResult.setServerGroupNameByRegion(
-        Collections.singletonMap(description.getRegion(), nextServerGroupName));
-    deploymentResult.setJobUri(jobUri);
-    deploymentResult.setMessages(saga.getLogs());
-
     return Collections.singletonList(
         new TitusDeployCompleted(
             saga.getName(),
             saga.getId(),
-            deploymentResult,
-            TitusUtils.getAccountId(accountCredentialsProvider, description.getAccount())));
+            TitusDeploymentResult.from(event.getA(), saga.getLogs()),
+            TitusUtils.getAccountId(
+                accountCredentialsProvider, event.getA().getDescription().getAccount())));
   }
 
   @Override

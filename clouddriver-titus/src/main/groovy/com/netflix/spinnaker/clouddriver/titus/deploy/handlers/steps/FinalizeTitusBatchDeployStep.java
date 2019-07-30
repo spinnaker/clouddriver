@@ -20,7 +20,6 @@ import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusUtils;
-import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployCompleted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.handlers.TitusDeploymentResult;
@@ -43,23 +42,13 @@ public class FinalizeTitusBatchDeployStep implements SagaEventHandler<TitusJobSu
   @NotNull
   @Override
   public List<SagaEvent> apply(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {
-    final TitusDeployDescription description = event.getDescription();
-    final String jobUri = event.getJobUri();
-
-    TitusDeploymentResult deploymentResult = new TitusDeploymentResult();
-
-    deploymentResult.setDeployedNames(Collections.emptyList());
-    deploymentResult.setDeployedNamesByLocation(
-        Collections.singletonMap(description.getRegion(), Collections.singletonList(jobUri)));
-    deploymentResult.setJobUri(jobUri);
-    deploymentResult.setMessages(saga.getLogs());
-
     return Collections.singletonList(
         new TitusDeployCompleted(
             saga.getName(),
             saga.getId(),
-            deploymentResult,
-            TitusUtils.getAccountId(accountCredentialsProvider, description.getAccount())));
+            TitusDeploymentResult.from(event, saga.getLogs()),
+            TitusUtils.getAccountId(
+                accountCredentialsProvider, event.getDescription().getAccount())));
   }
 
   @Override
