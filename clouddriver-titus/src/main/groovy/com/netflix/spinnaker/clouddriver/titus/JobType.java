@@ -33,7 +33,7 @@ public enum JobType {
     if (value == null) {
       return SERVICE;
     }
-    return JobType.valueOf(value);
+    return JobType.valueOf(value.toUpperCase());
   }
 
   public static boolean isEqual(@Nullable String value, @Nonnull JobType expectedType) {
