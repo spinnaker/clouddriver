@@ -19,6 +19,7 @@ import com.netflix.spinnaker.clouddriver.saga.SagaEvent;
 import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.titus.JobType;
 import com.netflix.spinnaker.clouddriver.titus.TitusUtils;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployCompleted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
@@ -42,6 +43,10 @@ public class FinalizeTitusBatchDeployStep implements SagaEventHandler<TitusJobSu
   @NotNull
   @Override
   public List<SagaEvent> apply(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {
+    if (!JobType.isEqual(event.getDescription().getJobType(), JobType.BATCH)) {
+      return Collections.emptyList();
+    }
+
     return Collections.singletonList(
         new TitusDeployCompleted(
             saga.getName(),

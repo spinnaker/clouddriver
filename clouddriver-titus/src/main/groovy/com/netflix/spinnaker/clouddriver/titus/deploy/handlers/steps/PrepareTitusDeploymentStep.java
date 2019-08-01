@@ -153,7 +153,7 @@ public class PrepareTitusDeploymentStep extends AbstractTitusDeployStep
 
     Set<String> securityGroups = resolveSecurityGroups(saga, description);
 
-    if (JobType.SERVICE.value().equals(description.getJobType())
+    if (JobType.isEqual(description.getJobType(), JobType.SERVICE)
         && deployDefaults.getAddAppGroupToServerGroup()
         && securityGroups.size() < deployDefaults.getMaxSecurityGroups()
         && description.getUseApplicationDefaultSecurityGroup()) {

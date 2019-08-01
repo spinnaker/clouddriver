@@ -16,6 +16,7 @@
 package com.netflix.spinnaker.clouddriver.titus;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** The supported Job types within Titus. */
 public enum JobType {
@@ -26,6 +27,17 @@ public enum JobType {
 
   JobType(String value) {
     this.value = value;
+  }
+
+  public static JobType from(@Nullable String value) {
+    if (value == null) {
+      return SERVICE;
+    }
+    return JobType.valueOf(value);
+  }
+
+  public static boolean isEqual(@Nullable String value, @Nonnull JobType expectedType) {
+    return from(value).equals(expectedType);
   }
 
   @Nonnull

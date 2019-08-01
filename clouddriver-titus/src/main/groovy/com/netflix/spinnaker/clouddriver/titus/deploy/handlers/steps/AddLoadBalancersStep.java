@@ -46,9 +46,9 @@ public class AddLoadBalancersStep implements SagaEventHandler<TitusJobSubmitted>
   public List<SagaEvent> apply(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {
     final TitusDeployDescription description = event.getDescription();
 
-    if (JobType.BATCH.value().equals(description.getJobType())) {
+    if (JobType.isEqual(description.getJobType(), JobType.BATCH)) {
       // Batch jobs don't get load balancers
-      return Collections.singletonList(new TitusLoadBalancersApplied(saga.getName(), saga.getId()));
+      return Collections.emptyList();
     }
 
     TitusLoadBalancerClient loadBalancerClient =

@@ -25,7 +25,7 @@ import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
 import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsAdded
 import com.netflix.spinnaker.clouddriver.saga.SagaRequiredEventsRemoved
 import com.netflix.spinnaker.clouddriver.saga.exceptions.EventNotFoundException
-import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
+import org.slf4j.LoggerFactory
 
 /**
  * The primary domain model of the Saga framework.
@@ -54,6 +54,8 @@ class Saga(
     compensationEvents: List<String>
   ) :
     this(name, id, completionHandler, requiredEvents, compensationEvents, 0)
+
+  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private val events: MutableList<SagaEvent> = mutableListOf()
   private val requiredEvents: MutableList<String> = requiredEvents.toMutableList()
@@ -116,7 +118,9 @@ class Saga(
 
   internal fun setSequence(appliedEventVersion: Long) {
     if (sequence > appliedEventVersion) {
-      throw SagaSystemException("Attempting to set the saga sequence to an event version in the past")
+      log.warn("Attempting to set the saga sequence to an event version in the past " +
+        "(current: $sequence, applying: $appliedEventVersion)")
+      return
     }
     sequence = appliedEventVersion
   }

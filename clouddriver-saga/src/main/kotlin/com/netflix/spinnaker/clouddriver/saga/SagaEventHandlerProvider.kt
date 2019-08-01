@@ -85,10 +85,12 @@ class SagaEventHandlerProvider : ApplicationContextAware {
     }
 
     if (UnionedSagaEvent::class.java.isAssignableFrom(genericEventType.rawClass)) {
-      return allRequiredEventsExist(
-        genericEventType,
-        appliedEvents.map { it.javaClass.simpleName }.plus(eventType.simpleName)
-      )
+      // The genericEventType must contain the exact given eventType as one of its child generics
+      return genericEventType.generics.any { it.rawClass == eventType } &&
+        allRequiredEventsExist(
+          genericEventType,
+          appliedEvents.map { it.javaClass.simpleName }.plus(eventType.simpleName)
+        )
     }
 
     val nestedCompositeEvents = genericEventType

@@ -27,7 +27,7 @@ class TitusJobNameResolver {
       TitusClient titusClient,
       TitusDeployDescription description,
       SubmitJobRequest submitJobRequest) {
-    if (JobType.BATCH.value().equals(submitJobRequest.getJobType())) {
+    if (JobType.isEqual(submitJobRequest.getJobType(), JobType.BATCH)) {
       submitJobRequest.withJobName(description.getApplication());
       return description.getApplication();
     }

@@ -115,6 +115,7 @@ class SagaService(
 
   /**
    * TODO(rz): Add compensation handling
+   * TODO(rz): Wrap whole apply in try/catch; if exception bubbles, probably set saga to complete and fail
    */
   fun apply(event: SagaEvent) {
     requireSynthesizedEventMetadata(event)
@@ -141,7 +142,7 @@ class SagaService(
         .flatMap { handler ->
           val handlerEvent = sagaEventFactory.buildCompositeEventForHandler(saga, handler, event)
           log.debug("Applying handler '${handler.javaClass.simpleName}' on ${event.javaClass.simpleName}: " +
-            "${saga.name}/{$saga.id}")
+            "${saga.name}/${saga.id}")
           try {
             handler.apply(handlerEvent, saga)
           } catch (e: Exception) {
@@ -164,17 +165,21 @@ class SagaService(
     }
     registry.counter(eventsId.withTags(STATE_LABEL, APPLIED.name, TYPE_LABEL, event.javaClass.simpleName)).increment()
 
+    saga.setSequence(event.metadata.sequence)
+
     if (allRequiredEventsApplied(saga, event)) {
-      log.info("All required events have occurred, completing: $sagaName/$sagaId")
       saga.complete()
     }
 
-    saga.setSequence(event.metadata.sequence)
     sagaRepository.save(saga, emittedEvents)
   }
 
   /**
-   * TODO(rz): Implement.
+   * An out-of-order event is typically not an indication of an actual bug, but that another event that was
+   * dispatched from the same originating version was applied first.
+   *
+   * TODO(rz): This logic _probably_ needs to be re-evaluated. Maybe re-drive the event instead with the latest state?
+   * Perhaps instead we just don't update the sequence? Not really sure...
    */
   private fun isEventOutOfOrder(saga: Saga, event: SagaEvent): Boolean = false
 //    saga.getSequence() + 1 != event.metadata.sequence
@@ -185,18 +190,31 @@ class SagaService(
    * events for it if there are still unapplied events left to process.
    */
   private fun allRequiredEventsApplied(saga: Saga, applyingEvent: SagaEvent): Boolean {
-    val appliedRequiredEvents = eventRepository.list(saga.name, saga.id).plus(applyingEvent)
-      .filter { saga.getRequiredEvents().contains(it.javaClass.simpleName) }
+    val allEvents = eventRepository.list(saga.name, saga.id).plus(applyingEvent)
 
+    val appliedRequiredEvents = allEvents.filter { saga.getRequiredEvents().contains(it.javaClass.simpleName) }
     if (!appliedRequiredEvents.map { it.javaClass.simpleName }.containsAll(saga.getRequiredEvents())) {
       return false
     }
-
     val maxRequiredEventVersion = appliedRequiredEvents
       .map { it.metadata.sequence }
       .max()
 
-    return maxRequiredEventVersion != null && maxRequiredEventVersion <= saga.getSequence()
+    val allApplied = maxRequiredEventVersion != null && maxRequiredEventVersion <= saga.getSequence()
+    if (!allApplied) {
+      return false
+    }
+
+    val maxEventVersion = allEvents.map { it.metadata.sequence }.max()
+    if (maxEventVersion != null && maxEventVersion > saga.getSequence()) {
+      log.debug("All required Saga events have been applied, however additional events have not yet been applied," +
+        " delaying completion: ${saga.name}/${saga.id}")
+      return false
+    }
+
+    log.info("All required events have occurred and no other events need to be applied, " +
+      "completing: ${saga.name}/${saga.id}")
+    return true
   }
 
   /**

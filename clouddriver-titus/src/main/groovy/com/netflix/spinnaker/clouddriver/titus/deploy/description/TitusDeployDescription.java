@@ -131,7 +131,7 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
             c -> submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(c)));
       }
 
-      if (JobType.SERVICE.value().equals(jobType)
+      if (JobType.isEqual(jobType, JobType.SERVICE)
           && (hardConstraints == null
               || !hardConstraints.contains(SubmitJobRequest.Constraint.ZONE_BALANCE))
           && (softConstraints == null

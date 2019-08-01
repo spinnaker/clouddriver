@@ -63,7 +63,7 @@ public class CopyScalingPoliciesStep extends AbstractTitusDeployStep
   public List<SagaEvent> apply(@NotNull TitusJobSubmitted event, @NotNull Saga saga) {
     final TitusDeployDescription description = event.getDescription();
 
-    if (JobType.BATCH.value().equals(description.getJobType())) {
+    if (JobType.isEqual(description.getJobType(), JobType.BATCH)) {
       // Batch jobs don't get scaling policies
       return Collections.emptyList();
     }

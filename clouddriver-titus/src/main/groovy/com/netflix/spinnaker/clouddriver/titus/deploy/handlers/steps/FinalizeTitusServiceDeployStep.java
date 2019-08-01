@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.saga.SagaEventHandler;
 import com.netflix.spinnaker.clouddriver.saga.UnionSagaEvent3;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.titus.JobType;
 import com.netflix.spinnaker.clouddriver.titus.TitusUtils;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployCompleted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
@@ -52,6 +53,10 @@ public class FinalizeTitusServiceDeployStep
           UnionSagaEvent3<TitusJobSubmitted, TitusScalingPoliciesApplied, TitusLoadBalancersApplied>
               event,
       @NotNull Saga saga) {
+    if (!JobType.isEqual(event.getA().getDescription().getJobType(), JobType.SERVICE)) {
+      return Collections.emptyList();
+    }
+
     return Collections.singletonList(
         new TitusDeployCompleted(
             saga.getName(),

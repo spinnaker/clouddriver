@@ -58,7 +58,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
                 TitusDeployPrepared.class.getSimpleName(),
                 TitusJobSubmitted.class.getSimpleName()));
 
-    if (JobType.SERVICE.value().equals(inputDescription.getJobType())) {
+    if (JobType.isEqual(inputDescription.getJobType(), JobType.SERVICE)) {
       requiredEvents.add(TitusLoadBalancersApplied.class.getSimpleName());
       requiredEvents.add(TitusScalingPoliciesApplied.class.getSimpleName());
     }
@@ -87,7 +87,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
         new TitusDeployCreated(
             saga.getName(), saga.getId(), inputDescription, priorOutputs, checksum);
     titusDeployCreated.setMetadata(
-        new EventMetadata(0, saga.getVersion(), Instant.now(), "unknown", "unknown"));
+        new EventMetadata(1, saga.getVersion(), Instant.now(), "unknown", "unknown"));
 
     sagaService.apply(titusDeployCreated);
 

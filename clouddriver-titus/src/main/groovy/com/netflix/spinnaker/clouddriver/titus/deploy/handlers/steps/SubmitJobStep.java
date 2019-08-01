@@ -52,7 +52,7 @@ public class SubmitJobStep implements SagaEventHandler<TitusDeployPrepared> {
   private static boolean isServiceExceptionRetryable(
       TitusDeployDescription description, StatusRuntimeException e) {
     String statusDescription = e.getStatus().getDescription();
-    return JobType.SERVICE.value().equals(description.getJobType())
+    return JobType.isEqual(description.getJobType(), JobType.SERVICE)
         && (e.getStatus().getCode() == Status.RESOURCE_EXHAUSTED.getCode()
             || e.getStatus().getCode() == Status.INVALID_ARGUMENT.getCode())
         && (statusDescription != null

@@ -23,7 +23,7 @@ public class TitusDeploymentResult extends DeploymentResult {
   public static TitusDeploymentResult from(TitusJobSubmitted event, List<String> messages) {
     TitusDeploymentResult result = new TitusDeploymentResult();
 
-    if (JobType.valueOf(event.getDescription().getJobType()).equals(JobType.SERVICE)) {
+    if (JobType.isEqual(event.getDescription().getJobType(), JobType.SERVICE)) {
       forServiceJob(result, event);
     } else {
       forBatchJob(result, event);
