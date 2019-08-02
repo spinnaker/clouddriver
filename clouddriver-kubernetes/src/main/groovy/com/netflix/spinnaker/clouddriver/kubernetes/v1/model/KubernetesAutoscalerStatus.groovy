@@ -22,7 +22,6 @@ import groovy.util.logging.Slf4j
 
 @Slf4j
 class KubernetesAutoscalerStatus {
-  Integer currentCpuUtilization
   Integer currentReplicas
   Integer desiredReplicas
   Long lastScaleTime
