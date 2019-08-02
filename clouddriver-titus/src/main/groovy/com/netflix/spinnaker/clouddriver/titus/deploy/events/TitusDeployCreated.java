@@ -17,6 +17,7 @@ package com.netflix.spinnaker.clouddriver.titus.deploy.events;
 
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
+import com.netflix.spinnaker.clouddriver.util.Checksum;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -32,11 +33,10 @@ public class TitusDeployCreated extends SagaEvent {
       @NotNull String sagaName,
       @NotNull String sagaId,
       @Nonnull TitusDeployDescription description,
-      @Nonnull List priorOutputs,
-      @Nonnull String inputChecksum) {
+      @Nonnull List priorOutputs) {
     super(sagaName, sagaId);
     this.description = description;
     this.priorOutputs = priorOutputs;
-    this.inputChecksum = inputChecksum;
+    this.inputChecksum = Checksum.md5(description);
   }
 }

@@ -4,7 +4,6 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler;
-import com.netflix.spinnaker.clouddriver.event.EventMetadata;
 import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent;
 import com.netflix.spinnaker.clouddriver.saga.SagaService;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
@@ -19,9 +18,7 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusDeployPrepared
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusLoadBalancersApplied;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusScalingPoliciesApplied;
-import com.netflix.spinnaker.clouddriver.util.Checksum;
 import groovy.util.logging.Slf4j;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -53,7 +50,6 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
             Arrays.asList(
                 // TODO(rz): TitusDeployCreated should be emitted as result of a Command; not used
                 // as a command.
-                //                TitusDeployCreated.class.getSimpleName(),
                 Front50AppLoaded.class.getSimpleName(),
                 TitusDeployPrepared.class.getSimpleName(),
                 TitusJobSubmitted.class.getSimpleName()));
@@ -64,8 +60,8 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
     }
 
     // TODO(rz): This needs to be re-entrant: Would be nice to pass this off to a
-    // "StartTitusDeployCommand" which
-    // looks up if it needs to either create a new deploy or resume one that already started
+    // "StartTitusDeployCommand" which would re-build the saga and then start from
+    // the next unapplied event
     requiredEvents.add(TitusDeployCompleted.class.getSimpleName());
 
     // TODO(rz): compensation events
@@ -77,19 +73,10 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
             requiredEvents,
             Collections.emptyList());
 
-    String checksum = Checksum.md5(inputDescription);
+    saga.addEvent(
+        new TitusDeployCreated(saga.getName(), saga.getId(), inputDescription, priorOutputs));
 
     sagaService.save(saga, true);
-
-    // TODO(rz): Change this to a command and then send into the CommandBus, which will handle
-    // getting it into the event store, setting metadata, etc.
-    TitusDeployCreated titusDeployCreated =
-        new TitusDeployCreated(
-            saga.getName(), saga.getId(), inputDescription, priorOutputs, checksum);
-    titusDeployCreated.setMetadata(
-        new EventMetadata(1, saga.getVersion(), Instant.now(), "unknown", "unknown"));
-
-    sagaService.apply(titusDeployCreated);
 
     TitusDeployCompleted completedEvent =
         sagaService.awaitCompletion(
