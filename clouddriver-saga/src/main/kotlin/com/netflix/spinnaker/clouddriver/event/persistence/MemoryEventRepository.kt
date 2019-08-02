@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * An in-memory only [EventRepository]. This implementation should only be used for testing.
@@ -46,7 +47,7 @@ class MemoryEventRepository(
   private val eventWriteCountId = registry.createId("eventing.events.writes")
   private val eventReadCountId = registry.createId("eventing.events.reads")
 
-  private val events: MutableMap<Aggregate, MutableList<SpinEvent>> = mutableMapOf()
+  private val events: MutableMap<Aggregate, MutableList<SpinEvent>> = ConcurrentHashMap()
 
   override fun save(aggregateType: String, aggregateId: String, originatingVersion: Long, events: List<SpinEvent>) {
     registry.counter(aggregateWriteCountId).increment()
@@ -74,7 +75,9 @@ class MemoryEventRepository(
     this.events[aggregate]!!.addAll(events)
     aggregate.version = aggregate.version + 1
 
-    log.debug("Saved $aggregateType/$aggregateId@${aggregate.version}")
+    events.joinToString(",") { it.javaClass.simpleName }
+    log.debug("Saved $aggregateType/$aggregateId@${aggregate.version}: " +
+      "[${events.joinToString(",") { it.javaClass.simpleName }}]")
 
     events.forEach { eventPublisher.publish(it) }
 
