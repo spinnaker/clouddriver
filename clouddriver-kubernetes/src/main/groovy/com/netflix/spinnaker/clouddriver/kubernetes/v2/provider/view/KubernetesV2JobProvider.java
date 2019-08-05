@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.NotImplementedException;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -98,10 +97,7 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
     return props;
   }
 
-  public void cancelJob(String account, String location, String id) {
-    throw new NotImplementedException(
-        "cancelJob is not implemented for the V2 Kubrenetes provider");
-  }
+  public void cancelJob(String account, String location, String id) {}
 
   private V1Job getKubernetesJob(String account, String location, String id) {
     List<Manifest> manifests =

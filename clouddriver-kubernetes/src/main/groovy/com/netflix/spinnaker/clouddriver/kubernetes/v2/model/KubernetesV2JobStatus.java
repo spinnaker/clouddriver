@@ -38,6 +38,7 @@ public class KubernetesV2JobStatus implements JobStatus, Serializable {
   String account;
   String id;
   String location;
+  String region;
   String provider = "kubernetes";
   Long createdTime;
   Long completedTime;
@@ -54,6 +55,7 @@ public class KubernetesV2JobStatus implements JobStatus, Serializable {
     this.account = account;
     this.name = job.getMetadata().getName();
     this.location = job.getMetadata().getNamespace();
+    this.region = job.getMetadata().getNamespace();
     this.createdTime =
         KubernetesModelUtil.translateTime(
             job.getMetadata().getCreationTimestamp().toString(), "yyyy-MM-dd'T'HH:mm:ss");
