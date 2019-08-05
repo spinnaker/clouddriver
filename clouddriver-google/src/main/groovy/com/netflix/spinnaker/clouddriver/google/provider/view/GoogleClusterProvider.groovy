@@ -78,19 +78,19 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
   }
 
   Map<String, Set<GoogleCluster.View>> getClusters(String applicationName, boolean includeInstanceDetails) {
-    CacheData applicationCacheData = applicationProvider.getApplicationCacheData(applicationName)
+    GoogleApplicationProvider.ApplicationCacheData applicationCacheData = applicationProvider.getApplicationCacheData(applicationName)
 
-    Set<String> applicationClusterIdentifiers = applicationProvider.getApplicationClusterIdentifiers(applicationCacheData)
+    Set<String> clusterIdentifiers = applicationCacheData.getClusterIdentifiers();
     Collection<CacheData> clusterCacheData = cacheView.getAll(
       CLUSTERS.ns,
-      applicationClusterIdentifiers,
+      clusterIdentifiers,
       RelationshipCacheFilter.include(SERVER_GROUPS.ns)
     )
 
-    Set<String> applicationInstanceIdentifiers = includeInstanceDetails ?
-      applicationProvider.getApplicationInstanceIdentifiers(applicationCacheData) :
+    Set<String> instanceIdentifiers = includeInstanceDetails ?
+      applicationCacheData.getInstanceIdentifiers() :
       Collections.<String>emptySet()
-    Collection<CacheData> applicationInstanceCacheData = instanceProvider.getInstanceCacheData(applicationInstanceIdentifiers)
+    Collection<CacheData> instanceCacheData = instanceProvider.getInstanceCacheData(instanceIdentifiers)
 
     Map<String, Set<GoogleCluster.View>> clustersByAccount = new HashMap<>()
     Map<String, Set<GoogleSecurityGroup>> securityGroupsByAccount = new HashMap<>()
@@ -105,7 +105,7 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
         accountName,
         { a -> new HashSet<GoogleCluster.View>() }
       )
-      accountClusters.add(clusterFromCacheData(cacheData, applicationInstanceCacheData, accountSecurityGroups))
+      accountClusters.add(clusterFromCacheData(cacheData, instanceCacheData, accountSecurityGroups))
     }
 
     return clustersByAccount

@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -67,43 +68,50 @@ final class GoogleApplicationProvider implements ApplicationProvider {
     return data.stream().map(this::applicationFromCacheData).collect(toSet());
   }
 
-  public CacheData getApplicationCacheData(String name) {
-    return cacheView.get(
-        APPLICATIONS.getNs(),
-        Keys.getApplicationKey(name),
-        RelationshipCacheFilter.include(CLUSTERS.getNs(), INSTANCES.getNs()));
+  @Value
+  static class ApplicationCacheData {
+    Map<String, Object> applicationAttributes;
+    Set<String> clusterIdentifiers;
+    Set<String> instanceIdentifiers;
   }
 
-  public Set<String> getApplicationClusterIdentifiers(CacheData applicationCacheData) {
-    return getRelationships(applicationCacheData, CLUSTERS);
+  ApplicationCacheData getApplicationCacheData(String name) {
+    CacheData cacheData =
+        cacheView.get(
+            APPLICATIONS.getNs(),
+            Keys.getApplicationKey(name),
+            RelationshipCacheFilter.include(CLUSTERS.getNs(), INSTANCES.getNs()));
+    return getApplicationCacheData(cacheData);
   }
 
-  public Set<String> getApplicationInstanceIdentifiers(CacheData applicationCacheData) {
-    return getRelationships(applicationCacheData, INSTANCES);
+  ApplicationCacheData getApplicationCacheData(CacheData cacheData) {
+    return new ApplicationCacheData(
+        cacheData.getAttributes(),
+        getRelationships(cacheData, CLUSTERS),
+        getRelationships(cacheData, INSTANCES));
   }
 
   @Override
   public Application getApplication(String name) {
-    CacheData cacheData = getApplicationCacheData(name);
-
-    if (cacheData == null) {
-      return null;
-    }
-
-    return applicationFromCacheData(cacheData);
+    return applicationFromCacheData(getApplicationCacheData(name));
   }
 
   private GoogleApplication.View applicationFromCacheData(CacheData cacheData) {
+    return applicationFromCacheData(getApplicationCacheData(cacheData));
+  }
 
+  private GoogleApplication.View applicationFromCacheData(
+      ApplicationCacheData applicationCacheData) {
     GoogleApplication application =
-        objectMapper.convertValue(cacheData.getAttributes(), GoogleApplication.class);
+        objectMapper.convertValue(
+            applicationCacheData.getApplicationAttributes(), GoogleApplication.class);
     if (application == null) {
       return null;
     }
 
     GoogleApplication.View applicationView = application.getView();
 
-    Set<String> clusters = getApplicationClusterIdentifiers(cacheData);
+    Set<String> clusters = applicationCacheData.getClusterIdentifiers();
     clusters.forEach(
         key -> {
           Map<String, String> parsedKey = Keys.parse(key);
@@ -114,7 +122,7 @@ final class GoogleApplicationProvider implements ApplicationProvider {
         });
 
     List<Map<String, String>> instances =
-        getApplicationInstanceIdentifiers(cacheData).stream().map(Keys::parse).collect(toList());
+        applicationCacheData.getInstanceIdentifiers().stream().map(Keys::parse).collect(toList());
     applicationView.setInstances(instances);
 
     return applicationView;
