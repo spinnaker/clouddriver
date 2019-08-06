@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import lombok.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -75,6 +76,7 @@ final class GoogleApplicationProvider implements ApplicationProvider {
     Set<String> instanceIdentifiers;
   }
 
+  @Nullable
   ApplicationCacheData getApplicationCacheData(String name) {
     CacheData cacheData =
         cacheView.get(
