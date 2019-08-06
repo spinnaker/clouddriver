@@ -85,6 +85,9 @@ final class GoogleApplicationProvider implements ApplicationProvider {
   }
 
   private ApplicationCacheData getApplicationCacheData(CacheData cacheData) {
+    if (cacheData == null) {
+      return null;
+    }
     return new ApplicationCacheData(
         cacheData.getAttributes(),
         getRelationships(cacheData, CLUSTERS),
@@ -102,6 +105,9 @@ final class GoogleApplicationProvider implements ApplicationProvider {
 
   private GoogleApplication.View applicationFromCacheData(
       ApplicationCacheData applicationCacheData) {
+    if (applicationCacheData == null) {
+      return null;
+    }
     GoogleApplication application =
         objectMapper.convertValue(
             applicationCacheData.getApplicationAttributes(), GoogleApplication.class);
