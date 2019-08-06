@@ -84,7 +84,7 @@ final class GoogleApplicationProvider implements ApplicationProvider {
     return getApplicationCacheData(cacheData);
   }
 
-  ApplicationCacheData getApplicationCacheData(CacheData cacheData) {
+  private ApplicationCacheData getApplicationCacheData(CacheData cacheData) {
     return new ApplicationCacheData(
         cacheData.getAttributes(),
         getRelationships(cacheData, CLUSTERS),
