@@ -23,6 +23,8 @@ import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.AliasConfiguration;
 import com.amazonaws.services.lambda.model.EventSourceMappingConfiguration;
 import com.amazonaws.services.lambda.model.FunctionConfiguration;
+import com.amazonaws.services.lambda.model.GetFunctionConfigurationRequest;
+import com.amazonaws.services.lambda.model.GetFunctionConfigurationResult;
 import com.amazonaws.services.lambda.model.ListAliasesRequest;
 import com.amazonaws.services.lambda.model.ListAliasesResult;
 import com.amazonaws.services.lambda.model.ListEventSourceMappingsRequest;
@@ -128,6 +130,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
       attributes.put("aliasConfiguration", listAliasConfiguration(x.getFunctionArn()));
       attributes.put(
           "eventSourceMappings", listEventSourceMappingConfiguration(x.getFunctionArn()));
+      attributes.put("functionConfiguration", getFunctionConfiguration(x.getFunctionArn()));
 
       data.add(
           new DefaultCacheData(
@@ -211,5 +214,13 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
     } while (nextMarker != null && nextMarker.length() != 0);
 
     return eventSourceMappingConfigurations;
+  }
+
+  private final GetFunctionConfigurationResult getFunctionConfiguration(String functionArn) {
+    AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
+    GetFunctionConfigurationRequest getFunctionConfigurationRequest =
+        new GetFunctionConfigurationRequest();
+    getFunctionConfigurationRequest.setFunctionName(functionArn);
+    return lambda.getFunctionConfiguration(getFunctionConfigurationRequest);
   }
 }
