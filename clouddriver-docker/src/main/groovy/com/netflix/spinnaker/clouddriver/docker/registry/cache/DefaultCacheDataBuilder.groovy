@@ -18,6 +18,8 @@ package com.netflix.spinnaker.clouddriver.docker.registry.cache
 
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 
+import java.util.concurrent.ConcurrentHashMap
+
 class DefaultCacheDataBuilder {
   String id = ''
   int ttlSeconds = -1
@@ -29,6 +31,6 @@ class DefaultCacheDataBuilder {
   }
 
   public static Map<String, DefaultCacheDataBuilder> defaultCacheDataBuilderMap() {
-    return [:].withDefault { String id -> new DefaultCacheDataBuilder(id: id) }
+    return new ConcurrentHashMap<>().withDefault { String id -> new DefaultCacheDataBuilder(id: id) }
   }
 }

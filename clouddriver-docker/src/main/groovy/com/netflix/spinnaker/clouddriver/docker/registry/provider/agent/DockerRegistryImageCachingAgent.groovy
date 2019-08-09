@@ -131,8 +131,10 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
     Map<String, DefaultCacheDataBuilder> cachedTags = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
     Map<String, DefaultCacheDataBuilder> cachedIds = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
 
-    tagMap.forEach { repository, tags ->
-      tags.forEach { tag ->
+    tagMap.entrySet().parallelStream().forEach { entry ->
+      def repository = entry.key
+      def tags = entry.value
+      tags.parallelStream().forEach { tag ->
         if (!tag) {
           log.warn("Empty tag encountered for $accountName/$repository, not caching")
           return
@@ -158,23 +160,26 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
             }
           }
         }
-        try {
-          creationDate = credentials.client.getCreationDate(repository, tag)
-        } catch (Exception e) {
-          log.warn("Unable to fetch tag creation date, reason: {} (tag: {}, repository: {})", e.message, tag, repository)
+
+        if (credentials.sortTagsByDate) {
+          try {
+            creationDate = credentials.client.getCreationDate(repository, tag)
+          } catch (Exception e) {
+            log.warn("Unable to fetch tag creation date, reason: {} (tag: {}, repository: {})", e.message, tag, repository)
+          }
         }
 
-        cachedTags[tagKey].with {
+        cachedTags << [(tagKey) : new DefaultCacheDataBuilder().tap {
           attributes.name = "${repository}:${tag}".toString()
           attributes.account = accountName
           attributes.digest = digest
           attributes.date = creationDate
-        }
+        }]
 
-        cachedIds[imageIdKey].with {
+        cachedIds << [(imageIdKey) : new DefaultCacheDataBuilder().tap {
           attributes.tagKey = tagKey
           attributes.account = accountName
-        }
+        }]
       }
 
       null
