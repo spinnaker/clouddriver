@@ -17,6 +17,7 @@
 rootProject.name = "clouddriver"
 
 def cloudProviderProjects = [
+  'alicloud' : [':clouddriver-alicloud'],
   'appengine':  [':clouddriver-appengine', ':clouddriver-google-common'],
   'aws': [':clouddriver-aws', ':clouddriver-ecs', ':clouddriver-eureka', ':clouddriver-elasticsearch-aws', ':clouddriver-lambda'], // Pull cd-eureka separate "Discover" platform, along with cd-consul?
   'azure': [':clouddriver-azure'],
@@ -35,20 +36,20 @@ gradle.ext.includedCloudProviderProjects = includeCloudProviders.split(',')
   .collectMany { cloudProviderProjects[it.toLowerCase()] }
 
 include 'cats:cats-core',
-  'cats:cats-dynomite',
   'cats:cats-redis',
   'cats:cats-test',
   'cats:cats-sql',
   'clouddriver-artifacts',
+  'clouddriver-bom',
   'clouddriver-core',
   'clouddriver-core-tck',
   'clouddriver-elasticsearch',
+  'clouddriver-event',
+  'clouddriver-scattergather',
   'clouddriver-security',
   'clouddriver-sql',
   'clouddriver-sql-mysql',
-  'clouddriver-web',
-  'clouddriver-scattergather',
-  'clouddriver-bom'
+  'clouddriver-web'
 include(*gradle.ext.includedCloudProviderProjects)
 
 def setBuildFile(project) {

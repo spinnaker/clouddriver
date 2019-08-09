@@ -34,10 +34,13 @@ buildscript {
     classpath "com.netflix.spinnaker.gradle:spinnaker-dev-plugin:$spinnakerGradleVersion"
     if (Boolean.valueOf(enablePublishing)) {
       classpath "com.netflix.spinnaker.gradle:spinnaker-gradle-project:$spinnakerGradleVersion"
+// TODO: nebula-publishing-plugin version override should be removed as soon as spinnaker-gradle-project is updated
+// this override is needed to omit compileOnly dependencies from generated pom.xml
+      classpath "com.netflix.nebula:nebula-publishing-plugin:12.0.1"
     }
     classpath "com.netflix.nebula:nebula-kotlin-plugin:$kotlinVersion"
     classpath "org.junit.platform:junit-platform-gradle-plugin:${junitPlatformVersion}"
-
+    classpath "org.jetbrains.kotlin:kotlin-allopen:$kotlinVersion"
   }
 }
 
@@ -52,6 +55,7 @@ allprojects {
     apply plugin: 'java-library'
     apply plugin: 'groovy'
     apply plugin: 'nebula.kotlin'
+    apply plugin: "kotlin-allopen"
 
     sourceSets.main.java.srcDirs = []
     sourceSets.main.groovy.srcDirs += ["src/main/java"]
