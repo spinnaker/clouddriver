@@ -30,7 +30,7 @@ class DefaultCacheDataBuilder {
     new DefaultCacheData(id, ttlSeconds, attributes, relationships)
   }
 
-  public static Map<String, DefaultCacheDataBuilder> defaultCacheDataBuilderMap() {
+  public static ConcurrentHashMap<String, DefaultCacheDataBuilder> defaultCacheDataBuilderMap() {
     return new ConcurrentHashMap<>().withDefault { String id -> new DefaultCacheDataBuilder(id: id) }
   }
 }

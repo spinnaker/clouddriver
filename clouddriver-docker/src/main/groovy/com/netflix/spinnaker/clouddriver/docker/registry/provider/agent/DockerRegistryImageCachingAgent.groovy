@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistry
 import groovy.util.logging.Slf4j
 import retrofit.RetrofitError
 
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 import static java.util.Collections.unmodifiableSet
@@ -128,12 +129,10 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
   private CacheResult buildCacheResult(Map<String, Set<String>> tagMap) {
     log.info("Describing items in ${agentType}")
 
-    Map<String, DefaultCacheDataBuilder> cachedTags = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
-    Map<String, DefaultCacheDataBuilder> cachedIds = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
+    ConcurrentHashMap<String, DefaultCacheDataBuilder> cachedTags = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
+    ConcurrentHashMap<String, DefaultCacheDataBuilder> cachedIds = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
 
-    tagMap.entrySet().parallelStream().forEach { entry ->
-      def repository = entry.key
-      def tags = entry.value
+    tagMap.forEach { repository, tags ->
       tags.parallelStream().forEach { tag ->
         if (!tag) {
           log.warn("Empty tag encountered for $accountName/$repository, not caching")
