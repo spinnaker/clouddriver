@@ -169,17 +169,17 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
           }
         }
 
-        cachedTags << [(tagKey) : new DefaultCacheDataBuilder().tap {
-          attributes.name = "${repository}:${tag}".toString()
-          attributes.account = accountName
-          attributes.digest = digest
-          attributes.date = creationDate
-        }]
+        def tagData = new DefaultCacheDataBuilder()
+        tagData.attributes.put("name", "${repository}:${tag}".toString())
+        tagData.attributes.put("account", accountName)
+        tagData.attributes.put("digest", digest)
+        tagData.attributes.put("date", creationDate)
+        cachedTags.put(tagKey, tagData)
 
-        cachedIds << [(imageIdKey) : new DefaultCacheDataBuilder().tap {
-          attributes.tagKey = tagKey
-          attributes.account = accountName
-        }]
+        def idData = new DefaultCacheDataBuilder()
+        idData.attributes.put("tagKey", tagKey)
+        idData.attributes.put("account", accountName)
+        cachedIds.put(imageIdKey, idData)
       }
 
       null
