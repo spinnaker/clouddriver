@@ -28,7 +28,7 @@ import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistry
 import groovy.util.logging.Slf4j
 import retrofit.RetrofitError
 
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeUnit
 
 import static java.util.Collections.unmodifiableSet
@@ -129,8 +129,8 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
   private CacheResult buildCacheResult(Map<String, Set<String>> tagMap) {
     log.info("Describing items in ${agentType}")
 
-    ConcurrentHashMap<String, DefaultCacheDataBuilder> cachedTags = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
-    ConcurrentHashMap<String, DefaultCacheDataBuilder> cachedIds = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
+    ConcurrentMap<String, DefaultCacheDataBuilder> cachedTags = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
+    ConcurrentMap<String, DefaultCacheDataBuilder> cachedIds = DefaultCacheDataBuilder.defaultCacheDataBuilderMap()
 
     tagMap.forEach { repository, tags ->
       tags.parallelStream().forEach { tag ->
