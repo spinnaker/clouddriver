@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.converters
+package com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters
 
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription
