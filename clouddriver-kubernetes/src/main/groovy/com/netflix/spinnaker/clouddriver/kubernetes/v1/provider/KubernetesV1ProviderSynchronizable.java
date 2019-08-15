@@ -48,7 +48,7 @@ public class KubernetesV1ProviderSynchronizable implements CredentialsInitialize
   private KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private CatsModule catsModule;
 
-  KubernetesV1ProviderSynchronizable(
+  public KubernetesV1ProviderSynchronizable(
       KubernetesV1Provider kubernetesV1Provider,
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher,
