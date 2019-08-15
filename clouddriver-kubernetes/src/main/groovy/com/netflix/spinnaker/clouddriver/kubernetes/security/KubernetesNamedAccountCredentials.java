@@ -162,7 +162,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
       validateAccount(managedAccount);
       NamerRegistry.lookup()
-          .withProvider(KubernetesCloudProvider.getID())
+          .withProvider(KubernetesCloudProvider.ID)
           .withAccount(managedAccount.getName())
           .setNamer(
               KubernetesManifest.class,
