@@ -17,11 +17,9 @@ package com.netflix.spinnaker.clouddriver.kubernetes;
 
 import com.netflix.spinnaker.clouddriver.core.CloudProvider;
 import java.lang.annotation.Annotation;
-import lombok.Getter;
 import org.springframework.stereotype.Component;
 
 /** Kubernetes declaration as a {@link CloudProvider}. */
-@Getter
 @Component
 public class KubernetesCloudProvider implements CloudProvider {
   public static final String ID = "kubernetes";
