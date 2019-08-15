@@ -22,7 +22,6 @@ import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.R
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeployManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.servergroup.KubernetesResizeServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.servergroup.KubernetesResizeServerGroupOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
@@ -45,9 +44,8 @@ public class KubernetesResizeServerGroupConverter
 
   @Override
   public KubernetesResizeServerGroupDescription convertDescription(Map input) {
-    return (KubernetesResizeServerGroupDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesDeployManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesResizeServerGroupDescription.class);
   }
 
   @Override

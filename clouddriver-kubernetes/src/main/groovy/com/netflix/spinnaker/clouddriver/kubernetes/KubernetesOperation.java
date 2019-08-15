@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.clouddriver.kubernetes;
 
-package com.netflix.spinnaker.clouddriver.kubernetes
-
-import java.lang.annotation.ElementType
-import java.lang.annotation.Retention
-import java.lang.annotation.RetentionPolicy
-import java.lang.annotation.Target
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * {@code KubernetesOperation}s specify implementation classes of Spinnaker AtomicOperations for Kubernetes.
+ * {@code KubernetesOperation}s specify implementation classes of Spinnaker AtomicOperations for
+ * Kubernetes.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@interface KubernetesOperation {
-  String value()
+public @interface KubernetesOperation {
+  String value();
 }

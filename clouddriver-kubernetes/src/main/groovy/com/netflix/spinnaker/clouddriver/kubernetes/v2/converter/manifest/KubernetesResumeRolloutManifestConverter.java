@@ -44,9 +44,8 @@ public class KubernetesResumeRolloutManifestConverter
 
   @Override
   public KubernetesResumeRolloutManifestDescription convertDescription(Map input) {
-    return (KubernetesResumeRolloutManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesResumeRolloutManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesResumeRolloutManifestDescription.class);
   }
 
   @Override

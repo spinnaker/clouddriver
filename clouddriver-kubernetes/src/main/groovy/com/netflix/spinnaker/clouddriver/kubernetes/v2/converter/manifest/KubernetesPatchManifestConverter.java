@@ -42,9 +42,8 @@ public class KubernetesPatchManifestConverter extends AbstractAtomicOperationsCr
 
   @Override
   public KubernetesPatchManifestDescription convertDescription(Map input) {
-    return (KubernetesPatchManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesPatchManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesPatchManifestDescription.class);
   }
 
   @Override

@@ -44,9 +44,8 @@ public class KubernetesUndoRolloutManifestConverter
 
   @Override
   public KubernetesUndoRolloutManifestDescription convertDescription(Map input) {
-    return (KubernetesUndoRolloutManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesUndoRolloutManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesUndoRolloutManifestDescription.class);
   }
 
   @Override

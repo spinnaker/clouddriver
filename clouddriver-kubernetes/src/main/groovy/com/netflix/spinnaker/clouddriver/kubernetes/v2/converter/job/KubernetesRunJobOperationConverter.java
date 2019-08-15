@@ -51,9 +51,8 @@ public class KubernetesRunJobOperationConverter extends AbstractAtomicOperations
 
   @Override
   public KubernetesRunJobOperationDescription convertDescription(Map input) {
-    return (KubernetesRunJobOperationDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesRunJobOperationDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesRunJobOperationDescription.class);
   }
 
   @Override

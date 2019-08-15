@@ -48,9 +48,8 @@ public class KubernetesCleanupArtifactsConverter
 
   @Override
   public KubernetesCleanupArtifactsDescription convertDescription(Map input) {
-    return (KubernetesCleanupArtifactsDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesCleanupArtifactsDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesCleanupArtifactsDescription.class);
   }
 
   @Override

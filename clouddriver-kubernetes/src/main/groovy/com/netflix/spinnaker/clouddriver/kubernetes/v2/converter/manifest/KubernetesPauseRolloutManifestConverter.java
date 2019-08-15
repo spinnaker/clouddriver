@@ -44,9 +44,8 @@ public class KubernetesPauseRolloutManifestConverter
 
   @Override
   public KubernetesPauseRolloutManifestDescription convertDescription(Map input) {
-    return (KubernetesPauseRolloutManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesPauseRolloutManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesPauseRolloutManifestDescription.class);
   }
 
   @Override

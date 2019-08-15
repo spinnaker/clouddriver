@@ -31,6 +31,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2Provi
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentDispatcher
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -55,8 +56,8 @@ class KubernetesConfiguration {
   }
 
   @Bean
-  KubernetesHealthIndicator kubernetesHealthIndicator() {
-    new KubernetesHealthIndicator()
+  KubernetesHealthIndicator kubernetesHealthIndicator(AccountCredentialsProvider accountCredentialsProvider) {
+    new KubernetesHealthIndicator(accountCredentialsProvider)
   }
 
   @Bean

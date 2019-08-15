@@ -43,9 +43,8 @@ public class KubernetesDeleteManifestConverter extends AbstractAtomicOperationsC
 
   @Override
   public KubernetesDeleteManifestDescription convertDescription(Map input) {
-    return (KubernetesDeleteManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesDeleteManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesDeleteManifestDescription.class);
   }
 
   @Override

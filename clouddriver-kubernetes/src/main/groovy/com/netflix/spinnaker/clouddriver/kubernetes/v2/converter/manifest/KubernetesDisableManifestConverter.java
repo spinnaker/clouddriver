@@ -43,9 +43,8 @@ public class KubernetesDisableManifestConverter extends AbstractAtomicOperations
 
   @Override
   public KubernetesEnableDisableManifestDescription convertDescription(Map input) {
-    return (KubernetesEnableDisableManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesEnableDisableManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesEnableDisableManifestDescription.class);
   }
 
   @Override

@@ -72,9 +72,8 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
   @Override
   public KubernetesDeployManifestDescription convertDescription(Map input) {
     KubernetesDeployManifestDescription mainDescription =
-        (KubernetesDeployManifestDescription)
-            KubernetesAtomicOperationConverterHelper.convertDescription(
-                input, this, KubernetesDeployManifestDescription.class);
+        KubernetesAtomicOperationConverterHelper.convertDescription(
+            input, this, KubernetesDeployManifestDescription.class);
     return convertListDescription(mainDescription);
   }
 

@@ -43,9 +43,8 @@ public class KubernetesScaleManifestConverter extends AbstractAtomicOperationsCr
 
   @Override
   public KubernetesScaleManifestDescription convertDescription(Map input) {
-    return (KubernetesScaleManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesScaleManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesScaleManifestDescription.class);
   }
 
   @Override
