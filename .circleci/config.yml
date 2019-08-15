@@ -16,6 +16,7 @@ jobs:
     docker:
       - image: cimg/openjdk:8u222-b10-stable
     steps:
+      - setup_remote_docker
       - checkout
       - run:
           name: Generate Cache Checksum
