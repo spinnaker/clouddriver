@@ -46,7 +46,6 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDes
 import com.netflix.spinnaker.clouddriver.titus.exceptions.JobNotFoundException;
 import com.netflix.spinnaker.clouddriver.titus.model.DockerImage;
 import com.netflix.spinnaker.config.AwsConfiguration;
-import com.netflix.spinnaker.kork.exceptions.IntegrationException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -248,8 +247,7 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
 
     TitusClient sourceClient = buildSourceTitusClient(source);
     if (sourceClient == null) {
-      // TODO(rz): Specific exception.
-      throw new IntegrationException(
+      throw new TitusException(
           "Unable to find a Titus client for deployment source: {}",
           description.getSource().getAsgName());
     }
@@ -462,7 +460,7 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     }
 
     @Override
-    public void setFront50App(@Nonnull LoadFront50App.Front50App app) {
+    public void setFront50App(LoadFront50App.Front50App app) {
       this.front50App = app;
     }
   }
