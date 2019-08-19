@@ -130,8 +130,9 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
       attributes.put("aliasConfiguration", listAliasConfiguration(x.getFunctionArn()));
       attributes.put(
           "eventSourceMappings", listEventSourceMappingConfiguration(x.getFunctionArn()));
-      attributes.put("functionConfiguration", getFunctionConfiguration(x.getFunctionArn()));
-
+      GetFunctionConfigurationResult conf = getFunctionConfiguration(x.getFunctionArn());
+      attributes.put("functionConfiguration", conf);
+      log.info("FUNCTION CONFIGURATION RESULT: ", conf);
       data.add(
           new DefaultCacheData(
               Keys.getLambdaFunctionKey(account.getName(), region, x.getFunctionName()),
