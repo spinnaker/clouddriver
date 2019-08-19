@@ -324,11 +324,6 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
                 }
               });
     }
-
-    if (sourceJob.getLabels() != null
-        && "false".equals(sourceJob.getLabels().get(USE_APPLICATION_DEFAULT_SG_LABEL))) {
-      description.setUseApplicationDefaultSecurityGroup(false);
-    }
   }
 
   @Nonnull
@@ -373,26 +368,18 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     return targetGroups;
   }
 
-  private void configureAppDefaultSecurityGroup(TitusDeployDescription description) {
-    if (description.getLabels().containsKey(USE_APPLICATION_DEFAULT_SG_LABEL)) {
-      if ("false".equals(description.getLabels().get(USE_APPLICATION_DEFAULT_SG_LABEL))) {
-        description.setUseApplicationDefaultSecurityGroup(false);
-      } else {
-        description.setUseApplicationDefaultSecurityGroup(true);
-      }
-    }
+  private void resolveSecurityGroups(Saga saga, TitusDeployDescription description) {
+    saga.log("Resolving security groups");
 
-    if (!description.getUseApplicationDefaultSecurityGroup()) {
+    // Determine if we should configure the app default security group...
+    boolean useApplicationDefaultSecurityGroup =
+        Boolean.valueOf(
+            description.getLabels().getOrDefault(USE_APPLICATION_DEFAULT_SG_LABEL, "true"));
+    if (!useApplicationDefaultSecurityGroup) {
       description.getLabels().put(USE_APPLICATION_DEFAULT_SG_LABEL, "false");
     } else {
       description.getLabels().remove(USE_APPLICATION_DEFAULT_SG_LABEL);
     }
-  }
-
-  private void resolveSecurityGroups(Saga saga, TitusDeployDescription description) {
-    saga.log("Resolving security groups");
-
-    configureAppDefaultSecurityGroup(description);
 
     // Resolve the provided security groups, asserting that they actually exist.
     // TODO(rz): Seems kinda odd that we'd do resolution & validation here and not in... a validator
@@ -419,10 +406,10 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
               }
             });
 
-    if (JobType.isEqual(description.getJobType(), JobType.SERVICE)
+    if (JobType.SERVICE.isEqual(description.getJobType())
         && deployDefaults.getAddAppGroupToServerGroup()
         && securityGroups.size() < deployDefaults.getMaxSecurityGroups()
-        && description.getUseApplicationDefaultSecurityGroup()) {
+        && useApplicationDefaultSecurityGroup) {
       String applicationSecurityGroup =
           awsLookupUtil.convertSecurityGroupNameToId(
               description.getAccount(), description.getRegion(), description.getApplication());
