@@ -56,6 +56,8 @@ class DockerRegistryImageCachingAgentTest extends Specification {
     cacheResult.cacheResults.get("taggedImage").size() == total
     cacheResult.cacheResults.get("imageId").size() == total
     for (def i = 0; i < total; i++) {
+      cacheResult.cacheResults.get("taggedImage")[i].getId() != ""
+      cacheResult.cacheResults.get("imageId")[i].getId() != ""
       def repoAndTag = cacheResult.cacheResults.get("taggedImage")[i].attributes.get("name").split(":")
       repoTags[repositories.indexOf(repoAndTag[0])].contains(repoAndTag[1])
       cacheResult.cacheResults.get("taggedImage")[i].attributes.get("digest") == null

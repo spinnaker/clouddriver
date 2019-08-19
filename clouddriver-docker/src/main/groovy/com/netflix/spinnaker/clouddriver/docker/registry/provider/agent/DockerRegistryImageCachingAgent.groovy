@@ -169,6 +169,7 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
         }
 
         def tagData = new DefaultCacheDataBuilder()
+        tagData.setId(tagKey)
         tagData.attributes.put("name", "${repository}:${tag}".toString())
         tagData.attributes.put("account", accountName)
         tagData.attributes.put("digest", digest)
@@ -176,6 +177,7 @@ class DockerRegistryImageCachingAgent implements CachingAgent, AccountAware, Age
         cachedTags.put(tagKey, tagData)
 
         def idData = new DefaultCacheDataBuilder()
+        idData.setId(imageIdKey)
         idData.attributes.put("tagKey", tagKey)
         idData.attributes.put("account", accountName)
         cachedIds.put(imageIdKey, idData)
