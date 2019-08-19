@@ -13,11 +13,12 @@ workflows:
 
 jobs:
   build:
-    docker:
-      - image: cimg/openjdk:8u222-b10-stable
+    machine: true
     steps:
-      - setup_remote_docker
       - checkout
+      - run:
+          name: Open permissions on cache dir
+          command: sudo chmod -R a+rwx /root
       - run:
           name: Generate Cache Checksum
           command: find . -name 'build.gradle' | sort | xargs cat | shasum | awk '{print
@@ -61,6 +62,6 @@ jobs:
           - ~/.gradle/caches
           - ~/.gradle/wrapper
           key: gradle-{{ checksum "/tmp/gradle_cache_seed" }}
-      - slack/notify
+      #- slack/notify
 
 
