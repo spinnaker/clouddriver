@@ -126,6 +126,10 @@ class PrepareTitusDeployActionSpec extends Specification {
     }
   }
 
+  def "uses description only when no source asg is provided"() {
+
+  }
+
   private TitusDeployDescription createTitusDeployDescription() {
     return new TitusDeployDescription(
       application: "spindemo",
@@ -157,7 +161,9 @@ class PrepareTitusDeployActionSpec extends Specification {
         memory: 5_000,
         networkMbps: 128
       ),
-      securityGroups: [],
+      securityGroups: [
+        "sg-abcd1234"
+      ],
       softConstraints: [],
       stack: "staging",
     )

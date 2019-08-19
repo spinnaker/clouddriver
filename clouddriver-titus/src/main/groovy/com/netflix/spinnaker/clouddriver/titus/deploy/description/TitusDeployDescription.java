@@ -105,6 +105,10 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
             .withDisruptionBudget(disruptionBudget)
             .withServiceJobProcesses(serviceJobProcesses);
 
+    if (!securityGroups.isEmpty()) {
+      submitJobRequest.withSecurityGroups(securityGroups);
+    }
+
     if (dockerImage.getImageDigest() != null) {
       submitJobRequest.withDockerDigest(dockerImage.getImageDigest());
     } else {

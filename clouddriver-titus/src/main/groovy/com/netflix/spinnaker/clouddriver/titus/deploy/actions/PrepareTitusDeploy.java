@@ -17,6 +17,8 @@ package com.netflix.spinnaker.clouddriver.titus.deploy.actions;
 
 import static java.lang.String.format;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.TargetGroupLookupHelper;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
@@ -146,37 +148,9 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
               String.join(",", description.getInterestingHealthProviderNames()));
     }
 
-    configureAppDefaultSecurityGroup(description);
+    resolveSecurityGroups(saga, description);
 
     SubmitJobRequest submitJobRequest = description.toSubmitJobRequest(dockerImage);
-
-    Set<String> securityGroups = resolveSecurityGroups(saga, description);
-
-    if (JobType.isEqual(description.getJobType(), JobType.SERVICE)
-        && deployDefaults.getAddAppGroupToServerGroup()
-        && securityGroups.size() < deployDefaults.getMaxSecurityGroups()
-        && description.getUseApplicationDefaultSecurityGroup()) {
-      String applicationSecurityGroup =
-          awsLookupUtil.convertSecurityGroupNameToId(
-              description.getAccount(), description.getRegion(), description.getApplication());
-      if (isNullOrEmpty(applicationSecurityGroup)) {
-        applicationSecurityGroup =
-            (String)
-                OperationPoller.retryWithBackoff(
-                    op ->
-                        awsLookupUtil.createSecurityGroupForApplication(
-                            description.getAccount(),
-                            description.getRegion(),
-                            description.getApplication()),
-                    1_000,
-                    5);
-      }
-      securityGroups.add(applicationSecurityGroup);
-    }
-
-    if (!securityGroups.isEmpty()) {
-      submitJobRequest.withSecurityGroups(new ArrayList<>(securityGroups));
-    }
 
     if (front50App != null && !isNullOrEmpty(front50App.getEmail())) {
       submitJobRequest.withUser(front50App.getEmail());
@@ -372,22 +346,6 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     return budget;
   }
 
-  private void configureAppDefaultSecurityGroup(TitusDeployDescription description) {
-    if (description.getLabels().containsKey(USE_APPLICATION_DEFAULT_SG_LABEL)) {
-      if ("false".equals(description.getLabels().get(USE_APPLICATION_DEFAULT_SG_LABEL))) {
-        description.setUseApplicationDefaultSecurityGroup(false);
-      } else {
-        description.setUseApplicationDefaultSecurityGroup(true);
-      }
-    }
-
-    if (!description.getUseApplicationDefaultSecurityGroup()) {
-      description.getLabels().put(USE_APPLICATION_DEFAULT_SG_LABEL, "false");
-    } else {
-      description.getLabels().remove(USE_APPLICATION_DEFAULT_SG_LABEL);
-    }
-  }
-
   @Nullable
   private TargetGroupLookupHelper.TargetGroupLookupResult validateLoadBalancers(
       TitusDeployDescription description) {
@@ -415,10 +373,30 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     return targetGroups;
   }
 
-  @Nonnull
-  private Set<String> resolveSecurityGroups(Saga saga, TitusDeployDescription description) {
-    saga.log("Resolving Security Groups");
+  private void configureAppDefaultSecurityGroup(TitusDeployDescription description) {
+    if (description.getLabels().containsKey(USE_APPLICATION_DEFAULT_SG_LABEL)) {
+      if ("false".equals(description.getLabels().get(USE_APPLICATION_DEFAULT_SG_LABEL))) {
+        description.setUseApplicationDefaultSecurityGroup(false);
+      } else {
+        description.setUseApplicationDefaultSecurityGroup(true);
+      }
+    }
 
+    if (!description.getUseApplicationDefaultSecurityGroup()) {
+      description.getLabels().put(USE_APPLICATION_DEFAULT_SG_LABEL, "false");
+    } else {
+      description.getLabels().remove(USE_APPLICATION_DEFAULT_SG_LABEL);
+    }
+  }
+
+  private void resolveSecurityGroups(Saga saga, TitusDeployDescription description) {
+    saga.log("Resolving security groups");
+
+    configureAppDefaultSecurityGroup(description);
+
+    // Resolve the provided security groups, asserting that they actually exist.
+    // TODO(rz): Seems kinda odd that we'd do resolution & validation here and not in... a validator
+    // or preprocessor?
     Set<String> securityGroups = new HashSet<>();
     description
         .getSecurityGroups()
@@ -430,7 +408,6 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
                   description.getAccount(), description.getRegion(), providedSecurityGroup)) {
                 securityGroups.add(providedSecurityGroup);
               } else {
-                saga.log("Resolving Security Group name '%s'", providedSecurityGroup);
                 String convertedSecurityGroup =
                     awsLookupUtil.convertSecurityGroupNameToId(
                         description.getAccount(), description.getRegion(), providedSecurityGroup);
@@ -442,9 +419,35 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
               }
             });
 
-    saga.log("Finished resolving Security Groups");
+    if (JobType.isEqual(description.getJobType(), JobType.SERVICE)
+        && deployDefaults.getAddAppGroupToServerGroup()
+        && securityGroups.size() < deployDefaults.getMaxSecurityGroups()
+        && description.getUseApplicationDefaultSecurityGroup()) {
+      String applicationSecurityGroup =
+          awsLookupUtil.convertSecurityGroupNameToId(
+              description.getAccount(), description.getRegion(), description.getApplication());
+      if (isNullOrEmpty(applicationSecurityGroup)) {
+        applicationSecurityGroup =
+            (String)
+                OperationPoller.retryWithBackoff(
+                    op ->
+                        awsLookupUtil.createSecurityGroupForApplication(
+                            description.getAccount(),
+                            description.getRegion(),
+                            description.getApplication()),
+                    1_000,
+                    5);
+      }
+      securityGroups.add(applicationSecurityGroup);
+    }
 
-    return securityGroups;
+    if (!securityGroups.isEmpty()) {
+      description.setSecurityGroups(Lists.newArrayList(securityGroups));
+    }
+
+    saga.log(
+        "Finished resolving security groups: {}",
+        Joiner.on(",").join(description.getSecurityGroups()));
   }
 
   @EqualsAndHashCode(callSuper = true)
