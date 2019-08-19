@@ -311,7 +311,7 @@ class CloudDriverConfig {
     ]
 
     if (redisCacheOptions.isPresent() && redisClientDelegate.isPresent()) {
-      agents.add(new CleanupPendingOnDemandCachesAgent(redisCacheOptions, redisClientDelegate, applicationContext))
+      agents.add(new CleanupPendingOnDemandCachesAgent(redisCacheOptions.get(), redisClientDelegate.get(), applicationContext))
     }
 
     return new CoreProvider(agents)
