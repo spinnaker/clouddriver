@@ -23,8 +23,8 @@ import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.AliasConfiguration;
 import com.amazonaws.services.lambda.model.EventSourceMappingConfiguration;
 import com.amazonaws.services.lambda.model.FunctionConfiguration;
-import com.amazonaws.services.lambda.model.GetFunctionConfigurationRequest;
-import com.amazonaws.services.lambda.model.GetFunctionConfigurationResult;
+import com.amazonaws.services.lambda.model.GetFunctionRequest;
+import com.amazonaws.services.lambda.model.GetFunctionResult;
 import com.amazonaws.services.lambda.model.ListAliasesRequest;
 import com.amazonaws.services.lambda.model.ListAliasesResult;
 import com.amazonaws.services.lambda.model.ListEventSourceMappingsRequest;
@@ -115,6 +115,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
       }
 
       ListFunctionsResult listFunctionsResult = lambda.listFunctions(listFunctionsRequest);
+
       lstFunction.addAll(listFunctionsResult.getFunctions());
       nextMarker = listFunctionsResult.getNextMarker();
 
@@ -125,14 +126,12 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
       Map<String, Object> attributes = objectMapper.convertValue(x, ATTRIBUTES);
       attributes.put("account", account.getName());
       attributes.put("region", region);
-
       attributes.put("revisions", listFunctionRevisions(x.getFunctionArn()));
       attributes.put("aliasConfiguration", listAliasConfiguration(x.getFunctionArn()));
       attributes.put(
           "eventSourceMappings", listEventSourceMappingConfiguration(x.getFunctionArn()));
-      GetFunctionConfigurationResult conf = getFunctionConfiguration(x.getFunctionArn());
-      attributes.put("functionConfiguration", conf);
-      log.info("FUNCTION CONFIGURATION RESULT: ", conf);
+      // attributes.put("functionConfiguration", getFunctionConfiguration(x.getFunctionArn());
+      attributes = addConfigAttributes(attributes, x);
       data.add(
           new DefaultCacheData(
               Keys.getLambdaFunctionKey(account.getName(), region, x.getFunctionName()),
@@ -217,11 +216,16 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
     return eventSourceMappingConfigurations;
   }
 
-  private final GetFunctionConfigurationResult getFunctionConfiguration(String functionArn) {
+  private final Map<String, Object> addConfigAttributes(
+      Map<String, Object> attributes, FunctionConfiguration x) {
     AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
-    GetFunctionConfigurationRequest getFunctionConfigurationRequest =
-        new GetFunctionConfigurationRequest();
-    getFunctionConfigurationRequest.setFunctionName(functionArn);
-    return lambda.getFunctionConfiguration(getFunctionConfigurationRequest);
+    GetFunctionRequest getFunctionRequest = new GetFunctionRequest();
+    getFunctionRequest.setFunctionName(x.getFunctionArn());
+    GetFunctionResult getFunctionResult = lambda.getFunction(getFunctionRequest);
+    attributes.put("configuration", getFunctionResult.getConfiguration());
+    attributes.put("codeLocation", getFunctionResult.getCode());
+    attributes.put("tags", getFunctionResult.getTags());
+    attributes.put("concurrency", getFunctionResult.getConcurrency());
+    return attributes;
   }
 }
