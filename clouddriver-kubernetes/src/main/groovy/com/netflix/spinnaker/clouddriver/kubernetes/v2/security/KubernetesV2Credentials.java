@@ -201,7 +201,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                           boolean isNamespaced = scope.equalsIgnoreCase("namespaced");
 
                           return KubernetesKind.getOrRegisterKind(
-                              name, false, isNamespaced, kubernetesApiGroup);
+                              name, isNamespaced, kubernetesApiGroup);
                         })
                     .collect(Collectors.toList());
               } catch (KubectlException e) {

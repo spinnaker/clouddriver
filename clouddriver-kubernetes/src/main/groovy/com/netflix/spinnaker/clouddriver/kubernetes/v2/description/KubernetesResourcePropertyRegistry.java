@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -33,6 +34,13 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class KubernetesResourcePropertyRegistry {
+  private final ConcurrentHashMap<KubernetesKind, KubernetesResourceProperties> globalProperties =
+      new ConcurrentHashMap<>();
+
+  private final ConcurrentHashMap<
+          String, ConcurrentHashMap<KubernetesKind, KubernetesResourceProperties>>
+      accountProperties = new ConcurrentHashMap<>();
+
   @Autowired
   public KubernetesResourcePropertyRegistry(
       List<KubernetesHandler> handlers, KubernetesSpinnakerKindMap kindMap) {
@@ -46,53 +54,31 @@ public class KubernetesResourcePropertyRegistry {
               .build();
 
       kindMap.addRelationship(handler.spinnakerKind(), handler.kind());
-      put(handler.kind(), properties);
+      globalProperties.put(handler.kind(), properties);
     }
   }
 
+  @Nonnull
   public KubernetesResourceProperties get(String account, KubernetesKind kind) {
-    ConcurrentHashMap<KubernetesKind, KubernetesResourceProperties> propertyMap =
-        accountProperties.get(account);
-    KubernetesResourceProperties properties = null;
-
-    if (!kind.isRegistered()) {
-      return globalProperties.get(KubernetesKind.NONE);
+    KubernetesResourceProperties accountResult =
+        accountProperties.getOrDefault(account, new ConcurrentHashMap<>()).get(kind);
+    if (accountResult != null) {
+      return accountResult;
     }
 
-    if (propertyMap != null) {
-      // account-level properties take precedence
-      properties = propertyMap.get(kind);
+    KubernetesResourceProperties globalResult = globalProperties.get(kind);
+    if (globalResult != null) {
+      return globalResult;
     }
 
-    if (properties == null) {
-      properties = globalProperties.get(kind);
-    }
-
-    if (properties == null) {
-      log.warn(
-          "Unable to find kind in either account properties ({}) or global properties ({})",
-          propertyMap,
-          globalProperties);
-    }
-
-    return properties;
-  }
-
-  private void put(KubernetesKind kind, KubernetesResourceProperties properties) {
-    globalProperties.put(kind, properties);
+    return globalProperties.get(KubernetesKind.NONE);
   }
 
   public synchronized void registerAccountProperty(
       String account, KubernetesResourceProperties properties) {
     ConcurrentHashMap<KubernetesKind, KubernetesResourceProperties> propertyMap =
-        accountProperties.get(account);
-    if (propertyMap == null) {
-      propertyMap = new ConcurrentHashMap<>();
-    }
-
+        accountProperties.computeIfAbsent(account, a -> new ConcurrentHashMap<>());
     propertyMap.put(properties.getHandler().kind(), properties);
-
-    accountProperties.put(account, propertyMap);
   }
 
   public Collection<KubernetesResourceProperties> values() {
@@ -105,11 +91,4 @@ public class KubernetesResourcePropertyRegistry {
 
     return result;
   }
-
-  private final ConcurrentHashMap<KubernetesKind, KubernetesResourceProperties> globalProperties =
-      new ConcurrentHashMap<>();
-
-  private final ConcurrentHashMap<
-          String, ConcurrentHashMap<KubernetesKind, KubernetesResourceProperties>>
-      accountProperties = new ConcurrentHashMap<>();
 }
