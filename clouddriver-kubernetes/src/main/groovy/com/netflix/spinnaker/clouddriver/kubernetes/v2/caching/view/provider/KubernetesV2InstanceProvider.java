@@ -23,7 +23,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.KubernetesV2Instance;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
@@ -47,20 +46,13 @@ import org.springframework.stereotype.Component;
 public class KubernetesV2InstanceProvider
     implements InstanceProvider<KubernetesV2Instance, List<ContainerLog>> {
   private final KubernetesCacheUtils cacheUtils;
-  private final KubernetesSpinnakerKindMap kindMap;
   private final AccountCredentialsRepository accountCredentialsRepository;
-  private final KubectlJobExecutor jobExecutor;
 
   @Autowired
   KubernetesV2InstanceProvider(
-      KubernetesCacheUtils cacheUtils,
-      KubernetesSpinnakerKindMap kindMap,
-      AccountCredentialsRepository accountCredentialsRepository,
-      KubectlJobExecutor jobExecutor) {
+      KubernetesCacheUtils cacheUtils, AccountCredentialsRepository accountCredentialsRepository) {
     this.cacheUtils = cacheUtils;
-    this.kindMap = kindMap;
     this.accountCredentialsRepository = accountCredentialsRepository;
-    this.jobExecutor = jobExecutor;
   }
 
   @Override
