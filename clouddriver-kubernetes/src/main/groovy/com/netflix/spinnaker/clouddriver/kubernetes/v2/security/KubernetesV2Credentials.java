@@ -193,10 +193,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                 return this.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
                     .map(
                         c -> {
-                          Map<String, Object> spec = (Map) c.getOrDefault("spec", new HashMap<>());
+                          Map<String, Object> spec =
+                              (Map<String, Object>) c.getOrDefault("spec", new HashMap<>());
                           String scope = (String) spec.getOrDefault("scope", "");
                           Map<String, String> names =
-                              (Map) spec.getOrDefault("names", new HashMap<>());
+                              (Map<String, String>) spec.getOrDefault("names", new HashMap<>());
                           String name = names.get("kind");
 
                           String group = (String) spec.getOrDefault("group", "");

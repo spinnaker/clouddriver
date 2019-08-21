@@ -91,7 +91,7 @@ public class KubernetesRunJobOperation
     Map<String, List<String>> deployedNames = deploymentResult.getDeployedNamesByLocation();
     for (Map.Entry<String, Set<String>> e :
         operationResult.getManifestNamesByNamespace().entrySet()) {
-      deployedNames.put(e.getKey(), new ArrayList(e.getValue()));
+      deployedNames.put(e.getKey(), new ArrayList<>(e.getValue()));
     }
     deploymentResult.setDeployedNamesByLocation(deployedNames);
     return deploymentResult;
