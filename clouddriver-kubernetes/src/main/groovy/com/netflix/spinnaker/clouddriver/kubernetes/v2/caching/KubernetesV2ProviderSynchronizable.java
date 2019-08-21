@@ -25,7 +25,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurati
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.*;
@@ -42,20 +41,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KubernetesV2ProviderSynchronizable implements CredentialsInitializerSynchronizable {
 
-  private KubernetesV2Provider kubernetesV2Provider;
-  private AccountCredentialsRepository accountCredentialsRepository;
-  private KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher;
-  private KubernetesResourcePropertyRegistry kubernetesResourcePropertyRegistry;
-  private KubernetesConfigurationProperties kubernetesConfigurationProperties;
-  private KubernetesNamedAccountCredentials.CredentialFactory credentialFactory;
-  private KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
-  private CatsModule catsModule;
+  private final KubernetesV2Provider kubernetesV2Provider;
+  private final AccountCredentialsRepository accountCredentialsRepository;
+  private final KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher;
+  private final KubernetesConfigurationProperties kubernetesConfigurationProperties;
+  private final KubernetesNamedAccountCredentials.CredentialFactory credentialFactory;
+  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+  private final CatsModule catsModule;
 
   public KubernetesV2ProviderSynchronizable(
       KubernetesV2Provider kubernetesV2Provider,
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
-      KubernetesResourcePropertyRegistry kubernetesResourcePropertyRegistry,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       KubernetesNamedAccountCredentials.CredentialFactory credentialFactory,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
@@ -63,7 +60,6 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
     this.kubernetesV2Provider = kubernetesV2Provider;
     this.accountCredentialsRepository = accountCredentialsRepository;
     this.kubernetesV2CachingAgentDispatcher = kubernetesV2CachingAgentDispatcher;
-    this.kubernetesResourcePropertyRegistry = kubernetesResourcePropertyRegistry;
     this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
     this.credentialFactory = credentialFactory;
     this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
@@ -167,8 +163,7 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
                   try {
                     KubernetesResourceProperties properties =
                         KubernetesResourceProperties.fromCustomResource(cr);
-                    kubernetesResourcePropertyRegistry.registerAccountProperty(
-                        credentials.getName(), properties);
+                    v2Credentials.getResourcePropertyRegistry().register(properties);
                   } catch (Exception e) {
                     log.warn("Error encountered registering {}: ", cr, e);
                   }

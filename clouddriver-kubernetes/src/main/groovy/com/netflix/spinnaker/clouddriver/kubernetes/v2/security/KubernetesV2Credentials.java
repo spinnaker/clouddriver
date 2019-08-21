@@ -32,6 +32,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentia
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -113,15 +114,18 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private String cachedDefaultNamespace;
   private final Supplier<List<String>> liveNamespaceSupplier;
   private final Supplier<List<KubernetesKind>> liveCrdSupplier;
+  @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
 
   public KubernetesV2Credentials(
       Registry registry,
       KubectlJobExecutor jobExecutor,
       KubernetesConfigurationProperties.ManagedAccount managedAccount,
+      ResourcePropertyRegistry resourcePropertyRegistry,
       String kubeconfigFile) {
     this.registry = registry;
     this.clock = registry.clock();
     this.jobExecutor = jobExecutor;
+    this.resourcePropertyRegistry = resourcePropertyRegistry;
 
     this.accountName = managedAccount.getName();
     this.namespaces = managedAccount.getNamespaces();
@@ -189,10 +193,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                 return this.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
                     .map(
                         c -> {
-                          Map<String, Object> spec = (Map) c.getOrDefault("spec", new HashMap<>());
+                          Map<String, Object> spec =
+                              (Map<String, Object>) c.getOrDefault("spec", new HashMap<>());
                           String scope = (String) spec.getOrDefault("scope", "");
                           Map<String, String> names =
-                              (Map) spec.getOrDefault("names", new HashMap<>());
+                              (Map<String, String>) spec.getOrDefault("names", new HashMap<>());
                           String name = names.get("kind");
 
                           String group = (String) spec.getOrDefault("group", "");
@@ -201,7 +206,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                           boolean isNamespaced = scope.equalsIgnoreCase("namespaced");
 
                           return KubernetesKind.getOrRegisterKind(
-                              name, false, isNamespaced, kubernetesApiGroup);
+                              name, isNamespaced, kubernetesApiGroup);
                         })
                     .collect(Collectors.toList());
               } catch (KubectlException e) {
@@ -218,8 +223,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
    * Thin wrapper around a Caffeine cache that handles memoizing a supplier function with expiration
    */
   private static class Memoizer<T> implements Supplier<T> {
-    private static String CACHE_KEY = "key";
-    LoadingCache<String, T> cache;
+    private static final String CACHE_KEY = "key";
+    private final LoadingCache<String, T> cache;
 
     private Memoizer(Supplier<T> supplier, long expirySeconds, TimeUnit timeUnit) {
       this.cache =
@@ -246,7 +251,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     READ_ERROR(
         "Error reading kind [%s]. Please check connectivity and access permissions to the cluster");
 
-    private String errorMessage;
+    private final String errorMessage;
 
     InvalidKindReason(String errorMessage) {
       this.errorMessage = errorMessage;
@@ -297,7 +302,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
   }
 
-  public String lookupDefaultNamespace() {
+  private String lookupDefaultNamespace() {
     try {
       if (serviceAccount) {
         return serviceAccountNamespace().orElse(DEFAULT_NAMESPACE);
@@ -372,7 +377,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       Set<KubernetesKind.ScopedKind> availableResources = jobExecutor.apiResources(this);
       Map<KubernetesKind, InvalidKindReason> unavailableKinds =
           allKinds.stream()
-              .filter(k -> k != KubernetesKind.NONE)
+              .filter(Objects::nonNull)
+              .filter(k -> !k.equals(KubernetesKind.NONE))
               .filter(k -> !availableResources.contains(k.getScopedKind()))
               .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
 
@@ -384,7 +390,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     Map<KubernetesKind, InvalidKindReason> unreadableKinds =
         allKinds
             .parallelStream()
-            .filter(k -> k != KubernetesKind.NONE)
+            .filter(Objects::nonNull)
+            .filter(k -> !k.equals(KubernetesKind.NONE))
             .filter(k -> !omitKindsComputed.keySet().contains(k))
             .filter(k -> !canReadKind(k, checkNamespace))
             .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
@@ -607,9 +614,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         tags.put("kind", kinds.get(0).toString());
       } else {
         tags.put(
-            "kinds",
-            String.join(
-                ",", kinds.stream().map(KubernetesKind::toString).collect(Collectors.toList())));
+            "kinds", kinds.stream().map(KubernetesKind::toString).collect(Collectors.joining(",")));
       }
       tags.put("account", accountName);
       tags.put("namespace", StringUtils.isEmpty(namespace) ? "none" : namespace);
