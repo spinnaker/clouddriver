@@ -16,16 +16,23 @@
 
 package com.netflix.spinnaker.clouddriver.docker.registry.provider.agent
 
-
+import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.clouddriver.docker.registry.DockerRegistryCloudProvider
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryClient
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryTags
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryCredentials
+import retrofit.RetrofitError
 import spock.lang.Specification
 
 import java.time.Instant
 
 class DockerRegistryImageCachingAgentTest extends Specification {
+
+  final KEY_PREFIX = "dockerRegistry"
+  final ACCOUNT_NAME = "test-docker"
+  final REGISTRY_NAME = "test-registry"
+  final CACHE_GROUP_TAGGED_IMAGE = "taggedImage"
+  final CACHE_GROUP_IMAGE_ID = "imageId"
 
   DockerRegistryImageCachingAgent agent
   def credentials = Mock(DockerRegistryCredentials)
@@ -34,40 +41,45 @@ class DockerRegistryImageCachingAgentTest extends Specification {
 
   def setup() {
     credentials.client >> client
-    agent = new DockerRegistryImageCachingAgent(provider, "test-docker", credentials, 0, 1, 1, "test-registry")
+    agent = new DockerRegistryImageCachingAgent(provider, ACCOUNT_NAME, credentials, 0, 1, 1, REGISTRY_NAME)
   }
 
   def "tags loaded from docker registry should be cached"() {
     given:
-    credentials.repositories >> repositories
-    def total = 0
-    for (def i = 0; i < repositories.size(); i++) {
-      client.getTags(repositories[i]) >> new DockerRegistryTags().tap {
-        name=repositories[i]
-        tags=repoTags[i]
-      }
-      total += repoTags[i].size()
+    credentials.repositories >> ["repo-1", "repo-2"]
+    client.getTags("repo-1") >> new DockerRegistryTags().tap {
+      name = "repo-1"
+      tags = ["tag-1-1"]
     }
+    client.getTags("repo-2") >> new DockerRegistryTags().tap {
+      name = "repo-2"
+      tags = ["tag-2-1", "tag-2-2"]
+    }
+    def repoTagSequence = [
+      ["repo-1", "tag-1-1"],
+      ["repo-2", "tag-2-1"],
+      ["repo-2", "tag-2-2"],
+    ]
 
     when:
     def cacheResult = agent.loadData(null)
 
     then:
-    cacheResult.cacheResults.get("taggedImage").size() == total
-    cacheResult.cacheResults.get("imageId").size() == total
-    for (def i = 0; i < total; i++) {
-      cacheResult.cacheResults.get("taggedImage")[i].getId() != ""
-      cacheResult.cacheResults.get("imageId")[i].getId() != ""
-      def repoAndTag = cacheResult.cacheResults.get("taggedImage")[i].attributes.get("name").split(":")
-      repoTags[repositories.indexOf(repoAndTag[0])].contains(repoAndTag[1])
-      cacheResult.cacheResults.get("taggedImage")[i].attributes.get("digest") == null
-      cacheResult.cacheResults.get("taggedImage")[i].attributes.get("date") == null
+    sortCacheResult(cacheResult)
+    def cacheResultImageIds = cacheResult.cacheResults.get(CACHE_GROUP_IMAGE_ID)
+    for (int i = 0; i < cacheResultImageIds.size(); i++) {
+      assert cacheResultImageIds[i].id == buildImageIdCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultImageIds[i].attributes.get("tagKey") == buildTaggedImageCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultImageIds[i].attributes.get("account") == ACCOUNT_NAME
     }
-
-    where:
-    repositories          | repoTags
-    ["repo-1"]            | [["tag-1", "tag-2"]]
-    ["repo-1", "repo-2" ] | [["tag-1-1"], ["tag-2-1", "tag-2-2"]]
+    def cacheResultTaggedImages = cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE)
+    for (int i = 0; i < cacheResultTaggedImages.size(); i++) {
+      assert cacheResultTaggedImages[i].id == buildTaggedImageCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultTaggedImages[i].attributes.get("name") == "${repoTagSequence[i][0]}:${repoTagSequence[i][1]}"
+      assert cacheResultTaggedImages[i].attributes.get("account") == ACCOUNT_NAME
+      assert cacheResultTaggedImages[i].attributes.get("digest") == null
+      assert cacheResultTaggedImages[i].attributes.get("date") == null
+    }
   }
 
   def "cached tags should include creation date"() {
@@ -78,16 +90,32 @@ class DockerRegistryImageCachingAgentTest extends Specification {
       name="repo-1"
       tags=["tag-1", "tag-2"]
     }
-    client.getCreationDate(*_) >> Instant.EPOCH
+    def repoTagSequence = [
+      ["repo-1", "tag-1"],
+      ["repo-1", "tag-2"],
+    ]
+    client.getCreationDate("repo-1", "tag-1") >> Instant.ofEpochSecond(0)
+    client.getCreationDate("repo-1", "tag-2") >> Instant.ofEpochSecond(1)
 
     when:
     def cacheResult = agent.loadData(null)
 
     then:
-    cacheResult.cacheResults.get("taggedImage").size() == 2
-    cacheResult.cacheResults.get("imageId").size() == 2
-    cacheResult.cacheResults.get("taggedImage")[0].attributes.get("date") == Instant.EPOCH
-    cacheResult.cacheResults.get("taggedImage")[1].attributes.get("date") == Instant.EPOCH
+    sortCacheResult(cacheResult)
+    def cacheResultImageIds = cacheResult.cacheResults.get(CACHE_GROUP_IMAGE_ID)
+    for (int i = 0; i < cacheResultImageIds.size(); i++) {
+      assert cacheResultImageIds[i].id == buildImageIdCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultImageIds[i].attributes.get("tagKey") == buildTaggedImageCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultImageIds[i].attributes.get("account") == ACCOUNT_NAME
+    }
+    def cacheResultTaggedImages = cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE)
+    for (int i = 0; i < cacheResultTaggedImages.size(); i++) {
+      assert cacheResultTaggedImages[i].id == buildTaggedImageCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultTaggedImages[i].attributes.get("name") == "${repoTagSequence[i][0]}:${repoTagSequence[i][1]}"
+      assert cacheResultTaggedImages[i].attributes.get("account") == ACCOUNT_NAME
+      assert cacheResultTaggedImages[i].attributes.get("digest") == null
+      assert cacheResultTaggedImages[i].attributes.get("date") == Instant.ofEpochSecond(i)
+    }
   }
 
   def "cached tags should include digest"() {
@@ -98,16 +126,161 @@ class DockerRegistryImageCachingAgentTest extends Specification {
       name="repo-1"
       tags=["tag-1", "tag-2"]
     }
-    client.getDigest(*_) >> "123"
+    def repoTagSequence = [
+      ["repo-1", "tag-1"],
+      ["repo-1", "tag-2"],
+    ]
+    client.getDigest("repo-1", "tag-1") >> "repo-1_tag-1"
+    client.getDigest("repo-1", "tag-2") >> "repo-1_tag-2"
 
     when:
     def cacheResult = agent.loadData(null)
 
     then:
-    cacheResult.cacheResults.get("taggedImage").size() == 2
-    cacheResult.cacheResults.get("imageId").size() == 2
-    cacheResult.cacheResults.get("taggedImage")[0].attributes.get("digest") == "123"
-    cacheResult.cacheResults.get("taggedImage")[1].attributes.get("digest") == "123"
+    sortCacheResult(cacheResult)
+    def cacheResultImageIds = cacheResult.cacheResults.get(CACHE_GROUP_IMAGE_ID)
+    for (int i = 0; i < cacheResultImageIds.size(); i++) {
+      assert cacheResultImageIds[i].id == buildImageIdCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultImageIds[i].attributes.get("tagKey") == buildTaggedImageCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultImageIds[i].attributes.get("account") == ACCOUNT_NAME
+    }
+    def cacheResultTaggedImages = cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE)
+    for (int i = 0; i < cacheResultTaggedImages.size(); i++) {
+      assert cacheResultTaggedImages[i].id == buildTaggedImageCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultTaggedImages[i].attributes.get("name") == "${repoTagSequence[i][0]}:${repoTagSequence[i][1]}"
+      assert cacheResultTaggedImages[i].attributes.get("account") == ACCOUNT_NAME
+      assert cacheResultTaggedImages[i].attributes.get("digest") == "${repoTagSequence[i][0]}_${repoTagSequence[i][1]}"
+      assert cacheResultTaggedImages[i].attributes.get("date") == null
+    }
   }
 
+  def "error loading tags returns empty result"() {
+    given:
+    credentials.repositories >> ["repo-1"]
+    client.getTags("repo-1") >> {
+      throw new IOException()
+    }
+
+    when:
+    def cacheResult = agent.loadData(null)
+
+    then:
+    cacheResult.cacheResults.get(CACHE_GROUP_IMAGE_ID).size() == 0
+    cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE).size() == 0
+  }
+
+  def "error loading tag date should set to null date attribute"() {
+    given:
+    credentials.sortTagsByDate >> true
+    credentials.repositories >> ["repo-1"]
+    client.getTags("repo-1") >> new DockerRegistryTags().tap {
+      name="repo-1"
+      tags=["tag-1", "tag-2"]
+    }
+    def repoTagSequence = [
+      ["repo-1", "tag-1"],
+      ["repo-1", "tag-2"],
+    ]
+    client.getCreationDate("repo-1", "tag-1") >> {
+      throw RetrofitError.httpError("", null, null, null)
+    }
+    client.getCreationDate("repo-1", "tag-2") >> Instant.EPOCH
+
+    when:
+    def cacheResult = agent.loadData(null)
+
+    then:
+    sortCacheResult(cacheResult)
+    def cacheResultImageIds = cacheResult.cacheResults.get(CACHE_GROUP_IMAGE_ID)
+    for (int i = 0; i < cacheResultImageIds.size(); i++) {
+      assert cacheResultImageIds[i].id == buildImageIdCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultImageIds[i].attributes.get("tagKey") == buildTaggedImageCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultImageIds[i].attributes.get("account") == ACCOUNT_NAME
+    }
+    def cacheResultTaggedImages = cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE)
+    for (int i = 0; i < cacheResultTaggedImages.size(); i++) {
+      assert cacheResultTaggedImages[i].id == buildTaggedImageCacheKey(repoTagSequence[i][0], repoTagSequence[i][1])
+      assert cacheResultTaggedImages[i].attributes.get("name") == "${repoTagSequence[i][0]}:${repoTagSequence[i][1]}"
+      assert cacheResultTaggedImages[i].attributes.get("account") == ACCOUNT_NAME
+      assert cacheResultTaggedImages[i].attributes.get("digest") == null
+      assert cacheResultTaggedImages[i].attributes.get("date") == (i == 0 ? null : Instant.EPOCH)
+    }
+  }
+
+  def "error loading tag digest should not cache that tag"() {
+    given:
+    credentials.trackDigests >> true
+    credentials.repositories >> ["repo-1"]
+    client.getTags("repo-1") >> new DockerRegistryTags().tap {
+      name="repo-1"
+      tags=["tag-1", "tag-2"]
+    }
+    client.getDigest("repo-1", "tag-1") >> {
+      throw new IOException()
+    }
+    client.getDigest("repo-1", "tag-2") >> "repo-1_tag-2"
+
+    when:
+    def cacheResult = agent.loadData(null)
+
+    then:
+    sortCacheResult(cacheResult)
+    def cacheResultImageIds = cacheResult.cacheResults.get(CACHE_GROUP_IMAGE_ID)
+    cacheResultImageIds.size() == 1
+    cacheResultImageIds[0].id == buildImageIdCacheKey("repo-1", "tag-2")
+    cacheResultImageIds[0].attributes.get("tagKey") == buildTaggedImageCacheKey("repo-1", "tag-2")
+    cacheResultImageIds[0].attributes.get("account") == ACCOUNT_NAME
+    def cacheResultTaggedImages = cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE)
+    cacheResultTaggedImages.size() == 1
+    cacheResultTaggedImages[0].id == buildTaggedImageCacheKey("repo-1", "tag-2")
+    cacheResultTaggedImages[0].attributes.get("name") == "repo-1:tag-2"
+    cacheResultTaggedImages[0].attributes.get("account") == ACCOUNT_NAME
+    cacheResultTaggedImages[0].attributes.get("digest") == "repo-1_tag-2"
+    cacheResultTaggedImages[0].attributes.get("date") == null
+  }
+
+  def "empty tags should not be cached"() {
+    given:
+    credentials.repositories >> ["repo-1"]
+    client.getTags("repo-1") >> new DockerRegistryTags().tap {
+      name="repo-1"
+      tags=["tag-1", ""]
+    }
+
+    when:
+    def cacheResult = agent.loadData(null)
+
+    then:
+    sortCacheResult(cacheResult)
+    def cacheResultImageIds = cacheResult.cacheResults.get(CACHE_GROUP_IMAGE_ID)
+    cacheResultImageIds.size() == 1
+    cacheResultImageIds[0].id == buildImageIdCacheKey("repo-1", "tag-1")
+    cacheResultImageIds[0].attributes.get("tagKey") == buildTaggedImageCacheKey("repo-1", "tag-1")
+    cacheResultImageIds[0].attributes.get("account") == ACCOUNT_NAME
+    def cacheResultTaggedImages = cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE)
+    cacheResultTaggedImages.size() == 1
+    cacheResultTaggedImages[0].id == buildTaggedImageCacheKey("repo-1", "tag-1")
+    cacheResultTaggedImages[0].attributes.get("name") == "repo-1:tag-1"
+    cacheResultTaggedImages[0].attributes.get("account") == ACCOUNT_NAME
+    cacheResultTaggedImages[0].attributes.get("digest") == null
+    cacheResultTaggedImages[0].attributes.get("date") == null
+  }
+
+
+  private String buildTaggedImageCacheKey(repo, tag) {
+    "${KEY_PREFIX}:${CACHE_GROUP_TAGGED_IMAGE}:${ACCOUNT_NAME}:${repo}:${tag}"
+  }
+
+  private String buildImageIdCacheKey(repo, tag) {
+    "${KEY_PREFIX}:${CACHE_GROUP_IMAGE_ID}:${REGISTRY_NAME}/${repo}:${tag}"
+  }
+
+  private void sortCacheResult(CacheResult cacheResult) {
+    cacheResult.cacheResults.get(CACHE_GROUP_TAGGED_IMAGE).sort {
+      it.id
+    }
+    cacheResult.cacheResults.get(CACHE_GROUP_IMAGE_ID).sort {
+      it.id
+    }
+  }
 }
