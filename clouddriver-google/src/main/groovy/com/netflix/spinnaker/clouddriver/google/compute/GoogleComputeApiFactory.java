@@ -51,8 +51,21 @@ public class GoogleComputeApiFactory {
     return new Images(credentials, operationPoller, registry);
   }
 
+  public Instances createInstances(GoogleNamedAccountCredentials credentials) {
+    return new Instances(credentials, operationPoller, registry);
+  }
+
   public InstanceTemplates createInstanceTemplates(GoogleNamedAccountCredentials credentials) {
     return new InstanceTemplates(credentials, operationPoller, registry);
+  }
+
+  public ZoneAutoscalers createZoneAutoscalers(GoogleNamedAccountCredentials credentials) {
+    return new ZoneAutoscalers(credentials, operationPoller, registry);
+  }
+
+  public ZoneInstanceGroupManagers createZoneInstanceGroupManagers(
+      GoogleNamedAccountCredentials credentials) {
+    return new ZoneInstanceGroupManagers(credentials, operationPoller, registry);
   }
 
   public GoogleServerGroupManagers createServerGroupManagers(
