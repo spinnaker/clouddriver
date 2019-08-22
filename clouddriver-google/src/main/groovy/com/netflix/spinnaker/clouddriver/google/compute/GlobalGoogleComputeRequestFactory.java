@@ -65,7 +65,7 @@ final class GlobalGoogleComputeRequestFactory {
   }
 
   private String getMetricName(String api) {
-    return "compute." + serviceName + '.' + api;
+    return String.join(".", "compute", serviceName, api);
   }
 
   private final class GlobalOperationWaiter implements OperationWaiter {

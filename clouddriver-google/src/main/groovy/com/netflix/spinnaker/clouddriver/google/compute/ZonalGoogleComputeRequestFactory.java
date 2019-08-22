@@ -65,7 +65,7 @@ final class ZonalGoogleComputeRequestFactory {
   }
 
   private String getMetricName(String api) {
-    return "compute." + serviceName + '.' + api;
+    return String.join(".", "compute", serviceName, api);
   }
 
   private static ImmutableMap<String, String> tags(String zone) {
