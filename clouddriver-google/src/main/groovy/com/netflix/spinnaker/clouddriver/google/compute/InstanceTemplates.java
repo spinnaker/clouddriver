@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.google.compute;
 
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.InstanceTemplate;
+import com.google.api.services.compute.model.InstanceTemplateList;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller;
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials;
@@ -25,6 +26,7 @@ import java.io.IOException;
 
 public class InstanceTemplates {
 
+  private final Compute.InstanceTemplates computeApi;
   private final GoogleNamedAccountCredentials credentials;
   private final GlobalGoogleComputeRequestFactory requestFactory;
 
@@ -32,6 +34,7 @@ public class InstanceTemplates {
       GoogleNamedAccountCredentials credentials,
       GoogleOperationPoller operationPoller,
       Registry registry) {
+    this.computeApi = credentials.getCompute().instanceTemplates();
     this.credentials = credentials;
     this.requestFactory =
         new GlobalGoogleComputeRequestFactory(
@@ -41,22 +44,29 @@ public class InstanceTemplates {
   public GoogleComputeOperationRequest<Compute.InstanceTemplates.Delete> delete(String name)
       throws IOException {
 
-    Compute.InstanceTemplates.Delete request =
-        credentials.getCompute().instanceTemplates().delete(credentials.getProject(), name);
+    Compute.InstanceTemplates.Delete request = computeApi.delete(credentials.getProject(), name);
     return requestFactory.wrapOperationRequest(request, "delete");
   }
 
   public GoogleComputeGetRequest<Compute.InstanceTemplates.Get, InstanceTemplate> get(String name)
       throws IOException {
-    Compute.InstanceTemplates.Get request =
-        credentials.getCompute().instanceTemplates().get(credentials.getProject(), name);
+    Compute.InstanceTemplates.Get request = computeApi.get(credentials.getProject(), name);
     return requestFactory.wrapGetRequest(request, "get");
   }
 
   public GoogleComputeOperationRequest<Compute.InstanceTemplates.Insert> insert(
       InstanceTemplate template) throws IOException {
     Compute.InstanceTemplates.Insert request =
-        credentials.getCompute().instanceTemplates().insert(credentials.getProject(), template);
+        computeApi.insert(credentials.getProject(), template);
     return requestFactory.wrapOperationRequest(request, "insert");
+  }
+
+  public PaginatedComputeRequest<Compute.InstanceTemplates.List, InstanceTemplate> list() {
+    return new PaginatedComputeRequestImpl<>(
+        pageToken ->
+            requestFactory.wrapRequest(
+                computeApi.list(credentials.getProject()).setPageToken(pageToken), "list"),
+        InstanceTemplateList::getNextPageToken,
+        InstanceTemplateList::getItems);
   }
 }
