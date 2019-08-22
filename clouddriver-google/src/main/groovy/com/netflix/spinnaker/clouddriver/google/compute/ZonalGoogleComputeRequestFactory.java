@@ -51,6 +51,12 @@ final class ZonalGoogleComputeRequestFactory {
     return new GoogleComputeRequestImpl<>(request, registry, getMetricName(api), tags(zone));
   }
 
+  <RequestT extends ComputeRequest<ResponseT>, ResponseT>
+      GoogleComputeGetRequest<RequestT, ResponseT> wrapGetRequest(
+          RequestT request, String api, String zone) {
+    return new GoogleComputeGetRequestImpl<>(request, registry, getMetricName(api), tags(zone));
+  }
+
   <RequestT extends ComputeRequest<Operation>>
       GoogleComputeOperationRequest<RequestT> wrapOperationRequest(
           RequestT request, String api, String zone) {

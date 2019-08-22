@@ -37,9 +37,9 @@ public class Images {
         new GlobalGoogleComputeRequestFactory("images", credentials, operationPoller, registry);
   }
 
-  public GoogleComputeRequest<Compute.Images.Get, Image> get(String project, String image)
+  public GoogleComputeGetRequest<Compute.Images.Get, Image> get(String project, String image)
       throws IOException {
     Compute.Images.Get request = credentials.getCompute().images().get(project, image);
-    return requestFactory.wrapRequest(request, "get");
+    return requestFactory.wrapGetRequest(request, "get");
   }
 }

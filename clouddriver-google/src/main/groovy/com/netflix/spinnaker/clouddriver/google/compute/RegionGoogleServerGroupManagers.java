@@ -69,9 +69,9 @@ final class RegionGoogleServerGroupManagers implements GoogleServerGroupManagers
   }
 
   @Override
-  public GoogleComputeRequest<ComputeRequest<InstanceGroupManager>, InstanceGroupManager> get()
+  public GoogleComputeGetRequest<ComputeRequest<InstanceGroupManager>, InstanceGroupManager> get()
       throws IOException {
-    return requestFactory.wrapRequest(
+    return requestFactory.wrapGetRequest(
         managers.get(credentials.getProject(), region, instanceGroupName), "get", region);
   }
 

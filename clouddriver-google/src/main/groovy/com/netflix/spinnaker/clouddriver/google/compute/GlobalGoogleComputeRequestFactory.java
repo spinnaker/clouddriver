@@ -53,6 +53,11 @@ final class GlobalGoogleComputeRequestFactory {
     return new GoogleComputeRequestImpl<>(request, registry, getMetricName(api), TAGS);
   }
 
+  <RequestT extends ComputeRequest<ResponseT>, ResponseT>
+      GoogleComputeGetRequest<RequestT, ResponseT> wrapGetRequest(RequestT request, String api) {
+    return new GoogleComputeGetRequestImpl<>(request, registry, getMetricName(api), TAGS);
+  }
+
   <RequestT extends ComputeRequest<Operation>>
       GoogleComputeOperationRequest<RequestT> wrapOperationRequest(RequestT request, String api) {
     return new GoogleComputeOperationRequestImpl<>(

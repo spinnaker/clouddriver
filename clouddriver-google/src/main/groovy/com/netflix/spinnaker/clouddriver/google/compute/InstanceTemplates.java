@@ -46,11 +46,11 @@ public class InstanceTemplates {
     return requestFactory.wrapOperationRequest(request, "delete");
   }
 
-  public GoogleComputeRequest<Compute.InstanceTemplates.Get, InstanceTemplate> get(String name)
+  public GoogleComputeGetRequest<Compute.InstanceTemplates.Get, InstanceTemplate> get(String name)
       throws IOException {
     Compute.InstanceTemplates.Get request =
         credentials.getCompute().instanceTemplates().get(credentials.getProject(), name);
-    return requestFactory.wrapRequest(request, "get");
+    return requestFactory.wrapGetRequest(request, "get");
   }
 
   public GoogleComputeOperationRequest<Compute.InstanceTemplates.Insert> insert(
