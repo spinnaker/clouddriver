@@ -22,6 +22,8 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.metrics.TimedCallable
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEvent
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEventHandler
+import com.netflix.spinnaker.kork.exceptions.HasAdditionalAttributes
+import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 import com.netflix.spinnaker.security.AuthenticatedRequest
 import groovy.util.logging.Slf4j
 import org.slf4j.MDC
@@ -104,7 +106,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
             }.call()
           } catch (AtomicOperationException e) {
             task.updateStatus TASK_PHASE, "Orchestration failed: ${atomicOperation.class.simpleName} | ${e.class.simpleName}: [${e.errors.join(', ')}]"
-            task.addResultObjects([[type: "EXCEPTION", operation: atomicOperation.class.simpleName, cause: e.class.simpleName, message: e.errors.join(", ")]])
+            task.addResultObjects([extractExceptionSummary(e, e.errors.join(", "), [operation: atomicOperation.class.simpleName])])
             task.fail()
           } catch (e) {
             def message = e.message
@@ -116,7 +118,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
               message = stackTrace
             }
             task.updateStatus TASK_PHASE, "Orchestration failed: ${atomicOperation.class.simpleName} | ${e.class.simpleName}: [${message}]"
-            task.addResultObjects([[type: "EXCEPTION", operation: atomicOperation.class.simpleName, cause: e.class.simpleName, message: message]])
+            task.addResultObjects([extractExceptionSummary(e, message, [operation: atomicOperation.class.simpleName])])
 
             log.error(stackTrace)
             task.fail()
@@ -131,14 +133,14 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
         registry.counter(tasksId.withTag("success", "false").withTag("cause", e.class.simpleName)).increment()
         if (e instanceof TimeoutException) {
           task.updateStatus "INIT", "Orchestration timed out."
-          task.addResultObjects([[type: "EXCEPTION", cause: e.class.simpleName, message: "Orchestration timed out."]])
+          task.addResultObjects([extractExceptionSummary(e, "Orchestration timed out.")])
           task.fail()
         } else {
           def stringWriter = new StringWriter()
           def printWriter = new PrintWriter(stringWriter)
           e.printStackTrace(printWriter)
           task.updateStatus("INIT", "Unknown failure -- ${stringWriter.toString()}")
-          task.addResultObjects([[type: "EXCEPTION", cause: e.class.simpleName, message: "Failed for unknown reason."]])
+          task.addResultObjects([extractExceptionSummary(e, "Failed for unknown reason.")])
           task.fail()
         }
       } finally {
@@ -171,5 +173,50 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     } catch (Exception e) {
       log.error("Unable to clear thread locals, reason: ${e.message}")
     }
+  }
+
+  /**
+   * For backwards compatibility
+   */
+  static Map<String, Object> extractExceptionSummary(Throwable e, String userMessage) {
+    Map<String, Object> summary = extractExceptionSummary(e)
+    summary["message"] = userMessage
+    return summary
+  }
+
+  static Map<String, Object> extractExceptionSummary(Throwable e, String userMessage, Map<String, Object> additionalFields) {
+    Map<String, Object> summary = extractExceptionSummary(e, userMessage)
+    summary.putAll(additionalFields)
+    return summary
+  }
+
+  /**
+   * TODO(rz): Gross. Concrete types & extract to kork-exceptions
+   */
+  static Map<String, Object> extractExceptionSummary(Throwable e, Map<String, Object> summary = [:]) {
+    Throwable cause = e.cause
+    String message = e.message
+    boolean retryable = (e instanceof SpinnakerException) ? e.retryable : false
+    Map<String, Object> additionalAttributes = (e instanceof HasAdditionalAttributes) ? e.additionalAttributes : null
+
+    if (summary.isEmpty()) {
+      summary["type"] = "EXCEPTION"
+      summary["message"] = message
+      summary["details"] = []
+      summary["retryable"] = retryable
+    }
+
+    Map<String, Object> details = [message: message]
+    if (additionalAttributes != null && !additionalAttributes.isEmpty()) {
+      details["additionalAttributes"] = additionalAttributes
+    }
+    summary["details"].add(details)
+
+    if (cause == null) {
+      summary["cause"] = e.message
+      summary["details"] = (summary["details"] as List).reverse()
+      return summary
+    }
+    return extractExceptionSummary(cause, summary)
   }
 }
