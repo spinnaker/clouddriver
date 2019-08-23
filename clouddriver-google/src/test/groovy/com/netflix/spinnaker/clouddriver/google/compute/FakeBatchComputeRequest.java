@@ -25,8 +25,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class FakeComputeBatchRequest<RequestT extends ComputeRequest<ResponseT>, ResponseT>
-    implements ComputeBatchRequest<RequestT, ResponseT> {
+public final class FakeBatchComputeRequest<RequestT extends ComputeRequest<ResponseT>, ResponseT>
+    implements BatchComputeRequest<RequestT, ResponseT> {
 
   private List<QueuedRequest> requests = new ArrayList<>();
 

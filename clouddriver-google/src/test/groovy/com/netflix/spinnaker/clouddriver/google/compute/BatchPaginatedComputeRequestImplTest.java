@@ -37,7 +37,7 @@ final class BatchPaginatedComputeRequestImplTest {
   void execute() throws IOException {
 
     BatchPaginatedComputeRequestImpl<Compute.Images.List, ImageList, Image> batchRequest =
-        new BatchPaginatedComputeRequestImpl<>(FakeComputeBatchRequest::new);
+        new BatchPaginatedComputeRequestImpl<>(FakeBatchComputeRequest::new);
 
     ImageListRequestGenerator set1 = new ImageListRequestGenerator();
     set1.itemPrefix = "set1-";

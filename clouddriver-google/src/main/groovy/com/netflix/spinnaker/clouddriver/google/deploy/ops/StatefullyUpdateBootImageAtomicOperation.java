@@ -37,7 +37,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
-import com.netflix.spinnaker.clouddriver.google.compute.ComputeBatchRequest;
+import com.netflix.spinnaker.clouddriver.google.compute.BatchComputeRequest;
 import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeApiFactory;
 import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeRequest;
 import com.netflix.spinnaker.clouddriver.google.compute.GoogleServerGroupManagers;
@@ -174,7 +174,7 @@ public class StatefullyUpdateBootImageAtomicOperation extends GoogleAtomicOperat
 
     SettableFuture<Image> foundImage = SettableFuture.create();
 
-    ComputeBatchRequest<Compute.Images.Get, Image> batchRequest =
+    BatchComputeRequest<Compute.Images.Get, Image> batchRequest =
         computeApiFactory.createBatchRequest(credentials);
     for (String project : getImageProjects(credentials)) {
       GoogleComputeRequest<Compute.Images.Get, Image> request =

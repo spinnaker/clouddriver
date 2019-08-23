@@ -32,12 +32,12 @@ final class BatchPaginatedComputeRequestImpl<
         ComputeRequestT extends ComputeRequest<ResponseT>, ResponseT, ItemT>
     implements BatchPaginatedComputeRequest<ComputeRequestT, ItemT> {
 
-  private final Supplier<ComputeBatchRequest<ComputeRequestT, ResponseT>> batchRequestSupplier;
+  private final Supplier<BatchComputeRequest<ComputeRequestT, ResponseT>> batchRequestSupplier;
   private final Map<PaginatedComputeRequestImpl<ComputeRequestT, ResponseT, ItemT>, String>
       nextPageTokens = new HashMap<>();
 
   BatchPaginatedComputeRequestImpl(
-      Supplier<ComputeBatchRequest<ComputeRequestT, ResponseT>> batchRequestSupplier) {
+      Supplier<BatchComputeRequest<ComputeRequestT, ResponseT>> batchRequestSupplier) {
     this.batchRequestSupplier = batchRequestSupplier;
   }
 
@@ -52,7 +52,7 @@ final class BatchPaginatedComputeRequestImpl<
     ImmutableSet.Builder<ItemT> results = ImmutableSet.builder();
 
     while (!nextPageTokens.isEmpty()) {
-      ComputeBatchRequest<ComputeRequestT, ResponseT> pageRequest = batchRequestSupplier.get();
+      BatchComputeRequest<ComputeRequestT, ResponseT> pageRequest = batchRequestSupplier.get();
       for (Map.Entry<PaginatedComputeRequestImpl<ComputeRequestT, ResponseT, ItemT>, String> entry :
           nextPageTokens.entrySet()) {
         GoogleComputeRequest<ComputeRequestT, ResponseT> request =
