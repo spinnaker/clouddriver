@@ -59,7 +59,8 @@ public class CreateLambdaAtomicOperation
     AWSLambda client = getLambdaClient();
 
     CreateFunctionRequest request = new CreateFunctionRequest();
-    request.setFunctionName(description.getFunctionName());
+    request.setFunctionName(
+        combineAppDetail(description.getAppName(), description.getFunctionName()));
     request.setDescription(description.getDescription());
     request.setHandler(description.getHandler());
     request.setMemorySize(description.getMemory());
@@ -87,5 +88,12 @@ public class CreateLambdaAtomicOperation
     updateTaskStatus("Finished Creation of AWS Lambda Function Operation...");
 
     return result;
+  }
+
+  protected String combineAppDetail(String appName, String functionName) {
+    /// NameValidation.notEmpty(appName, "appName");
+    // Use empty strings, not null references that output "null"
+
+    return appName + "-" + functionName;
   }
 }

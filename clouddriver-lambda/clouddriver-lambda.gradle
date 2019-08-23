@@ -3,6 +3,7 @@ dependencies {
   implementation project(":clouddriver-aws")
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-security")
+  implementation project(":clouddriver-appengine")
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
@@ -22,4 +23,5 @@ dependencies {
   implementation "com.squareup.okhttp:okhttp-urlconnection"
   implementation "com.squareup.retrofit:converter-jackson"
   implementation "com.squareup.retrofit:retrofit"
+  implementation "com.netflix.spectator:spectator-api"
 }

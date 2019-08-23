@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.lambda.provider.agent;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.lambda.cache.Keys.Namespace.LAMBDA_FUNCTIONS;
 
 import com.amazonaws.services.lambda.AWSLambda;
@@ -35,6 +36,8 @@ import com.amazonaws.services.lambda.model.ListVersionsByFunctionRequest;
 import com.amazonaws.services.lambda.model.ListVersionsByFunctionResult;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.spectator.api.DefaultRegistry;
+import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AccountAware;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -43,15 +46,18 @@ import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
+import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider;
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
+import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class LambdaCachingAgent implements CachingAgent, AccountAware {
+public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandAgent {
   private static final TypeReference<Map<String, Object>> ATTRIBUTES =
       new TypeReference<Map<String, Object>>() {};
 
@@ -67,6 +73,8 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
   private final AmazonClientProvider amazonClientProvider;
   private final NetflixAmazonCredentials account;
   private final String region;
+  private OnDemandMetricsSupport metricsSupport;
+  private final Registry registry;
 
   LambdaCachingAgent(
       ObjectMapper objectMapper,
@@ -78,6 +86,12 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
     this.amazonClientProvider = amazonClientProvider;
     this.account = account;
     this.region = region;
+    this.registry = new DefaultRegistry();
+    this.metricsSupport =
+        new OnDemandMetricsSupport(
+            registry,
+            this,
+            AmazonCloudProvider.ID + ":" + AmazonCloudProvider.ID + ":" + OnDemandType.Function);
   }
 
   @Override
@@ -226,5 +240,81 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware {
     attributes.put("tags", getFunctionResult.getTags());
     attributes.put("concurrency", getFunctionResult.getConcurrency());
     return attributes;
+  }
+
+  @Override
+  public boolean handles(OnDemandType type, String cloudProvider) {
+    return type == OnDemandType.Function && cloudProvider.equals(AmazonCloudProvider.ID);
+  }
+
+  @Override
+  public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
+    if (!validKeys(data)) {
+      return null;
+    }
+
+    String functionName = (String) data.get("functionName");
+    String appName = (String) data.get("appName");
+    String functionKey =
+        Keys.getLambdaFunctionKey(
+            (String) data.get("credentials"),
+            (String) data.get("region"),
+            combineAppDetail(appName, functionName));
+
+    String appKey = com.netflix.spinnaker.clouddriver.aws.data.Keys.getApplicationKey(appName);
+
+    Map<String, Object> attributes = new HashMap<String, Object>();
+    attributes.put("name", appName);
+
+    CacheData application = providerCache.get(APPLICATIONS.ns, appKey);
+
+    Collection<String> existingFunctionRel =
+        application.getRelationships().get(LAMBDA_FUNCTIONS.ns);
+    Map<String, Collection<String>> relationships = new HashMap<String, Collection<String>>();
+    Set<String> functionRel = new HashSet<>();
+    functionRel.add(functionKey);
+
+    if (null != existingFunctionRel && !existingFunctionRel.isEmpty()) {
+      functionRel.addAll(existingFunctionRel);
+    }
+    relationships.put(LAMBDA_FUNCTIONS.ns, functionRel);
+
+    DefaultCacheData cacheData = new DefaultCacheData(appKey, attributes, relationships);
+    DefaultCacheResult defaultCacheresults =
+        new DefaultCacheResult(
+            Collections.singletonMap(
+                com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.APPLICATIONS.ns,
+                Collections.singletonList(cacheData)));
+
+    return new OnDemandAgent.OnDemandResult(
+        getAgentType(), defaultCacheresults, Collections.emptyMap());
+  }
+
+  @Override
+  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+    return null;
+  }
+
+  @Override
+  public String getOnDemandAgentType() {
+    return getAgentType() + "-OnDemand";
+  }
+
+  @Override
+  public OnDemandMetricsSupport getMetricsSupport() {
+    return metricsSupport;
+  }
+
+  private Boolean validKeys(Map<String, ? extends Object> data) {
+    return (data.containsKey("functionName")
+        && data.containsKey("credentials")
+        && data.containsKey("region"));
+  }
+
+  protected String combineAppDetail(String appName, String functionName) {
+    /// NameValidation.notEmpty(appName, "appName");
+    // Use empty strings, not null references that output "null"
+
+    return appName + "-" + functionName;
   }
 }
