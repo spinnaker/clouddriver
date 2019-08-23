@@ -21,11 +21,13 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.api.client.googleapis.batch.json.JsonBatchCallback;
 import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.http.HttpHeaders;
+import com.google.api.client.http.HttpResponseException;
 import com.google.api.services.compute.ComputeRequest;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 final class BatchPaginatedComputeRequestImpl<
@@ -35,6 +37,7 @@ final class BatchPaginatedComputeRequestImpl<
   private final Supplier<BatchComputeRequest<ComputeRequestT, ResponseT>> batchRequestSupplier;
   private final Map<PaginatedComputeRequestImpl<ComputeRequestT, ResponseT, ItemT>, String>
       nextPageTokens = new HashMap<>();
+  private IOException exception;
 
   BatchPaginatedComputeRequestImpl(
       Supplier<BatchComputeRequest<ComputeRequestT, ResponseT>> batchRequestSupplier) {
@@ -51,7 +54,7 @@ final class BatchPaginatedComputeRequestImpl<
   public ImmutableSet<ItemT> execute(String batchContext) throws IOException {
     ImmutableSet.Builder<ItemT> results = ImmutableSet.builder();
 
-    while (!nextPageTokens.isEmpty()) {
+    while (!nextPageTokens.isEmpty() && exception == null) {
       BatchComputeRequest<ComputeRequestT, ResponseT> pageRequest = batchRequestSupplier.get();
       for (Map.Entry<PaginatedComputeRequestImpl<ComputeRequestT, ResponseT, ItemT>, String> entry :
           nextPageTokens.entrySet()) {
@@ -61,6 +64,10 @@ final class BatchPaginatedComputeRequestImpl<
         pageRequest.queue(request, new PageCallback(entry.getKey(), results));
       }
       pageRequest.execute(batchContext);
+    }
+
+    if (exception != null) {
+      throw exception;
     }
 
     return results.build();
@@ -81,11 +88,20 @@ final class BatchPaginatedComputeRequestImpl<
     @Override
     public void onFailure(GoogleJsonError e, HttpHeaders responseHeaders) {
       nextPageTokens.remove(request);
+      HttpResponseException newException =
+          new HttpResponseException.Builder(e.getCode(), e.getMessage(), responseHeaders)
+              .setMessage(e.getMessage())
+              .build();
+      if (exception == null) {
+        exception = newException;
+      } else {
+        exception.addSuppressed(newException);
+      }
     }
 
     @Override
     public void onSuccess(ResponseT response, HttpHeaders responseHeaders) {
-      results.addAll(request.itemRetriever.getItems(response));
+      Optional.ofNullable(request.itemRetriever.getItems(response)).ifPresent(results::addAll);
       String nextPageToken = request.nextPageTokenRetriever.getNextPageToken(response);
       if (isNullOrEmpty(nextPageToken)) {
         nextPageTokens.remove(request);

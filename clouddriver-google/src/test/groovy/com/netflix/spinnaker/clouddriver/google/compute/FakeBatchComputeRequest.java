@@ -51,7 +51,9 @@ public final class FakeBatchComputeRequest<RequestT extends ComputeRequest<Respo
         }
         request.callback.onFailure(details, e.getHeaders());
       } catch (IOException | RuntimeException e) {
-        request.callback.onFailure(new GoogleJsonError(), new HttpHeaders());
+        GoogleJsonError error = new GoogleJsonError();
+        error.setMessage(e.getMessage());
+        request.callback.onFailure(error, new HttpHeaders());
       }
     }
   }
