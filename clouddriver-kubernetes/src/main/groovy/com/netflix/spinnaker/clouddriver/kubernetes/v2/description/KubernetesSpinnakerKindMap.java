@@ -58,8 +58,8 @@ public class KubernetesSpinnakerKindMap {
     }
   }
 
-  private Map<SpinnakerKind, Set<KubernetesKind>> spinnakerToKubernetes = new HashMap<>();
-  private Map<KubernetesKind, SpinnakerKind> kubernetesToSpinnaker = new HashMap<>();
+  private final Map<SpinnakerKind, Set<KubernetesKind>> spinnakerToKubernetes = new HashMap<>();
+  private final Map<KubernetesKind, SpinnakerKind> kubernetesToSpinnaker = new HashMap<>();
 
   void addRelationship(SpinnakerKind spinnakerKind, KubernetesKind kubernetesKind) {
     Set<KubernetesKind> kinds = spinnakerToKubernetes.get(spinnakerKind);
@@ -86,7 +86,7 @@ public class KubernetesSpinnakerKindMap {
 
   public Map<String, String> kubernetesToSpinnakerKindStringMap() {
     return kubernetesToSpinnaker.entrySet().stream()
-        .filter(x -> x.getKey() != KubernetesKind.NONE)
+        .filter(x -> !x.getKey().equals(KubernetesKind.NONE))
         .collect(Collectors.toMap(x -> x.getKey().toString(), x -> x.getValue().toString()));
   }
 }

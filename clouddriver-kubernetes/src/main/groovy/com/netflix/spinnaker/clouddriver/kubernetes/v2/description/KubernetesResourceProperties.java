@@ -25,21 +25,22 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesVersio
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CustomKubernetesHandlerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
 import org.apache.commons.lang.StringUtils;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter
 public class KubernetesResourceProperties {
-  KubernetesHandler handler;
-  boolean versioned;
-  KubernetesVersionedArtifactConverter versionedConverter;
-  KubernetesUnversionedArtifactConverter unversionedConverter;
+  private final KubernetesHandler handler;
+  private final boolean versioned;
+  private final KubernetesVersionedArtifactConverter versionedConverter =
+      new KubernetesVersionedArtifactConverter();
+  private final KubernetesUnversionedArtifactConverter unversionedConverter =
+      new KubernetesUnversionedArtifactConverter();
+
+  public KubernetesResourceProperties(KubernetesHandler handler, boolean versioned) {
+    this.handler = handler;
+    this.versioned = versioned;
+  }
 
   public static KubernetesResourceProperties fromCustomResource(
       CustomKubernetesResource customResource) {
@@ -58,17 +59,12 @@ public class KubernetesResourceProperties {
 
     KubernetesHandler handler =
         CustomKubernetesHandlerFactory.create(
-            KubernetesKind.fromString(
+            KubernetesKind.getOrRegisterKind(
                 customResource.getKubernetesKind(), customResource.isNamespaced()),
             KubernetesSpinnakerKindMap.SpinnakerKind.fromString(customResource.getSpinnakerKind()),
             customResource.isVersioned(),
             deployPriorityValue);
 
-    return KubernetesResourceProperties.builder()
-        .handler(handler)
-        .versioned(customResource.isVersioned())
-        .versionedConverter(new KubernetesVersionedArtifactConverter())
-        .unversionedConverter(new KubernetesUnversionedArtifactConverter())
-        .build();
+    return new KubernetesResourceProperties(handler, customResource.isVersioned());
   }
 }

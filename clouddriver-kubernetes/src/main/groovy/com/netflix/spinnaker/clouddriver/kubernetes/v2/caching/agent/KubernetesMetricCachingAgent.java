@@ -30,6 +30,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.Collection;
@@ -44,7 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KubernetesMetricCachingAgent extends KubernetesCachingAgent<KubernetesV2Credentials>
     implements AgentIntervalAware {
-  @Getter protected String providerName = KubernetesCloudProvider.getID();
+  @Getter protected String providerName = KubernetesCloudProvider.ID;
 
   @Getter private final Long agentInterval;
 
@@ -69,14 +70,13 @@ public class KubernetesMetricCachingAgent extends KubernetesCachingAgent<Kuberne
     log.info(getAgentType() + ": agent is starting");
     reloadNamespaces();
 
-    List<CacheData> cacheData =
+    List<KubernetesPodMetric> podMetrics =
         namespaces
             .parallelStream()
             .map(
                 n -> {
                   try {
-                    return credentials.topPod(n, null).stream()
-                        .map(m -> KubernetesCacheDataConverter.convertPodMetric(accountName, n, m));
+                    return credentials.topPod(n, null);
                   } catch (KubectlJobExecutor.KubectlException e) {
                     if (e.getMessage().contains("not available")) {
                       log.warn(
@@ -86,27 +86,23 @@ public class KubernetesMetricCachingAgent extends KubernetesCachingAgent<Kuberne
                               + accountName
                               + "' have not been recorded yet.",
                           getAgentType());
-                      return null;
+                      return Collections.<KubernetesPodMetric>emptyList();
                     } else {
                       throw e;
                     }
                   }
                 })
-            .filter(Objects::nonNull)
-            .flatMap(x -> x)
-            .collect(Collectors.toList());
-
-    List<CacheData> invertedRelationships =
-        cacheData.stream()
-            .map(KubernetesCacheDataConverter::invertRelationships)
             .flatMap(Collection::stream)
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
-    cacheData.addAll(invertedRelationships);
+    KubernetesCacheData kubernetesCacheData = new KubernetesCacheData();
+    podMetrics.forEach(
+        metric ->
+            KubernetesCacheDataConverter.convertPodMetric(
+                kubernetesCacheData, accountName, metric));
 
-    Map<String, Collection<CacheData>> entries =
-        KubernetesCacheDataConverter.stratifyCacheDataByGroup(
-            KubernetesCacheDataConverter.dedupCacheData(cacheData));
+    Map<String, Collection<CacheData>> entries = kubernetesCacheData.toStratifiedCacheData();
     KubernetesCacheDataConverter.logStratifiedCacheData(getAgentType(), entries);
 
     return new DefaultCacheResult(entries);

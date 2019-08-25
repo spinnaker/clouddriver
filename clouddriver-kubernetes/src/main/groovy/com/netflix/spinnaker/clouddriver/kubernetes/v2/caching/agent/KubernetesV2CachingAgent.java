@@ -28,7 +28,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.RegistryUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -44,29 +43,24 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 public abstract class KubernetesV2CachingAgent
     extends KubernetesCachingAgent<KubernetesV2Credentials> implements AgentIntervalAware {
   protected KubectlJobExecutor jobExecutor;
 
-  @Getter protected String providerName = KubernetesCloudProvider.getID();
+  @Getter protected String providerName = KubernetesCloudProvider.ID;
 
   @Getter protected final Long agentInterval;
 
-  private final KubernetesResourcePropertyRegistry propertyRegistry;
-
   protected KubernetesV2CachingAgent(
       KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
-      KubernetesResourcePropertyRegistry propertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount,
       Long agentInterval) {
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
-    this.propertyRegistry = propertyRegistry;
     this.agentInterval = agentInterval;
   }
 
@@ -138,7 +132,7 @@ public abstract class KubernetesV2CachingAgent
     Map<String, Object> details = defaultIntrospectionDetails();
 
     try {
-      Long start = System.currentTimeMillis();
+      long start = System.currentTimeMillis();
       Map<KubernetesKind, List<KubernetesManifest>> primaryResourceList = loadPrimaryResourceList();
       details.put("timeSpentInKubectlMs", System.currentTimeMillis() - start);
       return buildCacheResult(primaryResourceList);
@@ -155,58 +149,28 @@ public abstract class KubernetesV2CachingAgent
   }
 
   protected CacheResult buildCacheResult(Map<KubernetesKind, List<KubernetesManifest>> resources) {
+    KubernetesCacheData kubernetesCacheData = new KubernetesCacheData();
     Map<KubernetesManifest, List<KubernetesManifest>> relationships =
         loadSecondaryResourceRelationships(resources);
 
-    List<CacheData> resourceData =
-        resources.values().stream()
-            .flatMap(Collection::stream)
-            .peek(m -> RegistryUtils.removeSensitiveKeys(propertyRegistry, accountName, m))
-            .map(
-                rs -> {
-                  try {
-                    CacheData cacheData =
-                        KubernetesCacheDataConverter.convertAsResource(
-                            accountName, rs, relationships.get(rs));
-                    if (credentials.isOnlySpinnakerManaged()
-                        && StringUtils.isEmpty(
-                            (String) cacheData.getAttributes().get("application"))) {
-                      return null;
-                    } else {
-                      return cacheData;
-                    }
-                  } catch (Exception e) {
-                    log.warn("{}: Failure converting {} as resource", getAgentType(), rs, e);
-                    return null;
-                  }
-                })
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+    resources.values().stream()
+        .flatMap(Collection::stream)
+        .peek(m -> RegistryUtils.removeSensitiveKeys(credentials.getResourcePropertyRegistry(), m))
+        .forEach(
+            rs -> {
+              try {
+                KubernetesCacheDataConverter.convertAsResource(
+                    kubernetesCacheData,
+                    accountName,
+                    rs,
+                    relationships.get(rs),
+                    credentials.isOnlySpinnakerManaged());
+              } catch (Exception e) {
+                log.warn("{}: Failure converting {}", getAgentType(), rs, e);
+              }
+            });
 
-    List<CacheData> invertedRelationships =
-        resourceData.stream()
-            .map(KubernetesCacheDataConverter::invertRelationships)
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
-
-    resourceData.addAll(
-        resources.values().stream()
-            .flatMap(Collection::stream)
-            .map(rs -> KubernetesCacheDataConverter.convertAsArtifact(accountName, rs))
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
-
-    resourceData.addAll(invertedRelationships);
-
-    resourceData.addAll(
-        resourceData.stream()
-            .map(rs -> KubernetesCacheDataConverter.getClusterRelationships(accountName, rs))
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
-
-    Map<String, Collection<CacheData>> entries =
-        KubernetesCacheDataConverter.stratifyCacheDataByGroup(
-            KubernetesCacheDataConverter.dedupCacheData(resourceData));
+    Map<String, Collection<CacheData>> entries = kubernetesCacheData.toStratifiedCacheData();
     KubernetesCacheDataConverter.logStratifiedCacheData(getAgentType(), entries);
 
     return new DefaultCacheResult(entries);
@@ -221,7 +185,7 @@ public abstract class KubernetesV2CachingAgent
             k -> {
               try {
                 RegistryUtils.addRelationships(
-                    propertyRegistry, accountName, k, allResources, result);
+                    credentials.getResourcePropertyRegistry(), k, allResources, result);
               } catch (Exception e) {
                 log.warn("{}: Failure adding relationships for {}", getAgentType(), k, e);
               }

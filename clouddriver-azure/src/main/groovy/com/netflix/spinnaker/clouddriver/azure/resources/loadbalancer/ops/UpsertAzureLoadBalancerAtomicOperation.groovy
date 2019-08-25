@@ -52,11 +52,27 @@ class UpsertAzureLoadBalancerAtomicOperation implements AtomicOperation<Map> {
       "in ${description.region}...")
 
     def errList = new ArrayList<String>()
-    String resourceGroupName = AzureUtilities.getResourceGroupName(description.appName, description.region)
+    String resourceGroupName = null
 
     try {
 
       task.updateStatus(BASE_PHASE, "Beginning load balancer deployment")
+
+      resourceGroupName = AzureUtilities.getResourceGroupName(description.appName, description.region)
+      // Create corresponding ResourceGroup if it's not created already
+      description.credentials.resourceManagerClient.initializeResourceGroupAndVNet(resourceGroupName, null, description.region)
+
+      if(description.dnsName) {
+        if(description.dnsName.isBlank()){
+          throw new RuntimeException("Specified dns name $description.dnsName cannot be blank")
+        }
+
+        // Check dns name conflict
+        def isDnsNameAvailable = description.credentials.networkClient.checkDnsNameAvailability(description.dnsName)
+        if (!isDnsNameAvailable) {
+          throw new RuntimeException("Specified dns name $description.dnsName has conflict")
+        }
+      }
 
       description.name = description.loadBalancerName
       def loadBalancerDescription = description.credentials.networkClient.getLoadBalancer(resourceGroupName, description.name)
@@ -64,6 +80,7 @@ class UpsertAzureLoadBalancerAtomicOperation implements AtomicOperation<Map> {
       if(loadBalancerDescription) {
         description.serverGroups = loadBalancerDescription.serverGroups
         description.trafficEnabledSG = loadBalancerDescription.trafficEnabledSG
+        description.publicIpName = loadBalancerDescription.publicIpName
       }
       Deployment deployment = description.credentials.resourceManagerClient.createResourceFromTemplate(
         AzureLoadBalancerResourceTemplate.getTemplate(description),

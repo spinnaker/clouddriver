@@ -23,20 +23,18 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.KubernetesV2Manifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesAccountResolver;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -47,21 +45,17 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestProvider {
   private final KubernetesCacheUtils cacheUtils;
-  @Getter private final KubernetesResourcePropertyRegistry registry;
-  @Getter private final AccountCredentialsRepository credentialsRepository;
 
   @Autowired
   public KubernetesV2ManifestProvider(
-      AccountCredentialsRepository credentialsRepository,
-      KubernetesResourcePropertyRegistry registry,
-      KubernetesCacheUtils cacheUtils) {
-    this.registry = registry;
+      KubernetesAccountResolver resourcePropertyResolver, KubernetesCacheUtils cacheUtils) {
+    super(resourcePropertyResolver);
     this.cacheUtils = cacheUtils;
-    this.credentialsRepository = credentialsRepository;
   }
 
   @Override
-  public KubernetesV2Manifest getManifest(String account, String location, String name) {
+  public KubernetesV2Manifest getManifest(
+      String account, String location, String name, boolean includeEvents) {
     if (!isAccountRelevant(account)) {
       return null;
     }
@@ -84,7 +78,8 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
       location = "";
     }
 
-    String key = Keys.infrastructure(kind, account, location, parsedName.getRight());
+    String key =
+        Keys.InfrastructureCacheKey.createKey(kind, account, location, parsedName.getRight());
 
     Optional<CacheData> dataOptional = cacheUtils.getSingleEntry(kind.toString(), key);
     if (!dataOptional.isPresent()) {
@@ -93,14 +88,14 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
 
     CacheData data = dataOptional.get();
 
-    return fromCacheData(data, account);
+    return fromCacheData(data, account, includeEvents);
   }
 
   @Override
   public List<KubernetesV2Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
     KubernetesResourceProperties properties =
-        registry.get(account, KubernetesKind.fromString(kind));
+        getRegistry(account).get(KubernetesKind.fromString(kind));
     if (properties == null) {
       return null;
     }
@@ -108,15 +103,15 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
     KubernetesHandler handler = properties.getHandler();
 
     return cacheUtils
-        .getSingleEntry(CLUSTERS.toString(), Keys.cluster(account, app, cluster))
+        .getSingleEntry(CLUSTERS.toString(), Keys.ClusterCacheKey.createKey(account, app, cluster))
         .map(
             c ->
                 cacheUtils.loadRelationshipsFromCache(c, kind).stream()
                     .map(
                         cd ->
                             fromCacheData(
-                                cd,
-                                account)) // todo(lwander) perf improvement by checking namespace
+                                cd, account, false)) // todo(lwander) perf improvement by checking
+                    // namespace
                     // before converting
                     .filter(Objects::nonNull)
                     .filter(m -> m.getLocation().equals(location))
@@ -127,21 +122,26 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
         .orElse(new ArrayList<>());
   }
 
-  private KubernetesV2Manifest fromCacheData(CacheData data, String account) {
+  private KubernetesV2Manifest fromCacheData(
+      CacheData data, String account, boolean includeEvents) {
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(data);
     String namespace = manifest.getNamespace();
     KubernetesKind kind = manifest.getKind();
     String key = data.getId();
 
     List<KubernetesManifest> events =
-        cacheUtils
-            .getTransitiveRelationship(
-                kind.toString(), Collections.singletonList(key), KubernetesKind.EVENT.toString())
-            .stream()
-            .map(KubernetesCacheDataConverter::getManifest)
-            .collect(Collectors.toList());
+        includeEvents
+            ? cacheUtils
+                .getTransitiveRelationship(
+                    kind.toString(),
+                    Collections.singletonList(key),
+                    KubernetesKind.EVENT.toString())
+                .stream()
+                .map(KubernetesCacheDataConverter::getManifest)
+                .collect(Collectors.toList())
+            : Collections.emptyList();
 
-    String metricKey = Keys.metric(kind, account, namespace, manifest.getName());
+    String metricKey = Keys.MetricCacheKey.createKey(kind, account, namespace, manifest.getName());
     List<KubernetesPodMetric.ContainerMetric> metrics =
         cacheUtils
             .getSingleEntry(Keys.Kind.KUBERNETES_METRIC.toString(), metricKey)

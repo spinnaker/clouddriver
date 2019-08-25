@@ -84,6 +84,7 @@ public class SubmitJobRequest {
   private int cpu;
   private int gpu;
   private int memory;
+  private int sharedMemory;
   private int disk;
   private int retries;
   private int runtimeLimitSecs;
@@ -100,6 +101,7 @@ public class SubmitJobRequest {
   private DisruptionBudget disruptionBudget = null;
 
   private Constraints containerConstraints = null;
+  private ServiceJobProcesses serviceJobProcesses = null;
 
   public DisruptionBudget getDisruptionBudget() {
     return disruptionBudget;
@@ -157,6 +159,11 @@ public class SubmitJobRequest {
 
   public SubmitJobRequest withMemory(int memory) {
     this.memory = memory;
+    return this;
+  }
+
+  public SubmitJobRequest withSharedMemory(int sharedMemory) {
+    this.sharedMemory = sharedMemory;
     return this;
   }
 
@@ -285,6 +292,11 @@ public class SubmitJobRequest {
     return this;
   }
 
+  public SubmitJobRequest withServiceJobProcesses(ServiceJobProcesses serviceJobProcesses) {
+    this.serviceJobProcesses = serviceJobProcesses;
+    return this;
+  }
+
   // Getters
 
   public String getJobType() {
@@ -321,6 +333,10 @@ public class SubmitJobRequest {
 
   public int getMemory() {
     return memory;
+  }
+
+  public int getSharedMemory() {
+    return sharedMemory;
   }
 
   public int getDisk() {
@@ -425,5 +441,9 @@ public class SubmitJobRequest {
 
   public Constraints getContainerConstraints() {
     return containerConstraints;
+  }
+
+  public ServiceJobProcesses getServiceJobProcesses() {
+    return serviceJobProcesses;
   }
 }

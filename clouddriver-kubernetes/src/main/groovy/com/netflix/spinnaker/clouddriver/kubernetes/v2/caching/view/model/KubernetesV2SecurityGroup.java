@@ -64,7 +64,7 @@ public class KubernetesV2SecurityGroup extends ManifestBasedModel implements Sec
     return KubernetesV2SecurityGroupSummary.builder().id(id).name(id).build();
   }
 
-  KubernetesV2SecurityGroup(
+  private KubernetesV2SecurityGroup(
       KubernetesManifest manifest, String key, Set<Rule> inboundRules, Set<Rule> outboundRules) {
     this.manifest = manifest;
     this.id = manifest.getFullResourceName();
@@ -88,7 +88,7 @@ public class KubernetesV2SecurityGroup extends ManifestBasedModel implements Sec
     Set<Rule> inboundRules = new HashSet<>();
     Set<Rule> outboundRules = new HashSet<>();
 
-    if (manifest.getKind() != KubernetesKind.NETWORK_POLICY) {
+    if (!manifest.getKind().equals(KubernetesKind.NETWORK_POLICY)) {
       log.warn("Unknown security group kind " + manifest.getKind());
     } else {
       if (manifest.getApiVersion().equals(NETWORKING_K8S_IO_V1)
@@ -124,7 +124,7 @@ public class KubernetesV2SecurityGroup extends ManifestBasedModel implements Sec
   }
 
   private static Rule fromPolicyPort(V1NetworkPolicyPort policyPort) {
-    String port = policyPort.getPort();
+    String port = policyPort.getPort().toString();
     return new PortRule()
         .setProtocol(policyPort.getProtocol())
         .setPortRanges(new TreeSet<>(Collections.singletonList(new StringPortRange(port))));

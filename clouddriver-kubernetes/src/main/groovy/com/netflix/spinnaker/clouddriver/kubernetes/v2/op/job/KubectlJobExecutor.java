@@ -30,11 +30,13 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPod
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric.ContainerMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesApiResourceParser;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import io.kubernetes.client.models.V1DeleteOptions;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.EOFException;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +65,7 @@ public class KubectlJobExecutor {
     this.jobExecutor = jobExecutor;
   }
 
-  public String configCurrentContext(KubernetesV2Credentials credentials) {
+  private String configCurrentContext(KubernetesV2Credentials credentials) {
     List<String> command = kubectlAuthPrefix(credentials);
     command.add("config");
     command.add("current-context");
@@ -469,15 +471,6 @@ public class KubectlJobExecutor {
     return null;
   }
 
-  private void logDebugMessages(String jobId, JobResult<String> jobResult) {
-    if (jobResult != null) {
-      log.info("{} stdout:\n{}", jobId, jobResult.getOutput());
-      log.info("{} stderr:\n{}", jobId, jobResult.getError());
-    } else {
-      log.info("{} job status not set");
-    }
-  }
-
   private List<String> kubectlAuthPrefix(KubernetesV2Credentials credentials) {
     List<String> command = new ArrayList<>();
     if (StringUtils.isNotEmpty(credentials.getKubectlExecutable())) {
@@ -554,8 +547,7 @@ public class KubectlJobExecutor {
     command.add("json");
 
     command.add("get");
-    command.add(
-        String.join(",", kind.stream().map(KubernetesKind::toString).collect(Collectors.toList())));
+    command.add(kind.stream().map(KubernetesKind::toString).collect(Collectors.joining(",")));
 
     return command;
   }
@@ -574,6 +566,51 @@ public class KubectlJobExecutor {
       throw new KubectlException("Could not fetch OAuth token: " + status.getError());
     }
     return status.getOutput();
+  }
+
+  public Set<KubernetesKind.ScopedKind> apiResources(KubernetesV2Credentials credentials) {
+    List<String> command = kubectlAuthPrefix(credentials);
+    command.add("api-resources");
+
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
+
+    // api-resources can return a non-zero status code but still return data
+    // log here as a warning
+    if (!status.getResult().equals(JobResult.Result.SUCCESS)) {
+      log.warn("There was an error reading api-resources. All available kinds may not be present.");
+    }
+
+    String output = status.getOutput().trim();
+    if (StringUtils.isEmpty(output)) {
+      return new HashSet<>();
+    }
+
+    return KubernetesApiResourceParser.parse(output);
+  }
+
+  public boolean authCanI(KubernetesV2Credentials credentials, String kind, String verb) {
+    List<String> command = kubectlAuthPrefix(credentials);
+    command.add("auth");
+    command.add("can-i");
+    command.add(verb);
+    command.add(kind);
+
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
+
+    return status.getResult() == JobResult.Result.SUCCESS;
+  }
+
+  public boolean authCanINamespaced(
+      KubernetesV2Credentials credentials, String namespace, String kind, String verb) {
+    List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+    command.add("auth");
+    command.add("can-i");
+    command.add(verb);
+    command.add(kind);
+
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
+
+    return status.getResult() == JobResult.Result.SUCCESS;
   }
 
   public Collection<KubernetesPodMetric> topPod(
@@ -639,6 +676,7 @@ public class KubectlJobExecutor {
               podName,
               KubernetesPodMetric.builder()
                   .podName(podName)
+                  .namespace(namespace)
                   .containerMetrics(new ArrayList<>())
                   .build());
 
@@ -718,7 +756,12 @@ public class KubectlJobExecutor {
     return (BufferedReader r) -> {
       try (JsonReader reader = new JsonReader(r)) {
         List<KubernetesManifest> manifestList = new ArrayList<>();
-        reader.beginObject();
+        try {
+          reader.beginObject();
+        } catch (EOFException e) {
+          // If the stream we're parsing is empty, just return an empty list
+          return manifestList;
+        }
         while (reader.hasNext()) {
           if (reader.nextName().equals("items")) {
             reader.beginArray();
@@ -738,13 +781,13 @@ public class KubectlJobExecutor {
   }
 
   public static class NoResourceTypeException extends RuntimeException {
-    public NoResourceTypeException(String message) {
+    protected NoResourceTypeException(String message) {
       super(message);
     }
   }
 
   public static class KubectlException extends RuntimeException {
-    public KubectlException(String message) {
+    protected KubectlException(String message) {
       super(message);
     }
 

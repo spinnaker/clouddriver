@@ -18,64 +18,45 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job;
 
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
-import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.job.KubernetesRunJobOperationDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeployManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest.KubernetesDeployManifestOperation;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.moniker.Moniker;
-import com.netflix.spinnaker.moniker.Namer;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class KubernetesRunJobOperation implements AtomicOperation<DeploymentResult> {
+public class KubernetesRunJobOperation
+    implements AtomicOperation<KubernetesRunJobDeploymentResult> {
   private static final String OP_NAME = "RUN_KUBERNETES_JOB";
   private final KubernetesRunJobOperationDescription description;
-  private final KubernetesV2Credentials credentials;
-  private final KubernetesResourcePropertyRegistry registry;
-  private final Namer namer;
   private final ArtifactProvider provider;
 
   public KubernetesRunJobOperation(
-      KubernetesRunJobOperationDescription description,
-      KubernetesResourcePropertyRegistry registry,
-      ArtifactProvider provider) {
+      KubernetesRunJobOperationDescription description, ArtifactProvider provider) {
     this.description = description;
-    this.credentials = (KubernetesV2Credentials) description.getCredentials().getCredentials();
-    this.registry = registry;
     this.provider = provider;
-    this.namer =
-        NamerRegistry.lookup()
-            .withProvider(KubernetesCloudProvider.getID())
-            .withAccount(description.getCredentials().getName())
-            .withResource(KubernetesManifest.class);
   }
 
   private static Task getTask() {
     return TaskRepository.threadLocalTask.get();
   }
 
-  public DeploymentResult operate(List _unused) {
+  public KubernetesRunJobDeploymentResult operate(List _unused) {
     getTask().updateStatus(OP_NAME, "Running Kubernetes job...");
     KubernetesManifest jobSpec = this.description.getManifest();
     KubernetesKind kind = jobSpec.getKind();
-    if (kind != KubernetesKind.JOB) {
+    if (!kind.equals(KubernetesKind.JOB)) {
       throw new IllegalArgumentException(
           "Only kind of Job is accepted for the V2 Run Job operation.");
     }
 
-    if (jobSpec.get("metadata") == null) {
-      jobSpec.put("metadata", new HashMap<>());
-    }
+    jobSpec.computeIfAbsent("metadata", k -> new HashMap<>());
 
     if (!this.description.getNamespace().isEmpty()) {
       jobSpec.setNamespace(this.description.getNamespace());
@@ -95,18 +76,22 @@ public class KubernetesRunJobOperation implements AtomicOperation<DeploymentResu
     moniker.setApp(description.getApplication());
 
     deployManifestDescription.setManifests(manifests);
+    deployManifestDescription.setRequiredArtifacts(description.getRequiredArtifacts());
+    deployManifestDescription.setOptionalArtifacts(description.getOptionalArtifacts());
     deployManifestDescription.setSource(KubernetesDeployManifestDescription.Source.text);
-    deployManifestDescription.setMoniker(moniker);
     deployManifestDescription.setCredentials(description.getCredentials());
+    deployManifestDescription.setAccount(description.getAccount());
+    deployManifestDescription.setMoniker(moniker);
 
     KubernetesDeployManifestOperation deployManifestOperation =
-        new KubernetesDeployManifestOperation(deployManifestDescription, registry, provider);
+        new KubernetesDeployManifestOperation(deployManifestDescription, provider);
     OperationResult operationResult = deployManifestOperation.operate(new ArrayList());
-    DeploymentResult deploymentResult = new DeploymentResult();
+    KubernetesRunJobDeploymentResult deploymentResult =
+        new KubernetesRunJobDeploymentResult(operationResult);
     Map<String, List<String>> deployedNames = deploymentResult.getDeployedNamesByLocation();
     for (Map.Entry<String, Set<String>> e :
         operationResult.getManifestNamesByNamespace().entrySet()) {
-      deployedNames.put(e.getKey(), new ArrayList(e.getValue()));
+      deployedNames.put(e.getKey(), new ArrayList<>(e.getValue()));
     }
     deploymentResult.setDeployedNamesByLocation(deployedNames);
     return deploymentResult;

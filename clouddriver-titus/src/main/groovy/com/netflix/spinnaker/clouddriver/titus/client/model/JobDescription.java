@@ -35,6 +35,7 @@ public class JobDescription {
   private int instancesMin;
   private int cpu;
   private int memory;
+  private int sharedMemory;
   private int disk;
   private int gpu;
   private int retries;
@@ -66,6 +67,7 @@ public class JobDescription {
   private DisruptionBudget disruptionBudget;
 
   private SubmitJobRequest.Constraints constraints;
+  private ServiceJobProcesses serviceJobProcesses;
 
   // Soft/Hard constraints
 
@@ -82,6 +84,7 @@ public class JobDescription {
     instancesMax = request.getInstanceMax();
     cpu = request.getCpu();
     memory = request.getMemory();
+    sharedMemory = request.getSharedMemory();
     disk = request.getDisk();
     ports = request.getPorts();
     networkMbps = request.getNetworkMbps();
@@ -120,6 +123,7 @@ public class JobDescription {
 
     disruptionBudget = request.getDisruptionBudget();
     constraints = request.getContainerConstraints();
+    serviceJobProcesses = request.getServiceJobProcesses();
   }
 
   public String getName() {
@@ -405,6 +409,14 @@ public class JobDescription {
     this.disruptionBudget = disruptionBudget;
   }
 
+  public ServiceJobProcesses getServiceJobProcesses() {
+    return serviceJobProcesses;
+  }
+
+  public void setServiceJobProcesses(ServiceJobProcesses serviceJobProcesses) {
+    this.serviceJobProcesses = serviceJobProcesses;
+  }
+
   @JsonIgnore
   public SubmitJobRequest.Constraints getConstraints() {
     return constraints;
@@ -452,6 +464,10 @@ public class JobDescription {
 
     if (memory != 0) {
       containerResources.setMemoryMB(memory);
+    }
+
+    if (sharedMemory != 0) {
+      containerResources.setShmSizeMB(sharedMemory);
     }
 
     if (disk != 0) {
@@ -566,12 +582,20 @@ public class JobDescription {
                         .build())
                 .build();
       }
-
+      com.netflix.titus.grpc.protogen.ServiceJobSpec.ServiceJobProcesses.Builder
+          titusServiceJobProcesses = ServiceJobSpec.ServiceJobProcesses.newBuilder();
+      if (serviceJobProcesses != null) {
+        titusServiceJobProcesses
+            .setDisableDecreaseDesired(serviceJobProcesses.isDisableDecreaseDesired())
+            .setDisableIncreaseDesired(serviceJobProcesses.isDisableIncreaseDesired())
+            .build();
+      }
       jobDescriptorBuilder.setService(
           ServiceJobSpec.newBuilder()
               .setEnabled(inService)
               .setCapacity(jobCapacity)
               .setMigrationPolicy(serviceMigrationPolicy)
+              .setServiceJobProcesses(titusServiceJobProcesses)
               .setRetryPolicy(
                   RetryPolicy.newBuilder()
                       .setExponentialBackOff(

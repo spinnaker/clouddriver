@@ -17,10 +17,13 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.ops
 
 import com.netflix.frigga.Names
+
 import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDeployDescription
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials
+import com.netflix.spinnaker.kork.configserver.ConfigFileService
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
 /**
@@ -32,6 +35,8 @@ import org.springframework.stereotype.Component
 @Slf4j
 @Component
 public class GoogleUserDataProvider {
+  @Autowired
+  private ConfigFileService configFileService
 
   /**
    * Returns the user data as a Map.
@@ -62,9 +67,8 @@ public class GoogleUserDataProvider {
       return []
     }
     try {
-      File file = new File(filename)
-      return file.readLines()
-    } catch (IOException e) {
+      return configFileService.getContents(filename).readLines()
+    } catch (Exception e) {
       log.warn("Failed to read user data file ${filename}; ${e.message}")
       return []
     }

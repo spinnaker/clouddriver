@@ -19,12 +19,13 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesAccountResolver;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.search.SearchProvider;
@@ -40,9 +41,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -52,7 +54,7 @@ public class KubernetesV2SearchProvider implements SearchProvider {
   private final KubernetesCacheUtils cacheUtils;
   private final ObjectMapper mapper;
   private final KubernetesSpinnakerKindMap kindMap;
-  private final KubernetesResourcePropertyRegistry registry;
+  private final KubernetesAccountResolver resourcePropertyResolver;
   private final List<String> defaultTypes;
   private final Set<String> logicalTypes;
   private final Set<String> allCaches;
@@ -62,11 +64,11 @@ public class KubernetesV2SearchProvider implements SearchProvider {
       KubernetesCacheUtils cacheUtils,
       KubernetesSpinnakerKindMap kindMap,
       ObjectMapper objectMapper,
-      KubernetesResourcePropertyRegistry registry) {
+      KubernetesAccountResolver resourcePropertyResolver) {
     this.cacheUtils = cacheUtils;
     this.mapper = objectMapper;
     this.kindMap = kindMap;
-    this.registry = registry;
+    this.resourcePropertyResolver = resourcePropertyResolver;
 
     this.defaultTypes =
         kindMap.allKubernetesKinds().stream()
@@ -81,7 +83,7 @@ public class KubernetesV2SearchProvider implements SearchProvider {
 
   @Override
   public String getPlatform() {
-    return KubernetesCloudProvider.getID();
+    return KubernetesCloudProvider.ID;
   }
 
   @Override
@@ -137,7 +139,9 @@ public class KubernetesV2SearchProvider implements SearchProvider {
       type = kindMap.translateKubernetesKind(infraKey.getKubernetesKind()).toString();
 
       KubernetesResourceProperties properties =
-          registry.get(infraKey.getAccount(), infraKey.getKubernetesKind());
+          resourcePropertyResolver
+              .getResourcePropertyRegistry(infraKey.getAccount())
+              .get(infraKey.getKubernetesKind());
       if (properties == null) {
         log.warn(
             "No hydrator for type {}, this is possibly a developer error",
@@ -149,9 +153,9 @@ public class KubernetesV2SearchProvider implements SearchProvider {
     } else if (parsedKey instanceof Keys.LogicalKey) {
       Keys.LogicalKey logicalKey = (Keys.LogicalKey) parsedKey;
 
-      result = mapper.convertValue(parsedKey, new TypeReference<Map<String, Object>>() {});
+      result = mapper.convertValue(logicalKey, new TypeReference<Map<String, Object>>() {});
       result.put(logicalKey.getLogicalKind().singular(), logicalKey.getName());
-      type = parsedKey.getGroup();
+      type = logicalKey.getGroup();
     } else {
       log.warn("Unknown key type " + parsedKey + ", ignoring.");
       return null;
@@ -161,31 +165,38 @@ public class KubernetesV2SearchProvider implements SearchProvider {
     return result;
   }
 
-  private Map<String, List<String>> getKeysRelatedToLogicalMatches(String matchQuery) {
+  private static Stream<KeyRelationship> getMatchingRelationships(
+      CacheData cacheData, Set<String> typesToSearch) {
+    Keys.CacheKey cacheKey = Keys.parseKey(cacheData.getId()).orElse(null);
+    if (!(cacheKey instanceof LogicalKey)) {
+      return Stream.empty();
+    }
+    Map<String, Collection<String>> relationships = cacheData.getRelationships();
+    return typesToSearch.stream()
+        .map(relationships::get)
+        .filter(Objects::nonNull)
+        .flatMap(Collection::stream)
+        .filter(Objects::nonNull)
+        .map(k -> new KeyRelationship(k, (LogicalKey) cacheKey));
+  }
+
+  private Map<String, List<Keys.LogicalKey>> getKeysRelatedToLogicalMatches(
+      String matchQuery, Set<String> typesToSearch) {
     return logicalTypes.stream()
-        .map(
-            type ->
-                cacheUtils.getAllDataMatchingPattern(type, matchQuery).stream()
-                    .map(
-                        e ->
-                            e.getRelationships().values().stream()
-                                .flatMap(Collection::stream)
-                                .filter(Objects::nonNull)
-                                .map(k -> new ImmutablePair<>(k, e.getId())))
-                    .flatMap(x -> x))
-        .flatMap(x -> x)
+        .map(type -> cacheUtils.getAllDataMatchingPattern(type, matchQuery))
+        .flatMap(Collection::stream)
+        .flatMap(cd -> getMatchingRelationships(cd, typesToSearch))
         .collect(
             Collectors.groupingBy(
-                Pair::getLeft,
-                Collectors.reducing(
-                    Collections.emptyList(),
-                    i -> Collections.singletonList(i.getRight()),
-                    (a, b) -> {
-                      List<String> res = new ArrayList<>();
-                      res.addAll(a);
-                      res.addAll(b);
-                      return res;
-                    })));
+                KeyRelationship::getInfrastructureKey,
+                Collectors.mapping(KeyRelationship::getLogicalKey, Collectors.toList())));
+  }
+
+  @Getter
+  @RequiredArgsConstructor
+  private static class KeyRelationship {
+    private final String infrastructureKey;
+    private final Keys.LogicalKey logicalKey;
   }
 
   // TODO(lwander): use filters
@@ -193,7 +204,6 @@ public class KubernetesV2SearchProvider implements SearchProvider {
       String query, List<String> types, Map<String, String> filters) {
     String matchQuery = String.format("*%s*", query.toLowerCase());
     Set<String> typesToSearch = new HashSet<>(types);
-    Set<String> typesToMatch = new HashSet<>(types);
 
     // We add k8s versions of Spinnaker types here to ensure that (for example) replica sets are
     // returned when server groups are requested.
@@ -207,7 +217,7 @@ public class KubernetesV2SearchProvider implements SearchProvider {
                     return null;
                   }
                 })
-            .filter(Objects::nonNull)
+            .filter(k -> k != null && k != KubernetesSpinnakerKindMap.SpinnakerKind.UNCLASSIFIED)
             .map(kindMap::translateSpinnakerKind)
             .flatMap(Collection::stream)
             .map(KubernetesKind::toString)
@@ -216,46 +226,34 @@ public class KubernetesV2SearchProvider implements SearchProvider {
     // Remove caches that we can't search
     typesToSearch.retainAll(allCaches);
 
+    if (typesToSearch.isEmpty()) {
+      return Collections.emptyList();
+    }
+
     // Search caches directly
-    List<Map<String, Object>> results =
+    Stream<Map<String, Object>> directResults =
         typesToSearch.stream()
             .map(type -> cacheUtils.getAllKeysMatchingPattern(type, matchQuery))
             .flatMap(Collection::stream)
-            .map(this::convertKeyToMap)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
+            .map(this::convertKeyToMap);
 
     // Search 'logical' caches (clusters, apps) for indirect matches
-    Map<String, List<String>> keyToAllLogicalKeys = getKeysRelatedToLogicalMatches(matchQuery);
-    results.addAll(
-        keyToAllLogicalKeys.entrySet().stream()
+    Stream<Map<String, Object>> relatedResults =
+        getKeysRelatedToLogicalMatches(matchQuery, typesToSearch).entrySet().stream()
             .map(
                 kv -> {
                   Map<String, Object> result = convertKeyToMap(kv.getKey());
-                  if (result == null) {
-                    return null;
+                  if (result != null) {
+                    kv.getValue()
+                        .forEach(k -> result.put(k.getLogicalKind().singular(), k.getName()));
                   }
-
-                  kv.getValue().stream()
-                      .map(Keys::parseKey)
-                      .filter(Optional::isPresent)
-                      .map(Optional::get)
-                      .filter(LogicalKey.class::isInstance)
-                      .map(k -> (LogicalKey) k)
-                      .forEach(k -> result.put(k.getLogicalKind().singular(), k.getName()));
-
                   return result;
-                })
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
+                });
 
-    results =
-        results.stream()
-            .filter(
-                r -> typesToMatch.contains(r.get("type")) || typesToMatch.contains(r.get("group")))
-            .collect(Collectors.toList());
-
-    return results;
+    return Stream.concat(directResults, relatedResults)
+        .filter(Objects::nonNull)
+        .filter(result -> typesToSearch.contains(result.get("group")))
+        .collect(Collectors.toList());
   }
 
   private static <T> List<T> paginateResults(

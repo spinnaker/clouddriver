@@ -16,10 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.security;
 
+import static lombok.EqualsAndHashCode.Include;
+
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.AccountResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
@@ -29,34 +32,40 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import com.netflix.spinnaker.kork.configserver.ConfigFileService;
+import java.util.*;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Getter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
     implements AccountCredentials<C> {
   private final String cloudProvider = "kubernetes";
-  private final String name;
-  private final ProviderVersion providerVersion;
-  private final String environment;
-  private final String accountType;
-  private final String skin;
-  private final int cacheThreads;
-  private final C credentials;
-  private final List<String> requiredGroupMembership;
-  private final Permissions permissions;
-  private final Long cacheIntervalSeconds;
+
+  @Include private final String name;
+
+  @Include private final ProviderVersion providerVersion;
+
+  @Include private final String environment;
+
+  @Include private final String accountType;
+
+  @Include private final String skin;
+
+  @Include private final int cacheThreads;
+
+  @Include private final C credentials;
+
+  @Include private final List<String> requiredGroupMembership;
+
+  @Include private final Permissions permissions;
+
+  @Include private final Long cacheIntervalSeconds;
+
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
 
   public KubernetesNamedAccountCredentials(
@@ -114,9 +123,9 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
       ((KubernetesV2Credentials) creds)
           .getCustomResources()
           .forEach(
-              customResource -> {
-                kindMap.put(customResource.getKubernetesKind(), customResource.getSpinnakerKind());
-              });
+              customResource ->
+                  kindMap.put(
+                      customResource.getKubernetesKind(), customResource.getSpinnakerKind()));
     }
     return kindMap;
   }
@@ -129,8 +138,10 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
     private final NamerRegistry namerRegistry;
     private final AccountCredentialsRepository accountCredentialsRepository;
     private final KubectlJobExecutor jobExecutor;
+    private final ConfigFileService configFileService;
+    private final AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory;
 
-    public KubernetesV1Credentials buildV1Credentials(
+    KubernetesV1Credentials buildV1Credentials(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
       validateAccount(managedAccount);
       return new KubernetesV1Credentials(
@@ -140,8 +151,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
           managedAccount.getCluster(),
           managedAccount.getUser(),
           userAgent,
-          managedAccount.getServiceAccount(),
-          managedAccount.getConfigureImagePullSecrets(),
+          managedAccount.isServiceAccount(),
+          managedAccount.isConfigureImagePullSecrets(),
           managedAccount.getNamespaces(),
           managedAccount.getOmitNamespaces(),
           managedAccount.getDockerRegistries(),
@@ -149,16 +160,21 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
           accountCredentialsRepository);
     }
 
-    public KubernetesV2Credentials buildV2Credentials(
+    KubernetesV2Credentials buildV2Credentials(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
       validateAccount(managedAccount);
       NamerRegistry.lookup()
-          .withProvider(KubernetesCloudProvider.getID())
+          .withProvider(KubernetesCloudProvider.ID)
           .withAccount(managedAccount.getName())
           .setNamer(
               KubernetesManifest.class,
               namerRegistry.getNamingStrategy(managedAccount.getNamingStrategy()));
-      return new KubernetesV2Credentials(spectatorRegistry, jobExecutor, managedAccount);
+      return new KubernetesV2Credentials(
+          spectatorRegistry,
+          jobExecutor,
+          managedAccount,
+          resourcePropertyRegistryFactory.create(),
+          getKubeconfigFile(managedAccount));
     }
 
     private void validateAccount(KubernetesConfigurationProperties.ManagedAccount managedAccount) {
@@ -180,24 +196,16 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
 
     private String getKubeconfigFile(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
-      String kubeconfigFile = managedAccount.getKubeconfigFile();
-      if (StringUtils.isEmpty(kubeconfigFile)) {
-        if (StringUtils.isEmpty(managedAccount.getKubeconfigContents())) {
-          kubeconfigFile = System.getProperty("user.home") + "/.kube/config";
-        } else {
-          try {
-            File temp = File.createTempFile("kube", "config");
-            BufferedWriter writer = new BufferedWriter(new FileWriter(temp));
-            writer.write(managedAccount.getKubeconfigContents());
-            writer.close();
-            kubeconfigFile = temp.getAbsolutePath();
-          } catch (IOException e) {
-            throw new RuntimeException(
-                "Unable to persist 'kubeconfigContents' parameter to disk: " + e.getMessage(), e);
-          }
-        }
+      if (StringUtils.isNotEmpty(managedAccount.getKubeconfigFile())) {
+        return configFileService.getLocalPath(managedAccount.getKubeconfigFile());
       }
-      return kubeconfigFile;
+
+      if (StringUtils.isNotEmpty(managedAccount.getKubeconfigContents())) {
+        return configFileService.getLocalPathForContents(
+            managedAccount.getKubeconfigContents(), managedAccount.getName());
+      }
+
+      return System.getProperty("user.home") + "/.kube/config";
     }
   }
 }

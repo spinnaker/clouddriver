@@ -16,12 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.orchestration
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.metrics.TimedCallable
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEvent
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEventHandler
+import com.netflix.spinnaker.kork.exceptions.ExceptionSummary
 import com.netflix.spinnaker.security.AuthenticatedRequest
 import groovy.util.logging.Slf4j
 import org.slf4j.MDC
@@ -62,6 +64,9 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
   @Autowired(required = false)
   Collection<OperationEventHandler> operationEventHandlers = []
 
+  @Autowired
+  ObjectMapper objectMapper
+
   @Override
   Task process(List<AtomicOperation> atomicOperations, String clientRequestId) {
 
@@ -70,6 +75,8 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     def tasksId = registry.createId('tasks')
     def existingTask = taskRepository.getByClientRequestId(clientRequestId)
     if (existingTask) {
+      // TODO(rz): This branch will need some love for Sagas: If the task exists but the Saga has not been completed,
+      // we'll want to resume. This work will be handled in a separate PR when Orca is wired up to understand Sagas.
       return existingTask
     }
     def task = taskRepository.create(TASK_PHASE, "Initializing Orchestration Task...", clientRequestId)
@@ -102,7 +109,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
             }.call()
           } catch (AtomicOperationException e) {
             task.updateStatus TASK_PHASE, "Orchestration failed: ${atomicOperation.class.simpleName} | ${e.class.simpleName}: [${e.errors.join(', ')}]"
-            task.addResultObjects([[type: "EXCEPTION", operation: atomicOperation.class.simpleName, cause: e.class.simpleName, message: e.errors.join(", ")]])
+            task.addResultObjects([extractExceptionSummary(e, e.errors.join(", "), [operation: atomicOperation.class.simpleName])])
             task.fail()
           } catch (e) {
             def message = e.message
@@ -114,7 +121,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
               message = stackTrace
             }
             task.updateStatus TASK_PHASE, "Orchestration failed: ${atomicOperation.class.simpleName} | ${e.class.simpleName}: [${message}]"
-            task.addResultObjects([[type: "EXCEPTION", operation: atomicOperation.class.simpleName, cause: e.class.simpleName, message: message]])
+            task.addResultObjects([extractExceptionSummary(e, message, [operation: atomicOperation.class.simpleName])])
 
             log.error(stackTrace)
             task.fail()
@@ -129,14 +136,14 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
         registry.counter(tasksId.withTag("success", "false").withTag("cause", e.class.simpleName)).increment()
         if (e instanceof TimeoutException) {
           task.updateStatus "INIT", "Orchestration timed out."
-          task.addResultObjects([[type: "EXCEPTION", cause: e.class.simpleName, message: "Orchestration timed out."]])
+          task.addResultObjects([extractExceptionSummary(e, "Orchestration timed out.")])
           task.fail()
         } else {
           def stringWriter = new StringWriter()
           def printWriter = new PrintWriter(stringWriter)
           e.printStackTrace(printWriter)
           task.updateStatus("INIT", "Unknown failure -- ${stringWriter.toString()}")
-          task.addResultObjects([[type: "EXCEPTION", cause: e.class.simpleName, message: "Failed for unknown reason."]])
+          task.addResultObjects([extractExceptionSummary(e, "Failed for unknown reason.")])
           task.fail()
         }
       } finally {
@@ -169,5 +176,29 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
     } catch (Exception e) {
       log.error("Unable to clear thread locals, reason: ${e.message}")
     }
+  }
+
+  /**
+   * For backwards compatibility.
+   *
+   * TODO(rz): Not 100% sure we should keep these two methods.
+   */
+  Map<String, Object> extractExceptionSummary(Throwable e, String userMessage) {
+    def summary = ExceptionSummary.from(e)
+    Map<String, Object> map = objectMapper.convertValue(summary, Map)
+    map["message"] = userMessage
+    map["type"] = "EXCEPTION"
+    return map
+  }
+
+  /**
+   * For backwards compatibility.
+   *
+   * TODO(rz): Add "additionalFields" to ExceptionSummary?
+   */
+  Map<String, Object> extractExceptionSummary(Throwable e, String userMessage, Map<String, Object> additionalFields) {
+    Map<String, Object> summary = extractExceptionSummary(e, userMessage)
+    summary.putAll(additionalFields)
+    return summary
   }
 }

@@ -102,8 +102,38 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
       rejectValue(errors, "ecsClusterName", "not.nullable");
     }
 
-    if (createServerGroupDescription.getDockerImageAddress() == null) {
-      rejectValue(errors, "dockerImageAddress", "not.nullable");
+    if (!createServerGroupDescription.isUseTaskDefinitionArtifact()) {
+      if (createServerGroupDescription.getDockerImageAddress() == null) {
+        rejectValue(errors, "dockerImageAddress", "not.nullable");
+      }
+
+      if (createServerGroupDescription.getComputeUnits() != null) {
+        if (createServerGroupDescription.getComputeUnits() < 0) {
+          rejectValue(errors, "computeUnits", "invalid");
+        }
+      } else {
+        rejectValue(errors, "computeUnits", "not.nullable");
+      }
+
+      if (createServerGroupDescription.getReservedMemory() != null) {
+        if (createServerGroupDescription.getReservedMemory() < 0) {
+          rejectValue(errors, "reservedMemory", "invalid");
+        }
+      } else {
+        rejectValue(errors, "reservedMemory", "not.nullable");
+      }
+    } else {
+      // Verify load balanced services w/ an artifact specify which container to load balance on
+      boolean hasTargetGroup =
+          createServerGroupDescription.getTargetGroup() != null
+              && !createServerGroupDescription.getTargetGroup().isEmpty();
+      boolean hasLoadBalancedContainer =
+          createServerGroupDescription.getLoadBalancedContainer() != null
+              && !createServerGroupDescription.getLoadBalancedContainer().isEmpty();
+
+      if (hasTargetGroup && !hasLoadBalancedContainer) {
+        rejectValue(errors, "loadBalancedContainer", "not.nullable");
+      }
     }
 
     if (createServerGroupDescription.getContainerPort() != null) {
@@ -114,22 +144,6 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
     } else if (createServerGroupDescription.getTargetGroup() != null
         && !createServerGroupDescription.getTargetGroup().isEmpty()) {
       rejectValue(errors, "containerPort", "not.nullable");
-    }
-
-    if (createServerGroupDescription.getComputeUnits() != null) {
-      if (createServerGroupDescription.getComputeUnits() < 0) {
-        rejectValue(errors, "computeUnits", "invalid");
-      }
-    } else {
-      rejectValue(errors, "computeUnits", "not.nullable");
-    }
-
-    if (createServerGroupDescription.getReservedMemory() != null) {
-      if (createServerGroupDescription.getReservedMemory() < 0) {
-        rejectValue(errors, "reservedMemory", "invalid");
-      }
-    } else {
-      rejectValue(errors, "reservedMemory", "not.nullable");
     }
 
     // Verify that the environment variables set by the user do not contain reserved values

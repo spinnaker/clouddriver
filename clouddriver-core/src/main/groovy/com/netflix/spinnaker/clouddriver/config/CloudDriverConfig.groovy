@@ -19,14 +19,16 @@ package com.netflix.spinnaker.clouddriver.config
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
 import com.netflix.spinnaker.cats.agent.NoopExecutionInstrumentation
 import com.netflix.spinnaker.cats.redis.cache.RedisCacheOptions
 import com.netflix.spinnaker.clouddriver.cache.CacheConfig
+import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
 import com.netflix.spinnaker.clouddriver.cache.NoopOnDemandCacheUpdater
 import com.netflix.spinnaker.clouddriver.cache.OnDemandCacheUpdater
 import com.netflix.spinnaker.clouddriver.core.CloudProvider
-import com.netflix.spinnaker.clouddriver.core.DynomiteConfig
+
 import com.netflix.spinnaker.clouddriver.core.NoopAtomicOperationConverter
 import com.netflix.spinnaker.clouddriver.core.NoopCloudProvider
 import com.netflix.spinnaker.clouddriver.core.ProjectClustersService
@@ -104,7 +106,6 @@ import java.time.Clock
 @Configuration
 @Import([
   RedisConfig,
-  DynomiteConfig,
   CacheConfig,
   SearchExecutorConfig
 ])
@@ -297,19 +298,23 @@ class CloudDriverConfig {
   }
 
   @Bean
-  @ConditionalOnExpression('${redis.enabled:true}')
-  CoreProvider coreProvider(RedisCacheOptions redisCacheOptions,
-                            RedisClientDelegate redisClientDelegate,
+  CoreProvider coreProvider(Optional<RedisCacheOptions> redisCacheOptions,
+                            Optional<RedisClientDelegate> redisClientDelegate,
                             ApplicationContext applicationContext,
                             ProjectClustersService projectClustersService,
                             ProjectClustersCachingAgentProperties projectClustersCachingAgentProperties) {
-    return new CoreProvider([
-      new CleanupPendingOnDemandCachesAgent(redisCacheOptions, redisClientDelegate, applicationContext),
+    List<Agent> agents = [
       new ProjectClustersCachingAgent(
         projectClustersService,
         projectClustersCachingAgentProperties
       )
-    ])
+    ]
+
+    if (redisCacheOptions.isPresent() && redisClientDelegate.isPresent()) {
+      agents.add(new CleanupPendingOnDemandCachesAgent(redisCacheOptions.get(), redisClientDelegate.get(), applicationContext))
+    }
+
+    return new CoreProvider(agents)
   }
 
   @Bean

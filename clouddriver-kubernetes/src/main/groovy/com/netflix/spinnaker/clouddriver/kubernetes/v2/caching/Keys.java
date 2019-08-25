@@ -20,15 +20,15 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.Kind.KUBERNETES_METRIC;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -44,18 +44,24 @@ public class Keys {
     INFRASTRUCTURE,
     KUBERNETES_METRIC;
 
+    private final String lcName;
+
+    Kind() {
+      this.lcName = name().toLowerCase();
+    }
+
     @Override
     public String toString() {
-      return name().toLowerCase();
+      return lcName;
     }
 
     @JsonCreator
     public static Kind fromString(String name) {
-      return Arrays.stream(values())
-          .filter(k -> k.toString().equalsIgnoreCase(name))
-          .findFirst()
-          .orElseThrow(
-              () -> new IllegalArgumentException("No matching kind with name " + name + " exists"));
+      try {
+        return valueOf(name.toUpperCase());
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("No matching kind with name " + name + " exists");
+      }
     }
   }
 
@@ -63,13 +69,19 @@ public class Keys {
     APPLICATIONS,
     CLUSTERS;
 
+    private final String lcName;
+
+    LogicalKind() {
+      this.lcName = name().toLowerCase();
+    }
+
     public static boolean isLogicalGroup(String group) {
       return group.equals(APPLICATIONS.toString()) || group.equals(CLUSTERS.toString());
     }
 
     @Override
     public String toString() {
-      return name().toLowerCase();
+      return lcName;
     }
 
     public String singular() {
@@ -79,49 +91,24 @@ public class Keys {
 
     @JsonCreator
     public static LogicalKind fromString(String name) {
-      return Arrays.stream(values())
-          .filter(k -> k.toString().equalsIgnoreCase(name))
-          .findFirst()
-          .orElseThrow(
-              () -> new IllegalArgumentException("No matching kind with name " + name + " exists"));
+      try {
+        return valueOf(name.toUpperCase());
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("No matching kind with name " + name + " exists");
+      }
     }
   }
 
   private static final String provider = "kubernetes.v2";
 
-  private static String createKey(Object... elems) {
+  private static String createKeyFromParts(Object... elems) {
     List<String> components =
         Arrays.stream(elems)
             .map(s -> s == null ? "" : s.toString())
-            .map(s -> s.replaceAll(":", ";"))
+            .map(s -> s.contains(":") ? s.replaceAll(":", ";") : s)
             .collect(Collectors.toList());
     components.add(0, provider);
     return String.join(":", components);
-  }
-
-  public static String artifact(String type, String name, String location, String version) {
-    return createKey(Kind.ARTIFACT, type, name, location, version);
-  }
-
-  public static String application(String name) {
-    return createKey(Kind.LOGICAL, LogicalKind.APPLICATIONS, name);
-  }
-
-  public static String cluster(String account, String application, String name) {
-    return createKey(Kind.LOGICAL, LogicalKind.CLUSTERS, account, application, name);
-  }
-
-  public static String infrastructure(
-      KubernetesKind kind, String account, String namespace, String name) {
-    return createKey(Kind.INFRASTRUCTURE, kind, account, namespace, name);
-  }
-
-  public static String infrastructure(KubernetesManifest manifest, String account) {
-    return infrastructure(manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
-  }
-
-  public static String metric(KubernetesKind kind, String account, String namespace, String name) {
-    return createKey(KUBERNETES_METRIC, kind, account, namespace, name);
   }
 
   public static Optional<CacheKey> parseKey(String key) {
@@ -131,8 +118,10 @@ public class Keys {
       return Optional.empty();
     }
 
-    for (String part : parts) {
-      part.replaceAll(";", ":");
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].contains(";")) {
+        parts[i] = parts[i].replaceAll(";", ":");
+      }
     }
 
     try {
@@ -174,11 +163,9 @@ public class Keys {
     }
   }
 
-  @Data
+  @EqualsAndHashCode
   public abstract static class CacheKey {
-    private Kind kind;
-    private String provider = KubernetesCloudProvider.getID();
-    private String type;
+    private static final String provider = "kubernetes.v2";
 
     public abstract String getGroup();
 
@@ -186,23 +173,29 @@ public class Keys {
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
   public abstract static class LogicalKey extends CacheKey {
-    private Kind kind = Kind.LOGICAL;
+    @Getter private static final Kind kind = Kind.LOGICAL;
 
     public abstract LogicalKind getLogicalKind();
+
+    @Override
+    public final String getGroup() {
+      return getLogicalKind().toString();
+    }
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
+  @RequiredArgsConstructor
   public static class ArtifactCacheKey extends CacheKey {
-    private Kind kind = Kind.ARTIFACT;
-    private String type;
-    private String name;
-    private String location;
-    private String version;
+    @Getter private static final Kind kind = Kind.ARTIFACT;
+    private final String type;
+    private final String name;
+    private final String location;
+    private final String version;
 
-    public ArtifactCacheKey(String[] parts) {
+    protected ArtifactCacheKey(String[] parts) {
       if (parts.length != 6) {
         throw new IllegalArgumentException("Malformed artifact key" + Arrays.toString(parts));
       }
@@ -213,9 +206,13 @@ public class Keys {
       version = parts[5];
     }
 
+    public static String createKey(String type, String name, String location, String version) {
+      return createKeyFromParts(kind, type, name, location, version);
+    }
+
     @Override
     public String toString() {
-      return createKey(kind, type, name, version);
+      return createKeyFromParts(kind, type, name, location, version);
     }
 
     @Override
@@ -225,12 +222,13 @@ public class Keys {
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
+  @RequiredArgsConstructor
   public static class ApplicationCacheKey extends LogicalKey {
-    private LogicalKind logicalKind = LogicalKind.APPLICATIONS;
-    private String name;
+    private static final LogicalKind logicalKind = LogicalKind.APPLICATIONS;
+    private final String name;
 
-    public ApplicationCacheKey(String[] parts) {
+    protected ApplicationCacheKey(String[] parts) {
       if (parts.length != 4) {
         throw new IllegalArgumentException("Malformed application key" + Arrays.toString(parts));
       }
@@ -238,24 +236,29 @@ public class Keys {
       name = parts[3];
     }
 
-    @Override
-    public String toString() {
-      return createKey(getKind(), logicalKind, name);
+    public static String createKey(String name) {
+      return createKeyFromParts(getKind(), logicalKind, name);
     }
 
     @Override
-    public String getGroup() {
-      return logicalKind.toString();
+    public LogicalKind getLogicalKind() {
+      return logicalKind;
+    }
+
+    @Override
+    public String toString() {
+      return createKeyFromParts(getKind(), logicalKind, name);
     }
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
+  @RequiredArgsConstructor
   public static class ClusterCacheKey extends LogicalKey {
-    private LogicalKind logicalKind = LogicalKind.CLUSTERS;
-    private String account;
-    private String application;
-    private String name;
+    private static final LogicalKind logicalKind = LogicalKind.CLUSTERS;
+    private final String account;
+    private final String application;
+    private final String name;
 
     public ClusterCacheKey(String[] parts) {
       if (parts.length != 6) {
@@ -267,27 +270,32 @@ public class Keys {
       name = parts[5];
     }
 
-    @Override
-    public String toString() {
-      return createKey(getKind(), logicalKind, account, name);
+    public static String createKey(String account, String application, String name) {
+      return createKeyFromParts(getKind(), logicalKind, account, application, name);
     }
 
     @Override
-    public String getGroup() {
-      return logicalKind.toString();
+    public LogicalKind getLogicalKind() {
+      return logicalKind;
+    }
+
+    @Override
+    public String toString() {
+      return createKeyFromParts(getKind(), logicalKind, account, application, name);
     }
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
+  @RequiredArgsConstructor
   public static class InfrastructureCacheKey extends CacheKey {
-    private Kind kind = Kind.INFRASTRUCTURE;
-    private KubernetesKind kubernetesKind;
-    private String account;
-    private String namespace;
-    private String name;
+    @Getter private static final Kind kind = Kind.INFRASTRUCTURE;
+    private final KubernetesKind kubernetesKind;
+    private final String account;
+    private final String namespace;
+    private final String name;
 
-    public InfrastructureCacheKey(String[] parts) {
+    protected InfrastructureCacheKey(String[] parts) {
       if (parts.length != 6) {
         throw new IllegalArgumentException(
             "Malformed infrastructure key " + Arrays.toString(parts));
@@ -299,9 +307,22 @@ public class Keys {
       name = parts[5];
     }
 
+    public InfrastructureCacheKey(KubernetesManifest manifest, String account) {
+      this(manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
+    }
+
+    public static String createKey(
+        KubernetesKind kubernetesKind, String account, String namespace, String name) {
+      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
+    }
+
+    public static String createKey(KubernetesManifest manifest, String account) {
+      return createKey(manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
+    }
+
     @Override
     public String toString() {
-      return createKey(kind, kubernetesKind, account, namespace, name);
+      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
     }
 
     @Override
@@ -311,15 +332,16 @@ public class Keys {
   }
 
   @EqualsAndHashCode(callSuper = true)
-  @Data
+  @Getter
+  @RequiredArgsConstructor
   public static class MetricCacheKey extends CacheKey {
-    private Kind kind = KUBERNETES_METRIC;
-    private KubernetesKind kubernetesKind;
-    private String account;
-    private String namespace;
-    private String name;
+    @Getter private static final Kind kind = KUBERNETES_METRIC;
+    private final KubernetesKind kubernetesKind;
+    private final String account;
+    private final String namespace;
+    private final String name;
 
-    public MetricCacheKey(String[] parts) {
+    protected MetricCacheKey(String[] parts) {
       if (parts.length != 6) {
         throw new IllegalArgumentException("Malformed metric key " + Arrays.toString(parts));
       }
@@ -330,9 +352,14 @@ public class Keys {
       name = parts[5];
     }
 
+    public static String createKey(
+        KubernetesKind kubernetesKind, String account, String namespace, String name) {
+      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
+    }
+
     @Override
     public String toString() {
-      return createKey(kind, kubernetesKind, account, namespace, name);
+      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
     }
 
     @Override

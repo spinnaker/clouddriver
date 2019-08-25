@@ -30,4 +30,8 @@ public interface CloudFoundryClient {
   ServiceInstances getServiceInstances();
 
   ServiceKeys getServiceKeys();
+
+  Tasks getTasks();
+
+  Logs getLogs();
 }

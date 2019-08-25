@@ -84,7 +84,8 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
                   managedAccount.getApi(),
                   managedAccount.getUser(),
                   managedAccount.getPassword(),
-                  managedAccount.getEnvironment());
+                  managedAccount.getEnvironment(),
+                  managedAccount.isSkipSslValidation());
 
           AccountCredentials existingCredentials =
               accountCredentialsRepository.getOne(credentials.getName());
@@ -118,6 +119,7 @@ public class CloudFoundryCredentialsSynchronizer implements CredentialsInitializ
       CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties) {
     List<String> existingNames =
         accountCredentialsRepository.getAll().stream()
+            .filter(c -> CloudFoundryProvider.PROVIDER_ID.equals(c.getCloudProvider()))
             .map(AccountCredentials::getName)
             .collect(Collectors.toList());
 

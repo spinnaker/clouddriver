@@ -17,7 +17,6 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.ops;
 
 import com.amazonaws.services.cloudformation.AmazonCloudFormation;
 import com.amazonaws.services.cloudformation.model.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.DeployCloudFormationDescription;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
@@ -57,13 +56,7 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
     AmazonCloudFormation amazonCloudFormation =
         amazonClientProvider.getAmazonCloudFormation(
             description.getCredentials(), description.getRegion());
-    String template;
-    try {
-      template = objectMapper.writeValueAsString(description.getTemplateBody());
-    } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException(
-          "Could not serialize CloudFormation Stack template body", e);
-    }
+    String template = description.getTemplateBody();
     List<Parameter> parameters =
         description.getParameters().entrySet().stream()
             .map(
@@ -76,17 +69,35 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         description.getTags().entrySet().stream()
             .map(entry -> new Tag().withKey(entry.getKey()).withValue(entry.getValue()))
             .collect(Collectors.toList());
-    try {
-      String stackId =
-          createStack(
-              amazonCloudFormation, template, parameters, tags, description.getCapabilities());
-      return Collections.singletonMap("stackId", stackId);
-    } catch (AlreadyExistsException e) {
-      String stackId =
-          updateStack(
-              amazonCloudFormation, template, parameters, tags, description.getCapabilities());
-      return Collections.singletonMap("stackId", stackId);
+
+    boolean stackExists = stackExists(amazonCloudFormation);
+
+    String stackId;
+    if (description.isChangeSet()) {
+      ChangeSetType changeSetType = stackExists ? ChangeSetType.UPDATE : ChangeSetType.CREATE;
+      log.info("{} change set for stack: {}", changeSetType, description);
+      stackId =
+          createChangeSet(
+              amazonCloudFormation,
+              template,
+              parameters,
+              tags,
+              description.getCapabilities(),
+              changeSetType);
+    } else {
+      if (stackExists) {
+        log.info("Updating existing stack {}", description);
+        stackId =
+            updateStack(
+                amazonCloudFormation, template, parameters, tags, description.getCapabilities());
+      } else {
+        log.info("Creating new stack: {}", description);
+        stackId =
+            createStack(
+                amazonCloudFormation, template, parameters, tags, description.getCapabilities());
+      }
     }
+    return Collections.singletonMap("stackId", stackId);
   }
 
   private String createStack(
@@ -130,16 +141,57 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
       return updateStackResult.getStackId();
     } catch (AmazonCloudFormationException e) {
       // No changes on the stack, ignore failure
-      return amazonCloudFormation
-          .describeStacks(new DescribeStacksRequest().withStackName(description.getStackName()))
-          .getStacks().stream()
-          .findFirst()
-          .orElseThrow(
-              () ->
-                  new IllegalArgumentException(
-                      "No CloudFormation Stack found with stack name "
-                          + description.getStackName()))
-          .getStackId();
+      return getStackId(amazonCloudFormation);
     }
+  }
+
+  private String createChangeSet(
+      AmazonCloudFormation amazonCloudFormation,
+      String template,
+      List<Parameter> parameters,
+      List<Tag> tags,
+      List<String> capabilities,
+      ChangeSetType changeSetType) {
+    Task task = TaskRepository.threadLocalTask.get();
+    task.updateStatus(BASE_PHASE, "CloudFormation Stack exists. Creating a change set");
+    CreateChangeSetRequest createChangeSetRequest =
+        new CreateChangeSetRequest()
+            .withStackName(description.getStackName())
+            .withChangeSetName(description.getChangeSetName())
+            .withParameters(parameters)
+            .withTags(tags)
+            .withTemplateBody(template)
+            .withCapabilities(capabilities)
+            .withChangeSetType(changeSetType);
+    task.updateStatus(BASE_PHASE, "Uploading CloudFormation ChangeSet");
+    try {
+      CreateChangeSetResult createChangeSetResult =
+          amazonCloudFormation.createChangeSet(createChangeSetRequest);
+      return createChangeSetResult.getStackId();
+    } catch (AmazonCloudFormationException e) {
+      log.error("Error creating change set", e);
+      throw e;
+    }
+  }
+
+  private boolean stackExists(AmazonCloudFormation amazonCloudFormation) {
+    try {
+      getStackId(amazonCloudFormation);
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  private String getStackId(AmazonCloudFormation amazonCloudFormation) {
+    return amazonCloudFormation
+        .describeStacks(new DescribeStacksRequest().withStackName(description.getStackName()))
+        .getStacks().stream()
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    "No CloudFormation Stack found with stack name " + description.getStackName()))
+        .getStackId();
   }
 }

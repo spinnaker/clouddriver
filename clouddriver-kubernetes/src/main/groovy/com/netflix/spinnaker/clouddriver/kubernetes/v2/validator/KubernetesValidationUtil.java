@@ -71,7 +71,7 @@ public class KubernetesValidationUtil {
     return true;
   }
 
-  public boolean validateNotEmpty(String attribute, String value) {
+  private boolean validateNotEmpty(String attribute, String value) {
     if (StringUtils.isEmpty(value)) {
       reject("empty", attribute);
       return false;
@@ -139,13 +139,17 @@ public class KubernetesValidationUtil {
   }
 
   protected boolean validateNamespace(String namespace, KubernetesV2Credentials credentials) {
-    final List<String> configuredNamespaces = credentials.getDeclaredNamespaces();
-    if (!configuredNamespaces.contains(namespace)) {
-      reject(
-          String.format(
-              "Account %s is not configured to deploy to namespace %s",
-              credentials.getAccountName(), namespace),
-          namespace);
+    final List<String> configuredNamespaces = credentials.getNamespaces();
+    if (configuredNamespaces != null
+        && !configuredNamespaces.isEmpty()
+        && !configuredNamespaces.contains(namespace)) {
+      reject("wrongNamespace", namespace);
+      return false;
+    }
+
+    final List<String> omitNamespaces = credentials.getOmitNamespaces();
+    if (omitNamespaces != null && omitNamespaces.contains(namespace)) {
+      reject("omittedNamespace", namespace);
       return false;
     }
     return true;

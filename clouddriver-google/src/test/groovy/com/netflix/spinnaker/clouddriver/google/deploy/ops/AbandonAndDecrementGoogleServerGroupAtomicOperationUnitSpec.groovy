@@ -18,13 +18,14 @@ package com.netflix.spinnaker.clouddriver.google.deploy.ops
 
 import com.google.api.services.compute.Compute
 import com.google.api.services.compute.model.InstanceGroupManagersAbandonInstancesRequest
+import com.google.common.util.concurrent.MoreExecutors
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller
 import com.netflix.spinnaker.clouddriver.google.deploy.description.AbandonAndDecrementGoogleServerGroupDescription
-import com.netflix.spinnaker.clouddriver.google.compute.GoogleServerGroupManagersFactory
+import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeApiFactory
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
@@ -83,7 +84,7 @@ class AbandonAndDecrementGoogleServerGroupAtomicOperationUnitSpec extends Specif
       @Subject def operation = new AbandonAndDecrementGoogleServerGroupAtomicOperation(description)
       operation.registry = registry
       operation.googleClusterProvider = googleClusterProviderMock
-      operation.serverGroupManagersFactory = new GoogleServerGroupManagersFactory(Mock(GoogleOperationPoller), registry)
+      operation.computeApiFactory = new GoogleComputeApiFactory(Mock(GoogleOperationPoller), registry, "user-agent", MoreExecutors.newDirectExecutorService())
 
     when:
       operation.operate([])

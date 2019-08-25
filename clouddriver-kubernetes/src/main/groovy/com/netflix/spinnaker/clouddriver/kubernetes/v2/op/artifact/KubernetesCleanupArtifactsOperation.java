@@ -20,12 +20,12 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.artifact;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.artifact.KubernetesCleanupArtifactsDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
@@ -41,23 +41,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 
 @Slf4j
-public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Void> {
+public class KubernetesCleanupArtifactsOperation implements AtomicOperation<OperationResult> {
   private final KubernetesCleanupArtifactsDescription description;
   private final KubernetesV2Credentials credentials;
   private final String accountName;
   private final ArtifactProvider artifactProvider;
-  private final KubernetesResourcePropertyRegistry registry;
   private static final String OP_NAME = "CLEANUP_KUBERNETES_ARTIFACTS";
 
   public KubernetesCleanupArtifactsOperation(
-      KubernetesCleanupArtifactsDescription description,
-      ArtifactProvider artifactProvider,
-      KubernetesResourcePropertyRegistry registry) {
+      KubernetesCleanupArtifactsDescription description, ArtifactProvider artifactProvider) {
     this.description = description;
     this.credentials = (KubernetesV2Credentials) description.getCredentials().getCredentials();
     this.accountName = description.getCredentials().getName();
     this.artifactProvider = artifactProvider;
-    this.registry = registry;
   }
 
   private static Task getTask() {
@@ -65,7 +61,9 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Void
   }
 
   @Override
-  public Void operate(List priorOutputs) {
+  public OperationResult operate(List priorOutputs) {
+    OperationResult result = new OperationResult();
+
     List<Artifact> artifacts =
         description.getManifests().stream()
             .map(this::artifactsToDelete)
@@ -81,7 +79,7 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Void
           }
           String kind = type.substring("kubernetes/".length());
           KubernetesResourceProperties properties =
-              registry.get(accountName, KubernetesKind.fromString(kind));
+              credentials.getResourcePropertyRegistry().get(KubernetesKind.fromString(kind));
           if (properties == null) {
             log.warn("No properties for artifact {}, ignoring", a);
             return;
@@ -93,11 +91,12 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Void
           if (StringUtils.isNotEmpty(a.getVersion())) {
             name = String.join("-", name, a.getVersion());
           }
-          // todo add to outputs
-          handler.delete(credentials, a.getLocation(), name, null, new V1DeleteOptions());
+          result.merge(
+              handler.delete(credentials, a.getLocation(), name, null, new V1DeleteOptions()));
         });
 
-    return null;
+    result.setManifests(null);
+    return result;
   }
 
   private List<Artifact> artifactsToDelete(KubernetesManifest manifest) {
