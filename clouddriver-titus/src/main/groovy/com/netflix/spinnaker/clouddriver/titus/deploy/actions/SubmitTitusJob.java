@@ -148,13 +148,11 @@ public class SubmitTitusJob implements SagaAction<SubmitTitusJob.SubmitTitusJobC
     return new Result(
         new ManyCommands(
             new AttachTitusServiceLoadBalancersCommand(
-                saga.getName(), saga.getId(), description, jobUri, command.targetGroupLookupResult),
+                description, jobUri, command.targetGroupLookupResult),
             new CopyTitusServiceScalingPoliciesCommand(
-                saga.getName(), saga.getId(), description, jobUri, nextServerGroupName[0])),
+                description, jobUri, nextServerGroupName[0])),
         Collections.singletonList(
             new TitusJobSubmitted(
-                saga.getName(),
-                saga.getId(),
                 Collections.singletonMap(description.getRegion(), nextServerGroupName[0]),
                 jobUri,
                 JobType.from(description.getJobType()))));
@@ -167,16 +165,14 @@ public class SubmitTitusJob implements SagaAction<SubmitTitusJob.SubmitTitusJobC
     @Nonnull private final SubmitJobRequest submitJobRequest;
     @Nonnull private final String nextServerGroupName;
     @Nullable private final TargetGroupLookupHelper.TargetGroupLookupResult targetGroupLookupResult;
-    @NonFinal private LoadFront50App.Front50App front50App;
+    @Nullable @NonFinal private LoadFront50App.Front50App front50App;
 
     public SubmitTitusJobCommand(
-        @NotNull String sagaName,
-        @NotNull String sagaId,
         @Nonnull TitusDeployDescription description,
         @Nonnull SubmitJobRequest submitJobRequest,
         @Nonnull String nextServerGroupName,
         @Nullable TargetGroupLookupHelper.TargetGroupLookupResult targetGroupLookupResult) {
-      super(sagaName, sagaId);
+      super();
       this.description = description;
       this.submitJobRequest = submitJobRequest;
       this.nextServerGroupName = nextServerGroupName;
@@ -184,7 +180,7 @@ public class SubmitTitusJob implements SagaAction<SubmitTitusJob.SubmitTitusJobC
     }
 
     @Override
-    public void setFront50App(@Nonnull LoadFront50App.Front50App app) {
+    public void setFront50App(LoadFront50App.Front50App app) {
       this.front50App = app;
     }
   }

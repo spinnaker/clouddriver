@@ -3,7 +3,6 @@ package com.netflix.spinnaker.clouddriver.titus.deploy.description;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEvent;
 import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
-import com.netflix.spinnaker.clouddriver.titus.JobType;
 import com.netflix.spinnaker.clouddriver.titus.client.model.DisruptionBudget;
 import com.netflix.spinnaker.clouddriver.titus.client.model.Efs;
 import com.netflix.spinnaker.clouddriver.titus.client.model.MigrationPolicy;
@@ -50,7 +49,6 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
   private String jobType;
   private int retries;
   private int runtimeLimitSecs;
-  private Boolean useApplicationDefaultSecurityGroup = true;
   private List<String> interestingHealthProviderNames = new ArrayList<>();
   private MigrationPolicy migrationPolicy;
   private Boolean copySourceScalingPoliciesAndActions = true;
@@ -58,6 +56,14 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
   private DisruptionBudget disruptionBudget;
   private SubmitJobRequest.Constraints constraints = new SubmitJobRequest.Constraints();
   private ServiceJobProcesses serviceJobProcesses;
+
+  /**
+   * Will be overridden by any the label {@code PrepareTitusDeploy.USE_APPLICATION_DEFAULT_SG_LABEL}
+   *
+   * <p>TODO(rz): Redundant; migrate off this property or the label (pref to migrate off the label)
+   */
+  @Deprecated private boolean useApplicationDefaultSecurityGroup = true;
+
   /**
    * If false, the newly created server group will not pick up scaling policies and actions from an
    * ancestor group
@@ -84,6 +90,7 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
             .withInstancesDesired(capacity.getDesired())
             .withCpu(resources.getCpu())
             .withMemory(resources.getMemory())
+            .withSharedMemory(resources.getSharedMemory())
             .withDisk(resources.getDisk())
             .withRetries(retries)
             .withRuntimeLimitSecs(runtimeLimitSecs)
@@ -105,6 +112,10 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
             .withContainerAttributes(containerAttributes)
             .withDisruptionBudget(disruptionBudget)
             .withServiceJobProcesses(serviceJobProcesses);
+
+    if (!securityGroups.isEmpty()) {
+      submitJobRequest.withSecurityGroups(securityGroups);
+    }
 
     if (dockerImage.getImageDigest() != null) {
       submitJobRequest.withDockerDigest(dockerImage.getImageDigest());
@@ -130,15 +141,6 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
         softConstraints.forEach(
             c -> submitJobRequest.withConstraint(SubmitJobRequest.Constraint.soft(c)));
       }
-
-      if (JobType.isEqual(jobType, JobType.SERVICE)
-          && (hardConstraints == null
-              || !hardConstraints.contains(SubmitJobRequest.Constraint.ZONE_BALANCE))
-          && (softConstraints == null
-              || !softConstraints.contains(SubmitJobRequest.Constraint.ZONE_BALANCE))) {
-        submitJobRequest.withConstraint(
-            SubmitJobRequest.Constraint.soft(SubmitJobRequest.Constraint.ZONE_BALANCE));
-      }
     }
 
     if (jobType != null) {
@@ -159,6 +161,7 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
   public static class Resources {
     private int cpu;
     private int memory;
+    private int sharedMemory;
     private int disk;
     private int gpu;
     private int networkMbps;

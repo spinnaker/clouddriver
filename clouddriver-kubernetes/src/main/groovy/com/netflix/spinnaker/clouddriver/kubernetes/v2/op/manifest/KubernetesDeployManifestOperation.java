@@ -23,7 +23,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.ReplaceResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.*;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanLoadBalance;
@@ -48,22 +47,18 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
   private final KubernetesV2Credentials credentials;
   private final ArtifactProvider provider;
   private final Namer namer;
-  private final KubernetesResourcePropertyRegistry registry;
   private final String accountName;
   private static final String OP_NAME = "DEPLOY_KUBERNETES_MANIFEST";
 
   public KubernetesDeployManifestOperation(
-      KubernetesDeployManifestDescription description,
-      KubernetesResourcePropertyRegistry registry,
-      ArtifactProvider provider) {
+      KubernetesDeployManifestDescription description, ArtifactProvider provider) {
     this.description = description;
     this.credentials = (KubernetesV2Credentials) description.getCredentials().getCredentials();
-    this.registry = registry;
     this.provider = provider;
     this.accountName = description.getCredentials().getName();
     this.namer =
         NamerRegistry.lookup()
-            .withProvider(KubernetesCloudProvider.getID())
+            .withProvider(KubernetesCloudProvider.ID)
             .withAccount(accountName)
             .withResource(KubernetesManifest.class);
   }
@@ -161,11 +156,9 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
         .updateStatus(
             OP_NAME,
             "Deploy order is: "
-                + String.join(
-                    ", ",
-                    deployManifests.stream()
-                        .map(KubernetesManifest::getFullResourceName)
-                        .collect(Collectors.toList())));
+                + deployManifests.stream()
+                    .map(KubernetesManifest::getFullResourceName)
+                    .collect(Collectors.joining(", ")));
 
     OperationResult result = new OperationResult();
     for (KubernetesManifest manifest : deployManifests) {
@@ -243,7 +236,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     }
 
     result.getBoundArtifacts().addAll(boundArtifacts);
-    result.removeSensitiveKeys(registry, accountName);
+    result.removeSensitiveKeys(credentials.getResourcePropertyRegistry());
 
     getTask().updateStatus(OP_NAME, "Deploy manifest task completed successfully.");
     return result;
@@ -276,11 +269,14 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       name = KubernetesManifest.fromFullResourceName(loadBalancerName);
     } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException(
-          "Load balancers must be specified in the form '<kind> <name>', e.g. 'service my-service'",
+          String.format(
+              "Failed to attach load balancer '%s'. Load balancers must be specified in the form '{kind} {name}', e.g. 'service my-service'.",
+              loadBalancerName),
           e);
     }
 
-    CanLoadBalance handler = CanLoadBalance.lookupProperties(registry, accountName, name);
+    CanLoadBalance handler =
+        CanLoadBalance.lookupProperties(credentials.getResourcePropertyRegistry(), name);
 
     // TODO(lwander): look into using a combination of the cache & other resources passed in with
     // this request instead of making a live call here.
@@ -344,6 +340,6 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
   private KubernetesResourceProperties findResourceProperties(KubernetesManifest manifest) {
     KubernetesKind kind = manifest.getKind();
     getTask().updateStatus(OP_NAME, "Finding deployer for " + kind + "...");
-    return registry.get(accountName, kind);
+    return credentials.getResourcePropertyRegistry().get(kind);
   }
 }

@@ -34,11 +34,9 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDes
 import com.netflix.spinnaker.config.AwsConfiguration
 import spock.lang.Specification
 import spock.lang.Subject
+import spock.lang.Unroll
 
 class PrepareTitusDeployActionSpec extends Specification {
-
-  private static final String SAGA_NAME = "saga"
-  private static final String SAGA_ID = "id"
 
   NetflixTitusCredentials netflixTitusCredentials = new NetflixTitusCredentials(
     'test', 'test', 'test', [new TitusRegion('us-east-1', 'test', 'http://foo', false, false, "blah", "blah", 7104, [])], 'test', 'test', 'test', 'test', false, '', 'mainvpc', [], "", false, false, false
@@ -58,7 +56,7 @@ class PrepareTitusDeployActionSpec extends Specification {
   AccountCredentialsProvider accountCredentialsProvider = Mock()
   AwsConfiguration.DeployDefaults deployDefaults = Mock()
 
-  Saga saga = new Saga(SAGA_NAME, SAGA_ID)
+  Saga saga = new Saga("titusDeploy", "id")
 
   @Subject
   PrepareTitusDeploy subject = new PrepareTitusDeploy(
@@ -100,7 +98,11 @@ class PrepareTitusDeployActionSpec extends Specification {
         environment: ["HI": "hello"],
         containerAttributes: [sourceAttr: "sourceVal"],
         softConstraints: [],
-        hardConstraints: []
+        hardConstraints: [],
+        serviceJobProcesses: [
+          disableIncreaseDesired: true,
+          disableDecreaseDesired: true
+        ]
       )
     }
     awsLookupUtil.securityGroupIdExists(_, _, _) >> true
@@ -108,14 +110,71 @@ class PrepareTitusDeployActionSpec extends Specification {
     result.events.isEmpty() == true
     result.nextCommand instanceof SubmitTitusJob.SubmitTitusJobCommand
     result.nextCommand.description.with {
-        securityGroups == ["hello"]
-        capacity.min == 10
-        capacity.max == 10
-        capacity.desired == 10
-        labels == [sourceLabel: "sourceVal"]
-        containerAttributes == [sourceAttr: "sourceVal"]
-        env == ["HI": "hello"]
+      securityGroups == ["hello"]
+      capacity.min == 10
+      capacity.max == 10
+      capacity.desired == 10
+      labels == [sourceLabel: "sourceVal"]
+      containerAttributes == [sourceAttr: "sourceVal"]
+      env == ["HI": "hello"]
+      serviceJobProcesses == [
+        disableIncreaseDesired: true,
+        disableDecreaseDesired: true
+      ]
     }
+  }
+
+  def "security groups are resolved"() {
+    given:
+    TitusDeployDescription description = createTitusDeployDescription()
+    description.securityGroups = ["sg-1", "fancyname"]
+
+    when:
+    subject.resolveSecurityGroups(saga, description)
+
+    then:
+    awsLookupUtil.securityGroupIdExists(_, _, "sg-1") >> true
+    awsLookupUtil.securityGroupIdExists(_, _, "fancyname") >> false
+    awsLookupUtil.convertSecurityGroupNameToId(_, _, "fancyname") >> "sg-2"
+
+    description.securityGroups == ["sg-2", "sg-1"]
+  }
+
+  @Unroll
+  def "security groups include app security group (label=#labelValue, desc=#descriptionValue, includesAppGroup=#includesAppGroup)"() {
+    given:
+    TitusDeployDescription description = createTitusDeployDescription()
+
+    and:
+    if (labelValue != null) {
+      description.labels[PrepareTitusDeploy.USE_APPLICATION_DEFAULT_SG_LABEL] = labelValue.toString()
+    }
+    if (descriptionValue != null) {
+      description.useApplicationDefaultSecurityGroup = descriptionValue
+    }
+
+    when:
+    subject.resolveSecurityGroups(saga, description)
+
+    then:
+    awsLookupUtil.securityGroupIdExists(_, _, "sg-abcd1234") >> true
+    awsLookupUtil.convertSecurityGroupNameToId(_, _, "spindemo") >> "sg-spindemo"
+
+    if (includesAppGroup) {
+      description.securityGroups == ["sg-abcd1234", "sg-spindemo"]
+    } else {
+      description.securityGroups == ["sg-abcd1234"]
+    }
+
+    where:
+    labelValue | descriptionValue || includesAppGroup
+    null       | null             || true
+    true       | null             || true
+    false      | null             || false
+    true       | true             || true
+    true       | false            || true
+    null       | true             || true
+    null       | false            || false
   }
 
   private TitusDeployDescription createTitusDeployDescription() {
@@ -149,7 +208,9 @@ class PrepareTitusDeployActionSpec extends Specification {
         memory: 5_000,
         networkMbps: 128
       ),
-      securityGroups: [],
+      securityGroups: [
+        "sg-abcd1234"
+      ],
       softConstraints: [],
       stack: "staging",
     )
@@ -161,7 +222,7 @@ class PrepareTitusDeployActionSpec extends Specification {
 
   private static PrepareTitusDeployCommand createCommand(
     TitusDeployDescription description, String email, boolean platformHealthOnly) {
-    return new PrepareTitusDeployCommand(SAGA_NAME, SAGA_ID, description).with {
+    return new PrepareTitusDeployCommand(description).with {
       it.front50App = new LoadFront50App.Front50App(email, platformHealthOnly)
       it
     }

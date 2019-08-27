@@ -21,7 +21,6 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesDeleteManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanDelete;
@@ -34,17 +33,11 @@ import java.util.List;
 public class KubernetesDeleteManifestOperation implements AtomicOperation<OperationResult> {
   private final KubernetesDeleteManifestDescription description;
   private final KubernetesV2Credentials credentials;
-  private final KubernetesResourcePropertyRegistry registry;
-  private final String accountName;
   private static final String OP_NAME = "DELETE_KUBERNETES_MANIFEST";
 
-  public KubernetesDeleteManifestOperation(
-      KubernetesDeleteManifestDescription description,
-      KubernetesResourcePropertyRegistry registry) {
+  public KubernetesDeleteManifestOperation(KubernetesDeleteManifestDescription description) {
     this.description = description;
     this.credentials = (KubernetesV2Credentials) description.getCredentials().getCredentials();
-    this.accountName = description.getCredentials().getName();
-    this.registry = registry;
   }
 
   private static Task getTask() {
@@ -67,18 +60,17 @@ public class KubernetesDeleteManifestOperation implements AtomicOperation<Operat
         c -> {
           getTask()
               .updateStatus(OP_NAME, "Looking up resource properties for " + c.getKind() + "...");
-          KubernetesResourceProperties properties = registry.get(accountName, c.getKind());
+          KubernetesResourceProperties properties =
+              credentials.getResourcePropertyRegistry().get(c.getKind());
           KubernetesHandler deployer = properties.getHandler();
 
           if (!(deployer instanceof CanDelete)) {
             throw new IllegalArgumentException("Resource with " + c + " does not support delete");
           }
 
-          CanDelete canDelete = (CanDelete) deployer;
-
           getTask().updateStatus(OP_NAME, "Calling delete operation...");
           result.merge(
-              canDelete.delete(
+              deployer.delete(
                   credentials,
                   c.getNamespace(),
                   c.getName(),

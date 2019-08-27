@@ -19,32 +19,27 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.converter.manifest;
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.PATCH_MANIFEST;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.converters.KubernetesAtomicOperationConverterHelper;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesPatchManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest.KubernetesPatchManifestOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 @KubernetesOperation(PATCH_MANIFEST)
 public class KubernetesPatchManifestConverter extends AbstractAtomicOperationsCredentialsSupport {
-  @Autowired private KubernetesResourcePropertyRegistry registry;
-
   @Override
   public AtomicOperation convertOperation(Map input) {
-    return new KubernetesPatchManifestOperation(convertDescription(input), registry);
+    return new KubernetesPatchManifestOperation(convertDescription(input));
   }
 
   @Override
   public KubernetesPatchManifestDescription convertDescription(Map input) {
-    return (KubernetesPatchManifestDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesPatchManifestDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesPatchManifestDescription.class);
   }
 
   @Override

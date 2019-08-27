@@ -17,6 +17,8 @@ package com.netflix.spinnaker.clouddriver.titus.deploy.actions;
 
 import static java.lang.String.format;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.TargetGroupLookupHelper;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
@@ -46,7 +48,6 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDes
 import com.netflix.spinnaker.clouddriver.titus.exceptions.JobNotFoundException;
 import com.netflix.spinnaker.clouddriver.titus.model.DockerImage;
 import com.netflix.spinnaker.config.AwsConfiguration;
-import com.netflix.spinnaker.kork.exceptions.IntegrationException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -147,37 +148,9 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
               String.join(",", description.getInterestingHealthProviderNames()));
     }
 
-    configureAppDefaultSecurityGroup(description);
+    resolveSecurityGroups(saga, description);
 
     SubmitJobRequest submitJobRequest = description.toSubmitJobRequest(dockerImage);
-
-    Set<String> securityGroups = resolveSecurityGroups(saga, description);
-
-    if (JobType.isEqual(description.getJobType(), JobType.SERVICE)
-        && deployDefaults.getAddAppGroupToServerGroup()
-        && securityGroups.size() < deployDefaults.getMaxSecurityGroups()
-        && description.getUseApplicationDefaultSecurityGroup()) {
-      String applicationSecurityGroup =
-          awsLookupUtil.convertSecurityGroupNameToId(
-              description.getAccount(), description.getRegion(), description.getApplication());
-      if (isNullOrEmpty(applicationSecurityGroup)) {
-        applicationSecurityGroup =
-            (String)
-                OperationPoller.retryWithBackoff(
-                    op ->
-                        awsLookupUtil.createSecurityGroupForApplication(
-                            description.getAccount(),
-                            description.getRegion(),
-                            description.getApplication()),
-                    1_000,
-                    5);
-      }
-      securityGroups.add(applicationSecurityGroup);
-    }
-
-    if (!securityGroups.isEmpty()) {
-      submitJobRequest.withSecurityGroups(new ArrayList<>(securityGroups));
-    }
 
     if (front50App != null && !isNullOrEmpty(front50App.getEmail())) {
       submitJobRequest.withUser(front50App.getEmail());
@@ -205,12 +178,7 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
 
     return new Result(
         new SubmitTitusJobCommand(
-            saga.getName(),
-            saga.getId(),
-            description,
-            submitJobRequest,
-            nextServerGroupName,
-            targetGroupLookupResult),
+            description, submitJobRequest, nextServerGroupName, targetGroupLookupResult),
         Collections.emptyList());
   }
 
@@ -248,8 +216,7 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
 
     TitusClient sourceClient = buildSourceTitusClient(source);
     if (sourceClient == null) {
-      // TODO(rz): Specific exception.
-      throw new IntegrationException(
+      throw new TitusException(
           "Unable to find a Titus client for deployment source: {}",
           description.getSource().getAsgName());
     }
@@ -352,11 +319,6 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
                 }
               });
     }
-
-    if (sourceJob.getLabels() != null
-        && "false".equals(sourceJob.getLabels().get(USE_APPLICATION_DEFAULT_SG_LABEL))) {
-      description.setUseApplicationDefaultSecurityGroup(false);
-    }
   }
 
   @Nonnull
@@ -372,22 +334,6 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     }
 
     return budget;
-  }
-
-  private void configureAppDefaultSecurityGroup(TitusDeployDescription description) {
-    if (description.getLabels().containsKey(USE_APPLICATION_DEFAULT_SG_LABEL)) {
-      if ("false".equals(description.getLabels().get(USE_APPLICATION_DEFAULT_SG_LABEL))) {
-        description.setUseApplicationDefaultSecurityGroup(false);
-      } else {
-        description.setUseApplicationDefaultSecurityGroup(true);
-      }
-    }
-
-    if (!description.getUseApplicationDefaultSecurityGroup()) {
-      description.getLabels().put(USE_APPLICATION_DEFAULT_SG_LABEL, "false");
-    } else {
-      description.getLabels().remove(USE_APPLICATION_DEFAULT_SG_LABEL);
-    }
   }
 
   @Nullable
@@ -417,10 +363,28 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     return targetGroups;
   }
 
-  @Nonnull
-  private Set<String> resolveSecurityGroups(Saga saga, TitusDeployDescription description) {
-    saga.log("Resolving Security Groups");
+  private void resolveSecurityGroups(Saga saga, TitusDeployDescription description) {
+    saga.log("Resolving security groups");
 
+    // Determine if we should configure the app default security group...
+    // First check for a label, falling back to the value (if any) passed via the description.
+    boolean useApplicationDefaultSecurityGroup =
+        Boolean.valueOf(
+            description
+                .getLabels()
+                .getOrDefault(
+                    USE_APPLICATION_DEFAULT_SG_LABEL,
+                    String.valueOf(description.isUseApplicationDefaultSecurityGroup())));
+    if (!useApplicationDefaultSecurityGroup) {
+      description.getLabels().put(USE_APPLICATION_DEFAULT_SG_LABEL, "false");
+    } else {
+      description.getLabels().remove(USE_APPLICATION_DEFAULT_SG_LABEL);
+    }
+    description.setUseApplicationDefaultSecurityGroup(useApplicationDefaultSecurityGroup);
+
+    // Resolve the provided security groups, asserting that they actually exist.
+    // TODO(rz): Seems kinda odd that we'd do resolution & validation here and not in... a validator
+    // or preprocessor?
     Set<String> securityGroups = new HashSet<>();
     description
         .getSecurityGroups()
@@ -432,7 +396,6 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
                   description.getAccount(), description.getRegion(), providedSecurityGroup)) {
                 securityGroups.add(providedSecurityGroup);
               } else {
-                saga.log("Resolving Security Group name '%s'", providedSecurityGroup);
                 String convertedSecurityGroup =
                     awsLookupUtil.convertSecurityGroupNameToId(
                         description.getAccount(), description.getRegion(), providedSecurityGroup);
@@ -444,9 +407,35 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
               }
             });
 
-    saga.log("Finished resolving Security Groups");
+    if (JobType.SERVICE.isEqual(description.getJobType())
+        && deployDefaults.getAddAppGroupToServerGroup()
+        && securityGroups.size() < deployDefaults.getMaxSecurityGroups()
+        && useApplicationDefaultSecurityGroup) {
+      String applicationSecurityGroup =
+          awsLookupUtil.convertSecurityGroupNameToId(
+              description.getAccount(), description.getRegion(), description.getApplication());
+      if (isNullOrEmpty(applicationSecurityGroup)) {
+        applicationSecurityGroup =
+            (String)
+                OperationPoller.retryWithBackoff(
+                    op ->
+                        awsLookupUtil.createSecurityGroupForApplication(
+                            description.getAccount(),
+                            description.getRegion(),
+                            description.getApplication()),
+                    1_000,
+                    5);
+      }
+      securityGroups.add(applicationSecurityGroup);
+    }
 
-    return securityGroups;
+    if (!securityGroups.isEmpty()) {
+      description.setSecurityGroups(Lists.newArrayList(securityGroups));
+    }
+
+    saga.log(
+        "Finished resolving security groups: {}",
+        Joiner.on(",").join(description.getSecurityGroups()));
   }
 
   @EqualsAndHashCode(callSuper = true)
@@ -455,14 +444,13 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
     private final TitusDeployDescription description;
     @NonFinal private LoadFront50App.Front50App front50App;
 
-    public PrepareTitusDeployCommand(
-        @NotNull String sagaName, @NotNull String sagaId, TitusDeployDescription description) {
-      super(sagaName, sagaId);
+    public PrepareTitusDeployCommand(TitusDeployDescription description) {
+      super();
       this.description = description;
     }
 
     @Override
-    public void setFront50App(@Nonnull LoadFront50App.Front50App app) {
+    public void setFront50App(LoadFront50App.Front50App app) {
       this.front50App = app;
     }
   }
@@ -470,7 +458,7 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
   private static class SecurityGroupNotFoundException extends TitusException {
     SecurityGroupNotFoundException(String message) {
       super(message);
-      setRetryable(false);
+      setRetryable(true);
     }
   }
 

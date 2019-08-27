@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Google, Inc.
+ * Copyright 2019 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes
+package com.netflix.spinnaker.clouddriver.google.compute;
 
-import java.lang.annotation.ElementType
-import java.lang.annotation.Retention
-import java.lang.annotation.RetentionPolicy
-import java.lang.annotation.Target
+import com.google.api.client.googleapis.batch.json.JsonBatchCallback;
+import com.google.api.services.compute.ComputeRequest;
+import java.io.IOException;
 
-/**
- * {@code KubernetesOperation}s specify implementation classes of Spinnaker AtomicOperations for Kubernetes.
- */
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-@interface KubernetesOperation {
-  String value()
+public interface BatchComputeRequest<RequestT extends ComputeRequest<ResponseT>, ResponseT> {
+
+  void queue(
+      GoogleComputeRequest<RequestT, ResponseT> request, JsonBatchCallback<ResponseT> callback);
+
+  void execute(String batchContext) throws IOException;
 }

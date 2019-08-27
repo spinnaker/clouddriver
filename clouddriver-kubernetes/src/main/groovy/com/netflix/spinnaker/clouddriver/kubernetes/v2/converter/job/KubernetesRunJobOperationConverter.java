@@ -19,9 +19,8 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.converter.job;
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.RUN_JOB;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.converters.KubernetesAtomicOperationConverterHelper;
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesV2ArtifactProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.job.KubernetesRunJobOperationDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubernetesRunJobOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
@@ -33,27 +32,21 @@ import org.springframework.stereotype.Component;
 @KubernetesOperation(RUN_JOB)
 @Component
 public class KubernetesRunJobOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
+  private final KubernetesV2ArtifactProvider artifactProvider;
 
-  private KubernetesResourcePropertyRegistry registry;
-
-  private KubernetesV2ArtifactProvider artifactProvider;
-
-  public KubernetesRunJobOperationConverter(
-      KubernetesResourcePropertyRegistry registry, KubernetesV2ArtifactProvider artifactProvider) {
-    this.registry = registry;
+  public KubernetesRunJobOperationConverter(KubernetesV2ArtifactProvider artifactProvider) {
     this.artifactProvider = artifactProvider;
   }
 
   @Override
   public AtomicOperation convertOperation(Map input) {
-    return new KubernetesRunJobOperation(convertDescription(input), registry, artifactProvider);
+    return new KubernetesRunJobOperation(convertDescription(input), artifactProvider);
   }
 
   @Override
   public KubernetesRunJobOperationDescription convertDescription(Map input) {
-    return (KubernetesRunJobOperationDescription)
-        KubernetesAtomicOperationConverterHelper.convertDescription(
-            input, this, KubernetesRunJobOperationDescription.class);
+    return KubernetesAtomicOperationConverterHelper.convertDescription(
+        input, this, KubernetesRunJobOperationDescription.class);
   }
 
   @Override

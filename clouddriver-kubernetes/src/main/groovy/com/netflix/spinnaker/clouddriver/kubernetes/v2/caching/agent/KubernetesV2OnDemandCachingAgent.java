@@ -34,7 +34,6 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
@@ -65,29 +64,20 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
 
   protected KubernetesV2OnDemandCachingAgent(
       KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
-      KubernetesResourcePropertyRegistry resourcePropertyRegistry,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
       int agentCount,
       Long agentInterval) {
-    super(
-        namedAccountCredentials,
-        resourcePropertyRegistry,
-        objectMapper,
-        registry,
-        agentIndex,
-        agentCount,
-        agentInterval);
+    super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount, agentInterval);
     namer =
         NamerRegistry.lookup()
-            .withProvider(KubernetesCloudProvider.getID())
+            .withProvider(KubernetesCloudProvider.ID)
             .withAccount(namedAccountCredentials.getName())
             .withResource(KubernetesManifest.class);
 
     metricsSupport =
-        new OnDemandMetricsSupport(
-            registry, this, KubernetesCloudProvider.getID() + ":" + Manifest);
+        new OnDemandMetricsSupport(registry, this, KubernetesCloudProvider.ID + ":" + Manifest);
   }
 
   @Override
@@ -351,7 +341,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type == Manifest && cloudProvider.equals(KubernetesCloudProvider.getID());
+    return type == Manifest && cloudProvider.equals(KubernetesCloudProvider.ID);
   }
 
   @Override
