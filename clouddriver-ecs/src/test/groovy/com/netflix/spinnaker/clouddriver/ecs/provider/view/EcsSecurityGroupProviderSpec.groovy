@@ -87,7 +87,7 @@ class EcsSecurityGroupProviderSpec extends Specification {
     accountMapper.fromAwsAccountNameToEcs(AWS_ACCOUNT) >> ecsCreds
   }
 
-  def 'should get all security groups'() {
+  def 'should get all security groups from the AWS provider and convert them to ECS security groups'() {
     given:
     securityGroupProvider.getAll(true) >> [sg1, sg2]
 
@@ -98,7 +98,7 @@ class EcsSecurityGroupProviderSpec extends Specification {
     ecsSGs.sort() == [ecsSg1, ecsSg2].sort()
   }
 
-  def 'should get all security groups for region'() {
+  def 'should get all security groups for region from the AWS provider and convert them to ECS security groups'() {
     given:
     securityGroupProvider.getAllByRegion(true, REGION) >> [sg1, sg2]
 
@@ -109,7 +109,7 @@ class EcsSecurityGroupProviderSpec extends Specification {
     ecsSGs.sort() == [ecsSg1, ecsSg2].sort()
   }
 
-  def 'should get all security groups for account'() {
+  def 'should get all security groups from the AWS provider for the AWS account associated with the ECS account'() {
     given:
     securityGroupProvider.getAllByAccount(true, AWS_ACCOUNT) >> [sg1, sg2]
 
@@ -120,7 +120,7 @@ class EcsSecurityGroupProviderSpec extends Specification {
     ecsSGs.sort() == [ecsSg1, ecsSg2].sort()
   }
 
-  def 'should get all security groups for account and name'() {
+  def 'should get all security groups from the AWS provider for the AWS account associated with the ECS account and security group name'() {
     given:
     securityGroupProvider.getAllByAccountAndName(true, AWS_ACCOUNT, SG_NAME_1) >> [sg1]
 
@@ -131,7 +131,7 @@ class EcsSecurityGroupProviderSpec extends Specification {
     ecsSGs.sort() == [ecsSg1].sort()
   }
 
-  def 'should get all security groups for account and region'() {
+  def 'should get all security groups from the AWS provider for the AWS account associated with the ECS account and region'() {
     given:
     securityGroupProvider.getAllByAccountAndRegion(true, AWS_ACCOUNT, REGION) >> [sg1, sg2]
 
@@ -142,7 +142,7 @@ class EcsSecurityGroupProviderSpec extends Specification {
     ecsSGs.sort() == [ecsSg1, ecsSg2].sort()
   }
 
-  def 'should get security group by account, region, name, and VPC ID'() {
+  def 'should get security group from the AWS provider by AWS account name, region, security group name, and VPC ID'() {
     given:
     securityGroupProvider.get(AWS_ACCOUNT, REGION, SG_NAME_1, VPC_ID) >> sg1
 
