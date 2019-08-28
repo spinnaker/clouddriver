@@ -147,8 +147,8 @@ public class KubernetesKind {
   @Override
   public String toString() {
     if (apiGroup.isNativeGroup()) {
-      return lcName;
+      return name;
     }
-    return lcName + "." + apiGroup.toString();
+    return name + "." + apiGroup.toString();
   }
 }
