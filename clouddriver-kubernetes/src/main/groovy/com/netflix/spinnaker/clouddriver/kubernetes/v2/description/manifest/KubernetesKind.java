@@ -115,6 +115,7 @@ public class KubernetesKind {
   private static KubernetesKind createWithAlias(
       @Nonnull String name, @Nullable String alias, @Nullable KubernetesApiGroup apiGroup) {
     KubernetesKind kind = new KubernetesKind(name, apiGroup);
+    aliasMap.put(kind, kind);
     if (alias != null) {
       aliasMap.put(new KubernetesKind(alias, apiGroup), kind);
     }

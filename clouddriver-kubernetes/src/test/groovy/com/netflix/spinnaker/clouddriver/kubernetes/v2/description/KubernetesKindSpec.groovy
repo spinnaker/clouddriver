@@ -42,6 +42,23 @@ class KubernetesKindSpec extends Specification {
   }
 
   @Unroll
+  void "kinds are serialized using the Spinnaker-canonical form"() {
+    when:
+    def kind = KubernetesKind.fromString(name)
+
+    then:
+    kind.toString().equals("replicaSet")
+
+    where:
+    name << [
+      "replicaSet",
+      "replicaset",
+      "ReplicaSet",
+      "REPLICASET",
+    ]
+  }
+
+  @Unroll
   void "kinds from core API groups are returned if any core API group is input"() {
     when:
     def kind = KubernetesKind.from(name, apiGroup)
