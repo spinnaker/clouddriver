@@ -17,11 +17,8 @@
 package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 
 import com.amazonaws.services.lambda.AWSLambda;
-import com.amazonaws.services.lambda.model.CreateFunctionRequest;
-import com.amazonaws.services.lambda.model.CreateFunctionResult;
-import com.amazonaws.services.lambda.model.Environment;
-import com.amazonaws.services.lambda.model.FunctionCode;
-import com.amazonaws.services.lambda.model.VpcConfig;
+import com.amazonaws.services.lambda.model.*;
+import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.CreateLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.HashMap;
@@ -91,9 +88,8 @@ public class CreateLambdaAtomicOperation
   }
 
   protected String combineAppDetail(String appName, String functionName) {
-    /// NameValidation.notEmpty(appName, "appName");
-    // Use empty strings, not null references that output "null"
-
-    return appName + "-" + functionName;
+    return Names.parseName(functionName).getApp().equals(appName)
+        ? functionName
+        : (appName + "-" + functionName);
   }
 }

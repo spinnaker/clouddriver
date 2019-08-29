@@ -34,8 +34,10 @@ import com.amazonaws.services.lambda.model.ListFunctionsRequest;
 import com.amazonaws.services.lambda.model.ListFunctionsResult;
 import com.amazonaws.services.lambda.model.ListVersionsByFunctionRequest;
 import com.amazonaws.services.lambda.model.ListVersionsByFunctionResult;
+import com.amazonaws.services.lambda.model.ResourceNotFoundException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.frigga.Names;
 import com.netflix.spectator.api.DefaultRegistry;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AccountAware;
@@ -136,6 +138,10 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
     } while (nextMarker != null && nextMarker.length() != 0);
 
     Collection<CacheData> data = new LinkedList<>();
+    Collection<CacheData> appData = new LinkedList<>();
+    Map<String, Collection<String>> appRelationships = new HashMap<String, Collection<String>>();
+
+    Map<String, Collection<CacheData>> cacheResults = new HashMap<>();
     for (FunctionConfiguration x : lstFunction) {
       Map<String, Object> attributes = objectMapper.convertValue(x, ATTRIBUTES);
       attributes.put("account", account.getName());
@@ -146,15 +152,38 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
           "eventSourceMappings", listEventSourceMappingConfiguration(x.getFunctionArn()));
       // attributes.put("functionConfiguration", getFunctionConfiguration(x.getFunctionArn());
       attributes = addConfigAttributes(attributes, x, lambda);
+      String functionName = x.getFunctionName();
+      Names names = Names.parseName(functionName);
+      if (null != names.getApp()) {
+        String appKey =
+            com.netflix.spinnaker.clouddriver.aws.data.Keys.getApplicationKey(names.getApp());
+        Collection<String> functionKeys = appRelationships.get(appKey);
+        String functionKey = Keys.getLambdaFunctionKey(account.getName(), region, functionName);
+
+        if (null == functionKeys) {
+          functionKeys = new ArrayList<>();
+          appRelationships.put(appKey, functionKeys);
+        }
+        functionKeys.add(functionKey);
+      }
       data.add(
           new DefaultCacheData(
               Keys.getLambdaFunctionKey(account.getName(), region, x.getFunctionName()),
               attributes,
               Collections.emptyMap()));
     }
-
+    for (String appKey : appRelationships.keySet()) {
+      appData.add(
+          new DefaultCacheData(
+              appKey,
+              Collections.emptyMap(),
+              Collections.singletonMap(LAMBDA_FUNCTIONS.ns, appRelationships.get(appKey))));
+    }
+    cacheResults.put(LAMBDA_FUNCTIONS.ns, data);
+    cacheResults.put(
+        com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.APPLICATIONS.ns, appData);
     log.info("Caching {} items in {}", String.valueOf(data.size()), getAgentType());
-    return new DefaultCacheResult(Collections.singletonMap(LAMBDA_FUNCTIONS.ns, data));
+    return new DefaultCacheResult(cacheResults);
   }
 
   private Map<String, String> listFunctionRevisions(String functionArn) {
@@ -253,32 +282,48 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
       return null;
     }
 
-    String functionName = (String) data.get("functionName");
     String appName = (String) data.get("appName");
+    String functionName = combineAppDetail(appName, (String) data.get("functionName"));
+
     String functionKey =
         Keys.getLambdaFunctionKey(
-            (String) data.get("credentials"),
-            (String) data.get("region"),
-            combineAppDetail(appName, functionName));
+            (String) data.get("credentials"), (String) data.get("region"), functionName);
 
     String appKey = com.netflix.spinnaker.clouddriver.aws.data.Keys.getApplicationKey(appName);
 
+    AWSLambda lambda = amazonClientProvider.getAmazonLambda(account, region);
+
+    GetFunctionResult functionResult = null;
+    try {
+      functionResult = lambda.getFunction(new GetFunctionRequest().withFunctionName(functionName));
+    } catch (ResourceNotFoundException ex) {
+      log.info("Function {} Not exist", functionName);
+    }
+
     Map<String, Object> attributes = new HashMap<String, Object>();
     attributes.put("name", appName);
+    Map<String, Collection<String>> evictions = Collections.emptyMap();
 
     CacheData application = providerCache.get(APPLICATIONS.ns, appKey);
 
     Collection<String> existingFunctionRel =
         application.getRelationships().get(LAMBDA_FUNCTIONS.ns);
+
     Map<String, Collection<String>> relationships = new HashMap<String, Collection<String>>();
-    Set<String> functionRel = new HashSet<>();
-    functionRel.add(functionKey);
 
     if (null != existingFunctionRel && !existingFunctionRel.isEmpty()) {
-      functionRel.addAll(existingFunctionRel);
-    }
-    relationships.put(LAMBDA_FUNCTIONS.ns, functionRel);
+      if (null == functionResult && existingFunctionRel.contains(functionKey)) {
+        existingFunctionRel.remove(functionKey);
+        evictions.put(LAMBDA_FUNCTIONS.ns, Collections.singletonList(functionKey));
+      } else {
+        existingFunctionRel.add(functionKey);
+      }
 
+    } else {
+      existingFunctionRel = Collections.singletonList(functionKey);
+    }
+
+    relationships.put(LAMBDA_FUNCTIONS.ns, existingFunctionRel);
     DefaultCacheData cacheData = new DefaultCacheData(appKey, attributes, relationships);
     DefaultCacheResult defaultCacheresults =
         new DefaultCacheResult(
@@ -286,8 +331,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
                 com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.APPLICATIONS.ns,
                 Collections.singletonList(cacheData)));
 
-    return new OnDemandAgent.OnDemandResult(
-        getAgentType(), defaultCacheresults, Collections.emptyMap());
+    return new OnDemandAgent.OnDemandResult(getAgentType(), defaultCacheresults, evictions);
   }
 
   @Override
@@ -312,9 +356,8 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
   }
 
   protected String combineAppDetail(String appName, String functionName) {
-    /// NameValidation.notEmpty(appName, "appName");
-    // Use empty strings, not null references that output "null"
-
-    return appName + "-" + functionName;
+    return Names.parseName(functionName).getApp().equals(appName)
+        ? functionName
+        : (appName + "-" + functionName);
   }
 }
