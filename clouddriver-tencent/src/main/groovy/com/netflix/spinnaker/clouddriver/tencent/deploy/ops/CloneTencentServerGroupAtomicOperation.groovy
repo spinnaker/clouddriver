@@ -40,12 +40,16 @@ class CloneTencentServerGroupAtomicOperation implements AtomicOperation<Deployme
   }
 
   private def copyScalingPolicyAndScheduledAction(DeploymentResult deployResult) {
+    task.updateStatus BASE_PHASE, "Enter copyScalingPolicyAndScheduledAction."
+
     String sourceServerGroupName = description.source.serverGroupName
     String sourceRegion = description.source.region
     String accountName = description.accountName
     def sourceServerGroup = tencentClusterProvider.getServerGroup(accountName, sourceRegion, sourceServerGroupName)
 
     if (!sourceServerGroup) {
+      log.warn("description is $description")
+      log.warn("source server group not found, account $accountName, region $sourceRegion, source sg name $sourceServerGroupName")
       return
     }
 
