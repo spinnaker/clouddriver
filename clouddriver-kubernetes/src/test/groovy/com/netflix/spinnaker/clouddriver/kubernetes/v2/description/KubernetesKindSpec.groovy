@@ -158,7 +158,7 @@ class KubernetesKindSpec extends Specification {
     "deployment.stable.example.com" | "deployment.stable.example.com"
   }
 
-  void "deserializes kinds by from their string representation"() {
+  void "deserializes kinds from their string representation"() {
     when:
     def kind = objectMapper.convertValue(input, KubernetesKind.class)
 
