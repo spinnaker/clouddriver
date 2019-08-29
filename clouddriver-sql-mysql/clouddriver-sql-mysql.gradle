@@ -2,5 +2,5 @@ dependencies {
   implementation project(":cats:cats-sql")
   implementation project(":clouddriver-sql")
 
-  implementation "mysql:mysql-connector-java:8.0.12"
+  implementation "org.mariadb.jdbc:mariadb-java-client:2.4.3"
 }
