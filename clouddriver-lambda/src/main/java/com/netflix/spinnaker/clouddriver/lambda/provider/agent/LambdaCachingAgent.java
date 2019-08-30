@@ -304,10 +304,13 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
     attributes.put("name", appName);
     Map<String, Collection<String>> evictions = Collections.emptyMap();
 
+    Collection<String> existingFunctionRel = null;
+
     CacheData application = providerCache.get(APPLICATIONS.ns, appKey);
 
-    Collection<String> existingFunctionRel =
-        application.getRelationships().get(LAMBDA_FUNCTIONS.ns);
+    if (null != application && null != application.getRelationships()) {
+      existingFunctionRel = application.getRelationships().get(LAMBDA_FUNCTIONS.ns);
+    }
 
     Map<String, Collection<String>> relationships = new HashMap<String, Collection<String>>();
 

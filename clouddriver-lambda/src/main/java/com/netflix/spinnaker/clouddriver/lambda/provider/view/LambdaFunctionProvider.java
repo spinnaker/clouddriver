@@ -62,15 +62,17 @@ public class LambdaFunctionProvider implements FunctionProvider {
             com.netflix.spinnaker.clouddriver.aws.data.Keys.getApplicationKey(applicationName));
 
     Set<Function> appFunctions = new HashSet<>();
-    Collection<String> functionRel = application.getRelationships().get(LAMBDA_FUNCTIONS.ns);
-    if (null != functionRel && !functionRel.isEmpty()) {
-      functionRel.forEach(
-          functionKey -> {
-            Function function = awsLambdaCacheClient.get(functionKey);
-            if (null != function) {
-              appFunctions.add(function);
-            }
-          });
+    if (null != application && null != application.getRelationships()) {
+      Collection<String> functionRel = application.getRelationships().get(LAMBDA_FUNCTIONS.ns);
+      if (null != functionRel && !functionRel.isEmpty()) {
+        functionRel.forEach(
+            functionKey -> {
+              Function function = awsLambdaCacheClient.get(functionKey);
+              if (null != function) {
+                appFunctions.add(function);
+              }
+            });
+      }
     }
     return appFunctions;
   }
