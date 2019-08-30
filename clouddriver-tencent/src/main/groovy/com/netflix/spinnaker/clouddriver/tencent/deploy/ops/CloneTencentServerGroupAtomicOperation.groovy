@@ -6,11 +6,8 @@ import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.TencentDeployDescription
-import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentScalingPolicyDescription
-import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentScheduledActionDescription
 import com.netflix.spinnaker.clouddriver.tencent.deploy.handlers.TencentDeployHandler
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentClusterProvider
-import com.tencentcloudapi.common.exception.TencentCloudSDKException
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -35,102 +32,7 @@ class CloneTencentServerGroupAtomicOperation implements AtomicOperation<Deployme
   DeploymentResult operate(List priorOutputs) {
     def newDescription = cloneAndOverrideDescription()
     def result = tencentDeployHandler.handle(newDescription, priorOutputs)
-    copyScalingPolicyAndScheduledAction(result)
     result
-  }
-
-  private def copyScalingPolicyAndScheduledAction(DeploymentResult deployResult) {
-    task.updateStatus BASE_PHASE, "Enter copyScalingPolicyAndScheduledAction."
-
-    String sourceServerGroupName = description.source.serverGroupName
-    String sourceRegion = description.source.region
-    String accountName = description.accountName
-    def sourceServerGroup = tencentClusterProvider.getServerGroup(accountName, sourceRegion, sourceServerGroupName)
-
-    if (!sourceServerGroup) {
-      log.warn("description is $description")
-      log.warn("source server group not found, account $accountName, region $sourceRegion, source sg name $sourceServerGroupName")
-      return
-    }
-
-    String sourceAsgId = sourceServerGroup.asg.autoScalingGroupId
-
-    task.updateStatus BASE_PHASE, "Initializing copy scaling policy and scheduled action from $sourceAsgId."
-
-    AutoScalingClient autoScalingClient = new AutoScalingClient(
-      description.credentials.credentials.secretId,
-      description.credentials.credentials.secretKey,
-      sourceRegion
-    )
-
-    String newServerGroupName = deployResult.serverGroupNameByRegion[sourceRegion]
-    def newAsg = autoScalingClient.getAutoScalingGroupsByName(newServerGroupName)[0]
-    String newAsgId = newAsg.autoScalingGroupId
-
-    // copy all scaling policies
-    def scalingPolicies = autoScalingClient.getScalingPolicies(sourceAsgId)
-    for (scalingPolicy in scalingPolicies) {
-      try {
-        def scalingPolicyDescription = new UpsertTencentScalingPolicyDescription().with {
-          it.serverGroupName = newServerGroupName
-          it.region = sourceRegion
-          it.accountName = accountName
-          it.operationType = UpsertTencentScalingPolicyDescription.OperationType.CREATE
-          it.adjustmentType = scalingPolicy.adjustmentType
-          it.adjustmentValue = scalingPolicy.adjustmentValue
-          it.metricAlarm = scalingPolicy.metricAlarm
-          // it.notificationUserGroupIds = scalingPolicy.notificationUserGroupIds
-          it.cooldown = scalingPolicy.cooldown
-          it
-        }
-        autoScalingClient.createScalingPolicy(newAsgId, scalingPolicyDescription)
-      } catch (TencentCloudSDKException sdk_e) {
-        // something bad happened during creation, log the error and continue
-        log.warn "create scaling policy error $sdk_e"
-      }
-    }
-
-    // copy all scheduled actions
-    def scheduledActions = autoScalingClient.getScheduledAction(sourceAsgId)
-    for (scheduledAction in scheduledActions) {
-      try {
-        def original_start_time = Date.parse("yyyy-MM-dd'T'HH:mm:ss'+08:00'", scheduledAction.startTime)
-        def current_time = new Date()
-        def new_start_time
-
-        if (original_start_time < current_time) {
-          log.info('original start time is before current time')
-          if (scheduledAction.endTime == "0000-00-00T00:00:00+08:00") {
-            // schedule action just run for once, and had finished
-            continue
-          } else {
-            log.info('scheduled action is for once, set new start time to current time')
-            new_start_time = current_time
-          }
-        } else {
-          log.info('scheduled action is not trigger, use original start time')
-          new_start_time = original_start_time
-        }
-
-        def scheduledActionDescription = new UpsertTencentScheduledActionDescription().with {
-          it.serverGroupName = newServerGroupName
-          it.region = sourceRegion
-          it.accountName = accountName
-          it.operationType = UpsertTencentScheduledActionDescription.OperationType.CREATE
-          it.maxSize = scheduledAction.maxSize
-          it.minSize = scheduledAction.minSize
-          it.desiredCapacity = scheduledAction.desiredCapacity
-          it.startTime = new_start_time.format("yyyy-MM-dd'T'HH:mm:ss'+08:00'")
-          it.endTime = scheduledAction.endTime
-          it.recurrence = scheduledAction.recurrence
-          it
-        }
-        autoScalingClient.createScheduledAction(newAsgId as String, scheduledActionDescription)
-      } catch (TencentCloudSDKException sdk_e) {
-        // something bad happened during creation, log the error and continue
-        log.warn "create scheduled action error $sdk_e"
-      }
-    }
   }
 
   private TencentDeployDescription cloneAndOverrideDescription() {
