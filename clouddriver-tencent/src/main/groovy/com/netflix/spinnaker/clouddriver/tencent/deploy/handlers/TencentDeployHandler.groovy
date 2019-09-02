@@ -16,6 +16,7 @@ import com.tencentcloudapi.common.exception.TencentCloudSDKException
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
+import groovy.time.TimeCategory
 
 /*
 curl -X POST \
@@ -202,7 +203,9 @@ class TencentDeployHandler implements DeployHandler<TencentDeployDescription> {
             continue
           } else {
             log.info('scheduled action is for once, set new start time to current time')
-            new_start_time = current_time
+            use (TimeCategory) {
+              new_start_time = current_time + 60.minutes
+            }
           }
         } else {
           log.info('scheduled action is not trigger, use original start time')
