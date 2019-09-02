@@ -629,4 +629,32 @@ class AutoScalingClient extends AbstractTencentServiceClient {
       throw new TencentOperationException(e.toString())
     }
   }
+
+  def getNotification(String asgId=null) {
+    iterQuery { offset, limit ->
+      def request = new DescribeNotificationConfigurationsRequest(offset: offset, limit: limit)
+
+      if (asgId) {
+        request.filters = [new Filter(name: 'auto-scaling-group-id', values: [asgId])]
+      }
+
+      def response = client.DescribeNotificationConfigurations request
+      response.autoScalingNotificationSet
+    } as List<AutoScalingNotification>
+  }
+
+  def createNotification(String asgId, AutoScalingNotification notification) {
+    try {
+      def request = new CreateNotificationConfigurationRequest().with {
+        it.autoScalingGroupId=asgId
+        it.notificationUserGroupIds=notification.notificationUserGroupIds
+        it.notificationTypes=notification.notificationTypes
+        it
+      }
+      def response = client.CreateNotificationConfiguration request
+      response
+    } catch (TencentCloudSDKException e) {
+      throw new TencentOperationException(e.toString())
+    }
+  }
 }

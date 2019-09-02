@@ -65,6 +65,7 @@ class TencentDeployDescription extends AbstractTencentCredentialsDescription imp
   static class Source implements ServerGroupsNameable {
     String region
     String serverGroupName
+    Boolean useSourceCapacity
 
     @Override
     Collection<String> getServerGroupNames() {
