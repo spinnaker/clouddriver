@@ -9,6 +9,7 @@ import com.netflix.spinnaker.clouddriver.tencent.deploy.TencentServerGroupNameRe
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.TencentDeployDescription
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentScalingPolicyDescription
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.UpsertTencentScheduledActionDescription
+import com.netflix.spinnaker.clouddriver.tencent.exception.TencentOperationException
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentClusterProvider
 import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient
 import com.tencentcloudapi.common.exception.TencentCloudSDKException
@@ -66,6 +67,20 @@ class TencentDeployHandler implements DeployHandler<TencentDeployDescription> {
       region
     )
 
+    if (description?.source?.useSourceCapacity) {
+      log.info('copy source server group capacity')
+      String sourceServerGroupName = description?.source?.serverGroupName
+      String sourceRegion = description?.source?.region
+      def sourceServerGroup = tencentClusterProvider.getServerGroup(accountName, sourceRegion, sourceServerGroupName)
+      if (!sourceServerGroup) {
+        log.warn("source server group $sourceServerGroupName is not found")
+      } else {
+        description.desiredCapacity = sourceServerGroup.asg.desiredCapacity as Integer
+        description.maxSize = sourceServerGroup.asg.maxSize as Integer
+        description.minSize = sourceServerGroup.asg.minSize as Integer
+      }
+    }
+
     task.updateStatus BASE_PHASE, "Composing server group $serverGroupName..."
 
     autoScalingClient.deploy(description)
@@ -78,11 +93,48 @@ class TencentDeployHandler implements DeployHandler<TencentDeployDescription> {
 
     if (description.copySourceScalingPoliciesAndActions) {
       copyScalingPolicyAndScheduledAction(description, deploymentResult)
+      copyNotification(description, deploymentResult)  // copy notification by the way
     }
 
     return deploymentResult
   }
 
+  private def copyNotification(TencentDeployDescription description, DeploymentResult deployResult) {
+    task.updateStatus BASE_PHASE, "Enter copyNotification."
+    String sourceServerGroupName = description?.source?.serverGroupName
+    String sourceRegion = description?.source?.region
+    String accountName = description?.accountName
+    def sourceServerGroup = tencentClusterProvider.getServerGroup(accountName, sourceRegion, sourceServerGroupName)
+
+    if (!sourceServerGroup) {
+      log.warn("source server group not found, account $accountName, region $sourceRegion, source sg name $sourceServerGroupName")
+      return
+    }
+
+    String sourceAsgId = sourceServerGroup.asg.autoScalingGroupId
+
+    task.updateStatus BASE_PHASE, "Initializing copy notification from $sourceAsgId."
+
+    AutoScalingClient autoScalingClient = new AutoScalingClient(
+      description.credentials.credentials.secretId,
+      description.credentials.credentials.secretKey,
+      sourceRegion
+    )
+
+    String newServerGroupName = deployResult.serverGroupNameByRegion[sourceRegion]
+    def newAsg = autoScalingClient.getAutoScalingGroupsByName(newServerGroupName)[0]
+    String newAsgId = newAsg.autoScalingGroupId
+
+    def notifications = autoScalingClient.getNotification(sourceAsgId)
+    for (notification in notifications) {
+      try {
+        autoScalingClient.createNotification(newAsgId, notification)
+      } catch (TencentOperationException toe) {
+        // something bad happened during creation, log the error and continue
+        log.warn "create notification error $toe"
+      }
+    }
+  }
 
   private def copyScalingPolicyAndScheduledAction(TencentDeployDescription description, DeploymentResult deployResult) {
     task.updateStatus BASE_PHASE, "Enter copyScalingPolicyAndScheduledAction."
