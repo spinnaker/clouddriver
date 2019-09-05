@@ -42,6 +42,7 @@ import com.google.api.services.compute.Compute.InstanceGroupManagers;
 import com.google.api.services.compute.Compute.InstanceGroupManagers.Get;
 import com.google.api.services.compute.model.AttachedDisk;
 import com.google.api.services.compute.model.Autoscaler;
+import com.google.api.services.compute.model.AutoscalerStatusDetails;
 import com.google.api.services.compute.model.AutoscalingPolicy;
 import com.google.api.services.compute.model.DistributionPolicy;
 import com.google.api.services.compute.model.Instance;
@@ -98,6 +99,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -158,11 +160,13 @@ public final class GoogleZonalServerGroupCachingAgent
       List<GoogleServerGroup> serverGroups = getServerGroups(providerCache);
 
       // If an entry in ON_DEMAND was generated _after_ we started our caching run, add it to the
-      // cacheResultBuilder, since we may use it in buildCacheResult. I don't understand why we
-      // don't evict things that haven't been processed. If the cache time is in the past, we won't
-      // use it anyway, and then we'll just mark it as processed at the end of this method and evict
-      // it next time. So I don't see what purpose that serves. I preserve it here (for now) in the
-      // interest of not changing anything.
+      // cacheResultBuilder, since we may use it in buildCacheResult.
+      //
+      // We don't evict things unless they've been processed because Orca, after sending an
+      // on-demand cache refresh, doesn't consider the request "finished" until it calls
+      // pendingOnDemandRequests and sees a processedCount of 1. In a saner world, Orca would
+      // probably just trust that if the key wasn't returned by pendingOnDemandRequests, it must
+      // have been processed. But we don't live in that world.
       Set<String> serverGroupKeys =
           serverGroups.stream().map(this::getServerGroupKey).collect(toImmutableSet());
       providerCache
@@ -206,6 +210,7 @@ public final class GoogleZonalServerGroupCachingAgent
         && GoogleCloudProvider.getID().equals(cloudProvider);
   }
 
+  @Nullable
   @Override
   public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
 
@@ -636,7 +641,7 @@ public final class GoogleZonalServerGroupCachingAgent
 
     if (serverGroup.getRegional()) {
       serverGroup.setRegion(Utils.getLocalName(manager.getRegion()));
-      List<String> zones = getZones(manager.getDistributionPolicy());
+      ImmutableList<String> zones = getZones(manager.getDistributionPolicy());
       serverGroup.setZones(ImmutableSet.copyOf(zones));
       serverGroup.setDistributionPolicy(new GoogleDistributionPolicy(zones));
     } else {
@@ -647,7 +652,7 @@ public final class GoogleZonalServerGroupCachingAgent
     }
   }
 
-  private static List<String> getZones(DistributionPolicy distributionPolicy) {
+  private static ImmutableList<String> getZones(DistributionPolicy distributionPolicy) {
     if (distributionPolicy == null || distributionPolicy.getZones() == null) {
       return ImmutableList.of();
     }
@@ -656,6 +661,7 @@ public final class GoogleZonalServerGroupCachingAgent
         .collect(toImmutableList());
   }
 
+  @Nullable
   private static ImmutableMap<String, Integer> convertNamedPorts(InstanceGroupManager manager) {
     if (manager.getNamedPorts() == null) {
       return null;
@@ -677,18 +683,24 @@ public final class GoogleZonalServerGroupCachingAgent
     launchConfig.put("createdTime", Utils.getTimeFromTimestamp(manager.getCreationTimestamp()));
 
     if (instanceTemplate != null) {
-      List<AttachedDisk> disks = getDisks(instanceTemplate);
-      instanceTemplate.getProperties().setDisks(disks);
-      launchConfig.put("instanceTemplate", instanceTemplate);
       launchConfig.put("launchConfigurationName", instanceTemplate.getName());
-      launchConfig.put("instanceType", instanceTemplate.getProperties().getMachineType());
-      launchConfig.put("minCpuPlatform", instanceTemplate.getProperties().getMinCpuPlatform());
-      setSourceImage(serverGroup, launchConfig, disks, credentials, providerCache);
+      launchConfig.put("instanceTemplate", instanceTemplate);
+      if (instanceTemplate.getProperties() != null) {
+        List<AttachedDisk> disks = getDisks(instanceTemplate);
+        instanceTemplate.getProperties().setDisks(disks);
+        if (instanceTemplate.getProperties().getMachineType() != null) {
+          launchConfig.put("instanceType", instanceTemplate.getProperties().getMachineType());
+        }
+        if (instanceTemplate.getProperties().getMinCpuPlatform() != null) {
+          launchConfig.put("minCpuPlatform", instanceTemplate.getProperties().getMinCpuPlatform());
+        }
+        setSourceImage(serverGroup, launchConfig, disks, credentials, providerCache);
+      }
     }
-    serverGroup.setLaunchConfig(launchConfig);
+    serverGroup.setLaunchConfig(copyToImmutableMapWithoutNullValues(launchConfig));
   }
 
-  private static List<AttachedDisk> getDisks(InstanceTemplate template) {
+  private static ImmutableList<AttachedDisk> getDisks(InstanceTemplate template) {
 
     if (template.getProperties() == null || template.getProperties().getDisks() == null) {
       return ImmutableList.of();
@@ -699,17 +711,17 @@ public final class GoogleZonalServerGroupCachingAgent
             .collect(toImmutableList());
 
     if (persistentDisks.isEmpty() || persistentDisks.get(0).getBoot()) {
-      return template.getProperties().getDisks();
+      return ImmutableList.copyOf(template.getProperties().getDisks());
     }
 
-    List<AttachedDisk> sortedDisks = new ArrayList<>();
+    ImmutableList.Builder<AttachedDisk> sortedDisks = ImmutableList.builder();
     Optional<AttachedDisk> firstBootDisk =
         persistentDisks.stream().filter(AttachedDisk::getBoot).findFirst();
     firstBootDisk.ifPresent(sortedDisks::add);
     template.getProperties().getDisks().stream()
         .filter(disk -> !disk.getBoot())
         .forEach(sortedDisks::add);
-    return sortedDisks;
+    return sortedDisks.build();
   }
 
   private static void setSourceImage(
@@ -849,7 +861,7 @@ public final class GoogleZonalServerGroupCachingAgent
       }
     }
 
-    serverGroup.setAsg(autoscalerGroup);
+    serverGroup.setAsg(copyToImmutableMapWithoutNullValues(autoscalerGroup));
   }
 
   private static void populateAutoscaler(
@@ -862,16 +874,25 @@ public final class GoogleZonalServerGroupCachingAgent
     AutoscalingPolicy autoscalingPolicy = autoscaler.getAutoscalingPolicy();
     if (autoscalingPolicy != null) {
       serverGroup.setAutoscalingPolicy(autoscalingPolicy);
-      serverGroup.getAsg().put("minSize", autoscalingPolicy.getMinNumReplicas());
-      serverGroup.getAsg().put("maxSize", autoscalingPolicy.getMaxNumReplicas());
+      // is asg possibly null???
+      HashMap<String, Object> autoscalingGroup = new HashMap<>(serverGroup.getAsg());
+      autoscalingGroup.put("minSize", autoscalingPolicy.getMinNumReplicas());
+      autoscalingGroup.put("maxSize", autoscalingPolicy.getMaxNumReplicas());
+      serverGroup.setAsg(copyToImmutableMapWithoutNullValues(autoscalingGroup));
     }
     if (autoscaler.getStatusDetails() != null) {
       serverGroup.setAutoscalingMessages(
           autoscaler.getStatusDetails().stream()
-              .filter(details -> details.getMessage() != null)
-              .map(details -> details.getMessage())
+              .map(AutoscalerStatusDetails::getMessage)
+              .filter(Objects::nonNull)
               .collect(toImmutableList()));
     }
+  }
+
+  private static <K, V> ImmutableMap<K, V> copyToImmutableMapWithoutNullValues(Map<K, V> map) {
+    return map.entrySet().stream()
+        .filter(e -> e.getValue() != null)
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Override
