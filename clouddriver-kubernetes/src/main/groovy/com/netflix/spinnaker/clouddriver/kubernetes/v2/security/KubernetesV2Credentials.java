@@ -22,6 +22,7 @@ import static lombok.EqualsAndHashCode.Include;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
@@ -76,9 +77,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Include @Getter private final List<String> omitNamespaces;
 
-  @Include private final List<KubernetesKind> kinds;
+  @Include private final Set<KubernetesKind> kinds;
 
-  @Include List<String> omitKinds;
+  @Include private final Set<KubernetesKind> omitKinds;
 
   private final Map<KubernetesKind, KubernetesKindStatus> omitKindsComputed;
 
@@ -149,10 +150,13 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                           return new KubernetesKindProperties(k, true, false, true);
                         }))
             .map(KubernetesKindProperties::getKubernetesKind)
-            .collect(Collectors.toList());
+            .collect(ImmutableSet.toImmutableSet());
     // omitKinds is a simple placeholder that we can use to compare one instance to another
     // when refreshing credentials.
-    this.omitKinds = managedAccount.getOmitKinds();
+    this.omitKinds =
+        managedAccount.getOmitKinds().stream()
+            .map(KubernetesKind::fromString)
+            .collect(ImmutableSet.toImmutableSet());
 
     this.omitKindsComputed =
         managedAccount.getOmitKinds().stream()
