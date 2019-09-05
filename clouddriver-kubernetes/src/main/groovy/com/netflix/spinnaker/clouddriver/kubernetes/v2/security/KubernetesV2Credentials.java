@@ -108,7 +108,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Include @JsonIgnore @Getter private final List<String> oAuthScopes;
 
-  @Include @Getter private boolean metrics;
+  @Include private boolean metrics;
 
   @Include @Getter private final boolean debug;
 
@@ -366,7 +366,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return result;
   }
 
-  public boolean isMetricsComputed() {
+  public boolean isMetricsEnabled() {
     return metrics && kindValidator.isMetricsReadable();
   }
 
