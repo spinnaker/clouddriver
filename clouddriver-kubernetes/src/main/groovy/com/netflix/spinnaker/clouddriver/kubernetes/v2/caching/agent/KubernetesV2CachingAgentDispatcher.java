@@ -17,8 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent;
 
-import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.NONE;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
@@ -70,7 +68,6 @@ public class KubernetesV2CachingAgentDispatcher implements KubernetesCachingAgen
                 propertyRegistry.values().stream()
                     .map(KubernetesResourceProperties::getHandler)
                     .filter(Objects::nonNull)
-                    .filter(h -> v2Credentials.isValidKind(h.kind()) || h.kind().equals(NONE))
                     .map(
                         h ->
                             h.buildCachingAgent(
