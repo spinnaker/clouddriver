@@ -80,7 +80,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Include List<String> omitKinds;
 
-  private final Map<KubernetesKind, InvalidKindReason> omitKindsComputed;
+  private final Map<KubernetesKind, KubernetesKindStatus> omitKindsComputed;
 
   @Include @Getter private final List<CustomKubernetesResource> customResources;
 
@@ -159,7 +159,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
             .map(KubernetesKind::fromString)
             .collect(
                 Collectors.toMap(
-                    k -> k, k -> InvalidKindReason.EXPLICITLY_OMITTED_BY_CONFIGURATION));
+                    k -> k, k -> KubernetesKindStatus.EXPLICITLY_OMITTED_BY_CONFIGURATION));
 
     this.customResources = managedAccount.getCustomResources();
 
@@ -272,7 +272,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
   }
 
-  public enum InvalidKindReason {
+  public enum KubernetesKindStatus {
+    VALID("Kind [%s] is a valid kind"),
     KIND_NONE("Kind [%s] is invalid"),
     EXPLICITLY_OMITTED_BY_CONFIGURATION(
         "Kind [%s] included in 'omitKinds' of kubernetes account configuration"),
@@ -282,7 +283,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     private final String errorMessage;
 
-    InvalidKindReason(String errorMessage) {
+    KubernetesKindStatus(String errorMessage) {
       this.errorMessage = errorMessage;
     }
 
@@ -292,16 +293,19 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   public boolean isValidKind(@Nonnull KubernetesKind kind) {
-    return getInvalidKindReason(kind) == null;
+    return getKindStatus(kind) == KubernetesKindStatus.VALID;
   }
 
-  public InvalidKindReason getInvalidKindReason(@Nonnull KubernetesKind kind) {
+  @Nonnull
+  public KubernetesKindStatus getKindStatus(@Nonnull KubernetesKind kind) {
     if (kind.equals(KubernetesKind.NONE)) {
-      return InvalidKindReason.KIND_NONE;
+      return KubernetesKindStatus.KIND_NONE;
     } else if (!this.kinds.isEmpty()) {
-      return !kinds.contains(kind) ? InvalidKindReason.MISSING_FROM_ALLOWED_KINDS : null;
+      return !kinds.contains(kind)
+          ? KubernetesKindStatus.MISSING_FROM_ALLOWED_KINDS
+          : KubernetesKindStatus.VALID;
     } else {
-      return this.omitKindsComputed.getOrDefault(kind, null);
+      return this.omitKindsComputed.getOrDefault(kind, KubernetesKindStatus.VALID);
     }
   }
 
@@ -407,19 +411,19 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     // compute list of kinds we explicitly know the server doesn't support
     try {
       Set<KubernetesKind> availableResources = jobExecutor.apiResources(this);
-      Map<KubernetesKind, InvalidKindReason> unavailableKinds =
+      Map<KubernetesKind, KubernetesKindStatus> unavailableKinds =
           allKinds.stream()
               .filter(Objects::nonNull)
               .filter(k -> !k.equals(KubernetesKind.NONE))
               .filter(k -> !availableResources.contains(k))
-              .collect(Collectors.toConcurrentMap(k -> k, k -> InvalidKindReason.READ_ERROR));
+              .collect(Collectors.toConcurrentMap(k -> k, k -> KubernetesKindStatus.READ_ERROR));
 
       omitKindsComputed.putAll(unavailableKinds);
     } catch (Exception e) {
       log.warn("Failed to evaluate kinds available on server. {}.", e.getMessage());
     }
 
-    Map<KubernetesKind, InvalidKindReason> unreadableKinds =
+    Map<KubernetesKind, KubernetesKindStatus> unreadableKinds =
         allKinds
             .parallelStream()
             .filter(Objects::nonNull)
@@ -427,7 +431,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
             .filter(k -> !omitKindsComputed.containsKey(k))
             .filter(k -> !canReadKind(k, checkNamespace))
             .collect(
-                Collectors.toConcurrentMap(Function.identity(), k -> InvalidKindReason.READ_ERROR));
+                Collectors.toConcurrentMap(
+                    Function.identity(), k -> KubernetesKindStatus.READ_ERROR));
     long endTime = System.nanoTime();
     long duration = (endTime - startTime) / 1000000;
     log.info("determineOmitKinds for account {} took {} ms", accountName, duration);
