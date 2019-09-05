@@ -104,10 +104,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@ParametersAreNonnullByDefault
 public final class GoogleZonalServerGroupCachingAgent
     implements CachingAgent, OnDemandAgent, AccountAware {
 
@@ -649,7 +651,7 @@ public final class GoogleZonalServerGroupCachingAgent
     }
   }
 
-  private static ImmutableList<String> getZones(DistributionPolicy distributionPolicy) {
+  private static ImmutableList<String> getZones(@Nullable DistributionPolicy distributionPolicy) {
     if (distributionPolicy == null || distributionPolicy.getZones() == null) {
       return ImmutableList.of();
     }
