@@ -592,15 +592,15 @@ public final class GoogleZonalServerGroupCachingAgent
 
     GoogleServerGroup serverGroup = new GoogleServerGroup();
     serverGroup.setName(manager.getName());
-    setRegionConfig(serverGroup, manager, credentials);
+    setRegionConfig(serverGroup, manager);
     serverGroup.setAccount(credentials.getName());
     serverGroup.setInstances(instances);
     serverGroup.setNamedPorts(convertNamedPorts(manager));
     serverGroup.setSelfLink(manager.getSelfLink());
     serverGroup.setCurrentActions(manager.getCurrentActions());
 
-    setLaunchConfig(serverGroup, manager, instanceTemplate, credentials, providerCache);
-    setAutoscalerGroup(serverGroup, manager, instanceTemplate, objectMapper);
+    setLaunchConfig(serverGroup, manager, instanceTemplate, providerCache);
+    setAutoscalerGroup(serverGroup, manager, instanceTemplate);
     if (instanceTemplate != null) {
       InstanceProperties properties = instanceTemplate.getProperties();
       if (properties != null) {
@@ -632,10 +632,7 @@ public final class GoogleZonalServerGroupCachingAgent
     return serverGroup;
   }
 
-  private static void setRegionConfig(
-      GoogleServerGroup serverGroup,
-      InstanceGroupManager manager,
-      GoogleNamedAccountCredentials credentials) {
+  private void setRegionConfig(GoogleServerGroup serverGroup, InstanceGroupManager manager) {
 
     serverGroup.setRegional(manager.getZone() == null);
 
@@ -672,11 +669,10 @@ public final class GoogleZonalServerGroupCachingAgent
         .collect(toImmutableMap(NamedPort::getName, NamedPort::getPort));
   }
 
-  private static void setLaunchConfig(
+  private void setLaunchConfig(
       GoogleServerGroup serverGroup,
       InstanceGroupManager manager,
       @Nullable InstanceTemplate instanceTemplate,
-      GoogleNamedAccountCredentials credentials,
       ProviderCache providerCache) {
 
     HashMap<String, Object> launchConfig = new HashMap<>();
@@ -795,11 +791,10 @@ public final class GoogleZonalServerGroupCachingAgent
     return buildInfo.build();
   }
 
-  private static void setAutoscalerGroup(
+  private void setAutoscalerGroup(
       GoogleServerGroup serverGroup,
       InstanceGroupManager manager,
-      @Nullable InstanceTemplate instanceTemplate,
-      ObjectMapper objectMapper) {
+      @Nullable InstanceTemplate instanceTemplate) {
 
     Map<String, Object> autoscalerGroup = new HashMap<>();
 
