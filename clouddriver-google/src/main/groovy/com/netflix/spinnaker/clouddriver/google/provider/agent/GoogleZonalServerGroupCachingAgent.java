@@ -505,11 +505,6 @@ public final class GoogleZonalServerGroupCachingAgent
           "Managed instance group %s did not have a zone.",
           manager.getName());
       String zone = Utils.getLocalName(manager.getZone());
-      checkState(
-          !isNullOrEmpty(manager.getInstanceTemplate()),
-          "Managed instance group %s in zone %s did not have an instanceTemplate.",
-          manager.getName(),
-          zone);
 
       List<GoogleInstance> instances =
           instancesApi.list(zone).execute().stream()
@@ -523,10 +518,12 @@ public final class GoogleZonalServerGroupCachingAgent
       autoscalersApi.get(zone, manager.getName()).executeGet().ifPresent(autoscalers::add);
 
       List<InstanceTemplate> instanceTemplates = new ArrayList<>();
-      instanceTemplatesApi
-          .get(Utils.getLocalName(manager.getInstanceTemplate()))
-          .executeGet()
-          .ifPresent(instanceTemplates::add);
+      if (manager.getInstanceTemplate() != null) {
+        instanceTemplatesApi
+            .get(Utils.getLocalName(manager.getInstanceTemplate()))
+            .executeGet()
+            .ifPresent(instanceTemplates::add);
+      }
 
       return constructServerGroups(
               providerCache, ImmutableList.of(manager), instances, instanceTemplates, autoscalers)
