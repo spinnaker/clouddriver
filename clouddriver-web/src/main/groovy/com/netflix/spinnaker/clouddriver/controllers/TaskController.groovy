@@ -23,6 +23,7 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RestController
@@ -53,6 +54,23 @@ class TaskController {
   List<Task> list() {
     taskRepository.list()
   }
+
+  /**
+   * Endpoint to allow Orca to resume Tasks, if they're backed by Sagas.
+   *
+   * @param id
+   */
+  @PostMapping("/{id}:resume")
+  void resumeTask(@PathVariable("id") String id) {
+    Task t = taskRepository.get(id);
+    if (t == null) {
+      throw new NotFoundException("Tasl not found (id: $id)")
+    }
+
+
+
+  }
+
 
   @PreDestroy
   public void destroy() {
