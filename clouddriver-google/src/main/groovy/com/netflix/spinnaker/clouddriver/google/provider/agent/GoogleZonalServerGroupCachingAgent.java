@@ -511,11 +511,8 @@ public final class GoogleZonalServerGroupCachingAgent
               .map(instance -> GoogleInstances.createFromComputeInstance(instance, credentials))
               .collect(toImmutableList());
 
-      // TODO(plumpy): does the autoscaler really always have the same name as the server group?
-      // The old code did this, but the compute API doesn't require it. Maybe it's a pattern that
-      // Spinnaker enforces?
-      List<Autoscaler> autoscalers = new ArrayList<>();
-      autoscalersApi.get(zone, manager.getName()).executeGet().ifPresent(autoscalers::add);
+      Optional<Autoscaler> autoscaler = autoscalersApi.get(zone, manager.getName()).executeGet();
+      List<Autoscaler> autoscalers = autoscaler.map(ImmutableList::of).orElse(ImmutableList.of());
 
       List<InstanceTemplate> instanceTemplates = new ArrayList<>();
       if (manager.getInstanceTemplate() != null) {
