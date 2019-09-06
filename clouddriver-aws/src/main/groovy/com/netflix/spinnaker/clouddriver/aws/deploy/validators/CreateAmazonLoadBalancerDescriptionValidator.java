@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.validators;
 
 import com.amazonaws.services.elasticloadbalancingv2.model.AuthenticateOidcActionConfig;
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetTypeEnum;
 import com.netflix.spinnaker.clouddriver.aws.AmazonOperation;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerClassicDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerDescription;
@@ -137,14 +138,18 @@ class CreateAmazonLoadBalancerDescriptionValidator
             errors.rejectValue(
                 "targetGroups", "createAmazonLoadBalancerDescription.targetGroups.name.missing");
           }
-          if (targetGroup.getProtocol() == null) {
-            errors.rejectValue(
-                "targetGroups",
-                "createAmazonLoadBalancerDescription.targetGroups.protocol.missing");
-          }
-          if (targetGroup.getPort() == null) {
-            errors.rejectValue(
-                "targetGroups", "createAmazonLoadBalancerDescription.targetGroups.port.missing");
+          if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType())) {
+            validateLambdaTargetGroup(targetGroup, errors);
+          } else {
+            if (targetGroup.getProtocol() == null) {
+              errors.rejectValue(
+                  "targetGroups",
+                  "createAmazonLoadBalancerDescription.targetGroups.protocol.missing");
+            }
+            if (targetGroup.getPort() == null) {
+              errors.rejectValue(
+                  "targetGroups", "createAmazonLoadBalancerDescription.targetGroups.port.missing");
+            }
           }
         }
         Set<String> unusedTargetGroupNames = new HashSet<>();
@@ -172,5 +177,10 @@ class CreateAmazonLoadBalancerDescriptionValidator
             "loadBalancerType", "createAmazonLoadBalancerDescription.loadBalancerType.invalid");
         break;
     }
+  }
+
+  private void validateLambdaTargetGroup(
+      UpsertAmazonLoadBalancerV2Description.TargetGroup targetGroup, Errors errors) {
+    // Add lambda specific validation, if required.
   }
 }
