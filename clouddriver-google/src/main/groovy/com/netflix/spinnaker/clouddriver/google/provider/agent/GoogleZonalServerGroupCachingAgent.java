@@ -372,10 +372,10 @@ public final class GoogleZonalServerGroupCachingAgent
   private ImmutableSet<String> getLoadBalancerKeys(GoogleServerGroup serverGroup) {
     ImmutableSet.Builder<String> loadBalancerKeys = ImmutableSet.builder();
     nullableStream((Collection<String>) serverGroup.getAsg().get(REGIONAL_LOAD_BALANCER_NAMES))
-        .map(name -> Keys.getLoadBalancerKey(region, credentials.getName(), name))
+        .map(name -> Keys.getLoadBalancerKey(region, getAccountName(), name))
         .forEach(loadBalancerKeys::add);
     nullableStream((Collection<String>) serverGroup.getAsg().get(GLOBAL_LOAD_BALANCER_NAMES))
-        .map(name -> Keys.getLoadBalancerKey("global", credentials.getName(), name))
+        .map(name -> Keys.getLoadBalancerKey("global", getAccountName(), name))
         .forEach(loadBalancerKeys::add);
     return loadBalancerKeys.build();
   }
@@ -592,7 +592,7 @@ public final class GoogleZonalServerGroupCachingAgent
     GoogleServerGroup serverGroup = new GoogleServerGroup();
     serverGroup.setName(manager.getName());
     setRegionConfig(serverGroup, manager);
-    serverGroup.setAccount(credentials.getName());
+    serverGroup.setAccount(getAccountName());
     serverGroup.setInstances(instances);
     serverGroup.setNamedPorts(convertNamedPorts(manager));
     serverGroup.setSelfLink(manager.getSelfLink());
@@ -738,7 +738,7 @@ public final class GoogleZonalServerGroupCachingAgent
         && firstDisk.getInitializeParams().getSourceImage() != null) {
       String sourceImage = Utils.getLocalName(firstDisk.getInitializeParams().getSourceImage());
       launchConfig.put("imageId", sourceImage);
-      String imageKey = Keys.getImageKey(credentials.getName(), sourceImage);
+      String imageKey = Keys.getImageKey(getAccountName(), sourceImage);
       CacheData image = providerCache.get(IMAGES.getNs(), imageKey);
       if (image != null) {
         String description =
