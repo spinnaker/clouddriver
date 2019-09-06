@@ -294,8 +294,9 @@ abstract class AbstractGoogleServerGroupCachingAgent
 
   private boolean keyOwnedByThisAgent(String key) {
     Map<String, String> parsedKey = Keys.parse(key);
-    // TODO(plumpy): check that the key type is SERVER_GROUPS
-    return parsedKey != null && keyOwnedByThisAgent(parsedKey);
+    return parsedKey != null
+        && parsedKey.get("type").equals(SERVER_GROUPS.getNs())
+        && keyOwnedByThisAgent(parsedKey);
   }
 
   /**

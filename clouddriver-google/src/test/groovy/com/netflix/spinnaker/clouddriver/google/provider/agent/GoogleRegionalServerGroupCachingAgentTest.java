@@ -408,9 +408,8 @@ final class GoogleRegionalServerGroupCachingAgentTest {
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(applicationKey));
     String clusterKey = Keys.getClusterKey(ACCOUNT_NAME, "cluster", "cluster");
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(clusterKey));
-    // TODO(plumpy): This is a bug! The server group agent thinks it owns load balancer keys!
-    // String loadBalancerKey = Keys.getLoadBalancerKey(REGION, ACCOUNT_NAME, "loadBalancer");
-    // providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(loadBalancerKey));
+    String loadBalancerKey = Keys.getLoadBalancerKey(REGION, ACCOUNT_NAME, "loadBalancer");
+    providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(loadBalancerKey));
     String zonalServerGroupKey =
         Keys.getServerGroupKey("mig1-v001", "mig1", ACCOUNT_NAME, REGION, ZONE);
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(zonalServerGroupKey));
