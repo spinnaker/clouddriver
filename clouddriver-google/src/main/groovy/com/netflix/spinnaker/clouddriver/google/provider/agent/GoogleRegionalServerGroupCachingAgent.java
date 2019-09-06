@@ -50,6 +50,21 @@ public final class GoogleRegionalServerGroupCachingAgent
   }
 
   @Override
+  Collection<String> getOnDemandKeysToEvictForMissingServerGroup(
+      ProviderCache providerCache, String serverGroupName) {
+    String clusterName = null; // getServerGroupKey will calculate this from serverGroupName
+    return ImmutableSet.of(
+        Keys.getServerGroupKey(serverGroupName, clusterName, getAccountName(), getRegion()));
+  }
+
+  @Override
+  boolean keyOwnedByThisAgent(Map<String, String> parsedKey) {
+    return getAccountName().equals(parsedKey.get("account"))
+        && getRegion().equals(parsedKey.get("region"))
+        && parsedKey.get("zone") == null;
+  }
+
+  @Override
   Collection<InstanceGroupManager> retrieveInstanceGroupManagers() throws IOException {
 
     RegionInstanceGroupManagers managersApi =
@@ -63,11 +78,6 @@ public final class GoogleRegionalServerGroupCachingAgent
     RegionAutoscalers autoscalersApi =
         getComputeApiFactory().createRegionAutoscalers(getCredentials());
     return autoscalersApi.list(getRegion()).execute();
-  }
-
-  @Override
-  String getBatchContextPrefix() {
-    return "RegionalServerGroupCaching";
   }
 
   @Override
@@ -92,17 +102,7 @@ public final class GoogleRegionalServerGroupCachingAgent
   }
 
   @Override
-  boolean keyOwnedByThisAgent(Map<String, String> parsedKey) {
-    return getAccountName().equals(parsedKey.get("account"))
-        && getRegion().equals(parsedKey.get("region"))
-        && parsedKey.get("zone") == null;
-  }
-
-  @Override
-  Collection<String> getOnDemandKeysToEvictForMissingServerGroup(
-      ProviderCache providerCache, String serverGroupName) {
-    String clusterName = null; // getServerGroupKey will calculate this from serverGroupName
-    return ImmutableSet.of(
-        Keys.getServerGroupKey(serverGroupName, clusterName, getAccountName(), getRegion()));
+  String getBatchContextPrefix() {
+    return "RegionalServerGroupCaching";
   }
 }
