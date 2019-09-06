@@ -38,6 +38,8 @@ import com.google.api.services.compute.model.AttachedDiskInitializeParams;
 import com.google.api.services.compute.model.Autoscaler;
 import com.google.api.services.compute.model.AutoscalerStatusDetails;
 import com.google.api.services.compute.model.AutoscalingPolicy;
+import com.google.api.services.compute.model.DistributionPolicy;
+import com.google.api.services.compute.model.DistributionPolicyZoneConfiguration;
 import com.google.api.services.compute.model.Instance;
 import com.google.api.services.compute.model.InstanceGroupManager;
 import com.google.api.services.compute.model.InstanceGroupManagerActionsSummary;
@@ -56,7 +58,6 @@ import com.google.api.services.compute.model.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.netflix.spectator.api.DefaultRegistry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.AgentDataType.Authority;
@@ -68,8 +69,6 @@ import com.netflix.spinnaker.cats.provider.DefaultProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent.OnDemandResult;
 import com.netflix.spinnaker.clouddriver.google.cache.Keys;
-import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeApiFactory;
-import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup;
@@ -83,7 +82,6 @@ import java.math.BigInteger;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,7 +89,7 @@ import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
 @RunWith(JUnitPlatform.class)
-final class GoogleZonalServerGroupCachingAgentTest {
+final class GoogleRegionalServerGroupCachingAgentTest {
 
   private static final NamingStrategy<GoogleLabeledResource> NAMER =
       new GoogleLabeledResourceNamer();
@@ -99,6 +97,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
   private static final String ACCOUNT_NAME = "partypups";
   private static final String PROJECT = "myproject";
   private static final String REGION = "myregion";
+  private static final String REGION_URL = "http://compute/regions/" + REGION;
   private static final String ZONE = REGION + "-myzone";
   private static final String ZONE_URL = "http://compute/zones/" + ZONE;
 
@@ -114,8 +113,13 @@ final class GoogleZonalServerGroupCachingAgentTest {
     InstanceGroupManager instanceGroupManager =
         new InstanceGroupManager()
             .setName("myServerGroup")
-            .setZone(ZONE_URL)
+            .setRegion(REGION_URL)
             .setSelfLink("http://my/fun/link")
+            .setDistributionPolicy(
+                new DistributionPolicy()
+                    .setZones(
+                        ImmutableList.of(
+                            new DistributionPolicyZoneConfiguration().setZone(ZONE_URL))))
             .setNamedPorts(
                 ImmutableList.of(
                     new NamedPort().setName("first").setPort(10111),
@@ -136,7 +140,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
 
     Compute compute =
         new StubComputeFactory().setInstanceGroupManagers(instanceGroupManager).create();
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
 
     CacheResult cacheResult = cachingAgent.loadData(inMemoryProviderCache());
 
@@ -147,15 +151,18 @@ final class GoogleZonalServerGroupCachingAgentTest {
 
     assertThat(serverGroup.getCurrentActions()).isEqualTo(instanceGroupManager.getCurrentActions());
 
-    assertThat(serverGroup.getStatefulPolicy()).isEqualTo(instanceGroupManager.getStatefulPolicy());
+    // TODO(plumpy) the regional cache doesn't set this, even though the zonal one does.
+    // Oops, my fault:
+    //   https://github.com/spinnaker/clouddriver/pull/3855
+    // assertThat(serverGroup.getStatefulPolicy()).isEqualTo(instanceGroupManager.getStatefulPolicy());
     assertThat(serverGroup.getAutoHealingPolicy())
         .isEqualTo(instanceGroupManager.getAutoHealingPolicies().get(0));
     assertThat(serverGroup.getLaunchConfig()).containsKeys("createdTime");
 
     assertThat(serverGroup.getAccount()).isEqualTo(ACCOUNT_NAME);
-    assertThat(serverGroup.getRegional()).isFalse();
+    assertThat(serverGroup.getRegional()).isTrue();
     assertThat(serverGroup.getRegion()).isEqualTo(REGION);
-    assertThat(serverGroup.getZone()).isEqualTo(ZONE);
+    assertThat(serverGroup.getZone()).isNull();
     assertThat(serverGroup.getZones()).containsExactly(ZONE);
 
     assertThat(serverGroup.getNamedPorts())
@@ -169,7 +176,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
     InstanceGroupManager instanceGroupManager =
         new InstanceGroupManager()
             .setInstanceTemplate("http://compute/global/instanceTemplates/myInstanceTemplate")
-            .setZone(ZONE_URL);
+            .setRegion(REGION_URL);
     InstanceTemplate instanceTemplate =
         new InstanceTemplate()
             .setName("myInstanceTemplate")
@@ -230,7 +237,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
             .setInstanceGroupManagers(instanceGroupManager)
             .setInstanceTemplates(instanceTemplate)
             .create();
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
 
     CacheResult cacheResult = cachingAgent.loadData(providerCache);
 
@@ -274,7 +281,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
   @Test
   void serverGroupPropertiesFromInstances() {
     InstanceGroupManager instanceGroupManager =
-        new InstanceGroupManager().setBaseInstanceName("myServerGroup-").setZone(ZONE_URL);
+        new InstanceGroupManager().setBaseInstanceName("myServerGroup-").setRegion(REGION_URL);
     Instance serverInstance =
         new Instance()
             .setName("myServerGroup-1234")
@@ -306,7 +313,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
             .setInstances(serverInstance)
             .create();
 
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
 
     CacheResult cacheResult = cachingAgent.loadData(inMemoryProviderCache());
 
@@ -501,7 +508,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
     InstanceGroupManager instanceGroupManager =
         new InstanceGroupManager()
             .setInstanceTemplate("http://compute/global/instanceTemplates/myInstanceTemplate")
-            .setZone(ZONE_URL);
+            .setRegion(REGION_URL);
     InstanceTemplate instanceTemplate =
         new InstanceTemplate()
             .setName("myInstanceTemplate")
@@ -512,7 +519,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
             .setInstanceGroupManagers(instanceGroupManager)
             .setInstanceTemplates(instanceTemplate)
             .create();
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
 
     CacheResult cacheResult = cachingAgent.loadData(inMemoryProviderCache());
 
@@ -538,7 +545,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
     InstanceGroupManager instanceGroupManager =
         new InstanceGroupManager()
             .setInstanceTemplate("http://compute/global/instanceTemplates/myInstanceTemplate")
-            .setZone(ZONE_URL);
+            .setRegion(REGION_URL);
     InstanceTemplate instanceTemplate =
         new InstanceTemplate()
             .setName("myInstanceTemplate")
@@ -551,7 +558,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
             .setInstanceGroupManagers(instanceGroupManager)
             .setInstanceTemplates(instanceTemplate)
             .create();
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
 
     // If there are load balancers and target pools, then we not disabled
     instanceGroupManager.setTargetPools(ImmutableList.of("targetPool1"));
@@ -585,10 +592,13 @@ final class GoogleZonalServerGroupCachingAgentTest {
   void serverGroupAutoscalerProperties() {
 
     InstanceGroupManager instanceGroupManager =
-        new InstanceGroupManager().setName("myServerGroup").setTargetSize(303).setZone(ZONE_URL);
+        new InstanceGroupManager()
+            .setName("myServerGroup")
+            .setTargetSize(303)
+            .setRegion(REGION_URL);
     Autoscaler autoscaler =
         new Autoscaler()
-            .setZone(ZONE_URL)
+            .setRegion(REGION_URL)
             .setTarget("myServerGroup")
             .setAutoscalingPolicy(
                 new AutoscalingPolicy().setMinNumReplicas(101).setMaxNumReplicas(202))
@@ -602,7 +612,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
             .setInstanceGroupManagers(instanceGroupManager)
             .setAutoscalers(autoscaler)
             .create();
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
 
     // If there are load balancers and target pools, then we not disabled
     CacheResult cacheResult = cachingAgent.loadData(inMemoryProviderCache());
@@ -648,7 +658,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
 
     Moniker moniker = moniker("myServerGroup-prod-v001");
 
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
     CacheResult cacheResult = cachingAgent.loadData(inMemoryProviderCache());
 
     Collection<CacheData> applications = cacheResult.getCacheResults().get(APPLICATIONS.getNs());
@@ -785,7 +795,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
                 "cacheResults",
                 serverGroupCacheData("cachedInFutureProcessedData-v006")),
             ImmutableMap.of()));
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
 
     CacheResult cacheResult = cachingAgent.loadData(providerCache);
 
@@ -883,7 +893,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
                                 ImmutableMap.of("onDemandAttribute", "serverGroup"),
                                 instanceRelationshipFromOnDemandCache))))),
             ImmutableMap.of()));
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
 
     CacheResult cacheResult = cachingAgent.loadData(providerCache);
 
@@ -932,14 +942,14 @@ final class GoogleZonalServerGroupCachingAgentTest {
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(applicationKey));
     String clusterKey = Keys.getClusterKey(ACCOUNT_NAME, "cluster", "cluster");
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(clusterKey));
-    String loadBalancerKey = Keys.getLoadBalancerKey(REGION, ACCOUNT_NAME, "loadBalancer");
-    providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(loadBalancerKey));
-    String ownedServerGroupKey =
+    // TODO(plumpy): This is a bug! The server group agent thinks it owns load balancer keys!
+    // String loadBalancerKey = Keys.getLoadBalancerKey(REGION, ACCOUNT_NAME, "loadBalancer");
+    // providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(loadBalancerKey));
+    String zonalServerGroupKey =
         Keys.getServerGroupKey("mig1-v001", "mig1", ACCOUNT_NAME, REGION, ZONE);
+    providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(zonalServerGroupKey));
+    String ownedServerGroupKey = Keys.getServerGroupKey("mig2-v002", "mig2", ACCOUNT_NAME, REGION);
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(ownedServerGroupKey));
-    String regionalServerGroupKey =
-        Keys.getServerGroupKey("mig2-v002", "mig2", ACCOUNT_NAME, REGION);
-    providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(regionalServerGroupKey));
     String differentAccountServerGroupKey =
         Keys.getServerGroupKey("mig1-v001", "mig1", "someOtherAccount", REGION, ZONE);
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(differentAccountServerGroupKey));
@@ -947,7 +957,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
         Keys.getServerGroupKey("mig1-v001", "mig1", ACCOUNT_NAME, "someOtherRegion", ZONE);
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(differentRegionServerGroupKey));
 
-    GoogleZonalServerGroupCachingAgent cachingAgent =
+    GoogleRegionalServerGroupCachingAgent cachingAgent =
         createCachingAgent(new StubComputeFactory().create());
     Collection<Map> pendingRequests = cachingAgent.pendingOnDemandRequests(providerCache);
 
@@ -959,7 +969,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
   @Test
   void pendingOnDemandRequests_attributes() {
     ProviderCache providerCache = inMemoryProviderCache();
-    String key = Keys.getServerGroupKey("mig1-v001", "mig1", ACCOUNT_NAME, REGION, ZONE);
+    String key = Keys.getServerGroupKey("mig1-v001", "mig1", ACCOUNT_NAME, REGION);
     providerCache.putCacheData(
         ON_DEMAND.getNs(),
         cacheData(
@@ -970,7 +980,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
                 "processedCount", 3,
                 "processedTime", 67890)));
 
-    GoogleZonalServerGroupCachingAgent cachingAgent =
+    GoogleRegionalServerGroupCachingAgent cachingAgent =
         createCachingAgent(new StubComputeFactory().create());
     Collection<Map> pendingRequests = cachingAgent.pendingOnDemandRequests(providerCache);
 
@@ -990,19 +1000,19 @@ final class GoogleZonalServerGroupCachingAgentTest {
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(serverGroupKey("myServerGroup")));
 
     Compute compute = new StubComputeFactory().create();
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
     OnDemandResult result =
         cachingAgent.handle(
             providerCache,
             ImmutableMap.of(
                 "serverGroupName", "myServerGroup", "account", ACCOUNT_NAME, "region", REGION));
 
-    // Since there wasn't a matching server group under the provider cache's SERVER_GROUPS key, we
-    // leave the ON_DEMAND server group here.
-    assertThat(providerCache.get(ON_DEMAND.getNs(), serverGroupKey("myServerGroup"))).isNotNull();
+    assertThat(providerCache.get(ON_DEMAND.getNs(), serverGroupKey("myServerGroup"))).isNull();
 
     assertThat(result.getSourceAgentType()).isEqualTo(cachingAgent.getOnDemandAgentType());
-    assertThat(result.getEvictions().values()).allMatch(Collection::isEmpty);
+    assertThat(result.getEvictions())
+        .containsExactly(
+            entry(SERVER_GROUPS.getNs(), ImmutableList.of(serverGroupKey("myServerGroup"))));
     assertThat(result.getAuthoritativeTypes()).isEmpty();
     assertThat(result.getCacheResult().getCacheResults().values()).allMatch(Collection::isEmpty);
     assertThat(result.getCacheResult().getEvictions()).isEmpty();
@@ -1015,7 +1025,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
     providerCache.putCacheData(ON_DEMAND.getNs(), cacheData(serverGroupKey("myServerGroup")));
 
     Compute compute = new StubComputeFactory().create();
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
     OnDemandResult result =
         cachingAgent.handle(
             providerCache,
@@ -1045,7 +1055,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
                     .setInstanceTemplate(
                         "http://compute/global/instanceTemplates/my-instance-template"))
             .create();
-    GoogleZonalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
+    GoogleRegionalServerGroupCachingAgent cachingAgent = createCachingAgent(compute);
     ProviderCache providerCache = inMemoryProviderCache();
     OnDemandResult result =
         cachingAgent.handle(
@@ -1077,7 +1087,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
   @Test
   void pendingOnDemandRequestsPersistAcrossOneCachingCycle() {
 
-    GoogleZonalServerGroupCachingAgent cachingAgent =
+    GoogleRegionalServerGroupCachingAgent cachingAgent =
         createCachingAgent(
             new StubComputeFactory()
                 .setInstanceGroupManagers(instanceGroupManager("myservergroup-v001"))
@@ -1110,7 +1120,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
   private static void storeResultInProviderCache(
       CacheResult cacheResult,
       ProviderCache providerCache,
-      GoogleZonalServerGroupCachingAgent cachingAgent) {
+      GoogleRegionalServerGroupCachingAgent cachingAgent) {
 
     ImmutableSet<String> authoritativeTypes =
         cachingAgent.getProvidedDataTypes().stream()
@@ -1152,29 +1162,26 @@ final class GoogleZonalServerGroupCachingAgentTest {
         getOnlyElement(serverGroups).getAttributes(), GoogleServerGroup.class);
   }
 
-  public static GoogleZonalServerGroupCachingAgent createCachingAgent(Compute compute) {
-    return new GoogleZonalServerGroupCachingAgent(
+  public static GoogleRegionalServerGroupCachingAgent createCachingAgent(Compute compute) {
+    return new GoogleRegionalServerGroupCachingAgent(
+        "user-agent",
         new GoogleNamedAccountCredentials.Builder()
             .project(PROJECT)
             .name(ACCOUNT_NAME)
             .compute(compute)
             .regionToZonesMap(ImmutableMap.of(REGION, ImmutableList.of(ZONE)))
             .build(),
-        new GoogleComputeApiFactory(
-            new GoogleOperationPoller(),
-            new DefaultRegistry(),
-            "user-agent",
-            MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())),
+        new ObjectMapper(),
         new DefaultRegistry(),
         REGION,
-        new ObjectMapper());
+        /* maxMIGPageSize= */ 100);
   }
 
   private static InstanceGroupManager instanceGroupManager(String name) {
     return new InstanceGroupManager()
         .setName(name)
         .setBaseInstanceName(name + "-")
-        .setZone(ZONE_URL);
+        .setRegion(REGION_URL);
   }
 
   private static Instance instance(String name) {
@@ -1195,8 +1202,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
 
   private static String serverGroupKey(String serverGroupName) {
     Moniker moniker = moniker(serverGroupName);
-    return Keys.getServerGroupKey(
-        serverGroupName, moniker.getCluster(), ACCOUNT_NAME, REGION, ZONE);
+    return Keys.getServerGroupKey(serverGroupName, moniker.getCluster(), ACCOUNT_NAME, REGION);
   }
 
   private static String instanceKey(String instanceName) {
