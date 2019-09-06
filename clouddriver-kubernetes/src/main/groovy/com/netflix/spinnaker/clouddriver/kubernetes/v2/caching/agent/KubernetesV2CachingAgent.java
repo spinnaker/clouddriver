@@ -53,7 +53,6 @@ public abstract class KubernetesV2CachingAgent
   @Getter protected String providerName = KubernetesCloudProvider.ID;
 
   @Getter protected final Long agentInterval;
-  private ImmutableList<String> namespaces;
 
   protected KubernetesV2CachingAgent(
       KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
@@ -64,7 +63,6 @@ public abstract class KubernetesV2CachingAgent
       Long agentInterval) {
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
     this.agentInterval = agentInterval;
-    reloadNamespaces();
   }
 
   protected Map<String, Object> defaultIntrospectionDetails() {
@@ -131,7 +129,6 @@ public abstract class KubernetesV2CachingAgent
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
     log.info(getAgentType() + ": agent is starting");
-    reloadNamespaces();
     Map<String, Object> details = defaultIntrospectionDetails();
 
     try {
@@ -198,13 +195,8 @@ public abstract class KubernetesV2CachingAgent
   }
 
   protected ImmutableList<String> getNamespaces() {
-    return namespaces;
-  }
-
-  protected void reloadNamespaces() {
-    namespaces =
-        credentials.getDeclaredNamespaces().stream()
-            .filter(n -> agentCount == 1 || Math.abs(n.hashCode() % agentCount) == agentIndex)
-            .collect(ImmutableList.toImmutableList());
+    return credentials.getDeclaredNamespaces().stream()
+        .filter(n -> agentCount == 1 || Math.abs(n.hashCode() % agentCount) == agentIndex)
+        .collect(ImmutableList.toImmutableList());
   }
 }

@@ -70,8 +70,6 @@ public class KubernetesMetricCachingAgent extends KubernetesV2CachingAgent
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
     log.info(getAgentType() + ": agent is starting");
-    reloadNamespaces();
-
     List<KubernetesPodMetric> podMetrics =
         getNamespaces()
             .parallelStream()

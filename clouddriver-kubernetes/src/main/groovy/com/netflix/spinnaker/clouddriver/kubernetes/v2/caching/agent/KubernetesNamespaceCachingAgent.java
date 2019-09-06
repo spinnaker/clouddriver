@@ -53,8 +53,6 @@ public class KubernetesNamespaceCachingAgent extends KubernetesV2CachingAgent {
 
   @Override
   protected Map<KubernetesKind, List<KubernetesManifest>> loadPrimaryResourceList() {
-    reloadNamespaces();
-
     // TODO perf: Only load desired namespaces rather than filter all.
     Set<String> desired = new HashSet<>(this.getNamespaces());
     return Collections.singletonMap(
