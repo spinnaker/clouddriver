@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.google.provider.agent;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.IMAGES;
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.APPLICATIONS;
@@ -57,6 +58,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.netflix.spectator.api.DefaultRegistry;
+import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.AgentDataType.Authority;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -1071,6 +1074,52 @@ final class GoogleZonalServerGroupCachingAgentTest {
         .extracting(data -> data.getAttributes().get("name"))
         .containsExactly("myservergroup-v001");
     assertThat(result.getCacheResult().getEvictions()).isEmpty();
+  }
+
+  @Test
+  void pendingOnDemandRequestsPersistAcrossOneCachingCycle() {
+
+    GoogleZonalServerGroupCachingAgent cachingAgent =
+        createCachingAgent(
+            new StubComputeFactory()
+                .setInstanceGroupManagers(instanceGroupManager("myservergroup-v001"))
+                .create());
+
+    ProviderCache providerCache = inMemoryProviderCache();
+    cachingAgent.handle(
+        providerCache,
+        ImmutableMap.of(
+            "serverGroupName", "myservergroup-v001", "account", ACCOUNT_NAME, "region", REGION));
+
+    Collection<Map> pendingRequests = cachingAgent.pendingOnDemandRequests(providerCache);
+    assertThat(pendingRequests).hasSize(1);
+    assertThat(pendingRequests).extracting(map -> map.get("processedCount")).containsExactly(0);
+
+    CacheResult cacheResult = cachingAgent.loadData(providerCache);
+    storeResultInProviderCache(cacheResult, providerCache, cachingAgent);
+
+    pendingRequests = cachingAgent.pendingOnDemandRequests(providerCache);
+    assertThat(pendingRequests).hasSize(1);
+    assertThat(pendingRequests).extracting(map -> map.get("processedCount")).containsExactly(1);
+
+    cacheResult = cachingAgent.loadData(providerCache);
+    storeResultInProviderCache(cacheResult, providerCache, cachingAgent);
+
+    pendingRequests = cachingAgent.pendingOnDemandRequests(providerCache);
+    assertThat(pendingRequests).isEmpty();
+  }
+
+  private static void storeResultInProviderCache(
+      CacheResult cacheResult,
+      ProviderCache providerCache,
+      GoogleZonalServerGroupCachingAgent cachingAgent) {
+
+    ImmutableSet<String> authoritativeTypes =
+        cachingAgent.getProvidedDataTypes().stream()
+            .filter(type -> type.getAuthority().equals(Authority.AUTHORITATIVE))
+            .map(AgentDataType::getTypeName)
+            .collect(toImmutableSet());
+    providerCache.putCacheResult(cachingAgent.getAgentType(), authoritativeTypes, cacheResult);
   }
 
   private static CacheData cacheData(String key) {
