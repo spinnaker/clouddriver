@@ -52,6 +52,7 @@ public abstract class KubernetesV2CachingAgent
   @Getter protected String providerName = KubernetesCloudProvider.ID;
 
   @Getter protected final Long agentInterval;
+  protected List<String> namespaces;
 
   protected KubernetesV2CachingAgent(
       KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
@@ -62,6 +63,7 @@ public abstract class KubernetesV2CachingAgent
       Long agentInterval) {
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount);
     this.agentInterval = agentInterval;
+    reloadNamespaces();
   }
 
   protected Map<String, Object> defaultIntrospectionDetails() {
@@ -192,5 +194,16 @@ public abstract class KubernetesV2CachingAgent
               }
             });
     return result;
+  }
+
+  public List<String> getNamespaces() {
+    return namespaces;
+  }
+
+  protected void reloadNamespaces() {
+    namespaces =
+        credentials.getDeclaredNamespaces().stream()
+            .filter(n -> agentCount == 1 || Math.abs(n.hashCode() % agentCount) == agentIndex)
+            .collect(Collectors.toList());
   }
 }
