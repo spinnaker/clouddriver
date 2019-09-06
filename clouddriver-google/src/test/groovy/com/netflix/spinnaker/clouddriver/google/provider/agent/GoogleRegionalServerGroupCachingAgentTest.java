@@ -58,6 +58,7 @@ import com.google.api.services.compute.model.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.netflix.spectator.api.DefaultRegistry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.AgentDataType.Authority;
@@ -69,6 +70,8 @@ import com.netflix.spinnaker.cats.provider.DefaultProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent.OnDemandResult;
 import com.netflix.spinnaker.clouddriver.google.cache.Keys;
+import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeApiFactory;
+import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup;
@@ -82,6 +85,7 @@ import java.math.BigInteger;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -1164,17 +1168,20 @@ final class GoogleRegionalServerGroupCachingAgentTest {
 
   public static GoogleRegionalServerGroupCachingAgent createCachingAgent(Compute compute) {
     return new GoogleRegionalServerGroupCachingAgent(
-        "user-agent",
         new GoogleNamedAccountCredentials.Builder()
             .project(PROJECT)
             .name(ACCOUNT_NAME)
             .compute(compute)
             .regionToZonesMap(ImmutableMap.of(REGION, ImmutableList.of(ZONE)))
             .build(),
-        new ObjectMapper(),
+        new GoogleComputeApiFactory(
+            new GoogleOperationPoller(),
+            new DefaultRegistry(),
+            "user-agent",
+            MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())),
         new DefaultRegistry(),
         REGION,
-        /* maxMIGPageSize= */ 100);
+        new ObjectMapper());
   }
 
   private static InstanceGroupManager instanceGroupManager(String name) {

@@ -514,14 +514,23 @@ abstract class AbstractGoogleServerGroupCachingAgent
       throws IOException;
 
   @Value
-  private static class TargetAndZone {
+  private static class TargetAndScope {
     String target;
+    @Nullable String region;
+    @Nullable String zone;
 
-    String zone;
+    static TargetAndScope forAutoscaler(Autoscaler autoscaler) {
+      return new TargetAndScope(
+          Utils.getLocalName(autoscaler.getTarget()),
+          Utils.getLocalName(autoscaler.getRegion()),
+          Utils.getLocalName(autoscaler.getZone()));
+    }
 
-    static TargetAndZone forAutoscaler(Autoscaler autoscaler) {
-      return new TargetAndZone(
-          Utils.getLocalName(autoscaler.getTarget()), Utils.getLocalName(autoscaler.getZone()));
+    static TargetAndScope forInstanceGroupManager(InstanceGroupManager manager) {
+      return new TargetAndScope(
+          manager.getName(),
+          Utils.getLocalName(manager.getRegion()),
+          Utils.getLocalName(manager.getZone()));
     }
   }
 
@@ -532,15 +541,14 @@ abstract class AbstractGoogleServerGroupCachingAgent
       Collection<InstanceTemplate> instanceTemplates,
       Collection<Autoscaler> autoscalers) {
 
-    Map<TargetAndZone, Autoscaler> autoscalerMap =
+    Map<TargetAndScope, Autoscaler> autoscalerMap =
         autoscalers.stream()
-            .collect(toImmutableMap(TargetAndZone::forAutoscaler, scaler -> scaler));
+            .collect(toImmutableMap(TargetAndScope::forAutoscaler, scaler -> scaler));
     Map<String, InstanceTemplate> instanceTemplatesMap =
         instanceTemplates.stream().collect(toImmutableMap(InstanceTemplate::getName, i -> i));
     return managers.stream()
         .map(
             manager -> {
-              String zone = Utils.getLocalName(manager.getZone());
               ImmutableSet<GoogleInstance> ownedInstances = ImmutableSet.of();
               if (manager.getBaseInstanceName() != null) {
                 ownedInstances =
@@ -548,10 +556,10 @@ abstract class AbstractGoogleServerGroupCachingAgent
                         .filter(
                             instance ->
                                 instance.getName().startsWith(manager.getBaseInstanceName()))
-                        .filter(instance -> zone.equals(instance.getZone()))
+                        .filter(instance -> instanceScopedToManager(instance, manager))
                         .collect(toImmutableSet());
               }
-              TargetAndZone key = new TargetAndZone(manager.getName(), zone);
+              TargetAndScope key = TargetAndScope.forInstanceGroupManager(manager);
               Autoscaler autoscaler = autoscalerMap.get(key);
               InstanceTemplate instanceTemplate =
                   instanceTemplatesMap.get(Utils.getLocalName(manager.getInstanceTemplate()));
@@ -559,6 +567,16 @@ abstract class AbstractGoogleServerGroupCachingAgent
                   manager, ownedInstances, instanceTemplate, autoscaler, providerCache);
             })
         .collect(toImmutableList());
+  }
+
+  private boolean instanceScopedToManager(GoogleInstance instance, InstanceGroupManager manager) {
+    if (manager.getZone() == null) {
+      // For a regional manager, all zones are in scope. (All zones in the region, anyway, which are
+      // the only instances we retrieved.)
+      return true;
+    } else {
+      return Utils.getLocalName(manager.getZone()).equals(instance.getZone());
+    }
   }
 
   private GoogleServerGroup createServerGroup(
