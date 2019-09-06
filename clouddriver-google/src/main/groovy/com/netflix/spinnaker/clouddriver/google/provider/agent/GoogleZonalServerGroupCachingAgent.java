@@ -72,6 +72,7 @@ import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider;
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder;
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder.CacheDataBuilder;
 import com.netflix.spinnaker.clouddriver.google.cache.Keys;
+import com.netflix.spinnaker.clouddriver.google.compute.BatchComputeRequest;
 import com.netflix.spinnaker.clouddriver.google.compute.BatchPaginatedComputeRequest;
 import com.netflix.spinnaker.clouddriver.google.compute.GetFirstBatchComputeRequest;
 import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeApiFactory;
@@ -256,13 +257,8 @@ public final class GoogleZonalServerGroupCachingAgent
         return new OnDemandResult(
             getOnDemandAgentType(), result, /* evictions= */ ImmutableMap.of());
       } else {
-        // If we didn't find this  server group, look for any existing ON_DEMAND entries for it (in
-        // any zone) and evict them.
-        String serverGroupKey =
-            Keys.getServerGroupKey(
-                serverGroupName, /* cluster= */ null, getAccountName(), region, /* zone= */ "*");
         Collection<String> existingIdentifiers =
-            providerCache.filterIdentifiers(SERVER_GROUPS.getNs(), serverGroupKey);
+            getOnDemandKeysToEvictForMissingServerGroup(providerCache, serverGroupName);
         providerCache.evictDeletedItems(ON_DEMAND.getNs(), existingIdentifiers);
         return new OnDemandResult(
             getOnDemandAgentType(),
@@ -273,6 +269,22 @@ public final class GoogleZonalServerGroupCachingAgent
       // CatsOnDemandCacheUpdater handles this
       throw new UncheckedIOException(e);
     }
+  }
+
+  /**
+   * Return the keys that will be evicted from the on-demand cache if the given serverGroupName
+   * can't be found in the region.
+   */
+  // @Override
+  Collection<String> getOnDemandKeysToEvictForMissingServerGroup(
+      ProviderCache providerCache, String serverGroupName) {
+    // If we didn't find this  server group, look for any existing ON_DEMAND entries for it (in
+    // any zone) and evict them.
+    // TODO(plumpy): I think this is a bug and SERVER_GROUPS should be ON_DEMAND.
+    String serverGroupKey =
+        Keys.getServerGroupKey(
+            serverGroupName, /* cluster= */ null, getAccountName(), getRegion(), /* zone= */ "*");
+    return providerCache.filterIdentifiers(SERVER_GROUPS.getNs(), serverGroupKey);
   }
 
   @Override
@@ -298,9 +310,19 @@ public final class GoogleZonalServerGroupCachingAgent
 
   private boolean keyOwnedByThisAgent(String key) {
     Map<String, String> parsedKey = Keys.parse(key);
-    return parsedKey != null
-        && getAccountName().equals(parsedKey.get("account"))
-        && region.equals(parsedKey.get("region"))
+    // TODO(plumpy): check that the key type is SERVER_GROUPS
+    return parsedKey != null && keyOwnedByThisAgent(parsedKey);
+  }
+
+  /**
+   * Return whether or not the parsed key data (as returned from {@link
+   * Keys#parseKey(java.lang.String)} is a key that is "owned" by this caching agent. The key type
+   * will be checked before this method is called.
+   */
+  // @Override
+  boolean keyOwnedByThisAgent(Map<String, String> parsedKey) {
+    return getAccountName().equals(parsedKey.get("account"))
+        && getRegion().equals(parsedKey.get("region"))
         && parsedKey.get("zone") != null;
   }
 
@@ -435,84 +457,70 @@ public final class GoogleZonalServerGroupCachingAgent
 
   private List<GoogleServerGroup> getServerGroups(ProviderCache providerCache) throws IOException {
 
-    Collection<String> zones =
-        Optional.ofNullable(credentials.getZonesFromRegion(region)).orElse(ImmutableList.of());
-
-    ZoneInstanceGroupManagers managersApi =
-        computeApiFactory.createZoneInstanceGroupManagers(credentials);
-    Instances instancesApi = computeApiFactory.createInstances(credentials);
-    InstanceTemplates instanceTemplatesApi = computeApiFactory.createInstanceTemplates(credentials);
-    ZoneAutoscalers autoscalersApi = computeApiFactory.createZoneAutoscalers(credentials);
-
-    BatchPaginatedComputeRequest<InstanceGroupManagers.List, InstanceGroupManager>
-        zoneManagersRequest = computeApiFactory.createPaginatedBatchRequest(credentials);
-    BatchPaginatedComputeRequest<Compute.Instances.List, Instance> instancesRequest =
-        computeApiFactory.createPaginatedBatchRequest(credentials);
-    BatchPaginatedComputeRequest<Compute.Autoscalers.List, Autoscaler> autoscalersRequest =
-        computeApiFactory.createPaginatedBatchRequest(credentials);
-
-    zones.forEach(
-        zone -> {
-          zoneManagersRequest.queue(managersApi.list(zone));
-          instancesRequest.queue(instancesApi.list(zone));
-          autoscalersRequest.queue(autoscalersApi.list(zone));
-        });
-
-    Collection<InstanceGroupManager> managers =
-        zoneManagersRequest.execute("ZonalServerGroupCaching.igm");
-    Collection<GoogleInstance> instances =
-        instancesRequest.execute("ZonalServerGroupCaching.instance").stream()
+    ImmutableList<GoogleInstance> instances =
+        retrieveAllInstancesInRegion().stream()
             .map(instance -> GoogleInstances.createFromComputeInstance(instance, credentials))
             .collect(toImmutableList());
-    Collection<Autoscaler> autoscalers =
-        autoscalersRequest.execute("ZonalServerGroupCaching.autoscaler");
-    Collection<InstanceTemplate> instanceTemplates = instanceTemplatesApi.list().execute();
-
     return constructServerGroups(
-        providerCache, managers, instances, instanceTemplates, autoscalers);
+        providerCache,
+        retrieveInstanceGroupManagers(),
+        instances,
+        retrieveInstanceTemplates(),
+        retrieveAutoscalers());
+  }
+
+  /**
+   * Return all the instance group managers in this region that are handled by this caching agent.
+   */
+  // @Override
+  Collection<InstanceGroupManager> retrieveInstanceGroupManagers() throws IOException {
+
+    ZoneInstanceGroupManagers managersApi =
+        getComputeApiFactory().createZoneInstanceGroupManagers(getCredentials());
+    BatchPaginatedComputeRequest<InstanceGroupManagers.List, InstanceGroupManager> request =
+        getComputeApiFactory().createPaginatedBatchRequest(getCredentials());
+
+    getZonesForRegion().forEach(zone -> request.queue(managersApi.list(zone)));
+
+    return request.execute(getBatchContext("igm"));
+  }
+
+  /**
+   * Return all the autoscalers in this region that might apply to instance group managers returned
+   * from {@link #retrieveInstanceGroupManagers()}.
+   */
+  // @Override
+  Collection<Autoscaler> retrieveAutoscalers() throws IOException {
+
+    ZoneAutoscalers autoscalersApi = getComputeApiFactory().createZoneAutoscalers(getCredentials());
+    BatchPaginatedComputeRequest<Compute.Autoscalers.List, Autoscaler> request =
+        getComputeApiFactory().createPaginatedBatchRequest(getCredentials());
+
+    getZonesForRegion().forEach(zone -> request.queue(autoscalersApi.list(zone)));
+
+    return request.execute(getBatchContext("autoscaler"));
   }
 
   private Optional<GoogleServerGroup> getServerGroup(String name, ProviderCache providerCache) {
 
-    Collection<String> zones = credentials.getZonesFromRegion(region);
-    if (zones == null) {
-      return Optional.empty();
-    }
-
-    ZoneInstanceGroupManagers managersApi =
-        computeApiFactory.createZoneInstanceGroupManagers(credentials);
-    Instances instancesApi = computeApiFactory.createInstances(credentials);
     InstanceTemplates instanceTemplatesApi = computeApiFactory.createInstanceTemplates(credentials);
-    ZoneAutoscalers autoscalersApi = computeApiFactory.createZoneAutoscalers(credentials);
-
-    GetFirstBatchComputeRequest<Get, InstanceGroupManager> zoneManagersRequest =
-        GetFirstBatchComputeRequest.create(computeApiFactory.createBatchRequest(credentials));
 
     try {
-      for (String zone : zones) {
-        zoneManagersRequest.queue(managersApi.get(zone, name));
-      }
-      Optional<InstanceGroupManager> managerOpt =
-          zoneManagersRequest.execute("ZonalServerGroupCaching.igm");
+      Optional<InstanceGroupManager> managerOpt = retrieveInstanceGroupManager(name);
 
       if (!managerOpt.isPresent()) {
         return Optional.empty();
       }
 
       InstanceGroupManager manager = managerOpt.get();
-      checkState(
-          !isNullOrEmpty(manager.getZone()),
-          "Managed instance group %s did not have a zone.",
-          manager.getName());
-      String zone = Utils.getLocalName(manager.getZone());
 
       List<GoogleInstance> instances =
-          instancesApi.list(zone).execute().stream()
+          retrieveRelevantInstances(manager).stream()
               .map(instance -> GoogleInstances.createFromComputeInstance(instance, credentials))
               .collect(toImmutableList());
 
-      Optional<Autoscaler> autoscaler = autoscalersApi.get(zone, manager.getName()).executeGet();
-      List<Autoscaler> autoscalers = autoscaler.map(ImmutableList::of).orElse(ImmutableList.of());
+      List<Autoscaler> autoscalers =
+          retrieveAutoscaler(manager).map(ImmutableList::of).orElse(ImmutableList.of());
 
       List<InstanceTemplate> instanceTemplates = new ArrayList<>();
       if (manager.getInstanceTemplate() != null) {
@@ -529,6 +537,51 @@ public final class GoogleZonalServerGroupCachingAgent
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  /**
+   * Retrieve the instance group manager named {@code name} that is managed by this caching agent.
+   */
+  // @Override
+  Optional<InstanceGroupManager> retrieveInstanceGroupManager(String name) throws IOException {
+
+    ZoneInstanceGroupManagers managersApi =
+        getComputeApiFactory().createZoneInstanceGroupManagers(getCredentials());
+    GetFirstBatchComputeRequest<Get, InstanceGroupManager> request =
+        GetFirstBatchComputeRequest.create(
+            getComputeApiFactory().createBatchRequest(getCredentials()));
+    for (String zone : getZonesForRegion()) {
+      request.queue(managersApi.get(zone, name));
+    }
+    return request.execute(getBatchContext("igm"));
+  }
+
+  /** Retrieve the autoscaler that handles scaling for {@code manager}. */
+  // @Override
+  Optional<Autoscaler> retrieveAutoscaler(InstanceGroupManager manager) throws IOException {
+
+    ZoneAutoscalers autoscalersApi = getComputeApiFactory().createZoneAutoscalers(getCredentials());
+    return autoscalersApi.get(getZone(manager), manager.getName()).executeGet();
+  }
+
+  /**
+   * Retrieve all instances in this region that <em>may</em> be managed by {@code manager}. A later
+   * step will winnow these down, so this should be a superset of those instances.
+   */
+  // @Override
+  Collection<Instance> retrieveRelevantInstances(InstanceGroupManager manager) throws IOException {
+
+    Instances instancesApi = getComputeApiFactory().createInstances(getCredentials());
+    return instancesApi.list(getZone(manager)).execute().stream().collect(toImmutableList());
+  }
+
+  private String getZone(InstanceGroupManager manager) {
+
+    checkState(
+        !isNullOrEmpty(manager.getZone()),
+        "Managed instance group %s did not have a zone.",
+        manager.getName());
+    return Utils.getLocalName(manager.getZone());
   }
 
   @Value
@@ -885,6 +938,39 @@ public final class GoogleZonalServerGroupCachingAgent
         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
+  Collection<Instance> retrieveAllInstancesInRegion() throws IOException {
+
+    Instances instancesApi = computeApiFactory.createInstances(credentials);
+    BatchPaginatedComputeRequest<Compute.Instances.List, Instance> instancesRequest =
+        computeApiFactory.createPaginatedBatchRequest(credentials);
+
+    getZonesForRegion().forEach(zone -> instancesRequest.queue(instancesApi.list(zone)));
+
+    return instancesRequest.execute(getBatchContext(".instance"));
+  }
+
+  private Collection<InstanceTemplate> retrieveInstanceTemplates() throws IOException {
+    InstanceTemplates instanceTemplatesApi = computeApiFactory.createInstanceTemplates(credentials);
+    return instanceTemplatesApi.list().execute();
+  }
+
+  Collection<String> getZonesForRegion() {
+    return Optional.ofNullable(credentials.getZonesFromRegion(region)).orElse(ImmutableList.of());
+  }
+
+  String getBatchContext(String subcontext) {
+    return String.join(".", getBatchContextPrefix(), subcontext);
+  }
+
+  /**
+   * Get the first part of the batch context that will be passed to the {@link BatchComputeRequest
+   * batch requests} used by this caching agent.
+   */
+  // @Override
+  String getBatchContextPrefix() {
+    return "ZonalServerGroupCaching";
+  }
+
   @Override
   public String getProviderName() {
     return GoogleInfrastructureProvider.class.getName();
@@ -913,5 +999,17 @@ public final class GoogleZonalServerGroupCachingAgent
   @Override
   public String getAccountName() {
     return credentials.getName();
+  }
+
+  private GoogleNamedAccountCredentials getCredentials() {
+    return credentials;
+  }
+
+  private GoogleComputeApiFactory getComputeApiFactory() {
+    return computeApiFactory;
+  }
+
+  private String getRegion() {
+    return region;
   }
 }
