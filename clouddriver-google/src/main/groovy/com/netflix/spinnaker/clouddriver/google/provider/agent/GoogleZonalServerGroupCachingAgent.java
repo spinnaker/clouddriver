@@ -689,7 +689,7 @@ public final class GoogleZonalServerGroupCachingAgent
         if (instanceTemplate.getProperties().getMinCpuPlatform() != null) {
           launchConfig.put("minCpuPlatform", instanceTemplate.getProperties().getMinCpuPlatform());
         }
-        setSourceImage(serverGroup, launchConfig, disks, credentials, providerCache);
+        setSourceImage(serverGroup, launchConfig, disks, providerCache);
       }
     }
     serverGroup.setLaunchConfig(copyToImmutableMapWithoutNullValues(launchConfig));
@@ -719,11 +719,10 @@ public final class GoogleZonalServerGroupCachingAgent
     return sortedDisks.build();
   }
 
-  private static void setSourceImage(
+  private void setSourceImage(
       GoogleServerGroup serverGroup,
       Map<String, Object> launchConfig,
       List<AttachedDisk> disks,
-      GoogleNamedAccountCredentials credentials,
       ProviderCache providerCache) {
 
     if (disks.isEmpty()) {
