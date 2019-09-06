@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentIntervalAware;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -52,7 +53,7 @@ public abstract class KubernetesV2CachingAgent
   @Getter protected String providerName = KubernetesCloudProvider.ID;
 
   @Getter protected final Long agentInterval;
-  protected List<String> namespaces;
+  private ImmutableList<String> namespaces;
 
   protected KubernetesV2CachingAgent(
       KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
@@ -68,7 +69,7 @@ public abstract class KubernetesV2CachingAgent
 
   protected Map<String, Object> defaultIntrospectionDetails() {
     Map<String, Object> result = new HashMap<>();
-    result.put("namespaces", namespaces);
+    result.put("namespaces", getNamespaces());
     result.put("kinds", primaryKinds());
     return result;
   }
@@ -77,7 +78,7 @@ public abstract class KubernetesV2CachingAgent
 
   protected Map<KubernetesKind, List<KubernetesManifest>> loadPrimaryResourceList() {
     Map<KubernetesKind, List<KubernetesManifest>> result =
-        namespaces
+        getNamespaces()
             .parallelStream()
             .map(
                 n -> {
@@ -196,7 +197,7 @@ public abstract class KubernetesV2CachingAgent
     return result;
   }
 
-  public List<String> getNamespaces() {
+  protected ImmutableList<String> getNamespaces() {
     return namespaces;
   }
 
@@ -204,6 +205,6 @@ public abstract class KubernetesV2CachingAgent
     namespaces =
         credentials.getDeclaredNamespaces().stream()
             .filter(n -> agentCount == 1 || Math.abs(n.hashCode() % agentCount) == agentIndex)
-            .collect(Collectors.toList());
+            .collect(ImmutableList.toImmutableList());
   }
 }

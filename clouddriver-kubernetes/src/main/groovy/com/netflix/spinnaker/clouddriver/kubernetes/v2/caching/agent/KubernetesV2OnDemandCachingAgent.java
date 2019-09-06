@@ -313,7 +313,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     }
 
     reloadNamespaces();
-    if (!StringUtils.isEmpty(namespace) && !namespaces.contains(namespace)) {
+    if (!StringUtils.isEmpty(namespace) && !getNamespaces().contains(namespace)) {
       return null;
     }
 

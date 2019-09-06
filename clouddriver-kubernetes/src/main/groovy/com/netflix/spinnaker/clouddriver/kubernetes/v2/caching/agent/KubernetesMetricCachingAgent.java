@@ -73,7 +73,7 @@ public class KubernetesMetricCachingAgent extends KubernetesV2CachingAgent
     reloadNamespaces();
 
     List<KubernetesPodMetric> podMetrics =
-        namespaces
+        getNamespaces()
             .parallelStream()
             .map(
                 n -> {
