@@ -292,9 +292,30 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return getKindStatus(kind) == KubernetesKindStatus.VALID;
   }
 
+  /**
+   * Returns the status of a given kubernetes kind with respect to the current account. Checks of
+   * whether a kind is readable are cached for the lifetime of the process (and are only performed
+   * when a kind is otherwise considered valid for the account).
+   */
   @Nonnull
   public KubernetesKindStatus getKindStatus(@Nonnull KubernetesKind kind) {
-    return permissionValidator.getKindStatus(kind);
+    if (kind.equals(KubernetesKind.NONE)) {
+      return KubernetesKindStatus.KIND_NONE;
+    }
+
+    if (!kinds.isEmpty()) {
+      return kinds.contains(kind)
+          ? KubernetesKindStatus.VALID
+          : KubernetesKindStatus.MISSING_FROM_ALLOWED_KINDS;
+    }
+
+    if (omitKinds.contains(kind)) {
+      return KubernetesKindStatus.EXPLICITLY_OMITTED_BY_CONFIGURATION;
+    }
+
+    return permissionValidator.isKindReadable(kind)
+        ? KubernetesKindStatus.VALID
+        : KubernetesKindStatus.READ_ERROR;
   }
 
   public String getDefaultNamespace() {
@@ -576,8 +597,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   /**
-   * Handles validating whether kubernetes kinds should be cached by the current account, and
-   * whether metrics are enabled for the account.
+   * Handles validating which kubernetes kinds the current account has permission to read, as well
+   * as whether the current account has permission to read pod metrics.
    */
   private class PermissionValidator {
     private final Supplier<String> checkNamespace = Suppliers.memoize(this::computeCheckNamespace);
@@ -663,29 +684,12 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
 
     /**
-     * Returns the status of a given kubernetes kind with respect to the current account. Checks of
-     * whether a kind is readable are cached for the lifetime of the process (and are only performed
-     * when a kind is otherwise considered valid for the account).
+     * Returns whether the given kind is readable for the current kubernetes account. This check is
+     * cached for each kind for the lifetime of the process, and subsequent calls return the cached
+     * value.
      */
-    @Nonnull
-    KubernetesKindStatus getKindStatus(@Nonnull KubernetesKind kind) {
-      if (kind.equals(KubernetesKind.NONE)) {
-        return KubernetesKindStatus.KIND_NONE;
-      }
-
-      if (!kinds.isEmpty()) {
-        return kinds.contains(kind)
-            ? KubernetesKindStatus.VALID
-            : KubernetesKindStatus.MISSING_FROM_ALLOWED_KINDS;
-      }
-
-      if (omitKinds.contains(kind)) {
-        return KubernetesKindStatus.EXPLICITLY_OMITTED_BY_CONFIGURATION;
-      }
-
-      return readableKinds.computeIfAbsent(kind, this::canReadKind)
-          ? KubernetesKindStatus.VALID
-          : KubernetesKindStatus.READ_ERROR;
+    boolean isKindReadable(@Nonnull KubernetesKind kind) {
+      return readableKinds.computeIfAbsent(kind, this::canReadKind);
     }
 
     /**
