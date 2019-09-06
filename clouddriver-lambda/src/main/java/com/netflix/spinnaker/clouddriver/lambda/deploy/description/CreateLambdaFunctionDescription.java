@@ -43,4 +43,6 @@ public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescr
   Map<String, String> envVariables;
   List<String> subnetIds;
   List<String> securityGroupIds;
+
+  String targetGroup;
 }

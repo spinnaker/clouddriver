@@ -16,15 +16,20 @@
 
 package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
+import com.amazonaws.services.elasticloadbalancingv2.model.*;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.*;
 import com.netflix.frigga.Names;
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.CreateLambdaFunctionDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.UUID;
 
 public class CreateLambdaAtomicOperation
     extends AbstractLambdaAtomicOperation<CreateLambdaFunctionDescription, CreateFunctionResult>
@@ -83,6 +88,14 @@ public class CreateLambdaAtomicOperation
 
     CreateFunctionResult result = client.createFunction(request);
     updateTaskStatus("Finished Creation of AWS Lambda Function Operation...");
+    if (description.getTargetGroup() != null && !description.getTargetGroup().isEmpty()) {
+
+      updateTaskStatus(
+          String.format(
+              "Started registering lambda to targetGroup (%s)", description.getTargetGroup()));
+      String functionArn = result.getFunctionArn();
+      registerTargetGroup(functionArn, client);
+    }
 
     return result;
   }
@@ -91,5 +104,64 @@ public class CreateLambdaAtomicOperation
     return Names.parseName(functionName).getApp().equals(appName)
         ? functionName
         : (appName + "-" + functionName);
+  }
+
+  private RegisterTargetsResult registerTargetGroup(String functionArn, AWSLambda lambdaClient) {
+
+    AmazonElasticLoadBalancing loadBalancingV2 = getAmazonElasticLoadBalancingClient();
+    TargetGroup targetGroup = retrieveTargetGroup(loadBalancingV2);
+
+    AddPermissionRequest addPermissionRequest =
+        new AddPermissionRequest()
+            .withFunctionName(functionArn)
+            .withAction("lambda:InvokeFunction")
+            .withSourceArn(targetGroup.getTargetGroupArn())
+            .withPrincipal("elasticloadbalancing.amazonaws.com")
+            .withStatementId(UUID.randomUUID().toString());
+
+    lambdaClient.addPermission(addPermissionRequest);
+
+    updateTaskStatus(
+        String.format(
+            "Lambda (%s) invoke permissions added to Target group (%s).",
+            functionArn, targetGroup.getTargetGroupArn()));
+
+    RegisterTargetsResult result =
+        loadBalancingV2.registerTargets(
+            new RegisterTargetsRequest()
+                .withTargets(new TargetDescription().withId(functionArn))
+                .withTargetGroupArn(targetGroup.getTargetGroupArn()));
+
+    updateTaskStatus(
+        String.format(
+            "Registered the Lambda (%s) with Target group (%s).",
+            functionArn, targetGroup.getTargetGroupArn()));
+    return result;
+  }
+
+  private TargetGroup retrieveTargetGroup(AmazonElasticLoadBalancing loadBalancingV2) {
+
+    DescribeTargetGroupsRequest request =
+        new DescribeTargetGroupsRequest().withNames(description.getTargetGroup());
+    DescribeTargetGroupsResult describeTargetGroupsResult =
+        loadBalancingV2.describeTargetGroups(request);
+
+    if (describeTargetGroupsResult.getTargetGroups().size() == 1) {
+      return describeTargetGroupsResult.getTargetGroups().get(0);
+    } else if (describeTargetGroupsResult.getTargetGroups().size() > 1) {
+      throw new IllegalArgumentException(
+          "There are multiple target groups with the name " + description.getTargetGroup() + ".");
+    } else {
+      throw new IllegalArgumentException(
+          "There is no target group with the name " + description.getTargetGroup() + ".");
+    }
+  }
+
+  private AmazonElasticLoadBalancing getAmazonElasticLoadBalancingClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    NetflixAmazonCredentials credentialAccount = description.getCredentials();
+
+    return amazonClientProvider.getAmazonElasticLoadBalancingV2(
+        credentialAccount, getRegion(), false);
   }
 }
