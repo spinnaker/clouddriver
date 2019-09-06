@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static lombok.EqualsAndHashCode.Include;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -78,9 +79,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Include @Getter private final List<String> omitNamespaces;
 
-  @Include private final Set<KubernetesKind> kinds;
+  @Include private final ImmutableSet<KubernetesKind> kinds;
 
-  @Include private final Set<KubernetesKind> omitKinds;
+  @Include private final ImmutableSet<KubernetesKind> omitKinds;
 
   @Include @Getter private final List<CustomKubernetesResource> customResources;
 
@@ -117,7 +118,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final Supplier<List<KubernetesKind>> liveCrdSupplier;
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
   @Getter private final KubernetesKindRegistry kindRegistry;
-  private final KindValidator kindValidator;
+  private final PermissionValidator permissionValidator;
 
   public KubernetesV2Credentials(
       Registry registry,
@@ -148,14 +149,14 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                           return new KubernetesKindProperties(k, true, false, true);
                         }))
             .map(KubernetesKindProperties::getKubernetesKind)
-            .collect(ImmutableSet.toImmutableSet());
+            .collect(toImmutableSet());
     // omitKinds is a simple placeholder that we can use to compare one instance to another
     // when refreshing credentials.
     this.omitKinds =
         managedAccount.getOmitKinds().stream()
             .map(KubernetesKind::fromString)
-            .collect(ImmutableSet.toImmutableSet());
-    this.kindValidator = new KindValidator(this.kinds, this.omitKinds);
+            .collect(toImmutableSet());
+    this.permissionValidator = new PermissionValidator();
 
     this.customResources = managedAccount.getCustomResources();
 
@@ -293,7 +294,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Nonnull
   public KubernetesKindStatus getKindStatus(@Nonnull KubernetesKind kind) {
-    return kindValidator.getKindStatus(kind);
+    return permissionValidator.getKindStatus(kind);
   }
 
   public String getDefaultNamespace() {
@@ -367,7 +368,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   public boolean isMetricsEnabled() {
-    return metrics && kindValidator.isMetricsReadable();
+    return metrics && permissionValidator.isMetricsReadable();
   }
 
   public KubernetesManifest get(KubernetesKind kind, String namespace, String name) {
@@ -578,18 +579,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
    * Handles validating whether kubernetes kinds should be cached by the current account, and
    * whether metrics are enabled for the account.
    */
-  private class KindValidator {
+  private class PermissionValidator {
     private final Supplier<String> checkNamespace = Suppliers.memoize(this::computeCheckNamespace);
     private final Map<KubernetesKind, Boolean> readableKinds = new ConcurrentHashMap<>();
     private final Supplier<Boolean> metricsReadable = Suppliers.memoize(this::checkMetricsReadable);
-
-    private final Set<KubernetesKind> kinds;
-    private final Set<KubernetesKind> omitKinds;
-
-    KindValidator(Set<KubernetesKind> kinds, Set<KubernetesKind> omitKinds) {
-      this.kinds = kinds;
-      this.omitKinds = omitKinds;
-    }
 
     private String getCheckNamespace() {
       return checkNamespace.get();
@@ -600,17 +593,17 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
       if (namespaces.isEmpty()) {
         log.warn(
-            "There are no namespaces configured (or loadable) -- please check that the list of 'omitNamespaces' for account '"
-                + accountName
-                + "' doesn't prevent access from all namespaces in this cluster, or that the cluster is reachable.");
+            "There are no namespaces configured (or loadable) -- please check that the list of"
+                + " 'omitNamespaces' for account '{}' doesn't prevent access from all namespaces"
+                + " in this cluster, or that the cluster is reachable.",
+            accountName);
         return null;
       }
 
       // we are making the assumption that the roles granted to spinnaker for this account in all
       // namespaces are identical.
       // otherwise, checking all namespaces for all kinds is too expensive in large clusters
-      // (imagine
-      // a cluster with 100s of namespaces).
+      // (imagine a cluster with 100s of namespaces).
       return namespaces.get(0);
     }
 
@@ -620,6 +613,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       // Now that permissions are checked on-the-fly, this flag is probably not necessary, but for
       // now we'll continue to support the prior behavior, which is to short-circuit and assume all
       // kinds are readable before checking.
+      // Before removing this flag, we'll need to check that nobody is depending on Spinnaker
+      // skipping permission checks for reasons other than performance.  (For example, users may
+      // be relying on the skipped permission checks because of differences in permissions between
+      // namespaces.)
       return !checkPermissionsOnStartup;
     }
 
