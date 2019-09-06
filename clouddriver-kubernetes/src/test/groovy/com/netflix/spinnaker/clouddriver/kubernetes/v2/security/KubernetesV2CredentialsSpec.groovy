@@ -131,7 +131,7 @@ class KubernetesV2CredentialsSpec extends Specification {
     )
 
     expect:
-    credentials.isMetricsComputed() == metrics
+    credentials.isMetricsEnabled() == metrics
 
     where:
     metrics << [true, false]
@@ -149,7 +149,7 @@ class KubernetesV2CredentialsSpec extends Specification {
     kubectlJobExecutor.topPod(_ as KubernetesV2Credentials, NAMESPACE, _) >> Collections.emptyList()
 
     expect:
-    credentials.isMetricsComputed() == true
+    credentials.isMetricsEnabled() == true
   }
 
   void "Metrics are properly disabled when not readable"() {
@@ -166,6 +166,6 @@ class KubernetesV2CredentialsSpec extends Specification {
     }
 
     expect:
-    credentials.isMetricsComputed() == false
+    credentials.isMetricsEnabled() == false
   }
 }
