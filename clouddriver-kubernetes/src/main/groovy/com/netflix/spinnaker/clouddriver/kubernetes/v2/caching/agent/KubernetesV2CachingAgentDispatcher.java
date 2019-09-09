@@ -80,7 +80,6 @@ public class KubernetesV2CachingAgentDispatcher implements KubernetesCachingAgen
                     .forEach(c -> result.add((KubernetesCachingAgent) c)));
 
     IntStream.range(0, credentials.getCacheThreads())
-        .boxed()
         .forEach(
             i ->
                 result.add(
