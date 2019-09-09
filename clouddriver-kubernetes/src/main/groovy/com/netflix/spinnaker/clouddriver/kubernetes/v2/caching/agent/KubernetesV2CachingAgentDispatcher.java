@@ -62,7 +62,6 @@ public class KubernetesV2CachingAgentDispatcher implements KubernetesCachingAgen
     ResourcePropertyRegistry propertyRegistry = v2Credentials.getResourcePropertyRegistry();
 
     IntStream.range(0, credentials.getCacheThreads())
-        .boxed()
         .forEach(
             i ->
                 propertyRegistry.values().stream()
