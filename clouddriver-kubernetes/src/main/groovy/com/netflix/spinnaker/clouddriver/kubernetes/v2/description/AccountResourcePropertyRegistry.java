@@ -19,9 +19,10 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
@@ -55,12 +56,11 @@ public class AccountResourcePropertyRegistry implements ResourcePropertyRegistry
 
   @Override
   @Nonnull
-  public Collection<KubernetesResourceProperties> values() {
-    Collection<KubernetesResourceProperties> result =
-        new ArrayList<>(globalResourcePropertyRegistry.values());
-    result.addAll(propertyMap.values());
-
-    return result;
+  public ImmutableCollection<KubernetesResourceProperties> values() {
+    return new ImmutableList.Builder<KubernetesResourceProperties>()
+        .addAll(globalResourcePropertyRegistry.values())
+        .addAll(propertyMap.values())
+        .build();
   }
 
   @Component

@@ -18,10 +18,10 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
-import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -60,7 +60,7 @@ public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry 
 
   @Override
   @Nonnull
-  public Collection<KubernetesResourceProperties> values() {
+  public ImmutableCollection<KubernetesResourceProperties> values() {
     return globalProperties.values();
   }
 }
