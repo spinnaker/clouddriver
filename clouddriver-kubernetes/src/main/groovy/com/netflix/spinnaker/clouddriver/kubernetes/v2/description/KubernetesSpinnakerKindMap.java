@@ -19,9 +19,11 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -61,7 +63,13 @@ public class KubernetesSpinnakerKindMap {
   private final Map<SpinnakerKind, Set<KubernetesKind>> spinnakerToKubernetes = new HashMap<>();
   private final Map<KubernetesKind, SpinnakerKind> kubernetesToSpinnaker = new HashMap<>();
 
-  void addRelationship(SpinnakerKind spinnakerKind, KubernetesKind kubernetesKind) {
+  public KubernetesSpinnakerKindMap(List<KubernetesHandler> handlers) {
+    for (KubernetesHandler handler : handlers) {
+      addRelationship(handler.spinnakerKind(), handler.kind());
+    }
+  }
+
+  private void addRelationship(SpinnakerKind spinnakerKind, KubernetesKind kubernetesKind) {
     Set<KubernetesKind> kinds = spinnakerToKubernetes.get(spinnakerKind);
     if (kinds == null) {
       kinds = new HashSet<>();

@@ -34,11 +34,7 @@ public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry 
   private final ImmutableMap<KubernetesKind, KubernetesResourceProperties> globalProperties;
 
   @Autowired
-  public GlobalResourcePropertyRegistry(
-      List<KubernetesHandler> handlers, KubernetesSpinnakerKindMap kindMap) {
-    for (KubernetesHandler handler : handlers) {
-      kindMap.addRelationship(handler.spinnakerKind(), handler.kind());
-    }
+  public GlobalResourcePropertyRegistry(List<KubernetesHandler> handlers) {
     this.globalProperties =
         handlers.stream()
             .collect(
