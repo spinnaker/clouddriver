@@ -26,7 +26,6 @@ class GlobalResourcePropertyRegistrySpec extends Specification {
   void "creates an empty resource map"() {
     given:
     def replicaSetHandler = new KubernetesReplicaSetHandler()
-    def replicaSetProperties = new KubernetesResourceProperties(replicaSetHandler, replicaSetHandler.versioned())
 
     when:
     GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry(Collections.emptyList(), new KubernetesSpinnakerKindMap())
@@ -36,25 +35,25 @@ class GlobalResourcePropertyRegistrySpec extends Specification {
     registry.values().isEmpty()
 
     when:
-    registry.register(replicaSetProperties)
+    registry = new GlobalResourcePropertyRegistry([replicaSetHandler], new KubernetesSpinnakerKindMap())
 
     then:
     registry.values().size() == 1
-    registry.get(KubernetesKind.REPLICA_SET) == replicaSetProperties
+    registry.get(KubernetesKind.REPLICA_SET).getHandler() == replicaSetHandler
+    registry.get(KubernetesKind.REPLICA_SET).isVersioned() == replicaSetHandler.versioned()
   }
 
   void "defaults to the handler for NONE if no handler is specified"() {
     given:
     def unregisteredHandler = new KubernetesUnregisteredCustomResourceHandler()
-    def unregisteredProperties = new KubernetesResourceProperties(unregisteredHandler, unregisteredHandler.versioned())
 
     when:
-    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry(Collections.emptyList(), new KubernetesSpinnakerKindMap())
-    registry.register(unregisteredProperties)
+    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry([unregisteredHandler], new KubernetesSpinnakerKindMap())
 
     then:
     registry.values().size() == 1
-    registry.get(KubernetesKind.REPLICA_SET) == unregisteredProperties
+    registry.get(KubernetesKind.REPLICA_SET).getHandler() == unregisteredHandler
+    registry.get(KubernetesKind.REPLICA_SET).isVersioned() == unregisteredHandler.versioned()
   }
 
   void "properly updates the kindMap"() {
@@ -67,8 +66,7 @@ class GlobalResourcePropertyRegistrySpec extends Specification {
     def kindMap = new KubernetesSpinnakerKindMap()
 
     when:
-    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry(Collections.emptyList(), kindMap)
-    registry.register(properties)
+    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry([mockHandler], kindMap)
 
     then:
     kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.INSTANCES) == [KubernetesKind.REPLICA_SET] as Set
