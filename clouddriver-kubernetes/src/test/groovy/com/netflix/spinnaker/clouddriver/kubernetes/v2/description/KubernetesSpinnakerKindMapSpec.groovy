@@ -33,7 +33,7 @@ class KubernetesSpinnakerKindMapSpec extends Specification {
     def kindMap = new KubernetesSpinnakerKindMap([mockHandler])
 
     then:
-    kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.INSTANCES) == [KubernetesKind.REPLICA_SET] as Set
+    kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.INSTANCES) == ImmutableSet.of(KubernetesKind.REPLICA_SET)
     kindMap.translateKubernetesKind(KubernetesKind.REPLICA_SET) == KubernetesSpinnakerKindMap.SpinnakerKind.INSTANCES
   }
 
@@ -55,8 +55,8 @@ class KubernetesSpinnakerKindMapSpec extends Specification {
     ])
 
     then:
-    kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.INSTANCES) == [KubernetesKind.REPLICA_SET, KubernetesKind.DEPLOYMENT] as Set
-    kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.LOAD_BALANCERS) == [KubernetesKind.SERVICE] as Set
+    kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.INSTANCES) == ImmutableSet.of(KubernetesKind.REPLICA_SET, KubernetesKind.DEPLOYMENT)
+    kindMap.translateSpinnakerKind(KubernetesSpinnakerKindMap.SpinnakerKind.LOAD_BALANCERS) == ImmutableSet.of(KubernetesKind.SERVICE)
     kindMap.translateKubernetesKind(KubernetesKind.REPLICA_SET) == KubernetesSpinnakerKindMap.SpinnakerKind.INSTANCES
     kindMap.translateKubernetesKind(KubernetesKind.DEPLOYMENT) == KubernetesSpinnakerKindMap.SpinnakerKind.INSTANCES
     kindMap.translateKubernetesKind(KubernetesKind.SERVICE) == KubernetesSpinnakerKindMap.SpinnakerKind.LOAD_BALANCERS
