@@ -65,13 +65,13 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup;
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleInstanceHealth;
 import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCredentials;
-import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
+import javax.annotation.ParametersAreNonnullByDefault;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -676,63 +676,7 @@ class AbstractGoogleServerGroupCachingAgentTest {
       Compute compute,
       Collection<InstanceGroupManager> instanceGroupManagers,
       Collection<Autoscaler> autoscalers) {
-    return new AbstractGoogleServerGroupCachingAgent(
-        new GoogleNamedAccountCredentials.Builder()
-            .project(PROJECT)
-            .name(ACCOUNT_NAME)
-            .compute(compute)
-            .regionToZonesMap(ImmutableMap.of(REGION, ImmutableList.of(ZONE)))
-            .build(),
-        new GoogleComputeApiFactory(
-            new GoogleOperationPoller(),
-            new DefaultRegistry(),
-            "user-agent",
-            MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())),
-        new DefaultRegistry(),
-        REGION,
-        new ObjectMapper()) {
-      @Override
-      Collection<String> getOnDemandKeysToEvictForMissingServerGroup(
-          ProviderCache providerCache, String serverGroupName) {
-        throw new UnsupportedOperationException("#getOnDemandKeysToEvictForMissingServerGroup()");
-      }
-
-      @Override
-      boolean keyOwnedByThisAgent(Map<String, String> parsedKey) {
-        throw new UnsupportedOperationException("#keyOwnedByThisAgent()");
-      }
-
-      @Override
-      Collection<InstanceGroupManager> retrieveInstanceGroupManagers() throws IOException {
-        return instanceGroupManagers;
-      }
-
-      @Override
-      Collection<Autoscaler> retrieveAutoscalers() throws IOException {
-        return autoscalers;
-      }
-
-      @Override
-      Optional<InstanceGroupManager> retrieveInstanceGroupManager(String name) throws IOException {
-        throw new UnsupportedOperationException("#retrieveInstanceGroupManager()");
-      }
-
-      @Override
-      Optional<Autoscaler> retrieveAutoscaler(InstanceGroupManager manager) throws IOException {
-        throw new UnsupportedOperationException("#retrieveAutoscaler()");
-      }
-
-      @Override
-      Collection<Instance> retrieveRelevantInstances(InstanceGroupManager manager)
-          throws IOException {
-        throw new UnsupportedOperationException("#retrieveRelevantInstances()");
-      }
-
-      @Override
-      String getBatchContextPrefix() {
-        return getClass().getSimpleName();
-      }
-    };
+    return new TestCachingAgent(compute, instanceGroupManagers, autoscalers);
   }
 
   private GoogleServerGroup getOnlyServerGroup(CacheResult cacheResult) {
@@ -744,5 +688,79 @@ class AbstractGoogleServerGroupCachingAgentTest {
 
   private static DefaultProviderCache inMemoryProviderCache() {
     return new DefaultProviderCache(new InMemoryCache());
+  }
+
+  @ParametersAreNonnullByDefault
+  private static class TestCachingAgent extends AbstractGoogleServerGroupCachingAgent {
+
+    private final Collection<InstanceGroupManager> instanceGroupManagers;
+    private final Collection<Autoscaler> autoscalers;
+
+    TestCachingAgent(
+        Compute compute,
+        Collection<InstanceGroupManager> instanceGroupManagers,
+        Collection<Autoscaler> autoscalers) {
+      super(
+          new GoogleNamedAccountCredentials.Builder()
+              .project(AbstractGoogleServerGroupCachingAgentTest.PROJECT)
+              .name(AbstractGoogleServerGroupCachingAgentTest.ACCOUNT_NAME)
+              .compute(compute)
+              .regionToZonesMap(
+                  ImmutableMap.of(
+                      AbstractGoogleServerGroupCachingAgentTest.REGION,
+                      ImmutableList.of(AbstractGoogleServerGroupCachingAgentTest.ZONE)))
+              .build(),
+          new GoogleComputeApiFactory(
+              new GoogleOperationPoller(),
+              new DefaultRegistry(),
+              "user-agent",
+              MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())),
+          new DefaultRegistry(),
+          AbstractGoogleServerGroupCachingAgentTest.REGION,
+          new ObjectMapper());
+      this.instanceGroupManagers = instanceGroupManagers;
+      this.autoscalers = autoscalers;
+    }
+
+    @Override
+    Collection<String> getOnDemandKeysToEvictForMissingServerGroup(
+        ProviderCache providerCache, String serverGroupName) {
+      throw new UnsupportedOperationException("#getOnDemandKeysToEvictForMissingServerGroup()");
+    }
+
+    @Override
+    boolean keyOwnedByThisAgent(Map<String, String> parsedKey) {
+      throw new UnsupportedOperationException("#keyOwnedByThisAgent()");
+    }
+
+    @Override
+    Collection<InstanceGroupManager> retrieveInstanceGroupManagers() {
+      return instanceGroupManagers;
+    }
+
+    @Override
+    Collection<Autoscaler> retrieveAutoscalers() {
+      return autoscalers;
+    }
+
+    @Override
+    Optional<InstanceGroupManager> retrieveInstanceGroupManager(String name) {
+      throw new UnsupportedOperationException("#retrieveInstanceGroupManager()");
+    }
+
+    @Override
+    Optional<Autoscaler> retrieveAutoscaler(InstanceGroupManager manager) {
+      throw new UnsupportedOperationException("#retrieveAutoscaler()");
+    }
+
+    @Override
+    Collection<Instance> retrieveRelevantInstances(InstanceGroupManager manager) {
+      throw new UnsupportedOperationException("#retrieveRelevantInstances()");
+    }
+
+    @Override
+    String getBatchContextPrefix() {
+      return getClass().getSimpleName();
+    }
   }
 }
