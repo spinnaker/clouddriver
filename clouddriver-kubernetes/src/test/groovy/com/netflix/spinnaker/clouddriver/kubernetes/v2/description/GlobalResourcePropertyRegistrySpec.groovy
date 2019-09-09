@@ -23,19 +23,20 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesUnre
 import spock.lang.Specification
 
 class GlobalResourcePropertyRegistrySpec extends Specification {
+  KubernetesUnregisteredCustomResourceHandler defaultHandler = new KubernetesUnregisteredCustomResourceHandler()
   void "creates an empty resource map"() {
     given:
     def replicaSetHandler = new KubernetesReplicaSetHandler()
 
     when:
-    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry(Collections.emptyList())
+    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry(Collections.emptyList(), defaultHandler)
 
     then:
     registry instanceof GlobalResourcePropertyRegistry
     registry.values().isEmpty()
 
     when:
-    registry = new GlobalResourcePropertyRegistry([replicaSetHandler])
+    registry = new GlobalResourcePropertyRegistry([replicaSetHandler], defaultHandler)
 
     then:
     registry.values().size() == 1
@@ -43,17 +44,14 @@ class GlobalResourcePropertyRegistrySpec extends Specification {
     registry.get(KubernetesKind.REPLICA_SET).isVersioned() == replicaSetHandler.versioned()
   }
 
-  void "defaults to the handler for NONE if no handler is specified"() {
-    given:
-    def unregisteredHandler = new KubernetesUnregisteredCustomResourceHandler()
-
+  void "defaults to the default handler if no handler is specified"() {
     when:
-    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry([unregisteredHandler])
+    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry([], defaultHandler)
 
     then:
-    registry.values().size() == 1
-    registry.get(KubernetesKind.REPLICA_SET).getHandler() == unregisteredHandler
-    registry.get(KubernetesKind.REPLICA_SET).isVersioned() == unregisteredHandler.versioned()
+    registry.values().isEmpty()
+    registry.get(KubernetesKind.REPLICA_SET).getHandler() == defaultHandler
+    registry.get(KubernetesKind.REPLICA_SET).isVersioned() == defaultHandler.versioned()
   }
 
   void "registers handlers passed to the constructor"() {
@@ -62,7 +60,7 @@ class GlobalResourcePropertyRegistrySpec extends Specification {
     def replicaSetHandler = new KubernetesReplicaSetHandler()
 
     when:
-    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry([unregisteredHandler, replicaSetHandler])
+    GlobalResourcePropertyRegistry registry = new GlobalResourcePropertyRegistry([unregisteredHandler, replicaSetHandler], defaultHandler)
 
     then:
     registry.values().size() == 2

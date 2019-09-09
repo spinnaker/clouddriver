@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesUnregisteredCustomResourceHandler;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -32,15 +33,20 @@ import org.springframework.stereotype.Component;
 @ParametersAreNonnullByDefault
 public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry {
   private final ImmutableMap<KubernetesKind, KubernetesResourceProperties> globalProperties;
+  private final KubernetesResourceProperties defaultProperties;
 
   @Autowired
-  public GlobalResourcePropertyRegistry(List<KubernetesHandler> handlers) {
+  public GlobalResourcePropertyRegistry(
+      List<KubernetesHandler> handlers,
+      KubernetesUnregisteredCustomResourceHandler defaultHandler) {
     this.globalProperties =
         handlers.stream()
             .collect(
                 toImmutableMap(
                     KubernetesHandler::kind,
                     h -> new KubernetesResourceProperties(h, h.versioned())));
+    this.defaultProperties =
+        new KubernetesResourceProperties(defaultHandler, defaultHandler.versioned());
   }
 
   @Override
@@ -51,7 +57,7 @@ public class GlobalResourcePropertyRegistry implements ResourcePropertyRegistry 
       return globalResult;
     }
 
-    return globalProperties.get(KubernetesKind.NONE);
+    return defaultProperties;
   }
 
   @Override
