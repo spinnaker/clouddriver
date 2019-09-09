@@ -35,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentia
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -362,6 +363,17 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   public void initialize() {
+    this.getCustomResources()
+        .forEach(
+            cr -> {
+              try {
+                KubernetesResourceProperties properties =
+                    KubernetesResourceProperties.fromCustomResource(cr, kindRegistry);
+                resourcePropertyRegistry.register(properties);
+              } catch (Exception e) {
+                log.warn("Error encountered registering {}: ", cr, e);
+              }
+            });
     // ensure this is called at least once before the credentials object is created to ensure all
     // crds are registered
     this.liveCrdSupplier.get();
