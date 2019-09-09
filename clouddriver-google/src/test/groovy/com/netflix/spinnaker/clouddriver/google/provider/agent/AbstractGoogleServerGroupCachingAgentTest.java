@@ -164,7 +164,6 @@ class AbstractGoogleServerGroupCachingAgentTest {
                         ImmutableList.of(
                             new DistributionPolicyZoneConfiguration()
                                 .setZone("http://compute/zones/fakezone1"))));
-    ;
 
     Compute compute =
         new StubComputeFactory().setInstanceGroupManagers(instanceGroupManager).create();
@@ -672,13 +671,6 @@ class AbstractGoogleServerGroupCachingAgentTest {
         compute, instanceGroupManagers, /* autoscalers= */ ImmutableList.of());
   }
 
-  public static AbstractGoogleServerGroupCachingAgent createCachingAgent(
-      Compute compute,
-      Collection<InstanceGroupManager> instanceGroupManagers,
-      Collection<Autoscaler> autoscalers) {
-    return new TestCachingAgent(compute, instanceGroupManagers, autoscalers);
-  }
-
   private GoogleServerGroup getOnlyServerGroup(CacheResult cacheResult) {
     Collection<CacheData> serverGroups = cacheResult.getCacheResults().get(SERVER_GROUPS.getNs());
     assertThat(serverGroups).hasSize(1);
@@ -690,6 +682,26 @@ class AbstractGoogleServerGroupCachingAgentTest {
     return new DefaultProviderCache(new InMemoryCache());
   }
 
+  public static AbstractGoogleServerGroupCachingAgent createCachingAgent(
+      Compute compute,
+      Collection<InstanceGroupManager> instanceGroupManagers,
+      Collection<Autoscaler> autoscalers) {
+    GoogleNamedAccountCredentials credentials =
+        new GoogleNamedAccountCredentials.Builder()
+            .project(PROJECT)
+            .name(ACCOUNT_NAME)
+            .compute(compute)
+            .regionToZonesMap(ImmutableMap.of(REGION, ImmutableList.of(ZONE)))
+            .build();
+    GoogleComputeApiFactory computeApiFactory =
+        new GoogleComputeApiFactory(
+            new GoogleOperationPoller(),
+            new DefaultRegistry(),
+            "user-agent",
+            MoreExecutors.listeningDecorator(Executors.newCachedThreadPool()));
+    return new TestCachingAgent(credentials, computeApiFactory, instanceGroupManagers, autoscalers);
+  }
+
   @ParametersAreNonnullByDefault
   private static class TestCachingAgent extends AbstractGoogleServerGroupCachingAgent {
 
@@ -697,29 +709,28 @@ class AbstractGoogleServerGroupCachingAgentTest {
     private final Collection<Autoscaler> autoscalers;
 
     TestCachingAgent(
-        Compute compute,
+        GoogleNamedAccountCredentials credentials,
+        GoogleComputeApiFactory computeApiFactory,
         Collection<InstanceGroupManager> instanceGroupManagers,
         Collection<Autoscaler> autoscalers) {
-      super(
-          new GoogleNamedAccountCredentials.Builder()
-              .project(AbstractGoogleServerGroupCachingAgentTest.PROJECT)
-              .name(AbstractGoogleServerGroupCachingAgentTest.ACCOUNT_NAME)
-              .compute(compute)
-              .regionToZonesMap(
-                  ImmutableMap.of(
-                      AbstractGoogleServerGroupCachingAgentTest.REGION,
-                      ImmutableList.of(AbstractGoogleServerGroupCachingAgentTest.ZONE)))
-              .build(),
-          new GoogleComputeApiFactory(
-              new GoogleOperationPoller(),
-              new DefaultRegistry(),
-              "user-agent",
-              MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())),
-          new DefaultRegistry(),
-          AbstractGoogleServerGroupCachingAgentTest.REGION,
-          new ObjectMapper());
+      super(credentials, computeApiFactory, new DefaultRegistry(), REGION, new ObjectMapper());
       this.instanceGroupManagers = instanceGroupManagers;
       this.autoscalers = autoscalers;
+    }
+
+    @Override
+    Collection<InstanceGroupManager> retrieveInstanceGroupManagers() {
+      return instanceGroupManagers;
+    }
+
+    @Override
+    Collection<Autoscaler> retrieveAutoscalers() {
+      return autoscalers;
+    }
+
+    @Override
+    String getBatchContextPrefix() {
+      return getClass().getSimpleName();
     }
 
     @Override
@@ -731,16 +742,6 @@ class AbstractGoogleServerGroupCachingAgentTest {
     @Override
     boolean keyOwnedByThisAgent(Map<String, String> parsedKey) {
       throw new UnsupportedOperationException("#keyOwnedByThisAgent()");
-    }
-
-    @Override
-    Collection<InstanceGroupManager> retrieveInstanceGroupManagers() {
-      return instanceGroupManagers;
-    }
-
-    @Override
-    Collection<Autoscaler> retrieveAutoscalers() {
-      return autoscalers;
     }
 
     @Override
@@ -756,11 +757,6 @@ class AbstractGoogleServerGroupCachingAgentTest {
     @Override
     Collection<Instance> retrieveRelevantInstances(InstanceGroupManager manager) {
       throw new UnsupportedOperationException("#retrieveRelevantInstances()");
-    }
-
-    @Override
-    String getBatchContextPrefix() {
-      return getClass().getSimpleName();
     }
   }
 }
