@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
@@ -32,6 +33,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPoli
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubeconfigFileHasher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.AccountResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
@@ -125,13 +127,12 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       Registry registry,
       KubectlJobExecutor jobExecutor,
       KubernetesConfigurationProperties.ManagedAccount managedAccount,
-      ResourcePropertyRegistry resourcePropertyRegistry,
+      AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory,
       KubernetesKindRegistry kindRegistry,
       String kubeconfigFile) {
     this.registry = registry;
     this.clock = registry.clock();
     this.jobExecutor = jobExecutor;
-    this.resourcePropertyRegistry = resourcePropertyRegistry;
     this.kindRegistry = kindRegistry;
 
     this.accountName = managedAccount.getName();
@@ -160,6 +161,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.permissionValidator = new PermissionValidator();
 
     this.customResources = managedAccount.getCustomResources();
+    this.resourcePropertyRegistry =
+        resourcePropertyRegistryFactory.create(
+            managedAccount.getCustomResources().stream()
+                .map(cr -> KubernetesResourceProperties.fromCustomResource(cr, kindRegistry))
+                .collect(ImmutableList.toImmutableList()));
 
     this.kubectlExecutable = managedAccount.getKubectlExecutable();
     this.kubectlRequestTimeoutSeconds = managedAccount.getKubectlRequestTimeoutSeconds();
@@ -363,17 +369,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   public void initialize() {
-    this.getCustomResources()
-        .forEach(
-            cr -> {
-              try {
-                KubernetesResourceProperties properties =
-                    KubernetesResourceProperties.fromCustomResource(cr, kindRegistry);
-                resourcePropertyRegistry.register(properties);
-              } catch (Exception e) {
-                log.warn("Error encountered registering {}: ", cr, e);
-              }
-            });
     // ensure this is called at least once before the credentials object is created to ensure all
     // crds are registered
     this.liveCrdSupplier.get();

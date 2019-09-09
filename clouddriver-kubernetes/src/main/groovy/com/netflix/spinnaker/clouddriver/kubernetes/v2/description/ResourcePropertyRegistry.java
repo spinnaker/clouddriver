@@ -23,6 +23,4 @@ public interface ResourcePropertyRegistry {
   KubernetesResourceProperties get(KubernetesKind kind);
 
   Collection<KubernetesResourceProperties> values();
-
-  void register(KubernetesResourceProperties properties);
 }

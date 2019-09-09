@@ -32,14 +32,14 @@ class AccountResourcePropertyRegistrySpec extends Specification {
     def factory = new AccountResourcePropertyRegistry.Factory(globalResourcePropertyRegistry)
 
     when:
-    AccountResourcePropertyRegistry registry = factory.create()
+    AccountResourcePropertyRegistry registry = factory.create([])
 
     then:
     registry instanceof AccountResourcePropertyRegistry
     registry.values().isEmpty()
 
     when:
-    registry.register(replicaSetProperties)
+    registry = factory.create([replicaSetProperties])
 
     then:
     registry.values().size() == 1
@@ -56,7 +56,7 @@ class AccountResourcePropertyRegistrySpec extends Specification {
     def factory = new AccountResourcePropertyRegistry.Factory(globalResourcePropertyRegistry)
 
     when:
-    AccountResourcePropertyRegistry registry = factory.create()
+    AccountResourcePropertyRegistry registry = factory.create([])
 
     then:
     registry instanceof AccountResourcePropertyRegistry
