@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
@@ -32,9 +33,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPoli
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubeconfigFileHasher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.AccountResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -124,13 +127,12 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       Registry registry,
       KubectlJobExecutor jobExecutor,
       KubernetesConfigurationProperties.ManagedAccount managedAccount,
-      ResourcePropertyRegistry resourcePropertyRegistry,
+      AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory,
       KubernetesKindRegistry kindRegistry,
       String kubeconfigFile) {
     this.registry = registry;
     this.clock = registry.clock();
     this.jobExecutor = jobExecutor;
-    this.resourcePropertyRegistry = resourcePropertyRegistry;
     this.kindRegistry = kindRegistry;
 
     this.accountName = managedAccount.getName();
@@ -159,6 +161,11 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.permissionValidator = new PermissionValidator();
 
     this.customResources = managedAccount.getCustomResources();
+    this.resourcePropertyRegistry =
+        resourcePropertyRegistryFactory.create(
+            managedAccount.getCustomResources().stream()
+                .map(cr -> KubernetesResourceProperties.fromCustomResource(cr, kindRegistry))
+                .collect(ImmutableList.toImmutableList()));
 
     this.kubectlExecutable = managedAccount.getKubectlExecutable();
     this.kubectlRequestTimeoutSeconds = managedAccount.getKubectlRequestTimeoutSeconds();
@@ -646,23 +653,20 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         return true;
       }
       log.info("Checking if {} is readable in account '{}'...", kind, accountName);
-      boolean allowed;
-      if (kindRegistry.getRegisteredKind(kind).isNamespaced()) {
-        allowed =
-            jobExecutor.authCanINamespaced(
-                KubernetesV2Credentials.this, getCheckNamespace(), kind.getName(), "list");
-      } else {
-        allowed = jobExecutor.authCanI(KubernetesV2Credentials.this, kind.getName(), "list");
-      }
-
-      if (!allowed) {
+      try {
+        if (kindRegistry.getRegisteredKind(kind).isNamespaced()) {
+          list(kind, checkNamespace.get());
+        } else {
+          list(kind, null);
+        }
+        return true;
+      } catch (Exception e) {
         log.info(
             "Kind {} will not be cached in account '{}' because it cannot be listed.",
             kind,
             accountName);
+        return false;
       }
-
-      return allowed;
     }
 
     private boolean checkMetricsReadable() {
