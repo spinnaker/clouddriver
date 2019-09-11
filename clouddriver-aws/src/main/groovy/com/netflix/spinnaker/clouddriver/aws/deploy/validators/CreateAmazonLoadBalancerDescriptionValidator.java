@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.aws.AmazonOperation;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerClassicDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerV2Description;
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancerType;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import java.util.HashSet;
@@ -139,7 +140,7 @@ class CreateAmazonLoadBalancerDescriptionValidator
                 "targetGroups", "createAmazonLoadBalancerDescription.targetGroups.name.missing");
           }
           if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType())) {
-            validateLambdaTargetGroup(targetGroup, errors);
+            validateLambdaTargetGroup(albDescription, targetGroup, errors);
           } else {
             if (targetGroup.getProtocol() == null) {
               errors.rejectValue(
@@ -180,7 +181,15 @@ class CreateAmazonLoadBalancerDescriptionValidator
   }
 
   private void validateLambdaTargetGroup(
-      UpsertAmazonLoadBalancerV2Description.TargetGroup targetGroup, Errors errors) {
+      UpsertAmazonLoadBalancerV2Description albDescription,
+      UpsertAmazonLoadBalancerV2Description.TargetGroup targetGroup,
+      Errors errors) {
     // Add lambda specific validation, if required.
+    if (!AmazonLoadBalancerType.APPLICATION
+        .toString()
+        .equalsIgnoreCase(albDescription.getLoadBalancerType().toString())) {
+      errors.rejectValue(
+          "loadBalancerType", "createAmazonLoadBalancerDescription.loadBalancerType.invalid");
+    }
   }
 }
