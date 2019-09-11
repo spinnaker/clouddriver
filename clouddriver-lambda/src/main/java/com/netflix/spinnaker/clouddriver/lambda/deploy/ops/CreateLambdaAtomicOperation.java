@@ -85,6 +85,9 @@ public class CreateLambdaAtomicOperation
               .withSecurityGroupIds(description.getSecurityGroupIds())
               .withSubnetIds(description.getSubnetIds()));
     }
+    request.setDeadLetterConfig(description.getDeadLetterConfig());
+    request.setKMSKeyArn(description.getKMSKeyArn());
+    request.setTracingConfig(description.getTracingConfig());
 
     CreateFunctionResult result = client.createFunction(request);
     updateTaskStatus("Finished Creation of AWS Lambda Function Operation...");

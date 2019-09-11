@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.lambda.deploy.description;
 
+import com.amazonaws.services.lambda.model.DeadLetterConfig;
+import com.amazonaws.services.lambda.model.TracingConfig;
 import java.util.List;
 import java.util.Map;
 import lombok.Data;
@@ -45,4 +47,8 @@ public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescr
   List<String> securityGroupIds;
 
   String targetGroup;
+
+  DeadLetterConfig deadLetterConfig;
+  TracingConfig tracingConfig;
+  String kMSKeyArn;
 }
