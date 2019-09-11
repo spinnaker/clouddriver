@@ -20,7 +20,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_ATTACHMENT_PRIORITY;
 
 import com.google.common.collect.ImmutableList;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
@@ -36,8 +35,7 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   @Nonnull
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
-    return ImmutableList.of(
-        ArtifactReplacerFactory.HPA_DEPLOYMENT, ArtifactReplacerFactory.HPA_REPLICA_SET);
+    return ImmutableList.of(Replacer.HPA_DEPLOYMENT, Replacer.HPA_REPLICA_SET);
   }
 
   @Override

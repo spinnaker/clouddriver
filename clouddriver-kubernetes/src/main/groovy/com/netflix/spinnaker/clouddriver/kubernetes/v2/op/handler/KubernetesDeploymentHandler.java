@@ -23,7 +23,6 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manife
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 import com.google.common.collect.ImmutableList;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
@@ -51,13 +50,13 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
     return ImmutableList.of(
-        ArtifactReplacerFactory.DOCKER_IMAGE,
-        ArtifactReplacerFactory.CONFIG_MAP_VOLUME,
-        ArtifactReplacerFactory.SECRET_VOLUME,
-        ArtifactReplacerFactory.CONFIG_MAP_ENV,
-        ArtifactReplacerFactory.SECRET_ENV,
-        ArtifactReplacerFactory.CONFIG_MAP_KEY_VALUE,
-        ArtifactReplacerFactory.SECRET_KEY_VALUE);
+        Replacer.DOCKER_IMAGE,
+        Replacer.CONFIG_MAP_VOLUME,
+        Replacer.SECRET_VOLUME,
+        Replacer.CONFIG_MAP_ENV,
+        Replacer.SECRET_ENV,
+        Replacer.CONFIG_MAP_KEY_VALUE,
+        Replacer.SECRET_KEY_VALUE);
   }
 
   @Override

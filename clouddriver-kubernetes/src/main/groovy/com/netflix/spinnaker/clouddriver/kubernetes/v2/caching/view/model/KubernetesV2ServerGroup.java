@@ -26,7 +26,7 @@ import com.google.common.primitives.Ints;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacerFactory;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
@@ -72,7 +72,7 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
 
   @JsonIgnore
   private static final ArtifactReplacer dockerImageReplacer =
-      new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.DOCKER_IMAGE));
+      new ArtifactReplacer(ImmutableList.of(Replacer.DOCKER_IMAGE));
 
   @Override
   public ServerGroup.InstanceCounts getInstanceCounts() {
