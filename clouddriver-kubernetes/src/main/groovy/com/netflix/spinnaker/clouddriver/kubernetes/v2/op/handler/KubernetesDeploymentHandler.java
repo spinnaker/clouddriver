@@ -51,13 +51,13 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
     return ImmutableList.of(
-        ArtifactReplacerFactory.dockerImageReplacer(),
-        ArtifactReplacerFactory.configMapVolumeReplacer(),
-        ArtifactReplacerFactory.secretVolumeReplacer(),
-        ArtifactReplacerFactory.configMapEnvFromReplacer(),
-        ArtifactReplacerFactory.secretEnvFromReplacer(),
-        ArtifactReplacerFactory.configMapKeyValueFromReplacer(),
-        ArtifactReplacerFactory.secretKeyValueFromReplacer());
+        ArtifactReplacerFactory.DOCKER_IMAGE,
+        ArtifactReplacerFactory.CONFIG_MAP_VOLUME,
+        ArtifactReplacerFactory.SECRET_VOLUME,
+        ArtifactReplacerFactory.CONFIG_MAP_ENV,
+        ArtifactReplacerFactory.SECRET_ENV,
+        ArtifactReplacerFactory.CONFIG_MAP_KEY_VALUE,
+        ArtifactReplacerFactory.SECRET_KEY_VALUE);
   }
 
   @Override

@@ -37,8 +37,7 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
     return ImmutableList.of(
-        ArtifactReplacerFactory.hpaDeploymentReplacer(),
-        ArtifactReplacerFactory.hpaReplicaSetReplacer());
+        ArtifactReplacerFactory.HPA_DEPLOYMENT, ArtifactReplacerFactory.HPA_REPLICA_SET);
   }
 
   @Override

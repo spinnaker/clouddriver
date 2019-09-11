@@ -72,7 +72,7 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
 
   @JsonIgnore
   private static final ArtifactReplacer dockerImageReplacer =
-      new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.dockerImageReplacer()));
+      new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.DOCKER_IMAGE));
 
   @Override
   public ServerGroup.InstanceCounts getInstanceCounts() {

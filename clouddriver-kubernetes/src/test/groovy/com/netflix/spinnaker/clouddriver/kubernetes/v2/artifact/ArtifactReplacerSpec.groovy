@@ -34,7 +34,7 @@ spec:
     kind: Deployment
     name: $name
 """
-    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.hpaDeploymentReplacer()))
+    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.HPA_DEPLOYMENT))
     def manifest = stringToManifest(hpaManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
@@ -60,7 +60,7 @@ spec:
     kind: UNKNOWN
     name: $name
 """
-    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.hpaDeploymentReplacer()))
+    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.HPA_DEPLOYMENT))
     def manifest = stringToManifest(hpaManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
@@ -94,7 +94,7 @@ spec:
         ports:
         - containerPort: 80
 """
-    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.dockerImageReplacer()))
+    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.DOCKER_IMAGE))
     def manifest = stringToManifest(deploymentManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
@@ -147,7 +147,7 @@ spec:
         ports:
         - containerPort: 80
 """
-    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.dockerImageReplacer()))
+    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.DOCKER_IMAGE))
     def manifest = stringToManifest(deploymentManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
