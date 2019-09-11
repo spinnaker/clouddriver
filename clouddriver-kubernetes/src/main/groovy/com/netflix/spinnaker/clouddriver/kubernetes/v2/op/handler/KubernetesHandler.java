@@ -25,7 +25,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.ReplaceResult;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.Replacer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;

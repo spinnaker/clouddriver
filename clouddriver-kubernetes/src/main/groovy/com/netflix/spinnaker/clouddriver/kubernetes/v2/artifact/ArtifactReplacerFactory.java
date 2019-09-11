@@ -18,7 +18,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact;
 
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.Replacer;
 
 public class ArtifactReplacerFactory {
   public static final Replacer DOCKER_IMAGE =

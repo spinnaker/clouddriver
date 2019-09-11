@@ -21,7 +21,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.Kuberne
 
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.Replacer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
