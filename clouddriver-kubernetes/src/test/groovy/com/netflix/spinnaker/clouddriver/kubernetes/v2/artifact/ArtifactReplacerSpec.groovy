@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.common.collect.ImmutableList
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
@@ -33,8 +34,7 @@ spec:
     kind: Deployment
     name: $name
 """
-    def artifactReplacer = new ArtifactReplacer()
-    artifactReplacer.addReplacer(ArtifactReplacerFactory.hpaDeploymentReplacer())
+    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.hpaDeploymentReplacer()))
     def manifest = stringToManifest(hpaManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
@@ -60,8 +60,7 @@ spec:
     kind: UNKNOWN
     name: $name
 """
-    def artifactReplacer = new ArtifactReplacer()
-    artifactReplacer.addReplacer(ArtifactReplacerFactory.hpaDeploymentReplacer())
+    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.hpaDeploymentReplacer()))
     def manifest = stringToManifest(hpaManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
@@ -95,8 +94,7 @@ spec:
         ports:
         - containerPort: 80
 """
-    def artifactReplacer = new ArtifactReplacer()
-    artifactReplacer.addReplacer(ArtifactReplacerFactory.dockerImageReplacer())
+    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.dockerImageReplacer()))
     def manifest = stringToManifest(deploymentManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
@@ -149,8 +147,7 @@ spec:
         ports:
         - containerPort: 80
 """
-    def artifactReplacer = new ArtifactReplacer()
-    artifactReplacer.addReplacer(ArtifactReplacerFactory.dockerImageReplacer())
+    def artifactReplacer = new ArtifactReplacer(ImmutableList.of(ArtifactReplacerFactory.dockerImageReplacer()))
     def manifest = stringToManifest(deploymentManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 

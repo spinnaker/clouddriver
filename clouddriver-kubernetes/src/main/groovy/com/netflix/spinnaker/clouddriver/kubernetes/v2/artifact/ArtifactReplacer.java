@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.google.common.collect.ImmutableList;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
@@ -31,7 +32,6 @@ import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifact
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -57,11 +57,10 @@ public class ArtifactReplacer {
           .mappingProvider(new JacksonMappingProvider())
           .build();
 
-  private final List<Replacer> replacers = new ArrayList<>();
+  private final ImmutableList<Replacer> replacers;
 
-  public ArtifactReplacer addReplacer(Replacer replacer) {
-    replacers.add(replacer);
-    return this;
+  public ArtifactReplacer(ImmutableList<Replacer> replacers) {
+    this.replacers = replacers;
   }
 
   private static List<Artifact> filterKubernetesArtifactsByNamespaceAndAccount(
