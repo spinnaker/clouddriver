@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
@@ -89,7 +90,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
 
   protected abstract KubernetesV2CachingAgentFactory cachingAgentFactory();
 
-  public Set<Artifact> listArtifacts(KubernetesManifest manifest) {
+  public ImmutableSet<Artifact> listArtifacts(KubernetesManifest manifest) {
     return artifactReplacer.findAll(manifest);
   }
 

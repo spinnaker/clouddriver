@@ -21,7 +21,6 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.Kuberne
 
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
@@ -44,7 +43,7 @@ public class KubernetesPodHandler extends KubernetesHandler {
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
     return ImmutableList.of(
-        ArtifactReplacer.Replacer.builder()
+        Replacer.builder()
             .replacePath("$.spec.containers.[?( @.image == \"{%name%}\" )].image")
             .findPath("$.spec.containers.*.image")
             .type(KubernetesArtifactType.DockerImage)

@@ -17,11 +17,16 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
@@ -33,21 +38,19 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.Optional;
 import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import lombok.AllArgsConstructor;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Builder;
-import lombok.Getter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 
+@ParametersAreNonnullByDefault
 @Slf4j
 public class ArtifactReplacer {
   private static final ObjectMapper mapper = new ObjectMapper();
@@ -63,7 +66,7 @@ public class ArtifactReplacer {
     this.replacers = replacers;
   }
 
-  private static List<Artifact> filterKubernetesArtifactsByNamespaceAndAccount(
+  private static ImmutableList<Artifact> filterKubernetesArtifactsByNamespaceAndAccount(
       String namespace, String account, List<Artifact> artifacts) {
     return artifacts.stream()
         // Keep artifacts that either aren't k8s, or are in the same namespace and account as our
@@ -97,14 +100,14 @@ public class ArtifactReplacer {
 
               return accountMatches && locationMatches;
             })
-        .collect(Collectors.toList());
+        .collect(toImmutableList());
   }
 
+  @Nonnull
   public ReplaceResult replaceAll(
       KubernetesManifest input, List<Artifact> artifacts, String namespace, String account) {
     log.debug("Doing replacement on {} using {}", input, artifacts);
-    // final to use in below lambda
-    final List<Artifact> finalArtifacts =
+    ImmutableList<Artifact> filteredArtifacts =
         filterKubernetesArtifactsByNamespaceAndAccount(namespace, account, artifacts);
     DocumentContext document;
     try {
@@ -114,26 +117,23 @@ public class ArtifactReplacer {
       throw new RuntimeException(e);
     }
 
-    Set<Artifact> replacedArtifacts =
-        replacers.stream()
-            .map(
-                r ->
-                    finalArtifacts.stream()
-                        .filter(a -> r.replaceIfPossible(document, a))
-                        .collect(Collectors.toSet()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toSet());
+    ImmutableSet.Builder<Artifact> replacedArtifacts = new ImmutableSet.Builder<>();
+    replacers.forEach(
+        replacer ->
+            replacedArtifacts.addAll(replacer.replaceArtifacts(document, filteredArtifacts)));
 
     try {
       return new ReplaceResult(
-          mapper.readValue(document.jsonString(), KubernetesManifest.class), replacedArtifacts);
+          mapper.readValue(document.jsonString(), KubernetesManifest.class),
+          replacedArtifacts.build());
     } catch (IOException e) {
       log.error("Malformed Document Context", e);
       throw new RuntimeException(e);
     }
   }
 
-  public Set<Artifact> findAll(KubernetesManifest input) {
+  @Nonnull
+  public ImmutableSet<Artifact> findAll(KubernetesManifest input) {
     DocumentContext document;
     try {
       document = JsonPath.using(configuration).parse(mapper.writeValueAsString(input));
@@ -145,25 +145,7 @@ public class ArtifactReplacer {
         .map(
             r -> {
               try {
-                return ((List<String>)
-                        mapper.convertValue(
-                            r.findAll(document), new TypeReference<List<String>>() {}))
-                    .stream()
-                        .map(
-                            s -> {
-                              String nameFromReference = r.getNameFromReference(s);
-                              String name = nameFromReference == null ? s : nameFromReference;
-                              if (r.namePattern == null || nameFromReference != null) {
-                                return Artifact.builder()
-                                    .type(r.getType().getType())
-                                    .reference(s)
-                                    .name(name)
-                                    .build();
-                              } else {
-                                return null;
-                              }
-                            })
-                        .filter(Objects::nonNull);
+                return r.getArtifacts(document);
               } catch (Exception e) {
                 // This happens when a manifest isn't fully defined (e.g. not all properties are
                 // there)
@@ -172,27 +154,26 @@ public class ArtifactReplacer {
                     input.getFullResourceName(),
                     r,
                     e);
-                return Stream.<Artifact>empty();
+                return Collections.<Artifact>emptyList();
               }
             })
-        .flatMap(x -> x)
-        .collect(Collectors.toSet());
+        .flatMap(Collection::stream)
+        .collect(toImmutableSet());
   }
 
-  @Slf4j
   @Builder
-  @AllArgsConstructor
+  @ParametersAreNonnullByDefault
+  @Slf4j
   public static class Replacer {
-    private final String replacePath;
-    private final String findPath;
-    private final Pattern namePattern; // the first group should be the artifact name
-    private final Function<String, String> nameFromReference;
+    private static final ObjectMapper mapper = new ObjectMapper();
 
-    @Getter private final KubernetesArtifactType type;
+    @Nonnull private final String replacePath;
+    @Nonnull private final String findPath;
+    @Nullable private final Function<String, String> nameFromReference;
+    @Nonnull private final KubernetesArtifactType type;
 
-    private static String substituteField(String result, String fieldName, String field) {
-      field = field == null ? "" : field;
-      return result.replace("{%" + fieldName + "%}", field);
+    private static String substituteField(String result, String fieldName, @Nullable String field) {
+      return result.replace("{%" + fieldName + "%}", Optional.ofNullable(field).orElse(""));
     }
 
     private static String processPath(String path, Artifact artifact) {
@@ -203,26 +184,52 @@ public class ArtifactReplacer {
       return result;
     }
 
-    ArrayNode findAll(DocumentContext obj) {
+    private ArrayNode findAll(DocumentContext obj) {
       return obj.read(findPath);
     }
 
-    String getNameFromReference(String reference) {
+    @Nonnull
+    private Artifact artifactFromReference(String s) {
+      return Artifact.builder()
+          .type(type.getType())
+          .reference(s)
+          .name(nameFromReference(s))
+          .build();
+    }
+
+    @Nonnull
+    private String nameFromReference(String s) {
       if (nameFromReference != null) {
-        return nameFromReference.apply(reference);
-      } else if (namePattern != null) {
-        Matcher m = namePattern.matcher(reference);
-        if (m.find() && m.groupCount() > 0 && StringUtils.isNotEmpty(m.group(1))) {
-          return m.group(1);
-        } else {
-          return null;
-        }
+        return nameFromReference.apply(s);
       } else {
-        return null;
+        return s;
       }
     }
 
-    boolean replaceIfPossible(DocumentContext obj, Artifact artifact) {
+    @Nonnull
+    ImmutableCollection<Artifact> getArtifacts(DocumentContext document) {
+      return mapper
+          .<List<String>>convertValue(findAll(document), new TypeReference<List<String>>() {})
+          .stream()
+          .map(this::artifactFromReference)
+          .collect(toImmutableList());
+    }
+
+    @Nonnull
+    ImmutableCollection<Artifact> replaceArtifacts(
+        DocumentContext obj, Collection<Artifact> artifacts) {
+      ImmutableSet.Builder<Artifact> replacedArtifacts = new ImmutableSet.Builder<>();
+      artifacts.forEach(
+          artifact -> {
+            boolean wasReplaced = replaceIfPossible(obj, artifact);
+            if (wasReplaced) {
+              replacedArtifacts.add(artifact);
+            }
+          });
+      return replacedArtifacts.build();
+    }
+
+    private boolean replaceIfPossible(DocumentContext obj, @Nullable Artifact artifact) {
       if (artifact == null || StringUtils.isEmpty(artifact.getType())) {
         throw new IllegalArgumentException("Artifact and artifact type must be set.");
       }
@@ -255,6 +262,6 @@ public class ArtifactReplacer {
   @Value
   public static class ReplaceResult {
     private final KubernetesManifest manifest;
-    private final Set<Artifact> boundArtifacts;
+    private final ImmutableSet<Artifact> boundArtifacts;
   }
 }
