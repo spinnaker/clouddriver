@@ -71,7 +71,7 @@ spec:
 
   @Unroll
   def "correctly extracts Docker artifacts from image names"() {
-    expect:
+    when:
     def deploymentManifest = """
 apiVersion: apps/v1
 kind: Deployment
@@ -100,6 +100,7 @@ spec:
     def manifest = stringToManifest(deploymentManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
+    then:
     artifacts.size() == 1
     Artifact artifact = artifacts.toList().get(0)
     artifact.getType() == KubernetesArtifactType.DockerImage.type
@@ -124,7 +125,7 @@ spec:
 
   @Unroll
   def "correctly extracts Docker artifacts from image names in initContainers"() {
-    expect:
+    when:
     def deploymentManifest = """
 apiVersion: apps/v1
 kind: Deployment
@@ -153,6 +154,7 @@ spec:
     def manifest = stringToManifest(deploymentManifest)
     def artifacts = artifactReplacer.findAll(manifest)
 
+    then:
     artifacts.size() == 1
     Artifact artifact = artifacts.toList().get(0)
     artifact.getType() == KubernetesArtifactType.DockerImage.type
