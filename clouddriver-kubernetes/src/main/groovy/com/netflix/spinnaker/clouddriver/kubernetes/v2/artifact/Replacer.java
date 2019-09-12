@@ -132,7 +132,7 @@ public class Replacer {
     return true;
   }
 
-  public static final Replacer DOCKER_IMAGE =
+  private static final Replacer DOCKER_IMAGE =
       builder()
           .replacePath(
               "$..spec.template.spec['containers', 'initContainers'].[?( @.image == \"{%name%}\" )].image")
@@ -162,27 +162,27 @@ public class Replacer {
               })
           .type(KubernetesArtifactType.DockerImage)
           .build();
-  public static final Replacer POD_DOCKER_IMAGE =
+  private static final Replacer POD_DOCKER_IMAGE =
       builder()
           .replacePath("$.spec.containers.[?( @.image == \"{%name%}\" )].image")
           .findPath("$.spec.containers.*.image")
           .type(KubernetesArtifactType.DockerImage)
           .build();
-  public static final Replacer CONFIG_MAP_VOLUME =
+  private static final Replacer CONFIG_MAP_VOLUME =
       builder()
           .replacePath(
               "$..spec.template.spec.volumes.[?( @.configMap.name == \"{%name%}\" )].configMap.name")
           .findPath("$..spec.template.spec.volumes.*.configMap.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
-  public static final Replacer SECRET_VOLUME =
+  private static final Replacer SECRET_VOLUME =
       builder()
           .replacePath(
               "$..spec.template.spec.volumes.[?( @.secret.secretName == \"{%name%}\" )].secret.secretName")
           .findPath("$..spec.template.spec.volumes.*.secret.secretName")
           .type(KubernetesArtifactType.Secret)
           .build();
-  public static final Replacer CONFIG_MAP_KEY_VALUE =
+  private static final Replacer CONFIG_MAP_KEY_VALUE =
       builder()
           .replacePath(
               "$..spec.template.spec['containers', 'initContainers'].*.env.[?( @.valueFrom.configMapKeyRef.name == \"{%name%}\" )].valueFrom.configMapKeyRef.name")
@@ -190,7 +190,7 @@ public class Replacer {
               "$..spec.template.spec['containers', 'initContainers'].*.env.*.valueFrom.configMapKeyRef.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
-  public static final Replacer SECRET_KEY_VALUE =
+  private static final Replacer SECRET_KEY_VALUE =
       builder()
           .replacePath(
               "$..spec.template.spec['containers', 'initContainers'].*.env.[?( @.valueFrom.secretKeyRef.name == \"{%name%}\" )].valueFrom.secretKeyRef.name")
@@ -198,7 +198,7 @@ public class Replacer {
               "$..spec.template.spec['containers', 'initContainers'].*.env.*.valueFrom.secretKeyRef.name")
           .type(KubernetesArtifactType.Secret)
           .build();
-  public static final Replacer CONFIG_MAP_ENV =
+  private static final Replacer CONFIG_MAP_ENV =
       builder()
           .replacePath(
               "$..spec.template.spec['containers', 'initContainers'].*.envFrom.[?( @.configMapRef.name == \"{%name%}\" )].configMapRef.name")
@@ -206,7 +206,7 @@ public class Replacer {
               "$..spec.template.spec['containers', 'initContainers'].*.envFrom.*.configMapRef.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
-  public static final Replacer SECRET_ENV =
+  private static final Replacer SECRET_ENV =
       builder()
           .replacePath(
               "$..spec.template.spec['containers', 'initContainers'].*.envFrom.[?( @.secretRef.name == \"{%name%}\" )].secretRef.name")
@@ -214,7 +214,7 @@ public class Replacer {
               "$..spec.template.spec['containers', 'initContainers'].*.envFrom.*.secretRef.name")
           .type(KubernetesArtifactType.Secret)
           .build();
-  public static final Replacer HPA_DEPLOYMENT =
+  private static final Replacer HPA_DEPLOYMENT =
       builder()
           .replacePath(
               "$[?( (@.spec.scaleTargetRef.kind == \"Deployment\" || @.spec.scaleTargetRef.kind == \"deployment\") && @.spec.scaleTargetRef.name == \"{%name%}\" )].spec.scaleTargetRef.name")
@@ -222,7 +222,7 @@ public class Replacer {
               "$[?( @.spec.scaleTargetRef.kind == \"Deployment\" || @.spec.scaleTargetRef.kind == \"deployment\" )].spec.scaleTargetRef.name")
           .type(KubernetesArtifactType.Deployment)
           .build();
-  public static final Replacer HPA_REPLICA_SET =
+  private static final Replacer HPA_REPLICA_SET =
       builder()
           .replacePath(
               "$[?( (@.spec.scaleTargetRef.kind == \"ReplicaSet\" || @.spec.scaleTargetRef.kind == \"replicaSet\") && @.spec.scaleTargetRef.name == \"{%name%}\" )].spec.scaleTargetRef.name")
@@ -230,4 +230,54 @@ public class Replacer {
               "$[?( @.spec.scaleTargetRef.kind == \"ReplicaSet\" || @.spec.scaleTargetRef.kind == \"replicaSet\" )].spec.scaleTargetRef.name")
           .type(KubernetesArtifactType.ReplicaSet)
           .build();
+
+  @Nonnull
+  public static Replacer dockerImage() {
+    return DOCKER_IMAGE;
+  }
+
+  @Nonnull
+  public static Replacer podDockerImage() {
+    return POD_DOCKER_IMAGE;
+  }
+
+  @Nonnull
+  public static Replacer configMapVolume() {
+    return CONFIG_MAP_VOLUME;
+  }
+
+  @Nonnull
+  public static Replacer secretVolume() {
+    return SECRET_VOLUME;
+  }
+
+  @Nonnull
+  public static Replacer configMapKeyValue() {
+    return CONFIG_MAP_KEY_VALUE;
+  }
+
+  @Nonnull
+  public static Replacer secretKeyValue() {
+    return SECRET_KEY_VALUE;
+  }
+
+  @Nonnull
+  public static Replacer configMapEnv() {
+    return CONFIG_MAP_ENV;
+  }
+
+  @Nonnull
+  public static Replacer secretEnv() {
+    return SECRET_ENV;
+  }
+
+  @Nonnull
+  public static Replacer hpaDeployment() {
+    return HPA_DEPLOYMENT;
+  }
+
+  @Nonnull
+  public static Replacer hpaReplicaSet() {
+    return HPA_REPLICA_SET;
+  }
 }

@@ -53,8 +53,8 @@ public class ArtifactReplacer {
 
   private final ImmutableList<Replacer> replacers;
 
-  public ArtifactReplacer(ImmutableList<Replacer> replacers) {
-    this.replacers = replacers;
+  public ArtifactReplacer(Collection<Replacer> replacers) {
+    this.replacers = ImmutableList.copyOf(replacers);
   }
 
   private static ImmutableList<Artifact> filterKubernetesArtifactsByNamespaceAndAccount(

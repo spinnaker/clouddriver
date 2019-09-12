@@ -44,13 +44,13 @@ public class KubernetesJobHandler extends KubernetesHandler implements ServerGro
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
     return ImmutableList.of(
-        Replacer.DOCKER_IMAGE,
-        Replacer.CONFIG_MAP_VOLUME,
-        Replacer.SECRET_VOLUME,
-        Replacer.CONFIG_MAP_ENV,
-        Replacer.SECRET_ENV,
-        Replacer.CONFIG_MAP_KEY_VALUE,
-        Replacer.SECRET_KEY_VALUE);
+        Replacer.dockerImage(),
+        Replacer.configMapVolume(),
+        Replacer.secretVolume(),
+        Replacer.configMapEnv(),
+        Replacer.secretEnv(),
+        Replacer.configMapKeyValue(),
+        Replacer.secretKeyValue());
   }
 
   @Override

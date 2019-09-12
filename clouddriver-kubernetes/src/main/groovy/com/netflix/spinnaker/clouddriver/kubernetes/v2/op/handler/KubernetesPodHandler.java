@@ -41,7 +41,7 @@ public class KubernetesPodHandler extends KubernetesHandler {
   @Nonnull
   @Override
   protected ImmutableList<Replacer> artifactReplacers() {
-    return ImmutableList.of(Replacer.POD_DOCKER_IMAGE);
+    return ImmutableList.of(Replacer.podDockerImage());
   }
 
   @Override
