@@ -32,6 +32,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import com.netflix.spinnaker.kork.configserver.ConfigFileService
+import groovy.transform.CompileStatic
 import spock.lang.Specification
 
 class KubernetesV2ProviderSynchronizableSpec extends Specification {
@@ -45,11 +46,9 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
   AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory = Mock(AccountResourcePropertyRegistry.Factory)
   KubernetesKindRegistry.Factory kindRegistryFactory = Mock(KubernetesKindRegistry.Factory)
 
-  KubernetesNamedAccountCredentials.CredentialFactory credentialFactory = new KubernetesNamedAccountCredentials.CredentialFactory(
-    "userAgent",
+  KubernetesV2Credentials.Factory credentialFactory = new KubernetesV2Credentials.Factory(
     new NoopRegistry(),
     namerRegistry,
-    accountCredentialsRepository,
     Mock(KubectlJobExecutor),
     configFileService,
     resourcePropertyRegistryFactory,

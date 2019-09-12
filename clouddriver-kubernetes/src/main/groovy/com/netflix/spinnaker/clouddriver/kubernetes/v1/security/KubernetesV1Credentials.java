@@ -23,12 +23,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubeconfigFileHasher;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.api.KubernetesApiAdaptor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.api.KubernetesClientApiAdapter;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
+import com.netflix.spinnaker.kork.configserver.ConfigFileService;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Secret;
@@ -39,8 +42,10 @@ import java.util.*;
 import javax.validation.ConstraintViolationException;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Data
@@ -66,7 +71,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
 
   @Include private final String kubeconfigFileHash;
 
-  public KubernetesV1Credentials(
+  private KubernetesV1Credentials(
       String name,
       String kubeconfigFile,
       String context,
@@ -306,5 +311,33 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
       return false;
     }
     return secrets.contains(secret);
+  }
+
+  @Component
+  @RequiredArgsConstructor
+  public static class Factory implements KubernetesCredentialFactory<KubernetesV1Credentials> {
+    private final String userAgent;
+    private final Registry spectatorRegistry;
+    private final AccountCredentialsRepository accountCredentialsRepository;
+    private final ConfigFileService configFileService;
+
+    public KubernetesV1Credentials build(
+        KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+      validateAccount(managedAccount);
+      return new KubernetesV1Credentials(
+          managedAccount.getName(),
+          getKubeconfigFile(configFileService, managedAccount),
+          managedAccount.getContext(),
+          managedAccount.getCluster(),
+          managedAccount.getUser(),
+          userAgent,
+          managedAccount.isServiceAccount(),
+          managedAccount.isConfigureImagePullSecrets(),
+          managedAccount.getNamespaces(),
+          managedAccount.getOmitNamespaces(),
+          managedAccount.getDockerRegistries(),
+          spectatorRegistry,
+          accountCredentialsRepository);
+    }
   }
 }

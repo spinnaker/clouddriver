@@ -24,6 +24,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpi
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion
@@ -34,18 +35,14 @@ import spock.lang.Specification
 import java.nio.file.Files
 
 class KubernetesNamedAccountCredentialsSpec extends Specification {
-
   KubernetesSpinnakerKindMap kindMap = new KubernetesSpinnakerKindMap([])
-  AccountCredentialsRepository accountCredentialsRepository = Mock(AccountCredentialsRepository)
   NamerRegistry namerRegistry = new NamerRegistry([new KubernetesManifestNamer()])
   ConfigFileService configFileService = new ConfigFileService()
   AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory = Mock(AccountResourcePropertyRegistry.Factory)
   KubernetesKindRegistry.Factory kindRegistryFactory = Mock(KubernetesKindRegistry.Factory)
-  KubernetesNamedAccountCredentials.CredentialFactory credentialFactory = new KubernetesNamedAccountCredentials.CredentialFactory(
-    "userAgent",
+  KubernetesV2Credentials.Factory credentialFactory = new KubernetesV2Credentials.Factory(
     new NoopRegistry(),
     namerRegistry,
-    accountCredentialsRepository,
     Mock(KubectlJobExecutor),
     configFileService,
     resourcePropertyRegistryFactory,
