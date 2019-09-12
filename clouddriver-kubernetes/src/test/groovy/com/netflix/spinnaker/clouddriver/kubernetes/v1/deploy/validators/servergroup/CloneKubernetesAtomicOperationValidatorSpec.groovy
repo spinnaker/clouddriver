@@ -91,7 +91,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
       })
     })
 
-    def credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
+    def credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock, new com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap(java.util.Collections.emptyList()))
     def namedAccountCredentials = Mock(KubernetesNamedAccountCredentials) {
       getName() >> VALID_ACCOUNT
       getCredentials() >> credentials

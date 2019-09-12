@@ -60,7 +60,7 @@ class UpsertKubernetesV1SecurityGroupAtomicOperationSpec extends Specification {
     dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     dockerRegistries = [dockerRegistry]
     accountCredentialsRepositoryMock = Mock(AccountCredentialsRepository)
-    credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], [], accountCredentialsRepositoryMock)
+    credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], [], accountCredentialsRepositoryMock, new com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap(java.util.Collections.emptyList()))
     namedAccountCredentials = Mock(KubernetesNamedAccountCredentials) {
       getCredentials() >> credentials
     }

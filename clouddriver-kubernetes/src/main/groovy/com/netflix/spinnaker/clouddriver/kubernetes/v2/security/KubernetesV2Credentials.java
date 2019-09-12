@@ -40,6 +40,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -127,6 +128,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final Supplier<List<KubernetesKind>> liveCrdSupplier;
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
   @Getter private final KubernetesKindRegistry kindRegistry;
+  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final PermissionValidator permissionValidator;
 
   private KubernetesV2Credentials(
@@ -135,6 +137,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       KubernetesConfigurationProperties.ManagedAccount managedAccount,
       AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory,
       KubernetesKindRegistry kindRegistry,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
       String kubeconfigFile) {
     this.registry = registry;
     this.clock = registry.clock();
@@ -172,6 +175,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
             managedAccount.getCustomResources().stream()
                 .map(cr -> KubernetesResourceProperties.fromCustomResource(cr, kindRegistry))
                 .collect(ImmutableList.toImmutableList()));
+    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
 
     this.kubectlExecutable = managedAccount.getKubectlExecutable();
     this.kubectlRequestTimeoutSeconds = managedAccount.getKubectlRequestTimeoutSeconds();
@@ -397,6 +401,17 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   public boolean isMetricsEnabled() {
     return metrics && permissionValidator.isMetricsReadable();
+  }
+
+  @Override
+  public Map<String, String> getSpinnakerKindMap() {
+    Map<String, String> kindMap =
+        new HashMap<>(kubernetesSpinnakerKindMap.kubernetesToSpinnakerKindStringMap());
+    getCustomResources()
+        .forEach(
+            customResource ->
+                kindMap.put(customResource.getKubernetesKind(), customResource.getSpinnakerKind()));
+    return kindMap;
   }
 
   public KubernetesManifest get(KubernetesKind kind, String namespace, String name) {
@@ -714,6 +729,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     private final ConfigFileService configFileService;
     private final AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory;
     private final KubernetesKindRegistry.Factory kindRegistryFactory;
+    private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
 
     public KubernetesV2Credentials build(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
@@ -730,6 +746,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           managedAccount,
           resourcePropertyRegistryFactory,
           kindRegistryFactory.create(),
+          kubernetesSpinnakerKindMap,
           getKubeconfigFile(configFileService, managedAccount));
     }
   }

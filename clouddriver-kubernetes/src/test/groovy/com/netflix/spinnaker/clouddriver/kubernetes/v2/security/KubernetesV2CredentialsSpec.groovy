@@ -20,6 +20,7 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.AccountResourcePropertyRegistry
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.GlobalKubernetesKindRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties
@@ -40,6 +41,7 @@ class KubernetesV2CredentialsSpec extends Specification {
   )
   NamerRegistry namerRegistry = new NamerRegistry([new KubernetesManifestNamer()])
   ConfigFileService configFileService = new ConfigFileService()
+  KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap = new KubernetesSpinnakerKindMap(Collections.emptyList())
 
   KubernetesV2Credentials.Factory credentialFactory = new KubernetesV2Credentials.Factory(
     new NoopRegistry(),
@@ -47,7 +49,8 @@ class KubernetesV2CredentialsSpec extends Specification {
     kubectlJobExecutor,
     configFileService,
     resourcePropertyRegistryFactory,
-    kindRegistryFactory
+    kindRegistryFactory,
+    kubernetesSpinnakerKindMap
   )
 
 
@@ -109,13 +112,11 @@ class KubernetesV2CredentialsSpec extends Specification {
 
   void "Kinds that are not readable are considered invalid"() {
     given:
-    KubernetesV2Credentials credentials = credentialFactory.build(
-      new KubernetesConfigurationProperties.ManagedAccount(
+    KubernetesV2Credentials credentials = credentialFactory.build(new KubernetesConfigurationProperties.ManagedAccount(
         name: "k8s",
         namespaces: [NAMESPACE],
         checkPermissionsOnStartup: true,
-      )
-    )
+      ))
     kubectlJobExecutor.list(_ as KubernetesV2Credentials, [KubernetesKind.DEPLOYMENT], NAMESPACE, _ as KubernetesSelectorList) >> {
       throw new KubectlJobExecutor.KubectlException("Error", new Exception())
     }

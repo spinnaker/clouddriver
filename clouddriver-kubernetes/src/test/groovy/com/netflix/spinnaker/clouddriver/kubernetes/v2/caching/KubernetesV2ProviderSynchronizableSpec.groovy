@@ -39,12 +39,13 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
 
   CatsModule catsModule = Mock(CatsModule)
   AccountCredentialsRepository accountCredentialsRepository = Mock(AccountCredentialsRepository)
-  NamerRegistry namerRegistry = Mock(NamerRegistry)
+  NamerRegistry namerRegistry = new NamerRegistry([new KubernetesManifestNamer()])
   ConfigFileService configFileService = Mock(ConfigFileService)
   KubernetesV2Provider kubernetesV2Provider = new KubernetesV2Provider()
   KubernetesV2CachingAgentDispatcher agentDispatcher = Mock(KubernetesV2CachingAgentDispatcher)
   AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory = Mock(AccountResourcePropertyRegistry.Factory)
   KubernetesKindRegistry.Factory kindRegistryFactory = Mock(KubernetesKindRegistry.Factory)
+  KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap = new KubernetesSpinnakerKindMap(Collections.emptyList())
 
   KubernetesV2Credentials.Factory credentialFactory = new KubernetesV2Credentials.Factory(
     new NoopRegistry(),
@@ -52,7 +53,8 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     Mock(KubectlJobExecutor),
     configFileService,
     resourcePropertyRegistryFactory,
-    kindRegistryFactory
+    kindRegistryFactory,
+    kubernetesSpinnakerKindMap
   )
 
   def synchronizeAccounts(KubernetesConfigurationProperties configurationProperties) {
@@ -62,7 +64,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
       agentDispatcher,
       configurationProperties,
       credentialFactory,
-      new KubernetesSpinnakerKindMap([]),
+      new KubernetesSpinnakerKindMap(Collections.emptyList()),
       catsModule
     )
 
@@ -100,7 +102,6 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     1 * accountCredentialsRepository.save("test-account", _ as KubernetesNamedAccountCredentials) >> { _, creds ->
       credentials = creds
     }
-    1 * namerRegistry.getNamingStrategy("kubernetesAnnotations") >> Mock(KubernetesManifestNamer)
 
     credentials.getName() == "test-account"
     credentials.getProviderVersion() == ProviderVersion.v2

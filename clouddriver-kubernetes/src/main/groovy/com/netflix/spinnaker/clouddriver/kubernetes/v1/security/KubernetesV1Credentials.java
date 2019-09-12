@@ -30,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentia
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.api.KubernetesApiAdaptor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.api.KubernetesClientApiAdapter;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
 import io.fabric8.kubernetes.api.model.Namespace;
@@ -71,6 +72,8 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
 
   @Include private final String kubeconfigFileHash;
 
+  private KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+
   private KubernetesV1Credentials(
       String name,
       String kubeconfigFile,
@@ -84,7 +87,8 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
       List<String> omitNamespaces,
       List<LinkedDockerRegistryConfiguration> dockerRegistries,
       Registry spectatorRegistry,
-      AccountCredentialsRepository accountCredentialsRepository) {
+      AccountCredentialsRepository accountCredentialsRepository,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
     this.kubeconfigFile = kubeconfigFile;
 
     if (dockerRegistries == null || dockerRegistries.size() == 0) {
@@ -111,6 +115,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
     this.repository = accountCredentialsRepository;
     this.LOG = LoggerFactory.getLogger(KubernetesV1Credentials.class);
     this.configureImagePullSecrets = configureImagePullSecrets;
+    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
     configureDockerRegistries();
   }
 
@@ -120,7 +125,8 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
       List<String> namespaces,
       List<String> omitNamespaces,
       List<LinkedDockerRegistryConfiguration> dockerRegistries,
-      AccountCredentialsRepository repository) {
+      AccountCredentialsRepository repository,
+      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap) {
     this.apiAdaptor = apiAdaptor;
     this.namespaces = namespaces != null ? namespaces : new ArrayList<>();
     this.omitNamespaces = omitNamespaces != null ? omitNamespaces : new ArrayList<>();
@@ -130,6 +136,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
     this.configureImagePullSecrets = true;
     this.kubeconfigFile = "";
     this.kubeconfigFileHash = "";
+    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
     configureDockerRegistries();
   }
 
@@ -177,6 +184,11 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
       LOG.warn("Could not determine kubernetes namespaces. Will try again later.", e);
       return Lists.newArrayList();
     }
+  }
+
+  @Override
+  public Map<String, String> getSpinnakerKindMap() {
+    return kubernetesSpinnakerKindMap.kubernetesToSpinnakerKindStringMap();
   }
 
   private void reconfigureRegistries(List<String> allNamespaces) {
@@ -320,6 +332,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
     private final Registry spectatorRegistry;
     private final AccountCredentialsRepository accountCredentialsRepository;
     private final ConfigFileService configFileService;
+    private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
 
     public KubernetesV1Credentials build(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
@@ -337,7 +350,8 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
           managedAccount.getOmitNamespaces(),
           managedAccount.getDockerRegistries(),
           spectatorRegistry,
-          accountCredentialsRepository);
+          accountCredentialsRepository,
+          kubernetesSpinnakerKindMap);
     }
   }
 }

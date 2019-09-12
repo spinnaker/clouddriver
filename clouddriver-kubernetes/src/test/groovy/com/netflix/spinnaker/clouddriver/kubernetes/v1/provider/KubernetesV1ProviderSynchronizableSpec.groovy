@@ -47,7 +47,8 @@ class KubernetesV1ProviderSynchronizableSpec extends Specification {
     "userAgent",
     new NoopRegistry(),
     accountCredentialsRepository,
-    configFileService
+    configFileService,
+    new KubernetesSpinnakerKindMap(Collections.emptyList())
   )
 
   def synchronizeAccounts(KubernetesConfigurationProperties configurationProperties) {
@@ -57,7 +58,7 @@ class KubernetesV1ProviderSynchronizableSpec extends Specification {
       agentDispatcher,
       configurationProperties,
       credentialFactory,
-      new KubernetesSpinnakerKindMap([]),
+      new KubernetesSpinnakerKindMap(Collections.emptyList()),
       catsModule
     )
 

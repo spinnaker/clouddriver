@@ -68,7 +68,7 @@ class UpsertKubernetesLoadBalancerAtomicOperationValidatorSpec extends Specifica
     spectatorRegistry = new DefaultRegistry()
     dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     dockerRegistries = [dockerRegistry]
-    credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], [], accountCredentialsRepositoryMock)
+    credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], [], accountCredentialsRepositoryMock, new com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap(java.util.Collections.emptyList()))
     namedAccountCredentials = Mock(KubernetesNamedAccountCredentials) {
       getName() >> VALID_ACCOUNT
       getCredentials() >> credentials

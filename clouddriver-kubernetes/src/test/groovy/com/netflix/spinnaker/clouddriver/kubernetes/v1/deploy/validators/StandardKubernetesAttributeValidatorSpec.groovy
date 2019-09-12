@@ -59,7 +59,7 @@ class StandardKubernetesAttributeValidatorSpec extends Specification {
       })
     })
 
-    credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
+    credentials = new KubernetesV1Credentials(apiMock, NAMESPACES, [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock, new com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap(java.util.Collections.emptyList()))
     def namedAccountCredentials =Mock(KubernetesNamedAccountCredentials) {
       getName() >> ACCOUNT_NAME
       getCredentials() >> credentials

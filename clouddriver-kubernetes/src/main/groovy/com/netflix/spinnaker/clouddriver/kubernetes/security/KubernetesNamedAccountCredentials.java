@@ -18,18 +18,18 @@ package com.netflix.spinnaker.clouddriver.kubernetes.security;
 
 import static lombok.EqualsAndHashCode.Include;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties.ManagedAccount;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.*;
+import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 @Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ParametersAreNonnullByDefault
 public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
     implements AccountCredentials<C> {
   private final String cloudProvider = "kubernetes";
@@ -54,12 +54,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
 
   @Include private final Long cacheIntervalSeconds;
 
-  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
-
   public KubernetesNamedAccountCredentials(
-      KubernetesConfigurationProperties.ManagedAccount managedAccount,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
-      KubernetesCredentialFactory<C> credentialFactory) {
+      ManagedAccount managedAccount, KubernetesCredentialFactory<C> credentialFactory) {
     this.name = managedAccount.getName();
     this.providerVersion = managedAccount.getProviderVersion();
     this.environment =
@@ -71,7 +67,6 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
             .orElse(managedAccount.getProviderVersion().toString());
     this.cacheThreads = managedAccount.getCacheThreads();
     this.cacheIntervalSeconds = managedAccount.getCacheIntervalSeconds();
-    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
 
     Permissions permissions = managedAccount.getPermissions().build();
     if (permissions.isRestricted()) {
@@ -90,20 +85,6 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
   }
 
   public Map<String, String> getSpinnakerKindMap() {
-    if (kubernetesSpinnakerKindMap == null) {
-      return Collections.emptyMap();
-    }
-    Map<String, String> kindMap =
-        new HashMap<>(kubernetesSpinnakerKindMap.kubernetesToSpinnakerKindStringMap());
-    C creds = getCredentials();
-    if (creds instanceof KubernetesV2Credentials) {
-      ((KubernetesV2Credentials) creds)
-          .getCustomResources()
-          .forEach(
-              customResource ->
-                  kindMap.put(
-                      customResource.getKubernetesKind(), customResource.getSpinnakerKind()));
-    }
-    return kindMap;
+    return credentials.getSpinnakerKindMap();
   }
 }

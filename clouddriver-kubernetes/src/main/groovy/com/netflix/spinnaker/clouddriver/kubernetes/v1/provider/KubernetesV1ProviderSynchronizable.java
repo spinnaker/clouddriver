@@ -106,8 +106,7 @@ public class KubernetesV1ProviderSynchronizable implements CredentialsInitialize
         .forEach(
             managedAccount -> {
               KubernetesNamedAccountCredentials credentials =
-                  new KubernetesNamedAccountCredentials<>(
-                      managedAccount, kubernetesSpinnakerKindMap, credentialFactory);
+                  new KubernetesNamedAccountCredentials<>(managedAccount, credentialFactory);
 
               AccountCredentials existingCredentials =
                   accountCredentialsRepository.getOne(managedAccount.getName());
