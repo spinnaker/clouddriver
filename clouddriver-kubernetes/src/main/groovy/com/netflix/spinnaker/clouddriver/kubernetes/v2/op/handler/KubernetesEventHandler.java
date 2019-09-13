@@ -19,10 +19,10 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.EVENT;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
@@ -60,8 +60,8 @@ public class KubernetesEventHandler extends KubernetesHandler {
 
   @Nonnull
   @Override
-  public KubernetesSpinnakerKindMap.SpinnakerKind spinnakerKind() {
-    return KubernetesSpinnakerKindMap.SpinnakerKind.UNCLASSIFIED;
+  public SpinnakerKind spinnakerKind() {
+    return SpinnakerKind.UNCLASSIFIED;
   }
 
   @Override

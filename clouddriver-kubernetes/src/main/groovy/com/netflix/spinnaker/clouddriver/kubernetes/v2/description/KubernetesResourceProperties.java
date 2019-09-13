@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesUnversionedArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesVersionedArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
@@ -76,7 +77,7 @@ public class KubernetesResourceProperties {
     KubernetesHandler handler =
         CustomKubernetesHandlerFactory.create(
             kubernetesKind,
-            KubernetesSpinnakerKindMap.SpinnakerKind.fromString(customResource.getSpinnakerKind()),
+            SpinnakerKind.fromString(customResource.getSpinnakerKind()),
             customResource.isVersioned(),
             deployPriorityValue);
 

@@ -24,12 +24,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1Prov
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1ProviderSynchronizable;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.agent.KubernetesV1CachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2Provider;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2ProviderSynchronizable;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentDispatcher;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.GlobalKubernetesKindRegistry;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import java.util.Collections;
@@ -70,33 +64,6 @@ public class KubernetesConfiguration {
       KubernetesCloudProvider kubernetesCloudProvider) {
     return new KubernetesV1Provider(
         kubernetesCloudProvider, Collections.newSetFromMap(new ConcurrentHashMap<>()));
-  }
-
-  @Bean
-  public KubernetesV2Provider kubernetesV2Provider() {
-    return new KubernetesV2Provider();
-  }
-
-  @Bean
-  public GlobalKubernetesKindRegistry globalKubernetesKindRegistry() {
-    return new GlobalKubernetesKindRegistry(KubernetesKindProperties.getGlobalKindProperties());
-  }
-
-  @Bean
-  public KubernetesV2ProviderSynchronizable kubernetesV2ProviderSynchronizable(
-      KubernetesV2Provider kubernetesV2Provider,
-      AccountCredentialsRepository accountCredentialsRepository,
-      KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
-      KubernetesConfigurationProperties kubernetesConfigurationProperties,
-      KubernetesV2Credentials.Factory credentialFactory,
-      CatsModule catsModule) {
-    return new KubernetesV2ProviderSynchronizable(
-        kubernetesV2Provider,
-        accountCredentialsRepository,
-        kubernetesV2CachingAgentDispatcher,
-        kubernetesConfigurationProperties,
-        credentialFactory,
-        catsModule);
   }
 
   @Bean

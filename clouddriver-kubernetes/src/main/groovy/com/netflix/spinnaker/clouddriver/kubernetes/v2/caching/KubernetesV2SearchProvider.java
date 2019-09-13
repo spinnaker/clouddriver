@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
@@ -206,12 +207,12 @@ public class KubernetesV2SearchProvider implements SearchProvider {
             .map(
                 t -> {
                   try {
-                    return KubernetesSpinnakerKindMap.SpinnakerKind.fromString(t);
+                    return SpinnakerKind.fromString(t);
                   } catch (IllegalArgumentException e) {
                     return null;
                   }
                 })
-            .filter(k -> k != null && k != KubernetesSpinnakerKindMap.SpinnakerKind.UNCLASSIFIED)
+            .filter(k -> k != null && k != SpinnakerKind.UNCLASSIFIED)
             .map(kindMap::translateSpinnakerKind)
             .flatMap(Collection::stream)
             .map(KubernetesKind::toString)

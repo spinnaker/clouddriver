@@ -23,11 +23,11 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manife
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 import com.google.common.collect.ImmutableList;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
@@ -77,8 +77,8 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
 
   @Nonnull
   @Override
-  public KubernetesSpinnakerKindMap.SpinnakerKind spinnakerKind() {
-    return KubernetesSpinnakerKindMap.SpinnakerKind.SERVER_GROUP_MANAGERS;
+  public SpinnakerKind spinnakerKind() {
+    return SpinnakerKind.SERVER_GROUP_MANAGERS;
   }
 
   @Override

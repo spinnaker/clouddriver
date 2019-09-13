@@ -17,13 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -31,34 +30,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class KubernetesSpinnakerKindMap {
-  public enum SpinnakerKind {
-    INSTANCES("instances"),
-    CONFIGS("configs"),
-    SERVER_GROUPS("serverGroups"),
-    LOAD_BALANCERS("loadBalancers"),
-    SECURITY_GROUPS("securityGroups"),
-    SERVER_GROUP_MANAGERS("serverGroupManagers"),
-    UNCLASSIFIED("unclassified");
-
-    private final String id;
-
-    SpinnakerKind(String id) {
-      this.id = id;
-    }
-
-    @Override
-    public String toString() {
-      return id;
-    }
-
-    @JsonCreator
-    public static SpinnakerKind fromString(String name) {
-      return Arrays.stream(values())
-          .filter(k -> k.toString().equalsIgnoreCase(name))
-          .findFirst()
-          .orElse(UNCLASSIFIED);
-    }
-  }
 
   private final ImmutableMap<KubernetesKind, SpinnakerKind> kubernetesToSpinnaker;
   private final ImmutableSetMultimap<SpinnakerKind, KubernetesKind> spinnakerToKubernetes;

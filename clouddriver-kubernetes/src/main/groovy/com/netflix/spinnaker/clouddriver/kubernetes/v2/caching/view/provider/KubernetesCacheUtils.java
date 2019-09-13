@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.ManifestBasedModel;
@@ -27,7 +28,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.dat
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesAccountResolver;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.ModelHandler;
