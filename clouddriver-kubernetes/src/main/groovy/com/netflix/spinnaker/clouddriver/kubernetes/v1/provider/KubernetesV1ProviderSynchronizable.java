@@ -24,7 +24,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAge
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.agent.KubernetesV1CachingAgentDispatcher;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
@@ -44,8 +44,7 @@ public class KubernetesV1ProviderSynchronizable implements CredentialsInitialize
   private AccountCredentialsRepository accountCredentialsRepository;
   private KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher;
   private KubernetesConfigurationProperties kubernetesConfigurationProperties;
-  private KubernetesNamedAccountCredentials.CredentialFactory credentialFactory;
-  private KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+  private KubernetesV1Credentials.Factory credentialFactory;
   private CatsModule catsModule;
 
   public KubernetesV1ProviderSynchronizable(
@@ -53,15 +52,13 @@ public class KubernetesV1ProviderSynchronizable implements CredentialsInitialize
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
-      KubernetesNamedAccountCredentials.CredentialFactory credentialFactory,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
+      KubernetesV1Credentials.Factory credentialFactory,
       CatsModule catsModule) {
     this.kubernetesV1Provider = kubernetesV1Provider;
     this.accountCredentialsRepository = accountCredentialsRepository;
     this.kubernetesV1CachingAgentDispatcher = kubernetesV1CachingAgentDispatcher;
     this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
     this.credentialFactory = credentialFactory;
-    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
     this.catsModule = catsModule;
 
     ScheduledExecutorService poller =
@@ -98,15 +95,14 @@ public class KubernetesV1ProviderSynchronizable implements CredentialsInitialize
     List<String> changedAccounts = new ArrayList<>();
     Set<String> newAndChangedAccounts = new HashSet<>();
 
-    deletedAccounts.stream().forEach(accountCredentialsRepository::delete);
+    deletedAccounts.forEach(accountCredentialsRepository::delete);
 
     kubernetesConfigurationProperties.getAccounts().stream()
         .filter(a -> ProviderVersion.v1.equals(a.getProviderVersion()))
         .forEach(
             managedAccount -> {
               KubernetesNamedAccountCredentials credentials =
-                  new KubernetesNamedAccountCredentials(
-                      managedAccount, kubernetesSpinnakerKindMap, credentialFactory);
+                  new KubernetesNamedAccountCredentials<>(managedAccount, credentialFactory);
 
               AccountCredentials existingCredentials =
                   accountCredentialsRepository.getOne(managedAccount.getName());

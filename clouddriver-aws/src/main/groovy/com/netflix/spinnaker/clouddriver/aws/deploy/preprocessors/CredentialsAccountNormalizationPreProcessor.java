@@ -15,19 +15,23 @@
  */
 package com.netflix.spinnaker.clouddriver.aws.deploy.preprocessors;
 
+import com.netflix.spinnaker.clouddriver.aws.deploy.description.AllowLaunchDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationDescriptionPreProcessor;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/** Normalizes the use of `account` vs `credentials`, ensuring that both are always set. */
+/**
+ * Normalizes the use of `account` vs `credentials`, ensuring that both are always set; prefers the
+ * value from `credentials`.
+ */
 @Slf4j
 @Component
 public class CredentialsAccountNormalizationPreProcessor
     implements AtomicOperationDescriptionPreProcessor {
   @Override
   public boolean supports(Class descriptionClass) {
-    return true;
+    return !AllowLaunchDescription.class.isAssignableFrom(descriptionClass);
   }
 
   @Override
@@ -40,6 +44,7 @@ public class CredentialsAccountNormalizationPreProcessor
           "Passed 'account' ({}) and 'credentials' ({}), but values are not equal",
           account,
           credentials);
+      description.put("account", credentials);
     }
 
     if (credentials == null && account != null) {

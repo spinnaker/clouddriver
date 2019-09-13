@@ -132,7 +132,7 @@ class DeployKubernetesAtomicOperationSpec extends Specification {
 
     dockerRegistry = Mock(LinkedDockerRegistryConfiguration)
     dockerRegistries = [dockerRegistry]
-    credentials = new KubernetesV1Credentials(apiMock, [NAMESPACE], [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock,)
+    credentials = new KubernetesV1Credentials(apiMock, [NAMESPACE], [], DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
     namedAccountCredentials = Mock(KubernetesNamedAccountCredentials) {
       getCredentials() >> credentials
     }

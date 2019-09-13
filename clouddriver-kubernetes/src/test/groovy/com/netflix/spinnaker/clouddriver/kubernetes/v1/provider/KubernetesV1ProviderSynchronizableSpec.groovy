@@ -18,19 +18,13 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v1.provider
 
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.cats.module.CatsModule
-
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
+import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.agent.KubernetesV1CachingAgentDispatcher
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.AccountResourcePropertyRegistry
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindRegistry
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
-import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import com.netflix.spinnaker.kork.configserver.ConfigFileService
 import spock.lang.Specification
@@ -41,18 +35,13 @@ class KubernetesV1ProviderSynchronizableSpec extends Specification {
   KubernetesV1Provider v1Provider = Mock(KubernetesV1Provider)
   AccountCredentialsRepository accountCredentialsRepository = Mock(AccountCredentialsRepository)
   KubernetesV1CachingAgentDispatcher agentDispatcher = Mock(KubernetesV1CachingAgentDispatcher)
-  NamerRegistry namerRegistry = Mock(NamerRegistry)
   ConfigFileService configFileService = new ConfigFileService()
 
-  KubernetesNamedAccountCredentials.CredentialFactory credentialFactory = new KubernetesNamedAccountCredentials.CredentialFactory(
+  KubernetesV1Credentials.Factory credentialFactory = new KubernetesV1Credentials.Factory(
     "userAgent",
     new NoopRegistry(),
-    namerRegistry,
     accountCredentialsRepository,
-    Mock(KubectlJobExecutor),
-    configFileService,
-    null,
-    null
+    configFileService
   )
 
   def synchronizeAccounts(KubernetesConfigurationProperties configurationProperties) {
@@ -61,8 +50,8 @@ class KubernetesV1ProviderSynchronizableSpec extends Specification {
       accountCredentialsRepository,
       agentDispatcher,
       configurationProperties,
-      credentialFactory,
-      new KubernetesSpinnakerKindMap([]),
+      credentialFactory
+      ,
       catsModule
     )
 
