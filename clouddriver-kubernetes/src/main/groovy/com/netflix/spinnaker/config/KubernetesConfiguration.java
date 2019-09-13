@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Cred
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2Provider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.KubernetesV2ProviderSynchronizable;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentDispatcher;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.GlobalKubernetesKindRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
@@ -107,7 +106,6 @@ public class KubernetesConfiguration {
       KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       KubernetesV1Credentials.Factory credentialFactory,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
       CatsModule catsModule) {
     return new KubernetesV1ProviderSynchronizable(
         kubernetesV1Provider,
@@ -115,7 +113,6 @@ public class KubernetesConfiguration {
         kubernetesV1CachingAgentDispatcher,
         kubernetesConfigurationProperties,
         credentialFactory,
-        kubernetesSpinnakerKindMap,
         catsModule);
   }
 }
