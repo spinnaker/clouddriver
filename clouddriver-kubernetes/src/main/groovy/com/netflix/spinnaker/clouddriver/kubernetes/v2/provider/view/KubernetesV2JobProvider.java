@@ -87,7 +87,7 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
     KubernetesV2Credentials credentials =
         (KubernetesV2Credentials)
             accountCredentialsProvider.getCredentials(account).getCredentials();
-    Map props = null;
+    Map<String, Object> props = null;
     try {
       V1Job job = getKubernetesJob(account, location, id);
       String logContents = credentials.jobLogs(location, job.getMetadata().getName());

@@ -32,7 +32,6 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import com.netflix.spinnaker.kork.configserver.ConfigFileService
-import groovy.transform.CompileStatic
 import spock.lang.Specification
 
 class KubernetesV2ProviderSynchronizableSpec extends Specification {
@@ -64,7 +63,6 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
       agentDispatcher,
       configurationProperties,
       credentialFactory,
-      new KubernetesSpinnakerKindMap(Collections.emptyList()),
       catsModule
     )
 

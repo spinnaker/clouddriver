@@ -47,7 +47,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
   private final KubernetesDeployManifestDescription description;
   private final KubernetesV2Credentials credentials;
   private final ArtifactProvider provider;
-  private final Namer namer;
+  private final Namer<KubernetesManifest> namer;
   private final String accountName;
   private static final String OP_NAME = "DEPLOY_KUBERNETES_MANIFEST";
 

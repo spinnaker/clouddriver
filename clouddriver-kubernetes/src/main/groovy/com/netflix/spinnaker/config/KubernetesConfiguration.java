@@ -90,7 +90,6 @@ public class KubernetesConfiguration {
       KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       KubernetesV2Credentials.Factory credentialFactory,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
       CatsModule catsModule) {
     return new KubernetesV2ProviderSynchronizable(
         kubernetesV2Provider,
@@ -98,7 +97,6 @@ public class KubernetesConfiguration {
         kubernetesV2CachingAgentDispatcher,
         kubernetesConfigurationProperties,
         credentialFactory,
-        kubernetesSpinnakerKindMap,
         catsModule);
   }
 

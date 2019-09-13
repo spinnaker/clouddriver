@@ -24,7 +24,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentDispatcher;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.*;
 import java.util.ArrayList;
@@ -45,7 +44,6 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
   private final KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher;
   private final KubernetesConfigurationProperties kubernetesConfigurationProperties;
   private final KubernetesV2Credentials.Factory credentialFactory;
-  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final CatsModule catsModule;
 
   public KubernetesV2ProviderSynchronizable(
@@ -54,14 +52,12 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
       KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       KubernetesV2Credentials.Factory credentialFactory,
-      KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
       CatsModule catsModule) {
     this.kubernetesV2Provider = kubernetesV2Provider;
     this.accountCredentialsRepository = accountCredentialsRepository;
     this.kubernetesV2CachingAgentDispatcher = kubernetesV2CachingAgentDispatcher;
     this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
     this.credentialFactory = credentialFactory;
-    this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
     this.catsModule = catsModule;
 
     ScheduledExecutorService poller =
