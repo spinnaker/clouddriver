@@ -1,7 +1,7 @@
 /*
- * Copyright 2016 Netflix, Inc.
+ * Copyright 2019 Netflix, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License")
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -13,24 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.clouddriver.data.task;
 
-package com.netflix.spinnaker.clouddriver.data.task
+import javax.annotation.Nonnull;
+import lombok.Value;
 
-enum TaskState {
-  STARTED,
-  COMPLETED,
-  FAILED,
-  FAILED_RETRYABLE
-
-  boolean isCompleted() {
-    this != STARTED
-  }
-
-  boolean isFailed() {
-    this == FAILED || this == FAILED_RETRYABLE
-  }
-
-  boolean isRetryable() {
-    this == FAILED_RETRYABLE
-  }
+@Value
+public class SagaId {
+  @Nonnull String name;
+  @Nonnull String id;
 }

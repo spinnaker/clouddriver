@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.data.task
 
+import javax.annotation.Nonnull
 /**
  * This interface represents the state of a given execution. Implementations must allow for updating and completing/failing
  * status, as well as providing the start time of the task.
@@ -69,8 +70,19 @@ public interface Task {
   /**
    * This method will fail the task and will represent completed = true and failed = true from the Task's
    * {@link #getStatus()} method.
+   *
+   * @deprecated Use `fail(boolean)` instead
    */
+  @Deprecated
   void fail()
+
+  /**
+   * This method will fail the task and will represent completed = true and failed = true from the Task's
+   * {@link #getStatus()} method.
+   *
+   * @param retryable If true, the failed state will be marked as retryable (sagas only)
+   */
+  void fail(boolean retryable)
 
   /**
    * This method will return the current status of the task.
@@ -82,4 +94,17 @@ public interface Task {
    * This returns the start time of the Task's execution in milliseconds since epoch form.
    */
   long getStartTimeMs()
+
+  /**
+   * Connect a Saga to this Task. More than one Saga can be associated with a Task.
+   *
+   * @param sagaId The Saga name/id pair
+   */
+  void connectSaga(@Nonnull SagaId sagaId);
+
+  /**
+   * A list of Sagas associated with this Task, if any.
+   */
+  @Nonnull
+  List<SagaId> getSagaIds();
 }
