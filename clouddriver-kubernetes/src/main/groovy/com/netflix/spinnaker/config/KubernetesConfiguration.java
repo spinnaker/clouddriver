@@ -15,19 +15,9 @@
  */
 package com.netflix.spinnaker.config;
 
-import com.netflix.spinnaker.cats.module.CatsModule;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndicator;
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil;
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1Provider;
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.KubernetesV1ProviderSynchronizable;
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.agent.KubernetesV1CachingAgentDispatcher;
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import java.util.Collections;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -52,34 +42,5 @@ public class KubernetesConfiguration {
   public KubernetesHealthIndicator kubernetesHealthIndicator(
       AccountCredentialsProvider accountCredentialsProvider) {
     return new KubernetesHealthIndicator(accountCredentialsProvider);
-  }
-
-  @Bean
-  public KubernetesUtil kubernetesUtil() {
-    return new KubernetesUtil();
-  }
-
-  @Bean
-  public KubernetesV1Provider kubernetesV1Provider(
-      KubernetesCloudProvider kubernetesCloudProvider) {
-    return new KubernetesV1Provider(
-        kubernetesCloudProvider, Collections.newSetFromMap(new ConcurrentHashMap<>()));
-  }
-
-  @Bean
-  public KubernetesV1ProviderSynchronizable kubernetesV1ProviderSynchronizable(
-      KubernetesV1Provider kubernetesV1Provider,
-      AccountCredentialsRepository accountCredentialsRepository,
-      KubernetesV1CachingAgentDispatcher kubernetesV1CachingAgentDispatcher,
-      KubernetesConfigurationProperties kubernetesConfigurationProperties,
-      KubernetesV1Credentials.Factory credentialFactory,
-      CatsModule catsModule) {
-    return new KubernetesV1ProviderSynchronizable(
-        kubernetesV1Provider,
-        accountCredentialsRepository,
-        kubernetesV1CachingAgentDispatcher,
-        kubernetesConfigurationProperties,
-        credentialFactory,
-        catsModule);
   }
 }
