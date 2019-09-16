@@ -72,7 +72,7 @@ public class KubernetesKindProperties {
   // was this kind found after spinnaker started?
   @Getter private final boolean isDynamic;
 
-  public KubernetesKindProperties(
+  private KubernetesKindProperties(
       @Nonnull KubernetesKind kubernetesKind,
       boolean isNamespaced,
       boolean hasClusterRelationship,
@@ -86,6 +86,11 @@ public class KubernetesKindProperties {
   public static KubernetesKindProperties withDefaultProperties(
       @Nonnull KubernetesKind kubernetesKind) {
     return new KubernetesKindProperties(kubernetesKind, true, false, true);
+  }
+
+  public static KubernetesKindProperties createKubernetesKindProperties(
+      @Nonnull KubernetesKind kubernetesKind, boolean isNamespaced) {
+    return new KubernetesKindProperties(kubernetesKind, isNamespaced, false, true);
   }
 
   public boolean hasClusterRelationship() {

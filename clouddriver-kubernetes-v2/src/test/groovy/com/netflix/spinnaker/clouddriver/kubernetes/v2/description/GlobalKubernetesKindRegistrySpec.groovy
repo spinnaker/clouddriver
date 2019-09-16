@@ -22,8 +22,8 @@ import spock.lang.Subject
 
 class GlobalKubernetesKindRegistrySpec extends Specification {
   static final KubernetesApiGroup CUSTOM_API_GROUP =  KubernetesApiGroup.fromString("test")
-  static final KubernetesKindProperties REPLICA_SET = new KubernetesKindProperties(KubernetesKind.REPLICA_SET, true, true, true)
-  static final KubernetesKindProperties CUSTOM_KIND = new KubernetesKindProperties(KubernetesKind.from("customKind", CUSTOM_API_GROUP), true, true, true)
+  static final KubernetesKindProperties REPLICA_SET = KubernetesKindProperties.createKubernetesKindProperties(KubernetesKind.REPLICA_SET, true)
+  static final KubernetesKindProperties CUSTOM_KIND = KubernetesKindProperties.createKubernetesKindProperties(KubernetesKind.from("customKind", CUSTOM_API_GROUP), true)
 
   void "an empty registry returns no kinds"() {
     given:

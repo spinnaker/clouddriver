@@ -25,7 +25,7 @@ class KubernetesKindRegistrySpec extends Specification {
   static final KubernetesApiGroup CUSTOM_API_GROUP =  KubernetesApiGroup.fromString("test")
   static final KubernetesKind CUSTOM_KIND = KubernetesKind.from("customKind", CUSTOM_API_GROUP)
   static final KubernetesKindProperties REPLICA_SET_PROPERTIES = KubernetesKindProperties.withDefaultProperties(KubernetesKind.REPLICA_SET)
-  static final KubernetesKindProperties CUSTOM_KIND_PROPERTIES = new KubernetesKindProperties(CUSTOM_KIND, true, true, true)
+  static final KubernetesKindProperties CUSTOM_KIND_PROPERTIES = KubernetesKindProperties.createKubernetesKindProperties(CUSTOM_KIND, true)
 
   final GlobalKubernetesKindRegistry globalRegistry = Mock(GlobalKubernetesKindRegistry)
   final KubernetesKindRegistry.Factory factory = new KubernetesKindRegistry.Factory(globalRegistry)
@@ -35,7 +35,7 @@ class KubernetesKindRegistrySpec extends Specification {
     given:
     @Subject KubernetesKindRegistry kindRegistry = factory.create()
     KubernetesKindProperties result
-    KubernetesKindProperties globalResult = new KubernetesKindProperties(CUSTOM_KIND, false, false, false)
+    KubernetesKindProperties globalResult = KubernetesKindProperties.createKubernetesKindProperties(CUSTOM_KIND, false)
 
     when:
     result = kindRegistry.getRegisteredKind(CUSTOM_KIND)

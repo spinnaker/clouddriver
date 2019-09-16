@@ -70,8 +70,8 @@ public class KubernetesResourceProperties {
               "Dynamically registering {}, (namespaced: {})",
               kubernetesKind.toString(),
               customResource.isNamespaced());
-          return new KubernetesKindProperties(
-              kubernetesKind, customResource.isNamespaced(), false, true);
+          return KubernetesKindProperties.createKubernetesKindProperties(
+              kubernetesKind, customResource.isNamespaced());
         });
 
     KubernetesHandler handler =
