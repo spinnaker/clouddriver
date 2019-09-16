@@ -22,7 +22,7 @@ import io.grpc.Metadata;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.MetadataUtils;
 import java.util.List;
-import lombok.NonNull;
+import javax.annotation.Nonnull;
 import org.slf4j.MDC;
 
 public class TitusClientAuthenticationUtil {
@@ -47,7 +47,7 @@ public class TitusClientAuthenticationUtil {
     return serviceStub.withInterceptors(MetadataUtils.newAttachHeadersInterceptor(metadata));
   }
 
-  public static @NonNull String getSpinnakerExecutionId(@NonNull String executionIdHeader) {
+  public static @Nonnull String getSpinnakerExecutionId(@Nonnull String executionIdHeader) {
     if (!"unknown".equalsIgnoreCase(executionIdHeader) && !executionIdHeader.isEmpty()) {
       List<String> ids = Splitter.on(':').splitToList(executionIdHeader);
       return ids.get(0);
