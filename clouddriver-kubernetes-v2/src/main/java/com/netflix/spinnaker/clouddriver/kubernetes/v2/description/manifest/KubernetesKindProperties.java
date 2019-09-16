@@ -19,11 +19,13 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @EqualsAndHashCode
+@ParametersAreNonnullByDefault
 @Slf4j
 public class KubernetesKindProperties {
   public static List<KubernetesKindProperties> getGlobalKindProperties() {
@@ -73,7 +75,7 @@ public class KubernetesKindProperties {
   @Getter private final boolean isDynamic;
 
   private KubernetesKindProperties(
-      @Nonnull KubernetesKind kubernetesKind,
+      KubernetesKind kubernetesKind,
       boolean isNamespaced,
       boolean hasClusterRelationship,
       boolean isDynamic) {
@@ -83,13 +85,13 @@ public class KubernetesKindProperties {
     this.isDynamic = isDynamic;
   }
 
-  public static KubernetesKindProperties withDefaultProperties(
-      @Nonnull KubernetesKind kubernetesKind) {
+  public static KubernetesKindProperties withDefaultProperties(KubernetesKind kubernetesKind) {
     return new KubernetesKindProperties(kubernetesKind, true, false, true);
   }
 
-  public static KubernetesKindProperties createKubernetesKindProperties(
-      @Nonnull KubernetesKind kubernetesKind, boolean isNamespaced) {
+  @Nonnull
+  public static KubernetesKindProperties create(
+      KubernetesKind kubernetesKind, boolean isNamespaced) {
     return new KubernetesKindProperties(kubernetesKind, isNamespaced, false, true);
   }
 

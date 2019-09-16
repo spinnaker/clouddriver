@@ -24,7 +24,7 @@ import spock.lang.Specification
 class KubernetesKindPropertiesSpec extends Specification {
   def "creates and returns the supplied properties"() {
     when:
-    def properties = KubernetesKindProperties.createKubernetesKindProperties(KubernetesKind.REPLICA_SET, true)
+    def properties = KubernetesKindProperties.create(KubernetesKind.REPLICA_SET, true)
 
     then:
     properties.getKubernetesKind() == KubernetesKind.REPLICA_SET
@@ -33,7 +33,7 @@ class KubernetesKindPropertiesSpec extends Specification {
     properties.isDynamic()
 
     when:
-    properties = KubernetesKindProperties.createKubernetesKindProperties(KubernetesKind.REPLICA_SET, false)
+    properties = KubernetesKindProperties.create(KubernetesKind.REPLICA_SET, false)
 
     then:
     properties.getKubernetesKind() == KubernetesKind.REPLICA_SET

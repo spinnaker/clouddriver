@@ -16,8 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.google.common.collect.ImmutableCollection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -65,12 +64,10 @@ public class KubernetesKindRegistry {
     return globalKindRegistry.getRegisteredKind(kind);
   }
 
-  /** Returns a list of all registered kinds */
+  /** Returns a list of all global kinds */
   @Nonnull
-  public List<KubernetesKindProperties> getRegisteredKinds() {
-    List<KubernetesKindProperties> result = new ArrayList<>(kindMap.values());
-    result.addAll(globalKindRegistry.getRegisteredKinds());
-    return result;
+  public ImmutableCollection<KubernetesKindProperties> getGlobalKinds() {
+    return globalKindRegistry.getRegisteredKinds();
   }
 
   @Component

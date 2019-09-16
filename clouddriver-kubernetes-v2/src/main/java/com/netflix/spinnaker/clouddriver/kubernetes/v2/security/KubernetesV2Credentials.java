@@ -157,7 +157,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                         () -> {
                           log.info(
                               "Dynamically registering {}, (namespaced: {})", k.toString(), true);
-                          return KubernetesKindProperties.createKubernetesKindProperties(k, true);
+                          return KubernetesKindProperties.create(k, true);
                         }))
             .map(KubernetesKindProperties::getKubernetesKind)
             .collect(toImmutableSet());
@@ -245,8 +245,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                                     "Dynamically registering {}, (namespaced: {})",
                                     kind.toString(),
                                     isNamespaced);
-                                return KubernetesKindProperties.createKubernetesKindProperties(
-                                    kind, isNamespaced);
+                                return KubernetesKindProperties.create(kind, isNamespaced);
                               });
                         })
                     .map(KubernetesKindProperties::getKubernetesKind)

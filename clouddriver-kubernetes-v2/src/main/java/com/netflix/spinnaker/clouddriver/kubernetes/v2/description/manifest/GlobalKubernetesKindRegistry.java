@@ -16,10 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.Collection;
 import javax.annotation.Nonnull;
 
 /**
@@ -28,14 +27,14 @@ import javax.annotation.Nonnull;
  * immutable, they can be shared across threads without need for further synchronization.
  */
 public class GlobalKubernetesKindRegistry {
-  private final Map<KubernetesKind, KubernetesKindProperties> nameMap;
+  private final ImmutableMap<KubernetesKind, KubernetesKindProperties> nameMap;
 
   /**
    * Creates a {@link GlobalKubernetesKindRegistry} populated with the supplied {@link
    * KubernetesKindProperties}.
    */
   public GlobalKubernetesKindRegistry(
-      @Nonnull List<KubernetesKindProperties> kubernetesKindProperties) {
+      @Nonnull Collection<KubernetesKindProperties> kubernetesKindProperties) {
     ImmutableMap.Builder<KubernetesKind, KubernetesKindProperties> mapBuilder =
         new ImmutableMap.Builder<>();
     kubernetesKindProperties.forEach(kp -> mapBuilder.put(kp.getKubernetesKind(), kp));
@@ -59,7 +58,7 @@ public class GlobalKubernetesKindRegistry {
 
   /** Returns a list of all registered kinds */
   @Nonnull
-  public List<KubernetesKindProperties> getRegisteredKinds() {
-    return new ArrayList<>(nameMap.values());
+  public ImmutableCollection<KubernetesKindProperties> getRegisteredKinds() {
+    return nameMap.values();
   }
 }
