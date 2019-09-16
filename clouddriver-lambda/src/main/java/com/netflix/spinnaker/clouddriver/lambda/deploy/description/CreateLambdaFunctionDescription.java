@@ -50,5 +50,5 @@ public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescr
 
   DeadLetterConfig deadLetterConfig;
   TracingConfig tracingConfig;
-  String kMSKeyArn;
+  String encryKMSKeyArn;
 }

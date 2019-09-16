@@ -54,7 +54,14 @@ public class UpdateLambdaConfigurationAtomicOperation
             .withHandler(description.getHandler())
             .withMemorySize(description.getMemory())
             .withRole(description.getRole())
-            .withTimeout(description.getTimeout());
+            .withTimeout(description.getTimeout())
+            .withDeadLetterConfig(description.getDeadLetterConfig())
+            .withVpcConfig(
+                new VpcConfig()
+                    .withSecurityGroupIds(description.getSecurityGroupIds())
+                    .withSubnetIds(description.getSubnetIds()))
+            .withKMSKeyArn(description.getEncryKMSKeyArn())
+            .withTracingConfig(description.getTracingConfig());
 
     UpdateFunctionConfigurationResult result = client.updateFunctionConfiguration(request);
     updateTaskStatus("Finished Updating of AWS Lambda Function Configuration Operation...");
