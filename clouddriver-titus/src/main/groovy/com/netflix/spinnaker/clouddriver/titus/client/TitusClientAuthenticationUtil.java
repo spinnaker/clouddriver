@@ -20,7 +20,7 @@ import com.netflix.spinnaker.security.AuthenticatedRequest;
 import io.grpc.Metadata;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.MetadataUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.MDC;
 
 public class TitusClientAuthenticationUtil {
@@ -46,7 +46,7 @@ public class TitusClientAuthenticationUtil {
   }
 
   public static String getSpinnakerExecutionId(String executionIdHeader) {
-    if (!executionIdHeader.equalsIgnoreCase("unknown")) {
+    if (!executionIdHeader.equalsIgnoreCase("unknown") && !executionIdHeader.isEmpty()) {
       String[] ids = StringUtils.split(executionIdHeader, ":");
       return ids[0];
     }
