@@ -42,7 +42,7 @@ class KubernetesKindRegistrySpec extends Specification {
     result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
 
     then:
-    1 * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> globalResult
+    1 * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.of(globalResult)
     result == globalResult
 
     when:
@@ -68,5 +68,18 @@ class KubernetesKindRegistrySpec extends Specification {
     1 * globalRegistry.getRegisteredKinds() >> ImmutableList.of(REPLICA_SET_PROPERTIES)
     kinds.size() == 1
     kinds.contains(REPLICA_SET_PROPERTIES)
+  }
+
+  void "getRegisteredKind returns default properties for a kind that has not been registered"() {
+    given:
+    @Subject KubernetesKindRegistry kindRegistry = factory.create()
+    KubernetesKindProperties result
+
+    when:
+    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+
+    then:
+    1 * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    result == KubernetesKindProperties.withDefaultProperties(CUSTOM_KIND)
   }
 }

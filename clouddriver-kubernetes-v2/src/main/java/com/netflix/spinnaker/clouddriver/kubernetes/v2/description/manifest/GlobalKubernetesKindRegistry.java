@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 
 /**
@@ -44,16 +45,11 @@ public class GlobalKubernetesKindRegistry {
   /**
    * Searches the registry for a {@link KubernetesKindProperties} with the supplied {@link
    * KubernetesKind}. If the kind has been registered, returns the {@link KubernetesKindProperties}
-   * that were registered for the kind; otherwise, returns a {@link KubernetesKindProperties}
-   * containing default values for all properties.
+   * that were registered for the kind; otherwise, returns an empty {@link Optional}.
    */
   @Nonnull
-  public KubernetesKindProperties getRegisteredKind(@Nonnull KubernetesKind kind) {
-    KubernetesKindProperties result = nameMap.get(kind);
-    if (result != null) {
-      return result;
-    }
-    return KubernetesKindProperties.withDefaultProperties(kind);
+  public Optional<KubernetesKindProperties> getRegisteredKind(@Nonnull KubernetesKind kind) {
+    return Optional.ofNullable(nameMap.get(kind));
   }
 
   /** Returns a list of all registered kinds */

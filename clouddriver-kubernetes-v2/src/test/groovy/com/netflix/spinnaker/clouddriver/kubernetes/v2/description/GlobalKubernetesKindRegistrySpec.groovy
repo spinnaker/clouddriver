@@ -63,10 +63,10 @@ class GlobalKubernetesKindRegistrySpec extends Specification {
     def properties = kindRegistry.getRegisteredKind(KubernetesKind.from("customKind", CUSTOM_API_GROUP))
 
     then:
-    properties == CUSTOM_KIND
+    properties.get() == CUSTOM_KIND
   }
 
-  void "getRegisteredKind default properties for a kind that has not been registered"() {
+  void "getRegisteredKind returns an empty optional for kinds that have not been registered"() {
     given:
     @Subject GlobalKubernetesKindRegistry kindRegistry = new GlobalKubernetesKindRegistry([
       REPLICA_SET,
@@ -77,6 +77,6 @@ class GlobalKubernetesKindRegistrySpec extends Specification {
     def properties = kindRegistry.getRegisteredKind(KubernetesKind.from("otherKind", CUSTOM_API_GROUP))
 
     then:
-    properties == KubernetesKindProperties.withDefaultProperties(KubernetesKind.from("otherKind", CUSTOM_API_GROUP))
+    !properties.isPresent()
   }
 }
