@@ -98,7 +98,7 @@ class SqlTask(
     repository.updateState(this, if (retryable) TaskState.FAILED_RETRYABLE else TaskState.FAILED)
   }
 
-  override fun connectSaga(sagaId: SagaId) {
+  override fun addSagaId(sagaId: SagaId) {
     this.dirty.set(true)
     sagaIds.add(sagaId)
     throw UnsupportedOperationException("not implemented")
@@ -106,6 +106,10 @@ class SqlTask(
 
   override fun getSagaIds(): MutableList<SagaId> {
     return sagaIds
+  }
+
+  override fun hasSagaIds(): Boolean {
+    return sagaIds.isNotEmpty()
   }
 
   internal fun hydrateResultObjects(resultObjects: MutableList<Any>) {

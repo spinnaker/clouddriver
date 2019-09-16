@@ -25,8 +25,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ExceptionClassifierConfigurationProperties {
 
   /**
-   * A list of Exception classes that are not retryable within the scope of Saga-backed
-   * orchestrations.
+   * A list of fully-qualified Exception class names that are not retryable within the scope of
+   * Saga-backed orchestrations.
    */
   private List<String> nonRetryableClasses = new ArrayList<>();
 }

@@ -217,32 +217,25 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
   private GetTaskResult getTask(String clientRequestId) {
     def existingTask = taskRepository.getByClientRequestId(clientRequestId)
     if (existingTask) {
-      if (!isTaskRetryable(existingTask)) {
+      if (!existingTask.isRetryable()) {
         return new GetTaskResult(existingTask, false)
       }
-      existingTask.updateStatus(TASK_PHASE, "Re-initializing Orchestration Task...")
+      existingTask.updateStatus(TASK_PHASE, "Re-initializing Orchestration Task")
       return new GetTaskResult(existingTask, true)
     }
     return new GetTaskResult(
-      taskRepository.create(TASK_PHASE, "Initializing Orchestration Task...", clientRequestId),
+      taskRepository.create(TASK_PHASE, "Initializing Orchestration Task", clientRequestId),
       true
     )
   }
 
   private void failTask(@Nonnull Task task, @Nonnull Exception e) {
-    if (task.getSagaIds().isEmpty()) {
-      // Tasks that are not Saga-backed are automatically assumed to be not retryable.
-      task.fail(false)
-    } else {
+    if (task.hasSagaIds()) {
       task.fail(exceptionClassifier.isRetryable(e))
+    } else {
+      // Tasks that are not Saga-backed are automatically assumed to not be retryable.
+      task.fail(false)
     }
-  }
-
-  private boolean isTaskRetryable(Task task) {
-    if (task.getSagaIds().isEmpty()) {
-      return false
-    }
-    return task.status.isFailed() && task.status.getRetryable()
   }
 
   @Canonical

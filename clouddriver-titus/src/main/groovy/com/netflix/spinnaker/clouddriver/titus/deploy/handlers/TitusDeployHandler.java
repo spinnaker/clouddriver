@@ -63,7 +63,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
     // TODO(rz): This is pretty inelegant. Would be better to inject the saga; so the
     // AtomicOperation doesn't need the sagaService at all. Just pass the SagaFlow
     // and initial commands.
-    getTask().connectSaga(new SagaId(sagaName, sagaId));
+    getTask().addSagaId(new SagaId(sagaName, sagaId));
 
     final TitusDeploymentResult result =
         sagaService.applyBlocking(

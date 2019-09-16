@@ -118,8 +118,13 @@ class JedisTask implements Task {
   }
 
   @Override
-  void connectSaga(@Nonnull SagaId sagaId) {
+  void addSagaId(@Nonnull SagaId sagaId) {
     this.sagaIds.add(sagaId)
+  }
+
+  @Override
+  boolean hasSagaIds() {
+    return !sagaIds.isEmpty()
   }
 
   private void checkMutable() {

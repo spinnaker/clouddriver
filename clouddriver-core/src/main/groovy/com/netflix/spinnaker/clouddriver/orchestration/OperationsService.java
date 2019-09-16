@@ -206,6 +206,12 @@ public class OperationsService {
     return ProviderVersion.v1;
   }
 
+  /**
+   * Runs the provided descriptionInput through preprocessors.
+   *
+   * <p>Which preprocessors are used is determined by doing some reflection on the
+   * AtomicOperationConverter's return type.
+   */
   private static Map processDescriptionInput(
       Collection<AtomicOperationDescriptionPreProcessor> descriptionPreProcessors,
       AtomicOperationConverter converter,

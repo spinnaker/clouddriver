@@ -16,6 +16,7 @@
 package com.netflix.spinnaker.clouddriver.orchestration;
 
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,7 @@ public class AtomicOperationException extends SpinnakerException {
   @Override
   public Map<String, Object> getAdditionalAttributes() {
     if (errors == null || errors.isEmpty()) {
-      return new HashMap<>();
+      return Collections.emptyMap();
     }
     Map<String, Object> map = new HashMap<>();
     map.put("errors", errors);

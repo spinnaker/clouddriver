@@ -99,13 +99,18 @@ public class DefaultTask implements Task {
   }
 
   @Override
-  void connectSaga(@Nonnull SagaId sagaId) {
+  void addSagaId(@Nonnull SagaId sagaId) {
     sagaIdentifiers.addLast(sagaId)
   }
 
   @Override
   List<SagaId> getSagaIds() {
     return sagaIdentifiers.toList()
+  }
+
+  @Override
+  boolean hasSagaIds() {
+    return !sagaIdentifiers.isEmpty()
   }
 }
 

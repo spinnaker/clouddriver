@@ -228,7 +228,7 @@ public class RedisTaskRepository implements TaskRepository {
     try {
       data.put("sagaIds", mapper.writeValueAsString(task.getSagaIds()));
     } catch (JsonProcessingException e) {
-      throw new SystemException("Failed to serialise saga ids into Task", e);
+      throw new SystemException("Failed to serialize saga ids into Task", e);
     }
     retry(
         () ->
