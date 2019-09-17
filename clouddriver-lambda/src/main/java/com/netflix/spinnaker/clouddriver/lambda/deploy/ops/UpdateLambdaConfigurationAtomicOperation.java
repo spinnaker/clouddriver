@@ -71,7 +71,7 @@ public class UpdateLambdaConfigurationAtomicOperation
 
     UpdateFunctionConfigurationResult result = client.updateFunctionConfiguration(request);
     updateTaskStatus("Finished Updating of AWS Lambda Function Configuration Operation...");
-    if (StringUtils.isEmpty(description.getTargetGroupName())) {
+    if (StringUtils.isEmpty(description.getTargetGroup())) {
       if (!cache.getTargetGroups().isEmpty()) {
         AmazonElasticLoadBalancing loadBalancingV2 = getAmazonElasticLoadBalancingClient();
         for (String groupName : cache.getTargetGroups()) {
@@ -89,16 +89,15 @@ public class UpdateLambdaConfigurationAtomicOperation
         registerTarget(
             loadBalancingV2,
             cache.getFunctionArn(),
-            retrieveTargetGroup(loadBalancingV2, description.getTargetGroupName())
-                .getTargetGroupArn());
+            retrieveTargetGroup(loadBalancingV2, description.getTargetGroup()).getTargetGroupArn());
         updateTaskStatus("Registered the target group...");
       } else {
         for (String groupName : cache.getTargetGroups()) {
-          if (!groupName.equals(description.getTargetGroupName())) {
+          if (!groupName.equals(description.getTargetGroup())) {
             registerTarget(
                 loadBalancingV2,
                 cache.getFunctionArn(),
-                retrieveTargetGroup(loadBalancingV2, description.getTargetGroupName())
+                retrieveTargetGroup(loadBalancingV2, description.getTargetGroup())
                     .getTargetGroupArn());
             updateTaskStatus("Registered the target group...");
           }
