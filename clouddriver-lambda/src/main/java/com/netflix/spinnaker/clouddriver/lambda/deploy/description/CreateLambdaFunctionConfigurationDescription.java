@@ -40,4 +40,5 @@ public class CreateLambdaFunctionConfigurationDescription
   DeadLetterConfig deadLetterConfig;
   String encryKMSKeyArn;
   TracingConfig tracingConfig;
+  String targetGroupName;
 }
