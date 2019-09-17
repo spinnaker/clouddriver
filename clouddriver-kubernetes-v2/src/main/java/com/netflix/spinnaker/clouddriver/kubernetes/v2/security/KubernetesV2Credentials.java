@@ -211,7 +211,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     private Memoizer(Supplier<T> supplier, long expirySeconds, TimeUnit timeUnit) {
       this.cache =
           Caffeine.newBuilder()
-              .expireAfterWrite(expirySeconds, timeUnit)
+              .refreshAfterWrite(expirySeconds, timeUnit)
               .build(key -> supplier.get());
     }
 
