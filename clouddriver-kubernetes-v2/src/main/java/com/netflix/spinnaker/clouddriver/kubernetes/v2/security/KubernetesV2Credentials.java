@@ -299,10 +299,15 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     try {
       KubernetesManifest result =
           get(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, null, kubernetesKind.toString());
+      if (result == null) {
+        return Optional.empty();
+      }
       V1beta1CustomResourceDefinition rd =
           KubernetesCacheDataConverter.getResource(result, V1beta1CustomResourceDefinition.class);
       return Optional.of(KubernetesKindProperties.fromCustomResourceDefinition(rd));
     } catch (KubectlException e) {
+      log.info(
+          "Failure looking up CRD {} for account {}", kubernetesKind.toString(), accountName, e);
       return Optional.empty();
     }
   }
