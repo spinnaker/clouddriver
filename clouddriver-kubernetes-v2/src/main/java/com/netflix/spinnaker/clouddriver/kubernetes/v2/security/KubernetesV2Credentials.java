@@ -35,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurati
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubeconfigFileHasher;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.AccountResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
@@ -42,7 +43,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPod
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.ResourcePropertyRegistry;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindRegistry;
@@ -52,6 +52,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
 import io.kubernetes.client.models.V1DeleteOptions;
+import io.kubernetes.client.models.V1beta1CustomResourceDefinition;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -219,28 +220,20 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
               try {
                 return this.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
                     .map(
-                        c -> {
-                          Map<String, Object> spec =
-                              (Map<String, Object>) c.getOrDefault("spec", new HashMap<>());
-                          String scope = (String) spec.getOrDefault("scope", "");
-                          Map<String, String> names =
-                              (Map<String, String>) spec.getOrDefault("names", new HashMap<>());
-                          String name = names.get("kind");
-
-                          String group = (String) spec.getOrDefault("group", "");
-                          KubernetesApiGroup kubernetesApiGroup =
-                              KubernetesApiGroup.fromString(group);
-                          boolean isNamespaced = scope.equalsIgnoreCase("namespaced");
-
-                          KubernetesKind kind = KubernetesKind.from(name, kubernetesApiGroup);
+                        manifest -> {
+                          V1beta1CustomResourceDefinition crd =
+                              KubernetesCacheDataConverter.getResource(
+                                  manifest, V1beta1CustomResourceDefinition.class);
+                          KubernetesKindProperties kindProperties =
+                              KubernetesKindProperties.fromCustomResourceDefinition(crd);
                           return kindRegistry.getOrRegisterKind(
-                              kind,
+                              kindProperties.getKubernetesKind(),
                               () -> {
                                 log.info(
                                     "Dynamically registering {}, (namespaced: {})",
-                                    kind.toString(),
-                                    isNamespaced);
-                                return KubernetesKindProperties.create(kind, isNamespaced);
+                                    kindProperties.getKubernetesKind().toString(),
+                                    kindProperties.isNamespaced());
+                                return kindProperties;
                               });
                         })
                     .map(KubernetesKindProperties::getKubernetesKind)
