@@ -22,7 +22,6 @@ import static com.netflix.spinnaker.clouddriver.lambda.cache.Keys.Namespace.LAMB
 
 import com.amazonaws.auth.policy.Policy;
 import com.amazonaws.auth.policy.Statement;
-
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.model.AliasConfiguration;
 import com.amazonaws.services.lambda.model.EventSourceMappingConfiguration;
@@ -59,7 +58,6 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
-
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 
@@ -158,7 +156,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
       // attributes.put("functionConfiguration", getFunctionConfiguration(x.getFunctionArn());
       attributes = addConfigAttributes(attributes, x, lambda);
       String functionName = x.getFunctionName();
-      attributes.put("targetGroups", getTargetGroupNames(lambda,  functionName ));
+      attributes.put("targetGroups", getTargetGroupNames(lambda, functionName));
       Names names = Names.parseName(functionName);
       if (null != names.getApp()) {
         String appKey =
@@ -365,41 +363,63 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
   }
 
   protected String combineAppDetail(String appName, String functionName) {
-    return Names.parseName(functionName).getApp().equals(appName) ? functionName : (appName + "-" + functionName);
+    return Names.parseName(functionName).getApp().equals(appName)
+        ? functionName
+        : (appName + "-" + functionName);
   }
 
-
-  private List<String> getTargetGroupNames(AWSLambda lambda, String functionName ) {
+  private List<String> getTargetGroupNames(AWSLambda lambda, String functionName) {
     List<String> targetGroupNames = new ArrayList<>();
     try {
-      GetPolicyResult result = lambda.getPolicy(new GetPolicyRequest().withFunctionName(functionName));
+      GetPolicyResult result =
+          lambda.getPolicy(new GetPolicyRequest().withFunctionName(functionName));
       String json = result.getPolicy();
       Policy policy = Policy.fromJson(json);
-      policy.getStatements().forEach(
-        statement -> {
-          if (statement.getEffect().toString().equals(Statement.Effect.Allow.toString())) {
-            statement.getActions().forEach( action -> {
-              if(action.getActionName().equals("lambda:InvokeFunction")){
-                statement.getPrincipals().forEach(principal -> {
-                      if (principal.getId().equals("elasticloadbalancing.amazonaws.com")) {
-                        statement.getConditions().forEach(condition -> {
-                            if (condition.getType().equals("ArnLike") && condition.getConditionKey().equals("AWS:SourceArn")) {
-                              for (String value : condition.getValues()) {
-                                Optional<String> name = ArnUtils.extractTargetGroupName(value);
-                                if(ArnUtils.extractTargetGroupName(value).isPresent())
-                                  targetGroupNames.add(name.get());
-                              }
+      policy
+          .getStatements()
+          .forEach(
+              statement -> {
+                if (statement.getEffect().toString().equals(Statement.Effect.Allow.toString())) {
+                  statement
+                      .getActions()
+                      .forEach(
+                          action -> {
+                            if (action.getActionName().equals("lambda:InvokeFunction")) {
+                              statement
+                                  .getPrincipals()
+                                  .forEach(
+                                      principal -> {
+                                        if (principal
+                                            .getId()
+                                            .equals("elasticloadbalancing.amazonaws.com")) {
+                                          statement
+                                              .getConditions()
+                                              .forEach(
+                                                  condition -> {
+                                                    if (condition.getType().equals("ArnLike")
+                                                        && condition
+                                                            .getConditionKey()
+                                                            .equals("AWS:SourceArn")) {
+                                                      for (String value : condition.getValues()) {
+                                                        Optional<String> name =
+                                                            ArnUtils.extractTargetGroupName(value);
+                                                        if (ArnUtils.extractTargetGroupName(value)
+                                                            .isPresent())
+                                                          targetGroupNames.add(name.get());
+                                                      }
+                                                    }
+                                                  });
+                                        }
+                                      });
                             }
-                          }
-                        );
-                      }
-                    });
+                          });
                 }
-            });
-          }
-        });
-    }catch (ResourceNotFoundException ex){
-      //ignore the exception.
+              });
+    } catch (ResourceNotFoundException ex) {
+      // ignore the exception.
       log.info("No policies are exist for {}", functionName);
+    }
+
+    return targetGroupNames;
   }
 }
