@@ -150,16 +150,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.kinds =
         managedAccount.getKinds().stream()
             .map(KubernetesKind::fromString)
-            .map(
-                k ->
-                    kindRegistry.getOrRegisterKind(
-                        k,
-                        () -> {
-                          log.info(
-                              "Dynamically registering {}, (namespaced: {})", k.toString(), true);
-                          return KubernetesKindProperties.create(k, true);
-                        }))
-            .map(KubernetesKindProperties::getKubernetesKind)
             .collect(toImmutableSet());
     // omitKinds is a simple placeholder that we can use to compare one instance to another
     // when refreshing credentials.
