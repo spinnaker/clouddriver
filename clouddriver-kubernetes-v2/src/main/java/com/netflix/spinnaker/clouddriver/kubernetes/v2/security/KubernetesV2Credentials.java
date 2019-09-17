@@ -145,6 +145,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.jobExecutor = jobExecutor;
     this.kindRegistry =
         kindRegistryFactory.create(
+            // TODO(ezimanyi): Replace this no-op with an actual CRD lookup
+            k -> Optional.empty(),
             managedAccount.getCustomResources().stream()
                 .map(
                     cr ->
@@ -226,15 +228,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                                   manifest, V1beta1CustomResourceDefinition.class);
                           KubernetesKindProperties kindProperties =
                               KubernetesKindProperties.fromCustomResourceDefinition(crd);
-                          return kindRegistry.getOrRegisterKind(
-                              kindProperties.getKubernetesKind(),
-                              () -> {
-                                log.info(
-                                    "Dynamically registering {}, (namespaced: {})",
-                                    kindProperties.getKubernetesKind().toString(),
-                                    kindProperties.isNamespaced());
-                                return kindProperties;
-                              });
+                          return kindRegistry.registerKind(kindProperties);
                         })
                     .map(KubernetesKindProperties::getKubernetesKind)
                     .collect(Collectors.toList());

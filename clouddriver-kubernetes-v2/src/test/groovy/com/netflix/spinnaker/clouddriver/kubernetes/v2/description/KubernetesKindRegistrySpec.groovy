@@ -22,7 +22,10 @@ import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll
 
+import java.util.function.Function
+
 class KubernetesKindRegistrySpec extends Specification {
+  static final Function<KubernetesKind, Optional<KubernetesKindProperties>> NOOP_CRD_LOOKUP = { k -> Optional.empty() }
   static final KubernetesApiGroup CUSTOM_API_GROUP =  KubernetesApiGroup.fromString("test")
   static final KubernetesKind CUSTOM_KIND = KubernetesKind.from("customKind", CUSTOM_API_GROUP)
   static final KubernetesKindProperties REPLICA_SET_PROPERTIES = KubernetesKindProperties.withDefaultProperties(KubernetesKind.REPLICA_SET)
@@ -33,14 +36,14 @@ class KubernetesKindRegistrySpec extends Specification {
 
   void "getRegisteredKind returns kinds that have been registered"() {
     given:
-    @Subject KubernetesKindRegistry kindRegistry = factory.create(ImmutableList.of(CUSTOM_KIND_PROPERTIES))
+    @Subject KubernetesKindRegistry kindRegistry = factory.create(NOOP_CRD_LOOKUP, ImmutableList.of(CUSTOM_KIND_PROPERTIES))
     KubernetesKindProperties result
 
     when:
     result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
 
     then:
-    0 * kindRegistry.getRegisteredKind(CUSTOM_KIND)
+    _ * globalRegistry.getRegisteredKind(_ as KubernetesKind) >> Optional.empty()
     result == CUSTOM_KIND_PROPERTIES
   }
 
@@ -54,20 +57,20 @@ class KubernetesKindRegistrySpec extends Specification {
     result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
 
     then:
-    1 * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.of(globalResult)
+    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.of(globalResult)
     result == globalResult
   }
 
   void "getGlobalKinds returns all global kinds that are registered"() {
     given:
-    @Subject KubernetesKindRegistry kindRegistry = factory.create(ImmutableList.of(CUSTOM_KIND_PROPERTIES))
+    @Subject KubernetesKindRegistry kindRegistry = factory.create(NOOP_CRD_LOOKUP, ImmutableList.of(CUSTOM_KIND_PROPERTIES))
     Collection<KubernetesKindProperties> kinds
 
     when:
     kinds = kindRegistry.getGlobalKinds()
 
     then:
-    1 * globalRegistry.getRegisteredKinds() >> ImmutableList.of(REPLICA_SET_PROPERTIES)
+    _ * globalRegistry.getRegisteredKinds() >> ImmutableList.of(REPLICA_SET_PROPERTIES)
     kinds.size() == 1
     kinds.contains(REPLICA_SET_PROPERTIES)
   }
@@ -81,7 +84,39 @@ class KubernetesKindRegistrySpec extends Specification {
     result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
 
     then:
-    1 * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
     result == KubernetesKindProperties.withDefaultProperties(CUSTOM_KIND)
+  }
+
+  void "getRegisteredKind attempts to look up properties of an unkown kind"() {
+    given:
+    Function<KubernetesKind, KubernetesKindProperties> supplier = Mock(Function)
+    KubernetesKindProperties customProperties = KubernetesKindProperties.create(CUSTOM_KIND, false)
+    @Subject KubernetesKindRegistry kindRegistry = factory.create(supplier, Collections.emptyList())
+    KubernetesKindProperties result
+
+    when:
+    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+
+    then:
+    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    1 * supplier.apply(CUSTOM_KIND) >> Optional.empty()
+    result == KubernetesKindProperties.withDefaultProperties(CUSTOM_KIND)
+
+    when:
+    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+
+    then:
+    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    1 * supplier.apply(CUSTOM_KIND) >> Optional.of(customProperties)
+    result == customProperties
+
+    when:
+    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+
+    then:
+    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    0 * supplier.apply(CUSTOM_KIND) >> Optional.of(customProperties)
+    result == customProperties
   }
 }
