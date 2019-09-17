@@ -653,7 +653,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       }
       log.info("Checking if {} is readable in account '{}'...", kind, accountName);
       try {
-        if (kindRegistry.getRegisteredKind(kind).isNamespaced()) {
+        if (kindRegistry.getKindProperties(kind).isNamespaced()) {
           list(kind, checkNamespace.get());
         } else {
           list(kind, null);

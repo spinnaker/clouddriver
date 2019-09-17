@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.*
 import spock.lang.Specification
 import spock.lang.Subject
-import spock.lang.Unroll
 
 import java.util.function.Function
 
@@ -40,10 +39,10 @@ class KubernetesKindRegistrySpec extends Specification {
     KubernetesKindProperties result
 
     when:
-    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+    result = kindRegistry.getKindProperties(CUSTOM_KIND)
 
     then:
-    _ * globalRegistry.getRegisteredKind(_ as KubernetesKind) >> Optional.empty()
+    _ * globalRegistry.getKindProperties(_ as KubernetesKind) >> Optional.empty()
     result == CUSTOM_KIND_PROPERTIES
   }
 
@@ -54,10 +53,10 @@ class KubernetesKindRegistrySpec extends Specification {
     KubernetesKindProperties globalResult = KubernetesKindProperties.create(CUSTOM_KIND, false)
 
     when:
-    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+    result = kindRegistry.getKindProperties(CUSTOM_KIND)
 
     then:
-    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.of(globalResult)
+    _ * globalRegistry.getKindProperties(CUSTOM_KIND) >> Optional.of(globalResult)
     result == globalResult
   }
 
@@ -81,10 +80,10 @@ class KubernetesKindRegistrySpec extends Specification {
     KubernetesKindProperties result
 
     when:
-    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+    result = kindRegistry.getKindProperties(CUSTOM_KIND)
 
     then:
-    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    _ * globalRegistry.getKindProperties(CUSTOM_KIND) >> Optional.empty()
     result == KubernetesKindProperties.withDefaultProperties(CUSTOM_KIND)
   }
 
@@ -96,26 +95,26 @@ class KubernetesKindRegistrySpec extends Specification {
     KubernetesKindProperties result
 
     when:
-    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+    result = kindRegistry.getKindProperties(CUSTOM_KIND)
 
     then:
-    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    _ * globalRegistry.getKindProperties(CUSTOM_KIND) >> Optional.empty()
     1 * supplier.apply(CUSTOM_KIND) >> Optional.empty()
     result == KubernetesKindProperties.withDefaultProperties(CUSTOM_KIND)
 
     when:
-    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+    result = kindRegistry.getKindProperties(CUSTOM_KIND)
 
     then:
-    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    _ * globalRegistry.getKindProperties(CUSTOM_KIND) >> Optional.empty()
     1 * supplier.apply(CUSTOM_KIND) >> Optional.of(customProperties)
     result == customProperties
 
     when:
-    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+    result = kindRegistry.getKindProperties(CUSTOM_KIND)
 
     then:
-    _ * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.empty()
+    _ * globalRegistry.getKindProperties(CUSTOM_KIND) >> Optional.empty()
     0 * supplier.apply(CUSTOM_KIND) >> Optional.of(customProperties)
     result == customProperties
   }

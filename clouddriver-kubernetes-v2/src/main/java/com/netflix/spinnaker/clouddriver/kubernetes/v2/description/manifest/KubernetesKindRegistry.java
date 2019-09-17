@@ -69,8 +69,8 @@ public class KubernetesKindRegistry {
    * KubernetesKindProperties} with default properties.
    */
   @Nonnull
-  public KubernetesKindProperties getRegisteredKind(KubernetesKind kind) {
-    Optional<KubernetesKindProperties> globalResult = globalKindRegistry.getRegisteredKind(kind);
+  public KubernetesKindProperties getKindProperties(KubernetesKind kind) {
+    Optional<KubernetesKindProperties> globalResult = globalKindRegistry.getKindProperties(kind);
     if (globalResult.isPresent()) {
       return globalResult.get();
     }
