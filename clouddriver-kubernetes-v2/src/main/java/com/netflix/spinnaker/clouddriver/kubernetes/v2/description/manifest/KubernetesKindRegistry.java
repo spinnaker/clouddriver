@@ -17,8 +17,8 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -110,7 +110,7 @@ public class KubernetesKindRegistry {
     @Nonnull
     public KubernetesKindRegistry create() {
       return new KubernetesKindRegistry(
-          globalKindRegistry, k -> Optional.empty(), Collections.emptyList());
+          globalKindRegistry, k -> Optional.empty(), ImmutableList.of());
     }
   }
 }

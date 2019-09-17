@@ -91,7 +91,7 @@ class KubernetesKindRegistrySpec extends Specification {
     given:
     Function<KubernetesKind, KubernetesKindProperties> supplier = Mock(Function)
     KubernetesKindProperties customProperties = KubernetesKindProperties.create(CUSTOM_KIND, false)
-    @Subject KubernetesKindRegistry kindRegistry = factory.create(supplier, Collections.emptyList())
+    @Subject KubernetesKindRegistry kindRegistry = factory.create(supplier, ImmutableList.of())
     KubernetesKindProperties result
 
     when:
