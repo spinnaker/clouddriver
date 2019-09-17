@@ -61,7 +61,7 @@ public class KubernetesKindRegistry {
   }
 
   /**
-   * Searches the the registry for a {@link KubernetesKindProperties} with the supplied {@link
+   * Searches the registry for a {@link KubernetesKindProperties} with the supplied {@link
    * KubernetesKind}. If the kind has been registered, returns the {@link KubernetesKindProperties}
    * that were registered for the kind. If the kind is not registered, tries to look up the
    * properties using the registry's CRD lookup function. If the lookup returns properties,
