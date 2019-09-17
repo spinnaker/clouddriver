@@ -17,22 +17,33 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 
 import com.google.common.collect.ImmutableCollection;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 public class KubernetesKindRegistry {
   private final Map<KubernetesKind, KubernetesKindProperties> kindMap = new ConcurrentHashMap<>();
   private final GlobalKubernetesKindRegistry globalKindRegistry;
 
-  private KubernetesKindRegistry(GlobalKubernetesKindRegistry globalKindRegistry) {
+  private KubernetesKindRegistry(
+      GlobalKubernetesKindRegistry globalKindRegistry,
+      Collection<KubernetesKindProperties> customProperties) {
     this.globalKindRegistry = globalKindRegistry;
+    customProperties.forEach(this::registerKind);
   }
 
   /** Registers a given {@link KubernetesKindProperties} into the registry */
-  public void registerKind(@Nonnull KubernetesKindProperties kind) {
+  private void registerKind(@Nonnull KubernetesKindProperties kind) {
+    log.info(
+        "Dynamically registering {}, (namespaced: {})",
+        kind.getKubernetesKind().toString(),
+        kind.isNamespaced());
     kindMap.put(kind.getKubernetesKind(), kind);
   }
 
@@ -83,8 +94,13 @@ public class KubernetesKindRegistry {
     }
 
     @Nonnull
+    public KubernetesKindRegistry create(Collection<KubernetesKindProperties> customProperties) {
+      return new KubernetesKindRegistry(globalKindRegistry, customProperties);
+    }
+
+    @Nonnull
     public KubernetesKindRegistry create() {
-      return new KubernetesKindRegistry(globalKindRegistry);
+      return new KubernetesKindRegistry(globalKindRegistry, Collections.emptyList());
     }
   }
 }

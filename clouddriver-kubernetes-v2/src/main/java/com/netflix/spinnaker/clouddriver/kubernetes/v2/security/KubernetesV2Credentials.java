@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static lombok.EqualsAndHashCode.Include;
 
@@ -24,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
@@ -136,13 +136,20 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       KubectlJobExecutor jobExecutor,
       KubernetesConfigurationProperties.ManagedAccount managedAccount,
       AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory,
-      KubernetesKindRegistry kindRegistry,
+      KubernetesKindRegistry.Factory kindRegistryFactory,
       KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap,
       String kubeconfigFile) {
     this.registry = registry;
     this.clock = registry.clock();
     this.jobExecutor = jobExecutor;
-    this.kindRegistry = kindRegistry;
+    this.kindRegistry =
+        kindRegistryFactory.create(
+            managedAccount.getCustomResources().stream()
+                .map(
+                    cr ->
+                        KubernetesKindProperties.create(
+                            KubernetesKind.fromString(cr.getKubernetesKind()), cr.isNamespaced()))
+                .collect(toImmutableList()));
 
     this.accountName = managedAccount.getName();
     this.namespaces = managedAccount.getNamespaces();
@@ -151,8 +158,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         managedAccount.getKinds().stream()
             .map(KubernetesKind::fromString)
             .collect(toImmutableSet());
-    // omitKinds is a simple placeholder that we can use to compare one instance to another
-    // when refreshing credentials.
     this.omitKinds =
         managedAccount.getOmitKinds().stream()
             .map(KubernetesKind::fromString)
@@ -163,8 +168,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.resourcePropertyRegistry =
         resourcePropertyRegistryFactory.create(
             managedAccount.getCustomResources().stream()
-                .map(cr -> KubernetesResourceProperties.fromCustomResource(cr, kindRegistry))
-                .collect(ImmutableList.toImmutableList()));
+                .map(KubernetesResourceProperties::fromCustomResource)
+                .collect(toImmutableList()));
     this.kubernetesSpinnakerKindMap = kubernetesSpinnakerKindMap;
 
     this.kubectlExecutable = managedAccount.getKubectlExecutable();
@@ -734,7 +739,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
           jobExecutor,
           managedAccount,
           resourcePropertyRegistryFactory,
-          kindRegistryFactory.create(),
+          kindRegistryFactory,
           kubernetesSpinnakerKindMap,
           getKubeconfigFile(configFileService, managedAccount));
     }

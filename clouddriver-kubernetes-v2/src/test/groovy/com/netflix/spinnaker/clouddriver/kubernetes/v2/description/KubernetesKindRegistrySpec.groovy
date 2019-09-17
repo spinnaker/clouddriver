@@ -31,8 +31,20 @@ class KubernetesKindRegistrySpec extends Specification {
   final GlobalKubernetesKindRegistry globalRegistry = Mock(GlobalKubernetesKindRegistry)
   final KubernetesKindRegistry.Factory factory = new KubernetesKindRegistry.Factory(globalRegistry)
 
-  @Unroll
-  void "getRegisteredKind returns kinds that have been registered, and falls back to the global registry otherwise"() {
+  void "getRegisteredKind returns kinds that have been registered"() {
+    given:
+    @Subject KubernetesKindRegistry kindRegistry = factory.create(ImmutableList.of(CUSTOM_KIND_PROPERTIES))
+    KubernetesKindProperties result
+
+    when:
+    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
+
+    then:
+    0 * kindRegistry.getRegisteredKind(CUSTOM_KIND)
+    result == CUSTOM_KIND_PROPERTIES
+  }
+
+  void "getRegisteredKind falls back to the global registry for kinds that are not registered"() {
     given:
     @Subject KubernetesKindRegistry kindRegistry = factory.create()
     KubernetesKindProperties result
@@ -44,24 +56,14 @@ class KubernetesKindRegistrySpec extends Specification {
     then:
     1 * globalRegistry.getRegisteredKind(CUSTOM_KIND) >> Optional.of(globalResult)
     result == globalResult
-
-    when:
-    kindRegistry.registerKind(CUSTOM_KIND_PROPERTIES)
-    result = kindRegistry.getRegisteredKind(CUSTOM_KIND)
-
-    then:
-    0 * kindRegistry.getRegisteredKind(CUSTOM_KIND)
-    result == CUSTOM_KIND_PROPERTIES
   }
 
-  @Unroll
   void "getGlobalKinds returns all global kinds that are registered"() {
     given:
-    @Subject KubernetesKindRegistry kindRegistry = factory.create()
+    @Subject KubernetesKindRegistry kindRegistry = factory.create(ImmutableList.of(CUSTOM_KIND_PROPERTIES))
     Collection<KubernetesKindProperties> kinds
 
     when:
-    kindRegistry.registerKind(CUSTOM_KIND_PROPERTIES)
     kinds = kindRegistry.getGlobalKinds()
 
     then:
