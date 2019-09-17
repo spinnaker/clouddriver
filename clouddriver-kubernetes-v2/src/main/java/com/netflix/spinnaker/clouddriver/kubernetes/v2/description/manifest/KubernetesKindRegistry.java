@@ -48,8 +48,7 @@ public class KubernetesKindRegistry {
   }
 
   /** Registers a given {@link KubernetesKindProperties} into the registry */
-  // TODO(ezimanyi): Remove the one usage outside this class and make the method private
-  public KubernetesKindProperties registerKind(KubernetesKindProperties kindProperties) {
+  private KubernetesKindProperties registerKind(KubernetesKindProperties kindProperties) {
     return kindMap.computeIfAbsent(
         kindProperties.getKubernetesKind(),
         k -> {

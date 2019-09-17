@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Clock;
 import com.netflix.spectator.api.Registry;
@@ -126,7 +127,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private String cachedDefaultNamespace;
   private final Supplier<List<String>> liveNamespaceSupplier;
-  private final Supplier<List<KubernetesKind>> liveCrdSupplier;
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
   @Getter private final KubernetesKindRegistry kindRegistry;
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
@@ -145,8 +145,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     this.jobExecutor = jobExecutor;
     this.kindRegistry =
         kindRegistryFactory.create(
-            // TODO(ezimanyi): Replace this no-op with an actual CRD lookup
-            k -> Optional.empty(),
+            this::getCrdProperties,
             managedAccount.getCustomResources().stream()
                 .map(
                     cr ->
@@ -214,31 +213,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
               }
             },
             NAMESPACE_EXPIRY_SECONDS,
-            TimeUnit.SECONDS);
-
-    this.liveCrdSupplier =
-        Memoizer.memoizeWithExpiration(
-            () -> {
-              try {
-                return this.list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
-                    .map(
-                        manifest -> {
-                          V1beta1CustomResourceDefinition crd =
-                              KubernetesCacheDataConverter.getResource(
-                                  manifest, V1beta1CustomResourceDefinition.class);
-                          KubernetesKindProperties kindProperties =
-                              KubernetesKindProperties.fromCustomResourceDefinition(crd);
-                          return kindRegistry.registerKind(kindProperties);
-                        })
-                    .map(KubernetesKindProperties::getKubernetesKind)
-                    .collect(Collectors.toList());
-              } catch (KubectlException e) {
-                // not logging here -- it will generate a lot of noise in cases where crds aren't
-                // available/registered in the first place
-                return new ArrayList<>();
-              }
-            },
-            CRD_EXPIRY_SECONDS,
             TimeUnit.SECONDS);
   }
 
@@ -316,6 +290,23 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         : KubernetesKindStatus.READ_ERROR;
   }
 
+  private Optional<KubernetesKindProperties> getCrdProperties(
+      @Nonnull KubernetesKind kubernetesKind) {
+    // Short-circuit if the account is not configured (or does not have permission) to read CRDs
+    if (!isValidKind(KubernetesKind.CUSTOM_RESOURCE_DEFINITION)) {
+      return Optional.empty();
+    }
+    try {
+      KubernetesManifest result =
+          get(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, null, kubernetesKind.toString());
+      V1beta1CustomResourceDefinition rd =
+          KubernetesCacheDataConverter.getResource(result, V1beta1CustomResourceDefinition.class);
+      return Optional.of(KubernetesKindProperties.fromCustomResourceDefinition(rd));
+    } catch (KubectlException e) {
+      return Optional.empty();
+    }
+  }
+
   public String getDefaultNamespace() {
     if (StringUtils.isEmpty(cachedDefaultNamespace)) {
       cachedDefaultNamespace = lookupDefaultNamespace();
@@ -359,8 +350,20 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
   }
 
-  public List<KubernetesKind> getCrds() {
-    return liveCrdSupplier.get();
+  public ImmutableList<KubernetesKind> getCrds() {
+    try {
+      return list(KubernetesKind.CUSTOM_RESOURCE_DEFINITION, "").stream()
+          .map(
+              manifest ->
+                  KubernetesCacheDataConverter.getResource(
+                      manifest, V1beta1CustomResourceDefinition.class))
+          .map(KubernetesKind::fromCustomResourceDefinition)
+          .collect(toImmutableList());
+    } catch (KubectlException e) {
+      // not logging here -- it will generate a lot of noise in cases where crds aren't
+      // available/registered in the first place
+      return ImmutableList.of();
+    }
   }
 
   @Override
