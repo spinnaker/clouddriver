@@ -86,7 +86,7 @@ public class CreateLambdaAtomicOperation
               .withSubnetIds(description.getSubnetIds()));
     }
     request.setDeadLetterConfig(description.getDeadLetterConfig());
-    request.setKMSKeyArn(description.getKMSKeyArn());
+    request.setKMSKeyArn(description.getEncryKMSKeyArn());
     request.setTracingConfig(description.getTracingConfig());
 
     CreateFunctionResult result = client.createFunction(request);

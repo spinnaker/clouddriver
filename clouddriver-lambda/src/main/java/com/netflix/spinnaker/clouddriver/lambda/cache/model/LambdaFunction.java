@@ -36,4 +36,5 @@ public class LambdaFunction extends FunctionConfiguration implements Function {
   private List<EventSourceMappingConfiguration> eventSourceMappings;
   private FunctionCodeLocation code;
   private Map<String, String> tags;
+  private List<String> targetGroups;
 }
