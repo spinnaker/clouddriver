@@ -90,9 +90,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Include private final String accountName;
 
-  @Include @Getter private final List<String> namespaces;
+  @Include @Getter private final ImmutableList<String> namespaces;
 
-  @Include @Getter private final List<String> omitNamespaces;
+  @Include @Getter private final ImmutableList<String> omitNamespaces;
 
   @Include private final ImmutableSet<KubernetesKind> kinds;
 
@@ -161,8 +161,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
                 .collect(toImmutableList()));
 
     this.accountName = managedAccount.getName();
-    this.namespaces = managedAccount.getNamespaces();
-    this.omitNamespaces = managedAccount.getOmitNamespaces();
+    this.namespaces = ImmutableList.copyOf(managedAccount.getNamespaces());
+    this.omitNamespaces = ImmutableList.copyOf(managedAccount.getOmitNamespaces());
     this.kinds =
         managedAccount.getKinds().stream()
             .map(KubernetesKind::fromString)
