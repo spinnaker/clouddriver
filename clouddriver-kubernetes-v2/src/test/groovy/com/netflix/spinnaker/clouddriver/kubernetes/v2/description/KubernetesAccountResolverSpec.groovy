@@ -16,8 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.description
 
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
@@ -51,7 +51,7 @@ class KubernetesAccountResolverSpec extends Specification {
 
     then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> Mock(KubernetesV1Credentials)
+      getCredentials() >> Mock(KubernetesCredentials)
     }
     !credentials.isPresent()
 
@@ -92,7 +92,7 @@ class KubernetesAccountResolverSpec extends Specification {
 
     then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> Mock(KubernetesV1Credentials)
+      getCredentials() >> Mock(KubernetesCredentials)
     }
     registry == globalResourcePropertyRegistry
 
@@ -101,7 +101,7 @@ class KubernetesAccountResolverSpec extends Specification {
 
     then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(AccountCredentials) {
-      getCredentials() >> Mock(KubernetesV1Credentials)
+      getCredentials() >> Mock(KubernetesCredentials)
     }
     registry == globalResourcePropertyRegistry
 
@@ -128,7 +128,7 @@ class KubernetesAccountResolverSpec extends Specification {
         getKindRegistry() >> v2KindRegistry
       }
     }
-    0 * kindRegistryFactory.create()
+    0 * kindRegistryFactory.create(*_)
     registry == v2KindRegistry
 
     when:
@@ -136,9 +136,9 @@ class KubernetesAccountResolverSpec extends Specification {
 
     then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> Mock(KubernetesV1Credentials)
+      getCredentials() >> Mock(KubernetesCredentials)
     }
-    1 * kindRegistryFactory.create() >> v2KindRegistry
+    1 * kindRegistryFactory.create(*_) >> v2KindRegistry
     registry == v2KindRegistry
 
     when:
@@ -146,9 +146,9 @@ class KubernetesAccountResolverSpec extends Specification {
 
     then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(AccountCredentials) {
-      getCredentials() >> Mock(KubernetesV1Credentials)
+      getCredentials() >> Mock(KubernetesCredentials)
     }
-    1 * kindRegistryFactory.create() >> v2KindRegistry
+    1 * kindRegistryFactory.create(*_) >> v2KindRegistry
     registry == v2KindRegistry
 
 
@@ -157,7 +157,7 @@ class KubernetesAccountResolverSpec extends Specification {
 
     then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> null
-    1 * kindRegistryFactory.create() >> v2KindRegistry
+    1 * kindRegistryFactory.create(*_) >> v2KindRegistry
     registry == v2KindRegistry
   }
 }

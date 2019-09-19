@@ -22,8 +22,8 @@ import spock.lang.Subject
 
 class GlobalKubernetesKindRegistrySpec extends Specification {
   static final KubernetesApiGroup CUSTOM_API_GROUP =  KubernetesApiGroup.fromString("test")
-  static final KubernetesKindProperties REPLICA_SET = new KubernetesKindProperties(KubernetesKind.REPLICA_SET, true, true, true)
-  static final KubernetesKindProperties CUSTOM_KIND = new KubernetesKindProperties(KubernetesKind.from("customKind", CUSTOM_API_GROUP), true, true, true)
+  static final KubernetesKindProperties REPLICA_SET = KubernetesKindProperties.create(KubernetesKind.REPLICA_SET, true)
+  static final KubernetesKindProperties CUSTOM_KIND = KubernetesKindProperties.create(KubernetesKind.from("customKind", CUSTOM_API_GROUP), true)
 
   void "an empty registry returns no kinds"() {
     given:
@@ -60,13 +60,13 @@ class GlobalKubernetesKindRegistrySpec extends Specification {
     ])
 
     when:
-    def properties = kindRegistry.getRegisteredKind(KubernetesKind.from("customKind", CUSTOM_API_GROUP))
+    def properties = kindRegistry.getKindProperties(KubernetesKind.from("customKind", CUSTOM_API_GROUP))
 
     then:
-    properties == CUSTOM_KIND
+    properties.get() == CUSTOM_KIND
   }
 
-  void "getRegisteredKind default properties for a kind that has not been registered"() {
+  void "getRegisteredKind returns an empty optional for kinds that have not been registered"() {
     given:
     @Subject GlobalKubernetesKindRegistry kindRegistry = new GlobalKubernetesKindRegistry([
       REPLICA_SET,
@@ -74,9 +74,9 @@ class GlobalKubernetesKindRegistrySpec extends Specification {
     ])
 
     when:
-    def properties = kindRegistry.getRegisteredKind(KubernetesKind.from("otherKind", CUSTOM_API_GROUP))
+    def properties = kindRegistry.getKindProperties(KubernetesKind.from("otherKind", CUSTOM_API_GROUP))
 
     then:
-    properties == KubernetesKindProperties.withDefaultProperties(KubernetesKind.from("otherKind", CUSTOM_API_GROUP))
+    !properties.isPresent()
   }
 }
