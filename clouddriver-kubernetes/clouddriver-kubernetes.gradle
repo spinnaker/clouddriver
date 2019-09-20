@@ -1,8 +1,9 @@
+tasks.compileGroovy.enabled = false
+sourceSets.main.java.srcDirs = ['src/main/java']
+
 dependencies {
-  implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
   implementation project(":cats:cats-core")
-  implementation project(":clouddriver-docker")
   implementation project(":clouddriver-security")
 
   compileOnly "org.projectlombok:lombok"
@@ -11,20 +12,14 @@ dependencies {
 
   implementation "org.codehaus.groovy:groovy-all"
 
-  implementation "com.github.fge:json-patch:1.9"
-  implementation "com.netflix.frigga:frigga"
-  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
-  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
-  implementation "com.netflix.spinnaker.kork:kork-artifacts"
-  implementation "com.netflix.spinnaker.kork:kork-config"
-  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.google.code.findbugs:jsr305"
+  implementation "com.google.guava:guava"
   implementation "com.netflix.spectator:spectator-api"
-  implementation "io.fabric8:kubernetes-client:4.1.1"
-  implementation "io.kubernetes:client-java:5.0.0"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.kork:kork-config"
+  implementation "org.apache.commons:commons-lang3"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
-  implementation 'com.jayway.jsonpath:json-path:2.3.0'
-  implementation "com.github.ben-manes.caffeine:guava"
 
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"

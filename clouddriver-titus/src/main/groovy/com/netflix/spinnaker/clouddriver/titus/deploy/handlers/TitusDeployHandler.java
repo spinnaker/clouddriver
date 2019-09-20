@@ -4,15 +4,18 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler;
+import com.netflix.spinnaker.clouddriver.orchestration.SagaContextAware;
 import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent;
+import com.netflix.spinnaker.clouddriver.orchestration.sagas.LoadFront50App;
+import com.netflix.spinnaker.clouddriver.orchestration.sagas.LoadFront50App.LoadFront50AppCommand;
+import com.netflix.spinnaker.clouddriver.orchestration.sagas.SagaAtomicOperationBridge;
+import com.netflix.spinnaker.clouddriver.orchestration.sagas.SagaAtomicOperationBridge.ApplyCommandWrapper;
 import com.netflix.spinnaker.clouddriver.saga.SagaService;
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow;
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusException;
 import com.netflix.spinnaker.clouddriver.titus.deploy.actions.AttachTitusServiceLoadBalancers;
 import com.netflix.spinnaker.clouddriver.titus.deploy.actions.CopyTitusServiceScalingPolicies;
-import com.netflix.spinnaker.clouddriver.titus.deploy.actions.LoadFront50App;
-import com.netflix.spinnaker.clouddriver.titus.deploy.actions.LoadFront50App.LoadFront50AppCommand;
 import com.netflix.spinnaker.clouddriver.titus.deploy.actions.PrepareTitusDeploy;
 import com.netflix.spinnaker.clouddriver.titus.deploy.actions.PrepareTitusDeploy.PrepareTitusDeployCommand;
 import com.netflix.spinnaker.clouddriver.titus.deploy.actions.SubmitTitusJob;
@@ -20,14 +23,16 @@ import com.netflix.spinnaker.clouddriver.titus.deploy.actions.TitusServiceJobPre
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import groovy.util.logging.Slf4j;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-public class TitusDeployHandler implements DeployHandler<TitusDeployDescription> {
+public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>, SagaContextAware {
   private final SagaService sagaService;
+  private SagaContext sagaContext;
 
   @Autowired
   public TitusDeployHandler(SagaService sagaService) {
@@ -41,6 +46,7 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
   @Override
   public TitusDeploymentResult handle(
       final TitusDeployDescription inputDescription, List priorOutputs) {
+    Objects.requireNonNull(sagaContext);
 
     SagaFlow flow =
         new SagaFlow()
@@ -56,20 +62,26 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
                 })
             .completionHandler(TitusDeployCompletionHandler.class);
 
-    final String sagaName = TitusDeployHandler.class.getSimpleName();
-    final String sagaId = Optional.ofNullable(getTask().getRequestId()).orElse(getTask().getId());
-
     final TitusDeploymentResult result =
-        sagaService.applyBlocking(
-            sagaName,
-            sagaId,
-            flow,
-            LoadFront50AppCommand.builder()
-                .appName(inputDescription.getApplication())
-                .nextCommand(
-                    PrepareTitusDeployCommand.builder().description(inputDescription).build())
-                .allowMissing(true)
-                .build());
+        new SagaAtomicOperationBridge(sagaService)
+            .apply(
+                ApplyCommandWrapper.builder()
+                    .sagaName(TitusDeployHandler.class.getSimpleName())
+                    .inputDescription(inputDescription)
+                    .priorOutputs(priorOutputs)
+                    .sagaContext(sagaContext)
+                    .task(getTask())
+                    .sagaFlow(flow)
+                    .initialCommand(
+                        LoadFront50AppCommand.builder()
+                            .appName(inputDescription.getApplication())
+                            .nextCommand(
+                                PrepareTitusDeployCommand.builder()
+                                    .description(inputDescription)
+                                    .build())
+                            .allowMissing(true)
+                            .build())
+                    .build());
 
     if (result == null) {
       // "This should never happen"
@@ -96,5 +108,10 @@ public class TitusDeployHandler implements DeployHandler<TitusDeployDescription>
   @Override
   public boolean handles(DeployDescription description) {
     return description instanceof TitusDeployDescription;
+  }
+
+  @Override
+  public void setSagaContext(@Nonnull SagaContext sagaContext) {
+    this.sagaContext = sagaContext;
   }
 }
