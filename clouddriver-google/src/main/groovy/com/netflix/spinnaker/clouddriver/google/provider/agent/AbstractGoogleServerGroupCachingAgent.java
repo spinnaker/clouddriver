@@ -754,7 +754,6 @@ abstract class AbstractGoogleServerGroupCachingAgent
     if (imageDescription == null) {
       return null;
     }
-    ImmutableMap.Builder<String, Object> buildInfo = ImmutableMap.builder();
     Map<String, String> tags;
     try {
       tags = IMAGE_DESCRIPTION_SPLITTER.split(imageDescription);
@@ -768,23 +767,28 @@ abstract class AbstractGoogleServerGroupCachingAgent
     if (appversion == null) {
       return null;
     }
-    buildInfo
-        .put("package_name", appversion.getPackageName())
-        .put("version", appversion.getVersion())
-        .put("commit", appversion.getCommit());
+    ImmutableMap.Builder<String, Object> buildInfo = ImmutableMap.builder();
+    putIfNotNull(buildInfo, "package_name", appversion.getPackageName());
+    putIfNotNull(buildInfo, "version", appversion.getVersion());
+    putIfNotNull(buildInfo, "commit", appversion.getCommit());
     if (appversion.getBuildJobName() != null) {
-      Map<String, String> jenkinsInfo = new HashMap<>();
-      jenkinsInfo.put("name", appversion.getBuildJobName());
-      jenkinsInfo.put("number", appversion.getBuildNumber());
+      ImmutableMap.Builder<String, String> jenkinsInfo = ImmutableMap.builder();
+      putIfNotNull(jenkinsInfo, "name", appversion.getBuildJobName());
+      putIfNotNull(jenkinsInfo, "number", appversion.getBuildNumber());
       if (tags.containsKey("build_host")) {
         jenkinsInfo.put("host", tags.get("build_host"));
       }
-      buildInfo.put("jenkins", jenkinsInfo);
+      buildInfo.put("jenkins", jenkinsInfo.build());
     }
     if (tags.containsKey("build_info_url")) {
       buildInfo.put("buildInfoUrl", tags.get("build_info_url"));
     }
     return buildInfo.build();
+  }
+
+  private static <T> void putIfNotNull(
+      ImmutableMap.Builder<String, T> map, String key, @Nullable T value) {
+    Optional.ofNullable(value).ifPresent(nonNullValue -> map.put(key, nonNullValue));
   }
 
   private void setAutoscalerGroup(
