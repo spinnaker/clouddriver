@@ -767,28 +767,29 @@ abstract class AbstractGoogleServerGroupCachingAgent
     if (appversion == null) {
       return null;
     }
-    ImmutableMap.Builder<String, Object> buildInfo = ImmutableMap.builder();
-    putIfNotNull(buildInfo, "package_name", appversion.getPackageName());
-    putIfNotNull(buildInfo, "version", appversion.getVersion());
-    putIfNotNull(buildInfo, "commit", appversion.getCommit());
+    Map<String, Object> buildInfo = new HashMap<>();
+    buildInfo.put("package_name", appversion.getPackageName());
+    buildInfo.put("version", appversion.getVersion());
+    buildInfo.put("commit", appversion.getCommit());
     if (appversion.getBuildJobName() != null) {
-      ImmutableMap.Builder<String, String> jenkinsInfo = ImmutableMap.builder();
-      putIfNotNull(jenkinsInfo, "name", appversion.getBuildJobName());
-      putIfNotNull(jenkinsInfo, "number", appversion.getBuildNumber());
+      Map<String, String> jenkinsInfo = new HashMap<>();
+      jenkinsInfo.put("name", appversion.getBuildJobName());
+      jenkinsInfo.put("number", appversion.getBuildNumber());
       if (tags.containsKey("build_host")) {
         jenkinsInfo.put("host", tags.get("build_host"));
       }
-      buildInfo.put("jenkins", jenkinsInfo.build());
+      buildInfo.put("jenkins", copyToImmutableMap((jenkinsInfo)));
     }
     if (tags.containsKey("build_info_url")) {
       buildInfo.put("buildInfoUrl", tags.get("build_info_url"));
     }
-    return buildInfo.build();
+    return copyToImmutableMap(buildInfo);
   }
 
-  private static <T> void putIfNotNull(
-      ImmutableMap.Builder<String, T> map, String key, @Nullable T value) {
-    Optional.ofNullable(value).ifPresent(nonNullValue -> map.put(key, nonNullValue));
+  private static <K, V> ImmutableMap<K, V> copyToImmutableMap(Map<K, V> map) {
+    return map.entrySet().stream()
+        .filter(e -> e.getValue() != null)
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private void setAutoscalerGroup(
