@@ -16,9 +16,17 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.gitRepo;
 
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.Session;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -35,7 +43,13 @@ import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.archive.TgzFormat;
+import org.eclipse.jgit.transport.JschConfigSessionFactory;
+import org.eclipse.jgit.transport.OpenSshConfig;
+import org.eclipse.jgit.transport.SshSessionFactory;
+import org.eclipse.jgit.transport.SshTransport;
+import org.eclipse.jgit.transport.Transport;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
+import org.eclipse.jgit.util.FS;
 
 @Slf4j
 public class GitRepoArtifactCredentials implements ArtifactCredentials {
@@ -44,11 +58,21 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
   @Getter private final String name;
   private final String username;
   private final String password;
+  private final String token;
+  private final String sshPrivateKeyFilePath;
+  private final String sshPrivateKeyPassphrase;
+  private final String sshKnownHostsFilePath;
+  private final boolean sshTrustUnknownHosts;
 
   public GitRepoArtifactCredentials(GitRepoArtifactAccount account) {
     this.name = account.getName();
     this.username = account.getUsername();
     this.password = account.getPassword();
+    this.token = account.getToken();
+    this.sshPrivateKeyFilePath = account.getSshPrivateKeyFilePath();
+    this.sshPrivateKeyPassphrase = account.getSshPrivateKeyPassphrase();
+    this.sshKnownHostsFilePath = account.getSshKnownHostsFilePath();
+    this.sshTrustUnknownHosts = account.isSshTrustUnknownHosts();
     ArchiveCommand.registerFormat("tgz", new TgzFormat());
   }
 
@@ -66,12 +90,13 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
       archiveToOutputStream(artifact, localRepository, outputStream);
       return new ByteArrayInputStream(outputStream.toByteArray());
     } catch (GitAPIException e) {
-      throw new IOException("Failed to clone or archive git/repo " + repoReference, e);
+      throw new IOException(
+          "Failed to clone or archive git/repo " + repoReference + ": " + e.getMessage());
     }
   }
 
   private Git clone(Artifact artifact, Path stagingPath) throws GitAPIException {
-    String version = artifactVersion(artifact);
+    String version = "origin/" + artifactVersion(artifact);
     String subPath = artifactSubPath(artifact);
     // TODO(ethanfrogers): add support for clone history depth once jgit supports it
 
@@ -83,7 +108,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
             .call();
 
     CheckoutCommand checkoutCommand =
-        localRepository.checkout().setName(version).setStartPoint("origin/" + version);
+        localRepository.checkout().setName(version).setStartPoint(version);
 
     if (!StringUtils.isEmpty(subPath)) {
       checkoutCommand = checkoutCommand.addPath(subPath);
@@ -127,12 +152,56 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
   }
 
   private CloneCommand addAuthentication(CloneCommand cloneCommand) {
-    // TODO(ethanfrogers): support github oauth token and ssh authentication
     if (!StringUtils.isEmpty(username) && !StringUtils.isEmpty(password)) {
       return cloneCommand.setCredentialsProvider(
           new UsernamePasswordCredentialsProvider(username, password));
     }
 
+    if (!StringUtils.isEmpty(token)) {
+      return cloneCommand.setCredentialsProvider(
+          new UsernamePasswordCredentialsProvider(token, ""));
+    }
+
+    if (!StringUtils.isEmpty(sshPrivateKeyFilePath)
+        && !StringUtils.isEmpty(sshPrivateKeyPassphrase)) {
+      return configureSshAuth(cloneCommand);
+    }
+
     return cloneCommand;
+  }
+
+  private CloneCommand configureSshAuth(CloneCommand cloneCommand) {
+    SshSessionFactory sshSessionFactory =
+        new JschConfigSessionFactory() {
+          @Override
+          protected void configure(OpenSshConfig.Host hc, Session session) {
+            if (sshKnownHostsFilePath == null && sshTrustUnknownHosts) {
+              session.setConfig("StrictHostKeyChecking", "no");
+            }
+          }
+
+          @Override
+          protected JSch createDefaultJSch(FS fs) throws JSchException {
+            JSch defaultJSch = super.createDefaultJSch(fs);
+            defaultJSch.addIdentity(sshPrivateKeyFilePath, sshPrivateKeyPassphrase);
+
+            if (sshKnownHostsFilePath != null && sshTrustUnknownHosts) {
+              log.warn(
+                  "SSH known_hosts file path supplied, ignoring 'sshTrustUnknownHosts' option");
+            }
+
+            if (sshKnownHostsFilePath != null) {
+              defaultJSch.setKnownHosts(sshKnownHostsFilePath);
+            }
+
+            return defaultJSch;
+          }
+        };
+
+    return cloneCommand.setTransportConfigCallback(
+        (Transport transport) -> {
+          SshTransport sshTransport = (SshTransport) transport;
+          sshTransport.setSshSessionFactory(sshSessionFactory);
+        });
   }
 }
