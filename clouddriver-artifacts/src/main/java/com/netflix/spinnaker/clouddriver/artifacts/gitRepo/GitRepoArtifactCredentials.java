@@ -37,7 +37,8 @@ import org.eclipse.jgit.api.ArchiveCommand;
 import org.eclipse.jgit.api.CheckoutCommand;
 import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.archive.ArchiveFormats;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.archive.TgzFormat;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 
 @Slf4j
@@ -52,6 +53,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     this.name = account.getName();
     this.username = account.getUsername();
     this.password = account.getPassword();
+    ArchiveCommand.registerFormat("tgz", new TgzFormat());
   }
 
   @Override
@@ -60,29 +62,32 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     Path stagingPath =
         Paths.get(System.getProperty("java.io.tmpdir"), UUID.randomUUID().toString());
 
-    try {
+    try (AutoCloseable ignored = cleanup(stagingPath, repoReference)) {
       log.info("Cloning git/repo {} into {}", repoReference, stagingPath.toString());
       Git localRepository = clone(artifact, stagingPath);
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
       log.info("Creating archive for git/repo {}", repoReference);
       archiveToOutputStream(artifact, localRepository, outputStream);
       return new ByteArrayInputStream(outputStream.toByteArray());
+    } catch (GitAPIException e) {
+      throw new IOException("Failed to clone or archive git/repo " + repoReference, e);
     } catch (Exception e) {
-      throw new IOException("Failed to clone git/repo " + repoReference, e);
-    } finally {
-      log.info("Cleaning up git/repo {}", repoReference);
-      try {
-        FileUtils.deleteDirectory(stagingPath.toFile());
-      } catch (IOException e) {
-        log.info("Failed to cleanup git/repo for {}", repoReference);
-        throw new RuntimeException(
-            "Failed to clean up git/repo staging directory for repo" + repoReference, e);
-      }
+      throw new IOException("There was an error downloading git/repo " + repoReference, e);
     }
   }
 
-  private Git clone(Artifact artifact, Path stagingPath) throws Exception {
-    String version = artifact.getVersion() != "" ? artifact.getVersion() : "master";
+  private AutoCloseable cleanup(Path stagingPath, String repoReference) {
+    return () -> {
+      try {
+        FileUtils.deleteDirectory(stagingPath.toFile());
+      } catch (IOException e) {
+        log.error("Failed to cleanup git/repo for {}", repoReference, e);
+      }
+    };
+  }
+
+  private Git clone(Artifact artifact, Path stagingPath) throws GitAPIException {
+    String version = !artifact.getVersion().equals("") ? artifact.getVersion() : "master";
     String subPath = artifactSubPath(artifact);
     // TODO(ethanfrogers): add support for clone history depth once jgit supports it
 
@@ -105,27 +110,22 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
   }
 
   private void archiveToOutputStream(Artifact artifact, Git repository, OutputStream outputStream)
-      throws Exception {
-    String version = artifact.getVersion() != "" ? artifact.getVersion() : "master";
+      throws GitAPIException, IOException {
+    String version = !artifact.getVersion().equals("") ? artifact.getVersion() : "master";
     String subPath = artifactSubPath(artifact);
 
-    try {
-      ArchiveFormats.registerAll();
-      ArchiveCommand archiveCommand =
-          repository
-              .archive()
-              .setTree(repository.getRepository().resolve("origin/" + version))
-              .setFormat("tgz")
-              .setOutputStream(outputStream);
+    ArchiveCommand archiveCommand =
+        repository
+            .archive()
+            .setTree(repository.getRepository().resolve("origin/" + version))
+            .setFormat("tgz")
+            .setOutputStream(outputStream);
 
-      if (!StringUtils.isEmpty(subPath)) {
-        archiveCommand.setPaths(subPath);
-      }
-
-      archiveCommand.call();
-    } finally {
-      ArchiveFormats.unregisterAll();
+    if (!StringUtils.isEmpty(subPath)) {
+      archiveCommand.setPaths(subPath);
     }
+
+    archiveCommand.call();
   }
 
   private String artifactSubPath(Artifact artifact) {
