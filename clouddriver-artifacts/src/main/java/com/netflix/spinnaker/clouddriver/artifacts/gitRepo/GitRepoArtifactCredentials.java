@@ -63,6 +63,14 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
   private final String sshPrivateKeyPassphrase;
   private final String sshKnownHostsFilePath;
   private final boolean sshTrustUnknownHosts;
+  private final AuthType authType;
+
+  private enum AuthType {
+    HTTP,
+    TOKEN,
+    SSH,
+    NONE
+  }
 
   public GitRepoArtifactCredentials(GitRepoArtifactAccount account) {
     this.name = account.getName();
@@ -73,6 +81,18 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     this.sshPrivateKeyPassphrase = account.getSshPrivateKeyPassphrase();
     this.sshKnownHostsFilePath = account.getSshKnownHostsFilePath();
     this.sshTrustUnknownHosts = account.isSshTrustUnknownHosts();
+
+    if (!StringUtils.isEmpty(username) && !StringUtils.isEmpty(password)) {
+      authType = AuthType.HTTP;
+    } else if (!StringUtils.isEmpty(token)) {
+      authType = AuthType.TOKEN;
+    } else if (!StringUtils.isEmpty(sshPrivateKeyFilePath)
+        && !StringUtils.isEmpty(sshPrivateKeyPassphrase)) {
+      authType = AuthType.SSH;
+    } else {
+      authType = AuthType.NONE;
+    }
+
     ArchiveCommand.registerFormat("tgz", new TgzFormat());
   }
 
@@ -81,6 +101,14 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     String repoReference = artifact.getReference();
     Path stagingPath =
         Paths.get(System.getProperty("java.io.tmpdir"), UUID.randomUUID().toString());
+
+    if (!isValidReference(repoReference)) {
+      throw new IOException(
+          "Artifact reference "
+              + repoReference
+              + " is invalid for artifact account with auth type "
+              + authType);
+    }
 
     try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
       log.info("Cloning git/repo {} into {}", repoReference, stagingPath.toString());
@@ -152,22 +180,18 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
   }
 
   private CloneCommand addAuthentication(CloneCommand cloneCommand) {
-    if (!StringUtils.isEmpty(username) && !StringUtils.isEmpty(password)) {
-      return cloneCommand.setCredentialsProvider(
-          new UsernamePasswordCredentialsProvider(username, password));
+    switch (authType) {
+      case HTTP:
+        return cloneCommand.setCredentialsProvider(
+            new UsernamePasswordCredentialsProvider(username, password));
+      case TOKEN:
+        return cloneCommand.setCredentialsProvider(
+            new UsernamePasswordCredentialsProvider(token, ""));
+      case SSH:
+        return configureSshAuth(cloneCommand);
+      default:
+        return cloneCommand;
     }
-
-    if (!StringUtils.isEmpty(token)) {
-      return cloneCommand.setCredentialsProvider(
-          new UsernamePasswordCredentialsProvider(token, ""));
-    }
-
-    if (!StringUtils.isEmpty(sshPrivateKeyFilePath)
-        && !StringUtils.isEmpty(sshPrivateKeyPassphrase)) {
-      return configureSshAuth(cloneCommand);
-    }
-
-    return cloneCommand;
   }
 
   private CloneCommand configureSshAuth(CloneCommand cloneCommand) {
@@ -203,5 +227,15 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
           SshTransport sshTransport = (SshTransport) transport;
           sshTransport.setSshSessionFactory(sshSessionFactory);
         });
+  }
+
+  private boolean isValidReference(String reference) {
+    if (authType == AuthType.HTTP || authType == AuthType.TOKEN) {
+      return reference.startsWith("http");
+    }
+    if (authType == AuthType.SSH) {
+      return reference.startsWith("git@");
+    }
+    return true;
   }
 }
