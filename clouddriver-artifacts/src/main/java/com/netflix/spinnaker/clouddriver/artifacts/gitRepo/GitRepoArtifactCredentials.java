@@ -18,11 +18,7 @@ package com.netflix.spinnaker.clouddriver.artifacts.gitRepo;
 
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -62,7 +58,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     Path stagingPath =
         Paths.get(System.getProperty("java.io.tmpdir"), UUID.randomUUID().toString());
 
-    try (AutoCloseable ignored = cleanup(stagingPath, repoReference)) {
+    try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
       log.info("Cloning git/repo {} into {}", repoReference, stagingPath.toString());
       Git localRepository = clone(artifact, stagingPath);
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -71,19 +67,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
       return new ByteArrayInputStream(outputStream.toByteArray());
     } catch (GitAPIException e) {
       throw new IOException("Failed to clone or archive git/repo " + repoReference, e);
-    } catch (Exception e) {
-      throw new IOException("There was an error downloading git/repo " + repoReference, e);
     }
-  }
-
-  private AutoCloseable cleanup(Path stagingPath, String repoReference) {
-    return () -> {
-      try {
-        FileUtils.deleteDirectory(stagingPath.toFile());
-      } catch (IOException e) {
-        log.error("Failed to cleanup git/repo for {}", repoReference, e);
-      }
-    };
   }
 
   private Git clone(Artifact artifact, Path stagingPath) throws GitAPIException {
