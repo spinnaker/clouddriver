@@ -87,7 +87,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
   }
 
   private Git clone(Artifact artifact, Path stagingPath) throws GitAPIException {
-    String version = !artifact.getVersion().equals("") ? artifact.getVersion() : "master";
+    String version = artifactVersion(artifact);
     String subPath = artifactSubPath(artifact);
     // TODO(ethanfrogers): add support for clone history depth once jgit supports it
 
@@ -111,7 +111,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
 
   private void archiveToOutputStream(Artifact artifact, Git repository, OutputStream outputStream)
       throws GitAPIException, IOException {
-    String version = !artifact.getVersion().equals("") ? artifact.getVersion() : "master";
+    String version = artifactVersion(artifact);
     String subPath = artifactSubPath(artifact);
 
     ArchiveCommand archiveCommand =
@@ -136,6 +136,10 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     }
 
     return target;
+  }
+
+  private String artifactVersion(Artifact artifact) {
+    return !StringUtils.isEmpty(artifact.getVersion()) ? artifact.getVersion() : "master";
   }
 
   private CloneCommand addAuthentication(CloneCommand cloneCommand) {
