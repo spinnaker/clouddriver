@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.NETWORKING_K8S_IO_V1BETA1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.INGRESS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.SERVICE;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.NETWORK_RESOURCE_PRIORITY;
@@ -107,7 +108,8 @@ public class KubernetesIngressHandler extends KubernetesHandler {
   }
 
   private static List<String> attachedServices(KubernetesManifest manifest) {
-    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)) {
+    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)
+        || manifest.getApiVersion().equals(NETWORKING_K8S_IO_V1BETA1)) {
       V1beta1Ingress v1beta1Ingress =
           KubernetesCacheDataConverter.getResource(manifest, V1beta1Ingress.class);
       return attachedServices(v1beta1Ingress);

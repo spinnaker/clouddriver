@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA2;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
@@ -78,7 +79,8 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
   public Status status(KubernetesManifest manifest) {
     if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)
         || manifest.getApiVersion().equals(APPS_V1BETA1)
-        || manifest.getApiVersion().equals(APPS_V1BETA2)) {
+        || manifest.getApiVersion().equals(APPS_V1BETA2)
+        || manifest.getApiVersion().equals(APPS_V1)) {
       if (manifest.isNewerThanObservedGeneration()) {
         return (new Status()).unknown();
       }
