@@ -166,7 +166,8 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    return null;
+
+    throw new RuntimeException("Not supported for " + this.getClass().getSimpleName());
   }
 
   @Override
