@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.NETWORKING_K8S_IO_V1BETA1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.INGRESS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.SERVICE;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.NETWORK_RESOURCE_PRIORITY;
@@ -50,7 +51,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class KubernetesIngressHandler extends KubernetesHandler {
   private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =
-      ImmutableSet.of(EXTENSIONS_V1BETA1);
+      ImmutableSet.of(EXTENSIONS_V1BETA1, NETWORKING_K8S_IO_V1BETA1);
 
   @Override
   public int deployPriority() {
