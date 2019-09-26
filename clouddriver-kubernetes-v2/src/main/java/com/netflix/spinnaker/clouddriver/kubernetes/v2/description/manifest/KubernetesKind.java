@@ -26,7 +26,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.EqualsAndHashCode;
-import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
@@ -101,9 +100,9 @@ public class KubernetesKind {
   // kind is not in spinnaker's registry
   public static final KubernetesKind NONE = createWithAlias("none", null, KubernetesApiGroup.NONE);
 
-  @Getter @Nonnull private final String name;
+  @Nonnull private final String name;
   @EqualsAndHashCode.Include @Nonnull private final String lcName;
-  @Getter @Nonnull private final KubernetesApiGroup apiGroup;
+  @Nonnull private final KubernetesApiGroup apiGroup;
   @EqualsAndHashCode.Include @Nullable private final KubernetesApiGroup customApiGroup;
 
   private KubernetesKind(String name, @Nullable KubernetesApiGroup apiGroup) {
