@@ -64,7 +64,7 @@ public class KubernetesKind {
   public static final KubernetesKind NAMESPACE =
       createWithAlias("namespace", "ns", KubernetesApiGroup.CORE);
   public static final KubernetesKind NETWORK_POLICY =
-      createWithAlias("networkPolicy", "netpol", KubernetesApiGroup.EXTENSIONS);
+      createWithAlias("networkPolicy", "netpol", KubernetesApiGroup.NETWORKING_K8S_IO);
   public static final KubernetesKind PERSISTENT_VOLUME =
       createWithAlias("persistentVolume", "pv", KubernetesApiGroup.CORE);
   public static final KubernetesKind PERSISTENT_VOLUME_CLAIM =
@@ -73,7 +73,7 @@ public class KubernetesKind {
   public static final KubernetesKind POD_PRESET =
       createWithAlias("podPreset", null, KubernetesApiGroup.SETTINGS_K8S_IO);
   public static final KubernetesKind POD_SECURITY_POLICY =
-      createWithAlias("podSecurityPolicy", null, KubernetesApiGroup.EXTENSIONS);
+      createWithAlias("podSecurityPolicy", null, KubernetesApiGroup.POLICY);
   public static final KubernetesKind POD_DISRUPTION_BUDGET =
       createWithAlias("podDisruptionBudget", null, KubernetesApiGroup.POLICY);
   public static final KubernetesKind REPLICA_SET =
