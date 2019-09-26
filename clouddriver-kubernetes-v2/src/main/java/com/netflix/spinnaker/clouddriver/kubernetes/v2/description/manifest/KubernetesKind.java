@@ -56,7 +56,7 @@ public class KubernetesKind {
   public static final KubernetesKind HORIZONTAL_POD_AUTOSCALER =
       createWithAlias("horizontalpodautoscaler", "hpa", KubernetesApiGroup.AUTOSCALING);
   public static final KubernetesKind INGRESS =
-      createWithAlias("ingress", null, KubernetesApiGroup.EXTENSIONS);
+      createWithAlias("ingress", null, KubernetesApiGroup.NETWORKING_K8S_IO);
   public static final KubernetesKind JOB = createWithAlias("job", null, KubernetesApiGroup.BATCH);
   public static final KubernetesKind MUTATING_WEBHOOK_CONFIGURATION =
       createWithAlias(
