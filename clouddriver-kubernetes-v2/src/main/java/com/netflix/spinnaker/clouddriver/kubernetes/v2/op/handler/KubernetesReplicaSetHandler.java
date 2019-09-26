@@ -35,7 +35,10 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestSelector;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
-import io.kubernetes.client.models.*;
+import io.kubernetes.client.models.V1ReplicaSet;
+import io.kubernetes.client.models.V1beta1ReplicaSet;
+import io.kubernetes.client.models.V1beta2ReplicaSet;
+import io.kubernetes.client.models.V1ReplicaSetStatus;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
