@@ -86,8 +86,7 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
       authType = AuthType.HTTP;
     } else if (!StringUtils.isEmpty(token)) {
       authType = AuthType.TOKEN;
-    } else if (!StringUtils.isEmpty(sshPrivateKeyFilePath)
-        && !StringUtils.isEmpty(sshPrivateKeyPassphrase)) {
+    } else if (!StringUtils.isEmpty(sshPrivateKeyFilePath)) {
       authType = AuthType.SSH;
     } else {
       authType = AuthType.NONE;
@@ -207,7 +206,11 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
           @Override
           protected JSch createDefaultJSch(FS fs) throws JSchException {
             JSch defaultJSch = super.createDefaultJSch(fs);
-            defaultJSch.addIdentity(sshPrivateKeyFilePath, sshPrivateKeyPassphrase);
+            if (!StringUtils.isEmpty(sshPrivateKeyPassphrase)) {
+              defaultJSch.addIdentity(sshPrivateKeyFilePath, sshPrivateKeyPassphrase);
+            } else {
+              defaultJSch.addIdentity(sshPrivateKeyFilePath);
+            }
 
             if (sshKnownHostsFilePath != null && sshTrustUnknownHosts) {
               log.warn(
