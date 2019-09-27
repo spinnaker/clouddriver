@@ -17,23 +17,26 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.APPS_V1BETA2;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
-import io.kubernetes.client.models.V1beta2Deployment;
-import io.kubernetes.client.models.V1beta2DeploymentCondition;
-import io.kubernetes.client.models.V1beta2DeploymentStatus;
+import io.kubernetes.client.models.V1Deployment;
+import io.kubernetes.client.models.V1DeploymentCondition;
+import io.kubernetes.client.models.V1DeploymentStatus;
 import javax.annotation.Nonnull;
 import org.springframework.stereotype.Component;
 
@@ -45,6 +48,9 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
         CanResumeRollout,
         CanUndoRollout,
         ServerGroupManagerHandler {
+
+  private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =
+      ImmutableSet.of(EXTENSIONS_V1BETA1, APPS_V1BETA1, APPS_V1BETA2, APPS_V1);
 
   @Nonnull
   @Override
@@ -83,18 +89,15 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    if (manifest.getApiVersion().equals(EXTENSIONS_V1BETA1)
-        || manifest.getApiVersion().equals(APPS_V1BETA1)
-        || manifest.getApiVersion().equals(APPS_V1BETA2)) {
-      if (manifest.isNewerThanObservedGeneration()) {
-        return (new Status()).unknown();
-      }
-      V1beta2Deployment appsV1beta2Deployment =
-          KubernetesCacheDataConverter.getResource(manifest, V1beta2Deployment.class);
-      return status(appsV1beta2Deployment);
-    } else {
+    if (!SUPPORTED_API_VERSIONS.contains(manifest.getApiVersion())) {
       throw new UnsupportedVersionException(manifest);
     }
+    if (manifest.isNewerThanObservedGeneration()) {
+      return (new Status()).unknown();
+    }
+    V1Deployment appsV1Deployment =
+        KubernetesCacheDataConverter.getResource(manifest, V1Deployment.class);
+    return status(appsV1Deployment);
   }
 
   @Override
@@ -102,21 +105,21 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
     return KubernetesCoreCachingAgent::new;
   }
 
-  private Status status(V1beta2Deployment deployment) {
+  private Status status(V1Deployment deployment) {
     Status result = new Status();
-    V1beta2DeploymentStatus status = deployment.getStatus();
+    V1DeploymentStatus status = deployment.getStatus();
     if (status == null) {
       result.unstable("No status reported yet").unavailable("No availability reported");
       return result;
     }
 
-    V1beta2DeploymentCondition paused =
+    V1DeploymentCondition paused =
         status.getConditions().stream()
             .filter(c -> c.getReason().equalsIgnoreCase("deploymentpaused"))
             .findAny()
             .orElse(null);
 
-    V1beta2DeploymentCondition available =
+    V1DeploymentCondition available =
         status.getConditions().stream()
             .filter(c -> c.getType().equalsIgnoreCase("available"))
             .findAny()
@@ -130,7 +133,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
       result.unstable(available.getMessage()).unavailable(available.getMessage());
     }
 
-    V1beta2DeploymentCondition condition =
+    V1DeploymentCondition condition =
         status.getConditions().stream()
             .filter(c -> c.getType().equalsIgnoreCase("progressing"))
             .findAny()
