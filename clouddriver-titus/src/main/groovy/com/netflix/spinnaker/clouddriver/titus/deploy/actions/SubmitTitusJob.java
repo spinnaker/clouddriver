@@ -18,17 +18,23 @@ package com.netflix.spinnaker.clouddriver.titus.deploy.actions;
 import static com.netflix.spinnaker.clouddriver.titus.deploy.actions.AttachTitusServiceLoadBalancers.AttachTitusServiceLoadBalancersCommand;
 import static com.netflix.spinnaker.clouddriver.titus.deploy.actions.CopyTitusServiceScalingPolicies.CopyTitusServiceScalingPoliciesCommand;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.TargetGroupLookupHelper;
+import com.netflix.spinnaker.clouddriver.event.EventMetadata;
+import com.netflix.spinnaker.clouddriver.orchestration.sagas.LoadFront50App;
+import com.netflix.spinnaker.clouddriver.orchestration.sagas.LoadFront50App.Front50AppAware;
 import com.netflix.spinnaker.clouddriver.saga.ManyCommands;
 import com.netflix.spinnaker.clouddriver.saga.SagaCommand;
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.titus.JobType;
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusException;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient;
 import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest;
-import com.netflix.spinnaker.clouddriver.titus.deploy.actions.LoadFront50App.Front50AppAware;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
 import com.netflix.spinnaker.kork.core.RetrySupport;
@@ -36,9 +42,8 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.util.Collections;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import lombok.Builder;
+import lombok.Value;
 import lombok.experimental.NonFinal;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -47,34 +52,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class SubmitTitusJob implements SagaAction<SubmitTitusJob.SubmitTitusJobCommand> {
+public class SubmitTitusJob extends AbstractTitusDeployAction
+    implements SagaAction<SubmitTitusJob.SubmitTitusJobCommand> {
 
   private static final Logger log = LoggerFactory.getLogger(SubmitTitusJob.class);
 
-  private final TitusClientProvider titusClientProvider;
   private final RetrySupport retrySupport;
 
   @Autowired
-  public SubmitTitusJob(TitusClientProvider titusClientProvider, RetrySupport retrySupport) {
-    this.titusClientProvider = titusClientProvider;
+  public SubmitTitusJob(
+      AccountCredentialsRepository accountCredentialsRepository,
+      TitusClientProvider titusClientProvider,
+      RetrySupport retrySupport) {
+    super(accountCredentialsRepository, titusClientProvider);
     this.retrySupport = retrySupport;
-  }
-
-  private static boolean isServiceExceptionRetryable(
-      TitusDeployDescription description, StatusRuntimeException e) {
-    String statusDescription = e.getStatus().getDescription();
-    return JobType.isEqual(description.getJobType(), JobType.SERVICE)
-        && (e.getStatus().getCode() == Status.RESOURCE_EXHAUSTED.getCode()
-            || e.getStatus().getCode() == Status.INVALID_ARGUMENT.getCode())
-        && (statusDescription != null
-            && (statusDescription.contains("Job sequence id reserved by another pending job")
-                || statusDescription.contains("Constraint violation - job with group sequence")));
-  }
-
-  private static boolean isStatusCodeRetryable(Status.Code code) {
-    return code == Status.UNAVAILABLE.getCode()
-        || code == Status.INTERNAL.getCode()
-        || code == Status.DEADLINE_EXCEEDED.getCode();
   }
 
   /**
@@ -87,6 +78,8 @@ public class SubmitTitusJob implements SagaAction<SubmitTitusJob.SubmitTitusJobC
   public Result apply(@NotNull SubmitTitusJobCommand command, @NotNull Saga saga) {
     final TitusDeployDescription description = command.description;
 
+    prepareDeployDescription(description);
+
     final TitusClient titusClient =
         titusClientProvider.getTitusClient(description.getCredentials(), description.getRegion());
 
@@ -98,7 +91,7 @@ public class SubmitTitusJob implements SagaAction<SubmitTitusJob.SubmitTitusJobC
         retrySupport.retry(
             () -> {
               try {
-                return titusClient.submitJob(submitJobRequest);
+                return titusClient.submitJob(submitJobRequest.withJobName(nextServerGroupName[0]));
               } catch (StatusRuntimeException e) {
                 if (isServiceExceptionRetryable(description, e)) {
                   String statusDescription = e.getStatus().getDescription();
@@ -114,8 +107,7 @@ public class SubmitTitusJob implements SagaAction<SubmitTitusJob.SubmitTitusJobC
                     retryCount[0]++;
                   }
                   nextServerGroupName[0] =
-                      TitusJobNameResolver.resolveJobName(
-                          titusClient, description, submitJobRequest);
+                      TitusJobNameResolver.resolveJobName(titusClient, description);
 
                   saga.log("Resolved server group name to '%s'", nextServerGroupName[0]);
 
@@ -147,45 +139,71 @@ public class SubmitTitusJob implements SagaAction<SubmitTitusJob.SubmitTitusJobC
 
     return new Result(
         new ManyCommands(
-            new AttachTitusServiceLoadBalancersCommand(
-                saga.getName(), saga.getId(), description, jobUri, command.targetGroupLookupResult),
-            new CopyTitusServiceScalingPoliciesCommand(
-                saga.getName(), saga.getId(), description, jobUri, nextServerGroupName[0])),
+            AttachTitusServiceLoadBalancersCommand.builder()
+                .description(description)
+                .jobUri(jobUri)
+                .targetGroupLookupResult(command.targetGroupLookupResult)
+                .build(),
+            CopyTitusServiceScalingPoliciesCommand.builder()
+                .description(description)
+                .jobUri(jobUri)
+                .deployedServerGroupName(nextServerGroupName[0])
+                .build()),
         Collections.singletonList(
-            new TitusJobSubmitted(
-                saga.getName(),
-                saga.getId(),
-                Collections.singletonMap(description.getRegion(), nextServerGroupName[0]),
-                jobUri,
-                JobType.from(description.getJobType()))));
+            TitusJobSubmitted.builder()
+                .jobType(JobType.from(description.getJobType()))
+                .serverGroupNameByRegion(
+                    Collections.singletonMap(description.getRegion(), nextServerGroupName[0]))
+                .jobUri(jobUri)
+                .build()));
   }
 
-  @EqualsAndHashCode(callSuper = true)
-  @Getter
-  public static class SubmitTitusJobCommand extends SagaCommand implements Front50AppAware {
-    @Nonnull private final TitusDeployDescription description;
-    @Nonnull private final SubmitJobRequest submitJobRequest;
-    @Nonnull private final String nextServerGroupName;
-    @Nullable private final TargetGroupLookupHelper.TargetGroupLookupResult targetGroupLookupResult;
-    @Nullable @NonFinal private LoadFront50App.Front50App front50App;
+  /**
+   * TODO(rz): Figure out what conditions are not retryable and why. Then document, because what?
+   */
+  private static boolean isServiceExceptionRetryable(
+      TitusDeployDescription description, StatusRuntimeException e) {
+    String statusDescription = e.getStatus().getDescription();
+    return JobType.SERVICE.isEqual(description.getJobType())
+        && (e.getStatus().getCode() == Status.RESOURCE_EXHAUSTED.getCode()
+            || e.getStatus().getCode() == Status.INVALID_ARGUMENT.getCode())
+        && (statusDescription != null
+            && (statusDescription.contains("Job sequence id reserved by another pending job")
+                || statusDescription.contains("Constraint violation - job with group sequence")));
+  }
 
-    public SubmitTitusJobCommand(
-        @NotNull String sagaName,
-        @NotNull String sagaId,
-        @Nonnull TitusDeployDescription description,
-        @Nonnull SubmitJobRequest submitJobRequest,
-        @Nonnull String nextServerGroupName,
-        @Nullable TargetGroupLookupHelper.TargetGroupLookupResult targetGroupLookupResult) {
-      super(sagaName, sagaId);
-      this.description = description;
-      this.submitJobRequest = submitJobRequest;
-      this.nextServerGroupName = nextServerGroupName;
-      this.targetGroupLookupResult = targetGroupLookupResult;
+  /**
+   * TODO(rz): Figure out what conditions are not retryable and why. Then document, because what?
+   */
+  private static boolean isStatusCodeRetryable(Status.Code code) {
+    return code == Status.UNAVAILABLE.getCode()
+        || code == Status.INTERNAL.getCode()
+        || code == Status.DEADLINE_EXCEEDED.getCode();
+  }
+
+  @Builder(builderClassName = "SubmitTitusJobCommandBuilder", toBuilder = true)
+  @JsonDeserialize(builder = SubmitTitusJobCommand.SubmitTitusJobCommandBuilder.class)
+  @JsonTypeName("submitTitusJobCommand")
+  @Value
+  public static class SubmitTitusJobCommand implements SagaCommand, Front50AppAware {
+    @Nonnull private TitusDeployDescription description;
+    @Nonnull private SubmitJobRequest submitJobRequest;
+    @Nonnull private String nextServerGroupName;
+    private TargetGroupLookupHelper.TargetGroupLookupResult targetGroupLookupResult;
+    @NonFinal private LoadFront50App.Front50App front50App;
+    @NonFinal private EventMetadata metadata;
+
+    @Override
+    public void setFront50App(LoadFront50App.Front50App front50App) {
+      this.front50App = front50App;
     }
 
     @Override
-    public void setFront50App(LoadFront50App.Front50App app) {
-      this.front50App = app;
+    public void setMetadata(EventMetadata metadata) {
+      this.metadata = metadata;
     }
+
+    @JsonPOJOBuilder(withPrefix = "")
+    public static class SubmitTitusJobCommandBuilder {}
   }
 }

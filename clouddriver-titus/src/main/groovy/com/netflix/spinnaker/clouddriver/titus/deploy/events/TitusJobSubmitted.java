@@ -15,29 +15,34 @@
  */
 package com.netflix.spinnaker.clouddriver.titus.deploy.events;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import com.netflix.spinnaker.clouddriver.event.EventMetadata;
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent;
 import com.netflix.spinnaker.clouddriver.titus.JobType;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import lombok.Getter;
-import org.jetbrains.annotations.NotNull;
+import lombok.Builder;
+import lombok.Value;
+import lombok.experimental.NonFinal;
 
-@Getter
-public class TitusJobSubmitted extends SagaEvent {
+@Builder(builderClassName = "TitusJobSubmittedBuilder", toBuilder = true)
+@JsonDeserialize(builder = TitusJobSubmitted.TitusJobSubmittedBuilder.class)
+@JsonTypeName("titusJobSubmitted")
+@Value
+public class TitusJobSubmitted implements SagaEvent {
 
   @Nonnull private final Map<String, String> serverGroupNameByRegion;
   @Nonnull private final String jobUri;
   @Nonnull private final JobType jobType;
+  @NonFinal private EventMetadata metadata;
 
-  public TitusJobSubmitted(
-      @NotNull String sagaName,
-      @NotNull String sagaId,
-      @Nonnull Map<String, String> serverGroupNameByRegion,
-      @Nonnull String jobUri,
-      @Nonnull JobType jobType) {
-    super(sagaName, sagaId);
-    this.serverGroupNameByRegion = serverGroupNameByRegion;
-    this.jobUri = jobUri;
-    this.jobType = jobType;
+  @Override
+  public void setMetadata(EventMetadata metadata) {
+    this.metadata = metadata;
   }
+
+  @JsonPOJOBuilder(withPrefix = "")
+  public static class TitusJobSubmittedBuilder {}
 }

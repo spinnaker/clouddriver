@@ -23,10 +23,10 @@ import com.netflix.spinnaker.clouddriver.saga.SagaCommand
 import com.netflix.spinnaker.clouddriver.saga.SagaCommandCompleted
 import com.netflix.spinnaker.clouddriver.saga.SagaCompleted
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
-import com.netflix.spinnaker.clouddriver.saga.SagaRollbackStarted
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
-import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
+import com.netflix.spinnaker.clouddriver.saga.SagaRollbackStarted
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaStateIntegrationException
+import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import org.slf4j.LoggerFactory
 
 /**
@@ -51,11 +51,7 @@ class Saga(
   private val pendingEvents: MutableList<SagaEvent> = mutableListOf()
 
   internal fun complete(success: Boolean = true) {
-    addEvent(SagaCompleted(
-      name,
-      id,
-      success
-    ))
+    addEvent(SagaCompleted(success))
   }
 
   fun isComplete(): Boolean = events.filterIsInstance<SagaCompleted>().isNotEmpty()
@@ -63,7 +59,7 @@ class Saga(
   fun isCompensating(): Boolean = events.filterIsInstance<SagaRollbackStarted>().isNotEmpty()
 
   fun getVersion(): Long {
-    return events.map { it.metadata.originatingVersion }.max()?.let { it + 1 } ?: 0
+    return events.map { it.getMetadata().originatingVersion }.max()?.let { it + 1 } ?: 0
   }
 
   fun addEvent(event: SagaEvent) {
@@ -153,8 +149,6 @@ class Saga(
 
   fun log(message: String) {
     addEvent(SagaLogAppended(
-      name,
-      id,
       SagaLogAppended.Message(message, null),
       null
     ))

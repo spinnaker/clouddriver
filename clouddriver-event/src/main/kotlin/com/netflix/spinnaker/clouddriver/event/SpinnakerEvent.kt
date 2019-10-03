@@ -15,27 +15,22 @@
  */
 package com.netflix.spinnaker.clouddriver.event
 
+import com.fasterxml.jackson.annotation.JsonGetter
+import com.fasterxml.jackson.annotation.JsonSetter
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import java.util.UUID
 
 /**
- * The base event class for the event sourcing library.
- *
- * @param aggregateType The type of aggregate the event is for
- * @param aggregateId The id of the aggregate the event is for
- * @property id A unique ID for the event. This value is for tracing, rather than loading events
- * @property metadata Associated metadata about the event; not actually part of the "event proper"
+ * The base type for the eventing library. All library-level code is contained within [EventMetadata].
  */
 @JsonTypeInfo(
   use = JsonTypeInfo.Id.NAME,
   include = JsonTypeInfo.As.PROPERTY,
-  property = "spinEventType"
+  property = "eventType"
 )
-abstract class SpinnakerEvent(
-  val aggregateType: String,
-  val aggregateId: String
-) {
-  val id = UUID.randomUUID().toString()
+interface SpinnakerEvent {
+  @JsonGetter
+  fun getMetadata(): EventMetadata
 
-  lateinit var metadata: EventMetadata
+  @JsonSetter
+  fun setMetadata(eventMetadata: EventMetadata)
 }

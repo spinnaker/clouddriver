@@ -22,4 +22,8 @@ import com.netflix.spinnaker.kork.exceptions.SystemException
  */
 open class SagaSystemException(message: String, cause: Throwable?) : SystemException(message, cause), SagaException {
   constructor(message: String) : this(message, null)
+
+  init {
+    retryable = true
+  }
 }

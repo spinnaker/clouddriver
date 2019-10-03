@@ -15,6 +15,10 @@
  */
 package com.netflix.spinnaker.clouddriver.titus.deploy.actions;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import com.netflix.spinnaker.clouddriver.event.EventMetadata;
 import com.netflix.spinnaker.clouddriver.saga.SagaCommand;
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
@@ -38,8 +42,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import lombok.Builder;
+import lombok.Value;
+import lombok.experimental.NonFinal;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -62,6 +67,8 @@ public class CopyTitusServiceScalingPolicies extends AbstractTitusDeployAction
   @Override
   public Result apply(@NotNull CopyTitusServiceScalingPoliciesCommand command, @NotNull Saga saga) {
     final TitusDeployDescription description = command.description;
+
+    prepareDeployDescription(description);
 
     if (!description.isCopySourceScalingPolicies()
         || !description.getCopySourceScalingPoliciesAndActions()) {
@@ -117,12 +124,11 @@ public class CopyTitusServiceScalingPolicies extends AbstractTitusDeployAction
                               .toScalingPolicyBuilder());
               autoscalingClient.createScalingPolicy(builder.build());
               saga.addEvent(
-                  new TitusScalingPolicyCopied(
-                      saga.getName(),
-                      saga.getId(),
-                      serverGroupName,
-                      description.getRegion(),
-                      policy.getId().getId()));
+                  TitusScalingPolicyCopied.builder()
+                      .serverGroupName(serverGroupName)
+                      .region(description.getRegion())
+                      .sourcePolicyId(policy.getId().getId())
+                      .build());
             }
           });
     }
@@ -153,23 +159,25 @@ public class CopyTitusServiceScalingPolicies extends AbstractTitusDeployAction
         source.getAsgName());
   }
 
-  @EqualsAndHashCode(callSuper = true)
-  @Getter
-  public static class CopyTitusServiceScalingPoliciesCommand extends SagaCommand {
-    @Nonnull private final TitusDeployDescription description;
-    @Nonnull private final String jobUri;
-    @Nonnull private final String deployedServerGroupName;
+  @Builder(builderClassName = "CopyTitusServiceScalingPoliciesCommandBuilder", toBuilder = true)
+  @JsonDeserialize(
+      builder =
+          CopyTitusServiceScalingPoliciesCommand.CopyTitusServiceScalingPoliciesCommandBuilder
+              .class)
+  @JsonTypeName("copyTitusServiceScalingPoliciesCommand")
+  @Value
+  public static class CopyTitusServiceScalingPoliciesCommand implements SagaCommand {
+    @Nonnull private TitusDeployDescription description;
+    @Nonnull private String jobUri;
+    @Nonnull private String deployedServerGroupName;
+    @NonFinal private EventMetadata metadata;
 
-    public CopyTitusServiceScalingPoliciesCommand(
-        @NotNull String sagaName,
-        @NotNull String sagaId,
-        @Nonnull TitusDeployDescription description,
-        @Nonnull String jobUri,
-        @Nonnull String deployedServerGroupName) {
-      super(sagaName, sagaId);
-      this.description = description;
-      this.jobUri = jobUri;
-      this.deployedServerGroupName = deployedServerGroupName;
+    @Override
+    public void setMetadata(EventMetadata metadata) {
+      this.metadata = metadata;
     }
+
+    @JsonPOJOBuilder(withPrefix = "")
+    public static class CopyTitusServiceScalingPoliciesCommandBuilder {}
   }
 }

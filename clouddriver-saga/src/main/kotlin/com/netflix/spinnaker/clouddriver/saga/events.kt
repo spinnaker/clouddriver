@@ -15,28 +15,21 @@
  */
 package com.netflix.spinnaker.clouddriver.saga
 
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonTypeName
+import com.netflix.spinnaker.clouddriver.event.AbstractSpinnakerEvent
 import com.netflix.spinnaker.clouddriver.event.SpinnakerEvent
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 
 /**
  * Root event type for [Saga]s.
- *
- * @property sagaName Alias for [aggregateType]
- * @property sagaId Alias for [aggregateId]
  */
-abstract class SagaEvent(
-  sagaName: String,
-  sagaId: String
-) : SpinnakerEvent(sagaName, sagaId) {
-  val sagaName
-    @JsonIgnore get() = aggregateType
+interface SagaEvent : SpinnakerEvent
 
-  val sagaId
-    @JsonIgnore get() = aggregateId
-}
+/**
+ * Warning: Do not use with Lombok @Value classes.
+ */
+abstract class AbstractSagaEvent : AbstractSpinnakerEvent(), SagaEvent
 
 /**
  * Emitted whenever a [Saga] is saved.
@@ -44,12 +37,12 @@ abstract class SagaEvent(
  * This event does not attempt to find a difference in state, trading off persistence verbosity for a little bit
  * of a simpler implementation.
  *
- * @param saga The [Saga]'s newly saved state
+ * @param sequence The [Saga]'s latest sequence
  */
 @JsonTypeName("sagaSaved")
 class SagaSaved(
-  val saga: Saga
-) : SagaEvent(saga.name, saga.id)
+  val sequence: Long
+) : AbstractSagaEvent()
 
 /**
  * Emitted whenever an internal error has occurred while applying a [Saga].
@@ -61,13 +54,11 @@ class SagaSaved(
  */
 @JsonTypeName("sagaInternalErrorOccurred")
 class SagaInternalErrorOccurred(
-  sagaName: String,
-  sagaId: String,
   val reason: String,
   val error: Exception? = null,
   val retryable: Boolean = true,
   val data: Map<String, String> = mapOf()
-) : SagaEvent(sagaName, sagaId)
+) : AbstractSagaEvent()
 
 /**
  * Emitted whenever an error has occurred within a [SagaAction] while applying a [Saga].
@@ -78,12 +69,10 @@ class SagaInternalErrorOccurred(
  */
 @JsonTypeName("sagaActionErrorOccurred")
 class SagaActionErrorOccurred(
-  sagaName: String,
-  sagaId: String,
   val actionName: String,
   val error: Exception,
   val retryable: Boolean
-) : SagaEvent(sagaName, sagaId)
+) : AbstractSagaEvent()
 
 /**
  * Informational log that can be added to a [Saga] for end-user feedback, as well as operational insight.
@@ -94,11 +83,9 @@ class SagaActionErrorOccurred(
  */
 @JsonTypeName("sagaLogAppended")
 class SagaLogAppended(
-  sagaName: String,
-  sagaId: String,
   val message: Message,
   val diagnostics: Diagnostics? = null
-) : SagaEvent(sagaName, sagaId) {
+) : AbstractSagaEvent() {
 
   /**
    * @param user An end-user friendly message
@@ -124,38 +111,30 @@ class SagaLogAppended(
  */
 @JsonTypeName("sagaCompleted")
 class SagaCompleted(
-  sagaName: String,
-  sagaId: String,
   val success: Boolean
-) : SagaEvent(sagaName, sagaId)
+) : AbstractSagaEvent()
 
 /**
  * Emitted when a [Saga] enters a rollback state.
  */
 @JsonTypeName("sagaRollbackStarted")
-class SagaRollbackStarted(
-  sagaName: String,
-  sagaId: String
-) : SagaEvent(sagaName, sagaId)
+class SagaRollbackStarted : AbstractSagaEvent()
 
 /**
  * Emitted when all rollback actions for a [Saga] have been applied.
  */
 @JsonTypeName("sagaRollbackCompleted")
-class SagaRollbackCompleted(
-  sagaName: String,
-  sagaId: String
-) : SagaEvent(sagaName, sagaId)
+class SagaRollbackCompleted : AbstractSagaEvent()
 
 /**
  * The root event type for all mutating [Saga] operations.
  */
-abstract class SagaCommand(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+interface SagaCommand : SagaEvent
 
 /**
  * The root event type for all [Saga] rollback operations.
  */
-abstract class SagaRollbackCommand(sagaName: String, sagaId: String) : SagaCommand(sagaName, sagaId)
+interface SagaRollbackCommand : SagaCommand
 
 /**
  * Marker event for recording that the work associated with a particular [SagaCommand] event has been completed.
@@ -164,9 +143,8 @@ abstract class SagaRollbackCommand(sagaName: String, sagaId: String) : SagaComma
  */
 @JsonTypeName("sagaCommandCompleted")
 class SagaCommandCompleted(
-  saga: Saga,
   val command: String
-) : SagaEvent(saga.name, saga.id) {
+) : AbstractSagaEvent() {
 
   fun matches(candidateCommand: Class<out SagaCommand>): Boolean =
     candidateCommand.getAnnotation(JsonTypeName::class.java)?.value == command
@@ -178,9 +156,10 @@ class SagaCommandCompleted(
  * This event is unwrapped prior to being added to the event log; so all [SagaCommand]s defined within this
  * wrapper will show up as their own distinct log entries.
  */
+@JsonTypeName("sagaManyCommandsWrapper")
 class ManyCommands(
   command1: SagaCommand,
   vararg extraCommands: SagaCommand
-) : SagaCommand(command1.sagaName, command1.sagaId) {
+) : AbstractSagaEvent(), SagaCommand {
   val commands = listOf(command1).plus(extraCommands)
 }

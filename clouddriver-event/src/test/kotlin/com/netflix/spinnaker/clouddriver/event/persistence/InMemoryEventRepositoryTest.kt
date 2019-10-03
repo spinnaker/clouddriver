@@ -16,9 +16,10 @@
 package com.netflix.spinnaker.clouddriver.event.persistence
 
 import com.netflix.spectator.api.NoopRegistry
-import com.netflix.spinnaker.clouddriver.event.SpinnakerEvent
+import com.netflix.spinnaker.clouddriver.event.AbstractSpinnakerEvent
 import com.netflix.spinnaker.clouddriver.event.config.MemoryEventRepositoryConfigProperties
 import com.netflix.spinnaker.clouddriver.event.exceptions.AggregateChangeRejectedException
+import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository.ListAggregatesCriteria
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.confirmVerified
@@ -48,7 +49,7 @@ class InMemoryEventRepositoryTest : JUnit5Minutests {
 
     test("save appends aggregate events") {
       val event = MyEvent("agg", "id", "hello world")
-      subject.save(event.aggregateType, event.aggregateId, 0L, listOf(event))
+      subject.save("agg", "id", 0L, listOf(event))
 
       expectThat(subject.list("agg", "id")) {
         get { size }.isEqualTo(1)
@@ -58,7 +59,7 @@ class InMemoryEventRepositoryTest : JUnit5Minutests {
       }
 
       val event2 = MyEvent("agg", "id", "hello rob")
-      subject.save(event2.aggregateType, event.aggregateId, 1L, listOf(event2))
+      subject.save("agg", "id", 1L, listOf(event2))
 
       expectThat(subject.list("agg", "id")) {
         get { size }.isEqualTo(2)
@@ -74,22 +75,22 @@ class InMemoryEventRepositoryTest : JUnit5Minutests {
     test("saving with a new aggregate with a non-zero originating version fails") {
       val event = MyEvent("agg", "id", "hello")
       assertThrows<AggregateChangeRejectedException> {
-        subject.save(event.aggregateType, event.aggregateId, 10L, listOf(event))
+        subject.save("agg", "id", 10L, listOf(event))
       }
     }
 
     test("saving an aggregate with an old originating version fails") {
       val event = MyEvent("agg", "id", "hello")
-      subject.save(event.aggregateType, event.aggregateId, 0L, listOf(event))
+      subject.save("agg", "id", 0L, listOf(event))
 
       assertThrows<AggregateChangeRejectedException> {
-        subject.save(event.aggregateType, event.aggregateId, 0L, listOf(event))
+        subject.save("agg", "id", 0L, listOf(event))
       }
     }
 
     test("newly saved events are published") {
       val event = MyEvent("agg", "id", "hello")
-      subject.save(event.aggregateType, event.aggregateId, 0L, listOf(event))
+      subject.save("agg", "id", 0L, listOf(event))
 
       verify { eventPublisher.publishEvent(event) }
       confirmVerified(eventPublisher)
@@ -101,26 +102,32 @@ class InMemoryEventRepositoryTest : JUnit5Minutests {
       val event3 = MyEvent("type3", "id", "three")
 
       test("not providing a type") {
-        listOf(event1, event2, event3).forEach { subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it)) }
+        listOf(event1, event2, event3).forEach {
+          subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it))
+        }
 
-        expectThat(subject.listAggregates(null)) {
-          map { it.type }.containsExactly("type1", "type2", "type3")
+        expectThat(subject.listAggregates(ListAggregatesCriteria())) {
+          get { aggregates }.map { it.type }.containsExactly("type1", "type2", "type3")
         }
       }
 
       test("providing a type") {
-        listOf(event1, event2, event3).forEach { subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it)) }
+        listOf(event1, event2, event3).forEach {
+          subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it))
+        }
 
-        expectThat(subject.listAggregates(event1.aggregateType)) {
-          map { it.type }.containsExactly("type1")
+        expectThat(subject.listAggregates(ListAggregatesCriteria(aggregateType = event1.getMetadata().aggregateType))) {
+          get { aggregates }.map { it.type }.containsExactly("type1")
         }
       }
 
       test("providing a non-existent type") {
-        listOf(event1, event2, event3).forEach { subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it)) }
+        listOf(event1, event2, event3).forEach {
+          subject.save(it.aggregateType, it.aggregateId, 0L, listOf(it))
+        }
 
-        expectThat(subject.listAggregates("unknown")) {
-          isEmpty()
+        expectThat(subject.listAggregates(ListAggregatesCriteria(aggregateType = "unknown"))) {
+          get { aggregates }.isEmpty()
         }
       }
     }
@@ -135,5 +142,9 @@ class InMemoryEventRepositoryTest : JUnit5Minutests {
     )
   }
 
-  private inner class MyEvent(aggregateType: String, aggregateId: String, val value: String) : SpinnakerEvent(aggregateType, aggregateId)
+  private inner class MyEvent(
+    val aggregateType: String,
+    val aggregateId: String,
+    val value: String
+  ) : AbstractSpinnakerEvent()
 }

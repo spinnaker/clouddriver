@@ -20,16 +20,22 @@ import java.time.Instant
 /**
  * Metadata for a [SpinnakerEvent].
  *
+ * @param id A unique ID for the event (not used beyond tracing, debugging)
+ * @param aggregateType The type of aggregate the event is for
+ * @param aggregateId The id of the aggregate the event is for
  * @param sequence Auto-incrementing number for event ordering
  * @param originatingVersion The aggregate version that originated this event
  * @param timestamp The time at which the event was created
  * @param serviceVersion The version of the service (clouddriver) that created the event
- * @param provenance Where the event was generated and by what
+ * @param source Where/what generated the event
  */
 data class EventMetadata(
+  val id: String,
+  val aggregateType: String,
+  val aggregateId: String,
   val sequence: Long,
   val originatingVersion: Long,
   val timestamp: Instant = Instant.now(),
   val serviceVersion: String = "unknown",
-  val provenance: String = "unknown"
+  val source: String = "unknown"
 )

@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.saga
 
+import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import dev.minutest.rootContext
@@ -38,10 +39,8 @@ class SagaServiceTest : AbstractSagaTest() {
         .then(Action2::class.java)
         .then(Action3::class.java)
 
-      val saga = Saga("test", "test")
-
       test("applies all commands") {
-        sagaService.applyBlocking<String>(flow, DoAction1(saga.name, saga.id))
+        sagaService.applyBlocking<String>("test", "test", flow, DoAction1())
 
         expectThat(sagaRepository.get("test", "test"))
           .isNotNull()
@@ -55,5 +54,83 @@ class SagaServiceTest : AbstractSagaTest() {
           }
       }
     }
+
+    context("re-entrance") {
+      fixture {
+        ReentranceFixture()
+      }
+
+      mapOf(
+        "completed doAction1" to listOf(
+          DoAction1(),
+          SagaCommandCompleted("doAction1")
+        ),
+        "completed doAction1, doAction2 incomplete" to listOf(
+          DoAction1(),
+          SagaCommandCompleted("doAction1"),
+          DoAction2()
+        )
+      ).forEach { (name, previousEvents) ->
+        test("a saga resumes where it left off: $name") {
+          val flow = SagaFlow()
+            .then(ReentrantAction1::class.java)
+            .then(ReentrantAction2::class.java)
+            .then(ReentrantAction3::class.java)
+
+          // We've already done some of the work.
+          sagaRepository.save(saga, previousEvents)
+
+          // Apply the saga "again"
+          sagaService.applyBlocking<String>("test", "test", flow, DoAction1())
+
+          val saga = sagaRepository.get("test", "test")
+          expectThat(saga)
+            .describedAs(name)
+            .isNotNull()
+            .and {
+              get { getEvents() }.filterIsInstance<SagaCommand>().map { it.javaClass.simpleName }.containsExactly(
+                "DoAction1",
+                "DoAction2",
+                "DoAction3"
+              )
+              get { getEvents() }.filterIsInstance<SagaCommandCompleted>().map { it.command }.containsExactly(
+                "doAction1",
+                "doAction2",
+                "doAction3"
+              )
+              get { getEvents() }.map { it.javaClass }.contains(SagaCompleted::class.java)
+            }
+        }
+      }
+    }
+  }
+
+  private inner class ReentranceFixture : BaseSagaFixture() {
+    init {
+      registerBeans(
+        applicationContext,
+        ReentrantAction1::class.java,
+        ReentrantAction2::class.java,
+        ReentrantAction3::class.java
+      )
+    }
+  }
+}
+
+private class ReentrantAction1 : SagaAction<DoAction1> {
+  override fun apply(command: DoAction1, saga: Saga): SagaAction.Result {
+    return SagaAction.Result(DoAction2())
+  }
+}
+
+private class ReentrantAction2 : SagaAction<DoAction2> {
+  override fun apply(command: DoAction2, saga: Saga): SagaAction.Result {
+    return SagaAction.Result(DoAction3())
+  }
+}
+
+private class ReentrantAction3 : SagaAction<DoAction3> {
+  override fun apply(command: DoAction3, saga: Saga): SagaAction.Result {
+    return SagaAction.Result()
   }
 }

@@ -18,48 +18,52 @@ package com.netflix.spinnaker.clouddriver.saga
 import com.fasterxml.jackson.annotation.JsonTypeName
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
+import org.springframework.core.Ordered.HIGHEST_PRECEDENCE
+import org.springframework.core.annotation.Order
 import java.util.function.Predicate
 
-class ShouldBranch(sagaName: String, sagaId: String) : SagaEvent(sagaName, sagaId)
+@JsonTypeName("shouldBranch")
+class ShouldBranch : AbstractSagaEvent()
 
 @JsonTypeName("doAction1")
 class DoAction1(
-  sagaName: String,
-  sagaId: String,
   val branch: Boolean = true
-) : SagaCommand(sagaName, sagaId)
+) : AbstractSagaEvent(), SagaCommand
 
 @JsonTypeName("doAction2")
-class DoAction2(sagaName: String, sagaId: String) : SagaCommand(sagaName, sagaId)
+class DoAction2 : AbstractSagaEvent(), SagaCommand
 
 @JsonTypeName("doAction3")
-class DoAction3(sagaName: String, sagaId: String) : SagaCommand(sagaName, sagaId)
+class DoAction3 : AbstractSagaEvent(), SagaCommand
 
 class Action1 : SagaAction<DoAction1> {
   override fun apply(command: DoAction1, saga: Saga): SagaAction.Result {
-    val events = if (command.branch) listOf(ShouldBranch(saga.name, saga.id)) else listOf()
+    val events = if (command.branch) listOf(ShouldBranch()) else listOf()
     return SagaAction.Result(
       ManyCommands(
-        DoAction2(saga.name, saga.id),
-        DoAction3(saga.name, saga.id)
+        DoAction2(),
+        DoAction3()
       ),
       events
     )
   }
 }
 
+@Order(HIGHEST_PRECEDENCE)
 class Action2 : SagaAction<DoAction2> {
   override fun apply(command: DoAction2, saga: Saga): SagaAction.Result {
     return SagaAction.Result(null, listOf())
   }
 }
 
+@Order(HIGHEST_PRECEDENCE)
 class Action3 : SagaAction<DoAction3> {
   override fun apply(command: DoAction3, saga: Saga): SagaAction.Result {
     return SagaAction.Result(null, listOf())
   }
 }
 
+@Order(HIGHEST_PRECEDENCE)
 class ShouldBranchPredicate : Predicate<Saga> {
   override fun test(t: Saga): Boolean =
     t.getEvents().filterIsInstance<ShouldBranch>().isNotEmpty()

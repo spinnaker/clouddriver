@@ -15,24 +15,31 @@
  */
 package com.netflix.spinnaker.clouddriver.titus.deploy.events;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import com.netflix.spinnaker.clouddriver.event.EventMetadata;
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent;
 import javax.annotation.Nonnull;
-import lombok.Getter;
-import org.jetbrains.annotations.NotNull;
+import lombok.Builder;
+import lombok.Value;
+import lombok.experimental.NonFinal;
 
-@Getter
-public class TitusLoadBalancerAttached extends SagaEvent {
+@Builder(builderClassName = "TitusLoadBalancerAttachedBuilder", toBuilder = true)
+@JsonDeserialize(builder = TitusLoadBalancerAttached.TitusLoadBalancerAttachedBuilder.class)
+@JsonTypeName("titusLoadBalancerAttached")
+@Value
+public class TitusLoadBalancerAttached implements SagaEvent {
 
   @Nonnull private final String jobUri;
   @Nonnull private final String targetGroupArn;
+  @NonFinal private EventMetadata metadata;
 
-  public TitusLoadBalancerAttached(
-      @NotNull String sagaName,
-      @NotNull String sagaId,
-      @Nonnull String jobUri,
-      @Nonnull String targetGroupArn) {
-    super(sagaName, sagaId);
-    this.jobUri = jobUri;
-    this.targetGroupArn = targetGroupArn;
+  @Override
+  public void setMetadata(EventMetadata metadata) {
+    this.metadata = metadata;
   }
+
+  @JsonPOJOBuilder(withPrefix = "")
+  public static class TitusLoadBalancerAttachedBuilder {}
 }

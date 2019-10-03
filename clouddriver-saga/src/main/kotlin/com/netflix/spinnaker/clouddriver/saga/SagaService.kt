@@ -15,7 +15,6 @@
  */
 package com.netflix.spinnaker.clouddriver.saga
 
-import com.fasterxml.jackson.annotation.JsonTypeName
 import com.google.common.annotations.Beta
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaIntegrationException
@@ -69,8 +68,8 @@ class SagaService(
 
   private val actionInvocationsId = registry.createId("sagas.actions.invocations")
 
-  fun <T> applyBlocking(flow: SagaFlow, startingCommand: SagaCommand): T? {
-    val initialSaga = initializeSaga(startingCommand)
+  fun <T> applyBlocking(sagaName: String, sagaId: String, flow: SagaFlow, startingCommand: SagaCommand): T? {
+    val initialSaga = initializeSaga(startingCommand, sagaName, sagaId)
 
     log.info("Applying saga: ${initialSaga.name}/${initialSaga.id}")
 
@@ -99,11 +98,11 @@ class SagaService(
               .increment()
           }
         } catch (e: Exception) {
+          // TODO(rz): Add SagaAction.recover()
+
           log.error(
             "Encountered error while applying action '${action.javaClass.simpleName}' on ${saga.name}/${saga.id}", e)
           saga.addEvent(SagaActionErrorOccurred(
-            sagaName = saga.name,
-            sagaId = saga.id,
             actionName = action.javaClass.simpleName,
             error = e,
             retryable = when (e) {
@@ -117,14 +116,14 @@ class SagaService(
             .counter(actionInvocationsId.withTags("result", "failure", "action", action.javaClass.simpleName))
             .increment()
 
-          throw SagaIntegrationException(
-            "Failed to apply action ${action.javaClass.simpleName} for ${saga.name}/${saga.id}", e)
+          log.error("Failed to apply action ${action.javaClass.simpleName} for ${saga.name}/${saga.id}")
+          throw e
         }
 
-        saga.setSequence(stepCommand.metadata.sequence)
+        saga.setSequence(stepCommand.getMetadata().sequence)
 
         val newEvents: MutableList<SagaEvent> = result.events.toMutableList().also {
-          it.add(SagaCommandCompleted(saga, getStepCommandName(stepCommand)))
+          it.add(SagaCommandCompleted(getStepCommandName(stepCommand)))
         }
 
         val nextCommand = result.nextCommand
@@ -151,32 +150,32 @@ class SagaService(
     return invokeCompletionHandler(initialSaga, flow)
   }
 
-  private fun initializeSaga(command: SagaCommand): Saga {
-    return sagaRepository.get(command.sagaName, command.sagaId)
-      ?: Saga(command.sagaName, command.sagaId)
+  private fun initializeSaga(command: SagaCommand, sagaName: String, sagaId: String): Saga {
+    return sagaRepository.get(sagaName, sagaId)
+      ?: Saga(sagaName, sagaId)
         .also {
-          log.debug("Initializing new saga: ${it.name}/${it.id}")
+          log.debug("Initializing new saga: $sagaName/$sagaId")
           it.addEvent(command)
           sagaRepository.save(it)
         }
   }
 
   private fun <T> invokeCompletionHandler(saga: Saga, flow: SagaFlow): T? {
-    if (flow.completionHandler != null) {
-      val handler = applicationContext.getBean(flow.completionHandler)
-      val result = sagaRepository.get(saga.name, saga.id)
-        ?.let { handler.handle(it) }
-        ?: throw SagaNotFoundException("Could not find Saga to complete by ${saga.name}/${saga.id}")
+    return flow.completionHandler
+      ?.let { completionHandler ->
+        val handler = applicationContext.getBean(completionHandler)
+        val result = sagaRepository.get(saga.name, saga.id)
+          ?.let { handler.handle(it) }
+          ?: throw SagaNotFoundException("Could not find Saga to complete by ${saga.name}/${saga.id}")
 
-      // TODO(rz): Haha... :(
-      try {
-        @Suppress("UNCHECKED_CAST")
-        return result as T?
-      } catch (e: ClassCastException) {
-        throw SagaIntegrationException("The completion handler is incompatible with the expected return type", e)
+        // TODO(rz): Haha... :(
+        try {
+          @Suppress("UNCHECKED_CAST")
+          return result as T?
+        } catch (e: ClassCastException) {
+          throw SagaIntegrationException("The completion handler is incompatible with the expected return type", e)
+        }
       }
-    }
-    return null
   }
 
   private fun getRequiredCommand(action: SagaAction<SagaCommand>): Class<SagaCommand> {
@@ -193,12 +192,6 @@ class SagaService(
     }
     throw SagaSystemException("Resolved next action is not a SagaCommand: ${rawClass.simpleName}")
   }
-
-  /**
-   * TODO(rz): Do we want our own annotation instead of relying on [JsonTypeName]?
-   */
-  private fun getStepCommandName(command: SagaCommand): String =
-    command.javaClass.getAnnotation(JsonTypeName::class.java)?.value ?: command.javaClass.simpleName
 
   override fun setApplicationContext(applicationContext: ApplicationContext) {
     this.applicationContext = applicationContext

@@ -20,5 +20,6 @@ enum class ConnectionPools(
 ) {
   TASKS("tasks"),
   CACHE_WRITER("cacheWriter"),
-  CACHE_READER("cacheReader")
+  CACHE_READER("cacheReader"),
+  EVENTS("events")
 }

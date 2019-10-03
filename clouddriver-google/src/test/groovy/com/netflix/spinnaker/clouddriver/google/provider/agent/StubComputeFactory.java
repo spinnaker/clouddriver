@@ -34,14 +34,17 @@ import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.Autoscaler;
 import com.google.api.services.compute.model.AutoscalerAggregatedList;
+import com.google.api.services.compute.model.AutoscalerList;
 import com.google.api.services.compute.model.AutoscalersScopedList;
 import com.google.api.services.compute.model.Instance;
 import com.google.api.services.compute.model.InstanceAggregatedList;
 import com.google.api.services.compute.model.InstanceGroupManager;
 import com.google.api.services.compute.model.InstanceGroupManagerList;
+import com.google.api.services.compute.model.InstanceList;
 import com.google.api.services.compute.model.InstanceTemplate;
 import com.google.api.services.compute.model.InstanceTemplateList;
 import com.google.api.services.compute.model.InstancesScopedList;
+import com.google.api.services.compute.model.RegionInstanceGroupManagerList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -74,19 +77,41 @@ final class StubComputeFactory {
 
   private static final Pattern BATCH_COMPUTE_PATTERN =
       Pattern.compile("/batch/compute/[-.a-zA-Z0-9]+");
+
   private static final Pattern GET_ZONAL_IGM_PATTERN =
       Pattern.compile(
           COMPUTE_PROJECT_PATH_PREFIX
               + "/zones/([-a-z0-9]+)/instanceGroupManagers/([-a-zA-Z0-9]+)");
   private static final Pattern LIST_ZONAL_IGM_PATTERN =
       Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/zones/([-a-z0-9]+)/instanceGroupManagers");
-  private static final Pattern TEMPLATES_PATTERN =
+
+  private static final Pattern GET_REGIONAL_IGM_PATTERN =
+      Pattern.compile(
+          COMPUTE_PROJECT_PATH_PREFIX
+              + "/regions/([-a-z0-9]+)/instanceGroupManagers/([-a-zA-Z0-9]+)");
+  private static final Pattern LIST_REGIONAL_IGM_PATTERN =
+      Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/regions/([-a-z0-9]+)/instanceGroupManagers");
+
+  private static final Pattern GET_INSTANCE_TEMPLATE_PATTERN =
+      Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/global/instanceTemplates/([-a-zA-Z0-9]+)");
+  private static final Pattern LIST_INSTANCE_TEMPLATES_PATTERN =
       Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/global/instanceTemplates");
+
+  private static final Pattern LIST_ZONAL_INSTANCES_PATTERN =
+      Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/zones/([-a-z0-9]+)/instances");
   private static final Pattern AGGREGATED_INSTANCES_PATTERN =
       Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/aggregated/instances");
-  private static final Pattern GET_AUTOSCALER_PATTERN =
+
+  private static final Pattern GET_ZONAL_AUTOSCALER_PATTERN =
       Pattern.compile(
           COMPUTE_PROJECT_PATH_PREFIX + "/zones/([-a-z0-9]+)/autoscalers/([-a-zA-Z0-9]+)");
+  private static final Pattern LIST_ZONAL_AUTOSCALERS_PATTERN =
+      Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/zones/([-a-z0-9]+)/autoscalers");
+  private static final Pattern GET_REGIONAL_AUTOSCALER_PATTERN =
+      Pattern.compile(
+          COMPUTE_PROJECT_PATH_PREFIX + "/regions/([-a-z0-9]+)/autoscalers/([-a-zA-Z0-9]+)");
+  private static final Pattern LIST_REGIONAL_AUTOSCALERS_PATTERN =
+      Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/regions/([-a-z0-9]+)/autoscalers");
   private static final Pattern AGGREGATED_AUTOSCALERS_PATTERN =
       Pattern.compile(COMPUTE_PROJECT_PATH_PREFIX + "/aggregated/autoscalers");
 
@@ -123,9 +148,24 @@ final class StubComputeFactory {
             .addGetResponse(
                 LIST_ZONAL_IGM_PATTERN,
                 new PathBasedJsonResponseGenerator(this::instanceGroupManagerList))
-            .addGetResponse(TEMPLATES_PATTERN, this::instanceTemplateList)
+            .addGetResponse(GET_REGIONAL_IGM_PATTERN, this::getRegionInstanceGroupManager)
+            .addGetResponse(
+                LIST_REGIONAL_IGM_PATTERN,
+                new PathBasedJsonResponseGenerator(this::regionInstanceGroupManagerList))
+            .addGetResponse(GET_INSTANCE_TEMPLATE_PATTERN, this::getInstanceTemplate)
+            .addGetResponse(LIST_INSTANCE_TEMPLATES_PATTERN, this::instanceTemplateList)
+            .addGetResponse(
+                LIST_ZONAL_INSTANCES_PATTERN,
+                new PathBasedJsonResponseGenerator(this::instanceList))
             .addGetResponse(AGGREGATED_INSTANCES_PATTERN, this::instanceAggregatedList)
-            .addGetResponse(GET_AUTOSCALER_PATTERN, this::getAutoscaler)
+            .addGetResponse(GET_ZONAL_AUTOSCALER_PATTERN, this::getZonalAutoscaler)
+            .addGetResponse(
+                LIST_ZONAL_AUTOSCALERS_PATTERN,
+                new PathBasedJsonResponseGenerator(this::zonalAutoscalerList))
+            .addGetResponse(GET_REGIONAL_AUTOSCALER_PATTERN, this::getRegionalAutoscaler)
+            .addGetResponse(
+                LIST_REGIONAL_AUTOSCALERS_PATTERN,
+                new PathBasedJsonResponseGenerator(this::regionalAutoscalerList))
             .addGetResponse(AGGREGATED_AUTOSCALERS_PATTERN, this::autoscalerAggregatedList);
     return new Compute(
         httpTransport, JacksonFactory.getDefaultInstance(), /* httpRequestInitializer= */ null);
@@ -155,8 +195,54 @@ final class StubComputeFactory {
                 .collect(toImmutableList()));
   }
 
+  private MockLowLevelHttpResponse getRegionInstanceGroupManager(MockLowLevelHttpRequest request) {
+    Matcher matcher = GET_REGIONAL_IGM_PATTERN.matcher(getPath(request));
+    checkState(matcher.matches());
+    String region = matcher.group(1);
+    String name = matcher.group(2);
+    return instanceGroupManagers.stream()
+        .filter(igm -> name.equals(igm.getName()))
+        .filter(igm -> region.equals(Utils.getLocalName(igm.getRegion())))
+        .findFirst()
+        .map(StubComputeFactory::jsonResponse)
+        .orElse(errorResponse(404));
+  }
+
+  private RegionInstanceGroupManagerList regionInstanceGroupManagerList(String path) {
+    Matcher matcher = LIST_REGIONAL_IGM_PATTERN.matcher(path);
+    checkState(matcher.matches());
+    String region = matcher.group(1);
+    return new RegionInstanceGroupManagerList()
+        .setItems(
+            instanceGroupManagers.stream()
+                .filter(igm -> region.equals(Utils.getLocalName(igm.getRegion())))
+                .collect(toImmutableList()));
+  }
+
+  private MockLowLevelHttpResponse getInstanceTemplate(MockLowLevelHttpRequest request) {
+    Matcher matcher = GET_INSTANCE_TEMPLATE_PATTERN.matcher(getPath(request));
+    checkState(matcher.matches());
+    String name = matcher.group(1);
+    return instanceTemplates.stream()
+        .filter(template -> name.equals(template.getName()))
+        .findFirst()
+        .map(StubComputeFactory::jsonResponse)
+        .orElse(errorResponse(404));
+  }
+
   private MockLowLevelHttpResponse instanceTemplateList(LowLevelHttpRequest request) {
     return jsonResponse(new InstanceTemplateList().setItems(instanceTemplates));
+  }
+
+  private InstanceList instanceList(String path) {
+    Matcher matcher = LIST_ZONAL_INSTANCES_PATTERN.matcher(path);
+    checkState(matcher.matches());
+    String zone = matcher.group(1);
+    return new InstanceList()
+        .setItems(
+            instances.stream()
+                .filter(instance -> zone.equals(Utils.getLocalName(instance.getZone())))
+                .collect(toImmutableList()));
   }
 
   private MockLowLevelHttpResponse instanceAggregatedList(LowLevelHttpRequest request) {
@@ -174,8 +260,8 @@ final class StubComputeFactory {
     return jsonResponse(result);
   }
 
-  private MockLowLevelHttpResponse getAutoscaler(MockLowLevelHttpRequest request) {
-    Matcher matcher = GET_AUTOSCALER_PATTERN.matcher(getPath(request));
+  private MockLowLevelHttpResponse getZonalAutoscaler(MockLowLevelHttpRequest request) {
+    Matcher matcher = GET_ZONAL_AUTOSCALER_PATTERN.matcher(getPath(request));
     checkState(matcher.matches());
     String zone = matcher.group(1);
     String name = matcher.group(2);
@@ -185,6 +271,41 @@ final class StubComputeFactory {
         .findFirst()
         .map(StubComputeFactory::jsonResponse)
         .orElse(errorResponse(404));
+  }
+
+  private AutoscalerList zonalAutoscalerList(String path) {
+    Matcher matcher = LIST_ZONAL_AUTOSCALERS_PATTERN.matcher(path);
+    checkState(matcher.matches());
+    String zone = matcher.group(1);
+    return new AutoscalerList()
+        .setItems(
+            autoscalers.stream()
+                .filter(autoscaler -> zone.equals(Utils.getLocalName(autoscaler.getZone())))
+                .collect(toImmutableList()));
+  }
+
+  private MockLowLevelHttpResponse getRegionalAutoscaler(MockLowLevelHttpRequest request) {
+    Matcher matcher = GET_REGIONAL_AUTOSCALER_PATTERN.matcher(getPath(request));
+    checkState(matcher.matches());
+    String region = matcher.group(1);
+    String name = matcher.group(2);
+    return autoscalers.stream()
+        .filter(autoscaler -> name.equals(autoscaler.getName()))
+        .filter(autoscaler -> region.equals(Utils.getLocalName(autoscaler.getRegion())))
+        .findFirst()
+        .map(StubComputeFactory::jsonResponse)
+        .orElse(errorResponse(404));
+  }
+
+  private AutoscalerList regionalAutoscalerList(String path) {
+    Matcher matcher = LIST_REGIONAL_AUTOSCALERS_PATTERN.matcher(path);
+    checkState(matcher.matches());
+    String region = matcher.group(1);
+    return new AutoscalerList()
+        .setItems(
+            autoscalers.stream()
+                .filter(autoscaler -> region.equals(Utils.getLocalName(autoscaler.getRegion())))
+                .collect(toImmutableList()));
   }
 
   private MockLowLevelHttpResponse autoscalerAggregatedList(LowLevelHttpRequest request) {
@@ -218,7 +339,7 @@ final class StubComputeFactory {
     }
     String region = regionFunction.apply(item);
     if (region != null) {
-      return "region/" + Utils.getLocalName(region);
+      return "regions/" + Utils.getLocalName(region);
     }
     return null;
   }
