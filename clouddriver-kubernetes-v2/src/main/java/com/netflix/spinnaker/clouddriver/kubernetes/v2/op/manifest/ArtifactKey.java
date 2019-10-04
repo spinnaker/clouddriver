@@ -27,6 +27,19 @@ import javax.annotation.Nullable;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
+/**
+ * When determining whether the deploy and patch manifest stages bound all required artifacts, the
+ * artifacts in the list of required artifacts have an artifact account set while those in the list
+ * we're trying to bind don't.
+ *
+ * <p>As the .equals function of Artifact includes the account in its comparison, this means that we
+ * don't recognize the replaced artifacts as the ones we expected to replace and fail the stage.
+ *
+ * <p>As a temporary fix until we can refactor the artifact passing code to consistently include (or
+ * not) account, or decide that account should always be excluded from Artifact.equals(), create a
+ * class to hold the fields of Artifact that these two stages should use when deciding whether
+ * artifacts are equal.
+ */
 @EqualsAndHashCode
 @ToString
 class ArtifactKey {
