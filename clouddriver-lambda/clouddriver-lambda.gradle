@@ -3,7 +3,7 @@ dependencies {
   implementation project(":clouddriver-aws")
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-security")
-  implementation project(":clouddriver-appengine")
+
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"

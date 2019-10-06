@@ -140,7 +140,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
       attributes.put("aliasConfiguration", listAliasConfiguration(x.getFunctionArn()));
       attributes.put(
           "eventSourceMappings", listEventSourceMappingConfiguration(x.getFunctionArn()));
-      // attributes.put("functionConfiguration", getFunctionConfiguration(x.getFunctionArn());
+
       attributes = addConfigAttributes(attributes, x, lambda);
       String functionName = x.getFunctionName();
       attributes.put("targetGroups", getTargetGroupNames(lambda, functionName));
@@ -350,9 +350,15 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
   }
 
   protected String combineAppDetail(String appName, String functionName) {
-    return Names.parseName(functionName).getApp().equals(appName)
-        ? functionName
-        : (appName + "-" + functionName);
+    Names functionAppName = Names.parseName(functionName);
+    if (null != functionAppName) {
+      return functionAppName.getApp().equals(appName)
+          ? functionName
+          : (appName + "-" + functionName);
+    } else {
+      throw new IllegalArgumentException(
+          String.format("Function name {%s} contains invlaid charachetrs ", functionName));
+    }
   }
 
   private List<String> getTargetGroupNames(AWSLambda lambda, String functionName) {

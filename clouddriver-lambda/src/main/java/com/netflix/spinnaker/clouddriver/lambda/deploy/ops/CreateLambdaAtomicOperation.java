@@ -86,7 +86,7 @@ public class CreateLambdaAtomicOperation
               .withSubnetIds(description.getSubnetIds()));
     }
     request.setDeadLetterConfig(description.getDeadLetterConfig());
-    request.setKMSKeyArn(description.getEncryKMSKeyArn());
+    request.setKMSKeyArn(description.getEncryptionKMSKeyArn());
     request.setTracingConfig(description.getTracingConfig());
 
     CreateFunctionResult result = client.createFunction(request);
@@ -104,9 +104,15 @@ public class CreateLambdaAtomicOperation
   }
 
   protected String combineAppDetail(String appName, String functionName) {
-    return Names.parseName(functionName).getApp().equals(appName)
-        ? functionName
-        : (appName + "-" + functionName);
+    Names functionAppName = Names.parseName(functionName);
+    if (null != functionAppName) {
+      return functionAppName.getApp().equals(appName)
+          ? functionName
+          : (appName + "-" + functionName);
+    } else {
+      throw new IllegalArgumentException(
+          String.format("Function name {%s} contains invlaid charachetrs ", functionName));
+    }
   }
 
   private RegisterTargetsResult registerTargetGroup(String functionArn, AWSLambda lambdaClient) {
