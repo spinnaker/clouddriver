@@ -33,10 +33,15 @@ class KubernetesAutoscalerStatus {
     if (autoscaler.status == null) {
       log.warn("Autoscaler on ${autoscaler.metadata.name} has a null status. The replicaset may be missing a CPU request.")
     } else {
-      this.currentCpuUtilization = autoscaler.status.currentCPUUtilizationPercentage
-      this.currentReplicas = autoscaler.status.currentReplicas
-      this.desiredReplicas = autoscaler.status.desiredReplicas
-      this.lastScaleTime = KubernetesModelUtil.translateTime(autoscaler.status.lastScaleTime)
+      try {
+        this.currentCpuUtilization = autoscaler.status.currentMetrics?.find { metric -> metric.resource.name == "cpu" }?.resource?.currentAverageUtilization
+        this.currentReplicas = autoscaler.status.currentReplicas
+        this.desiredReplicas = autoscaler.status.desiredReplicas
+        this.lastScaleTime = KubernetesModelUtil.translateTime(autoscaler.status.lastScaleTime)
+      }
+      catch (NullPointerException e) {
+        log.warn("NPE reading metrics for autoscaler: ${e.toString()}, autoscaler: ${autoscaler.metadata.name}, metrics: ${autoscaler.status.currentMetrics}");
+      }
     }
   }
 }

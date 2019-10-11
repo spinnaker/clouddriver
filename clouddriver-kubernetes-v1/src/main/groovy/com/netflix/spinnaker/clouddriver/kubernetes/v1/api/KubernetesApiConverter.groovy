@@ -109,7 +109,9 @@ import io.fabric8.kubernetes.api.model.apps.DeploymentFluentImpl
 import io.fabric8.kubernetes.api.model.extensions.Ingress
 import io.fabric8.kubernetes.api.model.apps.ReplicaSet
 import io.fabric8.kubernetes.api.model.apps.ReplicaSetBuilder
+import groovy.util.logging.Slf4j
 
+@Slf4j
 class KubernetesApiConverter {
   static KubernetesSecurityGroupDescription fromIngress(Ingress ingress) {
     if (!ingress) {
@@ -817,8 +819,12 @@ class KubernetesApiConverter {
     description.capacity = new Capacity(min: autoscaler.spec.minReplicas,
                                         max: autoscaler.spec.maxReplicas,
                                         desired: description.targetSize)
-    def cpuUtilization = new KubernetesCpuUtilization(target: autoscaler.spec.targetCPUUtilizationPercentage)
-    description.scalingPolicy = new KubernetesScalingPolicy(cpuUtilization: cpuUtilization)
+    try {
+      def cpuUtilization = new KubernetesCpuUtilization(target: autoscaler.spec.metrics?.find { metric -> metric.resource.name == "cpu" }?.resource?.targetAverageUtilization)
+      description.scalingPolicy = new KubernetesScalingPolicy(cpuUtilization: cpuUtilization)
+    } catch (NullPointerException e) {
+       log.warn("NPE reading metrics for autoscaler: ${e.toString()}, autoscaler: ${autoscaler.metadata.name}, metrics: ${autoscaler.spec.metrics}");
+    }
   }
 
   static HorizontalPodAutoscalerFluentImpl toAutoscaler(HorizontalPodAutoscalerFluentImpl autoscalerBuilder,
