@@ -176,7 +176,7 @@ class Keys implements KeyParser {
   }
 
   static String getTargetGroupKey(String targetGroupName, String account, String region, String targetGroupType, String vpcId) {
-    //Lambda targetGroup don't have the vpcId
+    //Lambda targetGroup doesn't have the vpcId
     if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroupType))
      "${ID}:${Namespace.TARGET_GROUPS}:${account}:${region}:${targetGroupName}:${targetGroupType}"
     else
