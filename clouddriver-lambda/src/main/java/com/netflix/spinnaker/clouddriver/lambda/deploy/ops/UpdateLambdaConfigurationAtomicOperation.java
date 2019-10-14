@@ -66,7 +66,7 @@ public class UpdateLambdaConfigurationAtomicOperation
                 new VpcConfig()
                     .withSecurityGroupIds(description.getSecurityGroupIds())
                     .withSubnetIds(description.getSubnetIds()))
-            .withKMSKeyArn(description.getEncryKMSKeyArn())
+            .withKMSKeyArn(description.getEncryptionKMSKeyArn())
             .withTracingConfig(description.getTracingConfig());
 
     UpdateFunctionConfigurationResult result = client.updateFunctionConfiguration(request);

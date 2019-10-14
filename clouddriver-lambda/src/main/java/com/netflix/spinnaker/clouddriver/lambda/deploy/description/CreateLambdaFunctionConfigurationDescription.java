@@ -38,7 +38,7 @@ public class CreateLambdaFunctionConfigurationDescription
   List<String> securityGroupIds;
   Environment environment;
   DeadLetterConfig deadLetterConfig;
-  String encryKMSKeyArn;
+  String encryptionKMSKeyArn;
   TracingConfig tracingConfig;
   String targetGroup;
 }

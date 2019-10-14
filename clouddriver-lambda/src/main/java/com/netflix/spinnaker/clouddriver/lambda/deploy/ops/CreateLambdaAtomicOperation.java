@@ -86,7 +86,7 @@ public class CreateLambdaAtomicOperation
               .withSubnetIds(description.getSubnetIds()));
     }
     request.setDeadLetterConfig(description.getDeadLetterConfig());
-    request.setKMSKeyArn(description.getEncryKMSKeyArn());
+    request.setKMSKeyArn(description.getEncryptionKMSKeyArn());
     request.setTracingConfig(description.getTracingConfig());
 
     CreateFunctionResult result = client.createFunction(request);
@@ -100,6 +100,50 @@ public class CreateLambdaAtomicOperation
       registerTargetGroup(functionArn, client);
     }
 
+    return result;
+  }
+
+  protected String combineAppDetail(String appName, String functionName) {
+    Names functionAppName = Names.parseName(functionName);
+    if (null != functionAppName) {
+      return functionAppName.getApp().equals(appName)
+          ? functionName
+          : (appName + "-" + functionName);
+    } else {
+      throw new IllegalArgumentException(
+          String.format("Function name {%s} contains invlaid charachetrs ", functionName));
+    }
+  }
+
+  private RegisterTargetsResult registerTargetGroup(String functionArn, AWSLambda lambdaClient) {
+    AmazonElasticLoadBalancing loadBalancingV2 = getAmazonElasticLoadBalancingClient();
+    TargetGroup targetGroup = retrieveTargetGroup(loadBalancingV2);
+
+    AddPermissionRequest addPermissionRequest =
+        new AddPermissionRequest()
+            .withFunctionName(functionArn)
+            .withAction("lambda:InvokeFunction")
+            .withSourceArn(targetGroup.getTargetGroupArn())
+            .withPrincipal("elasticloadbalancing.amazonaws.com")
+            .withStatementId(UUID.randomUUID().toString());
+
+    lambdaClient.addPermission(addPermissionRequest);
+
+    updateTaskStatus(
+        String.format(
+            "Lambda (%s) invoke permissions added to Target group (%s).",
+            functionArn, targetGroup.getTargetGroupArn()));
+
+    RegisterTargetsResult result =
+        loadBalancingV2.registerTargets(
+            new RegisterTargetsRequest()
+                .withTargets(new TargetDescription().withId(functionArn))
+                .withTargetGroupArn(targetGroup.getTargetGroupArn()));
+
+    updateTaskStatus(
+        String.format(
+            "Registered the Lambda (%s) with Target group (%s).",
+            functionArn, targetGroup.getTargetGroupArn()));
     return result;
   }
 
