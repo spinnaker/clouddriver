@@ -44,7 +44,7 @@ public class SagaAtomicOperationBridge {
     final String sagaName = applyCommand.sagaName;
     final String sagaId = Optional.ofNullable(task.getRequestId()).orElse(task.getId());
 
-    task.addSagaId(SagaId.builder().id(sagaId).name(sagaName).build());
+    task.addSagaId(new SagaId(sagaName, sagaId));
 
     applyCommand.sagaFlow.injectFirst(SnapshotAtomicOperationInput.class);
 
