@@ -122,7 +122,7 @@ class LoadBalancerV2UpsertHandler {
             createTargetGroupRequest
               .withHealthCheckPath(targetGroup.healthCheckPath)
 
-            // HTTP(s) health checks for TCP does not support custom matchers and timeouts. Also, health thresholds must be equal.
+            // HTTP(s) health checks for TCP do not support custom matchers and timeouts. Also, health thresholds must be equal.
             if (targetGroup.protocol == ProtocolEnum.TCP) {
               createTargetGroupRequest.withUnhealthyThresholdCount(createTargetGroupRequest.getHealthyThresholdCount())
             } else {
