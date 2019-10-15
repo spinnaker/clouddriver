@@ -73,6 +73,8 @@ public class Job {
 
   private SubmitJobRequest.Constraints constraints;
 
+  private List<SignedAddressAllocations> signedAddressAllocations;
+
   public Job() {}
 
   public Job(
@@ -137,6 +139,14 @@ public class Job {
     gpu = grpcJob.getJobDescriptor().getContainer().getResources().getGpu();
     networkMbps = grpcJob.getJobDescriptor().getContainer().getResources().getNetworkMbps();
     disk = grpcJob.getJobDescriptor().getContainer().getResources().getDiskMB();
+    signedAddressAllocations = new ArrayList<>();
+    grpcJob.getJobDescriptor().getContainer().getResources().getSignedAddressAllocationsList()
+        .stream()
+        .forEach(
+            it -> {
+              SignedAddressAllocations signedAddressAllocation = addSignedAddressAllocations(it);
+              signedAddressAllocations.add(signedAddressAllocation);
+            });
     jobGroupSequence = grpcJob.getJobDescriptor().getJobGroupInfo().getSequence();
     jobGroupStack = grpcJob.getJobDescriptor().getJobGroupInfo().getStack();
     jobGroupDetail = grpcJob.getJobDescriptor().getJobGroupInfo().getDetail();
@@ -267,6 +277,39 @@ public class Job {
                           w.getTimeZone()))
               .collect(Collectors.toList()));
     }
+  }
+
+  private SignedAddressAllocations addSignedAddressAllocations(
+      SignedAddressAllocation signedAddressAllocation) {
+    SignedAddressAllocations grpcSignedAddressAllocations = new SignedAddressAllocations();
+
+    SignedAddressAllocations.AddressLocation grpcAddressLocation =
+        new SignedAddressAllocations.AddressLocation();
+    grpcAddressLocation.setAvailabilityZone(
+        signedAddressAllocation.getAddressAllocation().getAddressLocation().getAvailabilityZone());
+    grpcAddressLocation.setRegion(
+        signedAddressAllocation.getAddressAllocation().getAddressLocation().getRegion());
+    grpcAddressLocation.setSubnetId(
+        signedAddressAllocation.getAddressAllocation().getAddressLocation().getSubnetId());
+
+    SignedAddressAllocations.AddressAllocation grpcAddressAllocation =
+        new SignedAddressAllocations.AddressAllocation();
+    grpcAddressAllocation.setAddress(signedAddressAllocation.getAddressAllocation().getAddress());
+    grpcAddressAllocation.setUuid(signedAddressAllocation.getAddressAllocation().getUuid());
+    grpcAddressAllocation.setAddressLocation(grpcAddressLocation);
+
+    grpcSignedAddressAllocations.setAddressAllocation(grpcAddressAllocation);
+    grpcSignedAddressAllocations.setAuthoritativePublicKey(
+        signedAddressAllocation.getAuthoritativePublicKey().toStringUtf8());
+    grpcSignedAddressAllocations.setHostPublicKey(
+        signedAddressAllocation.getHostPublicKey().toStringUtf8());
+    grpcSignedAddressAllocations.setHostPublicKeySignature(
+        signedAddressAllocation.getHostPublicKeySignature().toStringUtf8());
+    grpcSignedAddressAllocations.setMessage(signedAddressAllocation.getMessage().toStringUtf8());
+    grpcSignedAddressAllocations.setMessageSignature(
+        signedAddressAllocation.getMessageSignature().toStringUtf8());
+
+    return grpcSignedAddressAllocations;
   }
 
   public String getId() {
@@ -551,6 +594,14 @@ public class Job {
 
   public MigrationPolicy getMigrationPolicy() {
     return migrationPolicy;
+  }
+
+  public List<SignedAddressAllocations> getSignedAddressAllocations() {
+    return signedAddressAllocations;
+  }
+
+  public void setSignedAddressAllocations(List<SignedAddressAllocations> signedAddressAllocations) {
+    this.signedAddressAllocations = signedAddressAllocations;
   }
 
   public void setMigrationPolicy(MigrationPolicy migrationPolicy) {
