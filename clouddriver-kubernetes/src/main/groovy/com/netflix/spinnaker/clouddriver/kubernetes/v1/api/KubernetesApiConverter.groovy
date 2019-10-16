@@ -820,7 +820,7 @@ class KubernetesApiConverter {
     description.capacity = new Capacity(min: autoscaler.spec.minReplicas,
                                         max: autoscaler.spec.maxReplicas,
                                         desired: description.targetSize)
-    def cpuUtilization = new KubernetesCpuUtilization(target: autoscaler.spec.metrics?.find { metric -> metric.resource.name == "cpu" }?.resource?.targetAverageUtilization)
+    def cpuUtilization = new KubernetesCpuUtilization(target: autoscaler.spec.metrics?.find { metric -> metric?.resource?.name == "cpu" }?.resource?.targetAverageUtilization)
     description.scalingPolicy = new KubernetesScalingPolicy(cpuUtilization: cpuUtilization)
   }
 
