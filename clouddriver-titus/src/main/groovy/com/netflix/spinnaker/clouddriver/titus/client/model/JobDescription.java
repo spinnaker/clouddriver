@@ -485,11 +485,11 @@ public class JobDescription {
       containerResources.setDiskMB(disk);
     }
 
-    if (!signedAddressAllocations.isEmpty() && signedAddressAllocations != null) {
+    if (signedAddressAllocations != null && !signedAddressAllocations.isEmpty()) {
       signedAddressAllocations.forEach(
           signedAddressAllocation -> {
             SignedAddressAllocation.Builder builder =
-                buildSignedAddressAllocation(signedAddressAllocation);
+                convertSignedAddressAllocations(signedAddressAllocation);
             containerResources.addSignedAddressAllocations(builder);
           });
     }
@@ -652,7 +652,8 @@ public class JobDescription {
     return jobDescriptorBuilder.build();
   }
 
-  private SignedAddressAllocation.Builder buildSignedAddressAllocation(
+  // Returns builder for Protobuf type com.netflix.titus.SignedAddressAllocation
+  private SignedAddressAllocation.Builder convertSignedAddressAllocations(
       SignedAddressAllocations signedAddressAllocation) {
 
     SignedAddressAllocations.AddressLocation addressLocation =

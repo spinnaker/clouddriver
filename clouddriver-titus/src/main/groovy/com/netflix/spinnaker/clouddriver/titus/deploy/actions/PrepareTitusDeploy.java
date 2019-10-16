@@ -290,6 +290,8 @@ public class PrepareTitusDeploy extends AbstractTitusDeployAction
         .getResources()
         .setNetworkMbps(
             orDefault(description.getResources().getNetworkMbps(), sourceJob.getNetworkMbps()));
+
+    // Fallback to source allocations if request does not include allocations
     description
         .getResources()
         .setSignedAddressAllocations(

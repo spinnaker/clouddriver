@@ -140,13 +140,6 @@ public class Job {
     networkMbps = grpcJob.getJobDescriptor().getContainer().getResources().getNetworkMbps();
     disk = grpcJob.getJobDescriptor().getContainer().getResources().getDiskMB();
     signedAddressAllocations = new ArrayList<>();
-    grpcJob.getJobDescriptor().getContainer().getResources().getSignedAddressAllocationsList()
-        .stream()
-        .forEach(
-            it -> {
-              SignedAddressAllocations signedAddressAllocation = addSignedAddressAllocations(it);
-              signedAddressAllocations.add(signedAddressAllocation);
-            });
     jobGroupSequence = grpcJob.getJobDescriptor().getJobGroupInfo().getSequence();
     jobGroupStack = grpcJob.getJobDescriptor().getJobGroupInfo().getStack();
     jobGroupDetail = grpcJob.getJobDescriptor().getJobGroupInfo().getDetail();
@@ -215,6 +208,15 @@ public class Job {
               .getServiceJobProcesses()
               .getDisableIncreaseDesired());
     }
+    addSignedAllocationList(grpcJob);
+  }
+
+  // Add SignedAddressAllocationsList from grpc to Job.signedAddressAllocations
+  private void addSignedAllocationList(com.netflix.titus.grpc.protogen.Job grpcJob) {
+    grpcJob.getJobDescriptor().getContainer().getResources().getSignedAddressAllocationsList()
+        .stream()
+        .map(this::addSignedAddressAllocations)
+        .forEach(signedAddressAllocation -> signedAddressAllocations.add(signedAddressAllocation));
   }
 
   private void addDisruptionBudget(com.netflix.titus.grpc.protogen.Job grpcJob) {
@@ -279,6 +281,7 @@ public class Job {
     }
   }
 
+  // Construct the titus internal model SignedAddressAllocations
   private SignedAddressAllocations addSignedAddressAllocations(
       SignedAddressAllocation signedAddressAllocation) {
     SignedAddressAllocations grpcSignedAddressAllocations = new SignedAddressAllocations();
