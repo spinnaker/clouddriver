@@ -73,7 +73,7 @@ public class Job {
 
   private SubmitJobRequest.Constraints constraints;
 
-  private List<SignedAddressAllocations> signedAddressAllocations;
+  private List<SignedAddressAllocations> signedAddressAllocations = new ArrayList<>();
 
   public Job() {}
 
@@ -139,7 +139,6 @@ public class Job {
     gpu = grpcJob.getJobDescriptor().getContainer().getResources().getGpu();
     networkMbps = grpcJob.getJobDescriptor().getContainer().getResources().getNetworkMbps();
     disk = grpcJob.getJobDescriptor().getContainer().getResources().getDiskMB();
-    signedAddressAllocations = new ArrayList<>();
     jobGroupSequence = grpcJob.getJobDescriptor().getJobGroupInfo().getSequence();
     jobGroupStack = grpcJob.getJobDescriptor().getJobGroupInfo().getStack();
     jobGroupDetail = grpcJob.getJobDescriptor().getJobGroupInfo().getDetail();
