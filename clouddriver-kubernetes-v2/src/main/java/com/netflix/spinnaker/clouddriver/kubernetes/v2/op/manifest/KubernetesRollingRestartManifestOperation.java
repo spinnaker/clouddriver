@@ -1,18 +1,17 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2019 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest;
@@ -21,20 +20,20 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesPauseRolloutManifestDescription;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanPauseRollout;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesRollingRestartManifestDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanRollingRestart;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.List;
 
-public class KubernetesPauseRolloutManifestOperation implements AtomicOperation<Void> {
-  private final KubernetesPauseRolloutManifestDescription description;
+public class KubernetesRollingRestartManifestOperation implements AtomicOperation<Void> {
+  private final KubernetesRollingRestartManifestDescription description;
   private final KubernetesV2Credentials credentials;
-  private static final String OP_NAME = "PAUSE_ROLLOUT_KUBERNETES_MANIFEST";
+  private static final String OP_NAME = "ROLLING_RESTART_KUBERNETES_MANIFEST";
 
-  public KubernetesPauseRolloutManifestOperation(
-      KubernetesPauseRolloutManifestDescription description) {
+  public KubernetesRollingRestartManifestOperation(
+      KubernetesRollingRestartManifestDescription description) {
     this.description = description;
     this.credentials = description.getCredentials().getCredentials();
   }
@@ -45,7 +44,7 @@ public class KubernetesPauseRolloutManifestOperation implements AtomicOperation<
 
   @Override
   public Void operate(List priorOutputs) {
-    getTask().updateStatus(OP_NAME, "Starting pause rollout operation...");
+    getTask().updateStatus(OP_NAME, "Starting rolling restart operation...");
     KubernetesCoordinates coordinates = description.getPointCoordinates();
 
     getTask().updateStatus(OP_NAME, "Looking up resource properties...");
@@ -53,15 +52,16 @@ public class KubernetesPauseRolloutManifestOperation implements AtomicOperation<
         credentials.getResourcePropertyRegistry().get(coordinates.getKind());
     KubernetesHandler deployer = properties.getHandler();
 
-    if (!(deployer instanceof CanPauseRollout)) {
+    if (!(deployer instanceof CanRollingRestart)) {
       throw new IllegalArgumentException(
-          "Resource with " + coordinates + " does not support pause rollout");
+          "Resource with " + coordinates + " does not support rolling restart");
     }
 
-    CanPauseRollout canPauseRollout = (CanPauseRollout) deployer;
+    CanRollingRestart canRollingRestart = (CanRollingRestart) deployer;
 
-    getTask().updateStatus(OP_NAME, "Calling pause rollout operation...");
-    canPauseRollout.pauseRollout(credentials, coordinates.getNamespace(), coordinates.getName());
+    getTask().updateStatus(OP_NAME, "Calling rolling restart operation...");
+    canRollingRestart.rollingRestart(
+        credentials, coordinates.getNamespace(), coordinates.getName());
 
     return null;
   }
