@@ -82,7 +82,7 @@ class UpsertKubernetesAutoscalerAtomicOperation implements AtomicOperation<Void>
       description.scalingPolicy.cpuUtilization = description.scalingPolicy.cpuUtilization ?: new KubernetesCpuUtilization()
       description.scalingPolicy.cpuUtilization.target = description.scalingPolicy.cpuUtilization.target != null ?
         description.scalingPolicy.cpuUtilization.target :
-        autoscaler.spec.metrics?.find { metric -> metric.resource.name == "cpu" }?.resource?.targetAverageUtilization
+        autoscaler.spec.metrics?.find { metric -> metric?.resource?.name == "cpu" }?.resource?.targetAverageUtilization
 
       ((DoneableHorizontalPodAutoscaler) KubernetesApiConverter.toAutoscaler(
         credentials.apiAdaptor.editAutoscaler(namespace, name), description, name, kind, version
