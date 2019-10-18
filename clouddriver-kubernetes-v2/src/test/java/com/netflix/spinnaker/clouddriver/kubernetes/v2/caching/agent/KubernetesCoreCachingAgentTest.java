@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
@@ -237,10 +236,10 @@ final class KubernetesCoreCachingAgentTest {
     ImmutableList<OnDemandAgent.OnDemandResult> results =
         processOnDemandRequest(data, providerCache);
 
-    verify(providerCache, atLeast(1)).putCacheData(anyString(), any(CacheData.class));
+    verify(providerCache, times(1)).putCacheData(anyString(), any(CacheData.class));
     verify(providerCache, times(0)).evictDeletedItems(any(String.class), any());
 
-    assertThat(results).isNotEmpty();
+    assertThat(results).hasSize(1);
     CacheResult cacheResult = results.get(0).getCacheResult();
     assertThat(cacheResult.getCacheResults()).isNotEmpty();
 
@@ -273,9 +272,9 @@ final class KubernetesCoreCachingAgentTest {
         processOnDemandRequest(data, providerCache);
 
     verify(providerCache, times(0)).putCacheData(any(String.class), any(CacheData.class));
-    verify(providerCache, atLeast(1)).evictDeletedItems(any(String.class), any());
+    verify(providerCache, times(1)).evictDeletedItems(any(String.class), any());
 
-    assertThat(results).isNotEmpty();
+    assertThat(results).hasSize(1);
     Map<String, Collection<String>> evictions = results.get(0).getEvictions();
     assertThat(evictions).isNotEmpty();
     assertThat(evictions.get("storageClass")).containsExactly(expectedKey);
