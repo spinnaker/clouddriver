@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Netflix, Inc.
+ * Copyright 2019 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.event.exceptions
 
-import com.netflix.spinnaker.kork.exceptions.IntegrationException
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
-/**
- * Thrown when an event's metadata is attempted to be retrieved before it has been initialized
- * by the library.
- */
-class UninitializedEventException : IntegrationException(
-  "Cannot access event metadata before initialization"
-), EventingException {
-  init {
-    retryable = false
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+
+public interface CanRollingRestart {
+  KubernetesKind kind();
+
+  default void rollingRestart(KubernetesV2Credentials credentials, String namespace, String name) {
+    credentials.rollingRestart(kind(), namespace, name);
   }
 }
