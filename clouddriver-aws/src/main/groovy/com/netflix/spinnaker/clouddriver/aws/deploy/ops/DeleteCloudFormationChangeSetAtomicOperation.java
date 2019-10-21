@@ -58,9 +58,11 @@ public class DeleteCloudFormationChangeSetAtomicOperation implements AtomicOpera
       amazonCloudFormation.deleteChangeSet(deleteChangeSetRequest);
     } catch (AmazonCloudFormationException e) {
       log.error(
-          "Error removing change set {} on stack {}",
-          description.getChangeSetName(),
-          description.getStackName());
+          "Error removing change set "
+              + description.getChangeSetName()
+              + " on stack "
+              + description.getStackName(),
+          e.getMessage());
       return Collections.emptyMap();
     }
     return Collections.emptyMap();
