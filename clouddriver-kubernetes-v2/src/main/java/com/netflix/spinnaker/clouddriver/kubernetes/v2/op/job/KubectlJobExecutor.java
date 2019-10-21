@@ -124,10 +124,12 @@ public class KubectlJobExecutor {
     return status.getOutput();
   }
 
-  public String jobLogs(KubernetesV2Credentials credentials, String namespace, String jobName) {
+  public String jobLogs(
+      KubernetesV2Credentials credentials, String namespace, String jobName, String containerName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
     command.add("logs");
     command.add("job/" + jobName);
+    command.add("-c=" + containerName);
 
     JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
@@ -332,6 +334,31 @@ public class KubectlJobExecutor {
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
           "Failed to resume rollout "
+              + kind
+              + "/"
+              + name
+              + " from "
+              + namespace
+              + ": "
+              + status.getError());
+    }
+
+    return null;
+  }
+
+  public Void rollingRestart(
+      KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+    List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
+
+    command.add("rollout");
+    command.add("restart");
+    command.add(kind.toString() + "/" + name);
+
+    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
+
+    if (status.getResult() != JobResult.Result.SUCCESS) {
+      throw new KubectlException(
+          "Failed to complete rolling restart of "
               + kind
               + "/"
               + name

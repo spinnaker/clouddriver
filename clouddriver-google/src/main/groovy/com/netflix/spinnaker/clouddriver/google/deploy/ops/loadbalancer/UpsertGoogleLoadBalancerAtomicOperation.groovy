@@ -35,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.UpsertGoogleLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.exception.GoogleOperationException
 import com.netflix.spinnaker.clouddriver.google.deploy.ops.GoogleAtomicOperation
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleSessionAffinity
 import org.springframework.beans.factory.annotation.Autowired
 
 class UpsertGoogleLoadBalancerAtomicOperation extends GoogleAtomicOperation<Map> {
@@ -131,6 +132,14 @@ class UpsertGoogleLoadBalancerAtomicOperation extends GoogleAtomicOperation<Map>
         project, region, GCEUtil.getLocalName(existingForwardingRule.target), compute, task, BASE_PHASE, this)
 
       if (existingTargetPool) {
+        GoogleSessionAffinity newSessionAffinity = Optional.ofNullable(description.sessionAffinity).orElse(GoogleSessionAffinity.NONE)
+        boolean sessionAffinityChanged = newSessionAffinity != GoogleSessionAffinity.valueOf(existingTargetPool.getSessionAffinity())
+        if (sessionAffinityChanged && existingTargetPool.instances.any()) {
+          task.updateStatus BASE_PHASE, "Impossible to change Session Affinity for target pool with existing instances."
+          task.fail()
+          return
+        }
+
         // Existing set of instances is only updated if the instances property is specified on description. We don't
         // want all instances removed from an existing target pool if the instances property is not specified on the
         // description.
@@ -371,7 +380,8 @@ class UpsertGoogleLoadBalancerAtomicOperation extends GoogleAtomicOperation<Map>
     def targetPool = new TargetPool(
       name: targetPoolName,
       healthChecks: httpHealthChecksResourceLinks,
-      instances: description.instances
+      instances: description.instances,
+      sessionAffinity: description.sessionAffinity
     )
 
     targetPoolResourceOperation = timeExecute(

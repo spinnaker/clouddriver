@@ -21,11 +21,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.Kubern
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.KubernetesV2JobStatus;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.JobProvider;
-import com.netflix.spinnaker.clouddriver.model.Manifest;
-import com.netflix.spinnaker.clouddriver.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import io.kubernetes.client.models.V1Job;
 import io.kubernetes.client.models.V1Pod;
@@ -83,14 +83,15 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
   }
 
   public Map<String, Object> getFileContents(
-      String account, String location, String id, String filename) {
+      String account, String location, String id, String containerName) {
     KubernetesV2Credentials credentials =
         (KubernetesV2Credentials)
             accountCredentialsProvider.getCredentials(account).getCredentials();
     Map<String, Object> props = null;
     try {
       V1Job job = getKubernetesJob(account, location, id);
-      String logContents = credentials.jobLogs(location, job.getMetadata().getName());
+      String logContents =
+          credentials.jobLogs(location, job.getMetadata().getName(), containerName);
       props = PropertyParser.extractPropertiesFromLog(logContents);
     } catch (Exception e) {
       log.error("Couldn't parse properties for account {} at {}", account, location);
