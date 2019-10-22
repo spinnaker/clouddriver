@@ -62,7 +62,7 @@ public class DeleteCloudFormationChangeSetAtomicOperation implements AtomicOpera
               + description.getChangeSetName()
               + " on stack "
               + description.getStackName(),
-          e.getMessage());
+          e;
       return Collections.emptyMap();
     }
     return Collections.emptyMap();
