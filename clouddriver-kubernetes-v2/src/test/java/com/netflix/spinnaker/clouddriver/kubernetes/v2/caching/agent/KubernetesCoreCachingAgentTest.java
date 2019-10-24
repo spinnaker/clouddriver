@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -54,6 +55,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
+import org.mockito.stubbing.Answer;
 
 @RunWith(JUnitPlatform.class)
 final class KubernetesCoreCachingAgentTest {
@@ -110,6 +112,23 @@ final class KubernetesCoreCachingAgentTest {
         .thenReturn(deploymentManifest());
     when(v2Credentials.get(KubernetesKind.STORAGE_CLASS, "", STORAGE_CLASS_NAME))
         .thenReturn(storageClassManifest());
+    when(v2Credentials.list(any(List.class), any()))
+        .thenAnswer(
+            (Answer<ImmutableList<KubernetesManifest>>)
+                invocation -> {
+                  Object[] args = invocation.getArguments();
+                  ImmutableSet<KubernetesKind> kinds =
+                      ImmutableSet.copyOf((List<KubernetesKind>) args[0]);
+                  String namespace = (String) args[1];
+                  ImmutableList.Builder<KubernetesManifest> result = new ImmutableList.Builder<>();
+                  if (kinds.contains(KubernetesKind.DEPLOYMENT) && NAMESPACE1.equals(namespace)) {
+                    result.add(deploymentManifest());
+                  }
+                  if (kinds.contains(KubernetesKind.STORAGE_CLASS)) {
+                    result.add(storageClassManifest());
+                  }
+                  return result.build();
+                });
     return v2Credentials;
   }
 
@@ -457,5 +476,85 @@ final class KubernetesCoreCachingAgentTest {
             ImmutableSetMultimap.flatteningToImmutableSetMultimap(
                 Map.Entry::getKey, e -> e.getValue().stream()))
         .asMap();
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 2, 10})
+  public void loadData(int numAgents) {
+    String deploymentKey =
+        Keys.InfrastructureCacheKey.createKey(
+            KubernetesKind.DEPLOYMENT, ACCOUNT, NAMESPACE1, DEPLOYMENT_NAME);
+
+    String storageClassKey =
+        Keys.InfrastructureCacheKey.createKey(
+            KubernetesKind.STORAGE_CLASS, ACCOUNT, "", STORAGE_CLASS_NAME);
+
+    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
+        createCachingAgents(getNamedAccountCredentials(), numAgents);
+    LoadDataResult loadDataResult = processLoadData(cachingAgents, ImmutableMap.of());
+
+    assertThat(loadDataResult.getResults()).containsKey(DEPLOYMENT_KIND);
+    assertThat(loadDataResult.getResults().get(DEPLOYMENT_KIND))
+        .extracting(data -> data.getAttributes().get("name"))
+        .containsExactly(DEPLOYMENT_NAME);
+
+    assertThat(loadDataResult.getResults()).containsKey(STORAGE_CLASS_KIND);
+    assertThat(loadDataResult.getResults().get(STORAGE_CLASS_KIND))
+        .extracting(data -> data.getAttributes().get("name"))
+        .contains(STORAGE_CLASS_NAME);
+
+    assertThat(loadDataResult.getResults()).containsKey(DEPLOYMENT_KIND);
+    Collection<CacheData> deployments = loadDataResult.getResults().get(DEPLOYMENT_KIND);
+    assertThat(deployments).extracting(CacheData::getId).containsExactly(deploymentKey);
+    assertThat(deployments)
+        .extracting(deployment -> deployment.getAttributes().get("name"))
+        .containsExactly(DEPLOYMENT_NAME);
+
+    assertThat(loadDataResult.getResults()).containsKey(STORAGE_CLASS_KIND);
+    Collection<CacheData> storageClasses = loadDataResult.getResults().get(STORAGE_CLASS_KIND);
+    assertThat(storageClasses).extracting(CacheData::getId).contains(storageClassKey);
+    assertThat(storageClasses)
+        .extracting(storageClass -> storageClass.getAttributes().get("name"))
+        .contains(STORAGE_CLASS_NAME);
+  }
+
+  /**
+   * Given an on-demand cache request, constructs a set of caching agents and sends the on-demand
+   * request to those agents, returning a collection of all non-null results of handing those
+   * requests. Any cache entries in primeCacheData will be added to each agent's backing cache
+   * before processing the request.
+   */
+  private static LoadDataResult processLoadData(
+      Collection<KubernetesCoreCachingAgent> cachingAgents,
+      Map<String, Collection<CacheData>> primeCacheData) {
+    ImmutableList.Builder<CacheResult> resultBuilder = new ImmutableList.Builder<>();
+    ImmutableList.Builder<ProviderCache> providerCacheBuilder = new ImmutableList.Builder<>();
+    cachingAgents.forEach(
+        cachingAgent -> {
+          ProviderCache providerCache = new DefaultProviderCache(new InMemoryCache());
+          providerCacheBuilder.add(providerCache);
+          for (String type : primeCacheData.keySet()) {
+            for (CacheData cacheData : primeCacheData.get(type)) {
+              providerCache.putCacheData(type, cacheData);
+            }
+          }
+          CacheResult result = cachingAgent.loadData(providerCache);
+          if (result != null) {
+            resultBuilder.add(result);
+          }
+        });
+    return new LoadDataResult(resultBuilder.build(), providerCacheBuilder.build());
+  }
+
+  @Value
+  private static class LoadDataResult {
+    Map<String, Collection<CacheData>> results;
+    Map<String, Collection<CacheData>> cacheEntries;
+
+    LoadDataResult(
+        Collection<CacheResult> loadDataResults, Collection<ProviderCache> providerCaches) {
+      this.results = extractCacheResults(loadDataResults);
+      this.cacheEntries = extractCacheEntries(providerCaches);
+    }
   }
 }
