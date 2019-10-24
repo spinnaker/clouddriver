@@ -501,7 +501,7 @@ final class KubernetesCoreCachingAgentTest {
     assertThat(loadDataResult.getResults()).containsKey(STORAGE_CLASS_KIND);
     assertThat(loadDataResult.getResults().get(STORAGE_CLASS_KIND))
         .extracting(data -> data.getAttributes().get("name"))
-        .contains(STORAGE_CLASS_NAME);
+        .containsExactly(STORAGE_CLASS_NAME);
 
     assertThat(loadDataResult.getResults()).containsKey(DEPLOYMENT_KIND);
     Collection<CacheData> deployments = loadDataResult.getResults().get(DEPLOYMENT_KIND);
@@ -515,7 +515,7 @@ final class KubernetesCoreCachingAgentTest {
     assertThat(storageClasses).extracting(CacheData::getId).contains(storageClassKey);
     assertThat(storageClasses)
         .extracting(storageClass -> storageClass.getAttributes().get("name"))
-        .contains(STORAGE_CLASS_NAME);
+        .containsExactly(STORAGE_CLASS_NAME);
   }
 
   /**

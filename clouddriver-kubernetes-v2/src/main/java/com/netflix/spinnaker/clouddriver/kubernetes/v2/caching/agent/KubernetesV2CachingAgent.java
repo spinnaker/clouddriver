@@ -109,7 +109,11 @@ public abstract class KubernetesV2CachingAgent
   @Nonnull
   private ImmutableList<KubernetesManifest> loadClusterScopedResources(
       @Nonnull Iterable<KubernetesKind> kubernetesKinds) {
-    return loadResources(kubernetesKinds, Optional.empty());
+    if (handleClusterScopedResources()) {
+      return loadResources(kubernetesKinds, Optional.empty());
+    } else {
+      return ImmutableList.of();
+    }
   }
 
   private ImmutableSetMultimap<ResourceScope, KubernetesKind> primaryKindsByScope() {
