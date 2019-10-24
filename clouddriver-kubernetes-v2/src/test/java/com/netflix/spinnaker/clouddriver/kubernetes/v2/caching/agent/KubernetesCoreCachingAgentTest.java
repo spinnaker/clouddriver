@@ -29,12 +29,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.netflix.spectator.api.NoopRegistry;
+import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.mem.InMemoryCache;
 import com.netflix.spinnaker.cats.provider.DefaultProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
+import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent.OnDemandResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
@@ -386,56 +388,26 @@ final class KubernetesCoreCachingAgentTest {
     ProcessOnDemandResult(
         Collection<OnDemandAgent.OnDemandResult> onDemandResults,
         Collection<ProviderCache> providerCaches) {
-      this.onDemandResults = extractCacheResults(onDemandResults);
-      this.onDemandEvictions = extractCacheEvictions(onDemandResults);
-      this.onDemandEntries = extractOnDemandEntries(providerCaches);
-    }
-
-    /** Given a collection of ProviderCache, return all on-demand entries in these caches. */
-    private static ImmutableMap<String, Collection<CacheData>> extractOnDemandEntries(
-        Collection<ProviderCache> providerCaches) {
-      return providerCaches.stream()
-          .map(providerCache -> providerCache.getAll("onDemand"))
-          .flatMap(Collection::stream)
-          .filter(Objects::nonNull)
-          .map(
-              cacheData -> {
-                try {
-                  return objectMapper.<Map<String, Collection<CacheData>>>readValue(
-                      (String) cacheData.getAttributes().get("cacheResults"),
-                      new TypeReference<Map<String, Collection<DefaultCacheData>>>() {});
-                } catch (IOException e) {
-                  throw new RuntimeException(e);
-                }
-              })
-          .map(Map::entrySet)
-          .flatMap(Collection::stream)
-          .collect(
-              ImmutableSetMultimap.flatteningToImmutableSetMultimap(
-                  Map.Entry::getKey, e -> e.getValue().stream()))
-          .asMap();
+      this.onDemandResults = extractOnDemandResults(onDemandResults);
+      this.onDemandEvictions = extractOnDemandEvictions(onDemandResults);
+      this.onDemandEntries = extractCacheEntries(providerCaches);
     }
 
     /**
      * Given a collection of OnDemandAgent.OnDemandResult, return all cache results in these
      * on-demand results.
      */
-    private static ImmutableMap<String, Collection<CacheData>> extractCacheResults(
+    private static ImmutableMap<String, Collection<CacheData>> extractOnDemandResults(
         Collection<OnDemandAgent.OnDemandResult> onDemandResults) {
-      return onDemandResults.stream()
-          .map(result -> result.getCacheResult().getCacheResults().entrySet())
-          .flatMap(Collection::stream)
-          .collect(
-              ImmutableSetMultimap.flatteningToImmutableSetMultimap(
-                  Map.Entry::getKey, e -> e.getValue().stream()))
-          .asMap();
+      return extractCacheResults(
+          onDemandResults.stream().map(OnDemandResult::getCacheResult).collect(toImmutableList()));
     }
 
     /**
      * Given a collection of OnDemandAgent.OnDemandResult, return all evictions in these on-demand
      * results.
      */
-    private static ImmutableMap<String, Collection<String>> extractCacheEvictions(
+    private static ImmutableMap<String, Collection<String>> extractOnDemandEvictions(
         Collection<OnDemandAgent.OnDemandResult> onDemandResults) {
       return onDemandResults.stream()
           .map(result -> result.getEvictions().entrySet())
@@ -445,5 +417,45 @@ final class KubernetesCoreCachingAgentTest {
                   Map.Entry::getKey, e -> e.getValue().stream()))
           .asMap();
     }
+  }
+
+  /**
+   * Given a collection of OnDemandAgent.OnDemandResult, return all cache results in these on-demand
+   * results.
+   */
+  private static ImmutableMap<String, Collection<CacheData>> extractCacheResults(
+      Collection<CacheResult> onDemandResults) {
+    return onDemandResults.stream()
+        .map(result -> result.getCacheResults().entrySet())
+        .flatMap(Collection::stream)
+        .collect(
+            ImmutableSetMultimap.flatteningToImmutableSetMultimap(
+                Map.Entry::getKey, e -> e.getValue().stream()))
+        .asMap();
+  }
+
+  /** Given a collection of ProviderCache, return all on-demand entries in these caches. */
+  private static ImmutableMap<String, Collection<CacheData>> extractCacheEntries(
+      Collection<ProviderCache> providerCaches) {
+    return providerCaches.stream()
+        .map(providerCache -> providerCache.getAll("onDemand"))
+        .flatMap(Collection::stream)
+        .filter(Objects::nonNull)
+        .map(
+            cacheData -> {
+              try {
+                return objectMapper.<Map<String, Collection<CacheData>>>readValue(
+                    (String) cacheData.getAttributes().get("cacheResults"),
+                    new TypeReference<Map<String, Collection<DefaultCacheData>>>() {});
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .map(Map::entrySet)
+        .flatMap(Collection::stream)
+        .collect(
+            ImmutableSetMultimap.flatteningToImmutableSetMultimap(
+                Map.Entry::getKey, e -> e.getValue().stream()))
+        .asMap();
   }
 }
