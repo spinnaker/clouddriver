@@ -17,11 +17,14 @@
 package com.netflix.spinnaker.clouddriver.google.cache;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.ON_DEMAND;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -90,5 +93,31 @@ final class CacheResultBuilderTest {
     assertThat(application.getId()).isEqualTo("appKey");
     assertThat(application.getAttributes().get("santa")).isEqualTo("claus");
     assertThat(application.getRelationships().get("clusters")).containsExactly("clusterKey");
+  }
+
+  @Test
+  public void keepsEmptyListForAuthoritativeTypes() {
+    CacheResultBuilder cacheResultBuilder =
+        new CacheResultBuilder(
+            ImmutableSet.of(
+                AUTHORITATIVE.forType("auth1"),
+                AUTHORITATIVE.forType("auth2"),
+                INFORMATIVE.forType("inf1"),
+                INFORMATIVE.forType("inf2")));
+
+    cacheResultBuilder
+        .namespace("auth2")
+        .keep("id2")
+        .setAttributes(ImmutableMap.of("attr2", "value2"));
+    cacheResultBuilder
+        .namespace("auth3")
+        .keep("id3")
+        .setAttributes(ImmutableMap.of("attr3", "value3"));
+
+    Map<String, Collection<CacheData>> cacheResults = cacheResultBuilder.build().getCacheResults();
+    assertThat(cacheResults.get("auth1")).isEmpty();
+    // Just to make sure the dataTypes constructor doesn't mess anything else up
+    assertThat(cacheResults.get("auth2")).extracting(CacheData::getId).containsExactly("id2");
+    assertThat(cacheResults.get("auth3")).extracting(CacheData::getId).containsExactly("id3");
   }
 }
