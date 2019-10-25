@@ -17,11 +17,14 @@
 package com.netflix.spinnaker.clouddriver.google.cache;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.ON_DEMAND;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder.CacheDataBuilder;
 import java.util.Collection;
 import java.util.Map;
@@ -56,5 +59,36 @@ final class CacheResultBuilderTest {
     assertThat(cluster.getId()).isEqualTo("clusterKey");
     assertThat(cluster.getAttributes().get("xmen")).isEqualTo("wolverine");
     assertThat(cluster.getRelationships().get("foo")).containsExactly("bar");
+  }
+
+  @Test
+  public void testOnDemandEntries() {
+    CacheResultBuilder cacheResultBuilder = new CacheResultBuilder();
+
+    cacheResultBuilder.getOnDemand().getToEvict().add("evict1");
+    cacheResultBuilder.getOnDemand().getToEvict().add("evict2");
+    cacheResultBuilder
+        .getOnDemand()
+        .getToKeep()
+        .put(
+            "applications",
+            new DefaultCacheData(
+                "appKey",
+                ImmutableMap.of("santa", "claus"),
+                ImmutableMap.of("clusters", ImmutableList.of("clusterKey"))));
+
+    DefaultCacheResult result = cacheResultBuilder.build();
+
+    Map<String, Collection<String>> evictions = result.getEvictions();
+    assertThat(evictions).hasSize(1);
+    assertThat(evictions.get(ON_DEMAND.getNs())).containsExactly("evict1", "evict2");
+
+    Map<String, Collection<CacheData>> cacheResults = result.getCacheResults();
+    assertThat(cacheResults).hasSize(1);
+    assertThat(cacheResults.get(ON_DEMAND.getNs())).hasSize(1);
+    CacheData application = getOnlyElement(cacheResults.get(ON_DEMAND.getNs()));
+    assertThat(application.getId()).isEqualTo("appKey");
+    assertThat(application.getAttributes().get("santa")).isEqualTo("claus");
+    assertThat(application.getRelationships().get("clusters")).containsExactly("clusterKey");
   }
 }
