@@ -44,8 +44,8 @@ import com.google.api.services.compute.model.NamedPort;
 import com.google.api.services.compute.model.NetworkInterface;
 import com.google.api.services.compute.model.ServiceAccount;
 import com.google.api.services.compute.model.StatefulPolicy;
-import com.google.api.services.compute.model.StatefulPolicyPreservedDisk;
-import com.google.api.services.compute.model.StatefulPolicyPreservedResources;
+import com.google.api.services.compute.model.StatefulPolicyPreservedState;
+import com.google.api.services.compute.model.StatefulPolicyPreservedStateDiskDevice;
 import com.google.api.services.compute.model.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -111,11 +111,11 @@ class AbstractGoogleServerGroupCachingAgentTest {
             .setTargetSize(3)
             .setStatefulPolicy(
                 new StatefulPolicy()
-                    .setPreservedResources(
-                        new StatefulPolicyPreservedResources()
+                    .setPreservedState(
+                        new StatefulPolicyPreservedState()
                             .setDisks(
-                                ImmutableList.of(
-                                    new StatefulPolicyPreservedDisk().setDeviceName("myDisk")))))
+                                ImmutableMap.of(
+                                    "myDisk", new StatefulPolicyPreservedStateDiskDevice()))))
             .setAutoHealingPolicies(
                 ImmutableList.of(
                     new InstanceGroupManagerAutoHealingPolicy().setInitialDelaySec(92)));
@@ -419,8 +419,9 @@ class AbstractGoogleServerGroupCachingAgentTest {
         .isEqualTo(serverInstance.getNetworkInterfaces());
     assertThat(cacheInstance.getNetworkName()).isEqualTo("myNetworkName");
     assertThat(cacheInstance.getMetadata()).isEqualTo(serverInstance.getMetadata());
-    assertThat(cacheInstance.getDisks()).isEqualTo(serverInstance.getDisks());
-
+    AttachedDisk diskWithCorrectType = new AttachedDisk();
+    diskWithCorrectType.putAll(cacheInstance.getDisks().get(0));
+    assertThat(ImmutableList.of(diskWithCorrectType)).isEqualTo(serverInstance.getDisks());
     assertThat(cacheInstance.getServiceAccounts()).isEqualTo(serverInstance.getServiceAccounts());
     assertThat(cacheInstance.getSelfLink()).isEqualTo(serverInstance.getSelfLink());
     assertThat(cacheInstance.getTags()).isEqualTo(serverInstance.getTags());
