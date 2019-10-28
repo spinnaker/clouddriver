@@ -16,17 +16,15 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops
 
+import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.cloudformation.AmazonCloudFormation
 import com.amazonaws.services.cloudformation.model.*
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.DeleteCloudFormationChangeSetDescription
-import com.netflix.spinnaker.clouddriver.aws.deploy.description.DeployCloudFormationDescription
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import spock.lang.Specification
-import spock.lang.Unroll
 
 class DeleteCloudFormationChangeSetAtomicOperationSpec extends Specification {
   void setupSpec() {
@@ -61,5 +59,38 @@ class DeleteCloudFormationChangeSetAtomicOperationSpec extends Specification {
       deleteChangeSetResult
     }
   }
+
+  void "should propagate exceptions when deleting the change set"() {
+    given:
+    def amazonClientProvider = Mock(AmazonClientProvider)
+    def amazonCloudFormation = Mock(AmazonCloudFormation)
+    def op = new DeleteCloudFormationChangeSetAtomicOperation(
+      new DeleteCloudFormationChangeSetDescription(
+        [
+          stackName: "stackTest",
+          changeSetName: "changeSetName",
+          region: "eu-west-1",
+          credentials: TestCredential.named("test")
+        ]
+      )
+    )
+    op.amazonClientProvider = amazonClientProvider
+    def exception = new AmazonServiceException("error")
+
+    when:
+    try {
+      op.operate([])
+    }
+    catch (Exception e) {
+      e instanceof AmazonServiceException
+    }
+
+    then:
+    1 * amazonClientProvider.getAmazonCloudFormation(_, _) >> amazonCloudFormation
+    1 * amazonCloudFormation.deleteChangeSet(_) >> {
+      throw exception
+    }
+  }
+
 
 }

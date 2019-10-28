@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.clouddriver.aws.deploy.ops;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.cloudformation.AmazonCloudFormation;
 import com.amazonaws.services.cloudformation.model.*;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.DeleteCloudFormationChangeSetDescription;
@@ -56,14 +57,14 @@ public class DeleteCloudFormationChangeSetAtomicOperation implements AtomicOpera
     try {
       task.updateStatus(BASE_PHASE, "Deleting CloudFormation ChangeSet");
       amazonCloudFormation.deleteChangeSet(deleteChangeSetRequest);
-    } catch (AmazonCloudFormationException e) {
+    } catch (AmazonServiceException e) {
       log.error(
           "Error removing change set "
               + description.getChangeSetName()
               + " on stack "
               + description.getStackName(),
           e);
-      return Collections.emptyMap();
+      throw e;
     }
     return Collections.emptyMap();
   }
