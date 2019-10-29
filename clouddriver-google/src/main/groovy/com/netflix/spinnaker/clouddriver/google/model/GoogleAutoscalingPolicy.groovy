@@ -32,10 +32,21 @@ class GoogleAutoscalingPolicy {
   Integer maxNumReplicas
   Integer coolDownPeriodSec
 
+  ScaleDownControl scaleDownControl
   CpuUtilization cpuUtilization
   LoadBalancingUtilization loadBalancingUtilization
   List<CustomMetricUtilization> customMetricUtilizations
   AutoscalingMode mode
+
+  static class FixedOrPercent {
+    Integer fixed
+    Integer percent
+  }
+
+  static class ScaleDownControl {
+    FixedOrPercent maxScaledDownReplicas
+    Integer timeWindowSec
+  }
 
   @ToString(includeNames = true)
   static class CpuUtilization {
