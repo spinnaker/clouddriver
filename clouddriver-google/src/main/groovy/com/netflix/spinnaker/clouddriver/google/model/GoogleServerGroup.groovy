@@ -72,8 +72,7 @@ class GoogleServerGroup implements GoogleLabeledResource {
   GoogleDistributionPolicy distributionPolicy
   Boolean selectZones
 
-  @JsonTypeInfo(use=JsonTypeInfo.Id.CLASS, include=JsonTypeInfo.As.PROPERTY, property="class")
-  AutoscalingPolicy autoscalingPolicy
+  GoogleAutoscalingPolicy autoscalingPolicy
 
   @JsonTypeInfo(use=JsonTypeInfo.Id.CLASS, include=JsonTypeInfo.As.PROPERTY, property="class")
   StatefulPolicy statefulPolicy
@@ -127,7 +126,7 @@ class GoogleServerGroup implements GoogleLabeledResource {
     String selfLink = GoogleServerGroup.this.selfLink
     Boolean discovery = GoogleServerGroup.this.discovery
     InstanceGroupManagerActionsSummary currentActions = GoogleServerGroup.this.currentActions
-    AutoscalingPolicy autoscalingPolicy = GoogleServerGroup.this.autoscalingPolicy
+    GoogleAutoscalingPolicy autoscalingPolicy = GoogleServerGroup.this.autoscalingPolicy
     StatefulPolicy statefulPolicy = GoogleServerGroup.this.statefulPolicy
     List<String> autoscalingMessages = GoogleServerGroup.this.autoscalingMessages
     InstanceGroupManagerAutoHealingPolicy autoHealingPolicy = GoogleServerGroup.this.autoHealingPolicy

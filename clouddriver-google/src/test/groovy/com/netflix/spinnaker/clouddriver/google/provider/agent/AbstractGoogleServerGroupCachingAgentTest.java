@@ -30,6 +30,9 @@ import com.google.api.services.compute.model.AttachedDiskInitializeParams;
 import com.google.api.services.compute.model.Autoscaler;
 import com.google.api.services.compute.model.AutoscalerStatusDetails;
 import com.google.api.services.compute.model.AutoscalingPolicy;
+import com.google.api.services.compute.model.AutoscalingPolicyCpuUtilization;
+import com.google.api.services.compute.model.AutoscalingPolicyCustomMetricUtilization;
+import com.google.api.services.compute.model.AutoscalingPolicyLoadBalancingUtilization;
 import com.google.api.services.compute.model.DistributionPolicy;
 import com.google.api.services.compute.model.DistributionPolicyZoneConfiguration;
 import com.google.api.services.compute.model.Instance;
@@ -61,6 +64,8 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.google.cache.Keys;
 import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeApiFactory;
 import com.netflix.spinnaker.clouddriver.google.deploy.GoogleOperationPoller;
+import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy;
+import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CustomMetricUtilization;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup;
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleInstanceHealth;
@@ -708,6 +713,101 @@ class AbstractGoogleServerGroupCachingAgentTest {
     assertThat(serverGroup.getAsg())
         .containsOnly(entry("minSize", 101), entry("maxSize", 202), entry("desiredCapacity", 303));
     assertThat(serverGroup.getAutoscalingMessages()).containsExactly("message1", "message2");
+  }
+
+  @Test
+  void serverGroupAutoscalingPolicy_allFields() {
+
+    AutoscalingPolicy input =
+        new AutoscalingPolicy()
+            .setCoolDownPeriodSec(123)
+            .setCpuUtilization(new AutoscalingPolicyCpuUtilization().setUtilizationTarget(9.87))
+            .setLoadBalancingUtilization(
+                new AutoscalingPolicyLoadBalancingUtilization().setUtilizationTarget(6.54))
+            .setMaxNumReplicas(99)
+            .setMinNumReplicas(11)
+            .setMode("ON")
+            .setCustomMetricUtilizations(
+                ImmutableList.of(
+                    new AutoscalingPolicyCustomMetricUtilization()
+                        .setMetric("myMetric")
+                        .setUtilizationTarget(911.23)
+                        .setUtilizationTargetType("GAUGE"),
+                    new AutoscalingPolicyCustomMetricUtilization()));
+
+    InstanceGroupManager instanceGroupManager =
+        new InstanceGroupManager().setName("myServerGroup").setZone(ZONE_URL);
+    Autoscaler autoscaler =
+        new Autoscaler().setZone(ZONE_URL).setTarget("myServerGroup").setAutoscalingPolicy(input);
+
+    Compute compute =
+        new StubComputeFactory()
+            .setInstanceGroupManagers(instanceGroupManager)
+            .setAutoscalers(autoscaler)
+            .create();
+    AbstractGoogleServerGroupCachingAgent cachingAgent =
+        createCachingAgent(
+            compute, ImmutableList.of(instanceGroupManager), ImmutableList.of(autoscaler));
+
+    CacheResult cacheResult = cachingAgent.loadData(inMemoryProviderCache());
+    GoogleServerGroup serverGroup = getOnlyServerGroup(cacheResult);
+    GoogleAutoscalingPolicy converted = serverGroup.getAutoscalingPolicy();
+
+    assertThat(converted.getCoolDownPeriodSec()).isEqualTo(input.getCoolDownPeriodSec());
+    assertThat(converted.getCpuUtilization().getUtilizationTarget())
+        .isEqualTo(input.getCpuUtilization().getUtilizationTarget());
+    assertThat(converted.getLoadBalancingUtilization().getUtilizationTarget())
+        .isEqualTo(input.getLoadBalancingUtilization().getUtilizationTarget());
+    assertThat(converted.getMaxNumReplicas()).isEqualTo(input.getMaxNumReplicas());
+    assertThat(converted.getMinNumReplicas()).isEqualTo(input.getMinNumReplicas());
+    assertThat(converted.getMode().toString()).isEqualTo(input.getMode());
+
+    assertThat(converted.getCustomMetricUtilizations())
+        .hasSize(input.getCustomMetricUtilizations().size());
+    for (int i = 0; i < converted.getCustomMetricUtilizations().size(); ++i) {
+      CustomMetricUtilization convertedCustomMetric =
+          converted.getCustomMetricUtilizations().get(0);
+      AutoscalingPolicyCustomMetricUtilization inputCustomMetric =
+          input.getCustomMetricUtilizations().get(0);
+      assertThat(convertedCustomMetric.getMetric()).isEqualTo(inputCustomMetric.getMetric());
+      assertThat(convertedCustomMetric.getUtilizationTarget())
+          .isEqualTo(inputCustomMetric.getUtilizationTarget());
+      assertThat(convertedCustomMetric.getUtilizationTargetType().toString())
+          .isEqualTo(inputCustomMetric.getUtilizationTargetType());
+    }
+  }
+
+  @Test
+  void serverGroupAutoscalingPolicy_noFields() {
+
+    InstanceGroupManager instanceGroupManager =
+        new InstanceGroupManager().setName("myServerGroup").setZone(ZONE_URL);
+    Autoscaler autoscaler =
+        new Autoscaler()
+            .setZone(ZONE_URL)
+            .setTarget("myServerGroup")
+            .setAutoscalingPolicy(new AutoscalingPolicy());
+
+    Compute compute =
+        new StubComputeFactory()
+            .setInstanceGroupManagers(instanceGroupManager)
+            .setAutoscalers(autoscaler)
+            .create();
+    AbstractGoogleServerGroupCachingAgent cachingAgent =
+        createCachingAgent(
+            compute, ImmutableList.of(instanceGroupManager), ImmutableList.of(autoscaler));
+
+    CacheResult cacheResult = cachingAgent.loadData(inMemoryProviderCache());
+    GoogleServerGroup serverGroup = getOnlyServerGroup(cacheResult);
+    GoogleAutoscalingPolicy converted = serverGroup.getAutoscalingPolicy();
+
+    assertThat(converted.getCoolDownPeriodSec()).isNull();
+    assertThat(converted.getCpuUtilization()).isNull();
+    assertThat(converted.getCustomMetricUtilizations()).isNull();
+    assertThat(converted.getLoadBalancingUtilization()).isNull();
+    assertThat(converted.getMaxNumReplicas()).isNull();
+    assertThat(converted.getMinNumReplicas()).isNull();
+    assertThat(converted.getMode()).isNull();
   }
 
   public static AbstractGoogleServerGroupCachingAgent createCachingAgent(
