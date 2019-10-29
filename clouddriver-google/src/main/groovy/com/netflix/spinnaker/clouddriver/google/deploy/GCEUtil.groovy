@@ -652,53 +652,6 @@ class GCEUtil {
     )
   }
 
-  static GoogleAutoscalingPolicy buildAutoscalingPolicyDescriptionFromAutoscalingPolicy(
-    AutoscalingPolicy autoscalingPolicy) {
-    if (!autoscalingPolicy) {
-      return null
-    }
-
-    autoscalingPolicy.with {
-      def autoscalingPolicyDescription =
-          new GoogleAutoscalingPolicy(
-              coolDownPeriodSec: coolDownPeriodSec,
-              minNumReplicas: minNumReplicas,
-              maxNumReplicas: maxNumReplicas
-          )
-
-      if (cpuUtilization) {
-        autoscalingPolicyDescription.cpuUtilization =
-            new GoogleAutoscalingPolicy.CpuUtilization(
-                utilizationTarget: cpuUtilization.utilizationTarget
-            )
-      }
-
-      if (loadBalancingUtilization) {
-        autoscalingPolicyDescription.loadBalancingUtilization =
-            new GoogleAutoscalingPolicy.LoadBalancingUtilization(
-                utilizationTarget: loadBalancingUtilization.utilizationTarget
-            )
-      }
-
-      if (customMetricUtilizations) {
-        autoscalingPolicyDescription.customMetricUtilizations =
-            customMetricUtilizations.collect {
-              new GoogleAutoscalingPolicy.CustomMetricUtilization(
-                  metric: it.metric,
-                  utilizationTarget: it.utilizationTarget,
-                  utilizationTargetType: it.utilizationTargetType
-              )
-            }
-      }
-
-      if (mode) {
-        autoscalingPolicyDescription.mode = GoogleAutoscalingPolicy.AutoscalingMode.valueOf(mode)
-      }
-
-      return autoscalingPolicyDescription
-    }
-  }
-
   static GoogleAutoHealingPolicy buildAutoHealingPolicyDescriptionFromAutoHealingPolicy(
     InstanceGroupManagerAutoHealingPolicy autoHealingPolicy) {
     if (!autoHealingPolicy) {
