@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.google.model
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.google.api.services.compute.model.AutoscalingPolicy
 import com.google.api.services.compute.model.InstanceGroupManagerActionsSummary
 import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPolicy
 import com.google.api.services.compute.model.ServiceAccount

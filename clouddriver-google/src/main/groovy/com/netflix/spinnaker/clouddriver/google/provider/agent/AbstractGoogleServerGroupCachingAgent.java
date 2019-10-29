@@ -43,6 +43,7 @@ import com.google.api.services.compute.model.AutoscalingPolicy;
 import com.google.api.services.compute.model.AutoscalingPolicyCpuUtilization;
 import com.google.api.services.compute.model.AutoscalingPolicyCustomMetricUtilization;
 import com.google.api.services.compute.model.AutoscalingPolicyLoadBalancingUtilization;
+import com.google.api.services.compute.model.AutoscalingPolicyScaleDownControl;
 import com.google.api.services.compute.model.DistributionPolicy;
 import com.google.api.services.compute.model.Instance;
 import com.google.api.services.compute.model.InstanceGroupManager;
@@ -81,7 +82,9 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.Au
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CpuUtilization;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CustomMetricUtilization;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CustomMetricUtilization.UtilizationTargetType;
+import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.FixedOrPercent;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.LoadBalancingUtilization;
+import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.ScaleDownControl;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleDistributionPolicy;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstances;
@@ -908,6 +911,7 @@ abstract class AbstractGoogleServerGroupCachingAgent
     output.setMaxNumReplicas(input.getMaxNumReplicas());
     output.setMinNumReplicas(input.getMinNumReplicas());
     output.setMode(valueOf(AutoscalingMode.class, input.getMode()));
+    output.setScaleDownControl(convertScaleDownControl(input.getScaleDownControl()));
     return output;
   }
 
@@ -951,6 +955,23 @@ abstract class AbstractGoogleServerGroupCachingAgent
     output.setUtilizationTarget(input.getUtilizationTarget());
     output.setUtilizationTargetType(
         valueOf(UtilizationTargetType.class, input.getUtilizationTargetType()));
+    return output;
+  }
+
+  private static ScaleDownControl convertScaleDownControl(
+      @Nullable AutoscalingPolicyScaleDownControl input) {
+    if (input == null) {
+      return null;
+    }
+    FixedOrPercent maxScaledDownReplicas = null;
+    if (input.getMaxScaledDownReplicas() != null) {
+      maxScaledDownReplicas = new FixedOrPercent();
+      maxScaledDownReplicas.setFixed(input.getMaxScaledDownReplicas().getFixed());
+      maxScaledDownReplicas.setPercent(input.getMaxScaledDownReplicas().getPercent());
+    }
+    ScaleDownControl output = new ScaleDownControl();
+    output.setTimeWindowSec(input.getTimeWindowSec());
+    output.setMaxScaledDownReplicas(maxScaledDownReplicas);
     return output;
   }
 
