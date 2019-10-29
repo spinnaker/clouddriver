@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.ops
 
 import com.google.api.services.compute.model.AttachedDisk
-import com.google.api.services.compute.model.AutoscalingPolicy
 import com.google.api.services.compute.model.InstanceGroupManagerAutoHealingPolicy
 import com.google.api.services.compute.model.InstanceProperties
 import com.netflix.frigga.Names
@@ -32,7 +31,6 @@ import com.netflix.spinnaker.clouddriver.google.deploy.handlers.BasicGoogleDeplo
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoHealingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.GoogleDisk
-import com.netflix.spinnaker.clouddriver.google.model.GoogleDistributionPolicy
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.provider.view.GoogleClusterProvider
 import org.springframework.beans.factory.annotation.Autowired
@@ -266,11 +264,9 @@ class CopyLastGoogleServerGroupAtomicOperation extends GoogleAtomicOperation<Dep
       }
     }
 
-    AutoscalingPolicy ancestorAutoscalingPolicy = ancestorServerGroup.autoscalingPolicy
-    GoogleAutoscalingPolicy ancestorAutoscalingPolicyDescription =
-      GCEUtil.buildAutoscalingPolicyDescriptionFromAutoscalingPolicy(ancestorAutoscalingPolicy)
+    GoogleAutoscalingPolicy ancestorAutoscalingPolicy = ancestorServerGroup.autoscalingPolicy
 
-    newDescription.autoscalingPolicy = description.autoscalingPolicy ?: ancestorAutoscalingPolicyDescription
+    newDescription.autoscalingPolicy = description.autoscalingPolicy ?: ancestorAutoscalingPolicy
 
     InstanceGroupManagerAutoHealingPolicy ancestorAutoHealingPolicy = ancestorServerGroup.autoHealingPolicy
     GoogleAutoHealingPolicy ancestorAutoHealingPolicyDescription =

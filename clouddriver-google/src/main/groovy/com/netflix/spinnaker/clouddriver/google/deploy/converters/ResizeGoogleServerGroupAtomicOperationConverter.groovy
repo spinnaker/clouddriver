@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.google.deploy.converters
 
-import com.google.api.services.compute.model.AutoscalingPolicy
 import com.netflix.spinnaker.clouddriver.google.GoogleOperation
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.deploy.description.ResizeGoogleServerGroupDescription
@@ -43,7 +42,7 @@ class ResizeGoogleServerGroupAtomicOperationConverter extends AbstractAtomicOper
   AtomicOperation convertOperation(Map input) {
     // If the target server group has an Autoscaler configured we need to modify that policy as opposed to the
     // target size of the managed instance group itself.
-    AutoscalingPolicy autoscalingPolicy = resolveServerGroup(input)?.autoscalingPolicy
+    GoogleAutoscalingPolicy autoscalingPolicy = resolveServerGroup(input)?.autoscalingPolicy
     def convertedDescription = convertDescription(input, autoscalingPolicy)
 
     if (autoscalingPolicy) {
@@ -53,16 +52,13 @@ class ResizeGoogleServerGroupAtomicOperationConverter extends AbstractAtomicOper
     }
   }
 
-  def convertDescription(Map input, AutoscalingPolicy autoscalingPolicy) {
+  def convertDescription(Map input, GoogleAutoscalingPolicy autoscalingPolicy) {
     if (autoscalingPolicy) {
       UpsertGoogleAutoscalingPolicyDescription upsertGoogleAutoscalingPolicyDescription =
         GoogleAtomicOperationConverterHelper.convertDescription(input, this, UpsertGoogleAutoscalingPolicyDescription)
 
       // Retrieve the existing autoscaling policy and overwrite the min/max settings.
-      GoogleAutoscalingPolicy googleAutoscalingPolicy =
-        GCEUtil.buildAutoscalingPolicyDescriptionFromAutoscalingPolicy(autoscalingPolicy)
-
-      upsertGoogleAutoscalingPolicyDescription.autoscalingPolicy = googleAutoscalingPolicy
+      upsertGoogleAutoscalingPolicyDescription.autoscalingPolicy = autoscalingPolicy
       upsertGoogleAutoscalingPolicyDescription.autoscalingPolicy.minNumReplicas = input.capacity?.min
       upsertGoogleAutoscalingPolicyDescription.autoscalingPolicy.maxNumReplicas = input.capacity?.max
       if (input?.writeMetadata != null) {

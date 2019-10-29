@@ -99,8 +99,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
 
     def autoscaler = null
     if (description.autoscalingPolicy) {
-      def ancestorAutoscalingPolicyDescription =
-        GCEUtil.buildAutoscalingPolicyDescriptionFromAutoscalingPolicy(serverGroup.autoscalingPolicy)
+      def ancestorAutoscalingPolicyDescription = serverGroup.autoscalingPolicy
       if (ancestorAutoscalingPolicyDescription) {
         task.updateStatus BASE_PHASE, "Updating autoscaler for $serverGroupName..."
 

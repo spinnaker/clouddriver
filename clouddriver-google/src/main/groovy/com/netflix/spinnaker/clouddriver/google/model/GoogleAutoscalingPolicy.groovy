@@ -16,13 +16,17 @@
 
 package com.netflix.spinnaker.clouddriver.google.model
 
+import com.google.api.services.compute.model.AutoscalingPolicy
+import com.google.api.services.compute.model.AutoscalingPolicyCustomMetricUtilization
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
+import groovy.transform.CompileStatic
 import groovy.transform.ToString
 
 @AutoClone
 @Canonical
 @ToString(includeNames = true)
+@CompileStatic
 class GoogleAutoscalingPolicy {
   Integer minNumReplicas
   Integer maxNumReplicas
@@ -65,5 +69,60 @@ class GoogleAutoscalingPolicy {
     // confirmation that all the autoscaler policies have been migrated away from it (by the GCE
     // team).
     ONLY_DOWN
+  }
+
+  static GoogleAutoscalingPolicy fromComputeModel(AutoscalingPolicy input) {
+    CpuUtilization cpu = convertCpuUtilization(input);
+    LoadBalancingUtilization loadBalancing = convertLoadBalancingUtilization(input);
+    List<CustomMetricUtilization> customMetrics = convertCustomMetricUtilizations(input);
+    return new GoogleAutoscalingPolicy(
+      coolDownPeriodSec: input.getCoolDownPeriodSec(),
+      cpuUtilization: cpu,
+      customMetricUtilizations: customMetrics,
+      loadBalancingUtilization: loadBalancing,
+      maxNumReplicas: input.getMaxNumReplicas(),
+      minNumReplicas: input.getMinNumReplicas(),
+      mode: valueOf(AutoscalingMode.class, input.getMode())
+    )
+  }
+
+  private static CpuUtilization convertCpuUtilization(AutoscalingPolicy input) {
+    if (input.getCpuUtilization() == null) {
+      return null;
+    }
+    return new CpuUtilization(utilizationTarget: input.getCpuUtilization().getUtilizationTarget());
+  }
+
+  private static LoadBalancingUtilization convertLoadBalancingUtilization(AutoscalingPolicy input) {
+    if (input.getLoadBalancingUtilization() == null) {
+      return null;
+    }
+    return new LoadBalancingUtilization(utilizationTarget: input.getLoadBalancingUtilization().getUtilizationTarget());
+  }
+
+  private static List<CustomMetricUtilization> convertCustomMetricUtilizations(AutoscalingPolicy input) {
+    if (input.getCustomMetricUtilizations() == null) {
+      return null;
+    }
+    return input.getCustomMetricUtilizations().collect { convertCustomMetricUtilization(it) };
+  }
+
+  private static CustomMetricUtilization convertCustomMetricUtilization(AutoscalingPolicyCustomMetricUtilization input) {
+    return new CustomMetricUtilization(
+      metric: input.getMetric(),
+      utilizationTarget: input.getUtilizationTarget(),
+      utilizationTargetType: valueOf(CustomMetricUtilization.UtilizationTargetType.class, input.getUtilizationTargetType())
+    )
+  }
+
+  private static <T extends Enum<T>> T valueOf(Class<T> enumType, String value) {
+    if (value == null) {
+      return null;
+    }
+    try {
+      Enum.valueOf(enumType, value);
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
   }
 }

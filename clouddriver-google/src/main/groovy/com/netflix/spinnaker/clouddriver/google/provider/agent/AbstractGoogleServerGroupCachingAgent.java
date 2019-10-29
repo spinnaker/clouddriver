@@ -73,6 +73,7 @@ import com.netflix.spinnaker.clouddriver.google.compute.BatchPaginatedComputeReq
 import com.netflix.spinnaker.clouddriver.google.compute.GoogleComputeApiFactory;
 import com.netflix.spinnaker.clouddriver.google.compute.InstanceTemplates;
 import com.netflix.spinnaker.clouddriver.google.compute.Instances;
+import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleDistributionPolicy;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstances;
@@ -869,7 +870,7 @@ abstract class AbstractGoogleServerGroupCachingAgent
 
     AutoscalingPolicy autoscalingPolicy = autoscaler.getAutoscalingPolicy();
     if (autoscalingPolicy != null) {
-      serverGroup.setAutoscalingPolicy(autoscalingPolicy);
+      serverGroup.setAutoscalingPolicy(GoogleAutoscalingPolicy.fromComputeModel(autoscalingPolicy));
       // is asg possibly null???
       HashMap<String, Object> autoscalingGroup = new HashMap<>(serverGroup.getAsg());
       autoscalingGroup.put("minSize", autoscalingPolicy.getMinNumReplicas());
