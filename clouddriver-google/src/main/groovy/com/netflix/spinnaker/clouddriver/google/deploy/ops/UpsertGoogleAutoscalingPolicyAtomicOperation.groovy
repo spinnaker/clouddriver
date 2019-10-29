@@ -223,9 +223,20 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     }
 
     // Deletes existing customMetricUtilizations if passed an empty array.
-    ["minNumReplicas", "maxNumReplicas", "coolDownPeriodSec", "customMetricUtilizations", "mode", "scaleDownControl"].each {
+    ["minNumReplicas", "maxNumReplicas", "coolDownPeriodSec", "customMetricUtilizations", "mode"].each {
       if (update[it] != null) {
         newDescription[it] = update[it]
+      }
+    }
+
+    // If scaleDownControl is completely absent, we leave the previous value.
+    // To remove it, set it to an empty object.
+    if (update.scaleDownControl != null) {
+      def scaleDownControl = update.scaleDownControl
+      if (scaleDownControl.timeWindowSec != null && scaleDownControl.maxScaledDownReplicas != null) {
+        newDescription.scaleDownControl = scaleDownControl
+      } else {
+        newDescription.scaleDownControl = null
       }
     }
 

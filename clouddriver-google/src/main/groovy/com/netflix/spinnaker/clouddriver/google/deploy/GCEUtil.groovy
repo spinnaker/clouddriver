@@ -849,9 +849,12 @@ class GCEUtil {
 
       if (scaleDownControl) {
         def scaledDownReplicasInput = scaleDownControl.maxScaledDownReplicas
-        def maxScaledDownReplicas = FixedOrPercent.newInstance()
-          .setFixed(scaledDownReplicasInput.fixed)
-          .setPercent(scaledDownReplicasInput.percent)
+        def maxScaledDownReplicas = null
+        if (scaledDownReplicasInput != null) {
+          maxScaledDownReplicas = FixedOrPercent.newInstance()
+            .setFixed(scaledDownReplicasInput.fixed)
+            .setPercent(scaledDownReplicasInput.percent)
+        }
         gceAutoscalingPolicy.scaleDownControl =
           new AutoscalingPolicyScaleDownControl(
             maxScaledDownReplicas: maxScaledDownReplicas,
