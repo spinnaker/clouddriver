@@ -777,9 +777,9 @@ class AbstractGoogleServerGroupCachingAgentTest {
         .hasSize(input.getCustomMetricUtilizations().size());
     for (int i = 0; i < converted.getCustomMetricUtilizations().size(); ++i) {
       CustomMetricUtilization convertedCustomMetric =
-          converted.getCustomMetricUtilizations().get(0);
+          converted.getCustomMetricUtilizations().get(i);
       AutoscalingPolicyCustomMetricUtilization inputCustomMetric =
-          input.getCustomMetricUtilizations().get(0);
+          input.getCustomMetricUtilizations().get(i);
       assertThat(convertedCustomMetric.getMetric()).isEqualTo(inputCustomMetric.getMetric());
       assertThat(convertedCustomMetric.getUtilizationTarget())
           .isEqualTo(inputCustomMetric.getUtilizationTarget());

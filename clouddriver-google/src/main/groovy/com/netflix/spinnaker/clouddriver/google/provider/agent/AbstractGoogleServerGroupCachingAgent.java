@@ -938,7 +938,7 @@ abstract class AbstractGoogleServerGroupCachingAgent
   }
 
   @Nullable
-  private static List<CustomMetricUtilization> convertCustomMetricUtilizations(
+  private static ImmutableList<CustomMetricUtilization> convertCustomMetricUtilizations(
       @Nullable List<AutoscalingPolicyCustomMetricUtilization> input) {
     if (input == null) {
       return null;
