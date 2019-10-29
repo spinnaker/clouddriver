@@ -494,16 +494,6 @@ final class KubernetesCoreCachingAgentTest {
     LoadDataResult loadDataResult = processLoadData(cachingAgents, ImmutableMap.of());
 
     assertThat(loadDataResult.getResults()).containsKey(DEPLOYMENT_KIND);
-    assertThat(loadDataResult.getResults().get(DEPLOYMENT_KIND))
-        .extracting(data -> data.getAttributes().get("name"))
-        .containsExactly(DEPLOYMENT_NAME);
-
-    assertThat(loadDataResult.getResults()).containsKey(STORAGE_CLASS_KIND);
-    assertThat(loadDataResult.getResults().get(STORAGE_CLASS_KIND))
-        .extracting(data -> data.getAttributes().get("name"))
-        .containsExactly(STORAGE_CLASS_NAME);
-
-    assertThat(loadDataResult.getResults()).containsKey(DEPLOYMENT_KIND);
     Collection<CacheData> deployments = loadDataResult.getResults().get(DEPLOYMENT_KIND);
     assertThat(deployments).extracting(CacheData::getId).containsExactly(deploymentKey);
     assertThat(deployments)
