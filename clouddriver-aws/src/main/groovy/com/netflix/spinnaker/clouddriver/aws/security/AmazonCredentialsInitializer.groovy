@@ -16,12 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.aws.security
 
+import com.amazonaws.AmazonClientException
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsLoader
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
+import groovy.util.logging.Slf4j
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -32,6 +34,7 @@ import static com.amazonaws.regions.Regions.US_EAST_1
 import static com.amazonaws.regions.Regions.US_WEST_1
 import static com.amazonaws.regions.Regions.US_WEST_2
 
+@Slf4j
 @Configuration
 @EnableConfigurationProperties(DefaultAccountConfigurationProperties)
 class AmazonCredentialsInitializer {
@@ -64,8 +67,12 @@ class AmazonCredentialsInitializer {
     CredentialsConfig credentialsConfig,
     AccountCredentialsRepository accountCredentialsRepository,
     DefaultAccountConfigurationProperties defaultAccountConfigurationProperties) {
-
-    synchronizeAmazonAccounts(credentialsLoader, credentialsConfig, accountCredentialsRepository, defaultAccountConfigurationProperties, null)
+    try {
+      synchronizeAmazonAccounts(credentialsLoader, credentialsConfig, accountCredentialsRepository, defaultAccountConfigurationProperties, null)
+    }catch(AmazonClientException ace){
+      //catching and ignoring the exception to avoid clouddriver crash
+      log.error("Could not create AWS credentials list. {}",ace.getMessage())
+    }
   }
 
   private List<? extends NetflixAmazonCredentials> synchronizeAmazonAccounts(
