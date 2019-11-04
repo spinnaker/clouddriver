@@ -33,7 +33,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.model.Manifest.Status;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
 import io.kubernetes.client.models.V1Deployment;
 import io.kubernetes.client.models.V1DeploymentCondition;
 import io.kubernetes.client.models.V1DeploymentStatus;
@@ -47,6 +47,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
         CanPauseRollout,
         CanResumeRollout,
         CanUndoRollout,
+        CanRollingRestart,
         ServerGroupManagerHandler {
 
   private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =

@@ -87,6 +87,7 @@ public final class AtomicOperations {
   public static final String PAUSE_ROLLOUT_MANIFEST = "pauseRolloutManifest";
   public static final String RESUME_ROLLOUT_MANIFEST = "resumeRolloutManifest";
   public static final String UNDO_ROLLOUT_MANIFEST = "undoRolloutManifest";
+  public static final String ROLLING_RESTART_MANIFEST = "rollingRestartManifest";
   public static final String DISABLE_MANIFEST = "disableManifest";
   public static final String ENABLE_MANIFEST = "enableManifest";
 
@@ -106,4 +107,5 @@ public final class AtomicOperations {
 
   // CloudFormation operations
   public static final String DEPLOY_CLOUDFORMATION_STACK = "deployCloudFormation";
+  public static final String DELETE_CLOUDFORMATION_CHANGESET = "deleteCloudFormationChangeSet";
 }
