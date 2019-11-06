@@ -17,7 +17,7 @@ jobs:
     #     key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
     #     restore-keys: |
     #       ${{ runner.os }}-gradle-
-    - name: PR build
+    - name: Build
       env:
         GRADLE_OPTS: -Xmx6g -Xms6g -Dorg.gradle.daemon=false
       run: ./gradlew build javadoc
