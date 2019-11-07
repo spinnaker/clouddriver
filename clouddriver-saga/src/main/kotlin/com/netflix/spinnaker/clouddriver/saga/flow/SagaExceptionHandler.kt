@@ -20,7 +20,7 @@ import com.netflix.spinnaker.kork.annotations.Beta
 import kotlin.Exception
 
 /**
- * The exception handler is an optional interface for implementors to use when determining how to
+ * The [SagaExceptionHandler] is an optional interface for implementors to use when determining how to
  * handle an exception thrown during a [SagaFlow].  An example use-case would be if one wants to
  * flag a specific exception as retryable.
  */
