@@ -62,9 +62,11 @@ public class CreateLambdaAtomicOperation
             .withS3Key(description.getProperty("s3key").toString());
 
     Map<String, String> objTag = new HashMap<>();
-    for (Map<String, String> tags : description.getTags()) {
-      for (Entry<String, String> entry : tags.entrySet()) {
-        objTag.put(entry.getKey(), entry.getValue());
+    if (null != description.getTags()) {
+      for (Map<String, String> tags : description.getTags()) {
+        for (Entry<String, String> entry : tags.entrySet()) {
+          objTag.put(entry.getKey(), entry.getValue());
+        }
       }
     }
 

@@ -20,14 +20,14 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.*;
 import com.amazonaws.services.lambda.AWSLambda;
-import com.amazonaws.services.lambda.model.UpdateFunctionConfigurationRequest;
-import com.amazonaws.services.lambda.model.UpdateFunctionConfigurationResult;
-import com.amazonaws.services.lambda.model.VpcConfig;
+import com.amazonaws.services.lambda.model.*;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.lambda.cache.model.LambdaFunction;
 import com.netflix.spinnaker.clouddriver.lambda.deploy.description.CreateLambdaFunctionConfigurationDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.util.StringUtils;
 
 public class UpdateLambdaConfigurationAtomicOperation
@@ -53,6 +53,7 @@ public class UpdateLambdaConfigurationAtomicOperation
                 description.getAccount(), description.getRegion(), description.getFunctionName());
 
     AWSLambda client = getLambdaClient();
+
     UpdateFunctionConfigurationRequest request =
         new UpdateFunctionConfigurationRequest()
             .withFunctionName(cache.getFunctionArn())
@@ -67,9 +68,41 @@ public class UpdateLambdaConfigurationAtomicOperation
                     .withSecurityGroupIds(description.getSecurityGroupIds())
                     .withSubnetIds(description.getSubnetIds()))
             .withKMSKeyArn(description.getEncryptionKMSKeyArn())
-            .withTracingConfig(description.getTracingConfig());
+            .withTracingConfig(description.getTracingConfig())
+            .withRuntime(description.getRuntime());
+
+    if (null != description.getEnvVariables()) {
+      request.setEnvironment(new Environment().withVariables(description.getEnvVariables()));
+    }
 
     UpdateFunctionConfigurationResult result = client.updateFunctionConfiguration(request);
+    TagResourceRequest tagResourceRequest = new TagResourceRequest();
+    Map<String, String> objTag = new HashMap<>();
+    if (null != description.getTags()) {
+      for (Map<String, String> tags : description.getTags()) {
+        for (Map.Entry<String, String> entry : tags.entrySet()) {
+          objTag.put(entry.getKey(), entry.getValue());
+        }
+      }
+    }
+    if (!objTag.isEmpty()) {
+
+      UntagResourceRequest untagResourceRequest =
+          new UntagResourceRequest().withResource(result.getFunctionArn());
+      ListTagsResult existingTags =
+          client.listTags(new ListTagsRequest().withResource(result.getFunctionArn()));
+      for (Map.Entry<String, String> entry : existingTags.getTags().entrySet()) {
+        untagResourceRequest.getTagKeys().add(entry.getKey());
+      }
+      if (!untagResourceRequest.getTagKeys().isEmpty()) {
+        client.untagResource(untagResourceRequest);
+      }
+      for (Map.Entry<String, String> entry : objTag.entrySet()) {
+        tagResourceRequest.addTagsEntry(entry.getKey(), entry.getValue());
+      }
+      tagResourceRequest.setResource(result.getFunctionArn());
+      client.tagResource(tagResourceRequest);
+    }
     updateTaskStatus("Finished Updating of AWS Lambda Function Configuration Operation...");
     if (StringUtils.isEmpty(description.getTargetGroup())) {
       if (!cache.getTargetGroups().isEmpty()) {

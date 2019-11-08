@@ -17,9 +17,9 @@
 package com.netflix.spinnaker.clouddriver.lambda.deploy.description;
 
 import com.amazonaws.services.lambda.model.DeadLetterConfig;
-import com.amazonaws.services.lambda.model.Environment;
 import com.amazonaws.services.lambda.model.TracingConfig;
 import java.util.List;
+import java.util.Map;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -36,9 +36,11 @@ public class CreateLambdaFunctionConfigurationDescription
   Integer timeout;
   List<String> subnetIds;
   List<String> securityGroupIds;
-  Environment environment;
+  Map<String, String> envVariables;
+  List<Map<String, String>> tags;
   DeadLetterConfig deadLetterConfig;
   String encryptionKMSKeyArn;
   TracingConfig tracingConfig;
   String targetGroup;
+  String runTime;
 }
