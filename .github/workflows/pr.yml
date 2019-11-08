@@ -20,5 +20,5 @@ jobs:
 #           ${{ runner.os }}-gradle-
     - name: Build
       env:
-        GRADLE_OPTS: -Xmx6g -Xms6g -Dorg.gradle.daemon=false -PenablePublishing=true
+        GRADLE_OPTS: -Xmx6g -Xms6g -Dorg.gradle.daemon=false
       run: ./gradlew build javadoc --max-workers=2
