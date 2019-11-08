@@ -11,5 +11,5 @@ jobs:
     - uses: actions/checkout@v1
     - name: Build
       env:
-        GRADLE_OPTS: -Xmx6g -Xms6g -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=12
+        GRADLE_OPTS: -Xmx6g -Xms6g -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=4
       run: ./gradlew build javadoc
