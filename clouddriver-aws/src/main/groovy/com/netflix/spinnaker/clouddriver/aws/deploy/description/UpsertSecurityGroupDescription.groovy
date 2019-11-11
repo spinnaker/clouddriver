@@ -30,6 +30,8 @@ class UpsertSecurityGroupDescription extends AbstractAmazonCredentialsDescriptio
 
   boolean ingressAppendOnly = false
 
+  Map tags
+
   @Override
   Collection<String> getNames() {
     return [name]
@@ -39,6 +41,7 @@ class UpsertSecurityGroupDescription extends AbstractAmazonCredentialsDescriptio
     Integer startPort
     Integer endPort
     String ipProtocol
+    String description
 
     @Deprecated void setType(String ipProtocol) {
       this.ipProtocol = ipProtocol
