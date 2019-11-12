@@ -38,7 +38,7 @@ public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescr
   Integer memory;
   Integer timeout;
 
-  List<Map<String, String>> tags;
+  Map<String, String> tags;
 
   Boolean publish;
 
@@ -46,7 +46,7 @@ public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescr
   List<String> subnetIds;
   List<String> securityGroupIds;
 
-  String targetGroup;
+  String targetGroups;
 
   DeadLetterConfig deadLetterConfig;
   TracingConfig tracingConfig;

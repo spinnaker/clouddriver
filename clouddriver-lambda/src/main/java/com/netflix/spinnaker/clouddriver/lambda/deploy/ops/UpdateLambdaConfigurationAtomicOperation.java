@@ -79,10 +79,9 @@ public class UpdateLambdaConfigurationAtomicOperation
     TagResourceRequest tagResourceRequest = new TagResourceRequest();
     Map<String, String> objTag = new HashMap<>();
     if (null != description.getTags()) {
-      for (Map<String, String> tags : description.getTags()) {
-        for (Map.Entry<String, String> entry : tags.entrySet()) {
-          objTag.put(entry.getKey(), entry.getValue());
-        }
+
+      for (Map.Entry<String, String> entry : description.getTags().entrySet()) {
+        objTag.put(entry.getKey(), entry.getValue());
       }
     }
     if (!objTag.isEmpty()) {
@@ -104,7 +103,7 @@ public class UpdateLambdaConfigurationAtomicOperation
       client.tagResource(tagResourceRequest);
     }
     updateTaskStatus("Finished Updating of AWS Lambda Function Configuration Operation...");
-    if (StringUtils.isEmpty(description.getTargetGroup())) {
+    if (StringUtils.isEmpty(description.getTargetGroups())) {
       if (!cache.getTargetGroups().isEmpty()) {
         AmazonElasticLoadBalancing loadBalancingV2 = getAmazonElasticLoadBalancingClient();
         for (String groupName : cache.getTargetGroups()) {
@@ -122,15 +121,16 @@ public class UpdateLambdaConfigurationAtomicOperation
         registerTarget(
             loadBalancingV2,
             cache.getFunctionArn(),
-            retrieveTargetGroup(loadBalancingV2, description.getTargetGroup()).getTargetGroupArn());
+            retrieveTargetGroup(loadBalancingV2, description.getTargetGroups())
+                .getTargetGroupArn());
         updateTaskStatus("Registered the target group...");
       } else {
         for (String groupName : cache.getTargetGroups()) {
-          if (!groupName.equals(description.getTargetGroup())) {
+          if (!groupName.equals(description.getTargetGroups())) {
             registerTarget(
                 loadBalancingV2,
                 cache.getFunctionArn(),
-                retrieveTargetGroup(loadBalancingV2, description.getTargetGroup())
+                retrieveTargetGroup(loadBalancingV2, description.getTargetGroups())
                     .getTargetGroupArn());
             updateTaskStatus("Registered the target group...");
           }

@@ -63,10 +63,9 @@ public class CreateLambdaAtomicOperation
 
     Map<String, String> objTag = new HashMap<>();
     if (null != description.getTags()) {
-      for (Map<String, String> tags : description.getTags()) {
-        for (Entry<String, String> entry : tags.entrySet()) {
-          objTag.put(entry.getKey(), entry.getValue());
-        }
+
+      for (Entry<String, String> entry : description.getTags().entrySet()) {
+        objTag.put(entry.getKey(), entry.getValue());
       }
     }
 
@@ -103,11 +102,11 @@ public class CreateLambdaAtomicOperation
 
     CreateFunctionResult result = client.createFunction(request);
     updateTaskStatus("Finished Creation of AWS Lambda Function Operation...");
-    if (description.getTargetGroup() != null && !description.getTargetGroup().isEmpty()) {
+    if (description.getTargetGroups() != null && !description.getTargetGroups().isEmpty()) {
 
       updateTaskStatus(
           String.format(
-              "Started registering lambda to targetGroup (%s)", description.getTargetGroup()));
+              "Started registering lambda to targetGroup (%s)", description.getTargetGroups()));
       String functionArn = result.getFunctionArn();
       registerTargetGroup(functionArn, client);
     }
@@ -163,7 +162,7 @@ public class CreateLambdaAtomicOperation
   private TargetGroup retrieveTargetGroup(AmazonElasticLoadBalancing loadBalancingV2) {
 
     DescribeTargetGroupsRequest request =
-        new DescribeTargetGroupsRequest().withNames(description.getTargetGroup());
+        new DescribeTargetGroupsRequest().withNames(description.getTargetGroups());
     DescribeTargetGroupsResult describeTargetGroupsResult =
         loadBalancingV2.describeTargetGroups(request);
 
@@ -171,10 +170,10 @@ public class CreateLambdaAtomicOperation
       return describeTargetGroupsResult.getTargetGroups().get(0);
     } else if (describeTargetGroupsResult.getTargetGroups().size() > 1) {
       throw new IllegalArgumentException(
-          "There are multiple target groups with the name " + description.getTargetGroup() + ".");
+          "There are multiple target groups with the name " + description.getTargetGroups() + ".");
     } else {
       throw new IllegalArgumentException(
-          "There is no target group with the name " + description.getTargetGroup() + ".");
+          "There is no target group with the name " + description.getTargetGroups() + ".");
     }
   }
 

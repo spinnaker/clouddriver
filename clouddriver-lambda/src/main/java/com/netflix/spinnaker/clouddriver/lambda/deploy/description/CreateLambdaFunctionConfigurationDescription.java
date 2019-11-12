@@ -37,10 +37,10 @@ public class CreateLambdaFunctionConfigurationDescription
   List<String> subnetIds;
   List<String> securityGroupIds;
   Map<String, String> envVariables;
-  List<Map<String, String>> tags;
+  Map<String, String> tags;
   DeadLetterConfig deadLetterConfig;
   String encryptionKMSKeyArn;
   TracingConfig tracingConfig;
-  String targetGroup;
+  String targetGroups;
   String runTime;
 }
