@@ -39,6 +39,8 @@ class AmazonSecurityGroup implements SecurityGroup {
   final String region
   final Set<Rule> inboundRules
   final Set<Rule> outboundRules
+  final List<Map> tags
+
 
   void setMoniker(Moniker _ignored) {}
 
