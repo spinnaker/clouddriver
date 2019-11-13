@@ -109,7 +109,7 @@ class SqlCacheSpec extends WriteableCacheSpec {
     name              || expected                                                             || suffix
     "foo"             || "cats_v1_test_foo"                                                   || ""
     "abcdefghij" * 10 || "cats_v1_test_abcdefghijabcdefghijabcdefghijabcdeaa7d0fee7e891a66"   || ""
-    "abcdefghij" * 10 || "cats_v1_test_abcdefghijabcdefghijabcdefghijaaa7d0fee7e891a66_rel"   || "_rel"
+    "abcdefghij" * 10 || "cats_v1_test_abcdefghijabcdefghijabcdefghija9246690b33571ecc_rel"   || "_rel"
     "abcdefghij" * 10 || "cats_v1_test_abcdefghijabcdefghijabcdefghijabcdefe546a736182e553"   || "suffix"*10
 
   }

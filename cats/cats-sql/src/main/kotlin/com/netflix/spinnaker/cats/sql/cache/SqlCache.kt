@@ -912,22 +912,17 @@ class SqlCache(
     }
 
     // Hash the name and keep the suffix
-    val hash = Hashing.murmur3_128().hashBytes(name.toByteArray()).toString().substring(0..15)
+    val hash = Hashing.murmur3_128().hashBytes((name + suffix).toByteArray()).toString().substring(0..15)
     val available = sqlConstraints.maxTableNameLength - base.length - suffix.length - hash.length - 1
     if (available >= 0) {
       return base + name.substring(0..available) + hash + suffix
     }
 
-    // Hash name and suffix
-    val pHash = Hashing.murmur3_128().hashBytes((name + suffix).toByteArray()).toString().substring(0..15)
-    val pAvailable = sqlConstraints.maxTableNameLength - base.length - hash.length - 1
-    if (pAvailable >= 0) {
-      return base + name.substring(0..pAvailable) + pHash
+    // Remove suffix
+    if (available + suffix.length >= 0) {
+      return base + name.substring(0..(available + suffix.length)) + hash
     }
-    if (base.length + pHash.length > sqlConstraints.maxTableNameLength) {
-      throw IllegalArgumentException("property sql.table-namespace $tableNamespace is too long")
-    }
-    return base + pHash
+    throw IllegalArgumentException("property sql.table-namespace $tableNamespace is too long")
   }
 
   private fun getHash(body: String?): String? {
