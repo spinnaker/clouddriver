@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.description
 
+import com.amazonaws.services.ec2.model.Tag
 import com.netflix.spinnaker.clouddriver.security.resources.ResourcesNameable
 import groovy.transform.Canonical
 
@@ -30,7 +31,7 @@ class UpsertSecurityGroupDescription extends AbstractAmazonCredentialsDescriptio
 
   boolean ingressAppendOnly = false
 
-  Map tags
+  Tag tags
 
   @Override
   Collection<String> getNames() {
