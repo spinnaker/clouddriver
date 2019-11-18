@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.model
 
+import com.amazonaws.services.cloudfront.model.Tags
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.model.SecurityGroup
@@ -39,7 +40,7 @@ class AmazonSecurityGroup implements SecurityGroup {
   final String region
   final Set<Rule> inboundRules
   final Set<Rule> outboundRules
-  final List<Map> tags
+  final List<Tags> tags
 
 
   void setMoniker(Moniker _ignored) {}
