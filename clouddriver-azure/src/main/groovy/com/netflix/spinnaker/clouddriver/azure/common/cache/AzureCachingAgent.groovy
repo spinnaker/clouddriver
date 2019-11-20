@@ -29,6 +29,8 @@ import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.provider.A
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 
+import javax.annotation.Nonnull
+
 abstract class AzureCachingAgent implements CachingAgent, OnDemandAgent, AccountAware {
 
   protected static ON_DEMAND_UPDATED = "OnDemandUpdated"
@@ -84,7 +86,7 @@ abstract class AzureCachingAgent implements CachingAgent, OnDemandAgent, Account
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == getOnDemandType() && cloudProvider == azureCloudProvider.id
   }
 
@@ -92,7 +94,7 @@ abstract class AzureCachingAgent implements CachingAgent, OnDemandAgent, Account
   abstract OnDemandAgent.OnDemandResult handle(ProviderCache providerCache, Map<String, ? extends Object> data)
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     return []
   }
 

@@ -38,6 +38,8 @@ import com.netflix.spinnaker.clouddriver.aws.cache.Keys
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider
 import groovy.util.logging.Slf4j
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.ON_DEMAND
 import static com.netflix.spinnaker.clouddriver.aws.cache.Keys.Namespace.SECURITY_GROUPS
@@ -125,7 +127,7 @@ class AmazonSecurityGroupCachingAgent implements CachingAgent, OnDemandAgent, Ac
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == OnDemandAgent.OnDemandType.SecurityGroup && cloudProvider == AmazonCloudProvider.ID
   }
 
@@ -164,7 +166,7 @@ class AmazonSecurityGroupCachingAgent implements CachingAgent, OnDemandAgent, Ac
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     return []
   }
 

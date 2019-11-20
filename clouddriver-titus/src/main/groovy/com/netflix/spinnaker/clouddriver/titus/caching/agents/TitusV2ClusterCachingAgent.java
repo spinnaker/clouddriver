@@ -62,6 +62,7 @@ import com.netflix.titus.grpc.protogen.ScalingPolicyStatus;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.inject.Provider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -178,7 +179,8 @@ public class TitusV2ClusterCachingAgent
   }
 
   @Override
-  public boolean handles(OnDemandType type, String cloudProvider) {
+  public boolean handles(
+      OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     return type == OnDemandType.ServerGroup && cloudProvider.equals(TitusCloudProvider.ID);
   }
 
@@ -521,7 +523,8 @@ public class TitusV2ClusterCachingAgent
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map> pendingOnDemandRequests(
+      ProviderCache providerCache, @Nonnull Map<String, String> data) {
     Set<String> keys =
         providerCache.getIdentifiers("onDemand").stream()
             .filter(

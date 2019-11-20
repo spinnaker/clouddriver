@@ -44,6 +44,7 @@ import io.vavr.collection.HashMap;
 import java.time.Clock;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -265,7 +266,8 @@ public class CloudFoundryCachingAgent implements CachingAgent, OnDemandAgent, Ac
   }
 
   @Override
-  public boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  public boolean handles(
+      OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     return type.equals(OnDemandAgent.OnDemandType.ServerGroup)
         && cloudProvider.equals(CloudFoundryProvider.PROVIDER_ID);
   }
@@ -309,7 +311,8 @@ public class CloudFoundryCachingAgent implements CachingAgent, OnDemandAgent, Ac
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map> pendingOnDemandRequests(
+      ProviderCache providerCache, @Nonnull Map<String, String> data) {
     Collection<String> keys =
         providerCache.filterIdentifiers(
             ON_DEMAND.getNs(), Keys.getServerGroupKey(account, "*", "*"));

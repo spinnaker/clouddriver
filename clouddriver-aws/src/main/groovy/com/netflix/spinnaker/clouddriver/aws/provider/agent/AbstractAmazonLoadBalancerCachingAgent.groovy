@@ -37,6 +37,8 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.INSTANCES
@@ -121,14 +123,14 @@ abstract class AbstractAmazonLoadBalancerCachingAgent implements CachingAgent, O
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == OnDemandAgent.OnDemandType.LoadBalancer && cloudProvider == amazonCloudProvider.id
   }
 
   abstract CacheResult loadDataInternal(ProviderCache providerCache)
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     return []
   }
 

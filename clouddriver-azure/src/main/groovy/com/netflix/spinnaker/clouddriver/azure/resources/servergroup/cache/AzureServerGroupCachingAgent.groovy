@@ -33,6 +33,8 @@ import com.netflix.spinnaker.clouddriver.azure.common.cache.MutableCacheData
 import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancer
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys.Namespace.*
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.azure.security.AzureCredentials
@@ -166,7 +168,7 @@ class AzureServerGroupCachingAgent extends AzureCachingAgent {
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keys = providerCache.getIdentifiers(AZURE_ON_DEMAND.ns)
     keys = keys.findAll {
       def key = Keys.parse(azureCloudProvider, it)

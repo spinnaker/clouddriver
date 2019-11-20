@@ -55,6 +55,8 @@ import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.*
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*
 import com.netflix.spinnaker.cats.agent.CacheResult
@@ -169,7 +171,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == OnDemandAgent.OnDemandType.ServerGroup && cloudProvider == amazonCloudProvider.id
   }
 
@@ -456,7 +458,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keys = providerCache.filterIdentifiers(ON_DEMAND.ns, Keys.getServerGroupKey("*", "*", account.name, region))
     return fetchPendingOnDemandRequests(providerCache, keys)
   }

@@ -35,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import java.util.*;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -79,7 +80,8 @@ public class AmazonCloudFormationCachingAgent
   }
 
   @Override
-  public boolean handles(OnDemandType type, String cloudProvider) {
+  public boolean handles(
+      OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     return OnDemandType.CloudFormation.equals(type) && cloudProvider.equals(AmazonCloudProvider.ID);
   }
 
@@ -113,7 +115,8 @@ public class AmazonCloudFormationCachingAgent
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map> pendingOnDemandRequests(
+      ProviderCache providerCache, @Nonnull Map<String, String> data) {
     return Collections.emptyList();
   }
 

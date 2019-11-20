@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.cache
 
+import javax.annotation.Nonnull
+
 /**
  * An on-demand cache updater. Allows some non-scheduled trigger to initiate a cache refresh for a given type. An on-demand cache request will fan-out to all available updaters.
  *
@@ -32,9 +34,10 @@ interface OnDemandCacheUpdater {
    * Indicates if the updater is able to handle this on-demand request given the type and cloudProvider
    * @param type
    * @param cloudProvider
+   * @param data
    * @return
    */
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider)
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data)
 
   /**
    * Handles the update request
@@ -44,7 +47,7 @@ interface OnDemandCacheUpdater {
    */
   OnDemandCacheResult handle(OnDemandAgent.OnDemandType type, String cloudProvider, Map<String, ? extends Object> data)
 
-  Collection<Map> pendingOnDemandRequests(OnDemandAgent.OnDemandType type, String cloudProvider)
+  Collection<Map> pendingOnDemandRequests(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data)
 
   Map pendingOnDemandRequest(OnDemandAgent.OnDemandType type, String cloudProvider, String id)
 

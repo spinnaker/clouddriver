@@ -46,6 +46,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,7 +106,8 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map> pendingOnDemandRequests(
+      ProviderCache providerCache, @Nonnull Map<String, String> data) {
     Collection<CacheData> allOnDemand = providerCache.getAll(ON_DEMAND.toString());
     List<Map> returnResults = new LinkedList<>();
     for (CacheData onDemand : allOnDemand) {

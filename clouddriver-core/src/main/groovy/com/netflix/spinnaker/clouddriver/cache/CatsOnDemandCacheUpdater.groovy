@@ -25,6 +25,7 @@ import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
+import javax.annotation.Nonnull
 import java.util.concurrent.TimeUnit
 
 @Component
@@ -50,13 +51,13 @@ class CatsOnDemandCacheUpdater implements OnDemandCacheUpdater {
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    onDemandAgents.any { it.handles(type, cloudProvider) }
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
+    onDemandAgents.any { it.handles(type, cloudProvider, data) }
   }
 
   @Override
   OnDemandCacheResult handle(OnDemandAgent.OnDemandType type, String cloudProvider, Map<String, ?> data) {
-    Collection<OnDemandAgent> onDemandAgents = onDemandAgents.findAll { it.handles(type, cloudProvider) }
+    Collection<OnDemandAgent> onDemandAgents = onDemandAgents.findAll { it.handles(type, cloudProvider, Collections.emptyMap()) }
     return handle(type, onDemandAgents, data)
   }
 
@@ -139,15 +140,15 @@ class CatsOnDemandCacheUpdater implements OnDemandCacheUpdater {
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  Collection<Map> pendingOnDemandRequests(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     if (agentScheduler.atomic) {
       return []
     }
 
-    Collection<OnDemandAgent> onDemandAgents = onDemandAgents.findAll { it.handles(type, cloudProvider) }
+    Collection<OnDemandAgent> onDemandAgents = onDemandAgents.findAll { it.handles(type, cloudProvider, data) }
     return onDemandAgents.collect {
       def providerCache = catsModule.getProviderRegistry().getProviderCache(it.providerName)
-      it.pendingOnDemandRequests(providerCache)
+      it.pendingOnDemandRequests(providerCache, data)
     }.flatten()
   }
 
@@ -157,7 +158,7 @@ class CatsOnDemandCacheUpdater implements OnDemandCacheUpdater {
       return null
     }
 
-    Collection<OnDemandAgent> onDemandAgents = onDemandAgents.findAll { it.handles(type, cloudProvider) }
+    Collection<OnDemandAgent> onDemandAgents = onDemandAgents.findAll { it.handles(type, cloudProvider, Collections.emptyMap()) }
     return onDemandAgents.findResults {
       def providerCache = catsModule.getProviderRegistry().getProviderCache(it.providerName)
       it.pendingOnDemandRequest(providerCache, id)

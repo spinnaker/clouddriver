@@ -42,6 +42,8 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.view.MutableCacheData
 import groovy.util.logging.Slf4j
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 import static com.netflix.spinnaker.clouddriver.appengine.cache.Keys.Namespace.*
@@ -89,7 +91,7 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == OnDemandAgent.OnDemandType.ServerGroup && cloudProvider == AppengineCloudProvider.ID
   }
 
@@ -406,7 +408,7 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keys = providerCache.getIdentifiers(ON_DEMAND.ns)
     keys = keys.findResults {
       def parse = Keys.parse(it)

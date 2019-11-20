@@ -61,7 +61,7 @@ class KubernetesLoadBalancerCachingAgentSpec extends Specification {
   @Unroll
   void "correctly reports #type/#provider is handled by the load balancer caching agent (#result)"() {
     expect:
-    cachingAgent.handles(type, provider) == result
+    cachingAgent.handles(type, provider, Collections.emptyMap()) == result
 
     where:
     type                                     | provider                   || result

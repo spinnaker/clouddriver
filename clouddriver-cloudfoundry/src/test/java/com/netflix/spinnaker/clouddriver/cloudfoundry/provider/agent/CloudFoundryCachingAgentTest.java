@@ -226,7 +226,8 @@ class CloudFoundryCachingAgentTest {
                     "processedTime", processedTime)
                 .toJavaMap());
 
-    Collection<Map> result = cloudFoundryCachingAgent.pendingOnDemandRequests(mockProviderCache);
+    Collection<Map> result =
+        cloudFoundryCachingAgent.pendingOnDemandRequests(mockProviderCache, Collections.emptyMap());
 
     assertThat(result).isEqualTo(expectedResult);
     verify(mockProviderCache)

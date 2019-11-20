@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 
 abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T>
     implements OnDemandAgent {
@@ -58,7 +59,8 @@ abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T>
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map> pendingOnDemandRequests(
+      ProviderCache providerCache, @Nonnull Map<String, String> data) {
     return new LinkedList<>();
   }
 
@@ -68,7 +70,8 @@ abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T>
   }
 
   @Override
-  public boolean handles(OnDemandType type, String cloudProvider) {
+  public boolean handles(
+      OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     return type.equals(OnDemandType.ServerGroup) && cloudProvider.equals(EcsCloudProvider.ID);
   }
 

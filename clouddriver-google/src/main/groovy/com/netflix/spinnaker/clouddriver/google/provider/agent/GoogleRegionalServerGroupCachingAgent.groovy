@@ -48,6 +48,7 @@ import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.Canonical
 import groovy.util.logging.Slf4j
 
+import javax.annotation.Nonnull
 import java.util.concurrent.TimeUnit
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
@@ -171,7 +172,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == OnDemandAgent.OnDemandType.ServerGroup && cloudProvider == GoogleCloudProvider.ID
   }
 
@@ -233,7 +234,7 @@ class GoogleRegionalServerGroupCachingAgent extends AbstractGoogleCachingAgent i
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keyOwnedByThisAgent = { Map<String, String> parsedKey ->
       parsedKey && parsedKey.account == accountName && parsedKey.region == region && !parsedKey.zone
     }

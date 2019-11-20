@@ -36,6 +36,7 @@ import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCrede
 import groovy.transform.Canonical
 import groovy.util.logging.Slf4j
 
+import javax.annotation.Nonnull
 import java.util.concurrent.TimeUnit
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
@@ -73,7 +74,7 @@ abstract class AbstractGoogleLoadBalancerCachingAgent extends AbstractGoogleCach
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == OnDemandAgent.OnDemandType.LoadBalancer && cloudProvider == GoogleCloudProvider.ID
   }
 
@@ -152,7 +153,7 @@ abstract class AbstractGoogleLoadBalancerCachingAgent extends AbstractGoogleCach
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keyOwnedByThisAgent = { Map<String, String> parsedKey ->
       parsedKey && parsedKey.account == accountName && parsedKey.region == region
     }

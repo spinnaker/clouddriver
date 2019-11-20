@@ -18,6 +18,8 @@ package com.netflix.spinnaker.clouddriver.cache
 
 import org.springframework.stereotype.Component
 
+import javax.annotation.Nonnull
+
 /**
  * A default, no-op implementation of an {@link OnDemandCacheUpdater}
  */
@@ -25,7 +27,7 @@ import org.springframework.stereotype.Component
 class NoopOnDemandCacheUpdater implements OnDemandCacheUpdater {
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     false
   }
 
@@ -37,7 +39,7 @@ class NoopOnDemandCacheUpdater implements OnDemandCacheUpdater {
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  Collection<Map> pendingOnDemandRequests(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     return []
   }
 

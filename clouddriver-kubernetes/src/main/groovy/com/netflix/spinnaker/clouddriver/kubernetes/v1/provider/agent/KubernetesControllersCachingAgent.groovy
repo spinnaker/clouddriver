@@ -41,6 +41,8 @@ import io.kubernetes.client.models.V1PodList
 import io.kubernetes.client.models.V1beta1DaemonSet
 import io.kubernetes.client.models.V1beta1StatefulSet
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 
@@ -82,7 +84,7 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     OnDemandAgent.OnDemandType.ServerGroup == type && cloudProvider == KubernetesCloudProvider.ID
   }
 
@@ -169,7 +171,7 @@ class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent impleme
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keys = providerCache.getIdentifiers(Keys.Namespace.ON_DEMAND.ns)
     keys = keys.findResults {
       def parse = Keys.parse(it)

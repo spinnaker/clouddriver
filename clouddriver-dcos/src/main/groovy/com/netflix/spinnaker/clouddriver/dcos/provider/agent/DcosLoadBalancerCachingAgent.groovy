@@ -39,6 +39,8 @@ import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.GetAppNamespaceResponse
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 
 @Slf4j
@@ -178,7 +180,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, OnDemandAgent, DcosC
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keys = providerCache.getIdentifiers(Keys.Namespace.ON_DEMAND.ns)
     keys = keys.findResults {
       def parse = Keys.parse(it)
@@ -203,7 +205,7 @@ class DcosLoadBalancerCachingAgent implements CachingAgent, OnDemandAgent, DcosC
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     OnDemandAgent.OnDemandType.LoadBalancer == type && cloudProvider == dcosCloudProvider.id
   }
 

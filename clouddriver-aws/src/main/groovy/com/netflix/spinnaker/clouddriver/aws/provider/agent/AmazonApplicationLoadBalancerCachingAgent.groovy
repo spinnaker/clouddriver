@@ -43,6 +43,8 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*
@@ -382,7 +384,7 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     Collection<String> keys = providerCache.filterIdentifiers(
       ON_DEMAND.ns,
       Keys.getLoadBalancerKey("*", "*", "*", "*", "*")

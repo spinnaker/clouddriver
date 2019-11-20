@@ -39,6 +39,8 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
 import groovy.transform.WithWriteLock
 import groovy.util.logging.Slf4j
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 
 @Slf4j
@@ -97,7 +99,7 @@ class AzureLoadBalancerCachingAgent implements CachingAgent, OnDemandAgent, Acco
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == OnDemandAgent.OnDemandType.LoadBalancer && cloudProvider == azureCloudProvider.id
   }
 
@@ -153,7 +155,7 @@ class AzureLoadBalancerCachingAgent implements CachingAgent, OnDemandAgent, Acco
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     return []
   }
 

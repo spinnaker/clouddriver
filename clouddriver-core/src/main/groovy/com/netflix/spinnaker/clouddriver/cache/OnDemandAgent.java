@@ -22,8 +22,10 @@ import com.netflix.spinnaker.moniker.Moniker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +57,7 @@ public interface OnDemandAgent {
     }
   }
 
-  boolean handles(OnDemandType type, String cloudProvider);
+  boolean handles(OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data);
 
   static class OnDemandResult {
     String sourceAgentType;
@@ -101,10 +103,12 @@ public interface OnDemandAgent {
 
   OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data);
 
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache);
+  Collection<Map> pendingOnDemandRequests(
+      ProviderCache providerCache, @Nonnull Map<String, String> data);
 
   default Map pendingOnDemandRequest(ProviderCache providerCache, String id) {
-    Collection<Map> pendingOnDemandRequests = pendingOnDemandRequests(providerCache);
+    Collection<Map> pendingOnDemandRequests =
+        pendingOnDemandRequests(providerCache, Collections.emptyMap());
     return pendingOnDemandRequests.stream()
         .filter(m -> id.equals(m.get("id")))
         .findFirst()

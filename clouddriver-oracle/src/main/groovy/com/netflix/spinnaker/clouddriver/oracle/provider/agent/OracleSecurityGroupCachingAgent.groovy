@@ -27,6 +27,8 @@ import com.oracle.bmc.core.requests.ListSecurityListsRequest
 import com.oracle.bmc.core.requests.ListVcnsRequest
 import groovy.util.logging.Slf4j
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.clouddriver.oracle.cache.Keys.Namespace.SECURITY_GROUPS
 
@@ -67,12 +69,12 @@ class OracleSecurityGroupCachingAgent extends AbstractOracleCachingAgent impleme
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     return []
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     type == OnDemandAgent.OnDemandType.SecurityGroup && cloudProvider == OracleCloudProvider.ID
   }
 

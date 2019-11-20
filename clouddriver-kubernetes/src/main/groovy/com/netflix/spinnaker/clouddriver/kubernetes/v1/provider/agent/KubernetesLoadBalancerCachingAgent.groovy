@@ -35,6 +35,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Cred
 import groovy.util.logging.Slf4j
 import io.fabric8.kubernetes.api.model.Service
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 
@@ -134,7 +136,7 @@ class KubernetesLoadBalancerCachingAgent extends KubernetesV1CachingAgent implem
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keys = providerCache.getIdentifiers(Keys.Namespace.ON_DEMAND.ns)
     keys = keys.findResults {
       def parse = Keys.parse(it)
@@ -159,7 +161,7 @@ class KubernetesLoadBalancerCachingAgent extends KubernetesV1CachingAgent implem
   }
 
   @Override
-  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
+  boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider, @Nonnull Map<String, String> data) {
     OnDemandAgent.OnDemandType.LoadBalancer == type && cloudProvider == KubernetesCloudProvider.ID
   }
 

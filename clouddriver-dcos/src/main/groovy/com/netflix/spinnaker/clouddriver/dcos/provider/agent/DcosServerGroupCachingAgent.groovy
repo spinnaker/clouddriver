@@ -41,6 +41,8 @@ import mesosphere.dcos.client.DCOS
 import mesosphere.marathon.client.model.v2.App
 import mesosphere.marathon.client.model.v2.GetAppNamespaceResponse
 
+import javax.annotation.Nonnull
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 
@@ -158,7 +160,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, OnDemandAgent, DcosCl
   }
 
   @Override
-  boolean handles(final OnDemandAgent.OnDemandType type, final String cloudProvider) {
+  boolean handles(final OnDemandAgent.OnDemandType type, final String cloudProvider, @Nonnull Map<String, String> data) {
     return OnDemandAgent.OnDemandType.ServerGroup == type && cloudProvider == dcosCloudProvider.id
   }
 
@@ -235,7 +237,7 @@ class DcosServerGroupCachingAgent implements CachingAgent, OnDemandAgent, DcosCl
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(final ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(final ProviderCache providerCache, @Nonnull Map<String, String> data) {
     def keys = providerCache.getIdentifiers(Keys.Namespace.ON_DEMAND.ns)
     keys = keys.findResults {
       def parse = Keys.parse(it)

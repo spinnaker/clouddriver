@@ -35,6 +35,8 @@ import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCrede
 import com.netflix.spinnaker.clouddriver.google.batch.GoogleBatchRequest
 import groovy.util.logging.Slf4j
 
+import javax.annotation.Nonnull
+
 @Slf4j
 class GoogleInternalLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerCachingAgent {
 
@@ -61,7 +63,7 @@ class GoogleInternalLoadBalancerCachingAgent extends AbstractGoogleLoadBalancerC
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache, @Nonnull Map<String, String> data) {
     // Just let GoogleNetworkLoadBalancerCachingAgent return the pending regional on demand requests.
     []
   }
