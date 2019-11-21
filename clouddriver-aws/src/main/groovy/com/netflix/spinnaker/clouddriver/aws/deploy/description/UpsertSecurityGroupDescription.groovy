@@ -31,7 +31,7 @@ class UpsertSecurityGroupDescription extends AbstractAmazonCredentialsDescriptio
 
   boolean ingressAppendOnly = false
 
-  Tag tags
+  Map<String, Object> tags
 
   @Override
   Collection<String> getNames() {

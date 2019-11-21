@@ -139,7 +139,7 @@ class SecurityGroupLookupFactory {
           Collection<Tag> tags = new HashSet()
           tags.add(new Tag("Name", description.name))
           description.tags.each {
-            entry -> tags.add(new Tag(entry.key,entry.value))
+            entry -> tags.add(new Tag(entry.key, entry.value))
           }
           createTagRequest.withResources(result.groupId).withTags(tags)
           amazonEC2.createTags(createTagRequest)
