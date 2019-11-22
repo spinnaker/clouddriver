@@ -327,24 +327,6 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     return this.credentials?.client?.basicAuth ?: ""
   }
 
-  @JsonIgnore
-  List<String> getTags(String repository) {
-    def tags = credentials.client.getTags(repository).tags
-    if (sortTagsByDate) {
-      tags = tags.parallelStream().map({
-        tag -> try {
-          [date: credentials.client.getCreationDate(repository, tag), tag: tag]
-        } catch (Exception e) {
-          log.warn("Unable to fetch tag creation date, reason: {} (tag: {}, repository: {})", e.message, tag, repository)
-          return [date: new Date(0), tag: tag]
-        }
-      }).toArray().sort {
-        it.date
-      }.reverse().tag
-    }
-    tags
-  }
-
   String getV2Endpoint() {
     return "$address/v2"
   }
