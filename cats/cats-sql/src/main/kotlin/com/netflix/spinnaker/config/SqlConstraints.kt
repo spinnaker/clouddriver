@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Netflix, Inc.
+ * Copyright 2019 Armory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.spinnaker.clouddriver.saga.flow
 
-import com.netflix.spinnaker.clouddriver.saga.SagaCommand
-import com.netflix.spinnaker.clouddriver.saga.SagaRollbackCommand
-import com.netflix.spinnaker.clouddriver.saga.models.Saga
-import com.netflix.spinnaker.kork.annotations.Beta
+package com.netflix.spinnaker.config
 
-/**
- * A [SagaAction] that has a companion [rollback] method.
- */
-@Beta
-interface CompensatingSagaAction<T : SagaCommand, R : SagaRollbackCommand> : SagaAction<T> {
-  fun rollback(command: R, saga: Saga): SagaAction.Result
+import org.springframework.boot.context.properties.ConfigurationProperties
+
+@ConfigurationProperties("sql.constraints")
+class SqlConstraints {
+  var maxTableNameLength: Int = 64
+  // 352 * 2 + 64 (max rel_type length) == 768; 768 * 4 (utf8mb4) == 3072 == Aurora's max index length
+  var maxIdLength: Int = 352
 }
