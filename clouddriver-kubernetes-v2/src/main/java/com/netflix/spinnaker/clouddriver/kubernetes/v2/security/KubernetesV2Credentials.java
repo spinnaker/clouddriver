@@ -576,6 +576,22 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         () -> jobExecutor.patch(this, kind, namespace, name, options, patches));
   }
 
+  public KubernetesManifest getLastApplied(KubernetesKind kind, String namespace, String name) {
+    return runAndRecordMetrics(
+        "view-last-applied",
+        kind,
+        namespace,
+        () -> jobExecutor.getLastApplied(this, kind, namespace, name));
+  }
+
+  public void setLastApplied(KubernetesManifest manifest) {
+    runAndRecordMetrics(
+        "set-last-applied",
+        manifest.getKind(),
+        manifest.getNamespace(),
+        () -> jobExecutor.setLastApplied(this, manifest));
+  }
+
   private <T> T runAndRecordMetrics(
       String action, KubernetesKind kind, String namespace, Supplier<T> op) {
     return runAndRecordMetrics(action, Collections.singletonList(kind), namespace, op);

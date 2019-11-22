@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.SafeConstructor
@@ -41,6 +42,7 @@ apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
   name: nginx-deployment
+  namespace: nginx-namespace
   labels:
     app: nginx
 spec:
@@ -55,6 +57,78 @@ spec:
     spec:
       containers:
       - name: nginx
+        image: $IMAGE
+        ports:
+        - containerPort: 80
+        envFrom:
+        - secretRef:
+            name: $SECRET_ENV
+        env:
+        - name: KEY
+          valueFrom:
+            configMapKeyRef:
+              name: $CONFIG_MAP_ENV_KEY
+              key: value
+      volumes:
+      - configMap:
+          name: $CONFIG_MAP_VOLUME
+"""
+
+  def DEPLOYMENT_NO_REPLICAS = """
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: nginx-namespace
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: $IMAGE
+        ports:
+        - containerPort: 80
+        envFrom:
+        - secretRef:
+            name: $SECRET_ENV
+        env:
+        - name: KEY
+          valueFrom:
+            configMapKeyRef:
+              name: $CONFIG_MAP_ENV_KEY
+              key: value
+      volumes:
+      - configMap:
+          name: $CONFIG_MAP_VOLUME
+"""
+
+  def DEPLOYMENT_DIFFERENT = """
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: nginx-namespace
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx-2
         image: $IMAGE
         ports:
         - containerPort: 80
@@ -263,5 +337,22 @@ spec:
 
     then:
     result.findAll { a -> a.getReference() == CONFIG_MAP_ENV_KEY && a.getType() == KubernetesArtifactType.ConfigMap.type}.size() == 1
+  }
+
+  void "check that an empty replica count does not change the deployment"() {
+    setup:
+    KubernetesV2Credentials deployer = Mock(KubernetesV2Credentials)
+    KubernetesManifest manifestWithReplicas = stringToManifest(BASIC_DEPLOYMENT)
+    KubernetesManifest manifestWithoutReplicas = stringToManifest(DEPLOYMENT_NO_REPLICAS)
+    KubernetesManifest differentManifestWithoutReplicas = stringToManifest(DEPLOYMENT_DIFFERENT);
+    ((Map)manifestWithoutReplicas.get("spec")).remove("replicas")
+
+    when:
+    handler.deploy(deployer, differentManifestWithoutReplicas)
+
+    then:
+    deployer.getLastApplied("Deployment", "nginx-namespace", "nginx-deployment") >> manifestWithReplicas;
+    deployer.setLastApplied(manifestWithoutReplicas);
+    deployer.deploy()
   }
 }

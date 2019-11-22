@@ -765,6 +765,54 @@ public class KubectlJobExecutor {
     };
   }
 
+  public KubernetesManifest getLastApplied(
+      KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+    KubernetesManifest manifest = get(credentials, kind, namespace, name);
+    if (manifest == null) {
+      return null;
+    }
+    Map<String, String> annotations = manifest.getAnnotations();
+    if (annotations == null) {
+      return null;
+    }
+    String lastApplied = annotations.get("kubectl.kubernetes.io/last-applied-configuration");
+    if (lastApplied == null) {
+      return null;
+    }
+
+    try {
+      return gson.fromJson(lastApplied, KubernetesManifest.class);
+    } catch (JsonSyntaxException e) {
+      throw new KubectlException(
+          "Failed to parse last-applied-configuration: " + e.getMessage(), e);
+    }
+  }
+
+  public Void setLastApplied(KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+    List<String> command = kubectlAuthPrefix(credentials);
+
+    String manifestAsJson = gson.toJson(manifest);
+
+    // Read from stdin
+    command.add("apply");
+    command.add("set-last-applied");
+    command.add("-f");
+    command.add("-");
+
+    String jobId =
+        jobExecutor.startJob(
+            new JobRequest(command),
+            System.getenv(),
+            new ByteArrayInputStream(manifestAsJson.getBytes()));
+
+    JobStatus status = backoffWait(jobId, credentials.isDebug());
+
+    if (status.getResult() != JobStatus.Result.SUCCESS) {
+      throw new KubectlException("Deploy failed: " + status.getStdErr());
+    }
+    return null;
+  }
+
   public static class NoResourceTypeException extends RuntimeException {
     protected NoResourceTypeException(String message) {
       super(message);
