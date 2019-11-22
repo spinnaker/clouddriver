@@ -74,12 +74,12 @@ public class HuaweiCloudCredentialsInitializer implements CredentialsInitializer
             accountCredentialsRepository.save(managedAccount.getName(), account);
           } catch (Exception e) {
             log.error(
-                "Could not load account %s for huaweicloud, error=%s", managedAccount.getName(), e);
+                "Could not load account:{} for huaweicloud, error={}", managedAccount.getName(), e);
           }
         });
 
-    List<String> accountNamesToDeleted = (List<String>) result.get(1);
-    ProviderUtils.unscheduleAndDeregisterAgents(accountNamesToDeleted, null);
+    List<String> accountNamesToDelete = (List<String>) result.get(1);
+    ProviderUtils.unscheduleAndDeregisterAgents(accountNamesToDelete, null);
 
     return (List<HuaweiCloudNamedAccountCredentials>)
         accountCredentialsRepository.getAll().stream()
