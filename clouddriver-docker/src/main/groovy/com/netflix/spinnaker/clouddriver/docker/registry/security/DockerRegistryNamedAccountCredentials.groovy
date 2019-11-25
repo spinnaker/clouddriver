@@ -21,9 +21,11 @@ import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerOkC
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryClient
 import com.netflix.spinnaker.clouddriver.docker.registry.exception.DockerRegistryConfigException
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import retrofit.RetrofitError
 
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 @Slf4j
@@ -332,17 +334,22 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     def tags = credentials.client.getTags(repository).tags
     if (sortTagsByDate) {
       tags = tags.parallelStream().map({
-        tag -> try {
-          [date: credentials.client.getCreationDate(repository, tag), tag: tag]
-        } catch (Exception e) {
-          log.warn("Unable to fetch tag creation date, reason: {} (tag: {}, repository: {})", e.message, tag, repository)
-          return [date: new Date(0), tag: tag]
-        }
+        tag -> [date: getCreationDate(repository, tag), tag: tag]
       }).toArray().sort {
         it.date
       }.reverse().tag
     }
     tags
+  }
+
+  @CompileStatic
+  private Instant getCreationDate(String repository, String tag) {
+    try {
+      return credentials.client.getCreationDate(repository, tag)
+    } catch (Exception e) {
+      log.warn("Unable to fetch tag creation date, reason: {} (tag: {}, repository: {})", e.message, tag, repository)
+      return Instant.EPOCH;
+    }
   }
 
   String getV2Endpoint() {
