@@ -329,15 +329,12 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
     return this.credentials?.client?.basicAuth ?: ""
   }
 
+  @CompileStatic
   @JsonIgnore
   List<String> getTags(String repository) {
     def tags = credentials.client.getTags(repository).tags
     if (sortTagsByDate) {
-      tags = tags.parallelStream().map({
-        tag -> [date: getCreationDate(repository, tag), tag: tag]
-      }).toArray().sort {
-        it.date
-      }.reverse().tag
+      tags = KeyBasedSorter.sort(tags, { String t -> getCreationDate(repository, t)}, Comparator.reverseOrder())
     }
     tags
   }
