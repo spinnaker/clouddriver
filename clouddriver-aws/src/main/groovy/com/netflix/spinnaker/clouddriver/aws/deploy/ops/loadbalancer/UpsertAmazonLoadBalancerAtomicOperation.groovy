@@ -356,7 +356,6 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
             break
           default:
             log.warn("Unknown cookie stickiness policy type {}", cookiePolicy)
-            return
         }
       }
     }
