@@ -284,7 +284,7 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
         continue
       }
 
-      if (listener.externalProtocol != HTTP &&  listener.externalProtocol != HTTPS) {
+      if (listener.externalProtocol != HTTP && listener.externalProtocol != HTTPS) {
         // only applicable to http and https listeners
         continue
       }
