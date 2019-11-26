@@ -45,6 +45,8 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.lambda.cache.Keys;
 import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -362,36 +364,40 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
 
   private List<String> getTargetGroupNames(AWSLambda lambda, String functionName) {
     List<String> targetGroupNames = new ArrayList<>();
+    Predicate<Statement> isAllowStatement =
+        statement -> statement.getEffect().toString().equals(Statement.Effect.Allow.toString());
+    Predicate<Statement> isLambdaInvokeAction =
+        statement ->
+            statement.getActions().stream()
+                .anyMatch(action -> action.getActionName().equals("lambda:InvokeFunction"));
+    Predicate<Statement> isElbPrincipal =
+        statement ->
+            statement.getPrincipals().stream()
+                .anyMatch(
+                    principal -> principal.getId().equals("elasticloadbalancing.amazonaws.com"));
+
     try {
       GetPolicyResult result =
           lambda.getPolicy(new GetPolicyRequest().withFunctionName(functionName));
       String json = result.getPolicy();
       Policy policy = Policy.fromJson(json);
-      for (Statement statement : policy.getStatements()) {
-        if (statement.getEffect().toString().equals(Statement.Effect.Allow.toString())) {
-          for (Action action : statement.getActions()) {
-            if (action.getActionName().equals("lambda:InvokeFunction")) {
-              for (Principal principal : statement.getPrincipals()) {
-                if (principal.getId().equals("elasticloadbalancing.amazonaws.com")) {
-                  for (Condition condition : statement.getConditions()) {
-                    if (condition.getType().equals("ArnLike")
-                        && condition.getConditionKey().equals("AWS:SourceArn")) {
-                      for (String value : condition.getValues()) {
-                        Optional<String> name = ArnUtils.extractTargetGroupName(value);
-                        if (ArnUtils.extractTargetGroupName(value).isPresent())
-                          targetGroupNames.add(name.get());
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+
+      targetGroupNames =
+          policy.getStatements().stream()
+              .filter(isAllowStatement.and(isLambdaInvokeAction).and(isElbPrincipal))
+              .flatMap(statement -> statement.getConditions().stream())
+              .filter(
+                  condition ->
+                      condition.getType().equals("ArnLike")
+                          && condition.getConditionKey().equals("AWS:SourceArn"))
+              .flatMap(condition -> condition.getValues().stream())
+              .filter(value -> ArnUtils.extractTargetGroupName(value).isPresent())
+              .map(name -> ArnUtils.extractTargetGroupName(name).get())
+              .collect(Collectors.toList());
+
     } catch (ResourceNotFoundException ex) {
       // ignore the exception.
-      log.info("No policies are exist for {}", functionName);
+      log.info("No policies exist for {}", functionName);
     }
 
     return targetGroupNames;

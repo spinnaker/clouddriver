@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Set;
 
 public interface FunctionProvider {
@@ -34,5 +35,7 @@ public interface FunctionProvider {
    * @return a collection of functions.
    */
   @Empty
-  Set<? extends Function> getApplicationFunctions(String applicationName);
+  default Set<? extends Function> getApplicationFunctions(String applicationName) {
+    return Collections.emptySet();
+  }
 }
