@@ -8,5 +8,6 @@
     "name": "default-custom1"
   },
   "spec": {
+    "template": "template1"
   }
 }
