@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.EXTENSIONS_V1BETA1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.NETWORKING_K8S_IO_V1;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion.NETWORKING_K8S_IO_V1BETA1;
 
@@ -31,9 +32,13 @@ import com.netflix.spinnaker.clouddriver.model.SecurityGroup;
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupSummary;
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule;
 import io.kubernetes.client.models.V1NetworkPolicy;
+import io.kubernetes.client.models.V1NetworkPolicyEgressRule;
+import io.kubernetes.client.models.V1NetworkPolicyIngressRule;
 import io.kubernetes.client.models.V1NetworkPolicyPort;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -50,7 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KubernetesV2SecurityGroup extends ManifestBasedModel implements SecurityGroup {
   private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =
-      ImmutableSet.of(NETWORKING_K8S_IO_V1BETA1, NETWORKING_K8S_IO_V1);
+      ImmutableSet.of(EXTENSIONS_V1BETA1, NETWORKING_K8S_IO_V1BETA1, NETWORKING_K8S_IO_V1);
 
   private KubernetesManifest manifest;
   private Keys.InfrastructureCacheKey key;
@@ -114,16 +119,26 @@ public class KubernetesV2SecurityGroup extends ManifestBasedModel implements Sec
   }
 
   private static Set<Rule> inboundRules(V1NetworkPolicy policy) {
+    if (policy.getSpec().getIngress() == null) {
+      return Collections.emptySet();
+    }
     return policy.getSpec().getIngress().stream()
-        .map(i -> i.getPorts().stream().map(KubernetesV2SecurityGroup::fromPolicyPort))
-        .flatMap(s -> s)
+        .map(V1NetworkPolicyIngressRule::getPorts)
+        .filter(Objects::nonNull)
+        .flatMap(Collection::stream)
+        .map(KubernetesV2SecurityGroup::fromPolicyPort)
         .collect(Collectors.toSet());
   }
 
   private static Set<Rule> outboundRules(V1NetworkPolicy policy) {
+    if (policy.getSpec().getEgress() == null) {
+      return Collections.emptySet();
+    }
     return policy.getSpec().getEgress().stream()
-        .map(i -> i.getPorts().stream().map(KubernetesV2SecurityGroup::fromPolicyPort))
-        .flatMap(s -> s)
+        .map(V1NetworkPolicyEgressRule::getPorts)
+        .filter(Objects::nonNull)
+        .flatMap(Collection::stream)
+        .map(KubernetesV2SecurityGroup::fromPolicyPort)
         .collect(Collectors.toSet());
   }
 
