@@ -36,4 +36,8 @@ public interface ResourcesNameable {
         .map(name -> Names.parseName(name).getApp())
         .collect(Collectors.toList());
   }
+
+  default boolean requiresAuthorization() {
+    return true;
+  }
 }
