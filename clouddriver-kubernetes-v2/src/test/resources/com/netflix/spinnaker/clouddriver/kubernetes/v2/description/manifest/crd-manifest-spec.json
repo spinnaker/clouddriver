@@ -8,5 +8,9 @@
     "name": "default-custom1"
   },
   "spec": {
+    "template": "template1",
+    "params": {
+      "value": "1"
+    }
   }
 }

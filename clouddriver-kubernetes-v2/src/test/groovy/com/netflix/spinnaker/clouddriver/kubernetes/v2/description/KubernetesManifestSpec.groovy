@@ -165,7 +165,7 @@ class KubernetesManifestSpec extends Specification {
 
   void "correctly handles a crd with custom cases"() {
     when:
-    def sourceJson = KubernetesManifest.class.getResource("crd-manifest.json").getText("utf-8")
+    def sourceJson = KubernetesManifest.class.getResource("crd-manifest-spec.json").getText("utf-8")
     def testPayload =  gsonObj.fromJson(sourceJson, Object)
     KubernetesManifest manifest = objectToManifest(testPayload)
 
