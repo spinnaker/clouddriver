@@ -99,7 +99,7 @@ public class CreateServerGroupAtomicOperation
   protected static final String DOCKER_LABEL_KEY_STACK = "spinnaker.stack";
   protected static final String DOCKER_LABEL_KEY_DETAIL = "spinnaker.detail";
 
-  private final ObjectMapper artifactMapper =
+  protected ObjectMapper mapper =
       new ObjectMapper().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
   @Autowired EcsCloudMetricService ecsCloudMetricService;
@@ -307,7 +307,7 @@ public class CreateServerGroupAtomicOperation
 
     RegisterTaskDefinitionRequest requestTemplate;
     try {
-      requestTemplate = artifactMapper.readValue(artifactFile, RegisterTaskDefinitionRequest.class);
+      requestTemplate = mapper.readValue(artifactFile, RegisterTaskDefinitionRequest.class);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
