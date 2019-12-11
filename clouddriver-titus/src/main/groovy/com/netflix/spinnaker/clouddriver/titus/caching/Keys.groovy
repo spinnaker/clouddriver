@@ -32,7 +32,8 @@ class Keys implements KeyParser {
     CLUSTERS,
     APPLICATIONS,
     HEALTH,
-    ON_DEMAND
+    ON_DEMAND,
+    JOB_IDS
 
     public final String ns
 

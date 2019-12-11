@@ -76,7 +76,8 @@ class TitusCachingProvider implements SearchableProvider, EurekaAwareProvider {
   final Set<String> defaultCaches = [
     Keys.Namespace.CLUSTERS.ns,
     Keys.Namespace.SERVER_GROUPS.ns,
-    Keys.Namespace.INSTANCES.ns
+    Keys.Namespace.INSTANCES.ns,
+    Keys.Namespace.JOB_IDS.ns
   ].asImmutable()
 
   final Map<String, String> urlMappingTemplates = [
@@ -86,6 +87,7 @@ class TitusCachingProvider implements SearchableProvider, EurekaAwareProvider {
 
   final Map<SearchableResource, SearchableProvider.SearchResultHydrator> searchResultHydrators = [
     (new TitusSearchableResource(Keys.Namespace.INSTANCES.ns)): new InstanceSearchResultHydrator(),
+    (new TitusSearchableResource(Keys.Namespace.SERVER_GROUPS.ns)): new TitusJobIdSearchResultHydrator(),
   ]
 
   @Override
@@ -126,6 +128,22 @@ class TitusCachingProvider implements SearchableProvider, EurekaAwareProvider {
       ]
     }
   }
+
+  private static class TitusJobIdSearchResultHydrator implements SearchableProvider.SearchResultHydrator {
+        @Override
+        Map<String, String> hydrateResult(Cache cacheView, Map<String, String> result, String id) {
+            def item = cacheView.get(Keys.Namespace.SERVER_GROUPS.ns,id)
+            if (!item) {
+                return null
+              }
+            def serverGroup = Keys.parse(item.id)
+            return result + [
+                application: serverGroup.application as String,
+                cluster    : serverGroup.cluster as String,
+                serverGroup: serverGroup.serverGroup as String
+                ]
+          }
+      }
 
   private static class TitusSearchableResource extends SearchableResource {
     TitusSearchableResource (String resourceType) {

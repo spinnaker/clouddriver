@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.cache
 
+import java.util.concurrent.ConcurrentHashMap
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import com.netflix.spinnaker.cats.thread.NamedThreadFactory
@@ -33,7 +34,7 @@ import javax.annotation.PostConstruct
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
+import org.springframework.beans.factory.annotation.Value
 
 import static com.netflix.spinnaker.clouddriver.cache.SearchableProvider.SearchableResource
 
@@ -50,16 +51,15 @@ class CatsSearchProvider implements SearchProvider, Runnable {
   private final Map<String, Template> urlMappings
   private final ProviderRegistry providerRegistry
 
-
-
-  private final AtomicReference<Map<String, Collection<String>>> cachedIdentifiersByType = new AtomicReference(
-    [:]
-  )
+  private final ConcurrentHashMap<String, Collection<String>> cachedIdentifiersByType = new ConcurrentHashMap<>()
 
   private final FiatPermissionEvaluator permissionEvaluator
   private final List<KeyParser> keyParsers
 
   private final ScheduledExecutorService scheduledExecutorService
+
+  @Value('${titus.enabled:false}')
+  Boolean titusEnabled
 
   CatsSearchProvider(CatsInMemorySearchProperties catsInMemorySearchProperties,
                      Cache cacheView,
@@ -83,7 +83,12 @@ class CatsSearchProvider implements SearchProvider, Runnable {
     }
     SimpleTemplateEngine tmpl = new SimpleTemplateEngine()
     urlMappings = providers.inject([:]) { Map mappings, SearchableProvider provider ->
-      mappings.putAll(provider.urlMappingTemplates.collectEntries { [(it.key): tmpl.createTemplate(it.value)] })
+      mappings.putAll(provider.urlMappingTemplates.collectEntries {
+        [(it.key): tmpl.createTemplate(it.value)]
+      })
+      mappings.putAll(provider.urlMappingTemplates.collectEntries {
+        [(it.key): tmpl.createTemplate(it.value)]
+      })
       return mappings
     }
 
@@ -128,12 +133,36 @@ class CatsSearchProvider implements SearchProvider, Runnable {
       }.flatten()
 
       if (instanceIdentifiers) {
-        cachedIdentifiersByType.set(["instances": instanceIdentifiers])
+        cachedIdentifiersByType.put("instances", instanceIdentifiers)
       }
 
       log.info("Refreshed Cached Identifiers (found ${instanceIdentifiers.size()} instances)")
     } catch (Exception e) {
       log.error("Unable to refresh cached identifiers (instances)", e)
+    }
+    if (titusEnabled) {
+      try {
+        log.info("Refreshing Cached Identifiers (jobIds)")
+        def jobCache = [:]
+        def instanceIdentifiers = providers.find { provider ->
+          provider.supportsSearch('serverGroups', Collections.emptyMap())
+        }.collect { provider ->
+          def cache = providerRegistry.getProviderCache(provider.getProviderName())
+          def ids = cache.filterIdentifiers("serverGroups", "titus*")
+          ids.collect {
+            def job = cache.get("serverGroups", it)
+            if (job != null) {
+              def jobId = job.attributes["job"]["id"]
+              jobCache.put(jobId, it)
+            }
+          }
+        }
+        cachedIdentifiersByType.put("jobIds", jobCache)
+
+        log.info("Refreshed Cached Identifiers (found ${instanceIdentifiers.size()} jobIds)")
+      } catch (Exception e) {
+        log.error("Unable to refresh cached identifiers (jobIds)", e)
+      }
     }
   }
 
@@ -232,7 +261,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
       Set<String> filterKeys = filters.keySet()
       keyParsers.find {
         KeyParser parser = it
-        String field = filterKeys.find {String field -> parser.canParseField(field) }
+        String field = filterKeys.find { String field -> parser.canParseField(field) }
         if (field) {
           q = filters.get(field)
           return true
@@ -260,7 +289,9 @@ class CatsSearchProvider implements SearchProvider, Runnable {
             return true
           }
 
-          KeyParser parser = keyParsers?.find { it.cloudProvider == filters.cloudProvider && it.canParseType(cache) }
+          KeyParser parser = keyParsers?.find {
+            it.cloudProvider == filters.cloudProvider && it.canParseType(cache)
+          }
           if (parser) {
             Map<String, String> parsed = parser.parseKey(key)
             return filters.entrySet().every { filter ->
@@ -279,7 +310,8 @@ class CatsSearchProvider implements SearchProvider, Runnable {
       }
 
       def identifiers
-      def cached = cachedIdentifiersByType.get()
+      def cached = cachedIdentifiersByType
+      def identifiersForCache
       if (cached.containsKey(cache)) {
         /**
          * Attempt an exact match of the query against any attribute of an instance key (account, region, etc.).
@@ -287,10 +319,14 @@ class CatsSearchProvider implements SearchProvider, Runnable {
          * This is not 100% consistent with doing `*:${cache}:*${normalizedWord}*` in redis _but_ for instances it
          * should be sufficient.
          */
-        def identifiersForCache = cached.get(cache)
-        identifiers = identifiersForCache.findAll { it.contains(normalizedWord) }
+        identifiersForCache = cached.get(cache)
+        if (identifiersForCache instanceof Map) {
+          identifiers = identifiersForCache[normalizedWord]
+        } else identifiers = identifiersForCache.findAll { it.contains(normalizedWord) }
       } else {
-        List<SearchableProvider> validProviders = providers.findAll { it.supportsSearch(cache, filters) }
+        List<SearchableProvider> validProviders = providers.findAll {
+          it.supportsSearch(cache, filters)
+        }
         identifiers = new HashSet<>()
         for (SearchableProvider sp : validProviders) {
           def providerCache = providerRegistry.getProviderCache(sp.getProviderName())
@@ -302,8 +338,10 @@ class CatsSearchProvider implements SearchProvider, Runnable {
         }
       }
 
-      return identifiers
-        .findAll(filtersMatch)
+      if (identifiersForCache instanceof Map) {
+        return identifiers
+      }
+      return identifiers.findAll(filtersMatch)
     }.flatten()
 
     matches.sort { String a, String b ->
