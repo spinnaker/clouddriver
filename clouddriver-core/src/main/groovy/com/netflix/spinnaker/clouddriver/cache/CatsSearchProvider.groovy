@@ -86,9 +86,6 @@ class CatsSearchProvider implements SearchProvider, Runnable {
       mappings.putAll(provider.urlMappingTemplates.collectEntries {
         [(it.key): tmpl.createTemplate(it.value)]
       })
-      mappings.putAll(provider.urlMappingTemplates.collectEntries {
-        [(it.key): tmpl.createTemplate(it.value)]
-      })
       return mappings
     }
 
