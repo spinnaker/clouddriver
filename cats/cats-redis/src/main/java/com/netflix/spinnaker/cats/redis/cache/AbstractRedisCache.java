@@ -234,7 +234,7 @@ public abstract class AbstractRedisCache implements WriteableCache {
     return String.join(":", prefix, type, "members");
   }
 
-  protected TypeReference<?> getRelationshipsTypeReference() {
+  protected TypeReference<? extends Collection<String>> getRelationshipsTypeReference() {
     return options.isTreatRelationshipsAsSet() ? RELATIONSHIPS_SET : RELATIONSHIPS_LIST;
   }
 }
