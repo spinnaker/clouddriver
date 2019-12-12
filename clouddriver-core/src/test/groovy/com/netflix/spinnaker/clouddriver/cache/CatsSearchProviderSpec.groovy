@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.cache
 
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CachingAgent
+import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import spock.lang.Shared
@@ -28,18 +29,27 @@ class CatsSearchProviderSpec extends Specification {
   def cache = Mock(ProviderCache)
 
   def instanceAgent = Stub(CachingAgent) {
-    getProvidedDataTypes() >> [ new AgentDataType("instances", AgentDataType.Authority.AUTHORITATIVE)]
+    getProvidedDataTypes() >> [new AgentDataType("instances", AgentDataType.Authority.AUTHORITATIVE)]
+  }
+
+  def jobIdAgent = Stub(CachingAgent) {
+    getProvidedDataTypes() >> [new AgentDataType("jobIds", AgentDataType.Authority.AUTHORITATIVE)]
   }
 
   def providers = [
     Stub(SearchableProvider) {
       supportsSearch('instances', _) >> true
-      getAgents() >> [ instanceAgent ]
+      getAgents() >> [instanceAgent]
       parseKey(_) >> { String k -> return null }
     },
     Stub(SearchableProvider) {
       supportsSearch('instances', _) >> true
-      getAgents() >> [ instanceAgent ]
+      getAgents() >> [instanceAgent]
+      parseKey(_) >> { String k -> return ["originalKey": k] }
+    },
+    Stub(SearchableProvider) {
+      supportsSearch('serverGroups', _) >> true
+      getAgents() >> [jobIdAgent]
       parseKey(_) >> { String k -> return ["originalKey": k] }
     }
   ]
@@ -60,6 +70,35 @@ class CatsSearchProviderSpec extends Specification {
     "aws:instances:prod:us-west-2:I-7890",
   ]
 
+  @Shared
+  def serverGroupIdentifiers = [
+    "titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v001",
+    "titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v002",
+    "titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v005",
+    "titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v007"
+  ]
+
+  @Shared
+  def jobIdIdentifiers = [
+    "abc-xyz-001: titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v001",
+    "abc-xyz-002: titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v002",
+    "abc-xyz-003: titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v005",
+    "abc-xyz-004: titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v007"
+  ]
+
+  def serverGroupsCache(String id) {
+
+    Map jobIdsToServerGroupIdentifiers = [
+      "titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v001": "abc-xyz-001",
+      "titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v002": "abc-xyz-002",
+      "titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v005": "abc-xyz-003",
+      "titus:serverGroups:V2:abc-test:titustestvpc:us-east-1:abc-test-v007": "abc-xyz-004"
+    ]
+
+    def cacheData = Mock(CacheData)
+    cacheData.attributes >> ["job": ["id": jobIdsToServerGroupIdentifiers.get(id)]]
+    return cacheData
+  }
 
   def "should parse instance identifiers"() {
     given:
@@ -70,7 +109,7 @@ class CatsSearchProviderSpec extends Specification {
     catsSearchProvider.run()
 
     then:
-    catsSearchProvider.cachedIdentifiersByType.get() == [
+    catsSearchProvider.cachedIdentifiersByType == [
       "instances": instanceIdentifiers.collect { it.toLowerCase() }
     ]
   }
@@ -83,7 +122,7 @@ class CatsSearchProviderSpec extends Specification {
     catsSearchProvider.run()
 
     then:
-    catsSearchProvider.cachedIdentifiersByType.get() == [:]
+    catsSearchProvider.cachedIdentifiersByType == [:]
 
     when:
     providers.add(
@@ -93,6 +132,21 @@ class CatsSearchProviderSpec extends Specification {
     )
 
     then:
-    catsSearchProvider.cachedIdentifiersByType.get() == [:]
+    catsSearchProvider.cachedIdentifiersByType == [:]
+  }
+
+  def "should parse jobId identifiers"() {
+    given:
+    catsSearchProvider.titusEnabled = true
+    cache.filterIdentifiers("serverGroups", "titus*") >> { return serverGroupIdentifiers }
+    cache.getIdentifiers("instances") >> { return instanceIdentifiers }
+    cache.get(_, _) >> { args -> return serverGroupsCache(args[1]) }
+    cache.existingIdentifiers("jobIds", _ as Collection<String>) >> { t, i -> return i }
+
+    when:
+    catsSearchProvider.run()
+
+    then:
+    catsSearchProvider.cachedIdentifiersByType.get("jobIds").size() == jobIdIdentifiers.size()
   }
 }

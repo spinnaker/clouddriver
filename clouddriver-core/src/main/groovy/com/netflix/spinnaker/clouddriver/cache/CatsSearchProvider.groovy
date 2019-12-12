@@ -137,6 +137,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
     } catch (Exception e) {
       log.error("Unable to refresh cached identifiers (instances)", e)
     }
+    //Populate jobId cache only when titus is enabled
     if (titusEnabled) {
       try {
         log.info("Refreshing Cached Identifiers (jobIds)")
@@ -145,6 +146,7 @@ class CatsSearchProvider implements SearchProvider, Runnable {
           provider.supportsSearch('serverGroups', Collections.emptyMap())
         }.collect { provider ->
           def cache = providerRegistry.getProviderCache(provider.getProviderName())
+          //Populate job cache based of the ids that are mapped to titus server groups
           def ids = cache.filterIdentifiers("serverGroups", "titus*")
           ids.collect {
             def job = cache.get("serverGroups", it)
