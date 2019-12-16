@@ -73,7 +73,14 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
   def service = new Service(serviceName: "${serviceName}-v008")
 
-  def commonClientInitialization() {
+  def source = new CreateServerGroupDescription.Source()
+
+  def setup() {
+    source.account = "test"
+    source.region = "us-west-1"
+    source.asgName = "${serviceName}-v007"
+    source.useSourceCapacity = true
+
     amazonClientProvider.getAmazonEcs(_, _, _) >> ecs
     amazonClientProvider.getAmazonIdentityManagement(_, _, _) >> iamClient
     amazonClientProvider.getAmazonElasticLoadBalancingV2(_, _, _) >> loadBalancingV2
@@ -84,12 +91,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
   def 'should create a service'() {
     given:
-    def source = new CreateServerGroupDescription.Source()
-    source.account = "test"
-    source.region = "us-west-1"
-    source.asgName = "${serviceName}-v007"
-    source.useSourceCapacity = true
-
     def placementConstraint = new PlacementConstraint(type: 'memberOf', expression: 'attribute:ecs.instance-type =~ t2.*')
 
     def placementStrategy = new PlacementStrategy(type: 'spread', field: 'attribute:ecs.availability-zone')
@@ -122,8 +123,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.iamPolicyReader = iamPolicyReader
     operation.accountCredentialsProvider = accountCredentialsProvider
     operation.containerInformationService = containerInformationService
-
-    commonClientInitialization()
 
     when:
     def result = operation.operate([])
@@ -242,8 +241,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.containerInformationService = containerInformationService
     operation.subnetSelector = subnetSelector
     operation.securityGroupSelector = securityGroupSelector
-
-    commonClientInitialization()
 
     subnetSelector.resolveSubnetsIds(_, _, _) >> ['subnet-12345']
     subnetSelector.getSubnetVpcIds(_, _, _) >> ['vpc-123']
@@ -726,12 +723,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
   def 'create a service with the same TargetGroupMappings and deprecated target group properties'() {
     given:
-    def source = new CreateServerGroupDescription.Source()
-    source.account = "test"
-    source.region = "us-west-1"
-    source.asgName = "${serviceName}-v007"
-    source.useSourceCapacity = true
-
     def targetGroupProperty = new CreateServerGroupDescription.TargetGroupProperties(
       containerPort: 1337,
       containerName: 'v008',
@@ -771,8 +762,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.iamPolicyReader = iamPolicyReader
     operation.accountCredentialsProvider = accountCredentialsProvider
     operation.containerInformationService = containerInformationService
-
-    commonClientInitialization()
 
     when:
     def result = operation.operate([])
@@ -853,12 +842,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
   def 'create a service with different TargetGroupMappings and deprecated target group properties'() {
     given:
-    def source = new CreateServerGroupDescription.Source()
-    source.account = "test"
-    source.region = "us-west-1"
-    source.asgName = "${serviceName}-v007"
-    source.useSourceCapacity = true
-
     def targetGroupProperty = new CreateServerGroupDescription.TargetGroupProperties(
       containerPort: 80,
       containerName: 'v009',
@@ -898,8 +881,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.iamPolicyReader = iamPolicyReader
     operation.accountCredentialsProvider = accountCredentialsProvider
     operation.containerInformationService = containerInformationService
-
-    commonClientInitialization()
 
     when:
     def result = operation.operate([])
@@ -983,12 +964,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
   def 'create a service with TargetGroupMappings'() {
     given:
-    def source = new CreateServerGroupDescription.Source()
-    source.account = "test"
-    source.region = "us-west-1"
-    source.asgName = "${serviceName}-v007"
-    source.useSourceCapacity = true
-
     def targetGroupProperty = new CreateServerGroupDescription.TargetGroupProperties(
       containerPort: 80,
       containerName: 'v009',
@@ -1026,8 +1001,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.iamPolicyReader = iamPolicyReader
     operation.accountCredentialsProvider = accountCredentialsProvider
     operation.containerInformationService = containerInformationService
-
-    commonClientInitialization()
 
     when:
     def result = operation.operate([])
@@ -1108,12 +1081,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
   def 'create a service with multiple TargetGroupMappings'() {
     given:
-    def source = new CreateServerGroupDescription.Source()
-    source.account = "test"
-    source.region = "us-west-1"
-    source.asgName = "${serviceName}-v007"
-    source.useSourceCapacity = true
-
     def originalTargetGroupProperty = new CreateServerGroupDescription.TargetGroupProperties(
       containerPort: 80,
       containerName: 'v009',
@@ -1157,8 +1124,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.iamPolicyReader = iamPolicyReader
     operation.accountCredentialsProvider = accountCredentialsProvider
     operation.containerInformationService = containerInformationService
-
-    commonClientInitialization()
 
     when:
     def result = operation.operate([])
