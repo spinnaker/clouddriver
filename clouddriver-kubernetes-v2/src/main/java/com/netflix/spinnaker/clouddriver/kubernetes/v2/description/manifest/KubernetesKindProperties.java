@@ -44,6 +44,7 @@ public class KubernetesKindProperties {
         new KubernetesKindProperties(KubernetesKind.HORIZONTAL_POD_AUTOSCALER, true, false),
         new KubernetesKindProperties(KubernetesKind.INGRESS, true, true),
         new KubernetesKindProperties(KubernetesKind.JOB, true, false),
+        new KubernetesKindProperties(KubernetesKind.LIMIT_RANGE, true, false),
         new KubernetesKindProperties(KubernetesKind.MUTATING_WEBHOOK_CONFIGURATION, false, false),
         new KubernetesKindProperties(KubernetesKind.NAMESPACE, false, false),
         new KubernetesKindProperties(KubernetesKind.NETWORK_POLICY, true, true),
@@ -98,5 +99,14 @@ public class KubernetesKindProperties {
 
   public boolean hasClusterRelationship() {
     return this.hasClusterRelationship;
+  }
+
+  public ResourceScope getResourceScope() {
+    return isNamespaced ? ResourceScope.NAMESPACE : ResourceScope.CLUSTER;
+  }
+
+  public enum ResourceScope {
+    CLUSTER,
+    NAMESPACE;
   }
 }
