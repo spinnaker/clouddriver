@@ -93,6 +93,7 @@ class SqlEventRepository(
               // In the event that two requests are made at the same time to create a new aggregate (via two diff
               // clouddriver instances), catch the exception and bubble it up as a duplicate exception so that it
               // may be processed in an idempotent way, rather than causing an error.
+              //
               // This is preferential to going back to the database to load the existing aggregate record, since we
               // already know the aggregate version will not match the originating version expected from this process
               // and would fail just below anyway.
