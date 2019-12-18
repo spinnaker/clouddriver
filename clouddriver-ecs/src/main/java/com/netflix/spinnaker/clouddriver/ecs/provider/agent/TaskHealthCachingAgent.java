@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -274,7 +275,9 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
         continue;
       }
 
-      if (!isHostPortPresent(task.getContainers(), loadBalancer.getContainerPort())) {
+      Optional<Integer> hostPort =
+          getHostPort(task.getContainers(), loadBalancer.getContainerPort());
+      if (!hostPort.isPresent()) {
         log.debug(
             "Container does not contain a port mapping with load balanced container port: {}.",
             loadBalancer.getContainerPort());
@@ -289,7 +292,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
               serviceName,
               loadBalancer.getTargetGroupArn(),
               containerInstance.getEc2InstanceId(),
-              loadBalancer.getContainerPort(),
+              hostPort.get(),
               overallTaskHealth);
     }
 
@@ -331,19 +334,19 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
     return overallTaskHealth;
   }
 
-  private boolean isHostPortPresent(List<Container> containers, Integer hostPort) {
+  private Optional<Integer> getHostPort(List<Container> containers, Integer hostPort) {
     if (containers != null && !containers.isEmpty()) {
       for (Container container : containers) {
         for (NetworkBinding networkBinding : container.getNetworkBindings()) {
-          if (networkBinding.getHostPort().intValue() == hostPort.intValue()) {
+          if (networkBinding.getContainerPort().intValue() == hostPort.intValue()) {
             log.debug("Load balanced hostPort: {} found for container.", hostPort);
-            return true;
+            return Optional.of(networkBinding.getHostPort());
           }
         }
       }
     }
 
-    return false;
+    return Optional.empty();
   }
 
   private boolean isContainerPortPresent(

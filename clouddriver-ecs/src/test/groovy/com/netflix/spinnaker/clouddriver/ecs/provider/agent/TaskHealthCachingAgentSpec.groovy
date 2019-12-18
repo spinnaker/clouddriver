@@ -91,7 +91,7 @@ class TaskHealthCachingAgentSpec extends Specification {
   def 'should get a list of task health'() {
     given:
     ObjectMapper mapper = new ObjectMapper()
-    Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(new NetworkBinding().withHostPort(1338)), Map.class)
+    Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(new NetworkBinding().withContainerPort(1338).withHostPort(1338)), Map.class)
     def taskAttributes = [
       taskId               : CommonCachingAgent.TASK_ID_1,
       taskArn              : CommonCachingAgent.TASK_ARN_1,
@@ -142,7 +142,11 @@ class TaskHealthCachingAgentSpec extends Specification {
   def 'should get a list of task health with host port mapping of 0'() {
     given:
     ObjectMapper mapper = new ObjectMapper()
-    Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(new NetworkBinding().withHostPort(1338)), Map.class)
+    Map<String, Object> containerMap = mapper.convertValue(
+      new Container().withNetworkBindings(
+        new NetworkBinding()
+          .withContainerPort(1338)
+          .withHostPort(1338)), Map.class)
     def taskAttributes = [
       taskId               : CommonCachingAgent.TASK_ID_1,
       taskArn              : CommonCachingAgent.TASK_ARN_1,
@@ -194,8 +198,8 @@ class TaskHealthCachingAgentSpec extends Specification {
     given:
     ObjectMapper mapper = new ObjectMapper()
     Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(
-      new NetworkBinding().withHostPort(1337),
-      new NetworkBinding().withHostPort(1338)
+      new NetworkBinding().withContainerPort(1337).withHostPort(1337),
+      new NetworkBinding().withContainerPort(1338).withHostPort(1338)
     ), Map.class)
     def taskAttributes = [
       taskId              : CommonCachingAgent.TASK_ID_1,
@@ -247,7 +251,7 @@ class TaskHealthCachingAgentSpec extends Specification {
   def 'should skip tasks with a non-cached container instance'() {
     given:
     ObjectMapper mapper = new ObjectMapper()
-    Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(new NetworkBinding().withHostPort(1337)), Map.class)
+    Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(new NetworkBinding().withContainerPort(1337).withHostPort(1337)), Map.class)
     def taskAttributes = [
       taskId              : CommonCachingAgent.TASK_ID_1,
       taskArn             : CommonCachingAgent.TASK_ARN_1,
