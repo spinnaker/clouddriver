@@ -15,8 +15,8 @@
  */
 
 apply from: "$rootDir/gradle/kotlin.gradle"
+apply from: "$rootDir/gradle/kotlin-test.gradle"
 apply plugin: "groovy"
-
 
 tasks.compileGroovy.enabled = false
 
@@ -26,10 +26,6 @@ dependencies {
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-security")
   implementation project(":clouddriver-sql")
-
-  compileOnly "org.projectlombok:lombok"
-  annotationProcessor "org.projectlombok:lombok"
-  testAnnotationProcessor "org.projectlombok:lombok"
 
   implementation "com.fasterxml.jackson.core:jackson-databind"
   implementation "com.netflix.spectator:spectator-api"

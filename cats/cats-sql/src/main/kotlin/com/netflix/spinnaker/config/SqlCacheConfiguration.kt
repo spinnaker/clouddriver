@@ -11,11 +11,14 @@ import com.netflix.spinnaker.cats.cluster.DefaultNodeStatusProvider
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.Provider
+import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import com.netflix.spinnaker.cats.sql.SqlProviderRegistry
 import com.netflix.spinnaker.cats.sql.cache.SpectatorSqlCacheMetrics
+import com.netflix.spinnaker.cats.sql.cache.SqlUnknownAgentCleanupAgent
 import com.netflix.spinnaker.cats.sql.cache.SqlCacheMetrics
 import com.netflix.spinnaker.cats.sql.cache.SqlCleanupStaleOnDemandCachesAgent
 import com.netflix.spinnaker.cats.sql.cache.SqlNamedCacheFactory
+import com.netflix.spinnaker.cats.sql.cache.SqlNames
 import com.netflix.spinnaker.cats.sql.cache.SqlTableMetricsAgent
 import com.netflix.spinnaker.clouddriver.cache.CustomSchedulableAgentIntervalProvider
 import com.netflix.spinnaker.clouddriver.cache.EurekaStatusNodeStatusProvider
@@ -28,6 +31,7 @@ import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.slf4j.MDCContext
 import org.jooq.DSLContext
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -37,7 +41,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
-import java.lang.IllegalArgumentException
 import java.time.Clock
 import java.time.Duration
 import java.util.Optional
@@ -162,12 +165,31 @@ class SqlCacheConfiguration {
     SqlCleanupStaleOnDemandCachesAgent(applicationContext, registry, clock)
 
   @Bean
+  @ConditionalOnExpression("!\${sql.read-only:false} && \${sql.unknown-agent-cleanup-agent.enabled:false}")
+  fun sqlUnknownAgentCleanupAgent(
+    providerRegistry: ObjectProvider<ProviderRegistry>,
+    jooq: DSLContext,
+    registry: Registry,
+    sqlConstraints: SqlConstraints,
+    @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?
+  ): SqlUnknownAgentCleanupAgent =
+    SqlUnknownAgentCleanupAgent(providerRegistry, jooq, registry, SqlNames(tableNamespace, sqlConstraints))
+
+  @Bean
   @ConditionalOnExpression("\${sql.read-only:false} == false")
   fun sqlAgentProvider(
     sqlTableMetricsAgent: SqlTableMetricsAgent,
-    sqlCleanupStaleOnDemandCachesAgent: SqlCleanupStaleOnDemandCachesAgent
+    sqlCleanupStaleOnDemandCachesAgent: SqlCleanupStaleOnDemandCachesAgent,
+    sqlUnknownAgentCleanupAgent: Optional<SqlUnknownAgentCleanupAgent>
   ): SqlProvider =
-    SqlProvider(mutableListOf(sqlTableMetricsAgent, sqlCleanupStaleOnDemandCachesAgent))
+    SqlProvider(
+      mutableListOf(sqlTableMetricsAgent, sqlCleanupStaleOnDemandCachesAgent)
+        .apply {
+          sqlUnknownAgentCleanupAgent.ifPresent {
+            add(it)
+          }
+        }
+    )
 
   @Bean
   fun nodeStatusProvider(eurekaClient: Optional<EurekaClient>): NodeStatusProvider {
