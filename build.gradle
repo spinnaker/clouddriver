@@ -57,6 +57,12 @@ allprojects {
     apply plugin: 'nebula.kotlin'
     apply plugin: "kotlin-allopen"
 
+    def lombokConf = "$rootProject.projectDir/lombok.config"
+    compileGroovy.inputs.file(lombokConf)
+    compileTestGroovy.inputs.file(lombokConf)
+    compileJava.inputs.file(lombokConf)
+    compileTestJava.inputs.file(lombokConf)
+
     sourceSets.main.java.srcDirs = []
     sourceSets.main.groovy.srcDirs += ["src/main/java"]
 
