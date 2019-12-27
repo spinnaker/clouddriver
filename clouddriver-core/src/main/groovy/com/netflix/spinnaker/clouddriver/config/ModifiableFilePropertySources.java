@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.config;
 
+import com.netflix.spinnaker.kork.annotations.Alpha;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
@@ -45,6 +46,7 @@ import org.springframework.core.io.FileSystemResource;
  * scope will be refreshed, and the application notified.
  */
 @Slf4j
+@Alpha
 public class ModifiableFilePropertySources
     implements BeanPostProcessor, Ordered, Runnable, ApplicationListener<ApplicationReadyEvent> {
   private final List<DynamicFilePropertySource> dynamicFilePropertySources;
