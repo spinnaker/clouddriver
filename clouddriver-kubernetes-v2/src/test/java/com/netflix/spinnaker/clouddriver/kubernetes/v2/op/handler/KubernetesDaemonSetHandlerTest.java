@@ -105,7 +105,6 @@ final class KubernetesDaemonSetHandlerTest {
                 .build());
     Status status = daemonSetHandler.status(manifest);
 
-    // TODO(ezimanyi): This is incorrect! Should be stable in this case.
-    assertThat(status.getStable().isState()).isFalse();
+    assertThat(status.getStable().isState()).isTrue();
   }
 }

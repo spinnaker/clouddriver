@@ -374,7 +374,6 @@ class KubernetesStatefulSetHandlerSpec extends Specification {
     def status = handler.status(manifest)
 
     then:
-    //TODO(ezimanyi): This is incorrect! Should be stable in this case.
-    !status.stable.state
+    status.stable.state
   }
 }
