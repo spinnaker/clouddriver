@@ -29,9 +29,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
-import io.kubernetes.client.models.V1Container;
-import io.kubernetes.client.models.V1ObjectMeta;
-import io.kubernetes.client.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1Container;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import io.kubernetes.client.openapi.models.V1Pod;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -119,7 +119,8 @@ public class KubernetesV2InstanceProvider
   @Nonnull
   private List<ContainerLog> getPodLogs(
       @Nonnull KubernetesV2Credentials credentials, @Nonnull V1Pod pod) {
-    List<V1Container> initContainers = pod.getSpec().getInitContainers();
+    List<V1Container> initContainers =
+        Optional.ofNullable(pod.getSpec().getInitContainers()).orElse(Collections.emptyList());
     List<V1Container> containers = pod.getSpec().getContainers();
 
     return Stream.concat(initContainers.stream(), containers.stream())
