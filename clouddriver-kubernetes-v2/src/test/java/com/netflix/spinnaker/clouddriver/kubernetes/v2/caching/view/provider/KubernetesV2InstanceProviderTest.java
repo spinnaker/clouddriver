@@ -128,6 +128,21 @@ final class KubernetesV2InstanceProviderTest {
   }
 
   @Test
+  void getConsoleOutputNoInitContainer() {
+    final KubernetesManifest manifest = getKubernetesManifestWithOutInitContainers();
+
+    when(credentials.get(KubernetesKind.POD, NAMESPACE, POD_NAME)).thenReturn(manifest);
+    when(credentials.logs(anyString(), anyString(), anyString())).thenReturn(LOG_OUTPUT);
+
+    final List<ContainerLog> logs = provider.getConsoleOutput(ACCOUNT, NAMESPACE, POD_FULL_NAME);
+
+    assertThat(logs).isNotEmpty();
+    assertThat(logs).hasSize(1);
+    assertThat(logs.get(0).getName()).isEqualTo(CONTAINER);
+    assertThat(logs.get(0).getOutput()).isEqualTo(LOG_OUTPUT);
+  }
+
+  @Test
   void getConsoleOutputKubectlException() {
     final KubernetesManifest manifest = getKubernetesManifest();
     when(credentials.get(KubernetesKind.POD, NAMESPACE, POD_NAME)).thenReturn(manifest);
@@ -144,7 +159,7 @@ final class KubernetesV2InstanceProviderTest {
     assertThat(logs.get(1).getOutput()).isEqualTo(LOG_OUTPUT);
   }
 
-  private KubernetesManifest getKubernetesManifest() {
+  private V1Pod getPod() {
     final V1Pod pod = new V1Pod();
     final V1PodSpec podSpec = new V1PodSpec();
     final V1ObjectMeta metadata = new V1ObjectMeta();
@@ -160,6 +175,17 @@ final class KubernetesV2InstanceProviderTest {
     podSpec.setContainers(Lists.newArrayList(container));
     podSpec.setInitContainers(Lists.newArrayList(initContainer));
 
+    return pod;
+  }
+
+  private KubernetesManifest getKubernetesManifest() {
+    final V1Pod pod = getPod();
+    return json.deserialize(json.serialize(pod), KubernetesManifest.class);
+  }
+
+  private KubernetesManifest getKubernetesManifestWithOutInitContainers() {
+    final V1Pod pod = getPod();
+    pod.getSpec().setInitContainers(null);
     return json.deserialize(json.serialize(pod), KubernetesManifest.class);
   }
 
