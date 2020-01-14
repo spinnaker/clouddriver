@@ -1,19 +1,21 @@
 package com.netflix.spinnaker.clouddriver.tencent.provider.view;
 
+import static com.netflix.spinnaker.clouddriver.tencent.cache.Keys.Namespace.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.model.KeyPairProvider;
 import com.netflix.spinnaker.clouddriver.tencent.cache.Keys;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentKeyPair;
-import groovy.lang.Closure;
-import groovy.util.logging.Slf4j;
 import java.util.Set;
-import org.codehaus.groovy.runtime.DefaultGroovyMethods;
+import java.util.stream.Collectors;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+@Data
 @Slf4j
 @Component
 public class TencentKeyPairProvider implements KeyPairProvider<TencentKeyPair> {
@@ -24,20 +26,18 @@ public class TencentKeyPairProvider implements KeyPairProvider<TencentKeyPair> {
 
   @Override
   public Set<TencentKeyPair> getAll() {
-    return DefaultGroovyMethods.collect(
-        cacheView.getAll(
+    return cacheView
+        .getAll(
             KEY_PAIRS.ns,
             cacheView.filterIdentifiers(KEY_PAIRS.ns, Keys.getKeyPairKey("*", "*", "*")),
-            RelationshipCacheFilter.none()),
-        new Closure<TencentKeyPair>(this, this) {
-          public TencentKeyPair doCall(CacheData it) {
-            return objectMapper.convertValue(it.getAttributes().keyPair, TencentKeyPair.class);
-          }
-
-          public TencentKeyPair doCall() {
-            return doCall(null);
-          }
-        });
+            RelationshipCacheFilter.none())
+        .stream()
+        .map(
+            it -> {
+              return objectMapper.convertValue(
+                  it.getAttributes().get("keyPair"), TencentKeyPair.class);
+            })
+        .collect(Collectors.toSet());
   }
 
   public Cache getCacheView() {

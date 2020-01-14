@@ -30,15 +30,18 @@ import com.netflix.spinnaker.clouddriver.tencent.security.TencentNamedAccountCre
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
 import com.tencentcloudapi.as.v20180419.models.*;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 @Slf4j
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
     implements OnDemandAgent {
   public TencentServerGroupCachingAgent(
@@ -271,7 +274,7 @@ public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
               .readValue(
                   (String) onDemandServerGroupCache.getAttributes().get("cacheResults"),
                   new TypeReference<Map<String, List<MutableCacheData>>>() {});
-    } catch (JsonProcessingException e) {
+    } catch (IOException e) {
       log.error("mergeOnDemandCache error", e);
       e.printStackTrace();
       return null;

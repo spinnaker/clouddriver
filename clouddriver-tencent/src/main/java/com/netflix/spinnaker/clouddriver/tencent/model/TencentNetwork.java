@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 @Builder
 public class TencentNetwork implements Network {
-  private String cloudProvider = TencentCloudProvider.ID;
+  @Builder.Default private String cloudProvider = TencentCloudProvider.ID;
   private String id;
   private String name;
   private String account;

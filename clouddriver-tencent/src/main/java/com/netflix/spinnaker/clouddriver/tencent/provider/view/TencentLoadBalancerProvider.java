@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.clouddriver.tencent.provider.view;
 
+import static com.netflix.spinnaker.clouddriver.tencent.cache.Keys.Namespace.*;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
@@ -12,24 +14,23 @@ import com.netflix.spinnaker.clouddriver.tencent.TencentCloudProvider;
 import com.netflix.spinnaker.clouddriver.tencent.cache.Keys;
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancer;
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerListener;
-import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerRule;
-import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerTarget;
 import com.netflix.spinnaker.clouddriver.tencent.provider.TencentInfrastructureProvider;
-import groovy.lang.Closure;
-import groovy.util.logging.Slf4j;
-import org.codehaus.groovy.runtime.DefaultGroovyMethods;
-import org.codehaus.groovy.runtime.MethodClosure;
-import org.codehaus.groovy.runtime.StringGroovyMethods;
+import java.util.*;
+import java.util.stream.Collectors;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.*;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 @Slf4j
+@Data
 @Component
 public class TencentLoadBalancerProvider implements LoadBalancerProvider<TencentLoadBalancer> {
   @Autowired
-  public TencentLoadBalancerProvider(Cache cacheView, TencentInfrastructureProvider tProvider, ObjectMapper objectMapper) {
+  public TencentLoadBalancerProvider(
+      Cache cacheView, TencentInfrastructureProvider tProvider, ObjectMapper objectMapper) {
     this.cacheView = cacheView;
     this.tencentProvider = tProvider;
     this.objectMapper = objectMapper;
@@ -39,20 +40,23 @@ public class TencentLoadBalancerProvider implements LoadBalancerProvider<Tencent
   public Set<TencentLoadBalancer> getApplicationLoadBalancers(String applicationName) {
     log.info("Enter tencent getApplicationLoadBalancers " + applicationName);
 
-    CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName), RelationshipCacheFilter.include(LOAD_BALANCERS.ns));
+    CacheData application =
+        cacheView.get(
+            APPLICATIONS.ns,
+            Keys.getApplicationKey(applicationName),
+            RelationshipCacheFilter.include(LOAD_BALANCERS.ns));
 
-    if (DefaultGroovyMethods.asBoolean(application)) {
+    if (application != null) {
       Collection<String> loadBalancerKeys = application.getRelationships().get(LOAD_BALANCERS.ns);
-      if (DefaultGroovyMethods.asBoolean(loadBalancerKeys)) {
+      if (!CollectionUtils.isEmpty(loadBalancerKeys)) {
         Collection<CacheData> loadBalancers = cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeys);
-        Set<TencentLoadBalancer> loadBalancerSet = translateLoadBalancersFromCacheData(loadBalancers);
-        return ((Set<TencentLoadBalancer>) (loadBalancerSet));
+        Set<TencentLoadBalancer> loadBalancerSet =
+            translateLoadBalancersFromCacheData(loadBalancers);
+        return loadBalancerSet;
       }
-
     } else {
       return null;
     }
-
     return null;
   }
 
@@ -67,138 +71,144 @@ public class TencentLoadBalancerProvider implements LoadBalancerProvider<Tencent
 
   public Set<TencentLoadBalancer> loadResults(Collection<String> identifiers) {
     log.info("Enter loadResults id = " + identifiers);
-    Collection<CacheData> data = cacheView.getAll(Keys.Namespace.LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none());
-    List<TencentLoadBalancer> transformed = DefaultGroovyMethods.collect(data, (Closure<TencentLoadBalancer>) new MethodClosure(this, "fromCacheData"));
-    return ((Set<TencentLoadBalancer>) (transformed));
+    Collection<CacheData> data =
+        cacheView.getAll(
+            Keys.Namespace.LOAD_BALANCERS.ns, identifiers, RelationshipCacheFilter.none());
+    Set<TencentLoadBalancer> transformed =
+        data.stream().map(it -> this.fromCacheData(it)).collect(Collectors.toSet());
+    return transformed;
   }
 
-  private Set<LoadBalancerInstance> getLoadBalancerInstanceByListenerId(TencentLoadBalancer loadBalancer, final String listenerId) {
-    TencentLoadBalancerListener listener = DefaultGroovyMethods.find(loadBalancer.getListeners(), new Closure<Boolean>(this, this) {
-      public Boolean doCall(TencentLoadBalancerListener it) {
-        return it.getListenerId().equals(listenerId);
-      }
-
-      public Boolean doCall() {
-        return doCall(null);
-      }
-
-    });
+  private Set<LoadBalancerInstance> getLoadBalancerInstanceByListenerId(
+      TencentLoadBalancer loadBalancer, final String listenerId) {
+    TencentLoadBalancerListener listener =
+        loadBalancer.getListeners().stream()
+            .filter(
+                it -> {
+                  return it.getListenerId().equals(listenerId);
+                })
+            .findFirst()
+            .orElse(null);
 
     final Set<LoadBalancerInstance> instances = (Set<LoadBalancerInstance>) new ArrayList();
-    if (DefaultGroovyMethods.asBoolean(listener)) {
-      DefaultGroovyMethods.each(listener.getTargets(), new Closure<Boolean>(this, this) {
-        public Boolean doCall(TencentLoadBalancerTarget it) {
-          LoadBalancerInstance instance1 = new LoadBalancerInstance();
-
-          LoadBalancerInstance instance = instance1.setId(it.getInstanceId());
-          return instances.add(instance);
-        }
-
-        public Boolean doCall() {
-          return doCall(null);
-        }
-
-      });
-      DefaultGroovyMethods.each(listener.getRules(), new Closure<List<TencentLoadBalancerTarget>>(this, this) {
-        public List<TencentLoadBalancerTarget> doCall(Object rule) {
-          return DefaultGroovyMethods.each(((TencentLoadBalancerRule) rule).getTargets(), new Closure<Boolean>(TencentLoadBalancerProvider.this, TencentLoadBalancerProvider.this) {
-            public Boolean doCall(TencentLoadBalancerTarget it) {
-              LoadBalancerInstance instance1 = new LoadBalancerInstance();
-
-              LoadBalancerInstance instance = instance1.setId(it.getInstanceId());
-              return instances.add(instance);
-            }
-
-            public Boolean doCall() {
-              return doCall(null);
-            }
-
-          });
-        }
-
-      });
+    if (listener != null) {
+      listener
+          .getTargets()
+          .forEach(
+              it -> {
+                LoadBalancerInstance instance = new LoadBalancerInstance();
+                instance.setId(it.getInstanceId());
+                instances.add(instance);
+              });
+      listener
+          .getRules()
+          .forEach(
+              rule -> {
+                rule.getTargets()
+                    .forEach(
+                        target -> {
+                          LoadBalancerInstance instance = new LoadBalancerInstance();
+                          instance.setId(target.getInstanceId());
+                          instances.add(instance);
+                        });
+              });
     }
-
     return instances;
   }
 
-  private LoadBalancerServerGroup getLoadBalancerServerGroup(CacheData loadBalancerCache, final TencentLoadBalancer loadBalancerDesc) {
+  private LoadBalancerServerGroup getLoadBalancerServerGroup(
+      CacheData loadBalancerCache, final TencentLoadBalancer loadBalancerDesc) {
     Collection<String> serverGroupKeys = loadBalancerCache.getRelationships().get(SERVER_GROUPS.ns);
-    if (DefaultGroovyMethods.asBoolean(serverGroupKeys)) {
-      final String serverGroupKey = DefaultGroovyMethods.getAt(serverGroupKeys, 0);
-      if (StringGroovyMethods.asBoolean(serverGroupKey)) {
-        log.info("loadBalancer " + loadBalancerDesc.getLoadBalancerId() + " bind serverGroup " + serverGroupKey);
+    if (!CollectionUtils.isEmpty(serverGroupKeys)) {
+      final String serverGroupKey = serverGroupKeys.iterator().next();
+      if (StringUtils.isEmpty(serverGroupKey)) {
+        log.info(
+            "loadBalancer "
+                + loadBalancerDesc.getLoadBalancerId()
+                + " bind serverGroup "
+                + serverGroupKey);
         Map<String, String> parts = Keys.parse(serverGroupKey);
-        LoadBalancerServerGroup group = new LoadBalancerServerGroup();
-
-
-        LoadBalancerServerGroup lbServerGroup = group.setName(parts.name) group.setAccount(parts.account)
-        group.setRegion(parts.region);
+        LoadBalancerServerGroup lbServerGroup = new LoadBalancerServerGroup();
+        lbServerGroup.setName(parts.get("name"));
+        lbServerGroup.setAccount(parts.get("account"));
+        lbServerGroup.setRegion(parts.get("region"));
         CacheData serverGroup = cacheView.get(SERVER_GROUPS.ns, serverGroupKey);
-        if (DefaultGroovyMethods.asBoolean(serverGroup)) {
-          final Map<String, Object> attributes = (serverGroup == null ? null : serverGroup.getAttributes());
-          Map asgInfo = DefaultGroovyMethods.asType((attributes == null ? null : attributes.asg), Map.class);
-          List lbInfo = DefaultGroovyMethods.asType(asgInfo.get("forwardLoadBalancerSet"), List.class);
-          if (DefaultGroovyMethods.asBoolean(lbInfo)) {
-            //def lbId = lbInfo[0]["loadBalancerId"] as String
-            final String listenerId = DefaultGroovyMethods.asType(DefaultGroovyMethods.getAt(lbInfo.get(0), "listenerId"), String.class);
-            log.info("loadBalancer " + loadBalancerDesc.getLoadBalancerId() + " listener " + listenerId + " bind serverGroup " + serverGroupKey);
-            if (StringGroovyMethods.size(listenerId) > 0) {
-              lbServerGroup.setInstances(getLoadBalancerInstanceByListenerId(loadBalancerDesc, listenerId));
+        if (serverGroup != null) {
+          final Map<String, Object> attributes =
+              (serverGroup == null ? null : serverGroup.getAttributes());
+          Map asgInfo = attributes == null ? null : (Map) attributes.get("asg");
+          List<Map<String, Object>> lbInfos =
+              (List<Map<String, Object>>) asgInfo.get("forwardLoadBalancerSet");
+          if (!CollectionUtils.isEmpty(lbInfos)) {
+            Map<String, Object> lbInfo = lbInfos.get(0);
+            // def lbId = lbInfo[0]["loadBalancerId"] as String
+            final String listenerId = (String) lbInfo.get("listenerId");
+            log.info(
+                "loadBalancer "
+                    + loadBalancerDesc.getLoadBalancerId()
+                    + " listener "
+                    + listenerId
+                    + " bind serverGroup "
+                    + serverGroupKey);
+            if (!StringUtils.isEmpty(listenerId)) {
+              lbServerGroup.setInstances(
+                  getLoadBalancerInstanceByListenerId(loadBalancerDesc, listenerId));
             }
-
           }
-
         }
-
-        return ((LoadBalancerServerGroup) (lbServerGroup));
+        return lbServerGroup;
       }
-
     }
-
     return null;
   }
 
   public TencentLoadBalancer fromCacheData(CacheData cacheData) {
-    //log.info("Enter formCacheDate data = $cacheData.attributes")
-    TencentLoadBalancer loadBalancerDescription = objectMapper.convertValue(cacheData.getAttributes(), TencentLoadBalancer.class);
-    LoadBalancerServerGroup serverGroup = getLoadBalancerServerGroup(cacheData, loadBalancerDescription);
-    if (DefaultGroovyMethods.asBoolean(serverGroup)) {
+    // log.info("Enter formCacheDate data = $cacheData.attributes")
+    TencentLoadBalancer loadBalancerDescription =
+        objectMapper.convertValue(cacheData.getAttributes(), TencentLoadBalancer.class);
+    LoadBalancerServerGroup serverGroup =
+        getLoadBalancerServerGroup(cacheData, loadBalancerDescription);
+    if (serverGroup != null) {
       loadBalancerDescription.getServerGroups().add(serverGroup);
     }
-
     return loadBalancerDescription;
   }
 
   @Override
-  public List<TencentLoadBalancerDetail> byAccountAndRegionAndName(final String account, final String region, final String id) {
-    log.info("Get loadBalancer byAccountAndRegionAndName: account=" + account + ",region=" + region + ",id=" + id);
+  public List<TencentLoadBalancerDetail> byAccountAndRegionAndName(
+      final String account, final String region, final String id) {
+    log.info(
+        "Get loadBalancer byAccountAndRegionAndName: account="
+            + account
+            + ",region="
+            + region
+            + ",id="
+            + id);
     String lbKey = Keys.getLoadBalancerKey(id, account, region);
     Collection<CacheData> lbCache = cacheView.getAll(LOAD_BALANCERS.ns, lbKey);
 
-    List<TencentLoadBalancerDetail> lbDetails = DefaultGroovyMethods.collect(lbCache, new Closure<TencentLoadBalancerDetail>(this, this) {
-      public TencentLoadBalancerDetail doCall(CacheData it) {
-        TencentLoadBalancerDetail lbDetail = new TencentLoadBalancerDetail();
-        lbDetail.setId(it.getAttributes().id);
-        lbDetail.setName(it.getAttributes().name);
-        lbDetail.setAccount(account);
-        lbDetail.setRegion(region);
-        lbDetail.setVpcId(it.getAttributes().vpcId);
-        lbDetail.setSubnetId(it.getAttributes().subnetId);
-        lbDetail.setLoadBalancerType(it.getAttributes().loadBalancerType);
-        lbDetail.setCreateTime(it.getAttributes().createTime);
-        lbDetail.setLoadBalacnerVips(it.getAttributes().loadBalacnerVips);
-        lbDetail.setSecurityGroups(it.getAttributes().securityGroups);
-        lbDetail.setListeners(it.getAttributes().listeners);
-        return lbDetail;
-      }
-
-      public TencentLoadBalancerDetail doCall() {
-        return doCall(null);
-      }
-
-    });
-    return ((List<TencentLoadBalancerDetail>) (lbDetails));
+    List<TencentLoadBalancerDetail> lbDetails =
+        lbCache.stream()
+            .map(
+                it -> {
+                  TencentLoadBalancerDetail lbDetail = new TencentLoadBalancerDetail();
+                  Map<String, Object> attributes = it.getAttributes();
+                  lbDetail.setId((String) attributes.get("id"));
+                  lbDetail.setName((String) attributes.get("name"));
+                  lbDetail.setAccount(account);
+                  lbDetail.setRegion(region);
+                  lbDetail.setVpcId((String) attributes.get("vpcId"));
+                  lbDetail.setSubnetId((String) attributes.get("subnetId"));
+                  lbDetail.setLoadBalancerType((String) attributes.get("loadBalancerType"));
+                  lbDetail.setCreateTime((String) attributes.get("createTime"));
+                  lbDetail.setLoadBalacnerVips((List<String>) attributes.get("loadBalacnerVips"));
+                  lbDetail.setSecurityGroups((List<String>) attributes.get("securityGroups"));
+                  lbDetail.setListeners(
+                      (List<TencentLoadBalancerListener>) attributes.get("listeners"));
+                  return lbDetail;
+                })
+            .collect(Collectors.toList());
+    return lbDetails;
   }
 
   @Override
@@ -206,79 +216,70 @@ public class TencentLoadBalancerProvider implements LoadBalancerProvider<Tencent
     log.info("Enter list loadBalancer");
     String searchKey = Keys.getLoadBalancerKey("*", "*", "*");
     Collection<String> identifiers = cacheView.filterIdentifiers(LOAD_BALANCERS.ns, searchKey);
-    return DefaultGroovyMethods.asType(getSummaryForLoadBalancers(identifiers).values(), List.class);
+    return getSummaryForLoadBalancers(identifiers).values().stream().collect(Collectors.toList());
   }
 
   @Override
   public Item get(final String id) {
     log.info("Enter Get loadBalancer id " + id);
     String searchKey = Keys.getLoadBalancerKey(id, "*", "*");
-    Collection<String> identifiers = DefaultGroovyMethods.findAll(cacheView.filterIdentifiers(LOAD_BALANCERS.ns, searchKey), new Closure<Boolean>(this, this) {
-      public Boolean doCall(String it) {
-        Map<String, String> key = Keys.parse(it);
-        return key.id.equals(id);
-      }
-
-      public Boolean doCall() {
-        return doCall(null);
-      }
-
-    });
+    Collection<String> identifiers =
+        cacheView.filterIdentifiers(LOAD_BALANCERS.ns, searchKey).stream()
+            .filter(
+                it -> {
+                  Map<String, String> key = Keys.parse(it);
+                  return key.get("id").equals(id);
+                })
+            .collect(Collectors.toList());
     return getSummaryForLoadBalancers(identifiers).get(id);
   }
 
-  private Map<String, TencentLoadBalancerSummary> getSummaryForLoadBalancers(Collection<String> loadBalancerKeys) {
-    Map<String, TencentLoadBalancerSummary> map = new LinkedHashMap<String, TencentLoadBalancerSummary>();
+  private Map<String, TencentLoadBalancerSummary> getSummaryForLoadBalancers(
+      Collection<String> loadBalancerKeys) {
+    Map<String, TencentLoadBalancerSummary> map = new HashMap<String, TencentLoadBalancerSummary>();
     Collection<CacheData> loadBalancerData = cacheView.getAll(LOAD_BALANCERS.ns, loadBalancerKeys);
-    Map<String, CacheData> loadBalancers = DefaultGroovyMethods.collectEntries(loadBalancerData, new Closure<LinkedHashMap<String, CacheData>>(this, this) {
-      public LinkedHashMap<String, CacheData> doCall(CacheData it) {
-        LinkedHashMap<String, CacheData> map = new LinkedHashMap<String, CacheData>(1);
-        map.put(it.getId(), it);
-        return map;
-      }
-
-      public LinkedHashMap<String, CacheData> doCall() {
-        return doCall(null);
-      }
-
-    });
+    Map<String, CacheData> loadBalancers =
+        loadBalancerData.stream().collect(Collectors.toMap(CacheData::getId, data -> data));
 
     for (String lb : loadBalancerKeys) {
       CacheData loadBalancerFromCache = loadBalancers.get(lb);
-      if (DefaultGroovyMethods.asBoolean(loadBalancerFromCache)) {
+      if (loadBalancerFromCache != null) {
         Map<String, String> parts = Keys.parse(lb);
-        String name = parts.id;//loadBalancerId
-        String region = parts.region;
-        String account = parts.account;
-        TencentLoadBalancerSummary summary = ((LinkedHashMap<String, TencentLoadBalancerSummary>) map).get(name);
-        if (!DefaultGroovyMethods.asBoolean(summary)) {
-          TencentLoadBalancerSummary summary1 = new TencentLoadBalancerSummary();
-
-          summary = summary1.setName(name);
-          ((LinkedHashMap<String, TencentLoadBalancerSummary>) map).put(name, summary);
+        String name = parts.get("id"); // loadBalancerId
+        String region = parts.get("region");
+        String account = parts.get("account");
+        TencentLoadBalancerSummary summary = map.get(name);
+        if (summary == null) {
+          summary = new TencentLoadBalancerSummary();
+          summary.setName(name);
+          map.put(name, summary);
         }
 
         TencentLoadBalancerDetail loadBalancer = new TencentLoadBalancerDetail();
-        loadBalancer.setAccount(parts.account);
-        loadBalancer.setRegion(parts.region);
-        loadBalancer.setId(parts.id);
-        loadBalancer.setVpcId(loadBalancerFromCache.getAttributes().vpcId);
-        loadBalancer.setName(loadBalancerFromCache.getAttributes().name);
+        loadBalancer.setAccount(parts.get("account"));
+        loadBalancer.setRegion(parts.get("region"));
+        loadBalancer.setId(parts.get("id"));
+        loadBalancer.setVpcId((String) loadBalancerFromCache.getAttributes().get("vpcId"));
+        loadBalancer.setName((String) loadBalancerFromCache.getAttributes().get("name"));
 
-        DefaultGroovyMethods.leftShift(summary.getOrCreateAccount(account).getOrCreateRegion(region).getLoadBalancers(), loadBalancer);
+        summary
+            .getOrCreateAccount(account)
+            .getOrCreateRegion(region)
+            .getLoadBalancers()
+            .add(loadBalancer);
       }
-
     }
-
     return map;
   }
 
-  private Set<TencentLoadBalancer> translateLoadBalancersFromCacheData(Collection<CacheData> loadBalancerData) {
+  private Set<TencentLoadBalancer> translateLoadBalancersFromCacheData(
+      Collection<CacheData> loadBalancerData) {
 
-    List<TencentLoadBalancer> transformed = DefaultGroovyMethods.collect(loadBalancerData, (Closure<TencentLoadBalancer>) new MethodClosure(this, "fromCacheData"));
-    return ((Set<TencentLoadBalancer>) (transformed));
+    Set<TencentLoadBalancer> transformed =
+        loadBalancerData.stream().map(it -> this.fromCacheData(it)).collect(Collectors.toSet());
+    return transformed;
 
-/*
+    /*
     Set<TencentLoadBalancer> loadBalancers = loadBalancerData.collect {
       def loadBalancer = new TencentLoadBalancer()
       loadBalancer.accountName = it.attributes.accountName
@@ -353,16 +354,15 @@ public class TencentLoadBalancerProvider implements LoadBalancerProvider<Tencent
     public TencentLoadBalancerAccount getOrCreateAccount(String name) {
       if (!mappedAccounts.containsKey(name)) {
         TencentLoadBalancerAccount account = new TencentLoadBalancerAccount();
-
-        mappedAccounts.put(name, account.setName(name));
+        account.setName(name);
+        mappedAccounts.put(name, account);
       }
-
-      return ((TencentLoadBalancerAccount) (mappedAccounts.get(name)));
+      return mappedAccounts.get(name);
     }
 
     @JsonProperty("accounts")
     public List<TencentLoadBalancerAccount> getByAccounts() {
-      return DefaultGroovyMethods.asType(mappedAccounts.values(), List.class);
+      return mappedAccounts.values().stream().collect(Collectors.toList());
     }
 
     public String getName() {
@@ -373,7 +373,8 @@ public class TencentLoadBalancerProvider implements LoadBalancerProvider<Tencent
       this.name = name;
     }
 
-    private Map<String, TencentLoadBalancerAccount> mappedAccounts = new LinkedHashMap<String, TencentLoadBalancerAccount>();
+    private Map<String, TencentLoadBalancerAccount> mappedAccounts =
+        new LinkedHashMap<String, TencentLoadBalancerAccount>();
     private String name;
   }
 
@@ -381,17 +382,16 @@ public class TencentLoadBalancerProvider implements LoadBalancerProvider<Tencent
     public TencentLoadBalancerAccountRegion getOrCreateRegion(String name) {
       if (!mappedRegions.containsKey(name)) {
         TencentLoadBalancerAccountRegion region = new TencentLoadBalancerAccountRegion();
-
-
-        mappedRegions.put(name, region.setName(name)region.setLoadBalancers(new ArrayList()));
+        region.setName(name);
+        region.setLoadBalancers(new ArrayList());
+        mappedRegions.put(name, region);
       }
-
-      return ((TencentLoadBalancerAccountRegion) (mappedRegions.get(name)));
+      return mappedRegions.get(name);
     }
 
     @JsonProperty("regions")
     public List<TencentLoadBalancerAccountRegion> getByRegions() {
-      return DefaultGroovyMethods.asType(mappedRegions.values(), List.class);
+      return mappedRegions.values().stream().collect(Collectors.toList());
     }
 
     public String getName() {
@@ -402,7 +402,8 @@ public class TencentLoadBalancerProvider implements LoadBalancerProvider<Tencent
       this.name = name;
     }
 
-    private Map<String, TencentLoadBalancerAccountRegion> mappedRegions = new LinkedHashMap<String, TencentLoadBalancerAccountRegion>();
+    private Map<String, TencentLoadBalancerAccountRegion> mappedRegions =
+        new LinkedHashMap<String, TencentLoadBalancerAccountRegion>();
     private String name;
   }
 
@@ -415,16 +416,16 @@ public class TencentLoadBalancerProvider implements LoadBalancerProvider<Tencent
       this.name = name;
     }
 
-    public List<TencentLoadBalancerSummary> getLoadBalancers() {
+    public List<TencentLoadBalancerDetail> getLoadBalancers() {
       return loadBalancers;
     }
 
-    public void setLoadBalancers(List<TencentLoadBalancerSummary> loadBalancers) {
+    public void setLoadBalancers(List<TencentLoadBalancerDetail> loadBalancers) {
       this.loadBalancers = loadBalancers;
     }
 
     private String name;
-    private List<TencentLoadBalancerSummary> loadBalancers;
+    private List<TencentLoadBalancerDetail> loadBalancers;
   }
 
   public static class TencentLoadBalancerDetail implements Details {

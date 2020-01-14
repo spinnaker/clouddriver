@@ -431,11 +431,12 @@ public class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation
                         .orElse(null);
                 if (keepTarget == null) {
                   TencentLoadBalancerTarget delTarget =
-                      new TencentLoadBalancerTarget(
-                          oldTargetEntry.getInstanceId(),
-                          oldTargetEntry.getPort(),
-                          oldTargetEntry.getType(),
-                          oldTargetEntry.getWeight());
+                      TencentLoadBalancerTarget.builder()
+                          .instanceId(oldTargetEntry.getInstanceId())
+                          .port(oldTargetEntry.getPort())
+                          .type(oldTargetEntry.getType())
+                          .weight(oldTargetEntry.getWeight())
+                          .build();
                   delTargets.add(delTarget);
                 }
               });
@@ -626,11 +627,12 @@ public class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation
                       .orElse(null);
               if (keepTarget == null) {
                 TencentLoadBalancerTarget delTarget =
-                    new TencentLoadBalancerTarget(
-                        oldTargetEntry.getInstanceId(),
-                        oldTargetEntry.getPort(),
-                        oldTargetEntry.getType(),
-                        oldTargetEntry.getWeight());
+                    TencentLoadBalancerTarget.builder()
+                        .instanceId(oldTargetEntry.getInstanceId())
+                        .port(oldTargetEntry.getPort())
+                        .type(oldTargetEntry.getType())
+                        .weight(oldTargetEntry.getWeight())
+                        .build();
                 delTargets.add(delTarget);
               }
             });

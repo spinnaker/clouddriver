@@ -99,8 +99,8 @@ public class UpsertTencentSecurityGroupAtomicOperation implements AtomicOperatio
                         .findFirst()
                         .orElse(null);
                 if (keepRule == null) {
-                  TencentSecurityGroupRule delInRule = new TencentSecurityGroupRule();
-                  delInRule.setIndex(ingress.getPolicyIndex());
+                  TencentSecurityGroupRule delInRule =
+                      TencentSecurityGroupRule.builder().index(ingress.getPolicyIndex()).build();
                   delGroupInRules.add(delInRule);
                 }
               });

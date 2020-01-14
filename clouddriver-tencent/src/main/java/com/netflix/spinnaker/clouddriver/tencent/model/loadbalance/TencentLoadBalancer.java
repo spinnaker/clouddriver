@@ -6,13 +6,12 @@ import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.clouddriver.tencent.TencentCloudProvider;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentBasicResource;
 import com.netflix.spinnaker.moniker.Moniker;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode
 @Data
@@ -27,8 +26,8 @@ public class TencentLoadBalancer implements LoadBalancer, TencentBasicResource {
   private String name;
   private String loadBalancerId;
   private String loadBalancerName;
-  private String loadBalancerType;     //OPEN:公网, INTERNAL:内网;
-  private Integer forwardType;         //1:应用型,0:传统型;
+  private String loadBalancerType; // OPEN:公网, INTERNAL:内网;
+  private Integer forwardType; // 1:应用型,0:传统型;
   private String vpcId;
   private String subnetId;
   private Integer projectId;
@@ -36,7 +35,7 @@ public class TencentLoadBalancer implements LoadBalancer, TencentBasicResource {
   private List<String> loadBalacnerVips;
   private List<String> securityGroups;
   private List<TencentLoadBalancerListener> listeners;
-  private Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
+  @Builder.Default private Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
 
   @Override
   public String getAccount() {
@@ -45,7 +44,11 @@ public class TencentLoadBalancer implements LoadBalancer, TencentBasicResource {
 
   @Override
   public Moniker getMoniker() {
-    return NamerRegistry.lookup().withProvider(TencentCloudProvider.ID).withAccount(accountName).withResource(TencentBasicResource.class).deriveMoniker(this);
+    return NamerRegistry.lookup()
+        .withProvider(TencentCloudProvider.ID)
+        .withAccount(accountName)
+        .withResource(TencentBasicResource.class)
+        .deriveMoniker(this);
   }
 
   @Override

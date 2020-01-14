@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.tencent.provider.TencentInfrastructureP
 import com.netflix.spinnaker.clouddriver.tencent.security.TencentNamedAccountCredentials;
 import com.tencentcloudapi.vpc.v20170312.models.SecurityGroup;
 import com.tencentcloudapi.vpc.v20170312.models.SecurityGroupPolicySet;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.Data;
@@ -326,7 +327,7 @@ public class TencentSecurityGroupCachingAgent implements CachingAgent, OnDemandA
                           .readValue(
                               (String) onDemandSG.getAttributes().get("securityGroup"),
                               TencentSecurityGroupDescription.class);
-                } catch (JsonProcessingException e) {
+                } catch (IOException e) {
                   e.printStackTrace();
                   log.error("buildCacheResult error", e);
                 }

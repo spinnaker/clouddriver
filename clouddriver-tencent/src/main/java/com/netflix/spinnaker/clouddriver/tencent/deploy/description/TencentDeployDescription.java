@@ -8,8 +8,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class TencentDeployDescription extends AbstractTencentCredentialsDescription
     implements DeployDescription, Serializable {
   private String application;

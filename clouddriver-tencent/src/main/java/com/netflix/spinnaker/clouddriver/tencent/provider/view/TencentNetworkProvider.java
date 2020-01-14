@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.clouddriver.tencent.provider.view;
 
+import static com.netflix.spinnaker.clouddriver.tencent.cache.Keys.Namespace.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -10,26 +12,25 @@ import com.netflix.spinnaker.clouddriver.tencent.cache.Keys;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentNetwork;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentNetworkDescription;
 import com.netflix.spinnaker.clouddriver.tencent.provider.TencentInfrastructureProvider;
-import groovy.lang.Closure;
-import groovy.util.logging.Slf4j;
-import org.codehaus.groovy.runtime.DefaultGroovyMethods;
-import org.codehaus.groovy.runtime.MethodClosure;
-import org.codehaus.groovy.runtime.StringGroovyMethods;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
+@Data
 @RestController
 @Component
 public class TencentNetworkProvider implements NetworkProvider<TencentNetwork> {
   @Autowired
-  public TencentNetworkProvider(TencentInfrastructureProvider tCloudProvider, Cache cacheView, ObjectMapper objectMapper) {
+  public TencentNetworkProvider(
+      TencentInfrastructureProvider tCloudProvider, Cache cacheView, ObjectMapper objectMapper) {
     this.tencentProvider = tCloudProvider;
     this.cacheView = cacheView;
     this.objectMapper = objectMapper;
@@ -45,28 +46,32 @@ public class TencentNetworkProvider implements NetworkProvider<TencentNetwork> {
   }
 
   public Set<TencentNetwork> loadResults(Collection<String> identifiers) {
-    Collection<CacheData> data = cacheView.getAll(NETWORKS.ns, identifiers, RelationshipCacheFilter.none());
-    List<TencentNetwork> transformed = DefaultGroovyMethods.collect(data, (Closure<TencentNetwork>) new MethodClosure(this, "fromCacheData"));
-
-    return ((Set<TencentNetwork>) (transformed));
+    Collection<CacheData> data =
+        cacheView.getAll(NETWORKS.ns, identifiers, RelationshipCacheFilter.none());
+    Set<TencentNetwork> transformed =
+        data.stream().map(it -> this.fromCacheData(it)).collect(Collectors.toSet());
+    return transformed;
   }
 
   public TencentNetwork fromCacheData(CacheData cacheData) {
-    TencentNetworkDescription vnet = objectMapper.convertValue(cacheData.getAttributes().get(NETWORKS.ns), TencentNetworkDescription.class);
+    TencentNetworkDescription vnet =
+        objectMapper.convertValue(
+            cacheData.getAttributes().get(NETWORKS.ns), TencentNetworkDescription.class);
     Map<String, String> parts = Keys.parse(cacheData.getId());
-    //log.info("TencentNetworkDescription id = ${cacheData.id}, parts = ${parts}")
+    // log.info("TencentNetworkDescription id = ${cacheData.id}, parts = ${parts}")
 
-    TencentNetwork network = new TencentNetwork();
-
-
-    final String account = parts.account;
-
-    final String region = parts.region;
-
-    return network.setId(vnet.getVpcId()) network.setName(vnet.getVpcName()) network.setCidrBlock(vnet.getCidrBlock())
-    network.setIsDefault(vnet.getIsDefault())
-    network.setAccount(StringGroovyMethods.asBoolean(account) ? account : "none")
-    network.setRegion(StringGroovyMethods.asBoolean(region) ? region : "none");
+    final String account = parts != null ? parts.get("account") : null;
+    final String region = parts != null ? parts.get("region") : null;
+    TencentNetwork network =
+        TencentNetwork.builder()
+            .id(vnet.getVpcId())
+            .name(vnet.getVpcName())
+            .cidrBlock(vnet.getCidrBlock())
+            .isDefault(vnet.getIsDefault())
+            .account(!StringUtils.isEmpty(account) ? account : "none")
+            .region(!StringUtils.isEmpty(region) ? region : "none")
+            .build();
+    return network;
   }
 
   public final String getCloudProvider() {

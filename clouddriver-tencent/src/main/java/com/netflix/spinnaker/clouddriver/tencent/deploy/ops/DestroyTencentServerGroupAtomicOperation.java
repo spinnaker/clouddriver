@@ -1,3 +1,5 @@
+package com.netflix.spinnaker.clouddriver.tencent.deploy.ops;
+
 import static java.lang.Thread.sleep;
 
 import com.netflix.spinnaker.clouddriver.data.task.Task;
@@ -53,7 +55,11 @@ public class DestroyTencentServerGroupAtomicOperation implements AtomicOperation
             description.getCredentials().getCredentials().getSecretKey(),
             region);
 
-    CloudVirtualMachineClient cvmClient = new CloudVirtualMachineClient();
+    CloudVirtualMachineClient cvmClient =
+        new CloudVirtualMachineClient(
+            description.getCredentials().getCredentials().getSecretId(),
+            description.getCredentials().getCredentials().getSecretKey(),
+            region);
 
     getTask().updateStatus(BASE_PHASE, "Start destroy server group " + serverGroupName);
     TencentServerGroup serverGroup =

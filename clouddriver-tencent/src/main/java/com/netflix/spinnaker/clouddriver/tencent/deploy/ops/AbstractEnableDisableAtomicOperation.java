@@ -17,7 +17,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
@@ -418,8 +417,7 @@ public abstract class AbstractEnableDisableAtomicOperation implements AtomicOper
 
   private EnableDisableTencentServerGroupDescription description;
 
-  @Data
-  @EqualsAndHashCode
+  @EqualsAndHashCode(callSuper = false)
   @AllArgsConstructor
   @ToString
   static class CompairableTarget extends Target {

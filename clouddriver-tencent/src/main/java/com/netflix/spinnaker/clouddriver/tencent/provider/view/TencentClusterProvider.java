@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.clouddriver.tencent.provider.view;
 
+import static com.netflix.spinnaker.clouddriver.tencent.cache.Keys.Namespace.*;
+
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.CacheFilter;
@@ -11,125 +13,89 @@ import com.netflix.spinnaker.clouddriver.tencent.model.TencentCluster;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentInstance;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentServerGroup;
 import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancer;
-import groovy.lang.Closure;
-import groovy.lang.Reference;
-import groovy.util.logging.Slf4j;
-import org.codehaus.groovy.runtime.DefaultGroovyMethods;
-import org.codehaus.groovy.runtime.StringGroovyMethods;
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.io.Serializable;
-import java.util.*;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 @Slf4j
+@Data
 @Component
 public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
   @Override
   public Map<String, Set<TencentCluster>> getClusters() {
     Collection<CacheData> clusterData = cacheView.getAll(CLUSTERS.ns);
     Collection<TencentCluster> clusters = translateClusters(clusterData, false);
-    return DefaultGroovyMethods.asType(DefaultGroovyMethods.collectEntries(DefaultGroovyMethods.groupBy(clusters, new Closure<String>(this, this) {
-      public String doCall(TencentCluster it) {
-        return it.getAccountName();
-      }
-
-      public String doCall() {
-        return doCall(null);
-      }
-
-    }), new Closure<List<Serializable>>(this, this) {
-      public List<Serializable> doCall(Object k, Object v) {
-        return new ArrayList<Serializable>(Arrays.asList(k, new HashSet((Collection) v)));
-      }
-
-    }), Map.class);
+    return clusters.stream()
+        .collect(Collectors.groupingBy(TencentCluster::getAccountName, Collectors.toSet()));
   }
 
   @Override
   public Map<String, Set<TencentCluster>> getClusterSummaries(String applicationName) {
     CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName));
 
-    if (DefaultGroovyMethods.asBoolean(application)) {
-      Collection<TencentCluster> clusters = translateClusters(resolveRelationshipData(application, CLUSTERS.ns), false);
-      return DefaultGroovyMethods.asType(DefaultGroovyMethods.collectEntries(DefaultGroovyMethods.groupBy(clusters, new Closure<String>(this, this) {
-        public String doCall(TencentCluster it) {
-          return it.getAccountName();
-        }
-
-        public String doCall() {
-          return doCall(null);
-        }
-
-      }), new Closure<List<Serializable>>(this, this) {
-        public List<Serializable> doCall(Object k, Object v) {
-          return new ArrayList<Serializable>(Arrays.asList(k, new HashSet((Collection) v)));
-        }
-
-      }), Map.class);
+    if (application != null) {
+      Collection<TencentCluster> clusters =
+          translateClusters(resolveRelationshipData(application, CLUSTERS.ns), false);
+      return clusters.stream()
+          .collect(Collectors.groupingBy(TencentCluster::getAccountName, Collectors.toSet()));
     } else {
       return null;
     }
-
   }
 
   @Override
   public Map<String, Set<TencentCluster>> getClusterDetails(String applicationName) {
-    final CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName));
+    final CacheData application =
+        cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName));
 
-    if (DefaultGroovyMethods.asBoolean(application)) {
-      log.info("application is " + application.getId() + ".");
-      Collection<TencentCluster> clusters = translateClusters(resolveRelationshipData(application, CLUSTERS.ns), true);
-      return DefaultGroovyMethods.asType(DefaultGroovyMethods.collectEntries(DefaultGroovyMethods.groupBy(clusters, new Closure<String>(this, this) {
-        public String doCall(TencentCluster it) {
-          return it.getAccountName();
-        }
-
-        public String doCall() {
-          return doCall(null);
-        }
-
-      }), new Closure<List<Serializable>>(this, this) {
-        public List<Serializable> doCall(Object k, Object v) {
-          return new ArrayList<Serializable>(Arrays.asList(k, new HashSet((Collection) v)));
-        }
-
-      }), Map.class);
+    if (application != null) {
+      Collection<TencentCluster> clusters =
+          translateClusters(resolveRelationshipData(application, CLUSTERS.ns), true);
+      return clusters.stream()
+          .collect(Collectors.groupingBy(TencentCluster::getAccountName, Collectors.toSet()));
     } else {
-      log.info("application is not found.");
       return null;
     }
-
   }
 
   @Override
   public Set<TencentCluster> getClusters(String applicationName, final String account) {
-    CacheData application = cacheView.get(APPLICATIONS.ns, Keys.getApplicationKey(applicationName), RelationshipCacheFilter.include(CLUSTERS.ns));
+    CacheData application =
+        cacheView.get(
+            APPLICATIONS.ns,
+            Keys.getApplicationKey(applicationName),
+            RelationshipCacheFilter.include(CLUSTERS.ns));
 
-    if (DefaultGroovyMethods.asBoolean(application)) {
-      Collection<String> clusterKeys = DefaultGroovyMethods.findAll(application.getRelationships().get(CLUSTERS.ns), new Closure<Boolean>(this, this) {
-        public Boolean doCall(String it) {
-          return Keys.parse(it).account.equals(account);
-        }
-
-        public Boolean doCall() {
-          return doCall(null);
-        }
-
-      });
+    if (application != null) {
+      Collection<String> clusterKeys =
+          application.getRelationships().get(CLUSTERS.ns).stream()
+              .filter(
+                  it -> {
+                    return Keys.parse(it).get("account").equals(account);
+                  })
+              .collect(Collectors.toList());
       Collection<CacheData> clusters = cacheView.getAll(CLUSTERS.ns, clusterKeys);
-      return DefaultGroovyMethods.asType(translateClusters(clusters, true), Set.class);
+      return (Set<TencentCluster>) translateClusters(clusters, true);
     } else {
       return null;
     }
-
   }
 
   @Override
-  public TencentCluster getCluster(String application, String account, String name, boolean includeDetails) {
+  public TencentCluster getCluster(
+      String application, String account, String name, boolean includeDetails) {
     CacheData cluster = cacheView.get(CLUSTERS.ns, Keys.getClusterKey(name, application, account));
-
-    return DefaultGroovyMethods.asBoolean(cluster) ? DefaultGroovyMethods.getAt(translateClusters(new ArrayList<CacheData>(Arrays.asList(cluster)), includeDetails), 0) : null;
+    return cluster != null
+        ? translateClusters(new ArrayList<CacheData>(Arrays.asList(cluster)), includeDetails)
+            .iterator()
+            .next()
+        : null;
   }
 
   @Override
@@ -138,28 +104,36 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
   }
 
   @Override
-  public TencentServerGroup getServerGroup(String account, String region, String name, boolean includeDetails) {
+  public TencentServerGroup getServerGroup(
+      String account, String region, String name, boolean includeDetails) {
     String serverGroupKey = Keys.getServerGroupKey(name, account, region);
     CacheData serverGroupData = cacheView.get(SERVER_GROUPS.ns, serverGroupKey);
-    if (DefaultGroovyMethods.asBoolean(serverGroupData)) {
-      String imageId = (String) DefaultGroovyMethods.getAt(serverGroupData.getAttributes().launchConfig, "imageId");
-      CacheData imageConfig = StringGroovyMethods.asBoolean(imageId) ? cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, account, region)) : null;
+    if (serverGroupData != null) {
+      String imageId =
+          (String)
+              ((Map<String, Object>) serverGroupData.getAttributes().get("launchConfig"))
+                  .get("imageId");
+      CacheData imageConfig =
+          !StringUtils.isEmpty(imageId)
+              ? cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, account, region))
+              : null;
 
-
-      TencentServerGroup serverGroup = new TencentServerGroup();
+      TencentServerGroup serverGroup = TencentServerGroup.builder().build();
       serverGroup.setAccountName(account);
-      serverGroup.setImage(DefaultGroovyMethods.asBoolean(imageConfig) ? DefaultGroovyMethods.asType(imageConfig.getAttributes().image, Map.class) : null);
+      serverGroup.setImage(
+          imageConfig != null
+              ? (Map<String, Object>) imageConfig.getAttributes().get("image")
+              : null);
 
       if (includeDetails) {
         // show instances info
         serverGroup.setInstances(getServerGroupInstances(account, region, serverGroupData));
       }
 
-      return ((TencentServerGroup) (serverGroup));
+      return serverGroup;
     } else {
       return null;
     }
-
   }
 
   @Override
@@ -179,171 +153,178 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
 
   public String getServerGroupAsgId(String serverGroupName, String account, String region) {
     TencentServerGroup serverGroup = getServerGroup(account, region, serverGroupName, false);
-    return DefaultGroovyMethods.asBoolean(serverGroup) ? DefaultGroovyMethods.asType(serverGroup.getAsg().autoScalingGroupId, String.class) : null;
+    return serverGroup != null ? (String) serverGroup.getAsg().get("autoScalingGroupId") : null;
   }
 
-  private Collection<TencentCluster> translateClusters(Collection<CacheData> clusterData, final boolean includeDetails) {
+  private Collection<TencentCluster> translateClusters(
+      Collection<CacheData> clusterData, final boolean includeDetails) {
 
     // todo test lb detail
-    final Reference<Map<String, TencentLoadBalancer>> loadBalancers;
-    final Reference<Map<String, TencentServerGroup>> serverGroups;
+    final Map<String, TencentLoadBalancer> loadBalancers = new HashMap<>();
+    Map<String, TencentServerGroup> serverGroups;
 
     if (includeDetails) {
-      Collection<CacheData> allLoadBalancers = resolveRelationshipDataForCollection(clusterData, LOAD_BALANCERS.ns);
-      Collection<CacheData> allServerGroups = resolveRelationshipDataForCollection(clusterData, SERVER_GROUPS.ns, RelationshipCacheFilter.include(INSTANCES.ns, LAUNCH_CONFIGS.ns));
-      loadBalancers.set(translateLoadBalancers(allLoadBalancers));
-      serverGroups.set(translateServerGroups(allServerGroups));
+      Collection<CacheData> allLoadBalancers =
+          resolveRelationshipDataForCollection(clusterData, LOAD_BALANCERS.ns);
+      Collection<CacheData> allServerGroups =
+          resolveRelationshipDataForCollection(
+              clusterData,
+              SERVER_GROUPS.ns,
+              RelationshipCacheFilter.include(INSTANCES.ns, LAUNCH_CONFIGS.ns));
+      loadBalancers.putAll(translateLoadBalancers(allLoadBalancers));
+      serverGroups = translateServerGroups(allServerGroups);
     } else {
-      Collection<CacheData> allServerGroups = resolveRelationshipDataForCollection(clusterData, SERVER_GROUPS.ns, RelationshipCacheFilter.include(INSTANCES.ns));
-      serverGroups.set(translateServerGroups(allServerGroups));
+      Collection<CacheData> allServerGroups =
+          resolveRelationshipDataForCollection(
+              clusterData, SERVER_GROUPS.ns, RelationshipCacheFilter.include(INSTANCES.ns));
+      serverGroups = translateServerGroups(allServerGroups);
     }
 
+    Collection<TencentCluster> clusters =
+        clusterData.stream()
+            .map(
+                clusterDataEntry -> {
+                  Map<String, String> clusterKey = Keys.parse(clusterDataEntry.getId());
+                  TencentCluster cluster = TencentCluster.builder().build();
+                  cluster.setAccountName(clusterKey.get("account"));
+                  cluster.setName(clusterKey.get("cluster"));
+                  cluster.setServerGroups(
+                      clusterDataEntry.getRelationships()
+                          .getOrDefault(SERVER_GROUPS.ns, new ArrayList<>()).stream()
+                          .map(
+                              it -> {
+                                return serverGroups.get(it);
+                              })
+                          .filter(it -> it != null)
+                          .collect(Collectors.toSet()));
 
-    Collection<TencentCluster> clusters = DefaultGroovyMethods.collect(clusterData, new Closure<TencentCluster>(this, this) {
-      public TencentCluster doCall(CacheData clusterDataEntry) {
-        Map<String, String> clusterKey = Keys.parse(clusterDataEntry.getId());
-        TencentCluster cluster = new TencentCluster();
-        cluster.setAccountName(clusterKey.account);
-        cluster.setName(clusterKey.cluster);
-        cluster.setServerGroups(DefaultGroovyMethods.findResults(clusterDataEntry.getRelationships().get(SERVER_GROUPS.ns), new Closure<TencentServerGroup>(TencentClusterProvider.this, TencentClusterProvider.this) {
-          public TencentServerGroup doCall(String it) {
-            return serverGroups.get().get(it);
-          }
-
-          public TencentServerGroup doCall() {
-            return doCall(null);
-          }
-
-        }));
-
-        if (includeDetails) {
-          Collection<TencentLoadBalancer> lb = DefaultGroovyMethods.findResults(clusterDataEntry.getRelationships().get(LOAD_BALANCERS.ns), new Closure<TencentLoadBalancer>(TencentClusterProvider.this, TencentClusterProvider.this) {
-            public TencentLoadBalancer doCall(String it) {
-              return loadBalancers.get().get(it);
-            }
-
-            public TencentLoadBalancer doCall() {
-              return doCall(null);
-            }
-
-          });
-          cluster.setLoadBalancers(lb);
-        } else {
-          cluster.setLoadBalancers(DefaultGroovyMethods.collect(clusterDataEntry.getRelationships().get(LOAD_BALANCERS.ns), new Closure<TencentLoadBalancer>(TencentClusterProvider.this, TencentClusterProvider.this) {
-            public TencentLoadBalancer doCall(Object loadBalancerKey) {
-              Map parts = Keys.parse((String) loadBalancerKey);
-              TencentLoadBalancer balancer = new TencentLoadBalancer();
-
-
-              return balancer.setId(parts.id) balancer.setAccountName(parts.account) balancer.setRegion(parts.region);
-            }
-
-          }));
-        }
-
-        return cluster;
-      }
-
-    });
+                  if (includeDetails) {
+                    Set<TencentLoadBalancer> lb =
+                        clusterDataEntry.getRelationships()
+                            .getOrDefault(LOAD_BALANCERS.ns, new ArrayList<>()).stream()
+                            .map(
+                                it -> {
+                                  return loadBalancers.get(it);
+                                })
+                            .filter(it -> it != null)
+                            .collect(Collectors.toSet());
+                    cluster.setLoadBalancers(lb);
+                  } else {
+                    cluster.setLoadBalancers(
+                        clusterDataEntry.getRelationships().get(LOAD_BALANCERS.ns).stream()
+                            .map(
+                                loadBalancerKey -> {
+                                  Map parts = Keys.parse(loadBalancerKey);
+                                  TencentLoadBalancer balancer =
+                                      TencentLoadBalancer.builder()
+                                          .id((String) parts.get("id"))
+                                          .accountName((String) parts.get("account"))
+                                          .region((String) parts.get("region"))
+                                          .build();
+                                  return balancer;
+                                })
+                            .collect(Collectors.toSet()));
+                  }
+                  return cluster;
+                })
+            .collect(Collectors.toList());
     return clusters;
   }
 
-  private static Map<String, TencentLoadBalancer> translateLoadBalancers(Collection<CacheData> loadBalancerData) {
-    return DefaultGroovyMethods.collectEntries(loadBalancerData, new Closure<LinkedHashMap<String, TencentLoadBalancer>>(null, null) {
-      public LinkedHashMap<String, TencentLoadBalancer> doCall(Object loadBalancerEntry) {
-        Map<String, String> lbKey = Keys.parse(((CacheData) loadBalancerEntry).getId());
-        LinkedHashMap<String, TencentLoadBalancer> map = new LinkedHashMap<String, TencentLoadBalancer>(1);
-        TencentLoadBalancer balancer = new TencentLoadBalancer();
-
-
-        map.put(((CacheData) loadBalancerEntry).getId(), balancer.setId(lbKey.id)balancer.setAccountName(lbKey.account)balancer.setRegion(lbKey.region));
-        return map;
-      }
-
-    });
+  private static Map<String, TencentLoadBalancer> translateLoadBalancers(
+      Collection<CacheData> loadBalancerData) {
+    return loadBalancerData.stream()
+        .map(
+            it -> {
+              Map<String, String> lbKey = Keys.parse(it.getId());
+              return TencentLoadBalancer.builder()
+                  .id(lbKey.get("id"))
+                  .accountName(lbKey.get("account"))
+                  .region(lbKey.get("region"))
+                  .build();
+            })
+        .collect(Collectors.toMap(TencentLoadBalancer::getId, v -> v));
   }
 
-  private Map<String, TencentServerGroup> translateServerGroups(Collection<CacheData> serverGroupData) {
-    Map<String, TencentServerGroup> serverGroups = DefaultGroovyMethods.collectEntries(serverGroupData, new Closure<LinkedHashMap<String, TencentServerGroup>>(this, this) {
-      public LinkedHashMap<String, TencentServerGroup> doCall(Object serverGroupEntry) {
-        TencentServerGroup serverGroup = new TencentServerGroup();
+  private Map<String, TencentServerGroup> translateServerGroups(
+      Collection<CacheData> serverGroupData) {
+    Map<String, TencentServerGroup> serverGroups = new HashMap<>();
+    serverGroupData.stream()
+        .forEach(
+            it -> {
+              TencentServerGroup serverGroup = TencentServerGroup.builder().build();
+              String account = serverGroup.getAccountName();
+              String region = serverGroup.getRegion();
+              serverGroup.setInstances(getServerGroupInstances(account, region, it));
+              String imageId =
+                  (String)
+                      ((Map<String, Object>) it.getAttributes().get("launchConfig")).get("imageId");
+              CacheData imageConfig =
+                  !StringUtils.isEmpty(imageId)
+                      ? getCacheView().get(IMAGES.ns, Keys.getImageKey(imageId, account, region))
+                      : null;
 
-        String account = serverGroup.getAccountName();
-        String region = serverGroup.getRegion();
-
-        serverGroup.setInstances(getServerGroupInstances(account, region, (CacheData) serverGroupEntry));
-
-        String imageId = (String) DefaultGroovyMethods.getAt(((CacheData) serverGroupEntry).getAttributes().launchConfig, "imageId");
-        CacheData imageConfig = StringGroovyMethods.asBoolean(imageId) ? getCacheView().get(IMAGES.ns, Keys.getImageKey(imageId, account, region)) : null;
-
-        serverGroup.setImage(DefaultGroovyMethods.asBoolean(imageConfig) ? DefaultGroovyMethods.asType(imageConfig.getAttributes().image, Map.class) : null);
-
-        LinkedHashMap<String, TencentServerGroup> map = new LinkedHashMap<String, TencentServerGroup>(1);
-        map.put(((CacheData) serverGroupEntry).getId(), serverGroup);
-        return map;
-      }
-
-    });
+              serverGroup.setImage(
+                  imageConfig != null ? (Map) imageConfig.getAttributes().get("image") : null);
+              serverGroups.put(it.getId(), serverGroup);
+            });
     return serverGroups;
   }
 
-  private Set<TencentInstance> getServerGroupInstances(final String account, final String region, CacheData serverGroupData) {
+  private Set<TencentInstance> getServerGroupInstances(
+      final String account, final String region, CacheData serverGroupData) {
     Collection<String> instanceKeys = serverGroupData.getRelationships().get(INSTANCES.ns);
     Collection<CacheData> instances = cacheView.getAll(INSTANCES.ns, instanceKeys);
 
-    return DefaultGroovyMethods.collect(instances, new Closure<TencentInstance>(this, this) {
-      public TencentInstance doCall(CacheData it) {
-        return getTencentInstanceProvider().instanceFromCacheData(account, region, it);
-      }
-
-      public TencentInstance doCall() {
-        return doCall(null);
-      }
-
-    });
+    return instances.stream()
+        .map(
+            it -> {
+              return getTencentInstanceProvider().instanceFromCacheData(account, region, it);
+            })
+        .collect(Collectors.toSet());
   }
 
   private Collection<CacheData> resolveRelationshipData(CacheData source, String relationship) {
-    return resolveRelationshipData(source, relationship, new Closure<Boolean>(this, this) {
-      public Boolean doCall(Object it) {
-        return true;
-      }
-
-      public Boolean doCall() {
-        return doCall(null);
-      }
-
-    });
+    return resolveRelationshipData(source, relationship, it -> true);
   }
 
-  private Collection<CacheData> resolveRelationshipData(CacheData source, String relationship, Closure<Boolean> relFilter, CacheFilter cacheFilter) {
-    Collection<String> filteredRelationships = DefaultGroovyMethods.findAll(source.getRelationships().get(relationship), relFilter);
-    return DefaultGroovyMethods.asBoolean(filteredRelationships) ? cacheView.getAll(relationship, filteredRelationships, cacheFilter) : new ArrayList();
+  private Collection<CacheData> resolveRelationshipData(
+      CacheData source, String relationship, Predicate<String> relFilter, CacheFilter cacheFilter) {
+    if (CollectionUtils.isEmpty(source.getRelationships())
+        || !source.getRelationships().containsKey(relationship)) {
+      return new ArrayList<>();
+    }
+    Collection<String> filteredRelationships =
+        source.getRelationships().get(relationship).stream()
+            .filter(relFilter)
+            .collect(Collectors.toList());
+    return !CollectionUtils.isEmpty(filteredRelationships)
+        ? cacheView.getAll(relationship, filteredRelationships, cacheFilter)
+        : new ArrayList();
   }
 
-  private Collection<CacheData> resolveRelationshipData(CacheData source, String relationship, Closure<Boolean> relFilter) {
+  private Collection<CacheData> resolveRelationshipData(
+      CacheData source, String relationship, Predicate<String> relFilter) {
     return resolveRelationshipData(source, relationship, relFilter, null);
   }
 
-  private Collection<CacheData> resolveRelationshipDataForCollection(Collection<CacheData> sources, String relationship, CacheFilter cacheFilter) {
+  private Collection<CacheData> resolveRelationshipDataForCollection(
+      Collection<CacheData> sources, String relationship, CacheFilter cacheFilter) {
 
-    final Collection<?> flatten = DefaultGroovyMethods.flatten(DefaultGroovyMethods.findResults(sources, new Closure<Collection>(this, this) {
-      public Collection doCall(CacheData it) {
-        final Collection<String> strings = it.getRelationships().get(relationship);
-        return DefaultGroovyMethods.asBoolean(strings) ? strings : new ArrayList();
-      }
-
-      public Collection doCall() {
-        return doCall(null);
-      }
-
-    }));
-    Collection<String> relationships = DefaultGroovyMethods.asBoolean(flatten) ? flatten : new ArrayList();
-
-    return DefaultGroovyMethods.asBoolean(relationships) ? cacheView.getAll(relationship, relationships, cacheFilter) : new ArrayList();
+    final List<String> relationships = new ArrayList<>();
+    sources.stream()
+        .forEach(
+            it -> {
+              final Collection<String> strings = it.getRelationships().get(relationship);
+              relationships.addAll(strings);
+            });
+    return CollectionUtils.isEmpty(relationships)
+        ? new ArrayList<>()
+        : cacheView.getAll(relationship, relationships, cacheFilter);
   }
 
-  private Collection<CacheData> resolveRelationshipDataForCollection(Collection<CacheData> sources, String relationship) {
+  private Collection<CacheData> resolveRelationshipDataForCollection(
+      Collection<CacheData> sources, String relationship) {
     return resolveRelationshipDataForCollection(sources, relationship, null);
   }
 
@@ -371,10 +352,7 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
     this.cacheView = cacheView;
   }
 
-  @Autowired
-  private TencentCloudProvider tencentCloudProvider;
-  @Autowired
-  private TencentInstanceProvider tencentInstanceProvider;
-  @Autowired
-  private Cache cacheView;
+  @Autowired private TencentCloudProvider tencentCloudProvider;
+  @Autowired private TencentInstanceProvider tencentInstanceProvider;
+  @Autowired private Cache cacheView;
 }

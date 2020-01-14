@@ -3,8 +3,10 @@ package com.netflix.spinnaker.clouddriver.tencent.deploy.description;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentSecurityGroupRule;
 import java.util.List;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class UpsertTencentSecurityGroupDescription extends AbstractTencentCredentialsDescription {
   private String application;
   private String accountName;

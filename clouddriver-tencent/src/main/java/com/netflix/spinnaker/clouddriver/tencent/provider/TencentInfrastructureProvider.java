@@ -9,8 +9,10 @@ import com.netflix.spinnaker.clouddriver.cache.SearchableProvider;
 import com.netflix.spinnaker.clouddriver.tencent.cache.Keys;
 import java.util.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class TencentInfrastructureProvider extends AgentSchedulerAware
     implements SearchableProvider {
   public TencentInfrastructureProvider(Collection<? extends Agent> agents) {
