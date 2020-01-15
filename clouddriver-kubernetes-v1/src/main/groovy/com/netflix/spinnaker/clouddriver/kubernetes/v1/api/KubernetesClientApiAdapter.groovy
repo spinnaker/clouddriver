@@ -185,13 +185,13 @@ class KubernetesClientApiAdapter {
   }
 
   V1beta1StatefulSet createStatefulSet(String namespace, V1beta1StatefulSet statefulSet) {
-    exceptionWrapper<V1beta1StatefulSet>("statefulSets.create", "Create Stateful Set ${statefulSet?.metadata?.name}", namespace) {
+    exceptionWrapper("statefulSets.create", "Create Stateful Set ${statefulSet?.metadata?.name}", namespace) {
       return apiInstance.createNamespacedStatefulSet(namespace, statefulSet, null, null, null)
     }
   }
 
   V1beta1StatefulSet replaceStatfulSet(String name, String namespace, V1beta1StatefulSet statefulSet) {
-    exceptionWrapper<V1beta1StatefulSet>("statefulSets.replace", "Replace Stateful Set ${name}", namespace) {
+    exceptionWrapper("statefulSets.replace", "Replace Stateful Set ${name}", namespace) {
       def deployedControllerSet = getStatefulSet(name, namespace)
       deployedControllerSet.spec.replicas = statefulSet.spec.replicas
       deployedControllerSet.spec.template = statefulSet.spec.template
@@ -209,7 +209,7 @@ class KubernetesClientApiAdapter {
   }
 
   V1beta1StatefulSet resizeStatefulSet(String name, String namespace, int targetSize) {
-    exceptionWrapper<V1beta1StatefulSet>("statefulSets.resize", "Resize Stateful Set $name", namespace) {
+    exceptionWrapper("statefulSets.resize", "Resize Stateful Set $name", namespace) {
       V1beta1StatefulSet current = getStatefulSet(name, namespace)
       V1beta1StatefulSet desired = getStatefulSet(name, namespace)
       desired.spec.replicas = targetSize
@@ -239,7 +239,7 @@ class KubernetesClientApiAdapter {
   }
 
   V1HorizontalPodAutoscaler getAutoscaler(String namespace, String name) {
-    exceptionWrapper<V1HorizontalPodAutoscaler>("horizontalPodAutoscalers.get", "Get Autoscaler $name", namespace) {
+    exceptionWrapper("horizontalPodAutoscalers.get", "Get Autoscaler $name", namespace) {
       V1HorizontalPodAutoscaler result = null
 
       try {
@@ -253,13 +253,13 @@ class KubernetesClientApiAdapter {
   }
 
   V1HorizontalPodAutoscaler createAutoscaler(String namespace, V1HorizontalPodAutoscaler autoscaler) {
-    exceptionWrapper<V1HorizontalPodAutoscaler>("horizontalPodAutoscalers.create", "Create Autoscaler ${autoscaler?.metadata?.name}", namespace) {
+    exceptionWrapper("horizontalPodAutoscalers.create", "Create Autoscaler ${autoscaler?.metadata?.name}", namespace) {
       return scalerApi.createNamespacedHorizontalPodAutoscaler(namespace, autoscaler, null, null, null)
     }
   }
 
   V1beta1StatefulSet getStatefulSet(String statefulSetName, String namespace) {
-    exceptionWrapper<V1beta1StatefulSet>("statefulSets.create", "Get Stateful Set ${statefulSetName}", namespace) {
+    exceptionWrapper("statefulSets.create", "Get Stateful Set ${statefulSetName}", namespace) {
       try {
         return apiInstance.readNamespacedStatefulSet(statefulSetName, namespace, null, false, false)
       } catch (Exception e) {
@@ -270,7 +270,7 @@ class KubernetesClientApiAdapter {
   }
 
   V1PodList getPods(String namespace, Map<String, String> labels) {
-    exceptionWrapper<V1PodList>("pods.list", "Get Pods matching $labels", namespace) {
+    exceptionWrapper("pods.list", "Get Pods matching $labels", namespace) {
       String label
       if (labels != null) {
         Map.Entry<String, String> entry = labels.entrySet().iterator().next()
@@ -289,13 +289,13 @@ class KubernetesClientApiAdapter {
   }
 
   V1beta1DaemonSet createDaemonSet(String namespace, V1beta1DaemonSet daemonSet) {
-    exceptionWrapper<V1beta1DaemonSet>("DaemonSet.create", "Create Daemon Set ${daemonSet?.metadata?.name}", namespace) {
+    exceptionWrapper("DaemonSet.create", "Create Daemon Set ${daemonSet?.metadata?.name}", namespace) {
       return extApi.createNamespacedDaemonSet(namespace, daemonSet, null, null, null)
     }
   }
 
   V1beta1DaemonSet replaceDaemonSet(String name, String namespace, V1beta1DaemonSet daemonSet) {
-    exceptionWrapper<V1beta1DaemonSet>("DaemonSet.replace", "Replace Daemon Set ${name}", namespace) {
+    exceptionWrapper("DaemonSet.replace", "Replace Daemon Set ${name}", namespace) {
       def deployedControllerSet = getDaemonSet(name, namespace)
       deployedControllerSet.spec.template = daemonSet.spec.template
       deployedControllerSet.spec.updateStrategy = daemonSet.spec.updateStrategy
@@ -305,7 +305,7 @@ class KubernetesClientApiAdapter {
   }
 
   V1beta1DaemonSet getDaemonSet(String name, String namespace) {
-    exceptionWrapper<V1beta1DaemonSet>("DaemonSet.get", "Get Daemon Set ${name}", namespace) {
+    exceptionWrapper("DaemonSet.get", "Get Daemon Set ${name}", namespace) {
       try {
         return extApi.readNamespacedDaemonSet(name, namespace, null, true, false)
       } catch (Exception e) {
@@ -358,7 +358,7 @@ class KubernetesClientApiAdapter {
   }
 
   V1Pod getPodStatus(String name, String namespace) {
-    exceptionWrapper<V1Pod>("pods.status", "Get pod status ${name}", namespace) {
+    exceptionWrapper("pods.status", "Get pod status ${name}", namespace) {
       V1Pod pod
       try {
         pod = coreApi.readNamespacedPodStatus(name, namespace, null)
