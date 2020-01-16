@@ -29,10 +29,9 @@ import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
 import de.huxhorn.sulky.ulid.ULID
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import org.jooq.exception.DataAccessException
 import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.table
-import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.springframework.beans.factory.ObjectProvider
 import strikt.api.expect
 import strikt.api.expectThat
@@ -98,8 +97,8 @@ class SqlUnknownAgentCleanupAgentTest : JUnit5Minutests {
         fixture
       }
 
-      test("error is thrown because table does not exist for type for which agent is authoritative") {
-        assertThrows<DataAccessException> {
+      test("error is not thrown when table does not exist for type for which agent is authoritative") {
+        assertDoesNotThrow {
           subject.run()
         }
       }
