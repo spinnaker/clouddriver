@@ -12,10 +12,13 @@ import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.util.CollectionUtils;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TencentServerGroup implements ServerGroup, TencentBasicResource {
   private final String type = TencentCloudProvider.ID;
   private final String cloudProvider = TencentCloudProvider.ID;

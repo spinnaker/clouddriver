@@ -14,17 +14,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.util.CollectionUtils;
 
 @EqualsAndHashCode(includes = "name")
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TencentInstance implements Instance, TencentBasicResource {
 
-  private final String cloudProvider = TencentCloudProvider.ID;
-  private final String providerType = TencentCloudProvider.ID;
+  @Builder.Default private final String cloudProvider = TencentCloudProvider.ID;
+  @Builder.Default private final String providerType = TencentCloudProvider.ID;
   private String instanceName;
   private String account;
   private String name; // unique instance id

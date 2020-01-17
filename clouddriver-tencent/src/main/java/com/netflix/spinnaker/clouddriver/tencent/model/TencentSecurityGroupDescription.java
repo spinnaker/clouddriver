@@ -1,12 +1,15 @@
 package com.netflix.spinnaker.clouddriver.tencent.model;
 
+import java.util.List;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-
-import java.util.List;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TencentSecurityGroupDescription {
   private String securityGroupId;
   private String securityGroupName;

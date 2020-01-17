@@ -9,12 +9,14 @@ import com.netflix.spinnaker.moniker.Moniker;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Value;
 
 @Value
 @Builder
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
+@AllArgsConstructor
 public class TencentSecurityGroup implements SecurityGroup {
   private final String type = TencentCloudProvider.ID;
   private final String cloudProvider = TencentCloudProvider.ID;
@@ -25,8 +27,8 @@ public class TencentSecurityGroup implements SecurityGroup {
   private final String accountName;
   private final String region;
 
-  private final Set<Rule> inboundRules = new HashSet<>();
-  private final Set<Rule> outboundRules = new HashSet<>();
+  @Builder.Default private final Set<Rule> inboundRules = new HashSet<>();
+  @Builder.Default private final Set<Rule> outboundRules = new HashSet<>();
 
   private List<TencentSecurityGroupRule> inRules;
   private List<TencentSecurityGroupRule> outRules;

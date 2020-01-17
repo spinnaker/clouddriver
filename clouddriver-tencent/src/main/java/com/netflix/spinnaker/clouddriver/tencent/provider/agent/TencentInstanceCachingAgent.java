@@ -24,6 +24,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.util.StringUtils;
 
 @Slf4j
@@ -50,6 +51,7 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
             getRegion());
 
     final List<Instance> asgInstances = asClient.getAutoScalingInstances();
+    log.info("loadData, asgInstances = {}", Strings.join(asgInstances, ','));
     final List<String> asgInstanceIds =
         asgInstances.stream()
             .map(
@@ -63,6 +65,8 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
     log.info("start load instances detail info.");
     List<com.tencentcloudapi.cvm.v20170312.models.Instance> result =
         cvmClient.getInstances(asgInstanceIds);
+
+    log.info("load instanceDetail reuslts {}", Strings.join(result, ','));
 
     result.stream()
         .forEach(
@@ -88,28 +92,29 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
                       .findFirst()
                       .map(Tag::getValue)
                       .orElse(null);
-              TencentInstance instance = TencentInstance.builder().build();
+              TencentInstance tencentInstance = TencentInstance.builder().build();
 
               Map<String, Object> map = new HashMap<String, Object>(1);
               map.put("instanceStatus", it.getInstanceState());
-
-              final TencentInstance tencentInstance = instance.setAccount(getAccountName());
-              instance.setName(it.getInstanceId());
-              instance.setInstanceName(it.getInstanceName());
-              instance.setLaunchTime(launchTime != null ? launchTime.getTime() : 0);
-              instance.setZone(it.getPlacement().getZone());
-              instance.setVpcId(it.getVirtualPrivateCloud().getVpcId());
-              instance.setSubnetId(it.getVirtualPrivateCloud().getSubnetId());
-              instance.setPrivateIpAddresses(Arrays.asList(it.getPrivateIpAddresses()));
-              instance.setPublicIpAddresses(Arrays.asList(it.getPublicIpAddresses()));
-              instance.setImageId(it.getImageId());
-              instance.setInstanceType(it.getInstanceType());
-              instance.setSecurityGroupIds(Arrays.asList(it.getSecurityGroupIds()));
-              instance.setInstanceHealth(
+              tencentInstance.setAccount(getAccountName());
+              log.info("tencentInstance acountName = {}", getAccountName());
+              tencentInstance.setName(it.getInstanceId());
+              tencentInstance.setInstanceName(it.getInstanceName());
+              tencentInstance.setLaunchTime(launchTime != null ? launchTime.getTime() : 0);
+              tencentInstance.setZone(it.getPlacement().getZone());
+              tencentInstance.setVpcId(it.getVirtualPrivateCloud().getVpcId());
+              tencentInstance.setSubnetId(it.getVirtualPrivateCloud().getSubnetId());
+              tencentInstance.setPrivateIpAddresses(Arrays.asList(it.getPrivateIpAddresses()));
+              tencentInstance.setPublicIpAddresses(
+                  Optional.ofNullable(it.getPublicIpAddresses()).map(Arrays::asList).orElse(null));
+              tencentInstance.setImageId(it.getImageId());
+              tencentInstance.setInstanceType(it.getInstanceType());
+              tencentInstance.setSecurityGroupIds(Arrays.asList(it.getSecurityGroupIds()));
+              tencentInstance.setInstanceHealth(
                   TencentInstanceHealth.builder()
                       .instanceStatus(TencentInstanceHealth.Status.valueOf(it.getInstanceState()))
                       .build());
-              instance.setServerGroupName(
+              tencentInstance.setServerGroupName(
                   !StringUtils.isEmpty(serverGroupName)
                       ? serverGroupName
                       : launchConfigurationName);
@@ -139,10 +144,16 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
 
               instances.get(instanceKey).getAttributes().put("instance", tencentInstance);
 
+              log.info("instance in TencentInstanceCachingAgent loadData is {}", tencentInstance);
               Moniker moniker = tencentInstance.getMoniker();
+              log.info("moniker.toString()");
+              log.info(moniker.toString());
               if (moniker != null) {
                 String clusterKey =
-                    Keys.getClusterKey(moniker.getCluster(), moniker.getApp(), getAccountName());
+                    Keys.getClusterKey(
+                        moniker.getCluster(),
+                        Optional.ofNullable(moniker.getApp()).orElse(""),
+                        getAccountName());
                 String serverGroupKey =
                     Keys.getServerGroupKey(
                         tencentInstance.getServerGroupName(), getAccountName(), getRegion());

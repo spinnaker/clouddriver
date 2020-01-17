@@ -9,16 +9,16 @@ import com.tencentcloudapi.clb.v20180317.ClbClient;
 import com.tencentcloudapi.clb.v20180317.models.*;
 import com.tencentcloudapi.common.Credential;
 import com.tencentcloudapi.common.exception.TencentCloudSDKException;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.util.Strings;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 @Component
 @Slf4j
@@ -34,7 +34,7 @@ public class LoadBalancerClient {
     try {
       DescribeLoadBalancersRequest req = new DescribeLoadBalancersRequest();
       req.setLimit(DEFAULT_LIMIT);
-      req.setForward(1);//过滤应用型
+      req.setForward(1); // 过滤应用型
       DescribeLoadBalancersResponse resp = client.DescribeLoadBalancers(req);
       Collections.addAll(loadBalancerAll, resp.getLoadBalancerSet());
       Integer totalCount = resp.getTotalCount();
@@ -55,34 +55,32 @@ public class LoadBalancerClient {
     try {
       DescribeLoadBalancersRequest req = new DescribeLoadBalancersRequest();
       req.setLimit(DEFAULT_LIMIT);
-      req.setForward(1);//过滤应用型
-      req.setLoadBalancerName(name);//过滤lb name
+      req.setForward(1); // 过滤应用型
+      req.setLoadBalancerName(name); // 过滤lb name
       DescribeLoadBalancersResponse resp = client.DescribeLoadBalancers(req);
       return Arrays.asList(resp.getLoadBalancerSet());
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public List<LoadBalancer> getLoadBalancerById(String id) {
     try {
       DescribeLoadBalancersRequest req = new DescribeLoadBalancersRequest();
-      req.setLoadBalancerIds(new String[]{id});
+      req.setLoadBalancerIds(new String[] {id});
       DescribeLoadBalancersResponse resp = client.DescribeLoadBalancers(req);
       return Arrays.asList(resp.getLoadBalancerSet());
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public List<String> createLoadBalancer(UpsertTencentLoadBalancerDescription description) {
     try {
       CreateLoadBalancerRequest req = new CreateLoadBalancerRequest();
-      req.setLoadBalancerType(description.getLoadBalancerType());//OPEN：公网属性， INTERNAL：内网属性
+      req.setLoadBalancerType(description.getLoadBalancerType()); // OPEN：公网属性， INTERNAL：内网属性
       req.setLoadBalancerName(description.getLoadBalancerName());
-      req.setForward(1);//应用型
+      req.setForward(1); // 应用型
       if (description.getVpcId().length() > 0) {
         req.setVpcId(description.getVpcId());
       }
@@ -100,7 +98,6 @@ public class LoadBalancerClient {
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public String deleteLoadBalancerByIds(String[] loadBalancerIds) {
@@ -109,13 +106,13 @@ public class LoadBalancerClient {
       req.setLoadBalancerIds(loadBalancerIds);
       DeleteLoadBalancerResponse resp = client.DeleteLoadBalancer(req);
 
-      //DescribeTaskStatus is success
+      // DescribeTaskStatus is success
       for (int i = 0; i < MAX_TRY_COUNT; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -148,21 +145,21 @@ public class LoadBalancerClient {
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
-  public List<String> createLBListener(String loadBalancerId, TencentLoadBalancerListener listener) {
+  public List<String> createLBListener(
+      String loadBalancerId, TencentLoadBalancerListener listener) {
     try {
       CreateListenerRequest req = new CreateListenerRequest();
       req.setLoadBalancerId(loadBalancerId);
-      req.setPorts(new Integer[]{listener.getPort()});
+      req.setPorts(new Integer[] {listener.getPort()});
       req.setProtocol(listener.getProtocol());
       String listenerName = listener.getProtocol() + listener.getPort();
       if (!StringUtils.isEmpty(listener.getListenerName())) {
         listenerName = listener.getListenerName();
       }
 
-      req.setListenerNames(new String[]{listenerName});
+      req.setListenerNames(new String[] {listenerName});
       if (Arrays.asList("TCP", "UDP").contains(listener.getProtocol())) {
         if (listener.getSessionExpireTime() != null) {
           req.setSessionExpireTime(listener.getSessionExpireTime());
@@ -172,7 +169,7 @@ public class LoadBalancerClient {
           req.setScheduler(listener.getScheduler());
         }
 
-        if (listener.getHealthCheck() != null) {//HealthCheck
+        if (listener.getHealthCheck() != null) { // HealthCheck
           HealthCheck check = new HealthCheck();
           check.setHealthSwitch(listener.getHealthCheck().getHealthSwitch());
           check.setTimeOut(listener.getHealthCheck().getTimeOut());
@@ -186,9 +183,9 @@ public class LoadBalancerClient {
           req.setHealthCheck(check);
         }
       } else if (Arrays.asList("HTTPS").contains(listener.getProtocol())) {
-        if (listener.getCertificate() != null) {//cert
+        if (listener.getCertificate() != null) { // cert
           if (listener.getCertificate().getSslMode().equals("UNIDIRECTIONAL")) {
-            listener.getCertificate().setCertCaId(null);//not need
+            listener.getCertificate().setCertCaId(null); // not need
           }
 
           CertificateInput input = new CertificateInput();
@@ -206,13 +203,13 @@ public class LoadBalancerClient {
 
       CreateListenerResponse resp = client.CreateListener(req);
 
-      //DescribeTaskStatus is success
+      // DescribeTaskStatus is success
       for (int i = 0; i < MAX_TRY_COUNT; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return Arrays.asList(resp.getListenerIds());
         }
       }
@@ -229,13 +226,13 @@ public class LoadBalancerClient {
       req.setListenerId(listenerId);
       DeleteListenerResponse resp = client.DeleteListener(req);
 
-      //DescribeTaskStatus is success
+      // DescribeTaskStatus is success
       for (int i = 0; i < MAX_TRY_COUNT; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -272,13 +269,13 @@ public class LoadBalancerClient {
 
       ModifyListenerResponse resp = client.ModifyListener(req);
 
-      //DescribeTaskStatus is success
+      // DescribeTaskStatus is success
       for (int i = 0; i < MAX_TRY_COUNT; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -288,30 +285,35 @@ public class LoadBalancerClient {
     return "";
   }
 
-  public String registerTarget4Layer(String loadBalancerId, String listenerId, List<TencentLoadBalancerTarget> targets) {
+  public String registerTarget4Layer(
+      String loadBalancerId, String listenerId, List<TencentLoadBalancerTarget> targets) {
     try {
       RegisterTargetsRequest req = new RegisterTargetsRequest();
       req.setLoadBalancerId(loadBalancerId);
       req.setListenerId(listenerId);
-      req.setTargets(targets.stream().map(it -> {
-        Target target = new Target();
-        target.setInstanceId(it.getInstanceId());
-        target.setPort(it.getPort());
-        target.setType(it.getType());
-        target.setWeight(it.getWeight());
-        return target;
-      }).toArray(Target[]::new));
+      req.setTargets(
+          targets.stream()
+              .map(
+                  it -> {
+                    Target target = new Target();
+                    target.setInstanceId(it.getInstanceId());
+                    target.setPort(it.getPort());
+                    target.setType(it.getType());
+                    target.setWeight(it.getWeight());
+                    return target;
+                  })
+              .toArray(Target[]::new));
 
       RegisterTargetsResponse resp = client.RegisterTargets(req);
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       int maxTryCount = targets.size() * MAX_TRY_COUNT;
       for (int i = 0; i < maxTryCount; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
-          //return resp.getRequestId()
+        if (statusResp.getStatus() == 0) { // task success
+          // return resp.getRequestId()
           return "success";
         }
       }
@@ -321,32 +323,37 @@ public class LoadBalancerClient {
     return "";
   }
 
-  public String deRegisterTarget4Layer(String loadBalancerId, String listenerId, List<TencentLoadBalancerTarget> targets) {
+  public String deRegisterTarget4Layer(
+      String loadBalancerId, String listenerId, List<TencentLoadBalancerTarget> targets) {
     try {
       DeregisterTargetsRequest req = new DeregisterTargetsRequest();
       req.setLoadBalancerId(loadBalancerId);
       req.setListenerId(listenerId);
-      req.setTargets(targets.stream().map(it -> {
-        Target target = new Target();
-        target.setInstanceId(it.getInstanceId());
-        target.setPort(it.getPort());
-        target.setType(it.getType());
-        target.setWeight(it.getWeight());
-        return target;
-      }).toArray(Target[]::new));
+      req.setTargets(
+          targets.stream()
+              .map(
+                  it -> {
+                    Target target = new Target();
+                    target.setInstanceId(it.getInstanceId());
+                    target.setPort(it.getPort());
+                    target.setType(it.getType());
+                    target.setWeight(it.getWeight());
+                    return target;
+                  })
+              .toArray(Target[]::new));
       DeregisterTargetsResponse resp = client.DeregisterTargets(req);
 
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       int maxTryCount = targets.size() * MAX_TRY_COUNT;
       for (int i = 0; i < maxTryCount; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
-// =2
+        // =2
       }
     } catch (TencentCloudSDKException | InterruptedException e) {
       throw new TencentOperationException(e.toString());
@@ -354,7 +361,8 @@ public class LoadBalancerClient {
     return "";
   }
 
-  public String createLBListenerRule(String loadBalancerId, String listenerId, TencentLoadBalancerRule rule) {
+  public String createLBListenerRule(
+      String loadBalancerId, String listenerId, TencentLoadBalancerRule rule) {
     try {
       CreateRuleRequest req = new CreateRuleRequest();
       req.setLoadBalancerId(loadBalancerId);
@@ -385,16 +393,16 @@ public class LoadBalancerClient {
         ruleInput.setHealthCheck(check);
       }
 
-      req.setRules(new RuleInput[]{ruleInput});
+      req.setRules(new RuleInput[] {ruleInput});
       CreateRuleResponse resp = client.CreateRule(req);
 
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       for (int i = 0; i < MAX_RULE_TRY_COUNT; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -404,7 +412,8 @@ public class LoadBalancerClient {
     return "";
   }
 
-  public String deleteLBListenerRules(String loadBalancerId, String listenerId, List<TencentLoadBalancerRule> rules) {
+  public String deleteLBListenerRules(
+      String loadBalancerId, String listenerId, List<TencentLoadBalancerRule> rules) {
     try {
       DeleteRuleRequest req = new DeleteRuleRequest();
       req.setLoadBalancerId(loadBalancerId);
@@ -413,14 +422,14 @@ public class LoadBalancerClient {
 
       DeleteRuleResponse resp = client.DeleteRule(req);
 
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       int maxTryCount = rules.size() * MAX_TRY_COUNT;
       for (int i = 0; i < maxTryCount; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -435,16 +444,16 @@ public class LoadBalancerClient {
       DeleteRuleRequest req = new DeleteRuleRequest();
       req.setLoadBalancerId(loadBalancerId);
       req.setListenerId(listenerId);
-      req.setLocationIds(new String[]{locationId});
+      req.setLocationIds(new String[] {locationId});
       DeleteRuleResponse resp = client.DeleteRule(req);
 
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       for (int i = 0; i < MAX_TRY_COUNT; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -454,7 +463,8 @@ public class LoadBalancerClient {
     return "";
   }
 
-  public String modifyLBListenerRule(String loadBalancerId, String listenerId, TencentLoadBalancerRule rule) {
+  public String modifyLBListenerRule(
+      String loadBalancerId, String listenerId, TencentLoadBalancerRule rule) {
     try {
       Boolean isModify = false;
       ModifyRuleRequest req = new ModifyRuleRequest();
@@ -483,13 +493,13 @@ public class LoadBalancerClient {
       }
       ModifyRuleResponse resp = client.ModifyRule(req);
 
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       for (int i = 0; i < MAX_RULE_TRY_COUNT; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -499,7 +509,12 @@ public class LoadBalancerClient {
     return "";
   }
 
-  public String registerTarget7Layer(String loadBalancerId, String listenerId, String domain, String url, List<TencentLoadBalancerTarget> targets) {
+  public String registerTarget7Layer(
+      String loadBalancerId,
+      String listenerId,
+      String domain,
+      String url,
+      List<TencentLoadBalancerTarget> targets) {
     try {
       RegisterTargetsRequest req = new RegisterTargetsRequest();
       req.setLoadBalancerId(loadBalancerId);
@@ -507,24 +522,27 @@ public class LoadBalancerClient {
       req.setDomain(domain);
       req.setUrl(url);
       req.setTargets(
-        targets.stream().map(it -> {
-          Target target = new Target();
-          target.setInstanceId(it.getInstanceId());
-          target.setPort(it.getPort());
-          target.setType(it.getType());
-          target.setWeight(it.getWeight());
-          return target;
-        }).toArray(Target[]::new));
+          targets.stream()
+              .map(
+                  it -> {
+                    Target target = new Target();
+                    target.setInstanceId(it.getInstanceId());
+                    target.setPort(it.getPort());
+                    target.setType(it.getType());
+                    target.setWeight(it.getWeight());
+                    return target;
+                  })
+              .toArray(Target[]::new));
       RegisterTargetsResponse resp = client.RegisterTargets(req);
 
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       int maxTryCount = targets.size();
       for (int i = 0; i < maxTryCount; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -534,30 +552,38 @@ public class LoadBalancerClient {
     return "";
   }
 
-  public String registerTarget7Layer(String loadBalancerId, String listenerId, String locationId, List<TencentLoadBalancerTarget> targets) {
+  public String registerTarget7Layer(
+      String loadBalancerId,
+      String listenerId,
+      String locationId,
+      List<TencentLoadBalancerTarget> targets) {
     try {
       RegisterTargetsRequest req = new RegisterTargetsRequest();
       req.setLoadBalancerId(loadBalancerId);
       req.setListenerId(listenerId);
       req.setLocationId(locationId);
-      req.setTargets(targets.stream().map(it -> {
-        Target target = new Target();
-        target.setInstanceId(it.getInstanceId());
-        target.setPort(it.getPort());
-        target.setType(it.getType());
-        target.setWeight(it.getWeight());
-        return target;
-      }).toArray(Target[]::new));
+      req.setTargets(
+          targets.stream()
+              .map(
+                  it -> {
+                    Target target = new Target();
+                    target.setInstanceId(it.getInstanceId());
+                    target.setPort(it.getPort());
+                    target.setType(it.getType());
+                    target.setWeight(it.getWeight());
+                    return target;
+                  })
+              .toArray(Target[]::new));
       RegisterTargetsResponse resp = client.RegisterTargets(req);
 
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       int maxTryCount = targets.size();
       for (Integer i = 0; i < maxTryCount; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -567,30 +593,38 @@ public class LoadBalancerClient {
     return "";
   }
 
-  public String deRegisterTarget7Layer(String loadBalancerId, String listenerId, String locationId, List<TencentLoadBalancerTarget> targets) {
+  public String deRegisterTarget7Layer(
+      String loadBalancerId,
+      String listenerId,
+      String locationId,
+      List<TencentLoadBalancerTarget> targets) {
     try {
       DeregisterTargetsRequest req = new DeregisterTargetsRequest();
       req.setLoadBalancerId(loadBalancerId);
       req.setListenerId(listenerId);
       req.setLocationId(locationId);
-      req.setTargets(targets.stream().map(it -> {
-        Target target = new Target();
-        target.setInstanceId(it.getInstanceId());
-        target.setPort(it.getPort());
-        target.setType(it.getType());
-        target.setWeight(it.getWeight());
-        return target;
-      }).toArray(Target[]::new));
+      req.setTargets(
+          targets.stream()
+              .map(
+                  it -> {
+                    Target target = new Target();
+                    target.setInstanceId(it.getInstanceId());
+                    target.setPort(it.getPort());
+                    target.setType(it.getType());
+                    target.setWeight(it.getWeight());
+                    return target;
+                  })
+              .toArray(Target[]::new));
       DeregisterTargetsResponse resp = client.DeregisterTargets(req);
 
-      //DescribeTaskStatus task is success
+      // DescribeTaskStatus task is success
       int maxTryCount = targets.size();
       for (int i = 0; i < maxTryCount; i++) {
         Thread.sleep(REQ_TRY_INTERVAL);
         DescribeTaskStatusRequest statusReq = new DescribeTaskStatusRequest();
         statusReq.setTaskId(resp.getRequestId());
         DescribeTaskStatusResponse statusResp = client.DescribeTaskStatus(statusReq);
-        if (statusResp.getStatus() == 0) {//task success
+        if (statusResp.getStatus() == 0) { // task success
           return "success";
         }
       }
@@ -604,13 +638,12 @@ public class LoadBalancerClient {
     try {
       DescribeTargetsRequest req = new DescribeTargetsRequest();
       req.setLoadBalancerId(loadBalancerId);
-      req.setListenerIds(new String[]{listenerId});
+      req.setListenerIds(new String[] {listenerId});
       DescribeTargetsResponse resp = client.DescribeTargets(req);
       return Arrays.asList(resp.getListeners());
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public List<ListenerBackend> getLBTargetList(String loadBalancerId, List<String> listenerIds) {
@@ -623,7 +656,6 @@ public class LoadBalancerClient {
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public String setLBSecurityGroups(String loadBalancerId, List<String> securityGroups) {
@@ -636,7 +668,6 @@ public class LoadBalancerClient {
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public List<LoadBalancerHealth> getLBTargetHealth(List<String> loadBalancerIds) {
@@ -645,15 +676,20 @@ public class LoadBalancerClient {
       DescribeTargetHealthRequest req = new DescribeTargetHealthRequest();
       int totalCount = loadBalancerIds.size();
       int reqCount = totalCount;
-      Integer startIndex = 0;
-      Integer endIndex = DESCRIBE_TARGET_HEALTH_LIMIT;
+      int startIndex = 0;
+      int endIndex = DESCRIBE_TARGET_HEALTH_LIMIT;
+      log.info("getLBTargetHealth loadBalancerIds size = {}", loadBalancerIds.size());
       while (reqCount > 0) {
         if (endIndex > totalCount) {
           endIndex = totalCount;
         }
 
-        List<String> batchIds = loadBalancerIds.stream()
-          .skip(startIndex).limit(endIndex - startIndex - 1).collect(Collectors.toList());
+        List<String> batchIds =
+            loadBalancerIds.stream()
+                .skip(startIndex)
+                .limit(endIndex - startIndex)
+                .collect(Collectors.toList());
+        log.info("getLBTargetHealth batchIds = {}", Strings.join(batchIds, ','));
         req.setLoadBalancerIds(batchIds.stream().toArray(String[]::new));
         DescribeTargetHealthResponse resp = client.DescribeTargetHealth(req);
         Collections.addAll(loadBalancerHealths, resp.getLoadBalancers());

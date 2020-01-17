@@ -23,6 +23,9 @@ public class TencentCredentialsInitializer implements CredentialsInitializerSync
         .getAccounts()
         .forEach(
             managedAccount -> {
+              log.info(
+                  "TencentCredentialsInitializer tencentNamedAccountCredentials, managedAccount: {}",
+                  managedAccount);
               try {
                 final String environment = managedAccount.getEnvironment();
                 final String type = managedAccount.getAccountType();

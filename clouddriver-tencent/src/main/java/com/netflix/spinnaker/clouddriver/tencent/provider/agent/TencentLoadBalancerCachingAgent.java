@@ -196,7 +196,9 @@ public class TencentLoadBalancerCachingAgent implements OnDemandAgent, CachingAg
 
                                 // rules
                                 List<TencentLoadBalancerRule> rules =
-                                    Arrays.stream(li.getRules())
+                                    Arrays.stream(
+                                            Optional.ofNullable(li.getRules())
+                                                .orElse(new RuleOutput[] {}))
                                         .map(
                                             r -> {
                                               TencentLoadBalancerRule rule =
@@ -284,7 +286,7 @@ public class TencentLoadBalancerCachingAgent implements OnDemandAgent, CachingAg
                   return loadBalancer;
                 })
             .collect(Collectors.toList());
-    return ((List<TencentLoadBalancer>) (loadBanancerList));
+    return loadBanancerList;
   }
 
   public List<TencentLoadBalancer> loadLoadBalancerData() {

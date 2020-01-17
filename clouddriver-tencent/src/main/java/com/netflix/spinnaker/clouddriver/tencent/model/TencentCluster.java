@@ -6,13 +6,17 @@ import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBa
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TencentCluster implements Cluster {
-  private final String type = TencentCloudProvider.ID;
+  @Builder.Default private final String type = TencentCloudProvider.ID;
   private String name;
   private String accountName;
 

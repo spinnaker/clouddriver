@@ -336,9 +336,9 @@ public class AutoScalingClient extends AbstractTencentServiceClient {
       request.setLimit(getDEFAULT_LIMIT());
 
       for (int i = 0; i < len; i += getDEFAULT_LIMIT()) {
-        int endIndex = Math.min(len, i + getDEFAULT_LIMIT());
+        int count = Math.min(len, getDEFAULT_LIMIT());
         request.setLaunchConfigurationIds(
-            launchConfigurationIds.stream().skip(i).limit(endIndex - i).toArray(String[]::new));
+            launchConfigurationIds.stream().skip(i).limit(count).toArray(String[]::new));
 
         DescribeLaunchConfigurationsResponse response =
             client.DescribeLaunchConfigurations(request);

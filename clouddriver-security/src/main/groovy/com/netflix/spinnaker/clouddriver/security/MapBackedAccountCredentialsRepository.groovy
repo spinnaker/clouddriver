@@ -33,6 +33,7 @@ public class MapBackedAccountCredentialsRepository implements AccountCredentials
      */
     @Override
     public AccountCredentials getOne(String key) {
+      log.info("AccountCredentialRepo getOne ${key}, ${map.get(key)}")
         return map.get(key);
     }
 
@@ -41,6 +42,7 @@ public class MapBackedAccountCredentialsRepository implements AccountCredentials
      */
     @Override
     public Set<AccountCredentials> getAll() {
+      log.info("AccountCredentialRepo getAll ${map.values()}")
         return new HashSet<>(map.values());
     }
 

@@ -1,10 +1,14 @@
 package com.netflix.spinnaker.clouddriver.tencent.model.loadbalance;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TencentLoadBalancerCertificate {
   public void copyCertificate(TencentLoadBalancerCertificate cert) {
     if (cert != null) {

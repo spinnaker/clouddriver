@@ -26,9 +26,8 @@ public class CloudVirtualMachineClient extends AbstractTencentServiceClient {
       final TerminateInstancesRequest request = new TerminateInstancesRequest();
       final int len = instanceIds.size();
       for (int i = 0; i < len; i += getDEFAULT_LIMIT()) {
-        int endIndex = Math.min(len, i + getDEFAULT_LIMIT());
-        request.setInstanceIds(
-            instanceIds.stream().skip(i).limit(endIndex - 1 - i).toArray(String[]::new));
+        int count = Math.min(len, getDEFAULT_LIMIT());
+        request.setInstanceIds(instanceIds.stream().skip(i).limit(count).toArray(String[]::new));
         client.TerminateInstances(request);
       }
     } catch (TencentCloudSDKException e) {
@@ -41,9 +40,8 @@ public class CloudVirtualMachineClient extends AbstractTencentServiceClient {
       final RebootInstancesRequest request = new RebootInstancesRequest();
       final int len = instanceIds.size();
       for (int i = 0; i < len; i += getDEFAULT_LIMIT()) {
-        int endIndex = Math.min(len, i + getDEFAULT_LIMIT());
-        request.setInstanceIds(
-            instanceIds.stream().skip(i).limit(endIndex - 1 - i).toArray(String[]::new));
+        int count = Math.min(len, getDEFAULT_LIMIT());
+        request.setInstanceIds(instanceIds.stream().skip(i).limit(count).toArray(String[]::new));
         client.RebootInstances(request);
       }
     } catch (TencentCloudSDKException e) {

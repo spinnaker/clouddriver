@@ -9,16 +9,16 @@ import com.netflix.spinnaker.moniker.Moniker;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.*;
 
 @EqualsAndHashCode
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TencentLoadBalancer implements LoadBalancer, TencentBasicResource {
-  private final String cloudProvider = TencentCloudProvider.ID;
-  private final String type = TencentCloudProvider.ID;
+  @Builder.Default private final String cloudProvider = TencentCloudProvider.ID;
+  @Builder.Default private final String type = TencentCloudProvider.ID;
   private String application;
   private String accountName;
   private String region;
