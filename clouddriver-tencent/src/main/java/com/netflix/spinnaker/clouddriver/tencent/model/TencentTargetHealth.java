@@ -2,10 +2,9 @@ package com.netflix.spinnaker.clouddriver.tencent.model;
 
 import com.netflix.spinnaker.clouddriver.model.Health;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
-import lombok.Data;
-
 import java.util.ArrayList;
 import java.util.List;
+import lombok.Data;
 
 @Data
 public class TencentTargetHealth implements Health {
@@ -61,9 +60,9 @@ public class TencentTargetHealth implements Health {
     private ServiceStatus state;
 
     public String getDescription() {
-      return state == ServiceStatus.OutOfService ?
-        "Instance has failed at least the Unhealthy Threshold number of health checks consecutively." :
-        "Healthy";
+      return state == ServiceStatus.OutOfService
+          ? "Instance has failed at least the Unhealthy Threshold number of health checks consecutively."
+          : "Healthy";
     }
 
     public enum ServiceStatus {
@@ -71,6 +70,4 @@ public class TencentTargetHealth implements Health {
       OutOfService
     }
   }
-
-
 }

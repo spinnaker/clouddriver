@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.tencent.model;
 
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.MutableCacheData;
-
 import java.util.HashMap;
 
 public class NamespaceCache extends HashMap<String, NamespaceCache.Cache> {

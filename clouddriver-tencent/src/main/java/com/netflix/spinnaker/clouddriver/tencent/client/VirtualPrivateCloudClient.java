@@ -6,14 +6,13 @@ import com.tencentcloudapi.common.Credential;
 import com.tencentcloudapi.common.exception.TencentCloudSDKException;
 import com.tencentcloudapi.vpc.v20170312.VpcClient;
 import com.tencentcloudapi.vpc.v20170312.models.*;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
@@ -40,23 +39,31 @@ public class VirtualPrivateCloudClient {
     }
   }
 
-  public String createSecurityGroupRules(String groupId, List<TencentSecurityGroupRule> inRules, List<TencentSecurityGroupRule> outRules) {
+  public String createSecurityGroupRules(
+      String groupId,
+      List<TencentSecurityGroupRule> inRules,
+      List<TencentSecurityGroupRule> outRules) {
     try {
       CreateSecurityGroupPoliciesRequest req = new CreateSecurityGroupPoliciesRequest();
       req.setSecurityGroupId(groupId);
       if (inRules != null && inRules.size() > 0) {
         req.setSecurityGroupPolicySet(new SecurityGroupPolicySet());
-        req.getSecurityGroupPolicySet().setIngress(inRules.stream().map(it -> {
-          SecurityGroupPolicy ingress = new SecurityGroupPolicy();
-          ingress.setProtocol(it.getProtocol());
-          if (!ingress.getProtocol().equalsIgnoreCase("ICMP")) {//ICMP not port
-            ingress.setPort(it.getPort());
-          }
+        req.getSecurityGroupPolicySet()
+            .setIngress(
+                inRules.stream()
+                    .map(
+                        it -> {
+                          SecurityGroupPolicy ingress = new SecurityGroupPolicy();
+                          ingress.setProtocol(it.getProtocol());
+                          if (!ingress.getProtocol().equalsIgnoreCase("ICMP")) { // ICMP not port
+                            ingress.setPort(it.getPort());
+                          }
 
-          ingress.setAction(it.getAction());
-          ingress.setCidrBlock(it.getCidrBlock());
-          return ingress;
-        }).toArray(SecurityGroupPolicy[]::new));
+                          ingress.setAction(it.getAction());
+                          ingress.setCidrBlock(it.getCidrBlock());
+                          return ingress;
+                        })
+                    .toArray(SecurityGroupPolicy[]::new));
       }
 
       /*
@@ -83,11 +90,16 @@ public class VirtualPrivateCloudClient {
       req.setSecurityGroupId(groupId);
       if (inRules.size() > 0) {
         req.setSecurityGroupPolicySet(new SecurityGroupPolicySet());
-        req.getSecurityGroupPolicySet().setIngress(inRules.stream().map(it -> {
-          SecurityGroupPolicy ingress = new SecurityGroupPolicy();
-          ingress.setPolicyIndex(it.getIndex());
-          return ingress;
-        }).toArray(SecurityGroupPolicy[]::new));
+        req.getSecurityGroupPolicySet()
+            .setIngress(
+                inRules.stream()
+                    .map(
+                        it -> {
+                          SecurityGroupPolicy ingress = new SecurityGroupPolicy();
+                          ingress.setPolicyIndex(it.getIndex());
+                          return ingress;
+                        })
+                    .toArray(SecurityGroupPolicy[]::new));
       }
       DeleteSecurityGroupPoliciesResponse resp = client.DeleteSecurityGroupPolicies(req);
     } catch (TencentCloudSDKException e) {
@@ -116,19 +128,17 @@ public class VirtualPrivateCloudClient {
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public List<SecurityGroup> getSecurityGroupById(String securityGroupId) {
     try {
       DescribeSecurityGroupsRequest req = new DescribeSecurityGroupsRequest();
-      req.setSecurityGroupIds(new String[]{securityGroupId});
+      req.setSecurityGroupIds(new String[] {securityGroupId});
       DescribeSecurityGroupsResponse resp = client.DescribeSecurityGroups(req);
       return Arrays.asList(resp.getSecurityGroupSet());
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public void deleteSecurityGroup(String securityGroupId) {
@@ -139,7 +149,6 @@ public class VirtualPrivateCloudClient {
     } catch (TencentCloudSDKException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public SecurityGroupPolicySet getSecurityGroupPolicies(String securityGroupId) {

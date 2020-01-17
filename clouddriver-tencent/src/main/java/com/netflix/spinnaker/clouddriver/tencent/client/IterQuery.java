@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.tencent.client;
 import com.tencentcloudapi.common.AbstractModel;
 import com.tencentcloudapi.common.exception.TencentCloudSDKException;
 import groovy.util.logging.Slf4j;
-
 import java.util.List;
 
 @Slf4j

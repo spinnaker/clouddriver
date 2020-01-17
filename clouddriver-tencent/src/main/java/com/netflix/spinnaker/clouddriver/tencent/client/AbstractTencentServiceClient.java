@@ -1,22 +1,21 @@
 package com.netflix.spinnaker.clouddriver.tencent.client;
 
+import static java.lang.Thread.sleep;
+
 import com.netflix.spinnaker.clouddriver.tencent.exception.TencentOperationException;
 import com.tencentcloudapi.common.AbstractModel;
 import com.tencentcloudapi.common.Credential;
 import com.tencentcloudapi.common.exception.TencentCloudSDKException;
 import com.tencentcloudapi.common.profile.ClientProfile;
 import com.tencentcloudapi.common.profile.HttpProfile;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-
-import static java.lang.Thread.sleep;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Data
@@ -55,7 +54,6 @@ public abstract class AbstractTencentServiceClient {
     } catch (TencentCloudSDKException | InterruptedException e) {
       throw new TencentOperationException(e.toString());
     }
-
   }
 
   public <T extends AbstractModel> List<T> iterQuery(IterQuery iterator) {
@@ -69,7 +67,7 @@ public abstract class AbstractTencentServiceClient {
       Date date = Date.from(Instant.from(accessor));
       return date;
     } catch (Exception e) {
-      //log.warn("convert time error " + e.toString());
+      // log.warn("convert time error " + e.toString());
       return null;
     }
   }
