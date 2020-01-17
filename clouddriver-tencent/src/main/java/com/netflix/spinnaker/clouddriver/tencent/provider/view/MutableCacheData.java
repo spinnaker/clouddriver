@@ -1,12 +1,11 @@
 package com.netflix.spinnaker.clouddriver.tencent.provider.view;
 
 import com.netflix.spinnaker.cats.cache.CacheData;
-import lombok.Data;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import lombok.Data;
 
 @Data
 public class MutableCacheData implements CacheData {

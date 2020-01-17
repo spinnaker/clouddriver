@@ -1,19 +1,18 @@
 package com.netflix.spinnaker.clouddriver.tencent.provider.view;
 
+import static com.netflix.spinnaker.clouddriver.tencent.cache.Keys.Namespace.INSTANCE_TYPES;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.model.InstanceTypeProvider;
 import com.netflix.spinnaker.clouddriver.tencent.cache.Keys;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentInstanceType;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.util.Comparator;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static com.netflix.spinnaker.clouddriver.tencent.cache.Keys.Namespace.INSTANCE_TYPES;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 @Component
 public class TencentInstanceTypeProvider implements InstanceTypeProvider<TencentInstanceType> {
@@ -24,16 +23,22 @@ public class TencentInstanceTypeProvider implements InstanceTypeProvider<Tencent
 
   @Override
   public Set<TencentInstanceType> getAll() {
-    return cacheView.getAll(INSTANCE_TYPES.ns,
-      cacheView.filterIdentifiers(INSTANCE_TYPES.ns,
-        Keys.getInstanceTypeKey("*", "*", "*")),
-      RelationshipCacheFilter.none()).stream().map(it -> {
-      return objectMapper.convertValue(it.getAttributes().get("instanceType"), TencentInstanceType.class);
-    })
-      .sorted(Comparator.comparing(TencentInstanceType::getInstanceFamily)
-        .thenComparing(TencentInstanceType::getCpu)
-        .thenComparing(TencentInstanceType::getMem))
-      .collect(Collectors.toSet());
+    return cacheView
+        .getAll(
+            INSTANCE_TYPES.ns,
+            cacheView.filterIdentifiers(INSTANCE_TYPES.ns, Keys.getInstanceTypeKey("*", "*", "*")),
+            RelationshipCacheFilter.none())
+        .stream()
+        .map(
+            it -> {
+              return objectMapper.convertValue(
+                  it.getAttributes().get("instanceType"), TencentInstanceType.class);
+            })
+        .sorted(
+            Comparator.comparing(TencentInstanceType::getInstanceFamily)
+                .thenComparing(TencentInstanceType::getCpu)
+                .thenComparing(TencentInstanceType::getMem))
+        .collect(Collectors.toSet());
   }
 
   public Cache getCacheView() {
@@ -44,7 +49,6 @@ public class TencentInstanceTypeProvider implements InstanceTypeProvider<Tencent
     this.cacheView = cacheView;
   }
 
-  @Autowired
-  private Cache cacheView;
+  @Autowired private Cache cacheView;
   private final ObjectMapper objectMapper;
 }

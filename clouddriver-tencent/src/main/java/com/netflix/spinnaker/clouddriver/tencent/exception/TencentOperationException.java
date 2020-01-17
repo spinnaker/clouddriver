@@ -1,8 +1,7 @@
 package com.netflix.spinnaker.clouddriver.tencent.exception;
 
 public class TencentOperationException extends RuntimeException {
-  public TencentOperationException() {
-  }
+  public TencentOperationException() {}
 
   public TencentOperationException(String message) {
     super(message);
@@ -16,7 +15,8 @@ public class TencentOperationException extends RuntimeException {
     super(cause);
   }
 
-  protected TencentOperationException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+  protected TencentOperationException(
+      String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
     super(message, cause, enableSuppression, writableStackTrace);
   }
 }
