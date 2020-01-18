@@ -60,7 +60,7 @@ public class TencentServerGroup implements ServerGroup, TencentBasicResource {
   @Override
   public Long getCreatedTime() {
     Date dateTime = AutoScalingClient.ConvertIsoDateTime((String) asg.get("createdTime"));
-    return dateTime == null ? dateTime.getTime() : null;
+    return dateTime != null ? dateTime.getTime() : null;
   }
 
   @Override
@@ -76,7 +76,7 @@ public class TencentServerGroup implements ServerGroup, TencentBasicResource {
     }
 
     if (asg != null && asg.containsKey("loadBalancerIdSet")) {
-      loadBalancerNames.addAll(Arrays.asList((String[]) asg.get("loadBalancerIdSet")));
+      loadBalancerNames.addAll((List<String>) asg.get("loadBalancerIdSet"));
     }
 
     return loadBalancerNames;

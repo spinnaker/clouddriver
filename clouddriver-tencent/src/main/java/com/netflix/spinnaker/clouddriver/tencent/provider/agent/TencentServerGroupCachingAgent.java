@@ -391,7 +391,7 @@ public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
                         TencentInstance.builder()
                             .name((String) i.get("instanceId"))
                             .launchTime(
-                                AutoScalingClient.ConvertIsoDateTime(((Instance) i).getAddTime())
+                                AutoScalingClient.ConvertIsoDateTime((String) i.get("addTime"))
                                     .getTime())
                             .zone((String) i.get("zone"))
                             .build();

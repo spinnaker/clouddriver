@@ -11,7 +11,6 @@ import com.netflix.spinnaker.clouddriver.tencent.TencentCloudProvider;
 import com.netflix.spinnaker.clouddriver.tencent.cache.Keys;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentInstance;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentTargetHealth;
-import com.netflix.spinnaker.clouddriver.tencent.model.loadbalance.TencentLoadBalancerTargetHealth;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -63,13 +62,13 @@ public class TencentInstanceProvider implements InstanceProvider<TencentInstance
         CacheData lbHealthCache = cacheView.get(HEALTH_CHECKS.ns, lbHealthKey);
         final Map<String, Object> healthAttributres =
             (lbHealthCache == null ? null : lbHealthCache.getAttributes());
-        TencentLoadBalancerTargetHealth loadBalancerTargetHealth =
+        Map<String, Object> loadBalancerTargetHealth =
             healthAttributres == null
                 ? null
-                : (TencentLoadBalancerTargetHealth) healthAttributres.get("targetHealth");
+                : (Map<String, Object>) healthAttributres.get("targetHealth");
         if (loadBalancerTargetHealth != null) {
           TencentTargetHealth targetHealth =
-              new TencentTargetHealth(loadBalancerTargetHealth.getHealthStatus());
+              new TencentTargetHealth((Boolean) loadBalancerTargetHealth.get("healthStatus"));
           TencentTargetHealth.TargetHealthStatus healthStatus =
               targetHealth.getTargetHealthStatus();
           TencentTargetHealth.LBHealthSummary summary = new TencentTargetHealth.LBHealthSummary();
