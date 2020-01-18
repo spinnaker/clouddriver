@@ -47,8 +47,9 @@ public class TencentNamedImageLookupController {
 
   @RequestMapping(value = "/find", method = RequestMethod.GET)
   public List<NamedImage> list(LookupOptions lookupOptions, HttpServletRequest request) {
+    log.info("TencentNamedImageLookupController lookupOptions = {}", lookupOptions);
     validateLookupOptions(lookupOptions);
-
+    log.info("TencentNamedImageLookupController validate passed");
     String glob = StringUtils.isEmpty(lookupOptions.getQ()) ? null : lookupOptions.getQ().trim();
     boolean isImgId = Pattern.matches(IMG_GLOB_PATTERN, glob);
 
@@ -61,6 +62,8 @@ public class TencentNamedImageLookupController {
       glob = "*" + glob + "*";
     }
 
+    log.info("TencentNamedImageLookupController glob is {}", glob);
+
     final String account = lookupOptions.getAccount();
     String namedImageSearch =
         Keys.getNamedImageKey(glob, !StringUtils.isEmpty(account) ? account : "*");
@@ -71,6 +74,8 @@ public class TencentNamedImageLookupController {
             !StringUtils.isEmpty(account) ? account : "*",
             !StringUtils.isEmpty(region) ? region : "*");
 
+    log.info("TencentNamedImageLookupController namedImageSearch is {}", namedImageSearch);
+    log.info("TencentNamedImageLookupController imageSearch is {}", imageSearch);
     Collection<String> namedImageIdentifiers =
         !isImgId
             ? cacheView.filterIdentifiers(NAMED_IMAGES.getNs(), namedImageSearch)
@@ -90,7 +95,11 @@ public class TencentNamedImageLookupController {
             namedImageIdentifiers,
             RelationshipCacheFilter.include(IMAGES.getNs()));
     Collection<CacheData> matchesByImageId = cacheView.getAll(IMAGES.getNs(), imageIdentifiers);
-
+    log.info("TencentNamedImageLookupController matchesByImageId = {}", matchesByImageId);
+    log.info(
+        "TencentNamedImageLookupController cache get all = {}",
+        cacheView.getAll(NAMED_IMAGES.getNs()));
+    log.info("TencentNamedImageLookupController namedImageIdentifiers = {}", namedImageIdentifiers);
     return render(matchesByName, matchesByImageId, lookupOptions.getQ(), lookupOptions.getRegion());
   }
 
@@ -147,6 +156,7 @@ public class TencentNamedImageLookupController {
                   && it.getRelationships().containsKey(IMAGES.getNs())) {
                 for (String imageKey : it.getRelationships().get(IMAGES.getNs())) {
                   Map<String, String> imageParts = Keys.parse(imageKey);
+                  namedImage.imgIds.putIfAbsent(imageParts.get("region"), new HashSet<String>());
                   namedImage.imgIds.get(imageParts.get("region")).add(imageParts.get("imageId"));
                 }
               }
@@ -202,7 +212,7 @@ public class TencentNamedImageLookupController {
   private static final int MIN_NAME_FILTER = 3;
   private static final String EXCEPTION_REASON =
       "Minimum of " + MIN_NAME_FILTER + " characters required to filter namedImages";
-  private final String IMG_GLOB_PATTERN = "^img-([a-f0-9]{8})$";
+  private final String IMG_GLOB_PATTERN = "^img-([\\w+0-9]{8})$";
 
   @Autowired private Cache cacheView;
 

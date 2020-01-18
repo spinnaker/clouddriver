@@ -3,10 +3,7 @@ package com.netflix.spinnaker.clouddriver.tencent.deploy.description;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable;
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -24,7 +21,7 @@ public class TencentDeployDescription extends AbstractTencentCredentialsDescript
   private String imageId;
   private Integer projectId;
   private Map<String, Object> systemDisk;
-  private List<Map<String, Object>> dataDisks;
+  private List<Map<String, Object>> dataDisks = new ArrayList<>();
   private Map<String, Object> internetAccessible;
   private Map<String, Object> loginSettings;
   private List<String> securityGroupIds;
@@ -40,11 +37,11 @@ public class TencentDeployDescription extends AbstractTencentCredentialsDescript
   private Integer desiredCapacity;
   private String vpcId;
   private Integer defaultCooldown;
-  private List<String> loadBalancerIds;
-  private List<Map<String, Object>> forwardLoadBalancers;
-  private List<String> subnetIds;
-  private List<String> terminationPolicies;
-  private List<String> zones;
+  private List<String> loadBalancerIds = new ArrayList<>();
+  private List<Map<String, Object>> forwardLoadBalancers = new ArrayList<>();
+  private List<String> subnetIds = new ArrayList<>();
+  private List<String> terminationPolicies = new ArrayList<>();
+  private List<String> zones = new ArrayList<>();
   private String retryPolicy;
   private String zonesCheckPolicy;
   private Source source = new Source();

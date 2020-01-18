@@ -18,9 +18,11 @@ import com.netflix.spinnaker.clouddriver.tencent.security.TencentNamedAccountCre
 import com.tencentcloudapi.cvm.v20170312.models.Image;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.springframework.util.CollectionUtils;
 
+@Slf4j
 public class TencentImageCachingAgent extends AbstractTencentCachingAgent {
   @Override
   public CacheResult loadData(final ProviderCache providerCache) {
@@ -39,6 +41,12 @@ public class TencentImageCachingAgent extends AbstractTencentCachingAgent {
             getRegion());
 
     List<Image> result = cvmClient.getImages();
+    log.info(
+        "TencentImageCachingAgent loadData imageNames = {}",
+        result.stream().map(it -> it.getImageName()).collect(Collectors.joining()));
+    log.info(
+        "TencentImageCachingAgent loadData imageIds = {}",
+        result.stream().map(it -> it.getImageId()).collect(Collectors.joining()));
 
     result.stream()
         .forEach(
@@ -122,9 +130,8 @@ public class TencentImageCachingAgent extends AbstractTencentCachingAgent {
         });
 
     CacheResult defaultCacheResult = new DefaultCacheResult(cacheResults, evictions);
-    // log.info("finish loads image data.");
-    // log.info("Caching " + String.valueOf(namespaceCache.get(IMAGES.ns).size()) + " items in " +
-    // getAgentType());
+    log.info("TencentImageCachingAgent finish loads image data.");
+    log.info("Caching " + namespaceCache.get(IMAGES.ns).size() + " items in " + getAgentType());
     return defaultCacheResult;
   }
 

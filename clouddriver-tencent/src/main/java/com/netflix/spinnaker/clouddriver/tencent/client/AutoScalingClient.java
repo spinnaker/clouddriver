@@ -129,7 +129,9 @@ public class AutoScalingClient extends AbstractTencentServiceClient {
       LoginSettings loginSettings = new LoginSettings();
       loginSettings.setKeepImageLogin(
           (Boolean) description.getLoginSettings().get("keepImageLogin"));
-      loginSettings.setKeyIds((String[]) description.getLoginSettings().get("keyIds"));
+      loginSettings.setKeyIds(
+          ((List<String>) description.getLoginSettings().get("keyIds"))
+              .stream().toArray(String[]::new));
       loginSettings.setPassword((String) description.getLoginSettings().get("password"));
       createLaunchConfigurationRequest.setLoginSettings(loginSettings);
     }

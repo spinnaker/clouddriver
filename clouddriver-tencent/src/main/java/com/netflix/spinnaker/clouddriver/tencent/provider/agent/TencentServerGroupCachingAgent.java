@@ -454,7 +454,10 @@ public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
   @Override
   public OnDemandResult handle(
       final ProviderCache providerCache, final Map<String, ? extends Object> data) {
+    log.info("TencentServerGroupCachingAgent handle, data is {}", data);
     if (!data.containsKey("serverGroupName")
+        || !data.containsKey("accountName")
+        || !data.containsKey("region")
         || !data.get("accountName").equals(getAccountName())
         || !data.get("region").equals(getRegion())) {
       return null;
