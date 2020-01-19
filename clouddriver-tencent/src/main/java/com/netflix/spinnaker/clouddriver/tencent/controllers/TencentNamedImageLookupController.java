@@ -49,7 +49,6 @@ public class TencentNamedImageLookupController {
   public List<NamedImage> list(LookupOptions lookupOptions, HttpServletRequest request) {
     log.info("TencentNamedImageLookupController lookupOptions = {}", lookupOptions);
     validateLookupOptions(lookupOptions);
-    log.info("TencentNamedImageLookupController validate passed");
     String glob = StringUtils.isEmpty(lookupOptions.getQ()) ? null : lookupOptions.getQ().trim();
     boolean isImgId = Pattern.matches(IMG_GLOB_PATTERN, glob);
 
@@ -148,6 +147,9 @@ public class TencentNamedImageLookupController {
                     }
                   });
               NamedImage namedImage = byImageName.get(imageName);
+              log.info(
+                  "TencentNamedImageLookupController namedImages it.attributes {}",
+                  it.getAttributes());
               namedImage.getAttributes().putAll(it.getAttributes());
               namedImage.getAttributes().remove("name", imageName);
               namedImage.getAccounts().add(keyParts.get("account"));
@@ -179,6 +181,8 @@ public class TencentNamedImageLookupController {
               NamedImage namedImage = byImageName.get(imageName);
               Map<String, Object> image = (Map<String, Object>) it.getAttributes().get("image");
               namedImage.getAttributes().put("osPlatform", image.get("osPlatform"));
+              namedImage.getAttributes().put("imageName", imageName);
+              namedImage.getAttributes().put("region", image.get("region"));
               namedImage.getAttributes().put("type", image.get("type"));
               namedImage.getAttributes().put("snapshotSet", it.getAttributes().get("snapshotSet"));
               namedImage.getAttributes().put("createdTime", image.get("createdTime"));

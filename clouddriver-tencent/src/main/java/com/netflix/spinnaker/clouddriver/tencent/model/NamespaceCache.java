@@ -20,6 +20,7 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.MutableCacheData;
 import java.util.HashMap;
 
+/** extend a hashmap which act like a map.withDefault{} in groovy */
 public class NamespaceCache extends HashMap<String, NamespaceCache.Cache> {
   @Override
   public Cache get(Object key) {

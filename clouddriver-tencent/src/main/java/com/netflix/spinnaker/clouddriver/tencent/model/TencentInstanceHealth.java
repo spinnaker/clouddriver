@@ -36,7 +36,7 @@ public class TencentInstanceHealth implements Health {
         case PENDING:
           return HealthState.Starting;
         case RUNNING:
-          return HealthState.Unknown;
+          return HealthState.Up;
         case STOPPED:
           return HealthState.Down;
         default:

@@ -10,7 +10,7 @@ import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StringUtils;
+import org.springframework.util.CollectionUtils;
 
 @Slf4j
 @Data
@@ -87,7 +87,7 @@ public class CloudVirtualMachineClient extends AbstractTencentServiceClient {
           DescribeInstancesRequest request = new DescribeInstancesRequest();
           request.setOffset(offset);
           request.setLimit(limit);
-          if (StringUtils.isEmpty(instanceIds)) {
+          if (!CollectionUtils.isEmpty(instanceIds)) {
             int end = Math.min(offset + limit - 1, instanceIds.size() - 1);
             if (offset < end) {
               request.setInstanceIds(
@@ -95,6 +95,13 @@ public class CloudVirtualMachineClient extends AbstractTencentServiceClient {
             }
           }
           DescribeInstancesResponse response = client.DescribeInstances(request);
+          log.info(
+              "cloudVirtualMachineClient getInstances {}",
+              Arrays.stream(response.getInstanceSet())
+                  .map(
+                      it -> {
+                        return "instance" + it.getInstanceId() + "status" + it.getInstanceState();
+                      }));
           return Arrays.asList(response.getInstanceSet());
         });
   }

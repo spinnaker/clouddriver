@@ -45,7 +45,7 @@ public class UpsertTencentLoadBalancerAtomicOperation implements AtomicOperation
     // log.info("params = " + String.valueOf(getDescription()));
 
     String loadBalancerId = description.getLoadBalancerId();
-    if (loadBalancerId.length() > 0) {
+    if (!StringUtils.isEmpty(loadBalancerId)) {
       updateLoadBalancer(description);
     } else { // create new loadBalancer
       insertLoadBalancer(description);

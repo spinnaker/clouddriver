@@ -94,22 +94,21 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
                       .orElse(null);
               TencentInstance tencentInstance = TencentInstance.builder().build();
 
-              Map<String, Object> map = new HashMap<String, Object>(1);
-              map.put("instanceStatus", it.getInstanceState());
               tencentInstance.setAccount(getAccountName());
-              log.info("tencentInstance acountName = {}", getAccountName());
               tencentInstance.setName(it.getInstanceId());
               tencentInstance.setInstanceName(it.getInstanceName());
               tencentInstance.setLaunchTime(launchTime != null ? launchTime.getTime() : 0);
               tencentInstance.setZone(it.getPlacement().getZone());
               tencentInstance.setVpcId(it.getVirtualPrivateCloud().getVpcId());
               tencentInstance.setSubnetId(it.getVirtualPrivateCloud().getSubnetId());
-              tencentInstance.setPrivateIpAddresses(Arrays.asList(it.getPrivateIpAddresses()));
+              tencentInstance.setPrivateIpAddresses(
+                  Optional.ofNullable(it.getPrivateIpAddresses()).map(Arrays::asList).orElse(null));
               tencentInstance.setPublicIpAddresses(
                   Optional.ofNullable(it.getPublicIpAddresses()).map(Arrays::asList).orElse(null));
               tencentInstance.setImageId(it.getImageId());
               tencentInstance.setInstanceType(it.getInstanceType());
-              tencentInstance.setSecurityGroupIds(Arrays.asList(it.getSecurityGroupIds()));
+              tencentInstance.setSecurityGroupIds(
+                  Optional.ofNullable(it.getSecurityGroupIds()).map(Arrays::asList).orElse(null));
               tencentInstance.setInstanceHealth(
                   TencentInstanceHealth.builder()
                       .instanceStatus(TencentInstanceHealth.Status.valueOf(it.getInstanceState()))
@@ -144,10 +143,7 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
 
               instances.get(instanceKey).getAttributes().put("instance", tencentInstance);
 
-              log.info("instance in TencentInstanceCachingAgent loadData is {}", tencentInstance);
               Moniker moniker = tencentInstance.getMoniker();
-              log.info("moniker.toString()");
-              log.info(moniker.toString());
               if (moniker != null) {
                 String clusterKey =
                     Keys.getClusterKey(
@@ -172,8 +168,8 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
         });
 
     CacheResult defaultCacheResult = new DefaultCacheResult(cacheResults);
-    log.info("finish loads instance data.");
-    log.info("Caching " + namespaceCache.get(INSTANCES.ns) + " items in " + getAgentType());
+    log.info("finish loads Tencent instance data.");
+    // log.info("Caching " + namespaceCache.get(INSTANCES.ns) + " items in " + getAgentType());
     return defaultCacheResult;
   }
 

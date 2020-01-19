@@ -21,10 +21,7 @@ import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.clouddriver.tencent.TencentCloudProvider;
 import com.netflix.spinnaker.clouddriver.tencent.cache.Keys;
 import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient;
-import com.netflix.spinnaker.clouddriver.tencent.model.NamespaceCache;
-import com.netflix.spinnaker.clouddriver.tencent.model.TencentBasicResource;
-import com.netflix.spinnaker.clouddriver.tencent.model.TencentInstance;
-import com.netflix.spinnaker.clouddriver.tencent.model.TencentServerGroup;
+import com.netflix.spinnaker.clouddriver.tencent.model.*;
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.MutableCacheData;
 import com.netflix.spinnaker.clouddriver.tencent.security.TencentNamedAccountCredentials;
 import com.netflix.spinnaker.moniker.Moniker;
@@ -229,6 +226,7 @@ public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
                   .findFirst()
                   .orElse(null);
 
+          // log.info("TencentServerGroupCachingAgent buildCacheResult serverGroup is {}", it);
           if (onDemandServerGroupCache != null) {
             mergeOnDemandCache(onDemandServerGroupCache, namespaceCache);
           } else {
@@ -339,8 +337,8 @@ public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
               boolean disabled = it.getEnabledStatus().equals("DISABLED");
               TencentServerGroup serverGroup =
                   TencentServerGroup.builder()
-                      .accountName(TencentServerGroupCachingAgent.this.getAccountName())
-                      .region(TencentServerGroupCachingAgent.this.getRegion())
+                      .accountName(getAccountName())
+                      .region(getRegion())
                       .name(autoScalingGroupName)
                       .disabled(disabled)
                       .build();
@@ -387,14 +385,24 @@ public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
 
               instances.forEach(
                   i -> {
+                    String health = (String) i.get("healthStatus");
+                    TencentInstanceHealth.Status healthStatus = null;
+                    TencentInstanceHealth instanceHealth = new TencentInstanceHealth();
+                    if (health.equals("HEALTHY")) {
+                      healthStatus = TencentInstanceHealth.Status.RUNNING;
+                      instanceHealth.setInstanceStatus(healthStatus);
+                    }
                     TencentInstance instance =
                         TencentInstance.builder()
                             .name((String) i.get("instanceId"))
+                            .instanceHealth(instanceHealth)
                             .launchTime(
                                 AutoScalingClient.ConvertIsoDateTime((String) i.get("addTime"))
                                     .getTime())
                             .zone((String) i.get("zone"))
                             .build();
+                    // log.info("TencentServerGroupCachingAgent loadAsgServerGroup iter through
+                    // instance {}", instance);
                     serverGroup.getInstances().add(instance);
                   });
               return serverGroup;
@@ -479,6 +487,7 @@ public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
       return null;
     }
 
+    log.info("TencentServerGroupCachingAgent, serverGroup is {}", serverGroup);
     CacheResult cacheResult =
         metricsSupport.transformData(
             () -> {

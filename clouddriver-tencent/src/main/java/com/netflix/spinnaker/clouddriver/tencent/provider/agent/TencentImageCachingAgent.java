@@ -43,10 +43,10 @@ public class TencentImageCachingAgent extends AbstractTencentCachingAgent {
     List<Image> result = cvmClient.getImages();
     log.info(
         "TencentImageCachingAgent loadData imageNames = {}",
-        result.stream().map(it -> it.getImageName()).collect(Collectors.joining()));
+        result.stream().map(it -> it.getImageName()).collect(Collectors.joining(",")));
     log.info(
         "TencentImageCachingAgent loadData imageIds = {}",
-        result.stream().map(it -> it.getImageId()).collect(Collectors.joining()));
+        result.stream().map(it -> it.getImageId()).collect(Collectors.joining(",")));
 
     result.stream()
         .forEach(

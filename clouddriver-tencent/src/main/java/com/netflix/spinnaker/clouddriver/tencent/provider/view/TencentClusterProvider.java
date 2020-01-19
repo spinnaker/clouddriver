@@ -72,6 +72,11 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
             Keys.getApplicationKey(applicationName),
             RelationshipCacheFilter.include(CLUSTERS.ns));
 
+    log.info(
+        "TencentClusterProvider getClusters with parameters: appname {}, account {}, app: {} ",
+        applicationName,
+        account,
+        application);
     if (application != null) {
       Collection<String> clusterKeys =
           application.getRelationships().get(CLUSTERS.ns).stream()
@@ -118,6 +123,7 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
               ? cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, account, region))
               : null;
 
+      log.info("TencentClusterProvider getServerGroup account = {}", account);
       TencentServerGroup serverGroup = TencentServerGroup.builder().build();
       serverGroup.setAccountName(account);
       serverGroup.setImage(
@@ -228,6 +234,7 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
                   return cluster;
                 })
             .collect(Collectors.toList());
+    log.info("tencentClusterProvider translateCluster clusters {}", clusters);
     return clusters;
   }
 
@@ -252,7 +259,18 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
     serverGroupData.stream()
         .forEach(
             it -> {
-              TencentServerGroup serverGroup = TencentServerGroup.builder().build();
+              Map<String, Object> attributes = it.getAttributes();
+              log.info("TencentClusterProvider translateServerGroup {}", attributes);
+              TencentServerGroup serverGroup =
+                  TencentServerGroup.builder()
+                      .name((String) attributes.get("name"))
+                      .accountName((String) attributes.get("accountName"))
+                      .region((String) attributes.get("region"))
+                      .asg((Map<String, Object>) attributes.get("asg"))
+                      .zones((Set<String>) attributes.get("zoneSet"))
+                      .scheduledActions((List<Map>) attributes.get("scheduledActions"))
+                      .scalingPolicies((List<Map>) attributes.get("scalingPolicies"))
+                      .build();
               String account = serverGroup.getAccountName();
               String region = serverGroup.getRegion();
               serverGroup.setInstances(getServerGroupInstances(account, region, it));
@@ -275,6 +293,7 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
       final String account, final String region, CacheData serverGroupData) {
     Collection<String> instanceKeys = serverGroupData.getRelationships().get(INSTANCES.ns);
     Collection<CacheData> instances = cacheView.getAll(INSTANCES.ns, instanceKeys);
+    log.info("tencentClusterProvider getServerGroupInstances {}", instances);
 
     return instances.stream()
         .map(
