@@ -266,6 +266,7 @@ public class AutoScalingClient extends AbstractTencentServiceClient {
           description.getForwardLoadBalancers().stream()
               .map(
                   it -> {
+                    log.info("AutoScalingClient CreateAutoScalingGroup loadBalancer = {}", it);
                     ForwardLoadBalancer forwardLoadBalancer = new ForwardLoadBalancer();
                     TargetAttribute[] targetAttributes =
                         ((List<Map>) it.get("targetAttributes"))
@@ -433,6 +434,7 @@ public class AutoScalingClient extends AbstractTencentServiceClient {
   public void deleteAutoScalingGroup(String asgId) {
     try {
       DeleteAutoScalingGroupRequest request = new DeleteAutoScalingGroupRequest();
+      log.info("deleteAutoScalingGroup with asgId: {}", asgId);
       request.setAutoScalingGroupId(asgId);
       client.DeleteAutoScalingGroup(request);
     } catch (TencentCloudSDKException e) {
@@ -562,6 +564,10 @@ public class AutoScalingClient extends AbstractTencentServiceClient {
     while (retry_count < DEFAULT_LOAD_BALANCER_SERVICE_RETRY_TIME) {
       try {
         retry_count += 1;
+        if (StringUtils.isEmpty(flb.getLocationId())) {
+          // dont detach if locationid is empty
+          break;
+        }
         DeregisterTargetsRequest request = new DeregisterTargetsRequest();
         request.setLoadBalancerId(flb.getLoadBalancerId());
         request.setListenerId(flb.getListenerId());

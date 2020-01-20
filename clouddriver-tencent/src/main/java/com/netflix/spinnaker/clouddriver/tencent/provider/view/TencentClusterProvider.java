@@ -114,10 +114,9 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
     String serverGroupKey = Keys.getServerGroupKey(name, account, region);
     CacheData serverGroupData = cacheView.get(SERVER_GROUPS.ns, serverGroupKey);
     if (serverGroupData != null) {
+      Map<String, Object> attributes = serverGroupData.getAttributes();
       String imageId =
-          (String)
-              ((Map<String, Object>) serverGroupData.getAttributes().get("launchConfig"))
-                  .get("imageId");
+          (String) ((Map<String, Object>) attributes.get("launchConfig")).get("imageId");
       CacheData imageConfig =
           !StringUtils.isEmpty(imageId)
               ? cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, account, region))
@@ -126,6 +125,8 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
       log.info("TencentClusterProvider getServerGroup account = {}", account);
       TencentServerGroup serverGroup = TencentServerGroup.builder().build();
       serverGroup.setAccountName(account);
+      serverGroup.setRegion((String) attributes.get("region"));
+      serverGroup.setName((String) attributes.get("name"));
       serverGroup.setImage(
           imageConfig != null
               ? (Map<String, Object>) imageConfig.getAttributes().get("image")

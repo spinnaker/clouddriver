@@ -13,8 +13,10 @@ import com.netflix.spinnaker.clouddriver.tencent.model.TencentInstance;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentServerGroup;
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentClusterProvider;
 import com.tencentcloudapi.as.v20180419.models.Activity;
+import com.tencentcloudapi.as.v20180419.models.AutoScalingGroup;
 import com.tencentcloudapi.as.v20180419.models.DescribeAutoScalingActivitiesResponse;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Data;
@@ -33,6 +35,7 @@ public class DestroyTencentServerGroupAtomicOperation implements AtomicOperation
 
   @Override
   public Void operate(List priorOutputs) {
+    log.info("come in to DestoryTencentServerGroup operate");
     // 1. detach all instances from asg
     // 2. terminate detached instances
     // 3. delete asg
@@ -65,9 +68,13 @@ public class DestroyTencentServerGroupAtomicOperation implements AtomicOperation
     TencentServerGroup serverGroup =
         tencentClusterProvider.getServerGroup(accountName, region, serverGroupName, false);
 
+    log.info("serverGroup is {}", serverGroup);
     if (serverGroup != null) {
-      String asgId = (String) serverGroup.getAsg().get("autoScalingGroupId");
-      String ascId = (String) serverGroup.getAsg().get("launchConfigurationId");
+      Optional<AutoScalingGroup> asg =
+          Optional.ofNullable(getAutoScalingGroup(client, serverGroupName));
+      String asgId = asg.map(it -> it.getAutoScalingGroupId()).orElse(null);
+      String ascId = asg.map(it -> it.getLaunchConfigurationId()).orElse(null);
+      log.info("asgId is {}, ascId is {}", asgId, ascId);
       Set<TencentInstance> instances = serverGroup.getInstances();
       List<String> instanceIds =
           instances.stream().map(it -> it.getName()).collect(Collectors.toList());
@@ -83,14 +90,19 @@ public class DestroyTencentServerGroupAtomicOperation implements AtomicOperation
                   + ascId
                   + ".");
 
+      log.info("instanceIds is {}", instanceIds);
+
       if (!CollectionUtils.isEmpty(instanceIds)) {
         int maxQueryTime = 10000;
         getTask().updateStatus(BASE_PHASE, "Will detach $instanceIds from " + asgId);
         String activityId = client.detachInstances(asgId, instanceIds).getActivityId();
+        log.info("detachInstances activityId is {}", activityId);
 
         for (int i = 0; i < maxQueryTime; i++) {
           DescribeAutoScalingActivitiesResponse response =
               client.describeAutoScalingActivities(activityId);
+          log.info("describeAutoScalingActivities response {}", response);
+          log.info("response.getActivitySet() {}", response.getActivitySet());
           if (!ArrayUtils.isEmpty(response.getActivitySet())) {
             Activity activity = response.getActivitySet()[0];
             String activity_status = activity.getStatusCode();
@@ -117,6 +129,7 @@ public class DestroyTencentServerGroupAtomicOperation implements AtomicOperation
 
         getTask()
             .updateStatus(BASE_PHASE, "Detach activity has finished, will start terminate soon.");
+        log.info("detach activity finish ");
         cvmClient.terminateInstances(instanceIds);
         getTask().updateStatus(BASE_PHASE, "$instanceIds are terminaing.");
       }
@@ -136,6 +149,22 @@ public class DestroyTencentServerGroupAtomicOperation implements AtomicOperation
 
     getTask().updateStatus(BASE_PHASE, "Complete destroy server group. ");
     return null;
+  }
+
+  private AutoScalingGroup getAutoScalingGroup(AutoScalingClient client, String serverGroupName) {
+    List<AutoScalingGroup> asgs = client.getAutoScalingGroupsByName(serverGroupName);
+    if (!CollectionUtils.isEmpty(asgs)) {
+      AutoScalingGroup asg = asgs.get(0);
+      String asgId = asg.getAutoScalingGroupId();
+      getTask()
+          .updateStatus(
+              BASE_PHASE,
+              "Server group " + serverGroupName + "\'s auto scaling group id is " + asgId);
+      return asg;
+    } else {
+      getTask().updateStatus(BASE_PHASE, "Server group " + serverGroupName + " is not found.");
+      return null;
+    }
   }
 
   private static Task getTask() {

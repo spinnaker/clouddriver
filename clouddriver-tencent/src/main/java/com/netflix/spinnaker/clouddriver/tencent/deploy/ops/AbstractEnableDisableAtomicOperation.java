@@ -4,6 +4,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient;
+import com.netflix.spinnaker.clouddriver.tencent.client.CloudVirtualMachineClient;
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.EnableDisableTencentServerGroupDescription;
 import com.tencentcloudapi.as.v20180419.models.AutoScalingGroup;
 import com.tencentcloudapi.as.v20180419.models.ForwardLoadBalancer;
@@ -21,6 +22,7 @@ import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.CollectionUtils;
 
 @Slf4j
@@ -51,6 +53,12 @@ public abstract class AbstractEnableDisableAtomicOperation implements AtomicOper
     String region = description.getRegion();
     AutoScalingClient client =
         new AutoScalingClient(
+            description.getCredentials().getCredentials().getSecretId(),
+            description.getCredentials().getCredentials().getSecretKey(),
+            region);
+
+    CloudVirtualMachineClient cvmClient =
+        new CloudVirtualMachineClient(
             description.getCredentials().getCredentials().getSecretId(),
             description.getCredentials().getCredentials().getSecretKey(),
             region);
@@ -86,9 +94,12 @@ public abstract class AbstractEnableDisableAtomicOperation implements AtomicOper
       log.error("operate error", e);
     }
 
+    terminateOrRebootInstances(cvmClient, inServiceInstanceIds);
+
     getTask()
         .updateStatus(
-            basePhase, "Complete enable server group " + serverGroupName + " in " + region + ".");
+            basePhase,
+            "Complete disable/enable server group " + serverGroupName + " in " + region + ".");
     return null;
   }
 
@@ -118,6 +129,26 @@ public abstract class AbstractEnableDisableAtomicOperation implements AtomicOper
       getTask().updateStatus(getBasePhase(), "Enabling auto scaling group " + asgId + "...");
       client.enableAutoScalingGroup(asgId);
       getTask().updateStatus(getBasePhase(), "Auto scaling group " + asgId + " status is enabled.");
+    }
+  }
+
+  private void terminateOrRebootInstances(
+      CloudVirtualMachineClient client, List<String> instanceIds) {
+    if (isDisable()) {
+      getTask()
+          .updateStatus(
+              getBasePhase(), "terminating instances" + StringUtils.join(instanceIds, ',') + "...");
+      client.terminateInstances(instanceIds);
+      getTask().updateStatus(getBasePhase(), "Complete termination of instance.");
+    } else {
+      getTask()
+          .updateStatus(
+              getBasePhase(), "rebooting instances " + StringUtils.join(instanceIds, ',') + "...");
+      client.rebootInstances(instanceIds);
+      getTask()
+          .updateStatus(
+              getBasePhase(),
+              "Complete rebooting instances " + StringUtils.join(instanceIds, ',') + "...");
     }
   }
 
