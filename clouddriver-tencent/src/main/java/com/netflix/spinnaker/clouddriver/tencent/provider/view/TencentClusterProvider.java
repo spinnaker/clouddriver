@@ -124,6 +124,7 @@ public class TencentClusterProvider implements ClusterProvider<TencentCluster> {
 
       log.info("TencentClusterProvider getServerGroup account = {}", account);
       TencentServerGroup serverGroup = TencentServerGroup.builder().build();
+      serverGroup.setAsg((Map<String, Object>) attributes.get("asg"));
       serverGroup.setAccountName(account);
       serverGroup.setRegion((String) attributes.get("region"));
       serverGroup.setName((String) attributes.get("name"));

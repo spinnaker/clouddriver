@@ -9,15 +9,14 @@ import com.netflix.spinnaker.clouddriver.tencent.client.AutoScalingClient;
 import com.netflix.spinnaker.clouddriver.tencent.client.CloudVirtualMachineClient;
 import com.netflix.spinnaker.clouddriver.tencent.deploy.description.DestroyTencentServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.tencent.exception.TencentOperationException;
-import com.netflix.spinnaker.clouddriver.tencent.model.TencentInstance;
 import com.netflix.spinnaker.clouddriver.tencent.model.TencentServerGroup;
 import com.netflix.spinnaker.clouddriver.tencent.provider.view.TencentClusterProvider;
 import com.tencentcloudapi.as.v20180419.models.Activity;
 import com.tencentcloudapi.as.v20180419.models.AutoScalingGroup;
 import com.tencentcloudapi.as.v20180419.models.DescribeAutoScalingActivitiesResponse;
+import com.tencentcloudapi.as.v20180419.models.Instance;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -75,9 +74,9 @@ public class DestroyTencentServerGroupAtomicOperation implements AtomicOperation
       String asgId = asg.map(it -> it.getAutoScalingGroupId()).orElse(null);
       String ascId = asg.map(it -> it.getLaunchConfigurationId()).orElse(null);
       log.info("asgId is {}, ascId is {}", asgId, ascId);
-      Set<TencentInstance> instances = serverGroup.getInstances();
+      List<Instance> instances = client.getAutoScalingInstances(asgId);
       List<String> instanceIds =
-          instances.stream().map(it -> it.getName()).collect(Collectors.toList());
+          instances.stream().map(it -> it.getInstanceId()).collect(Collectors.toList());
 
       getTask()
           .updateStatus(

@@ -99,6 +99,7 @@ public class TencentDeployHandler implements DeployHandler<TencentDeployDescript
       copyScalingPolicyAndScheduledAction(description, deploymentResult);
       copyNotification(description, deploymentResult); // copy notification by the way
     }
+    log.info("TencentDeployHandler, deployResult: {}", deploymentResult);
     return deploymentResult;
   }
 
@@ -131,7 +132,7 @@ public class TencentDeployHandler implements DeployHandler<TencentDeployDescript
             description.getCredentials().getCredentials().getSecretKey(),
             sourceRegion);
 
-    String newServerGroupName = deployResult.getServerGroupNameByRegion().get("sourceRegion");
+    String newServerGroupName = deployResult.getServerGroupNameByRegion().get(sourceRegion);
     AutoScalingGroup newAsg =
         autoScalingClient.getAutoScalingGroupsByName(newServerGroupName).get(0);
     String newAsgId = newAsg.getAutoScalingGroupId();
@@ -182,7 +183,8 @@ public class TencentDeployHandler implements DeployHandler<TencentDeployDescript
             description.getCredentials().getCredentials().getSecretKey(),
             sourceRegion);
 
-    String newServerGroupName = deployResult.getServerGroupNameByRegion().get("sourceRegion");
+    String newServerGroupName = deployResult.getServerGroupNameByRegion().get(sourceRegion);
+    log.info("TencentDeployHandler, newServerGroupName {}", newServerGroupName);
     AutoScalingGroup newAsg =
         autoScalingClient.getAutoScalingGroupsByName(newServerGroupName).get(0);
     String newAsgId = newAsg.getAutoScalingGroupId();

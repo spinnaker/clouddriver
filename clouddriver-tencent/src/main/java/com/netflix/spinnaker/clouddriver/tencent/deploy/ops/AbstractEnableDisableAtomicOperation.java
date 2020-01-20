@@ -71,30 +71,28 @@ public abstract class AbstractEnableDisableAtomicOperation implements AtomicOper
     enableOrDisableAutoScalingGroup(client, asgId);
 
     // get in service instances in auto scaling group
-    List<String> inServiceInstanceIds = getInServiceAutoScalingInstances(client, asgId);
+    List<String> instanceIds = getAutoScalingInstances(client, asgId);
 
-    if (CollectionUtils.isEmpty(inServiceInstanceIds)) {
+    if (CollectionUtils.isEmpty(instanceIds)) {
       getTask().updateStatus(basePhase, "Auto scaling group has no IN_SERVICE instance. ");
-      return null;
+    } else {
+      stopOrStartInstances(cvmClient, instanceIds);
     }
 
     // enable or disable load balancer
     if (ArrayUtils.isEmpty(asg.getLoadBalancerIdSet())
         && ArrayUtils.isEmpty(asg.getForwardLoadBalancerSet())) {
       getTask().updateStatus(basePhase, "Auto scaling group does not have a load balancer. ");
-      return null;
+    } else {
+      enableOrDisableClassicLoadBalancer(client, asg, instanceIds);
+      try {
+        // todo: the base method not been sig with tencentcloudsdkException, so we sallow the
+        // exception
+        enableOrDisableForwardLoadBalancer(client, asg, instanceIds);
+      } catch (TencentCloudSDKException e) {
+        log.error("operate error", e);
+      }
     }
-
-    enableOrDisableClassicLoadBalancer(client, asg, inServiceInstanceIds);
-    try {
-      // todo: the base method not been sig with tencentcloudsdkException, so we sallow the
-      // exception
-      enableOrDisableForwardLoadBalancer(client, asg, inServiceInstanceIds);
-    } catch (TencentCloudSDKException e) {
-      log.error("operate error", e);
-    }
-
-    terminateOrRebootInstances(cvmClient, inServiceInstanceIds);
 
     getTask()
         .updateStatus(
@@ -132,27 +130,26 @@ public abstract class AbstractEnableDisableAtomicOperation implements AtomicOper
     }
   }
 
-  private void terminateOrRebootInstances(
-      CloudVirtualMachineClient client, List<String> instanceIds) {
+  private void stopOrStartInstances(CloudVirtualMachineClient client, List<String> instanceIds) {
     if (isDisable()) {
       getTask()
           .updateStatus(
-              getBasePhase(), "terminating instances" + StringUtils.join(instanceIds, ',') + "...");
-      client.terminateInstances(instanceIds);
-      getTask().updateStatus(getBasePhase(), "Complete termination of instance.");
+              getBasePhase(), "stoping instances" + StringUtils.join(instanceIds, ',') + "...");
+      client.stopInstances(instanceIds);
+      getTask().updateStatus(getBasePhase(), "Complete stoping of instance.");
     } else {
       getTask()
           .updateStatus(
-              getBasePhase(), "rebooting instances " + StringUtils.join(instanceIds, ',') + "...");
-      client.rebootInstances(instanceIds);
+              getBasePhase(), "starting instances " + StringUtils.join(instanceIds, ',') + "...");
+      client.startInstances(instanceIds);
       getTask()
           .updateStatus(
               getBasePhase(),
-              "Complete rebooting instances " + StringUtils.join(instanceIds, ',') + "...");
+              "Complete starting instances " + StringUtils.join(instanceIds, ',') + "...");
     }
   }
 
-  private List<String> getInServiceAutoScalingInstances(AutoScalingClient client, String asgId) {
+  private List<String> getAutoScalingInstances(AutoScalingClient client, String asgId) {
     getTask().updateStatus(getBasePhase(), "Get instances managed by auto scaling group " + asgId);
     List<Instance> instances = client.getAutoScalingInstances(asgId);
 
@@ -161,27 +158,51 @@ public abstract class AbstractEnableDisableAtomicOperation implements AtomicOper
       return null;
     }
 
-    List<String> inServiceInstanceIds =
-        instances.stream()
-            .map(
-                it -> {
-                  if (it.getHealthStatus().equals("HEALTHY")
-                      && it.getLifeCycleState().equals("IN_SERVICE")) {
-                    return it.getInstanceId();
-                  } else {
-                    return null;
-                  }
-                })
-            .collect(Collectors.toList());
+    if (isDisable()) {
+      List<String> inServiceInstanceIds =
+          instances.stream()
+              .map(
+                  it -> {
+                    if (it.getHealthStatus().equals("HEALTHY")
+                        && it.getLifeCycleState().equals("IN_SERVICE")) {
+                      return it.getInstanceId();
+                    } else {
+                      return null;
+                    }
+                  })
+              .collect(Collectors.toList());
 
-    getTask()
-        .updateStatus(
-            getBasePhase(),
-            "Auto scaling group "
-                + asgId
-                + " has InService instances "
-                + String.join(",", inServiceInstanceIds));
-    return inServiceInstanceIds;
+      getTask()
+          .updateStatus(
+              getBasePhase(),
+              "Auto scaling group "
+                  + asgId
+                  + " has InService instances "
+                  + String.join(",", inServiceInstanceIds));
+      return inServiceInstanceIds;
+    } else {
+      List<String> instanceIds =
+          instances.stream()
+              .map(
+                  it -> {
+                    if (it.getHealthStatus().equals("UNHEALTHY")
+                        && !it.getLifeCycleState().equals("IN_SERVICE")) {
+                      return it.getInstanceId();
+                    } else {
+                      return null;
+                    }
+                  })
+              .collect(Collectors.toList());
+
+      getTask()
+          .updateStatus(
+              getBasePhase(),
+              "Auto scaling group "
+                  + asgId
+                  + " has unhealthy instances "
+                  + String.join(",", instanceIds));
+      return instanceIds;
+    }
   }
 
   private void enableOrDisableClassicLoadBalancer(
