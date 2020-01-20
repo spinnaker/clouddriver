@@ -81,11 +81,11 @@ public class LoadBalancerClient {
       req.setLoadBalancerType(description.getLoadBalancerType()); // OPEN：公网属性， INTERNAL：内网属性
       req.setLoadBalancerName(description.getLoadBalancerName());
       req.setForward(1); // 应用型
-      if (description.getVpcId().length() > 0) {
+      if (!StringUtils.isEmpty(description.getVpcId())) {
         req.setVpcId(description.getVpcId());
       }
 
-      if (description.getSubnetId().length() > 0) {
+      if (!StringUtils.isEmpty(description.getSubnetId())) {
         req.setSubnetId(description.getSubnetId());
       }
 
@@ -165,7 +165,7 @@ public class LoadBalancerClient {
           req.setSessionExpireTime(listener.getSessionExpireTime());
         }
 
-        if (listener.getScheduler().length() > 0) {
+        if (StringUtils.isEmpty(listener.getScheduler())) {
           req.setScheduler(listener.getScheduler());
         }
 
