@@ -146,8 +146,12 @@ abstract class AbstractEurekaSupport {
           }
         }
       } catch (RetrofitError retrofitError) {
-        if (retrofitError.response?.status == 404 && discoveryStatus == DiscoveryStatus.Disable) {
-          task.updateStatus phaseName, "Could not find ${instanceId} in application $applicationName in discovery, skipping disable operation."
+        if (discoveryStatus == DiscoveryStatus.Disable) {
+          String errorMessage = (retrofitError.response?.status == 404)
+            ? "Could not find ${instanceId} in application $applicationName in discovery, skipping disable operation."
+            : "Failed updating status of ${instanceId} in application $applicationName in discovery, skipping disable operation."
+
+          task.updateStatus phaseName, errorMessage
         } else {
           errors[instanceId] = retrofitError
         }
