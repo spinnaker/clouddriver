@@ -32,6 +32,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ArrayUtils;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -173,25 +174,27 @@ public class TencentLoadBalancerCachingAgent implements OnDemandAgent, CachingAg
                                 lbTargets.stream()
                                     .forEach(
                                         listenerBackend -> {
-                                          builder.targets(
-                                              Arrays.stream(listenerBackend.getTargets())
-                                                  .map(
-                                                      targetEntry -> {
-                                                        if (targetEntry != null) {
-                                                          TencentLoadBalancerTarget target =
-                                                              TencentLoadBalancerTarget.builder()
-                                                                  .instanceId(
-                                                                      targetEntry.getInstanceId())
-                                                                  .port(targetEntry.getPort())
-                                                                  .weight(targetEntry.getWeight())
-                                                                  .type(targetEntry.getType())
-                                                                  .build();
-                                                          return target;
-                                                        } else {
-                                                          return null;
-                                                        }
-                                                      })
-                                                  .collect(Collectors.toList()));
+                                          if (!ArrayUtils.isEmpty(listenerBackend.getTargets())) {
+                                            builder.targets(
+                                                Arrays.stream(listenerBackend.getTargets())
+                                                    .map(
+                                                        targetEntry -> {
+                                                          if (targetEntry != null) {
+                                                            TencentLoadBalancerTarget target =
+                                                                TencentLoadBalancerTarget.builder()
+                                                                    .instanceId(
+                                                                        targetEntry.getInstanceId())
+                                                                    .port(targetEntry.getPort())
+                                                                    .weight(targetEntry.getWeight())
+                                                                    .type(targetEntry.getType())
+                                                                    .build();
+                                                            return target;
+                                                          } else {
+                                                            return null;
+                                                          }
+                                                        })
+                                                    .collect(Collectors.toList()));
+                                          }
                                         });
 
                                 // rules
@@ -241,36 +244,42 @@ public class TencentLoadBalancerCachingAgent implements OnDemandAgent, CachingAg
                                               lbTargets.stream()
                                                   .forEach(
                                                       listenBackend -> {
-                                                        for (RuleTargets ruleTarget :
-                                                            listenBackend.getRules()) {
-                                                          if (ruleTarget
-                                                              .getLocationId()
-                                                              .equals(rule.getLocationId())) {
-                                                            rule.setTargets(
-                                                                Arrays.stream(
-                                                                        ruleTarget.getTargets())
-                                                                    .map(
-                                                                        ruleTargetEntry -> {
-                                                                          TencentLoadBalancerTarget
-                                                                              target =
-                                                                                  TencentLoadBalancerTarget
-                                                                                      .builder()
-                                                                                      .instanceId(
-                                                                                          ruleTargetEntry
-                                                                                              .getInstanceId())
-                                                                                      .port(
-                                                                                          ruleTargetEntry
-                                                                                              .getPort())
-                                                                                      .weight(
-                                                                                          ruleTargetEntry
-                                                                                              .getWeight())
-                                                                                      .type(
-                                                                                          ruleTargetEntry
-                                                                                              .getType())
-                                                                                      .build();
-                                                                          return target;
-                                                                        })
-                                                                    .collect(Collectors.toList()));
+                                                        if (!ArrayUtils.isEmpty(
+                                                            listenBackend.getRules())) {
+                                                          for (RuleTargets ruleTarget :
+                                                              listenBackend.getRules()) {
+                                                            if (ruleTarget
+                                                                    .getLocationId()
+                                                                    .equals(rule.getLocationId())
+                                                                && !ArrayUtils.isEmpty(
+                                                                    ruleTarget.getTargets())) {
+                                                              rule.setTargets(
+                                                                  Arrays.stream(
+                                                                          ruleTarget.getTargets())
+                                                                      .map(
+                                                                          ruleTargetEntry -> {
+                                                                            TencentLoadBalancerTarget
+                                                                                target =
+                                                                                    TencentLoadBalancerTarget
+                                                                                        .builder()
+                                                                                        .instanceId(
+                                                                                            ruleTargetEntry
+                                                                                                .getInstanceId())
+                                                                                        .port(
+                                                                                            ruleTargetEntry
+                                                                                                .getPort())
+                                                                                        .weight(
+                                                                                            ruleTargetEntry
+                                                                                                .getWeight())
+                                                                                        .type(
+                                                                                            ruleTargetEntry
+                                                                                                .getType())
+                                                                                        .build();
+                                                                            return target;
+                                                                          })
+                                                                      .collect(
+                                                                          Collectors.toList()));
+                                                            }
                                                           }
                                                         }
                                                       });

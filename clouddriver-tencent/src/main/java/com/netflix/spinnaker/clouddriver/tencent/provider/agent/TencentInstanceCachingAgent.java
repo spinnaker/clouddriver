@@ -24,7 +24,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.util.StringUtils;
 
 @Slf4j
@@ -51,7 +50,9 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
             getRegion());
 
     final List<Instance> asgInstances = asClient.getAutoScalingInstances();
-    log.info("loadData, asgInstances = {}", Strings.join(asgInstances, ','));
+    log.info(
+        "loadData, asgInstances = {}",
+        asgInstances.stream().map(it -> it.getInstanceId()).collect(Collectors.joining(",")));
     final List<String> asgInstanceIds =
         asgInstances.stream()
             .map(
@@ -60,13 +61,18 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
                 })
             .collect(Collectors.toList());
 
-    log.info("loads " + asgInstanceIds.size() + " auto scaling instances. ");
+    log.info(
+        "loads " + asgInstanceIds.size() + " auto scaling instances in region {}. ", getRegion());
 
     log.info("start load instances detail info.");
     List<com.tencentcloudapi.cvm.v20170312.models.Instance> result =
         cvmClient.getInstances(asgInstanceIds);
 
-    log.info("load instanceDetail reuslts {}", Strings.join(result, ','));
+    log.info("load instanceDetail reuslts.size {}", result.size());
+
+    log.info(
+        "load instanceDetail reuslts {}",
+        result.stream().map(it -> it.toString()).collect(Collectors.joining(",")));
 
     result.stream()
         .forEach(
@@ -136,10 +142,7 @@ public class TencentInstanceCachingAgent extends AbstractTencentCachingAgent {
 
               Map<String, CacheData> instances = namespaceCache.get(INSTANCES.ns);
               String instanceKey =
-                  Keys.getInstanceKey(
-                      it.getInstanceId(),
-                      TencentInstanceCachingAgent.this.getAccountName(),
-                      TencentInstanceCachingAgent.this.getRegion());
+                  Keys.getInstanceKey(it.getInstanceId(), getAccountName(), getRegion());
 
               instances.get(instanceKey).getAttributes().put("instance", tencentInstance);
 

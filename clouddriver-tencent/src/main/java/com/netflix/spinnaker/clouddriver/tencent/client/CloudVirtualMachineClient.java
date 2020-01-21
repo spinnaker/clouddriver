@@ -7,6 +7,7 @@ import com.tencentcloudapi.cvm.v20170312.models.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -114,17 +115,20 @@ public class CloudVirtualMachineClient extends AbstractTencentServiceClient {
   }
 
   public List<Instance> getInstances(List<String> instanceIds) {
+    if (CollectionUtils.isEmpty(instanceIds)) {
+      return new ArrayList<>();
+    }
     return iterQuery(
+        instanceIds.size(),
         (offset, limit) -> {
           DescribeInstancesRequest request = new DescribeInstancesRequest();
           request.setOffset(offset);
           request.setLimit(limit);
           if (!CollectionUtils.isEmpty(instanceIds)) {
-            int end = Math.min(offset + limit - 1, instanceIds.size() - 1);
-            if (offset < end) {
-              request.setInstanceIds(
-                  instanceIds.stream().skip(offset).limit(end - offset).toArray(String[]::new));
-            }
+            int size = Math.min(limit, instanceIds.size());
+            log.info("getInstances instanceIds {}, offset {}, size {} ", instanceIds, offset, size);
+            request.setInstanceIds(
+                instanceIds.stream().skip(offset).limit(size).toArray(String[]::new));
           }
           DescribeInstancesResponse response = client.DescribeInstances(request);
           log.info(
@@ -133,7 +137,8 @@ public class CloudVirtualMachineClient extends AbstractTencentServiceClient {
                   .map(
                       it -> {
                         return "instance" + it.getInstanceId() + "status" + it.getInstanceState();
-                      }));
+                      })
+                  .collect(Collectors.joining(",")));
           return Arrays.asList(response.getInstanceSet());
         });
   }

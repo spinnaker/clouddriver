@@ -39,10 +39,10 @@ public abstract class AbstractTencentServiceClient {
       while (query_index++ < MAX_QUERY_TIME) {
         List<T> result = iterator.iter(offset, limit);
         if (result != null && result.size() > 0) {
-          if (maxItemNum > 0 && models.size() + result.size() > maxItemNum) {
+          models.addAll(result);
+          if (maxItemNum > 0 && models.size() >= maxItemNum) {
             break;
           }
-          models.addAll(result);
           offset += limit;
         } else {
           break;

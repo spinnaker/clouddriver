@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.tencent.model.loadbalance;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -23,10 +24,10 @@ public class TencentLoadBalancerListener {
   private Integer sniSwitch;
 
   // target, tcp/udp 4 layer
-  private List<TencentLoadBalancerTarget> targets;
+  @Builder.Default private List<TencentLoadBalancerTarget> targets = new ArrayList<>();
 
   // rule, http/https 7 layer;
-  private List<TencentLoadBalancerRule> rules;
+  @Builder.Default private List<TencentLoadBalancerRule> rules = new ArrayList<>();
 
   public void copyListener(TencentLoadBalancerListener listener) {
     if (listener == null) {
