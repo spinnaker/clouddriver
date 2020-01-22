@@ -49,9 +49,11 @@ abstract class AbstractEurekaSupport {
                                          Task task,
                                          String phaseName,
                                          DiscoveryStatus discoveryStatus,
-                                         List<String> instanceIds) {
+                                         List<String> instanceIds,
+                                         boolean strict = false) {
     updateDiscoveryStatusForInstances(
-      description, task, phaseName, discoveryStatus, instanceIds, eurekaSupportConfigurationProperties.retryMax, eurekaSupportConfigurationProperties.retryMax
+      description, task, phaseName, discoveryStatus, instanceIds,
+      eurekaSupportConfigurationProperties.retryMax, eurekaSupportConfigurationProperties.retryMax, strict
     )
   }
 
@@ -62,7 +64,8 @@ abstract class AbstractEurekaSupport {
                                          DiscoveryStatus discoveryStatus,
                                          List<String> instanceIds,
                                          int findApplicationNameRetryMax,
-                                         int updateEurekaRetryMax) {
+                                         int updateEurekaRetryMax,
+                                         boolean strict = false) {
 
     if (eurekaSupportConfigurationProperties == null) {
       throw new IllegalStateException("eureka configuration not supplied")
@@ -150,6 +153,11 @@ abstract class AbstractEurekaSupport {
           String errorMessage = (retrofitError.response?.status == 404)
             ? "Could not find ${instanceId} in application $applicationName in discovery, skipping disable operation."
             : "Failed updating status of ${instanceId} in application $applicationName in discovery, skipping disable operation."
+
+          // in strict mode, only 404 errors on disable are ignored
+          if (strict && retrofitError.response?.status != 404) {
+            errors[instanceId] = retrofitError
+          }
 
           task.updateStatus phaseName, errorMessage
         } else {
