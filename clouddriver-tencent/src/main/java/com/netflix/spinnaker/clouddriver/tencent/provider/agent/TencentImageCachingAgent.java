@@ -82,8 +82,7 @@ public class TencentImageCachingAgent extends AbstractTencentCachingAgent {
                       TencentImageCachingAgent.this.getAccountName(),
                       TencentImageCachingAgent.this.getRegion());
               String namedImageKey =
-                  Keys.getNamedImageKey(
-                      tencentImage.getName(), TencentImageCachingAgent.this.getAccountName());
+                  Keys.getNamedImageKey(tencentImage.getName(), this.getAccountName());
               images.get(imageKey).getAttributes().put("image", tencentImage);
               images
                   .get(imageKey)
@@ -96,7 +95,7 @@ public class TencentImageCachingAgent extends AbstractTencentCachingAgent {
                 Collection<String> imageNames =
                     originImageCache.getRelationships().get(NAMED_IMAGES.ns);
                 if (!CollectionUtils.isEmpty(imageNames)
-                    && imageNames.iterator().next().equals(namedImageKey)) {
+                    && !imageNames.iterator().next().equals(namedImageKey)) {
                   evictions.putIfAbsent(NAMED_IMAGES.ns, new ArrayList<String>());
                   evictions
                       .get(NAMED_IMAGES.ns)
