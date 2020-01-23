@@ -17,8 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v1.provider;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.spinnaker.cats.module.CatsModule;
-import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
@@ -63,7 +63,9 @@ public class KubernetesV1ProviderSynchronizable implements CredentialsInitialize
 
     ScheduledExecutorService poller =
         Executors.newSingleThreadScheduledExecutor(
-            new NamedThreadFactory(KubernetesV1ProviderSynchronizable.class.getSimpleName()));
+            new ThreadFactoryBuilder()
+                .setNameFormat(KubernetesV1ProviderSynchronizable.class.getSimpleName() + "-%d")
+                .build());
   }
 
   @Override
