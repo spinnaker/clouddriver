@@ -150,12 +150,15 @@ abstract class AbstractEurekaSupport {
         }
       } catch (RetrofitError retrofitError) {
         if (discoveryStatus == DiscoveryStatus.Disable) {
-          String errorMessage = (retrofitError.response?.status == 404)
-            ? "Could not find ${instanceId} in application $applicationName in discovery, skipping disable operation."
-            : "Failed updating status of ${instanceId} in application $applicationName in discovery, skipping disable operation."
+          def alwaysSkippable = retrofitError.response?.status == 404
+          def willSkip = alwaysSkippable || !strict
+          def skippingOrNot = willSkip ? "skipping" : "not skipping"
+
+          String errorMessage = "Failed updating status of ${instanceId} in application $applicationName in discovery" +
+            " and strict=$strict, $skippingOrNot disable operation."
 
           // in strict mode, only 404 errors on disable are ignored
-          if (strict && retrofitError.response?.status != 404) {
+          if (!willSkip) {
             errors[instanceId] = retrofitError
           }
 
