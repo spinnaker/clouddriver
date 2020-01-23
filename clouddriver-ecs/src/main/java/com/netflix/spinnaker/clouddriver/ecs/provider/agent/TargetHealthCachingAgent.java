@@ -24,6 +24,7 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroupNotFoundException;
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetHealthDescription;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.*;
@@ -38,6 +39,7 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsTargetHealth;
 import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsTargetGroup;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,9 +80,14 @@ public class TargetHealthCachingAgent extends AbstractEcsAwsAwareCachingAgent<Ec
 
     if (targetGroups != null) {
       for (String tgArn : targetGroups) {
-        DescribeTargetHealthResult describeTargetHealthResult =
-            amazonLoadBalancing.describeTargetHealth(
-                new DescribeTargetHealthRequest().withTargetGroupArn(tgArn));
+
+        DescribeTargetHealthResult describeTargetHealthResult = new DescribeTargetHealthResult();
+        try {
+          describeTargetHealthResult =
+              amazonLoadBalancing.describeTargetHealth(
+                  new DescribeTargetHealthRequest().withTargetGroupArn(tgArn));
+        } catch (TargetGroupNotFoundException ignore) {
+        }
 
         List<TargetHealthDescription> healthDescriptions =
             describeTargetHealthResult.getTargetHealthDescriptions();
@@ -109,12 +116,7 @@ public class TargetHealthCachingAgent extends AbstractEcsAwsAwareCachingAgent<Ec
 
     List<EcsTargetGroup> tgList = cacheClient.find(targetGroupKeys);
 
-    Set<String> uniqueTargetGroupArns = new HashSet<>();
-    for (EcsTargetGroup tg : tgList) {
-      uniqueTargetGroupArns.add(tg.getTargetGroupArn());
-    }
-
-    return uniqueTargetGroupArns;
+    return tgList.stream().map(EcsTargetGroup::getTargetGroupArn).collect(Collectors.toSet());
   }
 
   private EcsTargetHealth makeEcsTargetHealth(

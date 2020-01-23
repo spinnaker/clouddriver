@@ -21,6 +21,7 @@ import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroupNotFoundException
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetHealth
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetHealthDescription
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetHealthStateEnum
@@ -125,5 +126,18 @@ class TargetHealthCachingAgentSpec extends Specification {
 
     then:
     thrown NullPointerException
+  }
+
+  def 'should catch and ignore TargetGroupNotFoundExceptions'() {
+    when:
+    agent.setAwsCache(awsProviderCache)
+    def targetHealthList = agent.getItems(ecs, Mock(ProviderCache))
+
+    then:
+    1 * amazonloadBalancing.describeTargetHealth({ DescribeTargetHealthRequest request ->
+      request.targetGroupArn == targetGroupArn
+    }) >> { throw new TargetGroupNotFoundException("The specified target group does not exist.") }
+
+    targetHealthList.size() == 0
   }
 }
