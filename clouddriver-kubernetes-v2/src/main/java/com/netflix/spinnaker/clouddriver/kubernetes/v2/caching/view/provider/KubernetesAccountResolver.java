@@ -21,13 +21,12 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.ResourcePrope
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.Optional;
-import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
+@NonnullByDefault
 class KubernetesAccountResolver {
   private final AccountCredentialsRepository credentialsRepository;
   private final ResourcePropertyRegistry globalResourcePropertyRegistry;
@@ -48,7 +47,6 @@ class KubernetesAccountResolver {
         .map(c -> (KubernetesV2Credentials) c);
   }
 
-  @Nonnull
   ResourcePropertyRegistry getResourcePropertyRegistry(String account) {
     return getCredentials(account)
         .map(KubernetesV2Credentials::getResourcePropertyRegistry)
