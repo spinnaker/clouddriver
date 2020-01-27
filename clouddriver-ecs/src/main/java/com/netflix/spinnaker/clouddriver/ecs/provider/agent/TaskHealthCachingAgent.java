@@ -221,12 +221,14 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
 
   private TaskHealth makeTaskHealth(
       Task task, String serviceName, TargetHealthDescription healthDescription) {
-    log.debug("Task target health is: {}", healthDescription.getTargetHealth());
-    String targetHealth =
-        healthDescription.getTargetHealth().getState().equals("healthy")
-            ? STATUS_UP
-            : STATUS_UNKNOWN;
-
+    String targetHealth = STATUS_UNKNOWN;
+    if (healthDescription != null) {
+      log.debug("Task target health is: {}", healthDescription.getTargetHealth());
+      targetHealth =
+          healthDescription.getTargetHealth().getState().equals("healthy")
+              ? STATUS_UP
+              : STATUS_UNKNOWN;
+    }
     TaskHealth taskHealth = new TaskHealth();
     taskHealth.setType("loadBalancer");
     taskHealth.setState(targetHealth);
@@ -317,7 +319,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
     if (targetHealth == null) {
       log.debug("Cached EcsTargetHealth is empty for targetGroup {}", targetGroupArn);
       evictStaleData(task, loadBalancerService);
-      return overallTaskHealth;
+      return makeTaskHealth(task, serviceName, null);
     }
     TargetHealthDescription targetHealthDescription =
         findHealthDescription(targetHealth.getTargetHealthDescriptions(), targetId, targetPort);
@@ -329,7 +331,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
           targetId,
           targetPort);
       evictStaleData(task, loadBalancerService);
-      return overallTaskHealth;
+      return makeTaskHealth(task, serviceName, null);
     }
 
     log.debug("Retrieved health of targetId {} for targetGroup {}", targetId, targetGroupArn);
