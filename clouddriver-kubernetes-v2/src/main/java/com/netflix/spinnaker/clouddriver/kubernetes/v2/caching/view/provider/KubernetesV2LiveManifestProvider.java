@@ -34,16 +34,17 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManifestProvider {
+  private final KubernetesAccountResolver accountResolver;
+
   @Autowired
-  public KubernetesV2LiveManifestProvider(KubernetesAccountResolver resourcePropertyResolver) {
-    super(resourcePropertyResolver);
+  public KubernetesV2LiveManifestProvider(KubernetesAccountResolver accountResolver) {
+    this.accountResolver = accountResolver;
   }
 
   @Override
   public KubernetesV2Manifest getManifest(
       String account, String location, String name, boolean includeEvents) {
-    Optional<KubernetesV2Credentials> optionalCredentials =
-        resourcePropertyResolver.getCredentials(account);
+    Optional<KubernetesV2Credentials> optionalCredentials = accountResolver.getCredentials(account);
     if (!optionalCredentials.isPresent()) {
       return null;
     }

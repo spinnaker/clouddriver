@@ -35,13 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class KubernetesV2AbstractManifestProvider
     implements ManifestProvider<KubernetesV2Manifest> {
-  protected final KubernetesAccountResolver resourcePropertyResolver;
 
-  public KubernetesV2AbstractManifestProvider(KubernetesAccountResolver resourcePropertyResolver) {
-    this.resourcePropertyResolver = resourcePropertyResolver;
-  }
-
-  protected KubernetesV2Manifest buildManifest(
+  protected static KubernetesV2Manifest buildManifest(
       KubernetesV2Credentials credentials,
       KubernetesManifest manifest,
       List<KubernetesManifest> events,

@@ -45,19 +45,19 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestProvider {
   private final KubernetesCacheUtils cacheUtils;
+  private final KubernetesAccountResolver accountResolver;
 
   @Autowired
   public KubernetesV2ManifestProvider(
-      KubernetesAccountResolver resourcePropertyResolver, KubernetesCacheUtils cacheUtils) {
-    super(resourcePropertyResolver);
+      KubernetesAccountResolver accountResolver, KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
+    this.accountResolver = accountResolver;
   }
 
   @Override
   public KubernetesV2Manifest getManifest(
       String account, String location, String name, boolean includeEvents) {
-    Optional<KubernetesV2Credentials> optionalCredentials =
-        resourcePropertyResolver.getCredentials(account);
+    Optional<KubernetesV2Credentials> optionalCredentials = accountResolver.getCredentials(account);
     if (!optionalCredentials.isPresent()) {
       return null;
     }
@@ -98,8 +98,7 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
   @Override
   public List<KubernetesV2Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
-    Optional<KubernetesV2Credentials> optionalCredentials =
-        resourcePropertyResolver.getCredentials(account);
+    Optional<KubernetesV2Credentials> optionalCredentials = accountResolver.getCredentials(account);
     if (!optionalCredentials.isPresent()) {
       return null;
     }
