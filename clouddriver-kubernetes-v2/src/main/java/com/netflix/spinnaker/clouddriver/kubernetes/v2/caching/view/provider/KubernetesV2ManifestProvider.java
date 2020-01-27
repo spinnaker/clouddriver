@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPod
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.ArrayList;
@@ -43,7 +44,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestProvider {
+public class KubernetesV2ManifestProvider implements ManifestProvider<KubernetesV2Manifest> {
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesAccountResolver accountResolver;
 
@@ -152,6 +153,6 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
             .map(KubernetesCacheDataConverter::getMetrics)
             .orElse(Collections.emptyList());
 
-    return buildManifest(credentials, manifest, events, metrics);
+    return KubernetesV2ManifestBuilder.buildManifest(credentials, manifest, events, metrics);
   }
 }
