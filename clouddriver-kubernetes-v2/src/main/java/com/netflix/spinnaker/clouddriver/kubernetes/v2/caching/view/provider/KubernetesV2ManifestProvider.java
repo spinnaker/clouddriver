@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesRes
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -55,11 +56,14 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
   @Override
   public KubernetesV2Manifest getManifest(
       String account, String location, String name, boolean includeEvents) {
-    if (!isAccountRelevant(account)) {
+    Optional<KubernetesV2Credentials> optionalCredentials =
+        resourcePropertyResolver.getCredentials(account);
+    if (!optionalCredentials.isPresent()) {
       return null;
     }
+    KubernetesV2Credentials credentials = optionalCredentials.get();
 
-    if (makesLiveCalls(account)) {
+    if (credentials.isLiveManifestCalls()) {
       return null;
     }
 

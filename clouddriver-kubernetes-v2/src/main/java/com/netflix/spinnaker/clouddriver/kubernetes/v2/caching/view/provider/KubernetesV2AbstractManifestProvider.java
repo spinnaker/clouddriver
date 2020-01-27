@@ -26,11 +26,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesKindRegistry;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -39,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class KubernetesV2AbstractManifestProvider
     implements ManifestProvider<KubernetesV2Manifest> {
-  private final KubernetesAccountResolver resourcePropertyResolver;
+  protected final KubernetesAccountResolver resourcePropertyResolver;
 
   public KubernetesV2AbstractManifestProvider(KubernetesAccountResolver resourcePropertyResolver) {
     this.resourcePropertyResolver = resourcePropertyResolver;
@@ -50,26 +48,9 @@ public abstract class KubernetesV2AbstractManifestProvider
     return resourcePropertyResolver.getResourcePropertyRegistry(account);
   }
 
-  protected Optional<KubernetesV2Credentials> getCredentials(String account) {
-    return resourcePropertyResolver.getCredentials(account);
-  }
-
   @Nonnull
   protected KubernetesKindRegistry getKindRegistry(String account) {
     return resourcePropertyResolver.getKindRegistry(account);
-  }
-
-  protected boolean isAccountRelevant(String account) {
-    return getCredentials(account).isPresent();
-  }
-
-  protected boolean makesLiveCalls(String account) {
-    return getCredentials(account)
-        .map(KubernetesV2Credentials::isLiveManifestCalls)
-        .orElseThrow(
-            () ->
-                new IllegalArgumentException(
-                    "Account " + account + " is not a Kubernetess v2 account"));
   }
 
   protected KubernetesV2Manifest buildManifest(
