@@ -92,14 +92,21 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
 
     CacheData data = dataOptional.get();
 
-    return fromCacheData(data, account, includeEvents);
+    return fromCacheData(data, credentials, includeEvents);
   }
 
   @Override
   public List<KubernetesV2Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
+    Optional<KubernetesV2Credentials> optionalCredentials =
+        resourcePropertyResolver.getCredentials(account);
+    if (!optionalCredentials.isPresent()) {
+      return null;
+    }
+    KubernetesV2Credentials credentials = optionalCredentials.get();
+
     KubernetesResourceProperties properties =
-        getRegistry(account).get(KubernetesKind.fromString(kind));
+        credentials.getResourcePropertyRegistry().get(KubernetesKind.fromString(kind));
 
     KubernetesHandler handler = properties.getHandler();
 
@@ -108,12 +115,7 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
         .map(
             c ->
                 cacheUtils.loadRelationshipsFromCache(c, kind).stream()
-                    .map(
-                        cd ->
-                            fromCacheData(
-                                cd, account, false)) // todo(lwander) perf improvement by checking
-                    // namespace
-                    // before converting
+                    .map(cd -> fromCacheData(cd, credentials, false))
                     .filter(Objects::nonNull)
                     .filter(m -> m.getLocation().equals(location))
                     .sorted(
@@ -124,7 +126,7 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
   }
 
   private KubernetesV2Manifest fromCacheData(
-      CacheData data, String account, boolean includeEvents) {
+      CacheData data, KubernetesV2Credentials credentials, boolean includeEvents) {
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(data);
     String namespace = manifest.getNamespace();
     KubernetesKind kind = manifest.getKind();
@@ -142,13 +144,15 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
                 .collect(Collectors.toList())
             : Collections.emptyList();
 
-    String metricKey = Keys.MetricCacheKey.createKey(kind, account, namespace, manifest.getName());
+    String metricKey =
+        Keys.MetricCacheKey.createKey(
+            kind, credentials.getAccountName(), namespace, manifest.getName());
     List<KubernetesPodMetric.ContainerMetric> metrics =
         cacheUtils
             .getSingleEntry(Keys.Kind.KUBERNETES_METRIC.toString(), metricKey)
             .map(KubernetesCacheDataConverter::getMetrics)
             .orElse(Collections.emptyList());
 
-    return buildManifest(account, manifest, events, metrics);
+    return buildManifest(credentials, manifest, events, metrics);
   }
 }

@@ -90,7 +90,7 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
               .collect(Collectors.toList());
     }
 
-    return buildManifest(account, manifest, events, metrics);
+    return buildManifest(credentials, manifest, events, metrics);
   }
 
   @Override
