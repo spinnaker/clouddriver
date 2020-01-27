@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.ResourcePropertyRegistry;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesKindRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
@@ -32,15 +31,12 @@ import org.springframework.stereotype.Component;
 class KubernetesAccountResolver {
   private final AccountCredentialsRepository credentialsRepository;
   private final ResourcePropertyRegistry globalResourcePropertyRegistry;
-  private final KubernetesKindRegistry.Factory kindRegistryFactory;
 
   KubernetesAccountResolver(
       AccountCredentialsRepository credentialsRepository,
-      ResourcePropertyRegistry globalResourcePropertyRegistry,
-      KubernetesKindRegistry.Factory kindRegistryFactory) {
+      ResourcePropertyRegistry globalResourcePropertyRegistry) {
     this.credentialsRepository = credentialsRepository;
     this.globalResourcePropertyRegistry = globalResourcePropertyRegistry;
-    this.kindRegistryFactory = kindRegistryFactory;
   }
 
   Optional<KubernetesV2Credentials> getCredentials(String account) {
@@ -57,12 +53,5 @@ class KubernetesAccountResolver {
     return getCredentials(account)
         .map(KubernetesV2Credentials::getResourcePropertyRegistry)
         .orElse(globalResourcePropertyRegistry);
-  }
-
-  @Nonnull
-  KubernetesKindRegistry getKindRegistry(String account) {
-    return getCredentials(account)
-        .map(KubernetesV2Credentials::getKindRegistry)
-        .orElseGet(kindRegistryFactory::create);
   }
 }

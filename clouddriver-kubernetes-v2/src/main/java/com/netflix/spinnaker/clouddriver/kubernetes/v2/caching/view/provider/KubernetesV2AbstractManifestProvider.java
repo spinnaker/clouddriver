@@ -25,7 +25,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesKindRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Comparator;
 import java.util.List;
@@ -46,11 +45,6 @@ public abstract class KubernetesV2AbstractManifestProvider
   @Nonnull
   protected final ResourcePropertyRegistry getRegistry(String account) {
     return resourcePropertyResolver.getResourcePropertyRegistry(account);
-  }
-
-  @Nonnull
-  protected KubernetesKindRegistry getKindRegistry(String account) {
-    return resourcePropertyResolver.getKindRegistry(account);
   }
 
   protected KubernetesV2Manifest buildManifest(
