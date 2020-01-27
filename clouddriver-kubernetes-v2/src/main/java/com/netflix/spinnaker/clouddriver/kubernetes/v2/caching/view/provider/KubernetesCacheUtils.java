@@ -45,7 +45,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-class KubernetesCacheUtils {
+public class KubernetesCacheUtils {
   private final Cache cache;
   private final KubernetesSpinnakerKindMap kindMap;
   private final KubernetesAccountResolver resourcePropertyResolver;
@@ -60,24 +60,25 @@ class KubernetesCacheUtils {
     this.resourcePropertyResolver = resourcePropertyResolver;
   }
 
-  Collection<CacheData> getAllKeys(String type) {
+  public Collection<CacheData> getAllKeys(String type) {
     return cleanupCollection(cache.getAll(type));
   }
 
-  Collection<String> getAllKeysMatchingPattern(String type, String key) {
+  public Collection<String> getAllKeysMatchingPattern(String type, String key) {
     return cleanupCollection(cache.filterIdentifiers(type, key));
   }
 
-  Collection<CacheData> getAllDataMatchingPattern(String type, String key) {
+  public Collection<CacheData> getAllDataMatchingPattern(String type, String key) {
     return cleanupCollection(cache.getAll(type, getAllKeysMatchingPattern(type, key)));
   }
 
-  Optional<CacheData> getSingleEntry(String type, String key) {
+  public Optional<CacheData> getSingleEntry(String type, String key) {
     CacheData result = cache.get(type, key);
     return result == null ? Optional.empty() : Optional.of(result);
   }
 
-  Optional<CacheData> getSingleEntryWithRelationships(String type, String key, String... to) {
+  public Optional<CacheData> getSingleEntryWithRelationships(
+      String type, String key, String... to) {
     CacheData result = cache.get(type, key, RelationshipCacheFilter.include(to));
     return Optional.ofNullable(result);
   }
@@ -92,7 +93,8 @@ class KubernetesCacheUtils {
         .collect(Collectors.toList());
   }
 
-  Collection<CacheData> getTransitiveRelationship(String from, List<String> sourceKeys, String to) {
+  public Collection<CacheData> getTransitiveRelationship(
+      String from, List<String> sourceKeys, String to) {
     Collection<CacheData> sourceData =
         cleanupCollection(cache.getAll(from, sourceKeys, RelationshipCacheFilter.include(to)));
     return cleanupCollection(
@@ -107,7 +109,7 @@ class KubernetesCacheUtils {
                 .collect(Collectors.toList())));
   }
 
-  Collection<CacheData> getAllRelationshipsOfSpinnakerKind(
+  public Collection<CacheData> getAllRelationshipsOfSpinnakerKind(
       Collection<CacheData> cacheData, SpinnakerKind spinnakerKind) {
     return kindMap.translateSpinnakerKind(spinnakerKind).stream()
         .map(kind -> loadRelationshipsFromCache(cacheData, kind.toString()))
@@ -115,11 +117,12 @@ class KubernetesCacheUtils {
         .collect(Collectors.toList());
   }
 
-  Collection<CacheData> loadRelationshipsFromCache(CacheData source, String relationshipType) {
+  public Collection<CacheData> loadRelationshipsFromCache(
+      CacheData source, String relationshipType) {
     return loadRelationshipsFromCache(Collections.singleton(source), relationshipType);
   }
 
-  Collection<CacheData> loadRelationshipsFromCache(
+  public Collection<CacheData> loadRelationshipsFromCache(
       Collection<CacheData> sources, String relationshipType) {
     List<String> keys =
         cleanupCollection(sources).stream()
@@ -144,7 +147,7 @@ class KubernetesCacheUtils {
   /*
    * Builds a map of all keys belonging to `sourceKind` that are related to any entries in `targetData`
    */
-  Map<String, List<CacheData>> mapByRelationship(
+  public Map<String, List<CacheData>> mapByRelationship(
       Collection<CacheData> targetData, SpinnakerKind sourceKind) {
     Map<String, List<CacheData>> result = new HashMap<>();
 
@@ -162,7 +165,8 @@ class KubernetesCacheUtils {
   }
 
   @SuppressWarnings("unchecked")
-  <T extends ManifestBasedModel> T resourceModelFromCacheData(KubernetesV2CacheData cacheData) {
+  public <T extends ManifestBasedModel> T resourceModelFromCacheData(
+      KubernetesV2CacheData cacheData) {
     Keys.InfrastructureCacheKey key =
         (Keys.InfrastructureCacheKey) Keys.parseKey(cacheData.primaryData().getId()).get();
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cacheData.primaryData());
