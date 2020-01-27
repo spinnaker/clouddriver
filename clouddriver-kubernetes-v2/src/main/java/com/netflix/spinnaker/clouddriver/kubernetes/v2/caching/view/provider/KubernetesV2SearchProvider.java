@@ -143,7 +143,7 @@ public class KubernetesV2SearchProvider implements SearchProvider {
               .getResourcePropertyRegistry(infraKey.getAccount())
               .get(infraKey.getKubernetesKind());
 
-      result = properties.getHandler().hydrateSearchResult(infraKey, cacheUtils);
+      result = properties.getHandler().hydrateSearchResult(infraKey);
     } else if (parsedKey instanceof Keys.LogicalKey) {
       Keys.LogicalKey logicalKey = (Keys.LogicalKey) parsedKey;
 
