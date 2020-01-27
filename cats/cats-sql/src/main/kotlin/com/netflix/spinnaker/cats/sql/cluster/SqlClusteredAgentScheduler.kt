@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.cats.sql.cluster
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.agent.AgentExecution
 import com.netflix.spinnaker.cats.agent.AgentLock
@@ -25,7 +26,6 @@ import com.netflix.spinnaker.cats.cluster.AgentIntervalProvider
 import com.netflix.spinnaker.cats.cluster.NodeIdentity
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
 import com.netflix.spinnaker.cats.module.CatsModuleAware
-import com.netflix.spinnaker.cats.thread.NamedThreadFactory
 import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.routing.withPool
@@ -61,10 +61,10 @@ class SqlClusteredAgentScheduler(
   agentLockAcquisitionIntervalSeconds: Long? = null,
   private val tableNamespace: String? = null,
   private val agentExecutionPool: ExecutorService = Executors.newCachedThreadPool(
-    NamedThreadFactory(AgentExecutionAction::class.java.simpleName)
+    ThreadFactoryBuilder().setNameFormat(AgentExecutionAction::class.java.simpleName + "-%d").build()
   ),
   lockPollingScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-    NamedThreadFactory(SqlClusteredAgentScheduler::class.java.simpleName)
+    ThreadFactoryBuilder().setNameFormat(SqlClusteredAgentScheduler::class.java.simpleName + "-%d").build()
   )
 ) : CatsModuleAware(), AgentScheduler<AgentLock>, Runnable {
 

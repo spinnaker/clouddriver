@@ -27,7 +27,7 @@ import com.google.api.services.storage.model.Objects;
 import com.google.api.services.storage.model.StorageObject;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactUtils;
 import java.io.File;
 import java.io.FileInputStream;
@@ -117,7 +117,10 @@ public class GcsStorageService {
     Objects objects;
     ExecutorService executor =
         Executors.newFixedThreadPool(
-            8, new NamedThreadFactory(GcsStorageService.class.getSimpleName()));
+            8,
+            new ThreadFactoryBuilder()
+                .setNameFormat(GcsStorageService.class.getSimpleName() + "-%d")
+                .build());
 
     do {
       objects = listMethod.execute();
