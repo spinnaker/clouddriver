@@ -21,7 +21,9 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.AccountResourcePropertyRegistry
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesApiGroupSpec
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiGroup
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer
@@ -108,6 +110,19 @@ class KubernetesV2CredentialsSpec extends Specification {
     then:
     credentials.getKindStatus(KubernetesKind.DEPLOYMENT) == KubernetesKindStatus.EXPLICITLY_OMITTED_BY_CONFIGURATION
     credentials.getKindStatus(KubernetesKind.REPLICA_SET) == KubernetesKindStatus.VALID
+  }
+
+  void "CRDs that are not installed return unknown"() {
+    given:
+    KubernetesApiGroup customGroup = KubernetesApiGroup.fromString("deployment.stable.example.com")
+    KubernetesV2Credentials credentials = credentialFactory.build(new KubernetesConfigurationProperties.ManagedAccount(
+      name: "k8s",
+      namespaces: [NAMESPACE],
+      checkPermissionsOnStartup: true,
+    ))
+
+    expect:
+    credentials.getKindStatus(KubernetesKind.from("my-kind", customGroup)) == KubernetesKindStatus.UNKNOWN
   }
 
   void "Kinds that are not readable are considered invalid"() {
