@@ -192,7 +192,7 @@ abstract class AbstractEurekaSupport {
         AbstractEurekaSupport.log.info("[$phaseName] - Failed marking discovery $discoveryStatus.value for instances ${errors}")
       }
     }
-    if (skipped) {
+    if (!skipped.isEmpty()) {
       task.addResultObjects([
         ["discoverySkippedInstanceIds": instanceIds]
       ])
