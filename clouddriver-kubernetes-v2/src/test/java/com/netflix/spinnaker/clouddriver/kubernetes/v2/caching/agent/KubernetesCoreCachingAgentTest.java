@@ -118,10 +118,9 @@ final class KubernetesCoreCachingAgentTest {
   private static KubernetesV2Credentials mockKubernetesV2Credentials() {
     KubernetesV2Credentials v2Credentials = mock(KubernetesV2Credentials.class);
     when(v2Credentials.isLiveManifestCalls()).thenReturn(false);
-    when(v2Credentials.getGlobalKinds()).thenReturn(kindProperties.values());
+    when(v2Credentials.getGlobalKinds()).thenReturn(kindProperties.keySet().asList());
     when(v2Credentials.getKindProperties(any(KubernetesKind.class)))
         .thenAnswer(invocation -> kindProperties.get(invocation.getArgument(0)));
-    when(v2Credentials.isValidKind(any(KubernetesKind.class))).thenReturn(true);
     when(v2Credentials.getDeclaredNamespaces())
         .thenReturn(ImmutableList.of(NAMESPACE1, NAMESPACE2));
     when(v2Credentials.getResourcePropertyRegistry()).thenReturn(resourcePropertyRegistry);

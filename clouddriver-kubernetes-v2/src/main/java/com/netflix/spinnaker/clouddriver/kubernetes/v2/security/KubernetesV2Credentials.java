@@ -26,7 +26,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -246,7 +245,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
   }
 
-  public boolean isValidKind(@Nonnull KubernetesKind kind) {
+  private boolean isValidKind(@Nonnull KubernetesKind kind) {
     return getKindStatus(kind) == KubernetesKindStatus.VALID;
   }
 
@@ -278,7 +277,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private Optional<KubernetesKindProperties> getCrdProperties(
       @Nonnull KubernetesKind kubernetesKind) {
-    return Optional.ofNullable(getCrds().get(kubernetesKind));
+    return Optional.ofNullable(crdSupplier.get().get(kubernetesKind));
   }
 
   public String getDefaultNamespace() {
@@ -290,8 +289,10 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   @Nonnull
-  public ImmutableCollection<KubernetesKindProperties> getGlobalKinds() {
-    return kindRegistry.getGlobalKinds();
+  public ImmutableList<KubernetesKind> getGlobalKinds() {
+    return kindRegistry.getGlobalKinds().stream()
+        .filter(this::isValidKind)
+        .collect(toImmutableList());
   }
 
   @Nonnull
@@ -335,8 +336,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   @Nonnull
-  public ImmutableMap<KubernetesKind, KubernetesKindProperties> getCrds() {
-    return crdSupplier.get();
+  public ImmutableList<KubernetesKind> getCrds() {
+    return crdSupplier.get().keySet().stream().filter(this::isValidKind).collect(toImmutableList());
   }
 
   @Nonnull

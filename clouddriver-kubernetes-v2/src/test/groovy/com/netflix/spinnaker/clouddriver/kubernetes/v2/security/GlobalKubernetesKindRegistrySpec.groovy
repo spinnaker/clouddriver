@@ -49,8 +49,8 @@ class GlobalKubernetesKindRegistrySpec extends Specification {
 
     then:
     kinds.size() == 2
-    kinds.contains(REPLICA_SET)
-    kinds.contains(CUSTOM_KIND)
+    kinds.contains(KubernetesKind.REPLICA_SET)
+    kinds.contains(KubernetesKind.from("customKind", CUSTOM_API_GROUP))
   }
 
   void "getRegisteredKind returns kinds that have been registered"() {

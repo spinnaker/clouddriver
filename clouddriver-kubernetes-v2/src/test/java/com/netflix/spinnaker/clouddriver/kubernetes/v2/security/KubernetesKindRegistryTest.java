@@ -88,6 +88,6 @@ final class KubernetesKindRegistryTest {
     KubernetesKindRegistry kindRegistry =
         getFactory(ImmutableList.of(REPLICA_SET_PROPERTIES))
             .create(NOOP_CRD_LOOKUP, ImmutableList.of(CUSTOM_KIND_PROPERTIES));
-    assertThat(kindRegistry.getGlobalKinds()).containsExactly(REPLICA_SET_PROPERTIES);
+    assertThat(kindRegistry.getGlobalKinds()).containsExactly(KubernetesKind.REPLICA_SET);
   }
 }

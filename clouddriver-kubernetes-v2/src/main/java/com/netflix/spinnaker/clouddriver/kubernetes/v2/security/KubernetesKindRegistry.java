@@ -16,8 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
@@ -86,7 +86,7 @@ final class KubernetesKindRegistry {
   }
 
   /** Returns a list of all global kinds */
-  ImmutableCollection<KubernetesKindProperties> getGlobalKinds() {
+  ImmutableSet<KubernetesKind> getGlobalKinds() {
     return globalKindRegistry.getRegisteredKinds();
   }
 
