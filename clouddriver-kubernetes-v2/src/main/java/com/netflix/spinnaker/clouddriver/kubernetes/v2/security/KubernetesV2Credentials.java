@@ -26,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -130,7 +131,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private String cachedDefaultNamespace;
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
-  @Getter private final KubernetesKindRegistry kindRegistry;
+  private final KubernetesKindRegistry kindRegistry;
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final PermissionValidator permissionValidator;
   private final Supplier<ImmutableMap<KubernetesKind, KubernetesKindProperties>> crdSupplier =
@@ -286,6 +287,16 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
 
     return cachedDefaultNamespace;
+  }
+
+  @Nonnull
+  public ImmutableCollection<KubernetesKindProperties> getGlobalKinds() {
+    return kindRegistry.getGlobalKinds();
+  }
+
+  @Nonnull
+  public KubernetesKindProperties getKindProperties(@Nonnull KubernetesKind kind) {
+    return kindRegistry.getKindProperties(kind);
   }
 
   private Optional<String> serviceAccountNamespace() {

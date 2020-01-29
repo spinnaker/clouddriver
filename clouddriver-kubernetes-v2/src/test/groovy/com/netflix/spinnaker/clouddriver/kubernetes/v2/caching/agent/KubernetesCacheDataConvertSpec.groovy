@@ -48,10 +48,6 @@ class KubernetesCacheDataConvertSpec extends Specification {
     return mapper.convertValue(yaml.load(input), KubernetesManifest.class)
   }
 
-  KubernetesKindRegistry.Factory kindRegistryFactory = new KubernetesKindRegistry.Factory(
-    new GlobalKubernetesKindRegistry(KubernetesKindProperties.getGlobalKindProperties())
-  )
-
   @Unroll
   def "given a correctly annotated manifest, build attributes & infer relationships"() {
     setup:
