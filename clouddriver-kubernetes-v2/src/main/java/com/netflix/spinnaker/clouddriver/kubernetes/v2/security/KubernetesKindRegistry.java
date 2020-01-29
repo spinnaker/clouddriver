@@ -20,22 +20,20 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties;
-import java.util.Collection;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import javax.annotation.Nonnull;
-import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-@ParametersAreNonnullByDefault
+@NonnullByDefault
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @Slf4j
-public class KubernetesKindRegistry {
+final class KubernetesKindRegistry {
   private final Map<KubernetesKind, KubernetesKindProperties> kindMap = new ConcurrentHashMap<>();
   private final GlobalKubernetesKindRegistry globalKindRegistry;
   private final Function<KubernetesKind, Optional<KubernetesKindProperties>> crdLookup;
@@ -43,7 +41,7 @@ public class KubernetesKindRegistry {
   private KubernetesKindRegistry(
       GlobalKubernetesKindRegistry globalKindRegistry,
       Function<KubernetesKind, Optional<KubernetesKindProperties>> crdLookup,
-      Collection<KubernetesKindProperties> customProperties) {
+      Iterable<KubernetesKindProperties> customProperties) {
     this.globalKindRegistry = globalKindRegistry;
     this.crdLookup = crdLookup;
     customProperties.forEach(this::registerKind);
@@ -70,8 +68,7 @@ public class KubernetesKindRegistry {
    * registers them for this kind and returns them; otherwise returns a {@link
    * KubernetesKindProperties} with default properties.
    */
-  @Nonnull
-  public KubernetesKindProperties getKindProperties(KubernetesKind kind) {
+  KubernetesKindProperties getKindProperties(KubernetesKind kind) {
     Optional<KubernetesKindProperties> globalResult = globalKindRegistry.getKindProperties(kind);
     if (globalResult.isPresent()) {
       return globalResult.get();
@@ -89,8 +86,7 @@ public class KubernetesKindRegistry {
   }
 
   /** Returns a list of all global kinds */
-  @Nonnull
-  public ImmutableCollection<KubernetesKindProperties> getGlobalKinds() {
+  ImmutableCollection<KubernetesKindProperties> getGlobalKinds() {
     return globalKindRegistry.getRegisteredKinds();
   }
 
@@ -98,19 +94,17 @@ public class KubernetesKindRegistry {
   public static class Factory {
     private final GlobalKubernetesKindRegistry globalKindRegistry;
 
-    public Factory(GlobalKubernetesKindRegistry globalKindRegistry) {
+    Factory(GlobalKubernetesKindRegistry globalKindRegistry) {
       this.globalKindRegistry = globalKindRegistry;
     }
 
-    @Nonnull
-    public KubernetesKindRegistry create(
+    KubernetesKindRegistry create(
         Function<KubernetesKind, Optional<KubernetesKindProperties>> crdLookup,
-        Collection<KubernetesKindProperties> customProperties) {
+        Iterable<KubernetesKindProperties> customProperties) {
       return new KubernetesKindRegistry(globalKindRegistry, crdLookup, customProperties);
     }
 
-    @Nonnull
-    public KubernetesKindRegistry create() {
+    KubernetesKindRegistry create() {
       return new KubernetesKindRegistry(
           globalKindRegistry, k -> Optional.empty(), ImmutableList.of());
     }
