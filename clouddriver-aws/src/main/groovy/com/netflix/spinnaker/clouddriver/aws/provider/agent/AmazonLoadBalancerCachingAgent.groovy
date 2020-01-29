@@ -63,6 +63,9 @@ class AmazonLoadBalancerCachingAgent extends AbstractAmazonLoadBalancerCachingAg
     if (!data.containsKey("loadBalancerName")) {
       return null
     }
+    if (data.containsKey("loadBalancerType") && data.loadBalancerType.equals("application")) {
+      return null
+    }
     if (!data.containsKey("account")) {
       return null
     }
