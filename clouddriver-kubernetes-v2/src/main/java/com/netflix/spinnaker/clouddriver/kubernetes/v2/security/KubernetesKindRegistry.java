@@ -68,21 +68,35 @@ final class KubernetesKindRegistry {
    * registers them for this kind and returns them; otherwise returns a {@link
    * KubernetesKindProperties} with default properties.
    */
-  KubernetesKindProperties getKindProperties(KubernetesKind kind) {
+  KubernetesKindProperties getKindPropertiesOrDefault(KubernetesKind kind) {
+    return getKindProperties(kind)
+        .orElseGet(() -> KubernetesKindProperties.withDefaultProperties(kind));
+  }
+
+  private Optional<KubernetesKindProperties> getKindProperties(KubernetesKind kind) {
     Optional<KubernetesKindProperties> globalResult = globalKindRegistry.getKindProperties(kind);
     if (globalResult.isPresent()) {
-      return globalResult.get();
+      return globalResult;
     }
 
     KubernetesKindProperties result = kindMap.get(kind);
     if (result != null) {
-      return result;
+      return Optional.of(result);
     }
 
-    return crdLookup
-        .apply(kind)
-        .map(this::registerKind)
-        .orElseGet(() -> KubernetesKindProperties.withDefaultProperties(kind));
+    return crdLookup.apply(kind).map(this::registerKind);
+  }
+
+  /**
+   * Returns true if the supplied {@link KubernetesKind} is registered. If the kind is not
+   * registered, tries register the kind properties using the registry's CRD lookup function, and
+   * returns true if the kind was successfully registered.
+   *
+   * @param kind The kind whose registration status will be queried
+   * @return true if the kind was registered or was successfully registered using the CRD lookup
+   */
+  boolean isKindRegistered(KubernetesKind kind) {
+    return getKindProperties(kind).isPresent();
   }
 
   /** Returns a list of all global kinds */

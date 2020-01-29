@@ -297,7 +297,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Nonnull
   public KubernetesKindProperties getKindProperties(@Nonnull KubernetesKind kind) {
-    return kindRegistry.getKindProperties(kind);
+    return kindRegistry.getKindPropertiesOrDefault(kind);
   }
 
   private Optional<String> serviceAccountNamespace() {
@@ -688,7 +688,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       }
       log.info("Checking if {} is readable in account '{}'...", kind, accountName);
       try {
-        if (kindRegistry.getKindProperties(kind).isNamespaced()) {
+        if (kindRegistry.getKindPropertiesOrDefault(kind).isNamespaced()) {
           list(kind, checkNamespace.get());
         } else {
           list(kind, null);

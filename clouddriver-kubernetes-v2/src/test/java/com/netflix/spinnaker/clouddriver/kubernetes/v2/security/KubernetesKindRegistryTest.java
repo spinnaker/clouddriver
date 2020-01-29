@@ -49,20 +49,22 @@ final class KubernetesKindRegistryTest {
   @Test
   void getKindProperties() {
     KubernetesKindRegistry kindRegistry = getFactory(ImmutableList.of()).create();
-    assertThat(kindRegistry.getKindProperties(CUSTOM_KIND)).isEqualTo(CUSTOM_KIND_PROPERTIES);
+    assertThat(kindRegistry.getKindPropertiesOrDefault(CUSTOM_KIND))
+        .isEqualTo(CUSTOM_KIND_PROPERTIES);
   }
 
   @Test
   void getKindPropertiesFallsBackToGlobal() {
     KubernetesKindRegistry kindRegistry =
         getFactory(ImmutableList.of(CUSTOM_KIND_PROPERTIES)).create();
-    assertThat(kindRegistry.getKindProperties(CUSTOM_KIND)).isEqualTo(CUSTOM_KIND_PROPERTIES);
+    assertThat(kindRegistry.getKindPropertiesOrDefault(CUSTOM_KIND))
+        .isEqualTo(CUSTOM_KIND_PROPERTIES);
   }
 
   @Test
   void getKindPropertiesFallsBackToDefault() {
     KubernetesKindRegistry kindRegistry = getFactory(ImmutableList.of()).create();
-    assertThat(kindRegistry.getKindProperties(CUSTOM_KIND))
+    assertThat(kindRegistry.getKindPropertiesOrDefault(CUSTOM_KIND))
         .isEqualTo(KubernetesKindProperties.withDefaultProperties(CUSTOM_KIND));
   }
 
@@ -72,22 +74,53 @@ final class KubernetesKindRegistryTest {
     KubernetesKindRegistry kindRegistry =
         getFactory(ImmutableList.of())
             .create(k -> Optional.of(customProperties), ImmutableList.of());
-    assertThat(kindRegistry.getKindProperties(CUSTOM_KIND)).isEqualTo(customProperties);
+    assertThat(kindRegistry.getKindPropertiesOrDefault(CUSTOM_KIND)).isEqualTo(customProperties);
   }
 
   @Test
   void emptyCRDLookupFallsBackToDefault() {
     KubernetesKindRegistry kindRegistry =
         getFactory(ImmutableList.of()).create(k -> Optional.empty(), ImmutableList.of());
-    assertThat(kindRegistry.getKindProperties(CUSTOM_KIND))
+    assertThat(kindRegistry.getKindPropertiesOrDefault(CUSTOM_KIND))
         .isEqualTo(KubernetesKindProperties.withDefaultProperties(CUSTOM_KIND));
   }
 
   @Test
-  void getGlobalKinds() {
+  void isKindRegisteredFalseForUnregisteredKind() {
+    KubernetesKindRegistry kindRegistry =
+        getFactory(ImmutableList.of()).create(k -> Optional.empty(), ImmutableList.of());
+    assertThat(kindRegistry.isKindRegistered(CUSTOM_KIND)).isFalse();
+  }
+
+  @Test
+  void isKindRegisteredTrueForGlobalKind() {
     KubernetesKindRegistry kindRegistry =
         getFactory(ImmutableList.of(REPLICA_SET_PROPERTIES))
-            .create(NOOP_CRD_LOOKUP, ImmutableList.of(CUSTOM_KIND_PROPERTIES));
-    assertThat(kindRegistry.getGlobalKinds()).containsExactly(KubernetesKind.REPLICA_SET);
+            .create(k -> Optional.empty(), ImmutableList.of());
+    assertThat(kindRegistry.isKindRegistered(KubernetesKind.REPLICA_SET)).isTrue();
+  }
+
+  @Test
+  void isKindRegisteredTrueForRegisteredKind() {
+    KubernetesKindRegistry kindRegistry =
+        getFactory(ImmutableList.of())
+            .create(k -> Optional.empty(), ImmutableList.of(CUSTOM_KIND_PROPERTIES));
+    assertThat(kindRegistry.isKindRegistered(CUSTOM_KIND)).isTrue();
+  }
+
+  @Test
+  void isKindRegisteredTrueForSuccessfulCRDLookup() {
+    KubernetesKindRegistry kindRegistry =
+        getFactory(ImmutableList.of()).create(k -> Optional.empty(), ImmutableList.of());
+    assertThat(kindRegistry.isKindRegistered(CUSTOM_KIND)).isFalse();
+  }
+
+  @Test
+  void getGlobalKinds() {
+    KubernetesKindProperties customProperties = KubernetesKindProperties.create(CUSTOM_KIND, false);
+    KubernetesKindRegistry kindRegistry =
+        getFactory(ImmutableList.of())
+            .create(k -> Optional.of(customProperties), ImmutableList.of());
+    assertThat(kindRegistry.isKindRegistered(CUSTOM_KIND)).isTrue();
   }
 }
