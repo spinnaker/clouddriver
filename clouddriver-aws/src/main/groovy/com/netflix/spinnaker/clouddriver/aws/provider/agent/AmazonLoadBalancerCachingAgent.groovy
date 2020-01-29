@@ -63,7 +63,7 @@ class AmazonLoadBalancerCachingAgent extends AbstractAmazonLoadBalancerCachingAg
     if (!data.containsKey("loadBalancerName")) {
       return null
     }
-    if (data.containsKey("loadBalancerType") && data.loadBalancerType.equals("application")) {
+    if ("application".equals(data.loadBalancerType)) {
       return null
     }
     if (!data.containsKey("account")) {
@@ -250,4 +250,3 @@ class AmazonLoadBalancerCachingAgent extends AbstractAmazonLoadBalancerCachingAg
     ])
   }
 }
-
