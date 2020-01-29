@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.description
+package com.netflix.spinnaker.clouddriver.kubernetes.v2.security
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.*
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.GlobalKubernetesKindRegistry
