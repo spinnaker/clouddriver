@@ -79,7 +79,7 @@ metadata:
 
     when:
     KubernetesCacheData kubernetesCacheData = new KubernetesCacheData()
-    KubernetesCacheDataConverter.convertAsResource(kubernetesCacheData, account, kindRegistryFactory.create(), manifest, [], false)
+    KubernetesCacheDataConverter.convertAsResource(kubernetesCacheData, account, KubernetesKindProperties.create(kind, true), manifest, [], false)
     def optional = kubernetesCacheData.toCacheData().stream().filter({
       cd -> cd.id == Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name)
     }).findFirst()
