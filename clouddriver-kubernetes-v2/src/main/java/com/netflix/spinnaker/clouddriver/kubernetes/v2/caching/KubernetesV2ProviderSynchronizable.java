@@ -139,7 +139,7 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
    *
    * @param account
    */
-  protected void saveToCredentialsRepository(KubernetesNamedAccountCredentials account) {
+  private void saveToCredentialsRepository(KubernetesNamedAccountCredentials account) {
     // Attempt to get namespaces to resolve any connectivity error without blocking /credentials
     List<String> namespaces = account.getCredentials().getDeclaredNamespaces();
     if (namespaces.isEmpty()) {
