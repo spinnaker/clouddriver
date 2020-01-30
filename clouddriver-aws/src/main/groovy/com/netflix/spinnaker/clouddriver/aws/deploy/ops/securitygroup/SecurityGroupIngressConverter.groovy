@@ -75,17 +75,17 @@ class SecurityGroupIngressConverter {
       if (ingress.id) {
         newUserIdGroupPair = new UserIdGroupPair(userId: accountId, groupId: ingress.id, vpcId: ingress.vpcId)
       } else {
-          final ingressSecurityGroup = securityGroupLookup.getSecurityGroupByName(accountName, ingress.name, vpcId)
-          if (ingressSecurityGroup.present) {
-            final groupId = ingressSecurityGroup.get().getSecurityGroup().groupId
-            newUserIdGroupPair = new UserIdGroupPair(userId: accountId, groupId: groupId, vpcId: ingress.vpcId)
+        final ingressSecurityGroup = securityGroupLookup.getSecurityGroupByName(accountName, ingress.name, vpcId)
+        if (ingressSecurityGroup.present) {
+          final groupId = ingressSecurityGroup.get().getSecurityGroup().groupId
+          newUserIdGroupPair = new UserIdGroupPair(userId: accountId, groupId: groupId, vpcId: ingress.vpcId)
+        } else {
+          if (description.vpcId) {
+            missing.add(ingress)
           } else {
-            if (description.vpcId) {
-              missing.add(ingress)
-            } else {
-              newUserIdGroupPair = new UserIdGroupPair(userId: accountId, groupName: ingress.name)
-            }
+            newUserIdGroupPair = new UserIdGroupPair(userId: accountId, groupName: ingress.name)
           }
+        }
       }
 
       if (newUserIdGroupPair) {
@@ -107,21 +107,18 @@ class SecurityGroupIngressConverter {
         it.groupName = null
         it.peeringStatus = null
         it.vpcPeeringConnectionId = null
-        it.description = null // not passed in via the UI
         new IpPermission()
           .withFromPort(ipPermission.fromPort)
           .withToPort(ipPermission.toPort)
           .withIpProtocol(ipPermission.ipProtocol)
           .withUserIdGroupPairs(it)
       } + ipPermission.ipv4Ranges.collect {
-        it.description = null // not passed in via the UI
         new IpPermission()
           .withFromPort(ipPermission.fromPort)
           .withToPort(ipPermission.toPort)
           .withIpProtocol(ipPermission.ipProtocol)
           .withIpv4Ranges(it)
       } + ipPermission.ipv6Ranges.collect {
-        it.description = null // not passed in via the UI
         new IpPermission()
           .withFromPort(ipPermission.fromPort)
           .withToPort(ipPermission.toPort)
@@ -130,4 +127,48 @@ class SecurityGroupIngressConverter {
       }
     }.flatten().unique()
   }
+
+  static Map<String, List> computeLatestIpRules(List<IpPermission> newList, List<IpPermission> existingRules) {
+    List<IpPermission> tobeAdded = new ArrayList<>()
+    List<IpPermission> tobeRemoved = new ArrayList<>()
+    List<IpPermission> tobeUpdated = new ArrayList<>()
+    List<IpPermission> filteredList = newList.findAll { elements -> elements.userIdGroupPairs.size() == 0 }
+    List<IpPermission> filteredExisistingRuleList = existingRules.findAll { elements -> elements.userIdGroupPairs.size() == 0 }
+    filteredList.forEach({ newListEntry ->
+      IpPermission match = findIpPermission(filteredExisistingRuleList, newListEntry)
+      if (match) {
+        if (newListEntry.ipv4Ranges.collect { it.description }.find() != null
+          || newListEntry.ipv6Ranges.collect { it.description }.find() != null) {
+          tobeUpdated.add(newListEntry) // matches old rule , needs an update for description
+          filteredExisistingRuleList.remove(newListEntry) // remove from future processing
+        }
+        filteredExisistingRuleList.remove(match) // remove from future processing
+      } else {
+        tobeAdded.add(newListEntry) //no match in old rule so must be added
+      }
+    })
+    tobeRemoved = filteredExisistingRuleList // rules that needs to be removed
+    Map<String, List> modificationsMap = ["tobeAdded": tobeAdded, "tobeRemoved": tobeRemoved, "tobeUpdated": tobeUpdated]
+    modificationsMap
+  }
+
+  static IpPermission findIpPermission(List<IpPermission> existingList, IpPermission ipPermission) {
+    existingList.find { it ->
+      ((it.ipv4Ranges.collect { it.cidrIp }.sort() == ipPermission.ipv4Ranges.collect { it.cidrIp }.sort()
+        && it.fromPort == ipPermission.fromPort
+        && it.toPort == ipPermission.toPort
+        && it.ipProtocol == ipPermission.ipProtocol)
+        || (it.ipv6Ranges.collect { it.cidrIpv6 }.sort() == ipPermission.ipv6Ranges.collect { it.cidrIpv6 }.sort()
+        && it.fromPort == ipPermission.fromPort
+        && it.toPort == ipPermission.toPort
+        && it.ipProtocol == ipPermission.ipProtocol))
+    }
+  }
+
+  static List<IpPermission> userIdGroupPairsDiff(List<IpPermission> converted, List<IpPermission> existingIpPermissions) {
+    List<IpPermission> convertedFromDesc = converted.findAll { elements -> elements.userIdGroupPairs.size() != 0 }
+    List<IpPermission> existing = existingIpPermissions.findAll { elements -> elements.userIdGroupPairs.size() != 0 }
+    return convertedFromDesc - existing
+  }
+
 }
