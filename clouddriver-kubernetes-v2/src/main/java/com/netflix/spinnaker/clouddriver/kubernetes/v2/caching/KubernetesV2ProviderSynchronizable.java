@@ -115,6 +115,10 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
                 // account exists but has changed
                 changedAccounts.add(managedAccount.getName());
                 newAndChangedAccounts.add(managedAccount.getName());
+              } else {
+                // Current credentials may contain memoized namespaces, we should keep if the
+                // definition has not changed
+                return;
               }
 
               accountCredentialsRepository.save(managedAccount.getName(), credentials);
