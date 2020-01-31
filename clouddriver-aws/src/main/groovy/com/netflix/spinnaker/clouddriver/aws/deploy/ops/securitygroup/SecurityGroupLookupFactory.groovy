@@ -255,7 +255,6 @@ class SecurityGroupLookupFactory {
         groupId: securityGroup.groupId,
         ipPermissions: ipPermissionsToUpdate
       ))
-      securityGroup.ipPermissions.addAll(ipPermissionsToUpdate)
     }
 
     void addIngress(List<IpPermission> ipPermissionsToAdd) {

@@ -128,28 +128,39 @@ class SecurityGroupIngressConverter {
     }.flatten().unique()
   }
 
-  static Map<String, List> computeLatestIpRules(List<IpPermission> newList, List<IpPermission> existingRules) {
+  /**
+   *
+   * @param newList from description
+   * @param existingRules
+   * @return Map of rules that needs to be added , removed and updated
+   * Computes the delta between the existing rules and new rule
+   * Any rule present in description and not in the existing rule gets added to addition list.
+   * Any rule in description but present in existing rule get added to the remove list.
+   * Any rule with a change in description only gets added to the update list based on the following,
+   * - If a new rule has description value add it to update list to make it consistent.
+   * - If new rule has no description value set, ignore.
+   */
+  static Map<String, List> computeIpRuleDelta(List<IpPermission> newList, List<IpPermission> existingRules) {
     List<IpPermission> tobeAdded = new ArrayList<>()
     List<IpPermission> tobeRemoved = new ArrayList<>()
     List<IpPermission> tobeUpdated = new ArrayList<>()
-    List<IpPermission> filteredList = newList.findAll { elements -> elements.userIdGroupPairs.size() == 0 }
-    List<IpPermission> filteredExisistingRuleList = existingRules.findAll { elements -> elements.userIdGroupPairs.size() == 0 }
-    filteredList.forEach({ newListEntry ->
-      IpPermission match = findIpPermission(filteredExisistingRuleList, newListEntry)
+    List<IpPermission> filteredNewList = newList.findAll { ipPermission -> ipPermission.userIdGroupPairs.size() == 0 }
+    List<IpPermission> filteredExistingRuleList = existingRules.findAll { elements -> elements.userIdGroupPairs.size() == 0 }
+    filteredNewList.forEach({ newListEntry ->
+      IpPermission match = findIpPermission(filteredExistingRuleList, newListEntry)
       if (match) {
-        if (newListEntry.ipv4Ranges.collect { it.description }.find() != null
-          || newListEntry.ipv6Ranges.collect { it.description }.find() != null) {
+        if (newListEntry.ipv4Ranges.collect { it.description }.any()
+          || newListEntry.ipv6Ranges.collect { it.description }.any()) {
           tobeUpdated.add(newListEntry) // matches old rule , needs an update for description
-          filteredExisistingRuleList.remove(newListEntry) // remove from future processing
         }
-        filteredExisistingRuleList.remove(match) // remove from future processing
+        filteredExistingRuleList.remove(match) // remove from future processing
       } else {
         tobeAdded.add(newListEntry) //no match in old rule so must be added
       }
     })
-    tobeRemoved = filteredExisistingRuleList // rules that needs to be removed
+    tobeRemoved = filteredExistingRuleList // rules that needs to be removed
     Map<String, List> modificationsMap = ["tobeAdded": tobeAdded, "tobeRemoved": tobeRemoved, "tobeUpdated": tobeUpdated]
-    modificationsMap
+    return modificationsMap
   }
 
   static IpPermission findIpPermission(List<IpPermission> existingList, IpPermission ipPermission) {

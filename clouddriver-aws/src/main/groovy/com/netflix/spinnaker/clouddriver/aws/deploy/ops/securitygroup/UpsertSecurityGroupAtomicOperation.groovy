@@ -101,17 +101,17 @@ class UpsertSecurityGroupAtomicOperation implements AtomicOperation<Void> {
       ipPermissionsFromDescription = convertDescriptionToIngress(securityGroupLookup, description, false)
     }
 
-    Map ipPermissionMap = SecurityGroupIngressConverter.computeLatestIpRules(ipPermissionsFromDescription.converted, existingIpPermissions)
+    Map ipPermissionMap = SecurityGroupIngressConverter.computeIpRuleDelta(ipPermissionsFromDescription.converted, existingIpPermissions)
 
-    List<IpPermission> ipPermissionsToAdd = ipPermissionMap.get("tobeAdded")
+    List<IpPermission> ipPermissionsToAdd = ipPermissionMap["tobeAdded"]
     List<IpPermission> userIdGroupPermissions = SecurityGroupIngressConverter.userIdGroupPairsDiff(ipPermissionsFromDescription.converted,existingIpPermissions)
     ipPermissionsToAdd = ipPermissionsToAdd + userIdGroupPermissions
 
-    List<IpPermission> ipPermissionsToRemove = ipPermissionMap.get("tobeRemoved")
+    List<IpPermission> ipPermissionsToRemove = ipPermissionMap["tobeRemoved"]
     List<IpPermission> userIdGroupPermissionsToRemove = SecurityGroupIngressConverter.userIdGroupPairsDiff(existingIpPermissions,ipPermissionsFromDescription.converted)
     ipPermissionsToRemove = ipPermissionsToRemove + userIdGroupPermissionsToRemove
 
-    List<IpPermission> tobeUpdated = ipPermissionMap.get("tobeUpdated")
+    List<IpPermission> tobeUpdated = ipPermissionMap["tobeUpdated"]
 
     //Update rules that are already present on the security group
     if(tobeUpdated) {
