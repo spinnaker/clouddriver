@@ -111,7 +111,7 @@ final class KubernetesDeploymentHandlerTest {
 
     assertThat(status.getStable().isState()).isFalse();
     assertThat(status.getStable().getMessage())
-        .isEqualTo("Deployment does not have minimum availability.");
+        .isEqualTo("Waiting for all replicas to be available");
     assertThat(status.getAvailable().isState()).isFalse();
     assertThat(status.getAvailable().getMessage())
         .isEqualTo("Deployment does not have minimum availability.");
@@ -128,7 +128,9 @@ final class KubernetesDeploymentHandlerTest {
             "deployment/base.yml", "deployment/progress-deadline-exceeded.yml");
     Status status = handler.status(deployment);
 
-    assertThat(status.getStable().isState()).isTrue();
+    assertThat(status.getStable().isState()).isFalse();
+    assertThat(status.getStable().getMessage())
+        .isEqualTo("Waiting for all replicas to be available");
     assertThat(status.getAvailable().isState()).isTrue();
     assertThat(status.getPaused().isState()).isFalse();
     assertThat(status.getFailed().isState()).isTrue();

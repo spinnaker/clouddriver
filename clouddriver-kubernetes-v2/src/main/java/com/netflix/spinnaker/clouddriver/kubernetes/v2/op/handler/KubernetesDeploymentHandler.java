@@ -120,14 +120,10 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
         Optional.ofNullable(status.getConditions()).orElse(ImmutableList.of());
 
     Status result = Status.defaultStatus();
-    getPausedReason(conditions).ifPresent(reason -> result.paused(reason));
+    getPausedReason(conditions).ifPresent(result::paused);
     getUnavailableReason(conditions)
         .ifPresent(reason -> result.unstable(reason).unavailable(reason));
-    Optional<String> failedReason = getFailedReason(conditions);
-    // TODO(ezimanyi): Unclear that we should return early here; worth properly setting stable below
-    if (failedReason.isPresent()) {
-      return result.failed(failedReason.get());
-    }
+    getFailedReason(conditions).ifPresent(result::failed);
     checkReplicaCounts(deployment, status)
         .ifPresent(reason -> result.unstable(reason.getMessage()));
     return result;
