@@ -31,6 +31,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestN
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesReplicaSetHandler
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesServiceHandler
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest.KubernetesDeployManifestOperation
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.GlobalKubernetesKindRegistry
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesKindRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
@@ -113,9 +115,6 @@ spec:
     return registry
   }
 
-  KubernetesKindRegistry.Factory kindRegistryFactory = new KubernetesKindRegistry.Factory(new GlobalKubernetesKindRegistry([]))
-  KubernetesKindRegistry kindRegistry = kindRegistryFactory.create()
-
   KubernetesDeployManifestOperation createMockDeployer(
     KubernetesV2Credentials credentials,
     KubernetesDeployManifestDescription deployDescription
@@ -140,7 +139,7 @@ spec:
   void "replica set deployer is correctly invoked"() {
     setup:
     def credentialsMock = Mock(KubernetesV2Credentials) {
-      getKindRegistry() >> kindRegistry
+      getKindProperties(_ as KubernetesKind) >> { args -> KubernetesKindProperties.withDefaultProperties(args[0]) }
       getDefaultNamespace() >> NAMESPACE
     }
     def deployOp = createMockDeployer(credentialsMock, getBaseDeployDescription(BASIC_REPLICA_SET))
@@ -155,7 +154,7 @@ spec:
   void "replica set deployer uses backup namespace"() {
     setup:
     def credentialsMock = Mock(KubernetesV2Credentials) {
-      getKindRegistry() >> kindRegistry
+      getKindProperties(_ as KubernetesKind) >> { args -> KubernetesKindProperties.withDefaultProperties(args[0]) }
       getDefaultNamespace() >> DEFAULT_NAMESPACE
     }
     def deployOp = createMockDeployer(credentialsMock, getBaseDeployDescription(BASIC_REPLICA_SET_NO_NAMESPACE))
@@ -172,7 +171,7 @@ spec:
     setup:
     def namespaceOverride = "overridden"
     def credentialsMock = Mock(KubernetesV2Credentials) {
-      getKindRegistry() >> kindRegistry
+      getKindProperties(_ as KubernetesKind) >> { args -> KubernetesKindProperties.withDefaultProperties(args[0]) }
       getDefaultNamespace() >> DEFAULT_NAMESPACE
     }
     def deployOp = getBaseDeployDescription(BASIC_REPLICA_SET_NO_NAMESPACE)
@@ -191,7 +190,7 @@ spec:
   void "sends traffic to the specified service when enableTraffic is true"() {
     setup:
     def credentialsMock = Mock(KubernetesV2Credentials) {
-      getKindRegistry() >> kindRegistry
+      getKindProperties(_ as KubernetesKind) >> { args -> KubernetesKindProperties.withDefaultProperties(args[0]) }
       getDefaultNamespace() >> NAMESPACE
       get(KubernetesKind.SERVICE, NAMESPACE, "my-service") >> stringToManifest(MY_SERVICE)
     }
@@ -213,7 +212,7 @@ spec:
   void "does not send traffic to the specified service when enableTraffic is false"() {
     setup:
     def credentialsMock = Mock(KubernetesV2Credentials) {
-      getKindRegistry() >> kindRegistry
+      getKindProperties(_ as KubernetesKind) >> { args -> KubernetesKindProperties.withDefaultProperties(args[0]) }
       getDefaultNamespace() >> NAMESPACE
       get(KubernetesKind.SERVICE, NAMESPACE, "my-service") >> stringToManifest(MY_SERVICE)
     }

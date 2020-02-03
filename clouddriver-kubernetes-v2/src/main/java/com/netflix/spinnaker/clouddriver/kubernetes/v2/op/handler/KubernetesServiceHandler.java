@@ -24,17 +24,16 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manife
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.NETWORK_RESOURCE_PRIORITY;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch.Op;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
-import io.kubernetes.client.models.V1Service;
+import io.kubernetes.client.openapi.models.V1Service;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -80,9 +79,8 @@ public class KubernetesServiceHandler extends KubernetesHandler implements CanLo
   }
 
   @Override
-  public Map<String, Object> hydrateSearchResult(
-      Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
-    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
+  public Map<String, Object> hydrateSearchResult(InfrastructureCacheKey key) {
+    Map<String, Object> result = super.hydrateSearchResult(key);
     result.put("loadBalancer", result.get("name"));
 
     return result;

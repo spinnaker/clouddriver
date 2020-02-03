@@ -49,14 +49,13 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpi
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor.KubectlException;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
-import io.kubernetes.client.models.V1DeleteOptions;
-import io.kubernetes.client.models.V1beta1CustomResourceDefinition;
+import io.kubernetes.client.openapi.models.V1DeleteOptions;
+import io.kubernetes.client.openapi.models.V1beta1CustomResourceDefinition;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -89,7 +88,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final Clock clock;
   private final KubectlJobExecutor jobExecutor;
 
-  @Include private final String accountName;
+  @Include @Getter private final String accountName;
 
   @Include @Getter private final ImmutableList<String> namespaces;
 
@@ -131,7 +130,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private String cachedDefaultNamespace;
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
-  @Getter private final KubernetesKindRegistry kindRegistry;
+  private final KubernetesKindRegistry kindRegistry;
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final PermissionValidator permissionValidator;
   private final Supplier<ImmutableMap<KubernetesKind, KubernetesKindProperties>> crdSupplier =
@@ -232,6 +231,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     EXPLICITLY_OMITTED_BY_CONFIGURATION(
         "Kind [%s] included in 'omitKinds' of kubernetes account configuration"),
     MISSING_FROM_ALLOWED_KINDS("Kind [%s] missing in 'kinds' of kubernetes account configuration"),
+    UNKNOWN("Kind [%s] is has not been registered and is not a valid CRD installed in the cluster"),
     READ_ERROR(
         "Error reading kind [%s]. Please check connectivity and access permissions to the cluster");
 
@@ -246,7 +246,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
   }
 
-  public boolean isValidKind(@Nonnull KubernetesKind kind) {
+  private boolean isValidKind(@Nonnull KubernetesKind kind) {
     return getKindStatus(kind) == KubernetesKindStatus.VALID;
   }
 
@@ -271,14 +271,20 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       return KubernetesKindStatus.EXPLICITLY_OMITTED_BY_CONFIGURATION;
     }
 
-    return permissionValidator.isKindReadable(kind)
-        ? KubernetesKindStatus.VALID
-        : KubernetesKindStatus.READ_ERROR;
+    if (!kindRegistry.isKindRegistered(kind)) {
+      return KubernetesKindStatus.UNKNOWN;
+    }
+
+    if (!permissionValidator.isKindReadable(kind)) {
+      return KubernetesKindStatus.READ_ERROR;
+    }
+
+    return KubernetesKindStatus.VALID;
   }
 
   private Optional<KubernetesKindProperties> getCrdProperties(
       @Nonnull KubernetesKind kubernetesKind) {
-    return Optional.ofNullable(getCrds().get(kubernetesKind));
+    return Optional.ofNullable(crdSupplier.get().get(kubernetesKind));
   }
 
   public String getDefaultNamespace() {
@@ -287,6 +293,18 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
 
     return cachedDefaultNamespace;
+  }
+
+  @Nonnull
+  public ImmutableList<KubernetesKind> getGlobalKinds() {
+    return kindRegistry.getGlobalKinds().stream()
+        .filter(this::isValidKind)
+        .collect(toImmutableList());
+  }
+
+  @Nonnull
+  public KubernetesKindProperties getKindProperties(@Nonnull KubernetesKind kind) {
+    return kindRegistry.getKindPropertiesOrDefault(kind);
   }
 
   private Optional<String> serviceAccountNamespace() {
@@ -325,8 +343,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   @Nonnull
-  public ImmutableMap<KubernetesKind, KubernetesKindProperties> getCrds() {
-    return crdSupplier.get();
+  public ImmutableList<KubernetesKind> getCrds() {
+    return crdSupplier.get().keySet().stream().filter(this::isValidKind).collect(toImmutableList());
   }
 
   @Nonnull
@@ -677,7 +695,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       }
       log.info("Checking if {} is readable in account '{}'...", kind, accountName);
       try {
-        if (kindRegistry.getKindProperties(kind).isNamespaced()) {
+        if (kindRegistry.getKindPropertiesOrDefault(kind).isNamespaced()) {
           list(kind, checkNamespace.get());
         } else {
           list(kind, null);

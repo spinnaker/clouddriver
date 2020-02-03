@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.netflix.spectator.api.NoopRegistry;
+import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -69,11 +71,24 @@ final class KubernetesCoreCachingAgentTest {
   private static final String DEPLOYMENT_KIND = KubernetesKind.DEPLOYMENT.toString();
   private static final String STORAGE_CLASS_KIND = KubernetesKind.STORAGE_CLASS.toString();
 
+  private static final ImmutableMap<KubernetesKind, KubernetesKindProperties> kindProperties =
+      ImmutableMap.<KubernetesKind, KubernetesKindProperties>builder()
+          .put(
+              KubernetesKind.DEPLOYMENT,
+              KubernetesKindProperties.create(KubernetesKind.DEPLOYMENT, true))
+          .put(
+              KubernetesKind.STORAGE_CLASS,
+              KubernetesKindProperties.create(KubernetesKind.STORAGE_CLASS, false))
+          .put(
+              KubernetesKind.NAMESPACE,
+              KubernetesKindProperties.create(KubernetesKind.NAMESPACE, false))
+          .put(KubernetesKind.POD, KubernetesKindProperties.create(KubernetesKind.POD, true))
+          .put(
+              KubernetesKind.REPLICA_SET,
+              KubernetesKindProperties.create(KubernetesKind.REPLICA_SET, true))
+          .build();
+
   private static final ObjectMapper objectMapper = new ObjectMapper();
-  private static final KubernetesKindRegistry kindRegistry =
-      new KubernetesKindRegistry.Factory(
-              new GlobalKubernetesKindRegistry(KubernetesKindProperties.getGlobalKindProperties()))
-          .create();
   private static final ResourcePropertyRegistry resourcePropertyRegistry =
       new GlobalResourcePropertyRegistry(
           ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler());
@@ -103,8 +118,9 @@ final class KubernetesCoreCachingAgentTest {
   private static KubernetesV2Credentials mockKubernetesV2Credentials() {
     KubernetesV2Credentials v2Credentials = mock(KubernetesV2Credentials.class);
     when(v2Credentials.isLiveManifestCalls()).thenReturn(false);
-    when(v2Credentials.getKindRegistry()).thenReturn(kindRegistry);
-    when(v2Credentials.isValidKind(any(KubernetesKind.class))).thenReturn(true);
+    when(v2Credentials.getGlobalKinds()).thenReturn(kindProperties.keySet().asList());
+    when(v2Credentials.getKindProperties(any(KubernetesKind.class)))
+        .thenAnswer(invocation -> kindProperties.get(invocation.getArgument(0)));
     when(v2Credentials.getDeclaredNamespaces())
         .thenReturn(ImmutableList.of(NAMESPACE1, NAMESPACE2));
     when(v2Credentials.getResourcePropertyRegistry()).thenReturn(resourcePropertyRegistry);
@@ -546,5 +562,43 @@ final class KubernetesCoreCachingAgentTest {
       this.results = extractCacheResults(loadDataResults);
       this.cacheEntries = extractCacheEntries(providerCaches);
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 2, 10})
+  public void authoritativeForLogicalTypes(int numAgents) {
+    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
+        createCachingAgents(getNamedAccountCredentials(), numAgents);
+    cachingAgents.forEach(
+        cachingAgent ->
+            assertThat(getAuthoritativeTypes(cachingAgent.getProvidedDataTypes()))
+                .containsAll(
+                    ImmutableList.of(
+                        Keys.LogicalKind.APPLICATIONS.toString(),
+                        Keys.LogicalKind.CLUSTERS.toString(),
+                        Keys.Kind.ARTIFACT.toString())));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 2, 10})
+  public void authoritativeForKubernetesKinds(int numAgents) {
+    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
+        createCachingAgents(getNamedAccountCredentials(), numAgents);
+    cachingAgents.forEach(
+        cachingAgent ->
+            assertThat(getAuthoritativeTypes(cachingAgent.getProvidedDataTypes()))
+                .containsAll(
+                    ImmutableList.of(
+                        KubernetesKind.NAMESPACE.toString(),
+                        KubernetesKind.POD.toString(),
+                        KubernetesKind.REPLICA_SET.toString())));
+  }
+
+  private static ImmutableList<String> getAuthoritativeTypes(
+      Collection<AgentDataType> agentDataTypes) {
+    return agentDataTypes.stream()
+        .filter(dataType -> dataType.getAuthority() == AUTHORITATIVE)
+        .map(AgentDataType::getTypeName)
+        .collect(toImmutableList());
   }
 }

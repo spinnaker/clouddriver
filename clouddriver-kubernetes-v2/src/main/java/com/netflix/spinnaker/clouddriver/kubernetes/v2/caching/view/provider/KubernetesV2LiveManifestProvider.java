@@ -17,14 +17,15 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.KubernetesV2Manifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesAccountResolver;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -33,20 +34,24 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManifestProvider {
+public class KubernetesV2LiveManifestProvider implements ManifestProvider<KubernetesV2Manifest> {
+  private final KubernetesAccountResolver accountResolver;
+
   @Autowired
-  public KubernetesV2LiveManifestProvider(KubernetesAccountResolver resourcePropertyResolver) {
-    super(resourcePropertyResolver);
+  public KubernetesV2LiveManifestProvider(KubernetesAccountResolver accountResolver) {
+    this.accountResolver = accountResolver;
   }
 
   @Override
   public KubernetesV2Manifest getManifest(
       String account, String location, String name, boolean includeEvents) {
-    if (!isAccountRelevant(account)) {
+    Optional<KubernetesV2Credentials> optionalCredentials = accountResolver.getCredentials(account);
+    if (!optionalCredentials.isPresent()) {
       return null;
     }
+    KubernetesV2Credentials credentials = optionalCredentials.get();
 
-    if (!makesLiveCalls(account)) {
+    if (!credentials.isLiveManifestCalls()) {
       return null;
     }
 
@@ -64,10 +69,6 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
         parsedName.getLeft(),
         location,
         account);
-    KubernetesV2Credentials credentials =
-        getCredentials(account)
-            .orElseThrow(
-                () -> new IllegalStateException("Already verified that credentials are relevant"));
     KubernetesManifest manifest =
         credentials.get(parsedName.getLeft(), location, parsedName.getRight());
     if (manifest == null) {
@@ -91,7 +92,7 @@ public class KubernetesV2LiveManifestProvider extends KubernetesV2AbstractManife
               .collect(Collectors.toList());
     }
 
-    return buildManifest(account, manifest, events, metrics);
+    return KubernetesV2ManifestBuilder.buildManifest(credentials, manifest, events, metrics);
   }
 
   @Override

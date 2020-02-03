@@ -42,7 +42,6 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,10 +62,10 @@ public class Applications {
   private final String metricsUri;
   private final ApplicationService api;
   private final Spaces spaces;
+  private final Integer resultsPerPage;
 
   private final LoadingCache<String, CloudFoundryServerGroup> serverGroupCache =
       CacheBuilder.newBuilder()
-          .expireAfterWrite(5, TimeUnit.MINUTES)
           .build(
               new CacheLoader<String, CloudFoundryServerGroup>() {
                 @Override
@@ -97,7 +96,7 @@ public class Applications {
 
   public List<CloudFoundryApplication> all() {
     List<Application> newCloudFoundryAppList =
-        collectPages("applications", page -> api.all(page, 5000, null, null));
+        collectPages("applications", page -> api.all(page, resultsPerPage, null, null));
 
     // Evict Records from `cache` that are no longer in the foundation
     List<String> availableAppIds =

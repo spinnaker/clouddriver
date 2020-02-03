@@ -22,18 +22,18 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.Kuberne
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
-import io.kubernetes.client.models.V1beta2DaemonSet;
-import io.kubernetes.client.models.V1beta2DaemonSetStatus;
+import io.kubernetes.client.openapi.models.V1beta2DaemonSet;
+import io.kubernetes.client.openapi.models.V1beta2DaemonSetStatus;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -96,9 +96,8 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler
   }
 
   @Override
-  public Map<String, Object> hydrateSearchResult(
-      Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
-    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
+  public Map<String, Object> hydrateSearchResult(InfrastructureCacheKey key) {
+    Map<String, Object> result = super.hydrateSearchResult(key);
     result.put("serverGroup", result.get("name"));
 
     return result;
@@ -123,27 +122,32 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler
       return result.unstable("Waiting for daemonset spec update to be observed");
     }
 
-    int desiredReplicas = status.getDesiredNumberScheduled();
-    Integer existing = status.getCurrentNumberScheduled();
-    if (existing == null || desiredReplicas > existing) {
+    int desiredReplicas = defaultToZero(status.getDesiredNumberScheduled());
+    int existing = defaultToZero(status.getCurrentNumberScheduled());
+    if (desiredReplicas > existing) {
       return result.unstable("Waiting for all replicas to be scheduled");
     }
 
-    existing = status.getUpdatedNumberScheduled();
-    if (existing != null && desiredReplicas > existing) {
+    existing = defaultToZero(status.getUpdatedNumberScheduled());
+    if (desiredReplicas > existing) {
       return result.unstable("Waiting for all updated replicas to be scheduled");
     }
 
-    existing = status.getNumberAvailable();
-    if (existing == null || desiredReplicas > existing) {
+    existing = defaultToZero(status.getNumberAvailable());
+    if (desiredReplicas > existing) {
       return result.unstable("Waiting for all replicas to be available");
     }
 
-    existing = status.getNumberReady();
-    if (existing == null || desiredReplicas > existing) {
+    existing = defaultToZero(status.getNumberReady());
+    if (desiredReplicas > existing) {
       return result.unstable("Waiting for all replicas to be ready");
     }
 
     return result;
+  }
+
+  // Unboxes an Integer, returning 0 if the input is null
+  private int defaultToZero(@Nullable Integer input) {
+    return input == null ? 0 : input;
   }
 }

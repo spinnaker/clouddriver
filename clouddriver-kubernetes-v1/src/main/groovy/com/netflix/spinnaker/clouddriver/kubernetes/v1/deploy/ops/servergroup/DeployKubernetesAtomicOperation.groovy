@@ -36,7 +36,7 @@ import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder
 import io.fabric8.kubernetes.api.model.apps.DeploymentFluentImpl
 import io.fabric8.kubernetes.api.model.apps.DoneableDeployment
 import io.fabric8.kubernetes.api.model.apps.ReplicaSetBuilder
-import io.kubernetes.client.models.V1Pod
+import io.kubernetes.client.openapi.models.V1Pod
 
 class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResult> {
   private static final String BASE_PHASE = "DEPLOY"
@@ -224,7 +224,7 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
       def autoscaler = KubernetesClientApiConverter.toAutoscaler(new KubernetesAutoscalerDescription(controllerName, description), controllerName, description.kind)
 
       if (credentials.clientApiAdaptor.getAutoscaler(namespace, controllerName)) {
-        credentials.clientApiAdaptor.deleteAutoscaler(namespace, controllerName, null, null, null, true)
+        credentials.clientApiAdaptor.deleteAutoscaler(namespace, controllerName, null, true, null)
       }
       credentials.clientApiAdaptor.createAutoscaler(namespace, autoscaler)
     }
@@ -263,7 +263,7 @@ class DeployKubernetesAtomicOperation implements AtomicOperation<DeploymentResul
     })
 
     def getPodState = null
-    podNameList.toSorted(Map.Entry.comparingByKey().reversed()).forEach ({ k, v ->
+    podNameList.toSorted(Map.Entry.comparingByKey().reversed()).forEach ({ String k, String v ->
       credentials.clientApiAdaptor.deletePod(k, namespace, null, null, null, false)
 
       getPodState = {

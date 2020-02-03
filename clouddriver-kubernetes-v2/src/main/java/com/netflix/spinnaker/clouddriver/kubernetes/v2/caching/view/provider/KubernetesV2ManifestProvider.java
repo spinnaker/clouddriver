@@ -23,12 +23,13 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model.KubernetesV2Manifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesAccountResolver;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -43,24 +44,27 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestProvider {
+public class KubernetesV2ManifestProvider implements ManifestProvider<KubernetesV2Manifest> {
   private final KubernetesCacheUtils cacheUtils;
+  private final KubernetesAccountResolver accountResolver;
 
   @Autowired
   public KubernetesV2ManifestProvider(
-      KubernetesAccountResolver resourcePropertyResolver, KubernetesCacheUtils cacheUtils) {
-    super(resourcePropertyResolver);
+      KubernetesAccountResolver accountResolver, KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
+    this.accountResolver = accountResolver;
   }
 
   @Override
   public KubernetesV2Manifest getManifest(
       String account, String location, String name, boolean includeEvents) {
-    if (!isAccountRelevant(account)) {
+    Optional<KubernetesV2Credentials> optionalCredentials = accountResolver.getCredentials(account);
+    if (!optionalCredentials.isPresent()) {
       return null;
     }
+    KubernetesV2Credentials credentials = optionalCredentials.get();
 
-    if (makesLiveCalls(account)) {
+    if (credentials.isLiveManifestCalls()) {
       return null;
     }
 
@@ -72,8 +76,7 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
     }
 
     KubernetesKind kind = parsedName.getLeft();
-    if (!getKindRegistry(account).getKindProperties(kind).isNamespaced()
-        && StringUtils.isNotEmpty(location)) {
+    if (!credentials.getKindProperties(kind).isNamespaced() && StringUtils.isNotEmpty(location)) {
       log.warn(
           "Kind {} is not namespaced, but namespace {} was provided (ignoring)", kind, location);
       location = "";
@@ -89,14 +92,20 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
 
     CacheData data = dataOptional.get();
 
-    return fromCacheData(data, account, includeEvents);
+    return fromCacheData(data, credentials, includeEvents);
   }
 
   @Override
   public List<KubernetesV2Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
+    Optional<KubernetesV2Credentials> optionalCredentials = accountResolver.getCredentials(account);
+    if (!optionalCredentials.isPresent()) {
+      return null;
+    }
+    KubernetesV2Credentials credentials = optionalCredentials.get();
+
     KubernetesResourceProperties properties =
-        getRegistry(account).get(KubernetesKind.fromString(kind));
+        credentials.getResourcePropertyRegistry().get(KubernetesKind.fromString(kind));
 
     KubernetesHandler handler = properties.getHandler();
 
@@ -105,12 +114,7 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
         .map(
             c ->
                 cacheUtils.loadRelationshipsFromCache(c, kind).stream()
-                    .map(
-                        cd ->
-                            fromCacheData(
-                                cd, account, false)) // todo(lwander) perf improvement by checking
-                    // namespace
-                    // before converting
+                    .map(cd -> fromCacheData(cd, credentials, false))
                     .filter(Objects::nonNull)
                     .filter(m -> m.getLocation().equals(location))
                     .sorted(
@@ -121,7 +125,7 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
   }
 
   private KubernetesV2Manifest fromCacheData(
-      CacheData data, String account, boolean includeEvents) {
+      CacheData data, KubernetesV2Credentials credentials, boolean includeEvents) {
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(data);
     String namespace = manifest.getNamespace();
     KubernetesKind kind = manifest.getKind();
@@ -139,13 +143,15 @@ public class KubernetesV2ManifestProvider extends KubernetesV2AbstractManifestPr
                 .collect(Collectors.toList())
             : Collections.emptyList();
 
-    String metricKey = Keys.MetricCacheKey.createKey(kind, account, namespace, manifest.getName());
+    String metricKey =
+        Keys.MetricCacheKey.createKey(
+            kind, credentials.getAccountName(), namespace, manifest.getName());
     List<KubernetesPodMetric.ContainerMetric> metrics =
         cacheUtils
             .getSingleEntry(Keys.Kind.KUBERNETES_METRIC.toString(), metricKey)
             .map(KubernetesCacheDataConverter::getMetrics)
             .orElse(Collections.emptyList());
 
-    return buildManifest(account, manifest, events, metrics);
+    return KubernetesV2ManifestBuilder.buildManifest(credentials, manifest, events, metrics);
   }
 }

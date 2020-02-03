@@ -24,17 +24,16 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.Kuberne
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
-import io.kubernetes.client.models.V1beta2RollingUpdateStatefulSetStrategy;
-import io.kubernetes.client.models.V1beta2StatefulSet;
-import io.kubernetes.client.models.V1beta2StatefulSetStatus;
+import io.kubernetes.client.openapi.models.V1beta2RollingUpdateStatefulSetStrategy;
+import io.kubernetes.client.openapi.models.V1beta2StatefulSet;
+import io.kubernetes.client.openapi.models.V1beta2StatefulSetStatus;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,6 +41,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
@@ -111,9 +111,8 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
   }
 
   @Override
-  public Map<String, Object> hydrateSearchResult(
-      Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
-    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
+  public Map<String, Object> hydrateSearchResult(InfrastructureCacheKey key) {
+    Map<String, Object> result = super.hydrateSearchResult(key);
     result.put("serverGroup", result.get("name"));
 
     return result;
@@ -132,14 +131,14 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
       return result;
     }
 
-    Integer desiredReplicas = statefulSet.getSpec().getReplicas();
-    Integer existing = status.getReplicas();
-    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
+    int desiredReplicas = defaultToZero(statefulSet.getSpec().getReplicas());
+    int existing = defaultToZero(status.getReplicas());
+    if (desiredReplicas > existing) {
       return result.unstable("Waiting for at least the desired replica count to be met");
     }
 
-    existing = status.getReadyReplicas();
-    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
+    existing = defaultToZero(status.getReadyReplicas());
+    if (desiredReplicas > existing) {
       return result.unstable("Waiting for all updated replicas to be ready");
     }
 
@@ -159,8 +158,8 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
       return result;
     }
 
-    existing = status.getCurrentReplicas();
-    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
+    existing = defaultToZero(status.getCurrentReplicas());
+    if (desiredReplicas > existing) {
       return result.unstable("Waiting for all updated replicas to be scheduled");
     }
 
@@ -169,6 +168,11 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
     }
 
     return result;
+  }
+
+  // Unboxes an Integer, returning 0 if the input is null
+  private int defaultToZero(@Nullable Integer input) {
+    return input == null ? 0 : input;
   }
 
   @Override

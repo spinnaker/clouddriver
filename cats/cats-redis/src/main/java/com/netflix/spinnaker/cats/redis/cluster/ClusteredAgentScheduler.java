@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.cats.redis.cluster;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.agent.AgentExecution;
 import com.netflix.spinnaker.cats.agent.AgentLock;
@@ -26,7 +27,6 @@ import com.netflix.spinnaker.cats.cluster.AgentIntervalProvider;
 import com.netflix.spinnaker.cats.cluster.NodeIdentity;
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider;
 import com.netflix.spinnaker.cats.module.CatsModuleAware;
-import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate;
 import java.util.*;
@@ -75,9 +75,13 @@ public class ClusteredAgentScheduler extends CatsModuleAware
         intervalProvider,
         nodeStatusProvider,
         Executors.newSingleThreadScheduledExecutor(
-            new NamedThreadFactory(ClusteredAgentScheduler.class.getSimpleName())),
+            new ThreadFactoryBuilder()
+                .setNameFormat(ClusteredAgentScheduler.class.getSimpleName() + "-%d")
+                .build()),
         Executors.newCachedThreadPool(
-            new NamedThreadFactory(AgentExecutionAction.class.getSimpleName())),
+            new ThreadFactoryBuilder()
+                .setNameFormat(AgentExecutionAction.class.getSimpleName() + "-%d")
+                .build()),
         enabledAgentPattern,
         agentLockAcquisitionIntervalSeconds,
         dynamicConfigService);
