@@ -45,12 +45,7 @@ final class KubernetesDaemonSetHandlerTest {
   private static KubernetesManifest daemonSet(Map<String, Object> status) throws IOException {
     KubernetesManifest daemonSet = baseDaemonSet();
     daemonSet.put("status", status);
-    // The logic in KubernetesManifest expects that numeric values are deserialized as Doubles, and
-    // fails when these are Integers.  To avoid having code in this test that works around the issue
-    // (such as by inserting 1.0 as the observedGeneration) just serialize then deserialize the
-    // updated manifest so the test is getting a manifest that is produced exactly as would happen
-    // in real use cases when clouddriver fetches the manifest from kubernetes.
-    return gson.fromJson(gson.toJson(daemonSet), KubernetesManifest.class);
+    return daemonSet;
   }
 
   @Test
