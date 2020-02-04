@@ -124,20 +124,16 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler
           .unavailable("Not all replicas have become labeled yet");
     }
 
+    if (desired > ready) {
+      return Status.defaultStatus()
+          .unstable("Waiting for all replicas to be ready")
+          .unavailable("Not all replicas have become ready yet");
+    }
+
     if (desired > available) {
       return Status.defaultStatus()
           .unstable("Waiting for all replicas to be available")
           .unavailable("Not all replicas have become available yet");
-    }
-
-    // Unclear that we can ever go into this if statement this state (at least in a meaningful way,
-    // setting aside a bug or inconsistency in kubernetes); availableReplicas is defined as replicas
-    // that have been ready for > minReadySeconds which means ready >= available.  If we reach this
-    // point, we also know that available >= desired, which by the transitive property of >= implies
-    // ready >= desired and the if condition will always be false.
-    // TODO(ezimanyi): Consider removing this condition, or moving it above the available check
-    if (desired > ready) {
-      return Status.defaultStatus().unstable("Waiting for all replicas to be ready");
     }
 
     if (!generationMatches(replicaSet, status)) {
