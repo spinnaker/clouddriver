@@ -154,8 +154,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
       if (replicas != null && partition != null && (updated < (replicas - partition))) {
         return result.unstable("Waiting for partitioned roll out to finish");
       }
-      result.setStable(new Status.Condition(true, "Partitioned roll out complete"));
-      return result;
+      return result.stable("Partitioned roll out complete");
     }
 
     existing = defaultToZero(status.getCurrentReplicas());
