@@ -41,7 +41,7 @@ public class KubernetesKindProperties {
         new KubernetesKindProperties(KubernetesKind.DAEMON_SET, true, true),
         new KubernetesKindProperties(KubernetesKind.DEPLOYMENT, true, true),
         new KubernetesKindProperties(KubernetesKind.EVENT, true, false),
-        new KubernetesKindProperties(KubernetesKind.HORIZONTAL_POD_AUTOSCALER, true, false),
+        new KubernetesKindProperties(KubernetesKind.HORIZONTAL_POD_AUTOSCALER, true, true),
         new KubernetesKindProperties(KubernetesKind.INGRESS, true, true),
         new KubernetesKindProperties(KubernetesKind.JOB, true, false),
         new KubernetesKindProperties(KubernetesKind.LIMIT_RANGE, true, false),

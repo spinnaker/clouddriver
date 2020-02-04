@@ -112,6 +112,16 @@ public interface ServerGroup {
   Set<String> getLoadBalancers();
 
   /**
+   * The names of the autoscalers associated with this server group
+   *
+   * @return the set of autoscaler names or an empty set if none exist
+   */
+  @Empty
+  default Set<String> getAutoscalers() {
+    return null;
+  }
+
+  /**
    * The names of the security groups associated with this server group
    *
    * @return the set of security group names or an empty set if none exist

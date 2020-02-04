@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.AUTOSCALERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.LOAD_BALANCERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUPS;
@@ -142,6 +143,11 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
             .map(KubernetesKind::toString)
             .collect(Collectors.toList()));
 
+    relatedTypes.addAll(
+        kindMap.translateSpinnakerKind(AUTOSCALERS).stream()
+            .map(KubernetesKind::toString)
+            .collect(Collectors.toList()));
+
     Optional<CacheData> serverGroupData =
         cacheUtils.getSingleEntryWithRelationships(
             kind.toString(), key, relatedTypes.toArray(new String[0]));
@@ -167,11 +173,21 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                       .flatMap(Collection::stream)
                       .collect(Collectors.toList());
 
+              List<CacheData> autoscalerData =
+                  kindMap.translateSpinnakerKind(AUTOSCALERS).stream()
+                      .map(
+                          k ->
+                              cacheUtils.loadRelationshipsFromCache(
+                                  Collections.singletonList(cd), k.toString()))
+                      .flatMap(Collection::stream)
+                      .collect(Collectors.toList());
+
               return cacheUtils.<KubernetesV2ServerGroup>resourceModelFromCacheData(
                   KubernetesV2ServerGroupCacheData.builder()
                       .serverGroupData(cd)
                       .instanceData(instanceData)
                       .loadBalancerData(loadBalancerData)
+                      .autoscalerData(autoscalerData)
                       .build());
             })
         .orElse(null);
@@ -238,6 +254,12 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
 
+    List<CacheData> autoscalerData =
+        kindMap.translateSpinnakerKind(AUTOSCALERS).stream()
+            .map(kind -> cacheUtils.loadRelationshipsFromCache(serverGroupData, kind.toString()))
+            .flatMap(Collection::stream)
+            .collect(Collectors.toList());
+
     Map<String, List<CacheData>> clusterToServerGroups = new HashMap<>();
     for (CacheData serverGroupDatum : serverGroupData) {
       Collection<String> clusterKeys = serverGroupDatum.getRelationships().get(CLUSTERS.toString());
@@ -275,6 +297,8 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
         cacheUtils.mapByRelationship(instanceData, SERVER_GROUPS);
     Map<String, List<CacheData>> loadBalancerToServerGroups =
         cacheUtils.mapByRelationship(serverGroupData, LOAD_BALANCERS);
+    Map<String, List<CacheData>> serverGroupToAutoscalers =
+        cacheUtils.mapByRelationship(autoscalerData, SERVER_GROUPS);
 
     Set<KubernetesV2Cluster> result = new HashSet<>();
     for (CacheData clusterDatum : clusterData) {
@@ -293,7 +317,8 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
               clusterServerGroups,
               serverGroupToInstances,
               serverGroupToLoadBalancers,
-              serverGroupToServerGroupManagerKeys);
+              serverGroupToServerGroupManagerKeys,
+              serverGroupToAutoscalers);
 
       List<KubernetesV2LoadBalancer> loadBalancers =
           getLoadBalancers(
@@ -317,7 +342,8 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
       List<CacheData> serverGroupData,
       Map<String, List<CacheData>> instanceDataByServerGroup,
       Map<String, List<CacheData>> loadBalancerDataByServerGroup,
-      Map<String, List<InfrastructureCacheKey>> serverGroupToServerGroupManagerKeys) {
+      Map<String, List<InfrastructureCacheKey>> serverGroupToServerGroupManagerKeys,
+      Map<String, List<CacheData>> autoscalerDataByServerGroup) {
     return serverGroupData.stream()
         .map(
             cd ->
@@ -332,6 +358,8 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                         .serverGroupManagerKeys(
                             serverGroupToServerGroupManagerKeys.getOrDefault(
                                 cd.getId(), new ArrayList<>()))
+                        .autoscalerData(
+                            autoscalerDataByServerGroup.getOrDefault(cd.getId(), new ArrayList<>()))
                         .build()))
         .filter(Objects::nonNull)
         .collect(Collectors.toList());

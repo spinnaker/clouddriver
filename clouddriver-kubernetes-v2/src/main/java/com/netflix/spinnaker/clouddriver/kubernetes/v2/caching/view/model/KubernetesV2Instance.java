@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.provider.KubernetesModelUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.model.AutoscalerInstance;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
@@ -81,6 +82,24 @@ public class KubernetesV2Instance extends ManifestBasedModel implements Instance
 
   public LoadBalancerInstance toLoadBalancerInstance() {
     return LoadBalancerInstance.builder()
+        .health(
+            health.stream()
+                .reduce(
+                    new HashMap<>(),
+                    (a, b) -> {
+                      Map<String, Object> result = new HashMap<>();
+                      result.putAll(a);
+                      result.putAll(b);
+                      return result;
+                    }))
+        .id(getName())
+        .zone(getZone())
+        .name(getHumanReadableName())
+        .build();
+  }
+
+  public AutoscalerInstance toAutoscalerInstance() {
+    return AutoscalerInstance.builder()
         .health(
             health.stream()
                 .reduce(

@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import java.util.Arrays;
 
 public enum SpinnakerKind {
+  AUTOSCALERS("autoscalers"),
   INSTANCES("instances"),
   CONFIGS("configs"),
   SERVER_GROUPS("serverGroups"),

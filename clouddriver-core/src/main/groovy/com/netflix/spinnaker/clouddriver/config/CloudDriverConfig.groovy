@@ -42,6 +42,8 @@ import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionAuthorizer
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider
+import com.netflix.spinnaker.clouddriver.model.Autoscaler
+import com.netflix.spinnaker.clouddriver.model.AutoscalerProvider
 import com.netflix.spinnaker.clouddriver.model.CloudMetricProvider
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ElasticIpProvider
@@ -52,6 +54,7 @@ import com.netflix.spinnaker.clouddriver.model.KeyPairProvider
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
 import com.netflix.spinnaker.clouddriver.model.NetworkProvider
 import com.netflix.spinnaker.clouddriver.model.NoopApplicationProvider
+import com.netflix.spinnaker.clouddriver.model.NoopAutoscalerProvider
 import com.netflix.spinnaker.clouddriver.model.NoopCloudMetricProvider
 import com.netflix.spinnaker.clouddriver.model.NoopClusterProvider
 import com.netflix.spinnaker.clouddriver.model.NoopElasticIpProvider
@@ -297,6 +300,12 @@ class CloudDriverConfig {
   @ConditionalOnMissingBean(ElasticIpProvider)
   ElasticIpProvider noopElasticIpProvider() {
     new NoopElasticIpProvider()
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(Autoscaler)
+  AutoscalerProvider noopAutoscalerProvider() {
+    new NoopAutoscalerProvider();
   }
 
   @Bean

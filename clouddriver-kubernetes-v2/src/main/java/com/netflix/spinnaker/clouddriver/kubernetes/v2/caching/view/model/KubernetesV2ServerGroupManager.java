@@ -76,6 +76,7 @@ public class KubernetesV2ServerGroupManager extends ManifestBasedModel
                             .serverGroupData(data)
                             .instanceData(new ArrayList<>())
                             .loadBalancerData(new ArrayList<>())
+                            .autoscalerData(new ArrayList<>())
                             .build()))
             .filter(Objects::nonNull)
             .map(KubernetesV2ServerGroup::toServerGroupSummary)

@@ -33,6 +33,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.dat
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestTraffic;
+import com.netflix.spinnaker.clouddriver.model.AutoscalerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
@@ -58,6 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KubernetesV2ServerGroup extends ManifestBasedModel implements ServerGroup {
   private Boolean disabled;
+  private Set<String> autoscalers = new HashSet<>();
   private Set<String> zones = new HashSet<>();
   private Set<Instance> instances = new HashSet<>();
   private Set<String> loadBalancers = new HashSet<>();
@@ -125,13 +127,15 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
       List<KubernetesV2Instance> instances,
       Set<String> loadBalancers,
       List<ServerGroupManagerSummary> serverGroupManagers,
-      Boolean disabled) {
+      Boolean disabled,
+      Set<String> autoscalers) {
     this.manifest = manifest;
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
     this.instances = new HashSet<>(instances);
     this.loadBalancers = loadBalancers;
     this.serverGroupManagers = serverGroupManagers;
     this.disabled = disabled;
+    this.autoscalers = autoscalers;
 
     Object odesired =
         ((Map<String, Object>) manifest.getOrDefault("spec", new HashMap<String, Object>()))
@@ -151,7 +155,8 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
       CacheData cd,
       List<CacheData> instanceData,
       List<CacheData> loadBalancerData,
-      List<Keys.InfrastructureCacheKey> serverGroupManagerKeys) {
+      List<Keys.InfrastructureCacheKey> serverGroupManagerKeys,
+      List<CacheData> autoscalerData) {
     if (cd == null) {
       return null;
     }
@@ -200,21 +205,26 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
             // the get merged below
             .collect(Collectors.toSet());
 
-    Set<String> loadBalancers =
-        loadBalancerData.stream()
-            .map(CacheData::getId)
-            .map(Keys::parseKey)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .map(k -> (Keys.InfrastructureCacheKey) k)
-            .map(k -> KubernetesManifest.getFullResourceName(k.getKubernetesKind(), k.getName()))
-            .collect(Collectors.toSet());
+    Set<String> loadBalancers = KubernetesV2ServerGroup.toRelationshipSet(loadBalancerData);
 
     Boolean disabled = loadBalancers.isEmpty() && !explicitLoadBalancers.isEmpty();
     loadBalancers.addAll(explicitLoadBalancers);
 
+    Set<String> autoscalers = KubernetesV2ServerGroup.toRelationshipSet(autoscalerData);
+
     return new KubernetesV2ServerGroup(
-        manifest, cd.getId(), instances, loadBalancers, serverGroupManagers, disabled);
+        manifest, cd.getId(), instances, loadBalancers, serverGroupManagers, disabled, autoscalers);
+  }
+
+  private static Set<String> toRelationshipSet(List<CacheData> cacheItems) {
+    return cacheItems.stream()
+        .map(CacheData::getId)
+        .map(Keys::parseKey)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .map(k -> (Keys.InfrastructureCacheKey) k)
+        .map(k -> KubernetesManifest.getFullResourceName(k.getKubernetesKind(), k.getName()))
+        .collect(Collectors.toSet());
   }
 
   public static KubernetesV2ServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
@@ -222,7 +232,8 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         cacheData.getServerGroupData(),
         cacheData.getInstanceData(),
         cacheData.getLoadBalancerData(),
-        cacheData.getServerGroupManagerKeys());
+        cacheData.getServerGroupManagerKeys(),
+        cacheData.getAutoscalerData());
   }
 
   public ServerGroupSummary toServerGroupSummary() {
@@ -245,6 +256,19 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         .name(getName())
         .region(getRegion())
         .isDisabled(isDisabled())
+        .cloudProvider(KubernetesCloudProvider.ID)
+        .build();
+  }
+
+  public AutoscalerServerGroup toAutoscalerServerGroup() {
+    return AutoscalerServerGroup.builder()
+        .account(getAccount())
+        .instances(
+            instances.stream()
+                .map(i -> ((KubernetesV2Instance) i).toAutoscalerInstance())
+                .collect(Collectors.toSet()))
+        .name(getName())
+        .region(getRegion())
         .cloudProvider(KubernetesCloudProvider.ID)
         .build();
   }

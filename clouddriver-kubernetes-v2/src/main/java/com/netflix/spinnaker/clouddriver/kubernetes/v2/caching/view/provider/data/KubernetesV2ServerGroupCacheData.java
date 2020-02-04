@@ -27,6 +27,7 @@ import lombok.Data;
 @Builder
 public class KubernetesV2ServerGroupCacheData implements KubernetesV2CacheData {
   private CacheData serverGroupData;
+  private List<CacheData> autoscalerData;
   private List<CacheData> instanceData;
   private List<CacheData> loadBalancerData;
   private List<Keys.InfrastructureCacheKey> serverGroupManagerKeys;

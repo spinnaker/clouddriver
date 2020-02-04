@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
+import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.HORIZONTAL_POD_AUTOSCALER;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_ATTACHMENT_PRIORITY;
 
 import com.google.common.collect.ImmutableList;
@@ -30,10 +31,18 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
 import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscaler;
 import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscalerStatus;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler {
   @Nonnull
@@ -50,7 +59,7 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   @Nonnull
   @Override
   public KubernetesKind kind() {
-    return KubernetesKind.HORIZONTAL_POD_AUTOSCALER;
+    return HORIZONTAL_POD_AUTOSCALER;
   }
 
   @Override
@@ -61,7 +70,7 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   @Nonnull
   @Override
   public SpinnakerKind spinnakerKind() {
-    return SpinnakerKind.UNCLASSIFIED;
+    return SpinnakerKind.AUTOSCALERS;
   }
 
   @Override
@@ -106,5 +115,87 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   @Override
   protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
     return KubernetesCoreCachingAgent::new;
+  }
+
+  @Override
+  public void addRelationships(
+      Map<KubernetesKind, List<KubernetesManifest>> allResources,
+      Map<KubernetesManifest, List<KubernetesManifest>> relationshipMap) {
+    Map<String, KubernetesManifest> mapLabelToManifest = new HashMap<>();
+    Map<String, List<KubernetesManifest>> deploymentLabelsToReplicaSets = new HashMap<>();
+
+    allResources
+        .getOrDefault(KubernetesKind.REPLICA_SET, new ArrayList<>())
+        .forEach(
+            r -> {
+              addLabelsForKubernetesResource(mapLabelToManifest, r);
+              associateReplicaSetWithDeployments(deploymentLabelsToReplicaSets, r);
+            });
+
+    allResources
+        .getOrDefault(KubernetesKind.STATEFUL_SET, new ArrayList<>())
+        .forEach(
+            s -> {
+              addLabelsForKubernetesResource(mapLabelToManifest, s);
+            });
+
+    for (KubernetesManifest hpa :
+        allResources.getOrDefault(HORIZONTAL_POD_AUTOSCALER, new ArrayList<>())) {
+      relationshipMap.put(
+          hpa, getRelatedManifests(hpa, mapLabelToManifest, deploymentLabelsToReplicaSets));
+    }
+  }
+
+  private void addLabelsForKubernetesResource(
+      Map<String, KubernetesManifest> entries, KubernetesManifest resource) {
+    String resourceLabel =
+        resource.getNamespace() + " " + resource.getKindName() + " " + resource.getName();
+
+    entries.put(resourceLabel, resource);
+  }
+
+  private void associateReplicaSetWithDeployments(
+      Map<String, List<KubernetesManifest>> deploymentsToReplicaSets,
+      KubernetesManifest replicaSet) {
+    List<String> deploymentLabels =
+        replicaSet.getOwnerReferences().stream()
+            .filter(o -> o.getKind().toString() == KubernetesKind.DEPLOYMENT.toString())
+            .map(
+                d ->
+                    replicaSet.getNamespace()
+                        + " "
+                        + StringUtils.capitalize(d.getKind().toString())
+                        + " "
+                        + d.getName())
+            .collect(Collectors.toList());
+
+    for (String label : deploymentLabels) {
+      List<KubernetesManifest> replicaManifestsByDeployment = deploymentsToReplicaSets.get(label);
+      if (replicaManifestsByDeployment == null) {
+        replicaManifestsByDeployment = new ArrayList<>();
+      }
+      replicaManifestsByDeployment.add(replicaSet);
+      deploymentsToReplicaSets.put(label, replicaManifestsByDeployment);
+    }
+  }
+
+  private List<KubernetesManifest> getRelatedManifests(
+      KubernetesManifest hpa,
+      Map<String, KubernetesManifest> mapLabelToManifest,
+      Map<String, List<KubernetesManifest>> deploymentsToReplicaSets) {
+    Map<String, String> scaleTargetRef = hpa.getSpecScaleTargetRef().get();
+    String scaleTargetRefLabel =
+        hpa.getNamespace() + " " + scaleTargetRef.get("kind") + " " + scaleTargetRef.get("name");
+
+    KubernetesManifest matchingReplicaSet = mapLabelToManifest.get(scaleTargetRefLabel);
+
+    List<KubernetesManifest> result = new ArrayList<>();
+    if (matchingReplicaSet != null) {
+      result.add(matchingReplicaSet);
+    } else {
+      result = deploymentsToReplicaSets.getOrDefault(scaleTargetRefLabel, new ArrayList<>());
+    }
+
+    return result;
   }
 }

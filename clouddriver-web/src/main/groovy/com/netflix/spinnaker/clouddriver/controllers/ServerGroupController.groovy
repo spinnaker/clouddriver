@@ -259,6 +259,7 @@ class ServerGroupController {
     Set<String> loadBalancers
     Set<String> targetGroups
     Set<String> securityGroups
+    Set<String> autoscalers
     ServerGroup.InstanceCounts instanceCounts
     Map<String, Object> tags
     Map<String, String> labels
@@ -287,6 +288,7 @@ class ServerGroupController {
       instanceCounts = serverGroup.getInstanceCounts()
       securityGroups = serverGroup.getSecurityGroups()
       loadBalancers = serverGroup.getLoadBalancers()
+      autoscalers = serverGroup.getAutoscalers()
       serverGroupManagers = serverGroup.getServerGroupManagers()
       moniker = serverGroup.getMoniker()
       if (serverGroup.launchConfig) {
