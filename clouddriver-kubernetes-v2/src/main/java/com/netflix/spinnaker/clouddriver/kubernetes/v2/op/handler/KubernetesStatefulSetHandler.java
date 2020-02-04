@@ -171,7 +171,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
   }
 
   // Unboxes an Integer, returning 0 if the input is null
-  private int defaultToZero(@Nullable Integer input) {
+  private static int defaultToZero(@Nullable Integer input) {
     return input == null ? 0 : input;
   }
 
