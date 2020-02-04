@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Google, Inc.
+ * Copyright 2019 THL A29 Limited, a Tencent company.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -13,36 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.netflix.spinnaker.config;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndicator;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.tencentcloud.config.TencentCloudConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.tencentcloud.security.TencentCloudCredentialsInitializer;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
 @EnableConfigurationProperties
 @EnableScheduling
-@ConditionalOnProperty("kubernetes.enabled")
-@ComponentScan({"com.netflix.spinnaker.clouddriver.kubernetes"})
-public class KubernetesConfiguration {
-  @Bean
-  @RefreshScope
-  @ConfigurationProperties("kubernetes")
-  public KubernetesConfigurationProperties kubernetesConfigurationProperties() {
-    return new KubernetesConfigurationProperties();
-  }
+@ConditionalOnProperty("tencentcloud.enabled")
+@ComponentScan("com.netflix.spinnaker.clouddriver.tencentcloud")
+@Import(TencentCloudCredentialsInitializer.class)
+public class TencentCloudConfiguration {
 
+  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
-  public KubernetesHealthIndicator kubernetesHealthIndicator(
-      AccountCredentialsProvider accountCredentialsProvider) {
-    return new KubernetesHealthIndicator(accountCredentialsProvider);
+  @ConfigurationProperties("tencentcloud")
+  public TencentCloudConfigurationProperties tencentCloudConfigurationProperties() {
+    return new TencentCloudConfigurationProperties();
   }
 }
