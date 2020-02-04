@@ -140,12 +140,12 @@ class SecurityGroupIngressConverter {
    * - If a new rule has description value add it to update list to make it consistent.
    * - If new rule has no description value set, ignore.
    */
-  static Map<String, List> computeIpRuleDelta(List<IpPermission> newList, List<IpPermission> existingRules) {
+  static IpRuleDelta computeIpRuleDelta(List<IpPermission> newList, List<IpPermission> existingRules) {
     List<IpPermission> tobeAdded = new ArrayList<>()
     List<IpPermission> tobeRemoved = new ArrayList<>()
     List<IpPermission> tobeUpdated = new ArrayList<>()
-    List<IpPermission> filteredNewList = newList.findAll { ipPermission -> ipPermission.userIdGroupPairs.size() == 0 }
-    List<IpPermission> filteredExistingRuleList = existingRules.findAll { elements -> elements.userIdGroupPairs.size() == 0 }
+    List<IpPermission> filteredNewList = newList.findAll { ipPermission -> ipPermission.userIdGroupPairs.isEmpty() }
+    List<IpPermission> filteredExistingRuleList = existingRules.findAll { existingRule -> existingRule.userIdGroupPairs.isEmpty()}
     filteredNewList.forEach({ newListEntry ->
       IpPermission match = findIpPermission(filteredExistingRuleList, newListEntry)
       if (match) {
@@ -159,8 +159,7 @@ class SecurityGroupIngressConverter {
       }
     })
     tobeRemoved = filteredExistingRuleList // rules that needs to be removed
-    Map<String, List> modificationsMap = ["tobeAdded": tobeAdded, "tobeRemoved": tobeRemoved, "tobeUpdated": tobeUpdated]
-    return modificationsMap
+    return new IpRuleDelta(tobeAdded, tobeRemoved , tobeUpdated)
   }
 
   static IpPermission findIpPermission(List<IpPermission> existingList, IpPermission ipPermission) {
@@ -180,6 +179,13 @@ class SecurityGroupIngressConverter {
     List<IpPermission> convertedFromDesc = converted.findAll { elements -> elements.userIdGroupPairs.size() != 0 }
     List<IpPermission> existing = existingIpPermissions.findAll { elements -> elements.userIdGroupPairs.size() != 0 }
     return convertedFromDesc - existing
+  }
+
+  @Canonical
+  static class IpRuleDelta {
+    List<IpPermission> toAdd
+    List<IpPermission> toRemove
+    List<IpPermission> toUpdate
   }
 
 }
