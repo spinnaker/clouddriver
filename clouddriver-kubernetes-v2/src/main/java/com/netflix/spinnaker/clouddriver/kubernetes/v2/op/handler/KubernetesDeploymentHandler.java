@@ -42,7 +42,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import lombok.Getter;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -189,18 +188,5 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
     }
 
     return Optional.empty();
-  }
-
-  private enum UnstableReason {
-    UPDATED_REPLICAS("Waiting for all replicas to be updated"),
-    OLD_REPLICAS("Waiting for old replicas to finish termination"),
-    AVAILABLE_REPLICAS("Waiting for all replicas to be available"),
-    READY_REPLICAS("Waiting for all replicas to be ready");
-
-    @Getter private final String message;
-
-    UnstableReason(String message) {
-      this.message = message;
-    }
   }
 }

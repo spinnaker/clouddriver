@@ -112,28 +112,11 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler
           .unavailable("No availability reported");
     }
 
-    int desired =
-        Optional.ofNullable(replicaSet.getSpec()).map(V1ReplicaSetSpec::getReplicas).orElse(0);
-    int fullyLabeled = defaultToZero(status.getFullyLabeledReplicas());
-    int available = defaultToZero(status.getAvailableReplicas());
-    int ready = defaultToZero(status.getReadyReplicas());
-
-    if (desired > fullyLabeled) {
+    Optional<UnstableReason> unstableReason = checkReplicaCounts(replicaSet, status);
+    if (unstableReason.isPresent()) {
       return Status.defaultStatus()
-          .unstable("Waiting for all replicas to be fully-labeled")
-          .unavailable("Not all replicas have become labeled yet");
-    }
-
-    if (desired > ready) {
-      return Status.defaultStatus()
-          .unstable("Waiting for all replicas to be ready")
-          .unavailable("Not all replicas have become ready yet");
-    }
-
-    if (desired > available) {
-      return Status.defaultStatus()
-          .unstable("Waiting for all replicas to be available")
-          .unavailable("Not all replicas have become available yet");
+          .unstable(unstableReason.get().getMessage())
+          .unavailable(unstableReason.get().getMessage());
     }
 
     if (!generationMatches(replicaSet, status)) {
@@ -141,6 +124,29 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler
     }
 
     return Status.defaultStatus();
+  }
+
+  private Optional<UnstableReason> checkReplicaCounts(
+      V1ReplicaSet replicaSet, V1ReplicaSetStatus status) {
+    int desired =
+        Optional.ofNullable(replicaSet.getSpec()).map(V1ReplicaSetSpec::getReplicas).orElse(0);
+    int fullyLabeled = defaultToZero(status.getFullyLabeledReplicas());
+    int available = defaultToZero(status.getAvailableReplicas());
+    int ready = defaultToZero(status.getReadyReplicas());
+
+    if (desired > fullyLabeled) {
+      return Optional.of(UnstableReason.FULLY_LABELED_REPLICAS);
+    }
+
+    if (desired > ready) {
+      return Optional.of(UnstableReason.READY_REPLICAS);
+    }
+
+    if (desired > available) {
+      return Optional.of(UnstableReason.AVAILABLE_REPLICAS);
+    }
+
+    return Optional.empty();
   }
 
   // Unboxes an Integer, returning 0 if the input is null
