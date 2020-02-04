@@ -94,7 +94,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
       throw new UnsupportedVersionException(manifest);
     }
     if (manifest.isNewerThanObservedGeneration()) {
-      return (new Status()).unknown();
+      return Status.defaultStatus().unknown();
     }
     V1Deployment appsV1Deployment =
         KubernetesCacheDataConverter.getResource(manifest, V1Deployment.class);
@@ -107,7 +107,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
   }
 
   private Status status(V1Deployment deployment) {
-    Status result = new Status();
+    Status result = Status.defaultStatus();
     V1DeploymentStatus status = deployment.getStatus();
     if (status == null) {
       result.unstable("No status reported yet").unavailable("No availability reported");

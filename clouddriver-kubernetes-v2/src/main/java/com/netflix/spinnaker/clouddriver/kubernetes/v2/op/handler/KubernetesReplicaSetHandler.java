@@ -104,7 +104,7 @@ public class KubernetesReplicaSetHandler extends KubernetesHandler
   }
 
   private Status status(V1ReplicaSet replicaSet) {
-    Status result = new Status();
+    Status result = Status.defaultStatus();
     V1ReplicaSetStatus status = replicaSet.getStatus();
     if (status == null) {
       result.unstable("No status reported yet").unavailable("No availability reported");
