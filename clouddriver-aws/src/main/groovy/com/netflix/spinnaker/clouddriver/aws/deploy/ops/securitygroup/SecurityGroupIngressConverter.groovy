@@ -164,14 +164,14 @@ class SecurityGroupIngressConverter {
 
   static IpPermission findIpPermission(List<IpPermission> existingList, IpPermission ipPermission) {
     existingList.find { it ->
-      ((it.ipv4Ranges.collect { it.cidrIp }.sort() == ipPermission.ipv4Ranges.collect { it.cidrIp }.sort()
+      (((it.ipv4Ranges.collect { it.cidrIp }.sort() == ipPermission.ipv4Ranges.collect { it.cidrIp }.sort()
         && it.fromPort == ipPermission.fromPort
         && it.toPort == ipPermission.toPort
-        && it.ipProtocol == ipPermission.ipProtocol)
-        || (it.ipv6Ranges.collect { it.cidrIpv6 }.sort() == ipPermission.ipv6Ranges.collect { it.cidrIpv6 }.sort()
+        && it.ipProtocol == ipPermission.ipProtocol) && !ipPermission.ipv4Ranges.isEmpty())
+        || ((it.ipv6Ranges.collect { it.cidrIpv6 }.sort() == ipPermission.ipv6Ranges.collect { it.cidrIpv6 }.sort()
         && it.fromPort == ipPermission.fromPort
         && it.toPort == ipPermission.toPort
-        && it.ipProtocol == ipPermission.ipProtocol))
+        && it.ipProtocol == ipPermission.ipProtocol) && !ipPermission.ipv6Ranges.isEmpty()))
     }
   }
 
