@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
@@ -29,10 +28,14 @@ final class KubernetesDeploymentHandlerTest {
   @Test
   void noStatus() {
     KubernetesManifest deployment = ManifestFetcher.getManifest("deployment/base.yml");
+    Status status = handler.status(deployment);
 
-    // Documenting the existing behavior before refactoring
-    assertThatExceptionOfType(NullPointerException.class)
-        .isThrownBy(() -> handler.status(deployment));
+    assertThat(status.getStable().isState()).isFalse();
+    assertThat(status.getStable().getMessage()).isEqualTo("No status reported yet");
+    assertThat(status.getAvailable().isState()).isFalse();
+    assertThat(status.getAvailable().getMessage()).isEqualTo("No availability reported");
+    assertThat(status.getPaused().isState()).isFalse();
+    assertThat(status.getFailed().isState()).isFalse();
   }
 
   @Test
