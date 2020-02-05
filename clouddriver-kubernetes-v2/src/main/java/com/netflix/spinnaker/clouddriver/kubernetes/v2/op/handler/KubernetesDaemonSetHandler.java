@@ -105,9 +105,7 @@ public class KubernetesDaemonSetHandler extends KubernetesHandler
   private Status status(V1beta2DaemonSet daemonSet) {
     V1beta2DaemonSetStatus status = daemonSet.getStatus();
     if (status == null) {
-      return Status.defaultStatus()
-          .unstable("No status reported yet")
-          .unavailable("No availability reported");
+      return Status.noneReported();
     }
 
     if (!generationMatches(daemonSet, status)) {

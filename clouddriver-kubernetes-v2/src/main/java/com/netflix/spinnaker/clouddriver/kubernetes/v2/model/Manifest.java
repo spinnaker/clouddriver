@@ -55,6 +55,12 @@ public interface Manifest {
       return new Status();
     }
 
+    public static Status noneReported() {
+      return defaultStatus()
+          .unstable("No status reported yet")
+          .unavailable("No availability reported");
+    }
+
     public Status failed(@Nullable String message) {
       failed = new Condition(true, message);
       return this;

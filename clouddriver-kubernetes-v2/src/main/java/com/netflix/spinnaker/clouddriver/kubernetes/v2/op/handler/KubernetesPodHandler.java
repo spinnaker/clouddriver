@@ -73,9 +73,7 @@ public class KubernetesPodHandler extends KubernetesHandler {
     V1PodStatus status = pod.getStatus();
 
     if (status == null) {
-      return Status.defaultStatus()
-          .unstable("No status reported yet")
-          .unavailable("No availability reported");
+      return Status.noneReported();
     }
 
     PodPhase phase = PodPhase.fromString(status.getPhase());

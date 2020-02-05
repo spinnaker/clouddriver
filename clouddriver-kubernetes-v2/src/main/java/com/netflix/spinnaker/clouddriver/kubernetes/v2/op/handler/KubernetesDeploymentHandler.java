@@ -109,9 +109,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
   private Status status(V1Deployment deployment) {
     V1DeploymentStatus status = deployment.getStatus();
     if (status == null) {
-      return Status.defaultStatus()
-          .unstable("No status reported yet")
-          .unavailable("No availability reported");
+      return Status.noneReported();
     }
 
     if (!generationMatches(deployment, status)) {

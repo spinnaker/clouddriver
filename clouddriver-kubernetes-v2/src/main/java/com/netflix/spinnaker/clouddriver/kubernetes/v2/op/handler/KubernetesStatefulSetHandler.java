@@ -124,9 +124,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
 
     V1beta2StatefulSetStatus status = statefulSet.getStatus();
     if (status == null) {
-      return Status.defaultStatus()
-          .unstable("No status reported yet")
-          .unavailable("No availability reported");
+      return Status.noneReported();
     }
 
     if (!generationMatches(statefulSet, status)) {
