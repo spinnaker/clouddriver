@@ -97,7 +97,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
   @Override
   public Status status(KubernetesManifest manifest) {
     if (manifest.isNewerThanObservedGeneration()) {
-      return Status.defaultStatus().unknown();
+      return Status.defaultStatus().unstable(UnstableReason.OLD_GENERATION.getMessage());
     }
     V1beta2StatefulSet v1beta2StatefulSet =
         KubernetesCacheDataConverter.getResource(manifest, V1beta2StatefulSet.class);

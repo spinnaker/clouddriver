@@ -96,7 +96,7 @@ public class KubernetesDeploymentHandler extends KubernetesHandler
       throw new UnsupportedVersionException(manifest);
     }
     if (manifest.isNewerThanObservedGeneration()) {
-      return Status.defaultStatus().unknown();
+      return Status.defaultStatus().unstable(UnstableReason.OLD_GENERATION.getMessage());
     }
     V1Deployment appsV1Deployment =
         KubernetesCacheDataConverter.getResource(manifest, V1Deployment.class);

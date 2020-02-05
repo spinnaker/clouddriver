@@ -80,10 +80,12 @@ final class KubernetesDeploymentHandlerTest {
             "deployment/base.yml", "deployment/stable-with-old-generation.yml");
     Status status = handler.status(deployment);
 
-    assertThat(status.getStable()).isNull();
+    assertThat(status.getStable().isState()).isFalse();
+    assertThat(status.getStable().getMessage())
+        .isEqualTo("Waiting for status generation to match updated object generation");
     assertThat(status.getAvailable().isState()).isTrue();
     assertThat(status.getPaused().isState()).isFalse();
-    assertThat(status.getFailed()).isNull();
+    assertThat(status.getFailed().isState()).isFalse();
   }
 
   @Test

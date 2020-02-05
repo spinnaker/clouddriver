@@ -99,10 +99,12 @@ final class KubernetesDaemonSetHandlerTest {
         ManifestFetcher.getManifest("daemonset/base.yml", "daemonset/old-generation.yml");
     Status status = handler.status(daemonSet);
 
-    assertThat(status.getStable()).isNull();
+    assertThat(status.getStable().isState()).isFalse();
+    assertThat(status.getStable().getMessage())
+        .isEqualTo("Waiting for status generation to match updated object generation");
     assertThat(status.getAvailable().isState()).isTrue();
     assertThat(status.getPaused().isState()).isFalse();
-    assertThat(status.getFailed()).isNull();
+    assertThat(status.getFailed().isState()).isFalse();
   }
 
   @Test
