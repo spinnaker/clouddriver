@@ -34,8 +34,8 @@ public class HuaweiCloudSecurityGroup implements SecurityGroup {
   private String id;
   private String name;
   private String region;
-  private String application;
   private String accountName;
+  private String application;
   private String vpcId;
   private Set<Rule> inboundRules;
   private Set<Rule> outboundRules;

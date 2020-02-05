@@ -105,37 +105,38 @@ public abstract class AbstractOnDemandCachingAgent extends AbstractHuaweiCloudCa
     Collection<String> keys =
         cacheResultBuilder.getNamespaceCache(this.namespace).getToKeep().keySet();
 
-    providerCache
-        .getAll(ON_DEMAND.ns, keys)
-        .forEach(
-            cacheData -> {
-              long cacheTime = 0; // The cache time of old cache data should be smaller than now.
-              if (cacheData.getAttributes().get("cacheTime") != null) {
-                cacheTime = (long) cacheData.getAttributes().get("cacheTime");
+    Collection<CacheData> datas = providerCache.getAll(ON_DEMAND.ns, keys);
+    if (!HuaweiCloudUtils.isEmptyCollection(datas)) {
+      datas.forEach(
+          cacheData -> {
+            long cacheTime = 0; // The cache time of old cache data should be smaller than now.
+            if (cacheData.getAttributes().get("cacheTime") != null) {
+              cacheTime = (long) cacheData.getAttributes().get("cacheTime");
+            }
+
+            if (cacheTime < startTime) {
+              // The "processedCount" will be set at bellow.
+              int processedCount = 0;
+              if (cacheData.getAttributes().get("processedCount") != null) {
+                processedCount = (int) cacheData.getAttributes().get("processedCount");
               }
 
-              if (cacheTime < startTime) {
-                // The "processedCount" will be set at bellow.
-                int processedCount = 0;
-                if (cacheData.getAttributes().get("processedCount") != null) {
-                  processedCount = (int) cacheData.getAttributes().get("processedCount");
-                }
-
-                if (processedCount > 0) {
-                  cacheResultBuilder.getOnDemand().getToEvict().add(cacheData.getId());
-                } else {
-                  cacheResultBuilder.getOnDemand().getToKeep().put(cacheData.getId(), cacheData);
-                }
+              if (processedCount > 0) {
+                cacheResultBuilder.getOnDemand().getToEvict().add(cacheData.getId());
               } else {
-                // If the cache time is bigger than now, it shoud move the OnDemand cache data to
-                // namespace cache. But how did it happen?
-                log.warn(
-                    "The cache time({}) of OnDemand data(key={}) is bigger than now({})",
-                    cacheTime,
-                    cacheData.getId(),
-                    startTime);
+                cacheResultBuilder.getOnDemand().getToKeep().put(cacheData.getId(), cacheData);
               }
-            });
+            } else {
+              // If the cache time is bigger than now, it shoud move the OnDemand cache data to
+              // namespace cache. But how did it happen?
+              log.warn(
+                  "The cache time({}) of OnDemand data(key={}) is bigger than now({})",
+                  cacheTime,
+                  cacheData.getId(),
+                  startTime);
+            }
+          });
+    }
 
     CacheResult result = cacheResultBuilder.build();
 

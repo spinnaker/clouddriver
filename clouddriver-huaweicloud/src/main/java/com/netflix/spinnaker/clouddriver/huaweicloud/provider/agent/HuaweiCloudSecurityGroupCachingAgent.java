@@ -35,7 +35,6 @@ import com.netflix.spinnaker.clouddriver.huaweicloud.HuaweiCloudUtils;
 import com.netflix.spinnaker.clouddriver.huaweicloud.cache.CacheResultBuilder;
 import com.netflix.spinnaker.clouddriver.huaweicloud.cache.CacheResultBuilder.NamespaceCache;
 import com.netflix.spinnaker.clouddriver.huaweicloud.cache.Keys;
-import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudException;
 import com.netflix.spinnaker.clouddriver.huaweicloud.model.HuaweiCloudSecurityGroupCacheData;
 import com.netflix.spinnaker.clouddriver.huaweicloud.security.HuaweiCloudNamedAccountCredentials;
 import java.util.ArrayList;
@@ -68,6 +67,11 @@ public class HuaweiCloudSecurityGroupCachingAgent extends AbstractOnDemandCachin
   }
 
   @Override
+  String getAgentName() {
+    return this.getClass().getSimpleName();
+  }
+
+  @Override
   public OnDemandMetricsSupport getMetricsSupport() {
     return this.onDemandMetricsSupport;
   }
@@ -80,11 +84,6 @@ public class HuaweiCloudSecurityGroupCachingAgent extends AbstractOnDemandCachin
             add(AUTHORITATIVE.forType(SECURITY_GROUPS.ns));
           }
         });
-  }
-
-  @Override
-  public String getAgentType() {
-    return getAccountName() + "/" + region + "/" + this.getClass().getSimpleName();
   }
 
   @Override
@@ -181,10 +180,11 @@ public class HuaweiCloudSecurityGroupCachingAgent extends AbstractOnDemandCachin
     securityGroups.forEach(
         item -> {
           if (!groupId2CacheIds.containsKey(item.getId())) {
-            throw new HuaweiCloudException(
+            log.warn(
                 String.format(
-                    "Can't find the security group(id=%s) in current security groups",
+                    "Can't find the security group(id={}) in current security groups",
                     item.getId()));
+            return;
           }
 
           Map<String, String> relevantSecurityGroups = new HashMap();
@@ -197,13 +197,17 @@ public class HuaweiCloudSecurityGroupCachingAgent extends AbstractOnDemandCachin
 
                   if (!HuaweiCloudUtils.isEmptyStr(remoteGroupId)) {
 
-                    if (!groupId2CacheIds.containsKey(remoteGroupId)) {
-                      throw new HuaweiCloudException(
+                    if (groupId2CacheIds.containsKey(remoteGroupId)) {
+                      relevantSecurityGroups.put(
+                          remoteGroupId, groupId2CacheIds.get(remoteGroupId));
+                    } else {
+                      log.warn(
                           String.format(
-                              "Can't find the remote security group(id=%s) for rule of security group(id=%s)",
-                              remoteGroupId, item.getId()));
+                              "Can't find the remote security group(id={}) for rule({}) of security group(id={})",
+                              remoteGroupId,
+                              rule.getId(),
+                              item.getId()));
                     }
-                    relevantSecurityGroups.put(remoteGroupId, groupId2CacheIds.get(remoteGroupId));
                   }
                 });
           }

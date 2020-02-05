@@ -211,6 +211,11 @@ public class HuaweiCloudSecurityGroupProvider
   }
 
   private static Set<Rule> buildInboundRules(HuaweiCloudSecurityGroupCacheData segCacheData) {
+    if (HuaweiCloudUtils.isEmptyCollection(
+        segCacheData.getSecurityGroup().getSecurityGroupRules())) {
+      return Collections.emptySet();
+    }
+
     return segCacheData.getSecurityGroup().getSecurityGroupRules().stream()
         .filter(rule -> "ingress".equals(rule.getDirection()))
         .map(
@@ -229,7 +234,10 @@ public class HuaweiCloudSecurityGroupProvider
                 }
 
                 return new IpRangeRule(
-                    new AddressableRange(ip, cidr), rule.getProtocol(), portRanges);
+                    new AddressableRange(ip, cidr),
+                    rule.getProtocol(),
+                    portRanges,
+                    rule.getDescription());
 
               } else if (!HuaweiCloudUtils.isEmptyStr(rule.getRemoteGroupId())) {
 
@@ -255,6 +263,7 @@ public class HuaweiCloudSecurityGroupProvider
 
     if (HuaweiCloudUtils.isEmptyStr(rule.getProtocol())
         || !("icmp".equals(rule.getProtocol().toLowerCase()))) {
+
       portRange.setStartPort(
           rule.getPortRangeMin() != null ? rule.getPortRangeMin() : new Integer(1));
 
