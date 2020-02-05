@@ -115,7 +115,8 @@ public class Applications {
     // if the update time doesn't match then we need to update the cache
     // if the app is not found in the cache we need to process with `map` and update the cache
     List<Application> appsToBeUpdated =
-        newCloudFoundryAppList.stream()
+        newCloudFoundryAppList
+            .parallelStream()
             .filter(
                 a ->
                     Optional.ofNullable(findById(a.getGuid()))

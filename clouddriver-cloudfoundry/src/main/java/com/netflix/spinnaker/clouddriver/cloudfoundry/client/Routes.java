@@ -143,13 +143,10 @@ public class Routes {
   }
 
   public List<CloudFoundryLoadBalancer> all() throws CloudFoundryApiException {
-    List<Resource<Route>> routeResources =
-        collectPageResources("routes", pg -> api.all(pg, resultsPerPage, null));
-    List<CloudFoundryLoadBalancer> loadBalancers = new ArrayList<>(routeResources.size());
-    for (Resource<Route> routeResource : routeResources) {
-      loadBalancers.add(map(routeResource));
-    }
-    return loadBalancers;
+    return collectPageResources("routes", pg -> api.all(pg, resultsPerPage, null))
+        .parallelStream()
+        .map(this::map)
+        .collect(Collectors.toList());
   }
 
   public CloudFoundryLoadBalancer createRoute(RouteId routeId, String spaceId)
