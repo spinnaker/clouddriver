@@ -88,18 +88,18 @@ public interface Manifest {
 
     @NonnullByDefault
     @Value
-    public static class Condition {
+    public static final class Condition {
       private static final Condition TRUE = new Condition(true, null);
       private static final Condition FALSE = new Condition(false, null);
 
       private final boolean state;
       @Nullable private final String message;
 
-      public static Condition withState(boolean state) {
+      private static Condition withState(boolean state) {
         return state ? TRUE : FALSE;
       }
 
-      public Condition(boolean state, @Nullable String message) {
+      private Condition(boolean state, @Nullable String message) {
         this.state = state;
         this.message = message;
       }
