@@ -42,6 +42,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,6 +64,7 @@ public class Applications {
   private final ApplicationService api;
   private final Spaces spaces;
   private final Integer resultsPerPage;
+  private final int maxConnections;
 
   private final LoadingCache<String, CloudFoundryServerGroup> serverGroupCache =
       CacheBuilder.newBuilder()
@@ -114,18 +116,29 @@ public class Applications {
 
     // if the update time doesn't match then we need to update the cache
     // if the app is not found in the cache we need to process with `map` and update the cache
-    List<Application> appsToBeUpdated =
-        newCloudFoundryAppList
-            .parallelStream()
-            .filter(
-                a ->
-                    Optional.ofNullable(findById(a.getGuid()))
-                        .map(
-                            r ->
-                                !r.getUpdatedTime()
-                                    .equals(a.getUpdatedAt().toInstant().toEpochMilli()))
-                        .orElse(true))
-            .collect(Collectors.toList());
+    List<Application> appsToBeUpdated;
+    ForkJoinPool forkJoinPool = new ForkJoinPool(maxConnections);
+    try {
+      appsToBeUpdated =
+          forkJoinPool
+              .submit(
+                  () ->
+                      newCloudFoundryAppList
+                          .parallelStream()
+                          .filter(
+                              a ->
+                                  Optional.ofNullable(findById(a.getGuid()))
+                                      .map(
+                                          r ->
+                                              !r.getUpdatedTime()
+                                                  .equals(
+                                                      a.getUpdatedAt().toInstant().toEpochMilli()))
+                                      .orElse(true))
+                          .collect(Collectors.toList()))
+              .get();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
 
     List<CloudFoundryServerGroup> serverGroups =
         appsToBeUpdated.stream().map(this::map).collect(toList());

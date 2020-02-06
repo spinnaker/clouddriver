@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,6 +58,7 @@ public class Routes {
   private final Domains domains;
   private final Spaces spaces;
   private final Integer resultsPerPage;
+  private final int maxConnections;
 
   private LoadingCache<String, List<RouteMapping>> routeMappings =
       CacheBuilder.newBuilder()
@@ -143,10 +145,19 @@ public class Routes {
   }
 
   public List<CloudFoundryLoadBalancer> all() throws CloudFoundryApiException {
-    return collectPageResources("routes", pg -> api.all(pg, resultsPerPage, null))
-        .parallelStream()
-        .map(this::map)
-        .collect(Collectors.toList());
+    ForkJoinPool forkJoinPool = new ForkJoinPool(maxConnections);
+    try {
+      return forkJoinPool
+          .submit(
+              () ->
+                  collectPageResources("routes", pg -> api.all(pg, resultsPerPage, null))
+                      .parallelStream()
+                      .map(this::map)
+                      .collect(Collectors.toList()))
+          .get();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public CloudFoundryLoadBalancer createRoute(RouteId routeId, String spaceId)
