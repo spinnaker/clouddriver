@@ -396,6 +396,7 @@ public class TencentServerGroupCachingAgent extends AbstractTencentCachingAgent
                         TencentInstance.builder()
                             .name((String) i.get("instanceId"))
                             .instanceHealth(instanceHealth)
+                            .serverGroupName(serverGroup.getName())
                             .launchTime(
                                 AutoScalingClient.ConvertIsoDateTime((String) i.get("addTime"))
                                     .getTime())
