@@ -49,6 +49,6 @@ class AmazonKeyPairProvider implements KeyPairProvider<AmazonKeyPair> {
         parts.region,
         cacheData.attributes.keyName as String,
         cacheData.attributes.keyFingerprint as String)
-    }
+    })
   }
 }
