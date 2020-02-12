@@ -981,7 +981,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       stack: stack,
       freeFormDetails: detail,
       ecsClusterName: 'test-cluster',
-      iamRole: 'path/test-role',
+      iamRole: 'test-role',
       targetGroupMappings: [targetGroupProperty],
       portProtocol: 'tcp',
       computeUnits: 9001,
@@ -1011,8 +1011,13 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     ecs.describeServices(_) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
 
-    ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
-    iamClient.getRole(_) >> new GetRoleResult().withRole(role)
+    1 * ecs.registerTaskDefinition(_) >> { arguments ->
+      RegisterTaskDefinitionRequest request = arguments.get(0)
+      assert request.getTaskRoleArn() == "arn:aws:iam::test:path/test-role"
+      new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
+    }
+
+    iamClient.getRole(_) >> new GetRoleResult().withRole(role.withArn("arn:aws:iam::test:path/test-role"))
     iamPolicyReader.getTrustedEntities(_) >> trustRelationships
     loadBalancingV2.describeTargetGroups(_) >> new DescribeTargetGroupsResult().withTargetGroups(targetGroup)
     ecs.createService({ CreateServiceRequest request ->
@@ -1025,7 +1030,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(0).containerPort == 80
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:path/test-role'
+      request.role == 'arn:aws:iam::test:test-role'
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -1056,7 +1061,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:path/test-role'
+      assert request.roleARN == 'arn:aws:iam::test:test-role'
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
