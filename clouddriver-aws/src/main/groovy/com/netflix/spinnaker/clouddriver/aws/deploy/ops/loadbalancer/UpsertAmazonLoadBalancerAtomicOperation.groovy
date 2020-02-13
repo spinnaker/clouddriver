@@ -289,7 +289,7 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
           policyRequest.withPolicyNames(policyNames)
         )
       } catch(Exception e) {
-        log.warn("Failed to set listener policies on loadbalancer {} policies for listener {}", loadBalancer.name, e)
+        log.error("Failed to set listener policies on loadbalancer {}", loadBalancer.name, e)
       }
     }
   }
