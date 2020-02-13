@@ -38,7 +38,6 @@ import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 
-import static com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerClassicDescription.Listener.CookiePolicy.CookieType
 import static com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerClassicDescription.Listener.ListenerType.HTTP
 import static com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertAmazonLoadBalancerClassicDescription.Listener.ListenerType.HTTPS
 
@@ -202,10 +201,10 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
       }
 
       try {
-        applyCookieStickinessPolicies(description.listeners, loadBalancer, loadBalancing, loadBalancerName)
+        ensureSetLoadBalancerListenerPolicies(description, loadBalancing)
       } catch(Exception e) {
-        log.error("Failed to apply cookie stickiness policies for {}", loadBalancer, e)
-        task.updateStatus BASE_PHASE, "Failed while applying cookie stickiness policies."
+        log.error("Failed to apply listener policy names for {}", loadBalancer, e)
+        task.updateStatus BASE_PHASE, "Failed while applying listener policies."
       }
 
       CrossZoneLoadBalancing crossZoneLoadBalancing = null
@@ -271,92 +270,26 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
   }
 
   /**
-   * Sets cookie stickiness policies
+   * Ensures policies set in the request are applied to the load balancer
    */
-  private static applyCookieStickinessPolicies(
-    List<UpsertAmazonLoadBalancerClassicDescription.Listener> listeners,
-    LoadBalancerDescription loadBalancerDescription,
-    AmazonElasticLoadBalancing loadBalancing,
-    String loadBalancerName
-  ) {
-    for (UpsertAmazonLoadBalancerClassicDescription.Listener listener :  listeners) {
-      if (listener.cookiePolicies == null || listener.cookiePolicies.empty) {
-        continue
-      }
-
-      if (listener.externalProtocol != HTTP && listener.externalProtocol != HTTPS) {
+  private static void ensureSetLoadBalancerListenerPolicies(
+    UpsertAmazonLoadBalancerClassicDescription loadBalancer, AmazonElasticLoadBalancing loadBalancing) {
+    for (UpsertAmazonLoadBalancerClassicDescription.Listener listener :  loadBalancer.listeners) {
+      final List<String> policyNames = listener.policyNames ?: []
+      if (policyNames.isEmpty() || listener.externalProtocol != HTTP && listener.externalProtocol != HTTPS) {
         // only applicable to http and https listeners
         continue
       }
 
       final SetLoadBalancerPoliciesOfListenerRequest policyRequest = new SetLoadBalancerPoliciesOfListenerRequest()
-        .withLoadBalancerName(loadBalancerName)
+        .withLoadBalancerName(loadBalancer.name)
         .withLoadBalancerPort(listener.externalPort)
-
-      listener.cookiePolicies.forEach { cookiePolicy ->
-        switch (cookiePolicy.cookieType) {
-          case CookieType.APP:
-            task.updateStatus BASE_PHASE, "Applying app cookie stickiness policy ${cookiePolicy.policyName}"
-
-            final List<AppCookieStickinessPolicy> appCookiePolicies = loadBalancerDescription.policies.collect {
-              it.getAppCookieStickinessPolicies()
-            }.flatten() as List<AppCookieStickinessPolicy>
-
-            boolean policyExists = appCookiePolicies.any {
-              it.cookieName == cookiePolicy.cookieName && it.policyName == cookiePolicy.policyName
-            }
-
-            if (!policyExists) {
-              loadBalancing.createAppCookieStickinessPolicy(
-                new CreateAppCookieStickinessPolicyRequest().withLoadBalancerName(loadBalancerName)
-                  .withPolicyName(cookiePolicy.policyName)
-                  .withCookieName(cookiePolicy.cookieName)
-              )
-            }
-
-            loadBalancing.setLoadBalancerPoliciesOfListener(
-              policyRequest.withPolicyNames(cookiePolicy.policyName)
-            )
-
-            break
-          case CookieType.LB:
-            task.updateStatus BASE_PHASE, "Applying load balancer cookie stickiness policy ${cookiePolicy.policyName}"
-            final List<LBCookieStickinessPolicy> lbCookiePolicies = loadBalancerDescription.policies.collect {
-              it.getLBCookieStickinessPolicies()
-            }.flatten() as List<LBCookieStickinessPolicy>
-
-            LBCookieStickinessPolicy existingLBCookieStickinessPolicy = lbCookiePolicies.find {
-              it.policyName == cookiePolicy.policyName
-            }
-
-            if (existingLBCookieStickinessPolicy == null) {
-              loadBalancing.createLBCookieStickinessPolicy(
-                new CreateLBCookieStickinessPolicyRequest().withLoadBalancerName(loadBalancerName)
-                  .withPolicyName(cookiePolicy.policyName)
-                  .withCookieExpirationPeriod(cookiePolicy.durationSeconds)
-              )
-            } else if (existingLBCookieStickinessPolicy.cookieExpirationPeriod != cookiePolicy.durationSeconds) {
-              // delete existing cookie policy
-              loadBalancing.deleteLoadBalancerPolicy(
-                new DeleteLoadBalancerPolicyRequest().withPolicyName(existingLBCookieStickinessPolicy.policyName)
-              )
-
-              // create new policy with new duration period
-              loadBalancing.createLBCookieStickinessPolicy(
-                new CreateLBCookieStickinessPolicyRequest().withLoadBalancerName(loadBalancerDescription.loadBalancerName)
-                  .withPolicyName(existingLBCookieStickinessPolicy.policyName)
-                  .withCookieExpirationPeriod(cookiePolicy.durationSeconds)
-              )
-            }
-
-            loadBalancing.setLoadBalancerPoliciesOfListener(
-              policyRequest.withPolicyNames(cookiePolicy.policyName)
-            )
-
-            break
-          default:
-            log.warn("Unknown cookie stickiness policy type {}", cookiePolicy)
-        }
+      try {
+        loadBalancing.setLoadBalancerPoliciesOfListener(
+          policyRequest.withPolicyNames(policyNames)
+        )
+      } catch(Exception e) {
+        log.warn("Failed to set listener policies on loadbalancer {} policies for listener {}", loadBalancer.name, e)
       }
     }
   }
@@ -364,5 +297,4 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
   private static String loadBalancerArn(String accountId, String region, String name) {
     return "arn:aws:elasticloadbalancing:$accountId:$region:loadbalancer/$name"
   }
-
 }

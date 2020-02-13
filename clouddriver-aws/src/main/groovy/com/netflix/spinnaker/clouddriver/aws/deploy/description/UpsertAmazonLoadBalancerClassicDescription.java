@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.description;
 
 import java.util.List;
-import lombok.Data;
 
 public class UpsertAmazonLoadBalancerClassicDescription
     extends UpsertAmazonLoadBalancerDescription {
@@ -137,7 +136,7 @@ public class UpsertAmazonLoadBalancerClassicDescription
     private Integer internalPort;
 
     private String sslCertificateId;
-    private List<CookiePolicy> cookiePolicies;
+    private List<String> policyNames;
 
     public ListenerType getExternalProtocol() {
       return externalProtocol;
@@ -179,25 +178,12 @@ public class UpsertAmazonLoadBalancerClassicDescription
       this.sslCertificateId = sslCertificateId;
     }
 
-    public List<CookiePolicy> getCookiePolicies() {
-      return cookiePolicies;
+    public List<String> getPolicyNames() {
+      return policyNames;
     }
 
-    public void setCookiePolicies(List<CookiePolicy> cookiePolicies) {
-      this.cookiePolicies = cookiePolicies;
-    }
-
-    @Data
-    public static class CookiePolicy {
-      public enum CookieType {
-        APP,
-        LB
-      }
-
-      public CookieType cookieType;
-      public String policyName;
-      public String cookieName;
-      public long durationSeconds;
+    public void setPolicyNames(List<String> policyNames) {
+      this.policyNames = policyNames;
     }
   }
 }
