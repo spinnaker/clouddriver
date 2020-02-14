@@ -18,6 +18,9 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.userdata
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerHttpException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerNetworkException
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import org.springframework.beans.factory.annotation.Autowired
 import retrofit.RetrofitError
 
@@ -38,11 +41,10 @@ class LocalFileUserDataProvider implements UserDataProvider {
           return localFileUserDataProperties.defaultLegacyUdf
         }
         return Boolean.valueOf(application.legacyUdf)
-      } catch (RetrofitError re) {
-        if (re.kind == RetrofitError.Kind.HTTP && re.response.status == 404) {
-          return localFileUserDataProperties.defaultLegacyUdf
-        }
-        throw re
+      } catch (NotFoundException e) {
+        return localFileUserDataProperties.defaultLegacyUdf
+      } catch (SpinnakerNetworkException e) {
+        throw e
       }
     }
 
@@ -52,8 +54,12 @@ class LocalFileUserDataProvider implements UserDataProvider {
     for (int i = 0; i < maxRetry; i++) {
       try {
         return result.call()
-      } catch (RetrofitError re) {
-        if (re.kind == RetrofitError.Kind.NETWORK || (re.kind == RetrofitError.Kind.HTTP && retryStatus.contains(re.response.status))) {
+      } catch (SpinnakerHttpException e) {
+        if (retryStatus.contains(e.getResponse().getStatus())) {
+          Thread.sleep(retryBackoff)
+        }
+      } catch (SpinnakerNetworkException e) {
+        if (e.getKind() == RetrofitError.Kind.NETWORK) {
           Thread.sleep(retryBackoff)
         }
       }
