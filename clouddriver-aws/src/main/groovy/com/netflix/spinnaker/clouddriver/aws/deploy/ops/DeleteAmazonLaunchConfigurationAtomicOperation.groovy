@@ -24,7 +24,6 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
-import com.netflix.spinnaker.clouddriver.orchestration.events.DeleteServerGroupEvent
 import com.netflix.spinnaker.kork.core.RetrySupport
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -41,7 +40,6 @@ class DeleteAmazonLaunchConfigurationAtomicOperation implements AtomicOperation<
   private AmazonClientProvider amazonClientProvider
 
   private final DeleteAmazonLaunchConfigurationDescription description
-  private final Collection<DeleteServerGroupEvent> events = []
   private final RetrySupport retrySupport = new RetrySupport()
 
   DeleteAmazonLaunchConfigurationAtomicOperation(DeleteAmazonLaunchConfigurationDescription description) {
