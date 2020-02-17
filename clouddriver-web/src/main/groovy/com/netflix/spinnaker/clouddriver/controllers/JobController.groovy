@@ -39,7 +39,7 @@ class JobController {
   @Autowired
   MessageSource messageSource
 
-  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'WRITE') and hasPermission(#account, 'ACCOUNT', 'WRITE')")
+  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ') and hasPermission(#account, 'ACCOUNT', 'READ')")
   @ApiOperation(value = "Collect a JobStatus", notes = "Collects the output of the job, may modify the job.")
   @RequestMapping(value = "/{account}/{location}/{id:.+}", method = RequestMethod.POST)
   JobStatus collectJob(@ApiParam(value = "Application name", required = true) @PathVariable String application,
@@ -55,7 +55,7 @@ class JobController {
     jobMatches.first()
   }
 
-  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'WRITE') and hasPermission(#account, 'ACCOUNT', 'WRITE')")
+  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'EXECUTE') and hasPermission(#account, 'ACCOUNT', 'EXECUTE')")
   @ApiOperation(value = "Collect a JobStatus", notes = "Collects the output of the job, may modify the job.")
   @RequestMapping(value = "/{account}/{location}/{id:.+}", method = RequestMethod.DELETE)
   void cancelJob(@ApiParam(value = "Application name", required = true) @PathVariable String application,
@@ -67,7 +67,7 @@ class JobController {
     }
   }
 
-  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'WRITE') and hasPermission(#account, 'ACCOUNT', 'WRITE')")
+  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ') and hasPermission(#account, 'ACCOUNT', 'READ')")
   @ApiOperation(value = "Collect a file from a job", notes = "Collects the file result of a job.")
   @RequestMapping(value = "/{account}/{location}/{id}/{fileName:.+}", method = RequestMethod.GET)
   Map<String, Object> getFileContents(
