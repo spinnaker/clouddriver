@@ -114,7 +114,7 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
                 .intervalFunction(IntervalFunction.ofExponentialBackoff(Duration.ofSeconds(10), 3))
                 .retryExceptions(RetryableApiException.class)
                 .build());
-    logger.debug("cf request: " + chain.request().urlString());
+    logger.trace("cf request: " + chain.request().urlString());
     AtomicReference<Response> lastResponse = new AtomicReference<>();
     try {
       return retry.executeCallable(

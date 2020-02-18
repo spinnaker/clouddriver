@@ -424,7 +424,7 @@ public class Applications {
                       })
                   .collect(toSet());
 
-          log.debug(
+          log.trace(
               "Successfully retrieved "
                   + instances.size()
                   + " instances for application '"
