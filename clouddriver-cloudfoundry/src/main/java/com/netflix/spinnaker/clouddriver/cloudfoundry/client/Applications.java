@@ -169,6 +169,13 @@ public class Applications {
 
     for (CloudFoundryServerGroup serverGroup : serverGroupCache.asMap().values()) {
       Names names = Names.parseName(serverGroup.getName());
+      if (names.getCluster() == null) {
+        log.debug(
+            "Skipping app '{}' from foundation '{}' because the name isn't following the frigga naming schema.",
+            serverGroup.getName(),
+            this.account);
+        continue;
+      }
       serverGroupsByClusters
           .computeIfAbsent(names.getCluster(), clusterName -> new HashSet<>())
           .add(serverGroup);
