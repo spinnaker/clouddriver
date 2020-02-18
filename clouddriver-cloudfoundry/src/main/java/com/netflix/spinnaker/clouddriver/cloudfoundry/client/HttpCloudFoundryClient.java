@@ -41,7 +41,6 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -77,8 +76,9 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
   private Logger logger = LoggerFactory.getLogger(HttpCloudFoundryClient.class);
 
   private AuthenticationService uaaService;
-  private AtomicLong tokenExpirationNs = new AtomicLong(System.nanoTime());
-  private volatile Token token;
+  private long tokenExpiration = System.currentTimeMillis();
+  private Token token;
+  private final Object tokenLock = new Object();
 
   private JacksonConverter jacksonConverter;
 
@@ -93,13 +93,7 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
   private Logs logs;
 
   private final RequestInterceptor oauthInterceptor =
-      new RequestInterceptor() {
-        @Override
-        public void intercept(RequestFacade request) {
-          refreshTokenIfNecessary();
-          request.addHeader("Authorization", "bearer " + token.getAccessToken());
-        }
-      };
+      request -> request.addHeader("Authorization", "bearer " + getToken(false).getAccessToken());
 
   private static class RetryableApiException extends RuntimeException {
     RetryableApiException(String message) {
@@ -135,13 +129,12 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
                 Buffer buffer = source.buffer();
                 String body = buffer.clone().readString(Charset.forName("UTF-8"));
                 if (!body.contains("Bad credentials")) {
-                  refreshToken();
                   response =
                       chain.proceed(
                           chain
                               .request()
                               .newBuilder()
-                              .header("Authorization", "bearer " + token.getAccessToken())
+                              .header("Authorization", "bearer " + getToken(true).getAccessToken())
                               .build());
                   lastResponse.set(response);
                 }
@@ -284,23 +277,19 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
     return client;
   }
 
-  private void refreshTokenIfNecessary() {
-    long currentExpiration = tokenExpirationNs.get();
-    long now = System.nanoTime();
-    long comp = Math.min(currentExpiration, now);
-    if (tokenExpirationNs.compareAndSet(comp, now)) {
-      this.refreshToken();
+  private Token getToken(boolean forceRefresh) {
+    synchronized (tokenLock) {
+      if (forceRefresh || (token == null || System.currentTimeMillis() >= tokenExpiration)) {
+        try {
+          token = uaaService.passwordToken("password", user, password, "cf", "");
+        } catch (Exception e) {
+          log.warn("Failed to obtain a token", e);
+          throw e;
+        }
+        tokenExpiration = System.currentTimeMillis() + ((token.getExpiresIn() - 120) * 1000);
+      }
+      return token;
     }
-  }
-
-  private void refreshToken() {
-    try {
-      token = uaaService.passwordToken("password", user, password, "cf", "");
-    } catch (Exception e) {
-      log.warn("Failed to obtain a token", e);
-      throw e;
-    }
-    tokenExpirationNs.addAndGet(Duration.ofSeconds(token.getExpiresIn()).toNanos());
   }
 
   private <S> S createService(Class<S> serviceClass) {
