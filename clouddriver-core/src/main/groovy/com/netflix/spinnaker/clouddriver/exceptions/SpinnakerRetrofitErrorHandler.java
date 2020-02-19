@@ -32,6 +32,17 @@ import retrofit.RetrofitError.Kind;
  */
 @NonnullByDefault
 public final class SpinnakerRetrofitErrorHandler implements ErrorHandler {
+  private SpinnakerRetrofitErrorHandler() {}
+
+  /**
+   * Returns an instance of a {@link SpinnakerRetrofitErrorHandler}.
+   *
+   * @return An instance of {@link SpinnakerRetrofitErrorHandler}
+   */
+  public static SpinnakerRetrofitErrorHandler getInstance() {
+    return new SpinnakerRetrofitErrorHandler();
+  }
+
   /**
    * Returns a more specific {@link Throwable} depending on properties of the caught {@link
    * RetrofitError}.

@@ -56,7 +56,7 @@ class RetrofitConfig {
       .setConverter(new JacksonConverter())
       .setLogLevel(retrofitLogLevel)
       .setLog(new Slf4jRetrofitLogger(Front50Service))
-      .setErrorHandler(new SpinnakerRetrofitErrorHandler())
+      .setErrorHandler(SpinnakerRetrofitErrorHandler.getInstance())
       .build()
       .create(Front50Service)
   }
