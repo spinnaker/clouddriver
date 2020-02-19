@@ -40,8 +40,8 @@ class JobController {
   MessageSource messageSource
 
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ') and hasPermission(#account, 'ACCOUNT', 'READ')")
-  @ApiOperation(value = "Collect a JobStatus", notes = "Collects the output of the job, may modify the job.")
-  @RequestMapping(value = "/{account}/{location}/{id:.+}", method = RequestMethod.POST)
+  @ApiOperation(value = "Collect a JobStatus", notes = "Collects the output of the job.")
+  @RequestMapping(value = "/{account}/{location}/{id:.+}", method = RequestMethod.GET)
   JobStatus collectJob(@ApiParam(value = "Application name", required = true) @PathVariable String application,
                        @ApiParam(value = "Account job was created by", required = true) @PathVariable String account,
                        @ApiParam(value = "Namespace, region, or zone job is running in", required = true) @PathVariable String location,
@@ -56,7 +56,7 @@ class JobController {
   }
 
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'EXECUTE') and hasPermission(#account, 'ACCOUNT', 'EXECUTE')")
-  @ApiOperation(value = "Collect a JobStatus", notes = "Collects the output of the job, may modify the job.")
+  @ApiOperation(value = "Collect a JobStatus", notes = "Cancels the job.")
   @RequestMapping(value = "/{account}/{location}/{id:.+}", method = RequestMethod.DELETE)
   void cancelJob(@ApiParam(value = "Application name", required = true) @PathVariable String application,
                  @ApiParam(value = "Account job was created by", required = true) @PathVariable String account,
