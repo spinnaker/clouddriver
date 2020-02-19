@@ -16,50 +16,15 @@
 
 package com.netflix.spinnaker.clouddriver.exceptions;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
-import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
-import java.util.Optional;
-import lombok.Getter;
 import retrofit.RetrofitError;
 
 // todo(mneterval): move to kork-exceptions
 
-/** An exception that exposes the message and kind of a {@link RetrofitError}. */
-@Getter
+/** Wraps an exception of kind {@link RetrofitError.Kind} NETWORK. */
 @NonnullByDefault
-public class SpinnakerNetworkException extends SpinnakerException {
-  private final String rawMessage;
-  private final RetrofitError.Kind kind;
-
-  /**
-   * Parses the message and kind from the {@link RetrofitErrorResponseBody} of a {@link
-   * RetrofitError}.
-   *
-   * @param e The {@link RetrofitError} thrown by an invocation of the {@link retrofit.RestAdapter}
-   */
+public final class SpinnakerNetworkException extends SpinnakerServerException {
   public SpinnakerNetworkException(RetrofitError e) {
-    super(e.getCause());
-    RetrofitErrorResponseBody body =
-        (RetrofitErrorResponseBody) e.getBodyAs(RetrofitErrorResponseBody.class);
-    this.rawMessage =
-        Optional.ofNullable(body).map(RetrofitErrorResponseBody::getMessage).orElse("");
-    this.kind = e.getKind();
-  }
-
-  @Override
-  public String getMessage() {
-    return rawMessage;
-  }
-
-  @Getter
-  private static final class RetrofitErrorResponseBody {
-    private final String message;
-
-    @JsonCreator
-    RetrofitErrorResponseBody(@JsonProperty("message") String message) {
-      this.message = message;
-    }
+    super(e);
   }
 }

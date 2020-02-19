@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerNetworkException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import org.springframework.beans.factory.annotation.Autowired
 import retrofit.RetrofitError
@@ -43,7 +44,7 @@ class LocalFileUserDataProvider implements UserDataProvider {
         return Boolean.valueOf(application.legacyUdf)
       } catch (NotFoundException e) {
         return localFileUserDataProperties.defaultLegacyUdf
-      } catch (SpinnakerNetworkException e) {
+      } catch (SpinnakerServerException e) {
         throw e
       }
     }
@@ -60,10 +61,8 @@ class LocalFileUserDataProvider implements UserDataProvider {
           Thread.sleep(retryBackoff)
         }
       } catch (SpinnakerNetworkException e) {
-        if (e.getKind() == RetrofitError.Kind.NETWORK) {
-          Thread.sleep(retryBackoff)
-        }
-      }
+        Thread.sleep(retryBackoff)
+      } catch (SpinnakerServerException e) {}
     }
     throw new IllegalStateException("Failed to read legacyUdf preference from front50 for $account/$applicationName")
   }

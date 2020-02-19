@@ -21,7 +21,6 @@ import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import org.springframework.http.HttpStatus;
 import retrofit.ErrorHandler;
 import retrofit.RetrofitError;
-import retrofit.RetrofitError.Kind;
 
 // todo(mneterval): move to kork-exceptions
 
@@ -52,12 +51,16 @@ public final class SpinnakerRetrofitErrorHandler implements ErrorHandler {
    */
   @Override
   public Throwable handleError(RetrofitError e) {
-    if (e.getKind() == Kind.HTTP) {
-      if (e.getResponse().getStatus() == HttpStatus.NOT_FOUND.value()) {
-        return new NotFoundException(e);
-      }
-      return new SpinnakerHttpException(e);
+    switch (e.getKind()) {
+      case HTTP:
+        if (e.getResponse().getStatus() == HttpStatus.NOT_FOUND.value()) {
+          return new NotFoundException(e);
+        }
+        return new SpinnakerHttpException(e);
+      case NETWORK:
+        return new SpinnakerNetworkException(e);
+      default:
+        return new SpinnakerServerException(e);
     }
-    return new SpinnakerNetworkException(e);
   }
 }
