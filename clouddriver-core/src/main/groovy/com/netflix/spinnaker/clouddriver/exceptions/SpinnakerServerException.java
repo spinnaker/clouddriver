@@ -27,7 +27,6 @@ import retrofit.RetrofitError;
 // todo(mneterval): move to kork-exceptions
 
 /** An exception that exposes the message of a {@link RetrofitError}. */
-@Getter
 @NonnullByDefault
 public class SpinnakerServerException extends SpinnakerException {
   private final String rawMessage;
@@ -47,6 +46,10 @@ public class SpinnakerServerException extends SpinnakerException {
 
   @Override
   public String getMessage() {
+    return rawMessage;
+  }
+
+  final String getRawMessage() {
     return rawMessage;
   }
 
