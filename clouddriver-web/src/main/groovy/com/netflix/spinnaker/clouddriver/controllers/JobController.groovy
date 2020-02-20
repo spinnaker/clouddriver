@@ -54,7 +54,7 @@ class JobController {
                        @ApiParam(value = "Unique identifier of job being looked up", required = true) @PathVariable String id) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Collection<JobStatus> jobMatches = jobProviders.findResults {
-      // In Kubernetes Provider v1, collecting the job might end up deleting it if it finds out that it is done.
+      // In Kubernetes Provider v1, collecting the job might end up deleting it if it finds out that it is finished.
       // This logic should be removed when v1 is EOL
       String requiredAuthorization = it instanceof KubernetesJobProvider ? "WRITE" : "READ"
 
