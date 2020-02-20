@@ -150,13 +150,6 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
     if (serverGroupName == null) {
       return null;
     }
-    CloudFoundryServerGroup serverGroup =
-        this.getClient()
-            .getApplications()
-            .findServerGroupByNameAndSpaceId(serverGroupName, space.getId());
-    if (serverGroup == null) {
-      return null;
-    }
 
     log.info("On Demand cache refresh triggered, waiting for Server group loadData to be called");
     CloudFoundryServerGroup cloudFoundryServerGroup =
