@@ -472,10 +472,10 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'kcats'
     description.getFreeFormDetails() >> 'liated'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getContainerPort() >> 1337
-    description.targetGroup = 'target-group-arn'
+    description.getTargetGroup() >> 'target-group-arn'
     description.getPortProtocol() >> 'tcp'
     description.getComputeUnits() >> 9001
     description.getReservedMemory() >> 9001
@@ -542,8 +542,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
     description.getContainerToImageMap() >> [
       web: "docker-image-url/one",
@@ -610,8 +610,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getLaunchType() >> 'FARGATE'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
     description.getContainerToImageMap() >> [
@@ -657,7 +657,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
+    description.getEcsClusterName() >> 'test-cluster'
     description.getLaunchType() >> 'FARGATE'
     description.getNetworkMode() >> 'awsvpc'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
@@ -708,6 +708,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
   def 'should use same port for host and container in host mode'() {
     given:
     def description = Mock(CreateServerGroupDescription)
+    description.getTargetGroup() >> 'target-group-arn'
     description.getContainerPort() >> 10000
     description.getNetworkMode() >> 'host'
     def operation = new CreateServerGroupAtomicOperation(description)
