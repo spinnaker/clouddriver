@@ -41,6 +41,7 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -181,6 +182,7 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
     this.password = password;
 
     this.okHttpClient = createHttpClient(skipSslValidation);
+    this.okHttpClient.setReadTimeout(20, TimeUnit.SECONDS);
 
     okHttpClient.interceptors().add(this::createRetryInterceptor);
 
