@@ -175,6 +175,18 @@ class SecurityGroupIngressConverter {
     }
   }
 
+  /**
+   *
+   * @param newList from description
+   * @param existingRules
+   * @return Map of rules that needs to be added , removed and updated
+   * Computes the delta between the existing rules and new rule
+   * Any rule present in description and not in the existing rule gets added to addition list.
+   * Any rule not present in description but present in existing rule get added to the remove list.
+   * Any rule with a change in description only gets added to the update list based on the following,
+   * - If a new rule has description value add it to update list to make it consistent.
+   * - If new rule has no description value set, ignore.
+   */
   static UserIdGroupPairsDelta computeUserIdGroupPairsDelta(List<IpPermission> newList, List<IpPermission> existingRules) {
     List<IpPermission> tobeAdded = new ArrayList<>()
     List<IpPermission> tobeRemoved = new ArrayList<>()
