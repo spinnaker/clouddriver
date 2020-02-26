@@ -107,8 +107,7 @@ final class KubernetesHealthIndicatorTest {
     Health result = healthIndicator.getHealth(true);
 
     assertThat(result.getStatus()).isEqualTo(Status.UP);
-    assertThat(result.getDetails())
-        .containsExactly(entry("kubernetes:" + unhealthy, ERROR_MESSAGE));
+    assertThat(result.getDetails()).containsExactly(entry(unhealthy, ERROR_MESSAGE));
   }
 
   @Test
@@ -130,9 +129,7 @@ final class KubernetesHealthIndicatorTest {
 
     assertThat(result.getStatus()).isEqualTo(Status.UP);
     assertThat(result.getDetails())
-        .containsExactly(
-            entry("kubernetes:" + unhealthy1, ERROR_MESSAGE),
-            entry("kubernetes:" + unhealthy2, ERROR_MESSAGE));
+        .containsExactly(entry(unhealthy1, ERROR_MESSAGE), entry(unhealthy2, ERROR_MESSAGE));
   }
 
   private static KubernetesConfigurationProperties.ManagedAccount getManagedAccount(String name) {
