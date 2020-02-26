@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.health;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.core.AccountHealthIndicator;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
@@ -27,10 +28,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class KubernetesHealthIndicator
     extends AccountHealthIndicator<KubernetesNamedAccountCredentials> {
+  private static final String ID = "kubernetes";
   private final AccountCredentialsProvider accountCredentialsProvider;
 
   @Autowired
-  public KubernetesHealthIndicator(AccountCredentialsProvider accountCredentialsProvider) {
+  public KubernetesHealthIndicator(
+      Registry registry, AccountCredentialsProvider accountCredentialsProvider) {
+    super(ID, registry);
     this.accountCredentialsProvider = accountCredentialsProvider;
   }
 

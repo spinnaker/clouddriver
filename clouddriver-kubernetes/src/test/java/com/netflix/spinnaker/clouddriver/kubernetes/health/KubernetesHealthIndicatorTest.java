@@ -22,6 +22,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.netflix.spectator.api.NoopRegistry;
+import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
@@ -41,6 +43,7 @@ import org.springframework.boot.actuate.health.Status;
 final class KubernetesHealthIndicatorTest {
   private static final ImmutableList<String> NAMESPACES = ImmutableList.of();
   private static final String ERROR_MESSAGE = "Failed to get namespaces";
+  private static final Registry REGISTRY = new NoopRegistry();
 
   private static final KubernetesCredentialFactory<KubernetesCredentials>
       HEALTHY_CREDENTIAL_FACTORY =
@@ -57,7 +60,7 @@ final class KubernetesHealthIndicatorTest {
   void healthyWithNoAccounts() {
     AccountCredentialsProvider provider = stubAccountCredentialsProvider(ImmutableList.of());
 
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(provider);
+    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, provider);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
@@ -72,7 +75,7 @@ final class KubernetesHealthIndicatorTest {
         stubAccountCredentialsProvider(
             ImmutableList.of(nonKubernetesAccount("aws"), nonKubernetesAccount("gce")));
 
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(provider);
+    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, provider);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
@@ -86,7 +89,7 @@ final class KubernetesHealthIndicatorTest {
     AccountCredentialsProvider provider =
         stubAccountCredentialsProvider(ImmutableList.of(healthyAccount("test")));
 
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(provider);
+    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, provider);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
@@ -101,7 +104,7 @@ final class KubernetesHealthIndicatorTest {
     AccountCredentialsProvider provider =
         stubAccountCredentialsProvider(ImmutableList.of(unhealthyAccount(unhealthy)));
 
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(provider);
+    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, provider);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
@@ -122,7 +125,7 @@ final class KubernetesHealthIndicatorTest {
                 unhealthyAccount(unhealthy1),
                 unhealthyAccount(unhealthy2)));
 
-    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(provider);
+    KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, provider);
 
     healthIndicator.checkHealth();
     Health result = healthIndicator.getHealth(true);
