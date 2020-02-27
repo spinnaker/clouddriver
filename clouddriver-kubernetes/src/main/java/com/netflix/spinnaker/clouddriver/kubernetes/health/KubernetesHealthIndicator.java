@@ -51,7 +51,7 @@ public class KubernetesHealthIndicator
     try {
       accountCredentials.getCredentials().getDeclaredNamespaces();
       return Optional.empty();
-    } catch (Exception e) {
+    } catch (RuntimeException e) {
       return Optional.of(e.getMessage());
     }
   }

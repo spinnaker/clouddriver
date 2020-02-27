@@ -42,7 +42,7 @@ import org.springframework.scheduling.annotation.Scheduled;
  */
 public abstract class AccountHealthIndicator<T extends AccountCredentials>
     implements HealthIndicator {
-  @Nonnull private volatile Health health = new Health.Builder().up().build();
+  @Nonnull private Health health = new Health.Builder().up().build();
   @Nonnull private final AtomicLong unhealthyAccounts = new AtomicLong(0);
 
   /**
