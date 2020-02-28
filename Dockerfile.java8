@@ -30,6 +30,7 @@ ENV PATH "$PATH:/usr/local/bin/"
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin/
 
 RUN adduser -D -S spinnaker
+RUN mkdir -p /opt/spinnaker/plugins && chown -R spinnaker:nogroup /opt/spinnaker/plugins
 
 USER spinnaker
 
