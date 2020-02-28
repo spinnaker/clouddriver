@@ -15,7 +15,7 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.artifacts;
+package com.netflix.spinnaker.clouddriver.appengine.artifacts;
 
 import java.io.*;
 import java.util.Stack;
