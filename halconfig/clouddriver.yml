@@ -1,8 +1,1 @@
 # halconfig
-
-server:
-  port: ${services.clouddriver.port:7002}
-  address: ${services.clouddriver.host:localhost}
-
-redis:
-  connection: ${services.redis.baseUrl:redis://localhost:6379}
