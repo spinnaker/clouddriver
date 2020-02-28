@@ -24,8 +24,6 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.utils.IOUtils;
 
 public class ArtifactUtils {
-  public static final String GCE_IMAGE_TYPE = "gce/image";
-
   public static void untarStreamToPath(InputStream inputStream, String basePath)
       throws IOException {
     class DirectoryTimestamp {
