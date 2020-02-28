@@ -53,6 +53,8 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
 
   @Nullable private final Integer resultsPerPage;
 
+  private final int maxCapiConnectionsForCache;
+
   private CloudFoundryClient credentials;
 
   public CloudFoundryCredentials(
@@ -64,7 +66,8 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
       String password,
       String environment,
       boolean skipSslValidation,
-      Integer resultsPerPage) {
+      Integer resultsPerPage,
+      Integer maxCapiConnectionsForCache) {
     this.name = name;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -73,7 +76,8 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
     this.password = password;
     this.environment = Optional.ofNullable(environment).orElse("dev");
     this.skipSslValidation = skipSslValidation;
-    this.resultsPerPage = Optional.ofNullable(resultsPerPage).orElse(500);
+    this.resultsPerPage = Optional.ofNullable(resultsPerPage).orElse(100);
+    this.maxCapiConnectionsForCache = Optional.ofNullable(maxCapiConnectionsForCache).orElse(16);
   }
 
   public CloudFoundryClient getCredentials() {
@@ -87,7 +91,8 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
               userName,
               password,
               skipSslValidation,
-              resultsPerPage);
+              resultsPerPage,
+              maxCapiConnectionsForCache);
     }
     return credentials;
   }
