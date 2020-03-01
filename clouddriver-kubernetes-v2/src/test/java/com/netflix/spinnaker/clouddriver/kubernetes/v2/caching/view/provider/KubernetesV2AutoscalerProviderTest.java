@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.AUTOSCALERS;
-import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUPS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.APPLICATIONS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,20 +62,16 @@ final class KubernetesV2AutoscalerProviderTest {
         .thenReturn(ImmutableSet.of(KubernetesKind.HORIZONTAL_POD_AUTOSCALER));
     when(kindMap.translateSpinnakerKind(SERVER_GROUPS))
         .thenReturn(ImmutableSet.of(KubernetesKind.REPLICA_SET));
-    when(kindMap.translateSpinnakerKind(INSTANCES)).thenReturn(ImmutableSet.of(KubernetesKind.POD));
   }
 
   @Test
   void getAutoscalersByApplication() {
     CacheData autoscalerCacheData = mock(CacheData.class);
     CacheData serverGroupCacheData = mock(CacheData.class);
-    CacheData instanceCacheData = mock(CacheData.class);
 
     Collection<CacheData> autoscalerCaches = Collections.singleton(autoscalerCacheData);
 
     Collection<CacheData> serverGroupCaches = Collections.singleton(serverGroupCacheData);
-
-    Collection<CacheData> instanceCaches = Collections.singleton(instanceCacheData);
 
     when(cacheUtils.getTransitiveRelationship(
             APPLICATIONS.toString(),
@@ -88,11 +83,7 @@ final class KubernetesV2AutoscalerProviderTest {
             autoscalerCaches, KubernetesKind.REPLICA_SET.toString()))
         .thenReturn(serverGroupCaches);
 
-    when(cacheUtils.loadRelationshipsFromCache(serverGroupCaches, KubernetesKind.POD.toString()))
-        .thenReturn(instanceCaches);
-
     when(cacheUtils.mapByRelationship(serverGroupCaches, AUTOSCALERS)).thenReturn(new HashMap<>());
-    when(cacheUtils.mapByRelationship(instanceCaches, SERVER_GROUPS)).thenReturn(new HashMap<>());
 
     Map<String, Object> attributes = new HashMap<>();
     attributes.put("manifest", mock(KubernetesManifest.class));
@@ -111,8 +102,6 @@ final class KubernetesV2AutoscalerProviderTest {
 
     Collection<CacheData> serverGroupCaches = Collections.emptyList();
 
-    Collection<CacheData> instanceCaches = Collections.emptyList();
-
     when(cacheUtils.getTransitiveRelationship(
             APPLICATIONS.toString(),
             Collections.singletonList(Keys.ApplicationCacheKey.createKey(APPLICATION)),
@@ -123,11 +112,7 @@ final class KubernetesV2AutoscalerProviderTest {
             autoscalerCaches, KubernetesKind.REPLICA_SET.toString()))
         .thenReturn(serverGroupCaches);
 
-    when(cacheUtils.loadRelationshipsFromCache(serverGroupCaches, KubernetesKind.POD.toString()))
-        .thenReturn(instanceCaches);
-
     when(cacheUtils.mapByRelationship(serverGroupCaches, AUTOSCALERS)).thenReturn(new HashMap<>());
-    when(cacheUtils.mapByRelationship(instanceCaches, SERVER_GROUPS)).thenReturn(new HashMap<>());
 
     Set<KubernetesV2Autoscaler> autoscalers = provider.getAutoscalersByApplication(APPLICATION);
 

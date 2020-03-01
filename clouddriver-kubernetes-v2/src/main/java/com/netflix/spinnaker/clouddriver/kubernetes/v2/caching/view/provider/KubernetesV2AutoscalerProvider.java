@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.AUTOSCALERS;
-import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUPS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.APPLICATIONS;
 
@@ -31,7 +30,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -74,25 +73,16 @@ public class KubernetesV2AutoscalerProvider implements AutoscalerProvider<Kubern
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
 
-    List<CacheData> instanceData =
-        kindMap.translateSpinnakerKind(INSTANCES).stream()
-            .map(kind -> cacheUtils.loadRelationshipsFromCache(serverGroupData, kind.toString()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
-
     Map<String, List<CacheData>> autoscalerToServerGroups =
         cacheUtils.mapByRelationship(serverGroupData, AUTOSCALERS);
-    Map<String, List<CacheData>> serverGroupToInstances =
-        cacheUtils.mapByRelationship(instanceData, SERVER_GROUPS);
 
     return autoscalerData.stream()
         .map(
             cd ->
                 KubernetesV2Autoscaler.fromCacheData(
-                    cd,
-                    autoscalerToServerGroups.getOrDefault(cd.getId(), new ArrayList<>()),
-                    serverGroupToInstances))
-        .filter(Objects::nonNull)
+                    cd, autoscalerToServerGroups.getOrDefault(cd.getId(), new ArrayList<>())))
+        .filter(Optional::isPresent)
+        .map(Optional::get)
         .collect(Collectors.toSet());
   }
 }

@@ -38,13 +38,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/applications/{application}/autoscalers")
 public class AutoscalerController {
-  final List<AutoscalerProvider> autoscalerProviders;
+  private final List<AutoscalerProvider<?>> autoscalerProviders;
 
-  final RequestQueue requestQueue;
+  private final RequestQueue requestQueue;
 
   @Autowired
   public AutoscalerController(
-      List<AutoscalerProvider> autoscalerProviders, RequestQueue requestQueue) {
+      List<AutoscalerProvider<?>> autoscalerProviders, RequestQueue requestQueue) {
     this.autoscalerProviders = autoscalerProviders;
     this.requestQueue = requestQueue;
   }
@@ -66,7 +66,6 @@ public class AutoscalerController {
             })
         .filter(Objects::nonNull)
         .flatMap(Collection::stream)
-        .map(i -> (Autoscaler) i)
         .collect(Collectors.toSet());
   }
 }

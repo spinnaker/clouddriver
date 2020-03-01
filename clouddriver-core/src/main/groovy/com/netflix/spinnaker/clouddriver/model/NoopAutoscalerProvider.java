@@ -16,11 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import java.util.Collections;
 import java.util.Set;
 
 public class NoopAutoscalerProvider implements AutoscalerProvider<Autoscaler> {
   @Override
   public Set<Autoscaler> getAutoscalersByApplication(String application) {
-    return null;
+    return Collections.emptySet();
   }
 }

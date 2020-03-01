@@ -17,9 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,13 +28,9 @@ public interface Autoscaler {
 
   String getCloudProvider();
 
-  default Moniker getMoniker() {
-    return NamerRegistry.getDefaultNamer().deriveMoniker(this);
-  }
+  Moniker getMoniker();
 
-  Set<AutoscalerServerGroup> getServerGroups();
+  Set<ServerGroupSummary> getServerGroupSummaries();
 
-  default Map<String, String> getLabels() {
-    return new HashMap<>();
-  }
+  Map<String, String> getLabels();
 }

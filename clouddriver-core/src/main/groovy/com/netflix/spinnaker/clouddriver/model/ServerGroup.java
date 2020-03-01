@@ -118,7 +118,7 @@ public interface ServerGroup {
    */
   @Empty
   default Set<String> getAutoscalers() {
-    return null;
+    return Collections.emptySet();
   }
 
   /**

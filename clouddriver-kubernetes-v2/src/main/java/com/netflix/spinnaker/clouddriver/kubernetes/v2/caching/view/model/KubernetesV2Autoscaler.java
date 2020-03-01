@@ -16,69 +16,67 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.model;
 
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.Autoscaler;
-import com.netflix.spinnaker.clouddriver.model.AutoscalerServerGroup;
+import com.netflix.spinnaker.clouddriver.model.ServerGroupSummary;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @EqualsAndHashCode(callSuper = true)
-@Data
+@Value
 @Slf4j
 public class KubernetesV2Autoscaler extends ManifestBasedModel implements Autoscaler {
-  private KubernetesManifest manifest;
-  private Keys.InfrastructureCacheKey key;
-  private Set<AutoscalerServerGroup> serverGroups = new HashSet<>();
+  private final KubernetesManifest manifest;
+  private final Keys.InfrastructureCacheKey key;
+  private final ImmutableSet<ServerGroupSummary> serverGroupSummaries;
 
   private KubernetesV2Autoscaler(
-      KubernetesManifest manifest, String key, Set<AutoscalerServerGroup> serverGroups) {
+      KubernetesManifest manifest, String key, Iterable<ServerGroupSummary> serverGroupSummaries) {
     this.manifest = manifest;
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
-    this.serverGroups = serverGroups;
+    this.serverGroupSummaries = ImmutableSet.copyOf(serverGroupSummaries);
   }
 
-  public static KubernetesV2Autoscaler fromCacheData(
-      CacheData cd,
-      List<CacheData> serverGroupData,
-      Map<String, List<CacheData>> serverGroupToInstanceData) {
+  public static Optional<KubernetesV2Autoscaler> fromCacheData(
+      CacheData cd, List<CacheData> serverGroupData) {
     if (cd == null) {
-      return null;
+      return Optional.empty();
     }
 
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
 
     if (manifest == null) {
       log.warn("Cache data {} inserted without a manifest", cd.getId());
-      return null;
+      return Optional.empty();
     }
 
-    Set<AutoscalerServerGroup> serverGroups =
+    Set<ServerGroupSummary> serverGroupSummaries =
         serverGroupData.stream()
             .map(
                 d ->
                     KubernetesV2ServerGroup.fromCacheData(
                         KubernetesV2ServerGroupCacheData.builder()
                             .serverGroupData(d)
-                            .instanceData(serverGroupToInstanceData.get(d.getId()))
+                            .instanceData(new ArrayList<>())
                             .loadBalancerData(new ArrayList<>())
                             .autoscalerData(new ArrayList<>())
                             .build()))
             .filter(Objects::nonNull)
-            .map(KubernetesV2ServerGroup::toAutoscalerServerGroup)
+            .map(KubernetesV2ServerGroup::toServerGroupSummary)
             .collect(Collectors.toSet());
 
-    return new KubernetesV2Autoscaler(manifest, cd.getId(), serverGroups);
+    return Optional.of(new KubernetesV2Autoscaler(manifest, cd.getId(), serverGroupSummaries));
   }
 }

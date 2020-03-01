@@ -303,7 +303,7 @@ class CloudDriverConfig {
   }
 
   @Bean
-  @ConditionalOnMissingBean(Autoscaler)
+  @ConditionalOnMissingBean(AutoscalerProvider)
   AutoscalerProvider noopAutoscalerProvider() {
     new NoopAutoscalerProvider();
   }

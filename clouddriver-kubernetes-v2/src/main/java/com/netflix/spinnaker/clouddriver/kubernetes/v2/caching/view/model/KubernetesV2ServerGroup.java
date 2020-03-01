@@ -22,6 +22,7 @@ import static java.util.Collections.singletonList;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
@@ -33,7 +34,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.dat
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestTraffic;
-import com.netflix.spinnaker.clouddriver.model.AutoscalerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
@@ -59,7 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KubernetesV2ServerGroup extends ManifestBasedModel implements ServerGroup {
   private Boolean disabled;
-  private Set<String> autoscalers = new HashSet<>();
+  private final ImmutableSet<String> autoscalers;
   private Set<String> zones = new HashSet<>();
   private Set<Instance> instances = new HashSet<>();
   private Set<String> loadBalancers = new HashSet<>();
@@ -128,14 +128,14 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
       Set<String> loadBalancers,
       List<ServerGroupManagerSummary> serverGroupManagers,
       Boolean disabled,
-      Set<String> autoscalers) {
+      Iterable<String> autoscalers) {
     this.manifest = manifest;
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
     this.instances = new HashSet<>(instances);
     this.loadBalancers = loadBalancers;
     this.serverGroupManagers = serverGroupManagers;
     this.disabled = disabled;
-    this.autoscalers = autoscalers;
+    this.autoscalers = ImmutableSet.copyOf(autoscalers);
 
     Object odesired =
         ((Map<String, Object>) manifest.getOrDefault("spec", new HashMap<String, Object>()))
@@ -209,7 +209,6 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
 
     Boolean disabled = loadBalancers.isEmpty() && !explicitLoadBalancers.isEmpty();
     loadBalancers.addAll(explicitLoadBalancers);
-
     Set<String> autoscalers = KubernetesV2ServerGroup.toRelationshipSet(autoscalerData);
 
     return new KubernetesV2ServerGroup(
@@ -256,19 +255,6 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         .name(getName())
         .region(getRegion())
         .isDisabled(isDisabled())
-        .cloudProvider(KubernetesCloudProvider.ID)
-        .build();
-  }
-
-  public AutoscalerServerGroup toAutoscalerServerGroup() {
-    return AutoscalerServerGroup.builder()
-        .account(getAccount())
-        .instances(
-            instances.stream()
-                .map(i -> ((KubernetesV2Instance) i).toAutoscalerInstance())
-                .collect(Collectors.toSet()))
-        .name(getName())
-        .region(getRegion())
         .cloudProvider(KubernetesCloudProvider.ID)
         .build();
   }
