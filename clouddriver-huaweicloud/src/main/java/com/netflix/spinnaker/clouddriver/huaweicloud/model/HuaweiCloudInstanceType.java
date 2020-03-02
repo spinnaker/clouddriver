@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * Copyright 2020 Huawei Technologies Co.,Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,16 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.documentation
+package com.netflix.spinnaker.clouddriver.huaweicloud.model;
 
-import java.lang.annotation.ElementType
-import java.lang.annotation.Retention
-import java.lang.annotation.RetentionPolicy
-import java.lang.annotation.Target
+import com.netflix.spinnaker.clouddriver.model.InstanceType;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-/**
- * Marker annotation for documentation purposes. Methods annotated with @Nullable indicate that the method may return a null value.
- *
- * @deprecated Because why use this and not {@code javax.annotation.Nullable}?
- */
-@Deprecated
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.SOURCE)
-@interface Nullable {
+@Getter
+@AllArgsConstructor
+public class HuaweiCloudInstanceType implements InstanceType {
+  private String name;
+  private String region;
+  private String account;
 }
