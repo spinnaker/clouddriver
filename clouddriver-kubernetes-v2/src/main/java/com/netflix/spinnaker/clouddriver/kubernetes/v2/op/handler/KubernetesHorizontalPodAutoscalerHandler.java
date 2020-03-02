@@ -23,6 +23,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.Kuberne
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.ResourceKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
@@ -39,7 +40,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -125,79 +125,74 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   public void addRelationships(
       Map<KubernetesKind, List<KubernetesManifest>> allResources,
       Map<KubernetesManifest, List<KubernetesManifest>> relationshipMap) {
-    Map<String, KubernetesManifest> mapLabelToManifest = new HashMap<>();
-    Map<String, List<KubernetesManifest>> deploymentLabelsToReplicaSets = new HashMap<>();
+    Map<ResourceKey, KubernetesManifest> mapResourceKeyToManifest = new HashMap<>();
+    Map<ResourceKey, List<KubernetesManifest>> deploymentResourceKeysToReplicaSets =
+        new HashMap<>();
 
     allResources
         .getOrDefault(KubernetesKind.REPLICA_SET, new ArrayList<>())
         .forEach(
             r -> {
-              addLabelsForKubernetesResource(mapLabelToManifest, r);
-              associateReplicaSetWithDeployments(deploymentLabelsToReplicaSets, r);
+              addResourceKeysForKubernetesResource(mapResourceKeyToManifest, r);
+              associateReplicaSetWithDeployments(deploymentResourceKeysToReplicaSets, r);
             });
 
     allResources
         .getOrDefault(KubernetesKind.STATEFUL_SET, new ArrayList<>())
         .forEach(
             s -> {
-              addLabelsForKubernetesResource(mapLabelToManifest, s);
+              addResourceKeysForKubernetesResource(mapResourceKeyToManifest, s);
             });
 
     for (KubernetesManifest hpa :
         allResources.getOrDefault(HORIZONTAL_POD_AUTOSCALER, new ArrayList<>())) {
       relationshipMap.put(
-          hpa, getRelatedManifests(hpa, mapLabelToManifest, deploymentLabelsToReplicaSets));
+          hpa,
+          getRelatedManifests(hpa, mapResourceKeyToManifest, deploymentResourceKeysToReplicaSets));
     }
   }
 
-  private void addLabelsForKubernetesResource(
-      Map<String, KubernetesManifest> entries, KubernetesManifest resource) {
-    String resourceLabel =
-        resource.getNamespace() + " " + resource.getKindName() + " " + resource.getName();
-
-    entries.put(resourceLabel, resource);
+  private void addResourceKeysForKubernetesResource(
+      Map<ResourceKey, KubernetesManifest> entries, KubernetesManifest resource) {
+    ResourceKey resourceKey =
+        new ResourceKey(resource.getKind(), resource.getName(), resource.getNamespace());
+    entries.put(resourceKey, resource);
   }
 
   private void associateReplicaSetWithDeployments(
-      Map<String, List<KubernetesManifest>> deploymentsToReplicaSets,
+      Map<ResourceKey, List<KubernetesManifest>> deploymentsToReplicaSets,
       KubernetesManifest replicaSet) {
-    List<String> deploymentLabels =
+    List<ResourceKey> deploymentResourceKeys =
         replicaSet.getOwnerReferences().stream()
-            .filter(o -> o.getKind().toString() == KubernetesKind.DEPLOYMENT.toString())
-            .map(
-                d ->
-                    replicaSet.getNamespace()
-                        + " "
-                        + StringUtils.capitalize(d.getKind().toString())
-                        + " "
-                        + d.getName())
+            .filter(o -> o.getKind().equals(KubernetesKind.DEPLOYMENT))
+            .map(d -> new ResourceKey(d.getKind(), d.getName(), replicaSet.getNamespace()))
             .collect(Collectors.toList());
 
-    for (String label : deploymentLabels) {
-      List<KubernetesManifest> replicaManifestsByDeployment = deploymentsToReplicaSets.get(label);
-      if (replicaManifestsByDeployment == null) {
-        replicaManifestsByDeployment = new ArrayList<>();
-      }
-      replicaManifestsByDeployment.add(replicaSet);
-      deploymentsToReplicaSets.put(label, replicaManifestsByDeployment);
+    for (ResourceKey deploymentResourceKey : deploymentResourceKeys) {
+      deploymentsToReplicaSets
+          .computeIfAbsent(deploymentResourceKey, d -> new ArrayList<>())
+          .add(replicaSet);
     }
   }
 
   private List<KubernetesManifest> getRelatedManifests(
       KubernetesManifest hpa,
-      Map<String, KubernetesManifest> mapLabelToManifest,
-      Map<String, List<KubernetesManifest>> deploymentsToReplicaSets) {
+      Map<ResourceKey, KubernetesManifest> mapLabelToManifest,
+      Map<ResourceKey, List<KubernetesManifest>> deploymentsToReplicaSets) {
     Map<String, String> scaleTargetRef = hpa.getSpecScaleTargetRef().get();
-    String scaleTargetRefLabel =
-        hpa.getNamespace() + " " + scaleTargetRef.get("kind") + " " + scaleTargetRef.get("name");
+    ResourceKey scaleTargetRefResourceKey =
+        new ResourceKey(
+            KubernetesKind.fromString(scaleTargetRef.get("kind")),
+            scaleTargetRef.get("name"),
+            hpa.getNamespace());
 
-    KubernetesManifest matchingReplicaSet = mapLabelToManifest.get(scaleTargetRefLabel);
+    KubernetesManifest matchingReplicaSet = mapLabelToManifest.get(scaleTargetRefResourceKey);
 
     List<KubernetesManifest> result = new ArrayList<>();
     if (matchingReplicaSet != null) {
       result.add(matchingReplicaSet);
     } else {
-      result = deploymentsToReplicaSets.getOrDefault(scaleTargetRefLabel, new ArrayList<>());
+      result = deploymentsToReplicaSets.getOrDefault(scaleTargetRefResourceKey, new ArrayList<>());
     }
 
     return result;
