@@ -49,6 +49,12 @@ public class AutoscalerController {
     this.requestQueue = requestQueue;
   }
 
+  /**
+   * Retrieves autoscalers for an application.
+   *
+   * @param application the name of the application
+   * @return a set of autoscalers or an empty set.
+   */
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ')")
   @PostFilter("hasPermission(filterObject.account, 'ACCOUNT', 'READ')")
   @RequestMapping(method = RequestMethod.GET)

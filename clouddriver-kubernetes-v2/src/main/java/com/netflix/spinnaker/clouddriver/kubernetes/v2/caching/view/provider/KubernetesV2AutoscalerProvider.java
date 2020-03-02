@@ -39,7 +39,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class KubernetesV2AutoscalerProvider implements AutoscalerProvider<KubernetesV2Autoscaler> {
+public final class KubernetesV2AutoscalerProvider
+    implements AutoscalerProvider<KubernetesV2Autoscaler> {
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesSpinnakerKindMap kindMap;
 

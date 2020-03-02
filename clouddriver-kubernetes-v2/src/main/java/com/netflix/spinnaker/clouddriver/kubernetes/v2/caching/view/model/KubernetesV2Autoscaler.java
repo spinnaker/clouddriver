@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @EqualsAndHashCode(callSuper = true)
 @Value
 @Slf4j
-public class KubernetesV2Autoscaler extends ManifestBasedModel implements Autoscaler {
+public final class KubernetesV2Autoscaler extends ManifestBasedModel implements Autoscaler {
   private final KubernetesManifest manifest;
   private final Keys.InfrastructureCacheKey key;
   private final ImmutableSet<ServerGroupSummary> serverGroupSummaries;

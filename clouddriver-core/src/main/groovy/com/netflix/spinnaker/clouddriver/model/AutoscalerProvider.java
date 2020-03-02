@@ -17,8 +17,22 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.clouddriver.documentation.Empty;
 import java.util.Set;
 
+/**
+ * An autoscaler provider is an interface for which {@link Autoscaler} objects may be retrieved.
+ * This interface defines a common contract for which various providers may be queried about their
+ * known autoscalers.
+ */
 public interface AutoscalerProvider<T extends Autoscaler> {
+  /**
+   * Returns all autoscalers related to an application.
+   *
+   * @param application the name of the application
+   * @return a collection of autoscalers with all attributes populated and summaries {@link
+   *     ServerGroupSummary} of the targeted server groups
+   */
+  @Empty
   Set<T> getAutoscalersByApplication(String application);
 }

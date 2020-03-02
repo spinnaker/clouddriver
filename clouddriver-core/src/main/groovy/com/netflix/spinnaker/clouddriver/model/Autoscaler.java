@@ -17,20 +17,53 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.clouddriver.documentation.Empty;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * A representation of an autoscaler, which may target {@link ServerGroup} objects for scaling. This
+ * interface provides a contract for retrieving the name of the autoscaler and summaries of its
+ * targeted server groups.
+ */
 public interface Autoscaler {
+  /**
+   * The name of the autoscaler.
+   *
+   * @return name
+   */
   String getName();
 
+  /**
+   * Account under which this autoscaler exists.
+   *
+   * @return account name
+   */
   String getAccount();
 
+  /** Provider-specific identifier */
   String getCloudProvider();
 
+  /**
+   * This resource's moniker.
+   *
+   * @return moniker
+   */
   Moniker getMoniker();
 
+  /**
+   * Server group summaries for the server groups being targeted by this autoscaler.
+   *
+   * @return a set of server group summaries or an empty set if none exist
+   */
+  @Empty
   Set<ServerGroupSummary> getServerGroupSummaries();
 
+  /**
+   * Resource labels.
+   *
+   * @return a map of labels
+   */
   Map<String, String> getLabels();
 }

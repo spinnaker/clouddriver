@@ -117,6 +117,10 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
     return KubernetesCoreCachingAgent::new;
   }
 
+  /**
+   * Adds relationships between a horizontal pod autoscaler manifest and its targeted workloads to
+   * the relationshipMap.
+   */
   @Override
   public void addRelationships(
       Map<KubernetesKind, List<KubernetesManifest>> allResources,
