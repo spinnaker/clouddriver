@@ -1,6 +1,7 @@
 dependencies {
   implementation project(":clouddriver-core")
 
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
   implementation "com.squareup.okhttp:okhttp"
   implementation "com.squareup.retrofit:retrofit"
   implementation "org.codehaus.groovy:groovy-all"
