@@ -282,21 +282,6 @@ public class KubernetesManifest extends HashMap<String, Object> {
     return Optional.of(result);
   }
 
-  public Optional<Map<String, String>> getSpecScaleTargetRef() {
-    if (!containsKey("spec")) {
-      return Optional.empty();
-    }
-
-    Map<String, Object> spec = (Map<String, Object>) get("spec");
-    if (!spec.containsKey("scaleTargetRef")) {
-      return Optional.empty();
-    }
-
-    Map<String, String> result = (Map<String, String>) spec.get("scaleTargetRef");
-
-    return Optional.of(result);
-  }
-
   @JsonIgnore
   public Object getStatus() {
     return get("status");

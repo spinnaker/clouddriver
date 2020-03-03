@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 import org.yaml.snakeyaml.Yaml
@@ -94,5 +95,75 @@ spec:
     kind         | name  | location      | type
     "deployment" | "abc" | namespace     | KubernetesArtifactType.ReplicaSet
     "Deployment" | "abc" | "$namespace-" | KubernetesArtifactType.Deployment
+  }
+
+  void "verify that hpa <> workload relationships are added to the relationshipMap"() {
+    setup:
+    def relationshipMap = [:] as Map<KubernetesManifest, List<KubernetesManifest>>;
+    def namespace = "default";
+
+    def hpaManifestTargetingReplicaSet= stringToManifest(String.format(BASIC_HPA, "ReplicaSet", "my-rs", namespace))
+    def hpaManifestTargetingStatefulSet = stringToManifest(String.format(BASIC_HPA, "StatefulSet", "my-stateful-set", namespace))
+    def hpaManifestTargetingDeployment = stringToManifest(String.format(BASIC_HPA, "Deployment", "nginx-deployment", namespace))
+
+    def replicaSetManifest =
+      ManifestFetcher.getManifest("replicaset/base.yml")
+    def statefulSetManifest =
+      ManifestFetcher.getManifest("statefulset/base.yml");
+    def deploymentManifest =
+      ManifestFetcher.getManifest("deployment/base.yml");
+    def replicaSetManifestWithOwnerRef =
+      ManifestFetcher.getManifest("replicaset/base.yml", "replicaset/with-owner-reference.yml");
+
+    replicaSetManifest.setNamespace(namespace)
+    statefulSetManifest.setNamespace(namespace)
+    deploymentManifest.setNamespace(namespace)
+    replicaSetManifestWithOwnerRef.setNamespace(namespace)
+
+    def allResources = [
+      (KubernetesKind.REPLICA_SET): [replicaSetManifest, replicaSetManifestWithOwnerRef],
+      (KubernetesKind.STATEFUL_SET): [statefulSetManifest],
+      (KubernetesKind.HORIZONTAL_POD_AUTOSCALER): [hpaManifestTargetingReplicaSet, hpaManifestTargetingStatefulSet, hpaManifestTargetingDeployment],
+      (KubernetesKind.DEPLOYMENT): [deploymentManifest]
+    ]
+
+    when:
+    handler.addRelationships(allResources, relationshipMap)
+
+    then:
+    relationshipMap.size() == 3
+    relationshipMap.get(hpaManifestTargetingReplicaSet).contains(replicaSetManifest)
+    relationshipMap.get(hpaManifestTargetingReplicaSet).size() == 1
+    relationshipMap.get(hpaManifestTargetingStatefulSet).contains(statefulSetManifest)
+    relationshipMap.get(hpaManifestTargetingStatefulSet).size() == 1
+    relationshipMap.get(hpaManifestTargetingDeployment).contains(replicaSetManifestWithOwnerRef)
+    relationshipMap.get(hpaManifestTargetingDeployment).size() == 1
+  }
+
+  void "verify that an hpa does not mismatch on arbitary workloads"() {
+    setup:
+    def relationshipMap = [:] as Map<KubernetesManifest, List<KubernetesManifest>>;
+    def hpaManifest = stringToManifest(String.format(BASIC_HPA, "ReplicaSet", "foo", "default"))
+
+    def replicaSetManifest =
+      ManifestFetcher.getManifest("replicaset/base.yml");
+    def statefulSetManifest =
+      ManifestFetcher.getManifest("statefulset/base.yml");
+    def deploymentManifest =
+      ManifestFetcher.getManifest("deployment/base.yml");
+
+    def allResources = [
+      (KubernetesKind.REPLICA_SET): [replicaSetManifest],
+      (KubernetesKind.STATEFUL_SET): [statefulSetManifest],
+      (KubernetesKind.HORIZONTAL_POD_AUTOSCALER): [hpaManifest],
+      (KubernetesKind.DEPLOYMENT): [deploymentManifest]
+    ]
+
+    when:
+    handler.addRelationships(allResources, relationshipMap)
+
+    then:
+    relationshipMap.size() == 1
+    relationshipMap.get(hpaManifest).size() == 0
   }
 }

@@ -30,12 +30,16 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
+import io.kubernetes.client.openapi.models.V1CrossVersionObjectReference;
 import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscaler;
+import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscalerSpec;
 import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscalerStatus;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -176,19 +180,39 @@ public class KubernetesHorizontalPodAutoscalerHandler extends KubernetesHandler 
   }
 
   private List<KubernetesManifest> getRelatedManifests(
-      KubernetesManifest hpa,
+      KubernetesManifest hpaManifest,
       Map<ResourceKey, KubernetesManifest> mapLabelToManifest,
       Map<ResourceKey, List<KubernetesManifest>> deploymentsToReplicaSets) {
-    Map<String, String> scaleTargetRef = hpa.getSpecScaleTargetRef().get();
+
+    V1HorizontalPodAutoscaler hpa =
+        KubernetesCacheDataConverter.getResource(hpaManifest, V1HorizontalPodAutoscaler.class);
+
+    String targetRefKind =
+        Optional.ofNullable(hpa.getSpec())
+            .map(V1HorizontalPodAutoscalerSpec::getScaleTargetRef)
+            .map(V1CrossVersionObjectReference::getKind)
+            .orElse("");
+
+    String targetRefName =
+        Optional.ofNullable(hpa.getSpec())
+            .map(V1HorizontalPodAutoscalerSpec::getScaleTargetRef)
+            .map(V1CrossVersionObjectReference::getName)
+            .orElse("");
+
+    String hpaNamespace =
+        Optional.ofNullable(hpa.getMetadata()).map(V1ObjectMeta::getNamespace).orElse("");
+
+    List<KubernetesManifest> result = new ArrayList<>();
+
+    if (targetRefKind.isEmpty() || targetRefName.isEmpty() || hpaNamespace.isEmpty()) {
+      return result;
+    }
+
     ResourceKey scaleTargetRefResourceKey =
-        new ResourceKey(
-            KubernetesKind.fromString(scaleTargetRef.get("kind")),
-            scaleTargetRef.get("name"),
-            hpa.getNamespace());
+        new ResourceKey(KubernetesKind.fromString(targetRefKind), targetRefName, hpaNamespace);
 
     KubernetesManifest matchingReplicaSet = mapLabelToManifest.get(scaleTargetRefResourceKey);
 
-    List<KubernetesManifest> result = new ArrayList<>();
     if (matchingReplicaSet != null) {
       result.add(matchingReplicaSet);
     } else {
