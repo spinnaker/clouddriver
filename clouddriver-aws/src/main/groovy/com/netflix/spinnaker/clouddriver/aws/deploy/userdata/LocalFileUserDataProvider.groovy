@@ -23,7 +23,6 @@ import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerNetworkException
 import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import org.springframework.beans.factory.annotation.Autowired
-import retrofit.RetrofitError
 
 class LocalFileUserDataProvider implements UserDataProvider {
   private static final INSERTION_MARKER = '\nexport EC2_REGION='
