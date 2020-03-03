@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.elasticsearch.descriptions.DeleteEntityTagsDescription
 import com.netflix.spinnaker.clouddriver.elasticsearch.model.ElasticSearchEntityTagsProvider
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException
 import com.netflix.spinnaker.clouddriver.model.EntityTags
 import retrofit.RetrofitError
 import spock.lang.Specification
@@ -49,7 +50,7 @@ class DeleteEntityTagsAtomicOperationSpec extends Specification {
     operation.operate([])
 
     then:
-    1 * front50Service.getEntityTags('abc') >> { throw new RetrofitError("a", null, null, null, null, null, null) }
+    1 * front50Service.getEntityTags('abc') >> { throw new SpinnakerServerException(new RetrofitError("a", null, null, null, null, null, null)) }
     1 * entityTagsProvider.delete('abc')
     0 * _
   }

@@ -23,12 +23,12 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.elasticsearch.descriptions.DeleteEntityTagsDescription;
 import com.netflix.spinnaker.clouddriver.elasticsearch.model.ElasticSearchEntityTagsProvider;
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException;
 import com.netflix.spinnaker.clouddriver.model.EntityTags;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
-import retrofit.RetrofitError;
 
 public class DeleteEntityTagsAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "ENTITY_TAGS";
@@ -54,7 +54,7 @@ public class DeleteEntityTagsAtomicOperation implements AtomicOperation<Void> {
     EntityTags currentTags;
     try {
       currentTags = front50Service.getEntityTags(entityTagsDescription.getId());
-    } catch (RetrofitError e) {
+    } catch (SpinnakerServerException e) {
       getTask()
           .updateStatus(
               BASE_PHASE, format("Did not find %s in Front50", entityTagsDescription.getId()));
