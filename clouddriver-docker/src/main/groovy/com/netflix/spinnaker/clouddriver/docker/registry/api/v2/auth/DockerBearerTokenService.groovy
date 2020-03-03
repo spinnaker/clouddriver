@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth
 
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.DockerUserAgent
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryAuthenticationException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerRetrofitErrorHandler
 import groovy.util.logging.Slf4j
 import org.apache.commons.io.IOUtils
 import retrofit.RestAdapter
@@ -26,7 +27,6 @@ import retrofit.http.Headers
 import retrofit.http.Path
 import retrofit.http.Query
 
-import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
 @Slf4j
@@ -188,7 +188,11 @@ class DockerBearerTokenService {
     def tokenService = realmToService.get(realm)
 
     if (tokenService == null) {
-      def builder = new RestAdapter.Builder().setEndpoint(realm).setLogLevel(RestAdapter.LogLevel.NONE).build()
+      def builder = new RestAdapter.Builder()
+        .setEndpoint(realm)
+        .setLogLevel(RestAdapter.LogLevel.NONE)
+        .setErrorHandler(SpinnakerRetrofitErrorHandler.getInstance())
+        .build()
       tokenService = builder.create(TokenService.class)
       realmToService[realm] = tokenService
     }

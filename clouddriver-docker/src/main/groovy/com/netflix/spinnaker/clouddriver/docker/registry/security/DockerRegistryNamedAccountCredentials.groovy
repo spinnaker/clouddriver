@@ -20,10 +20,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerOkClientProvider
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client.DockerRegistryClient
 import com.netflix.spinnaker.clouddriver.docker.registry.exception.DockerRegistryConfigException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-import retrofit.RetrofitError
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -375,12 +376,10 @@ class DockerRegistryNamedAccountCredentials implements AccountCredentials<Docker
         .build()
 
       return new DockerRegistryCredentials(client, repositories, trackDigests, skip, sortTagsByDate)
-    } catch (RetrofitError e) {
-      if (e.response?.status == 404) {
-        throw new DockerRegistryConfigException("No repositories specified for ${name}, and the provided endpoint ${address} does not support /_catalog.")
-      } else {
-        throw e
-      }
+    } catch (NotFoundException e) {
+      throw new DockerRegistryConfigException("No repositories specified for ${name}, and the provided endpoint ${address} does not support /_catalog.")
+    } catch (SpinnakerServerException e) {
+      throw e
     }
   }
 

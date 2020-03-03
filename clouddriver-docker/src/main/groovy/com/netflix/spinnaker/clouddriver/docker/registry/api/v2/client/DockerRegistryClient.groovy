@@ -23,11 +23,14 @@ import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBeare
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryAuthenticationException
 import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.exception.DockerRegistryOperationException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerHttpException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerRetrofitErrorHandler
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException
 import groovy.util.logging.Slf4j
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import retrofit.RestAdapter
-import retrofit.RetrofitError
 import retrofit.client.Response
 import retrofit.converter.GsonConverter
 import retrofit.http.GET
@@ -162,6 +165,7 @@ class DockerRegistryClient {
       .setEndpoint(address)
       .setClient(okClientProvider.provide(address, clientTimeoutMillis, insecureRegistry))
       .setLogLevel(RestAdapter.LogLevel.NONE)
+      .setErrorHandler(SpinnakerRetrofitErrorHandler.getInstance())
       .build()
       .create(DockerRegistryService)
     this.converter = new GsonConverter(new GsonBuilder().create())
@@ -378,12 +382,13 @@ class DockerRegistryClient {
   public void checkV2Availability() {
     try {
       doCheckV2Availability()
-    } catch (RetrofitError error) {
+    } catch (SpinnakerHttpException error) {
       // If no credentials are supplied, and we got a 401, the best[1] we can do is assume the registry is OK.
       // [1] https://docs.docker.com/registry/spec/api/#/api-version-check
-      if (!tokenService.basicAuthHeader && error.response?.status == 401) {
+      if (!tokenService.basicAuthHeader && error.getResponse().getStatus() == HttpStatus.UNAUTHORIZED.value()) {
         return
       }
+    } catch (SpinnakerServerException error) {
       Response response = doCheckV2Availability(tokenService.basicAuthHeader)
       if (!response){
         LOG.error "checkV2Availability", error
@@ -421,14 +426,14 @@ class DockerRegistryClient {
         } else {
           response = withoutToken()
         }
-      } catch (RetrofitError error) {
-        def status = error.response?.status
+      } catch (SpinnakerHttpException error) {
+        def status = error.getResponse().getStatus()
         // note, this is a workaround for registries that should be returning
         // 401 when a token expires
-        if ([400, 401].contains(status)) {
+        if ([HttpStatus.BAD_REQUEST.value(), HttpStatus.UNAUTHORIZED.value()].contains(status)) {
           String authenticateHeader = null
 
-          error.response.headers.forEach { header ->
+          error.getResponse().getHeaders().forEach { header ->
             if (header.name.equalsIgnoreCase("www-authenticate")) {
               authenticateHeader = header.value
             }
@@ -458,6 +463,8 @@ class DockerRegistryClient {
         } else {
           throw error
         }
+      } catch (SpinnakerServerException error) {
+        throw error
       }
 
       return response
