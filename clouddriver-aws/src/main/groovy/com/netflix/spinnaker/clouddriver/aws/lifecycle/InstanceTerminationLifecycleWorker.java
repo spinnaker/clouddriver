@@ -36,8 +36,11 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials.Lifecycl
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.eureka.api.Eureka;
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport.DiscoveryStatus;
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerNetworkException;
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
@@ -46,7 +49,6 @@ import javax.inject.Provider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import retrofit.RetrofitError;
 
 public class InstanceTerminationLifecycleWorker implements Runnable {
 
@@ -212,27 +214,25 @@ public class InstanceTerminationLifecycleWorker implements Runnable {
 
   private boolean updateInstanceStatus(Eureka eureka, String app, String instanceId) {
     int retry = 0;
+    final String recoverableMessage =
+        "Failed marking app out of service (status: {}, app: {}, instance: {}, retry: {})";
     while (retry < properties.getEurekaUpdateStatusRetryMax()) {
       retry++;
       try {
         eureka.updateInstanceStatus(app, instanceId, DiscoveryStatus.Disable.getValue());
         return true;
-      } catch (RetrofitError e) {
-        final String recoverableMessage =
-            "Failed marking app out of service (status: {}, app: {}, instance: {}, retry: {})";
-        if (HttpStatus.NOT_FOUND.value() == e.getResponse().getStatus()) {
-          log.warn(recoverableMessage, e.getResponse().getStatus(), app, instanceId, retry);
-        } else if (e.getKind() == RetrofitError.Kind.NETWORK) {
-          log.error(recoverableMessage, e.getResponse().getStatus(), app, instanceId, retry, e);
-        } else {
-          log.error(
-              "Irrecoverable error while marking app out of service (app: {}, instance: {}, retry: {})",
-              app,
-              instanceId,
-              retry,
-              e);
-          break;
-        }
+      } catch (NotFoundException e) {
+        log.warn(recoverableMessage, HttpStatus.NOT_FOUND.value(), app, instanceId, retry);
+      } catch (SpinnakerNetworkException e) {
+        log.error(recoverableMessage, app, instanceId, retry, e);
+      } catch (SpinnakerServerException e) {
+        log.error(
+            "Irrecoverable error while marking app out of service (app: {}, instance: {}, retry: {})",
+            app,
+            instanceId,
+            retry,
+            e);
+        break;
       }
     }
     return false;

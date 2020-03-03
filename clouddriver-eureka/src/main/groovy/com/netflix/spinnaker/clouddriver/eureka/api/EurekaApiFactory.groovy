@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.eureka.api
 
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerRetrofitErrorHandler
 import com.netflix.spinnaker.config.OkHttpClientConfiguration
 import retrofit.RestAdapter
 import retrofit.client.OkClient
@@ -36,6 +37,7 @@ class EurekaApiFactory {
       .setConverter(eurekaConverter)
       .setClient(new OkClient(okHttpClientConfiguration.create()))
       .setEndpoint(endpoint)
+      .setErrorHandler(SpinnakerRetrofitErrorHandler.getInstance())
       .build()
       .create(EurekaApi)
   }

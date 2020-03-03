@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.eureka.api.Eureka
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport.DiscoveryStatus
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerNetworkException
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import retrofit.RetrofitError
 import retrofit.RetrofitError.Kind
@@ -213,7 +214,7 @@ class InstanceTerminationLifecycleWorkerSpec extends Specification {
 
     then:
     1 * eureka.updateInstanceStatus(_, _, _) >> {
-      throw new RetrofitError("cannot connect", "http://discovery", new Response("http://discovery", 400, "reason", [], null), Mock(Converter), String, Kind.NETWORK, Mock(Throwable))
+      throw new SpinnakerNetworkException(new RetrofitError("cannot connect", "http://discovery", new Response("http://discovery", 400, "reason", [], null), Mock(Converter), String, Kind.NETWORK, Mock(Throwable)))
     }
     1 * eureka.updateInstanceStatus(_, _, _)
     0 * eureka.updateInstanceStatus(_, _, _)

@@ -31,12 +31,15 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskState
 import com.netflix.spinnaker.clouddriver.eureka.api.Eureka
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.EurekaSupportConfigurationProperties
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerHttpException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.EnableDisableInstanceDiscoveryDescription
 import com.netflix.spinnaker.clouddriver.aws.services.AsgService
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import retrofit.RetrofitError
 import retrofit.client.Response
 import spock.lang.Specification
@@ -320,7 +323,7 @@ class DiscoverySupportUnitSpec extends Specification {
     }
 
     where:
-    failure << [httpError(404), httpError(406), httpError(503), amazonError(503)]
+    failure << [new NotFoundException(), httpError(406), httpError(503), amazonError(503)]
 
     discoveryUrl = "http://us-west-1.discovery.netflix.net"
     region = "us-west-1"
@@ -344,10 +347,10 @@ class DiscoverySupportUnitSpec extends Specification {
     then: "should only retry a maximum of DISCOVERY_RETRY_MAX times on NOT_FOUND"
     discoverySupport.eurekaSupportConfigurationProperties.retryMax * task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
     discoverySupport.eurekaSupportConfigurationProperties.retryMax * eureka.getInstanceInfo(_) >> {
-      throw httpError(404)
+      throw new NotFoundException()
     }
     0 * task.fail()
-    thrown(RetrofitError)
+    thrown(NotFoundException)
 
     where:
     discoveryUrl = "http://us-west-1.discovery.netflix.net"
@@ -550,8 +553,8 @@ class DiscoverySupportUnitSpec extends Specification {
     )
   }
 
-  private static RetrofitError httpError(int code) {
-    RetrofitError.httpError('http://foo', response(code), null, Map)
+  private static SpinnakerHttpException httpError(int code) {
+    return new SpinnakerHttpException(RetrofitError.httpError('http://foo', response(code), null, Map))
   }
 
   private static Response response(int code) {

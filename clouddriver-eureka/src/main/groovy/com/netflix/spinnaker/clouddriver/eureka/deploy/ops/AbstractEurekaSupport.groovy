@@ -18,14 +18,19 @@ package com.netflix.spinnaker.clouddriver.eureka.deploy.ops
 import com.amazonaws.AmazonServiceException
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.eureka.api.Eureka
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerHttpException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerNetworkException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException
 import com.netflix.spinnaker.clouddriver.helpers.EnableDisablePercentageCategorizer
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.kork.exceptions.SpinnakerException
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import groovy.transform.InheritConstructors
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
-import retrofit.RetrofitError
 import retrofit.client.Response
 
 @Slf4j
@@ -73,7 +78,7 @@ abstract class AbstractEurekaSupport {
 
     def eureka = getEureka(description.credentials, description.region)
     def random = new Random()
-    def applicationName = null
+    String applicationName = null
     def targetHealthyDeployPercentage = description.targetHealthyDeployPercentage != null ? description.targetHealthyDeployPercentage : 100
     if (targetHealthyDeployPercentage < 0 || targetHealthyDeployPercentage > 100) {
       throw new NumberFormatException("targetHealthyDeployPercentage must be an integer between 0 and 100")
@@ -104,7 +109,7 @@ abstract class AbstractEurekaSupport {
       return
     }
 
-    def errors = [:]
+    Map<String, SpinnakerException> errors = new HashMap()
     def fatals = []
     List<String> skipped = []
     int index = 0
@@ -149,26 +154,10 @@ abstract class AbstractEurekaSupport {
             throw new RetryableException("Non HTTP 200 response from discovery for instance ${instanceId}, will retry (attempt: $retryCount}).")
           }
         }
-      } catch (RetrofitError retrofitError) {
-        if (discoveryStatus == DiscoveryStatus.Disable) {
-          def alwaysSkippable = retrofitError.response?.status == 404
-          def willSkip = alwaysSkippable || !strict
-          def skippingOrNot = willSkip ? "skipping" : "not skipping"
-
-          String errorMessage = "Failed updating status of ${instanceId} in application $applicationName in discovery" +
-            " and strict=$strict, $skippingOrNot disable operation."
-
-          // in strict mode, only 404 errors on disable are ignored
-          if (!willSkip) {
-            errors[instanceId] = retrofitError
-          } else {
-            skipped.add(instanceId)
-          }
-
-          task.updateStatus phaseName, errorMessage
-        } else {
-          errors[instanceId] = retrofitError
-        }
+      } catch (NotFoundException e) {
+        handleError(e, true, strict, errors, discoveryStatus, instanceId, applicationName, skipped, task, phaseName)
+      } catch (SpinnakerServerException e) {
+        handleError(e, !strict, strict, errors, discoveryStatus, instanceId, applicationName, skipped, task, phaseName)
       } catch (ex) {
         errors[instanceId] = ex
       }
@@ -199,6 +188,34 @@ abstract class AbstractEurekaSupport {
     }
   }
 
+  private static void handleError(
+    SpinnakerException e,
+    boolean willSkip,
+    boolean strict,
+    Map<String, SpinnakerException> errors,
+    DiscoveryStatus discoveryStatus,
+    String instanceId,
+    String applicationName,
+    List<String> skipped,
+    Task task,
+    String phaseName) {
+    if (discoveryStatus == DiscoveryStatus.Disable) {
+      String skippingOrNot = willSkip ? "skipping" : "not skipping"
+      String errorMessage = "Failed updating status of ${instanceId} in application $applicationName in discovery" +
+        " and strict=$strict, $skippingOrNot disable operation."
+
+      if (!willSkip) {
+        errors[instanceId] = e
+      } else {
+        skipped.add(instanceId)
+      }
+
+      task.updateStatus phaseName, errorMessage
+    } else {
+      errors[instanceId] = e
+    }
+  }
+
   def retry(Task task, String phaseName, int maxRetries, Closure c) {
     def retryCount = 0
     while (true) {
@@ -216,23 +233,35 @@ abstract class AbstractEurekaSupport {
 
         retryCount++
         sleep(getDiscoveryRetryMs());
-      } catch (RetrofitError re) {
+      } catch (NotFoundException e) {
         if (retryCount >= (maxRetries - 1)) {
-          throw re
+          throw e
         }
-
-        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${re.message}")
-
-        if (re.kind == RetrofitError.Kind.NETWORK || re.response.status == 404 || re.response.status == 406) {
-          retryCount++
+        retryCount++
+        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${e.getMessage()}")
+        sleep(getDiscoveryRetryMs())
+      } catch (SpinnakerHttpException e) {
+        if (retryCount >= (maxRetries - 1)) {
+          throw e
+        }
+        retryCount++
+        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${e.getMessage()}")
+        if (e.getResponse().getStatus() == HttpStatus.NOT_ACCEPTABLE.value()) {
           sleep(getDiscoveryRetryMs())
-        } else if (re.response.status >= 500) {
+        } else if (e.getResponse().getStatus() >= 500) {
           // automatically retry on server errors (but wait a little longer between attempts)
           sleep(getDiscoveryRetryMs() * 10)
-          retryCount++
-        } else {
-          throw re
         }
+      } catch (SpinnakerNetworkException e) {
+        if (retryCount >= (maxRetries - 1)) {
+          throw e
+        }
+        retryCount++
+        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${e.getMessage()}")
+        sleep(getDiscoveryRetryMs())
+      } catch (SpinnakerServerException e) {
+        AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling external service ${e.getMessage()}")
+        throw e
       } catch (AmazonServiceException ase) {
         if (ase.statusCode == 503) {
           AbstractEurekaSupport.log.debug("[$phaseName] - Failed calling AmazonService", ase)
