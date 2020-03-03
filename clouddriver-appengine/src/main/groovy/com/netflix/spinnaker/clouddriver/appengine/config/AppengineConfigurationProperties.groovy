@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.appengine.config
 
 import com.netflix.spinnaker.clouddriver.appengine.AppengineJobExecutor
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerRetrofitErrorHandler
 import com.netflix.spinnaker.clouddriver.googlecommon.config.GoogleCommonManagedAccount
 import com.squareup.okhttp.OkHttpClient
 import groovy.json.JsonSlurper
@@ -72,6 +73,7 @@ class AppengineConfigurationProperties {
       RestAdapter restAdapter = new RestAdapter.Builder()
         .setEndpoint(metadataUrl)
         .setClient(new OkClient(new OkHttpClient(retryOnConnectionFailure: true)))
+        .setErrorHandler(SpinnakerRetrofitErrorHandler.getInstance())
         .build()
 
       return restAdapter.create(MetadataService.class)
