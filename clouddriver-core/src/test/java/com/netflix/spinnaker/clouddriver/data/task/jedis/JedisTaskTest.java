@@ -61,6 +61,7 @@ final class JedisTaskTest {
         .isEqualTo(objectMapper.readTree(expectedResult));
   }
 
+  // See the large comment on the top of JedisTask for this test's rationale
   @Test
   void statusComputedFirst() throws Exception {
     RedisTaskRepository taskRepository = mock(RedisTaskRepository.class);
