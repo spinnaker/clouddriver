@@ -28,7 +28,6 @@ import com.netflix.spinnaker.clouddriver.data.task.DefaultTaskStatus;
 import com.netflix.spinnaker.clouddriver.data.task.TaskState;
 import java.nio.charset.StandardCharsets;
 import org.assertj.core.api.AssertionsForClassTypes;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
@@ -62,8 +61,6 @@ final class JedisTaskTest {
         .isEqualTo(objectMapper.readTree(expectedResult));
   }
 
-  // Ignore this test as the order is currently not deterministic
-  @Disabled
   @Test
   void statusComputedFirst() throws Exception {
     RedisTaskRepository taskRepository = mock(RedisTaskRepository.class);
