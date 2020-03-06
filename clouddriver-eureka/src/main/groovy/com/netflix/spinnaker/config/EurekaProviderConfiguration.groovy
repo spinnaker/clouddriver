@@ -46,7 +46,6 @@ import org.springframework.core.env.ConfigurableEnvironment
 import retrofit.converter.Converter
 import retrofit.converter.JacksonConverter
 
-import javax.inject.Provider
 import java.util.regex.Pattern
 
 @Configuration
