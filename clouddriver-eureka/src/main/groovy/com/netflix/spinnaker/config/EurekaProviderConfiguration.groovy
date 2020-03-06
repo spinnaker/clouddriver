@@ -46,6 +46,7 @@ import org.springframework.core.env.ConfigurableEnvironment
 import retrofit.converter.Converter
 import retrofit.converter.JacksonConverter
 
+import javax.inject.Provider
 import java.util.regex.Pattern
 
 @Configuration
@@ -88,7 +89,7 @@ class EurekaProviderConfiguration {
   }
 
   private OkHttpClientConfiguration eurekaOkHttpClientConfig() {
-    new OkHttpClientConfiguration(eurekaClientConfig(), new OkHttpMetricsInterceptor(registry, true))
+    new OkHttpClientConfiguration(eurekaClientConfig(), new OkHttpMetricsInterceptor({ registry }, true))
   }
 
   private static Converter eurekaConverter() {
