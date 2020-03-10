@@ -214,4 +214,39 @@ class TerminateInstanceAndDecrementAsgAtomicOperationUnitSpec extends Specificat
     0 * _
 
   }
+
+  void "should fail operation if the instance isn't part of the Server Group"() {
+    given:
+    def amazonAutoScaling = Mock(AmazonAutoScaling)
+    def amazonClientProvider = Stub(AmazonClientProvider) {
+      getAutoScaling(_, _, true) >> amazonAutoScaling
+    }
+
+    def description = new TerminateInstanceAndDecrementAsgDescription(
+      asgName: "test-v001",
+      region: "us-east-1",
+      instance: "i-123",
+      setMaxToNewDesired: true
+    )
+
+    def serverGroup = new AutoScalingGroup(
+      autoScalingGroupName: description.asgName,
+      instances: [new com.amazonaws.services.autoscaling.model.Instance(instanceId: "i-456")],
+      desiredCapacity: 3,
+      minSize: 1
+    )
+
+    and:
+    1 * amazonAutoScaling.describeAutoScalingGroups(_) >>
+      new DescribeAutoScalingGroupsResult().withAutoScalingGroups(serverGroup)
+
+    def operation = new TerminateInstanceAndDecrementAsgAtomicOperation(description)
+    operation.amazonClientProvider = amazonClientProvider
+
+    when:
+    operation.operate([])
+
+    then:
+    thrown(IllegalArgumentException)
+  }
 }
