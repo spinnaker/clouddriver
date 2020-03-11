@@ -30,6 +30,8 @@ import org.springframework.stereotype.Component;
 public class Keys implements KeyParser {
 
   public static enum Namespace {
+    IMAGES,
+    INSTANCE_TYPES,
     NETWORKS,
     SECURITY_GROUPS,
     SUBNETS,
@@ -107,14 +109,20 @@ public class Keys implements KeyParser {
     Map<String, String> result;
 
     switch (ns) {
+      case IMAGES:
+        result = parseSimpleKey(parts);
+        break;
+      case INSTANCE_TYPES:
+        result = parseSimpleKey(parts);
+        break;
       case NETWORKS:
-        result = parseNetworkKey(parts);
+        result = parseSimpleKey(parts);
         break;
       case SECURITY_GROUPS:
         result = parseSecurityGroupKey(parts);
         break;
       case SUBNETS:
-        result = parseSubnetKey(parts);
+        result = parseSimpleKey(parts);
         break;
       default:
         return emptyMap();
@@ -129,43 +137,22 @@ public class Keys implements KeyParser {
     return result;
   }
 
-  public static String getNetworkKey(String networkId, String account, String region) {
-    return getCloudProviderId()
-        + SEPARATOR
-        + Namespace.NETWORKS
-        + SEPARATOR
-        + account
-        + SEPARATOR
-        + region
-        + SEPARATOR
-        + networkId;
+  public static String getImageKey(String imageId, String account, String region) {
+    return getSimpleKey(Namespace.IMAGES, imageId, account, region);
   }
 
-  private static Map parseNetworkKey(String[] parts) {
-    if (parts.length != 5) {
-      return emptyMap();
-    }
+  public static String getInstanceTypeKey(String instanceType, String account, String region) {
+    return getSimpleKey(Namespace.INSTANCE_TYPES, instanceType, account, region);
+  }
 
-    Map<String, String> result = new HashMap();
-    result.put("account", parts[2]);
-    result.put("region", parts[3]);
-    result.put("id", parts[4]);
-    return result;
+  public static String getNetworkKey(String networkId, String account, String region) {
+    return getSimpleKey(Namespace.NETWORKS, networkId, account, region);
   }
 
   public static String getSecurityGroupKey(
       String securityGroupName, String securityGroupId, String account, String region) {
-    return getCloudProviderId()
-        + SEPARATOR
-        + Namespace.SECURITY_GROUPS
-        + SEPARATOR
-        + account
-        + SEPARATOR
-        + region
-        + SEPARATOR
-        + securityGroupName
-        + SEPARATOR
-        + securityGroupId;
+    String identifier = securityGroupName + SEPARATOR + securityGroupId;
+    return getSimpleKey(Namespace.SECURITY_GROUPS, identifier, account, region);
   }
 
   private static Map parseSecurityGroupKey(String[] parts) {
@@ -189,18 +176,23 @@ public class Keys implements KeyParser {
   }
 
   public static String getSubnetKey(String subnetId, String account, String region) {
+    return getSimpleKey(Namespace.SUBNETS, subnetId, account, region);
+  }
+
+  private static String getSimpleKey(
+      Namespace namespace, String identifier, String account, String region) {
     return getCloudProviderId()
         + SEPARATOR
-        + Namespace.SUBNETS
+        + namespace
         + SEPARATOR
         + account
         + SEPARATOR
         + region
         + SEPARATOR
-        + subnetId;
+        + identifier;
   }
 
-  private static Map parseSubnetKey(String[] parts) {
+  private static Map parseSimpleKey(String[] parts) {
     if (parts.length != 5) {
       return emptyMap();
     }

@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.huaweicloud.provider;
 
+import static com.netflix.spinnaker.clouddriver.huaweicloud.cache.Keys.Namespace.IMAGES;
+import static com.netflix.spinnaker.clouddriver.huaweicloud.cache.Keys.Namespace.INSTANCE_TYPES;
 import static com.netflix.spinnaker.clouddriver.huaweicloud.cache.Keys.Namespace.NETWORKS;
 import static com.netflix.spinnaker.clouddriver.huaweicloud.cache.Keys.Namespace.SECURITY_GROUPS;
 import static com.netflix.spinnaker.clouddriver.huaweicloud.cache.Keys.Namespace.SUBNETS;
@@ -41,6 +43,8 @@ public class HuaweiCloudInfrastructureProvider extends AgentSchedulerAware
   private final Set<String> defaultCaches =
       new HashSet<String>() {
         {
+          add(IMAGES.ns);
+          add(INSTANCE_TYPES.ns);
           add(NETWORKS.ns);
           add(SECURITY_GROUPS.ns);
           add(SUBNETS.ns);
