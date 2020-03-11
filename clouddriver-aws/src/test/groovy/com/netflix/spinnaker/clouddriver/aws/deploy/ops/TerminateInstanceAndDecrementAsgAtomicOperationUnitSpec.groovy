@@ -33,6 +33,7 @@ import com.netflix.spinnaker.clouddriver.aws.deploy.description.TerminateInstanc
 import spock.lang.Specification
 
 class TerminateInstanceAndDecrementAsgAtomicOperationUnitSpec extends Specification {
+  def instance = new com.amazonaws.services.autoscaling.model.Instance()
   def setupSpec() {
     TaskRepository.threadLocalTask.set(Stub(Task))
   }
@@ -58,6 +59,7 @@ class TerminateInstanceAndDecrementAsgAtomicOperationUnitSpec extends Specificat
         getAutoScalingGroupName() >> "myasg-stack-v000"
         getMinSize() >> 1
         getDesiredCapacity() >> 2
+        getInstances() >> [instance.withInstanceId(description.instance)]
       }
       new DescribeAutoScalingGroupsResult().withAutoScalingGroups(asg)
     }
@@ -92,6 +94,7 @@ class TerminateInstanceAndDecrementAsgAtomicOperationUnitSpec extends Specificat
         getMinSize() >> 1
         getDesiredCapacity() >> 2
         getLoadBalancerNames() >> ['myasg--frontend']
+        getInstances() >> [instance.withInstanceId(description.instance)]
       }
       new DescribeAutoScalingGroupsResult().withAutoScalingGroups(asg)
     }
@@ -127,6 +130,7 @@ class TerminateInstanceAndDecrementAsgAtomicOperationUnitSpec extends Specificat
         getAutoScalingGroupName() >> "myasg-stack-v000"
         getMinSize() >> 1
         getDesiredCapacity() >> 1
+        getInstances() >> [instance.withInstanceId(description.instance)]
       }
       new DescribeAutoScalingGroupsResult().withAutoScalingGroups(asg)
     }
@@ -162,6 +166,7 @@ class TerminateInstanceAndDecrementAsgAtomicOperationUnitSpec extends Specificat
         getAutoScalingGroupName() >> "myasg-stack-v000"
         getMinSize() >> 1
         getDesiredCapacity() >> 1
+        getInstances() >> [instance.withInstanceId(description.instance)]
       }
       new DescribeAutoScalingGroupsResult().withAutoScalingGroups(asg)
     }
@@ -191,6 +196,7 @@ class TerminateInstanceAndDecrementAsgAtomicOperationUnitSpec extends Specificat
           getMinSize() >> 1
           getDesiredCapacity() >> 2
           getMaxSize() >> 2
+          getInstances() >> [instance.withInstanceId(description.instance)]
         }
         new DescribeAutoScalingGroupsResult().withAutoScalingGroups(asg)
       } >>
@@ -201,6 +207,7 @@ class TerminateInstanceAndDecrementAsgAtomicOperationUnitSpec extends Specificat
             getMinSize() >> 1
             getDesiredCapacity() >> 1
             getMaxSize() >> 2
+            getInstances() >> [instance.withInstanceId(description.instance)]
           }
           new DescribeAutoScalingGroupsResult().withAutoScalingGroups(asg)
       }
