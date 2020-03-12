@@ -80,7 +80,7 @@ public class AzureNamedAccountCredentials implements AccountCredentials<AzureCre
     this.defaultResourceGroup = defaultResourceGroup
     this.useSshPublicKey = useSshPublicKey
     this.requiredGroupMembership = requiredGroupMembership ?: [] as List<String>
-    this.permissions = permissions
+    this.permissions = permissions?: permissions
     this.credentials = appKey.isEmpty() ? null : buildCredentials()
     this.locationToInstanceTypesMap = this.credentials.computeClient.getVirtualMachineSizesByRegions(this.regions)
     this.regionsSupportZones = Arrays.asList("centralus", "eastus", "eastus2", "francecentral", "northeurope", "southeastasia", "westeurope", "westus2")
