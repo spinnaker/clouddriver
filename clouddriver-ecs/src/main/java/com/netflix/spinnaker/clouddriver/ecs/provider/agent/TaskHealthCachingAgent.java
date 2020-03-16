@@ -120,6 +120,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
 
     Collection<Task> tasks = taskCacheClient.getAll(accountName, region);
     if (tasks != null) {
+      log.debug("Found {} tasks to retrieve health for.", tasks.size());
       for (Task task : tasks) {
         String containerInstanceCacheKey =
             Keys.getContainerInstanceKey(accountName, region, task.getContainerInstanceArn());
@@ -133,6 +134,10 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
         if (service == null) {
           String taskEvictionKey = Keys.getTaskKey(accountName, region, task.getTaskId());
           taskEvictions.add(taskEvictionKey);
+          log.debug(
+              "Service '{}' for task '{}' is null. Will not retrieve health.",
+              serviceName,
+              task.getTaskArn());
           continue;
         }
 
@@ -141,6 +146,8 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
         TaskDefinition taskDefinition = taskDefinitionCacheClient.get(taskDefinitionCacheKey);
 
         if (isContainerMissingNetworking(task)) {
+          log.debug(
+              "Task '{}' is missing networking. Will not retrieve health.", task.getTaskArn());
           continue;
         }
 
@@ -166,6 +173,8 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
         }
         log.debug("TaskHealthList contains the following elements: {}", taskHealthList);
       }
+    } else {
+      log.debug("Task list is null. No healths to describe.");
     }
 
     return taskHealthList;
@@ -179,7 +188,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
       TaskDefinition taskDefinition) {
 
     if (taskDefinition == null) {
-      log.debug("Provided task definition is null.");
+      log.debug("Provided task definition is null for task '{}'.", task.getTaskArn());
       return null;
     }
 
