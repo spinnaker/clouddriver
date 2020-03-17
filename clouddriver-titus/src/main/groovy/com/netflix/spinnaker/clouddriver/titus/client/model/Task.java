@@ -40,6 +40,7 @@ public class Task {
     startedAt = getTimestampFromStatus(grpcTask, TaskStatus.TaskState.StartInitiated);
     finishedAt = getTimestampFromStatus(grpcTask, TaskStatus.TaskState.Finished);
     containerIp = grpcTask.getTaskContextOrDefault("task.containerIp", null);
+    agentId = grpcTask.getTaskContextOrDefault("agent.instanceId", null);
     logLocation = new HashMap<>();
     logLocation.put("ui", grpcTask.getLogLocation().getUi().getUrl());
     logLocation.put("liveStream", grpcTask.getLogLocation().getLiveStream().getUrl());
@@ -78,6 +79,7 @@ public class Task {
   private String logs;
   private String snapshots;
   private String containerIp;
+  private String agentId;
 
   private Map<String, Object> logLocation;
 
@@ -211,6 +213,14 @@ public class Task {
 
   public String getContainerIp() {
     return containerIp;
+  }
+
+  public String getAgentId() {
+    return agentId;
+  }
+
+  public void setAgentId(String agentId) {
+    this.agentId = agentId;
   }
 
   public void setContainerIp(String containerIp) {
