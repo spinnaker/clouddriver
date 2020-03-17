@@ -40,6 +40,7 @@ public class Task {
     startedAt = getTimestampFromStatus(grpcTask, TaskStatus.TaskState.StartInitiated);
     finishedAt = getTimestampFromStatus(grpcTask, TaskStatus.TaskState.Finished);
     containerIp = grpcTask.getTaskContextOrDefault("task.containerIp", null);
+    //  The agentId will be used temporarily by deck to lookup IPv6 until Titus API is updated.
     agentId = grpcTask.getTaskContextOrDefault("agent.instanceId", null);
     logLocation = new HashMap<>();
     logLocation.put("ui", grpcTask.getLogLocation().getUi().getUrl());
