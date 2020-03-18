@@ -326,6 +326,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
           } ]
         }
       }
+    },
+    "identity" : {
+      "type" : "None"
     }
   } ]
 }'''
@@ -462,6 +465,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
           } ]
         }
       }
+    },
+    "identity" : {
+      "type" : "None"
     }
   } ]
 }'''
@@ -646,6 +652,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
           } ]
         }
       }
+    },
+    "identity" : {
+      "type" : "None"
     }
   } ]
 }'''
@@ -830,6 +839,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
           } ]
         }
       }
+    },
+    "identity" : {
+      "type" : "None"
     }
   } ]
 }'''
@@ -1014,6 +1026,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
           } ]
         }
       }
+    },
+    "identity" : {
+      "type" : "None"
     }
   } ]
 }'''
@@ -1199,6 +1214,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
           } ]
         }
       }
+    },
+    "identity" : {
+      "type" : "None"
     },
     "zones" : [ "1", "3" ]
   } ]
@@ -1386,6 +1404,9 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
           } ]
         }
       }
+    },
+    "identity" : {
+      "type" : "None"
     }
   } ]
 }'''
