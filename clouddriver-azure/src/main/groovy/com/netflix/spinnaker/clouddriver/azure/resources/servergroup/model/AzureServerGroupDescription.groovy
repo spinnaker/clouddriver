@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model
 
 import com.google.common.collect.Sets
+import com.microsoft.azure.management.compute.ResourceIdentityType
 import com.microsoft.azure.management.compute.VirtualMachineScaleSetDataDisk
 import com.microsoft.azure.management.compute.implementation.VirtualMachineScaleSetInner
 import com.netflix.frigga.Names
@@ -71,6 +72,8 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
   AzureExtensionCustomScriptSettings customScriptsSettings
   Boolean enableInboundNAT = false
   List<VirtualMachineScaleSetDataDisk> dataDisks
+  Boolean useSystemManagedIdentity = false
+  String userAssignedIdentities
 
   static class AzureScaleSetSku {
     String name
@@ -189,6 +192,21 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
 
       if (storageNames) azureSG.storageAccountNames.addAll(storageNames.split(","))
     }
+
+    //Fetch system and user assigned identity details
+    ResourceIdentityType rType = scaleSet.identity().type()
+    azureSG.useSystemManagedIdentity = rType == ResourceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED || rType == ResourceIdentityType.SYSTEM_ASSIGNED
+    if  (rType == ResourceIdentityType.USER_ASSIGNED || rType == ResourceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED){
+        StringBuilder sb = new StringBuilder()
+        for ( String identity: scaleSet.identity().userAssignedIdentities().keySet()){
+          if(sb.length()>0){
+            sb.append(",")
+          }
+          sb.append(identity)
+        }
+        azureSG.userAssignedIdentities=sb.toString()
+    }
+
 
     azureSG.region = scaleSet.location()
     azureSG.upgradePolicy = getPolicyFromMode(scaleSet.upgradePolicy().mode().name())
