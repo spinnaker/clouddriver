@@ -194,17 +194,19 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
     }
 
     //Fetch system and user assigned identity details
-    ResourceIdentityType rType = scaleSet.identity().type()
-    azureSG.useSystemManagedIdentity = rType == ResourceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED || rType == ResourceIdentityType.SYSTEM_ASSIGNED
-    if  (rType == ResourceIdentityType.USER_ASSIGNED || rType == ResourceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED){
+    if(scaleSet.identity()!=null) {
+      ResourceIdentityType rType = scaleSet.identity().type()
+      azureSG.useSystemManagedIdentity = rType == ResourceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED || rType == ResourceIdentityType.SYSTEM_ASSIGNED
+      if (rType == ResourceIdentityType.USER_ASSIGNED || rType == ResourceIdentityType.SYSTEM_ASSIGNED_USER_ASSIGNED) {
         StringBuilder sb = new StringBuilder()
-        for ( String identity: scaleSet.identity().userAssignedIdentities().keySet()){
-          if(sb.length()>0){
+        for (String identity : scaleSet.identity().userAssignedIdentities().keySet()) {
+          if (sb.length() > 0) {
             sb.append(",")
           }
           sb.append(identity)
         }
-        azureSG.userAssignedIdentities=sb.toString()
+        azureSG.userAssignedIdentities = sb.toString()
+      }
     }
 
 
