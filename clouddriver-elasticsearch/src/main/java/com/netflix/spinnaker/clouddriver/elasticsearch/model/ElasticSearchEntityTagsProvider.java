@@ -40,6 +40,7 @@ import io.searchbox.indices.CreateIndex;
 import io.searchbox.indices.DeleteIndex;
 import io.searchbox.params.Parameters;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.lucene.search.join.ScoreMode;
@@ -132,7 +133,8 @@ public class ElasticSearchEntityTagsProvider implements EntityTagsProvider {
 
     if (entityType != null) {
       queryBuilder =
-          queryBuilder.must(QueryBuilders.wildcardQuery("entityRef.entityType", entityType));
+          queryBuilder.must(
+              QueryBuilders.wildcardQuery("entityRef.entityType", entityType.toLowerCase()));
     }
 
     if (tags != null) {
@@ -189,7 +191,7 @@ public class ElasticSearchEntityTagsProvider implements EntityTagsProvider {
                   objectMapper.convertValue(prepareForWrite(objectMapper, entityTags), Map.class))
               .index(activeElasticSearchIndex)
               .type(mappingTypeName)
-              .id(entityTags.getId())
+              .id(URLEncoder.encode(entityTags.getId(), "UTF-8"))
               .build();
 
       JestResult jestResult = jestClient.execute(action);
