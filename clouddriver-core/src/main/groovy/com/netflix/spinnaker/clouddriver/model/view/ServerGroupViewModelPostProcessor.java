@@ -20,10 +20,8 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 /**
  * (Optionally) used in clouddriver-web by the ServerGroupController to mutate server group API
  * data.
+ *
+ * @param <T> the supported ServerGroup type
  */
-public interface ServerGroupViewModelPostProcessor<T extends ServerGroup> {
-
-  boolean supports(ServerGroup serverGroup);
-
-  void process(T serverGroup);
-}
+public interface ServerGroupViewModelPostProcessor<T extends ServerGroup>
+    extends ModelObjectViewModelPostProcessor<T> {}

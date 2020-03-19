@@ -92,7 +92,7 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
         cacheData -> {
           long cacheTime = (long) cacheData.getAttributes().get("cacheTime");
           if (cacheTime < loadDataStart
-              && (int) cacheData.getAttributes().get("processedCount") > 0) {
+              && (int) cacheData.getAttributes().computeIfAbsent("processedCount", s -> 0) > 0) {
             toEvict.add(cacheData.getId());
           } else {
             toKeep.put(cacheData.getId(), cacheData);
@@ -111,6 +111,7 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
         SERVER_GROUPS.getNs(),
         serverGroups.stream()
             .map(sg -> setServerGroupCacheData(toKeep, sg, loadDataStart))
+            .filter(c -> c != null && c.getId() != null)
             .collect(Collectors.toSet()));
     results.put(
         INSTANCES.getNs(),
@@ -147,13 +148,6 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
     String serverGroupName =
         Optional.ofNullable(data.get("serverGroupName")).map(Object::toString).orElse(null);
     if (serverGroupName == null) {
-      return null;
-    }
-    CloudFoundryServerGroup serverGroup =
-        this.getClient()
-            .getApplications()
-            .findServerGroupByNameAndSpaceId(serverGroupName, space.getId());
-    if (serverGroup == null) {
       return null;
     }
 

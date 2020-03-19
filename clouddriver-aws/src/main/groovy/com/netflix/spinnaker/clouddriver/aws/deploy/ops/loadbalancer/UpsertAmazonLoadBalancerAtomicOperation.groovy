@@ -261,5 +261,4 @@ class UpsertAmazonLoadBalancerAtomicOperation implements AtomicOperation<UpsertA
   private static String loadBalancerArn(String accountId, String region, String name) {
     return "arn:aws:elasticloadbalancing:$accountId:$region:loadbalancer/$name"
   }
-
 }

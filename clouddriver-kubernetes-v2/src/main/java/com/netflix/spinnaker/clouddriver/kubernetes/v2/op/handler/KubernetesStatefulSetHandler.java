@@ -31,6 +31,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1beta2RollingUpdateStatefulSetStrategy;
 import io.kubernetes.client.openapi.models.V1beta2StatefulSet;
 import io.kubernetes.client.openapi.models.V1beta2StatefulSetStatus;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -96,9 +98,6 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    if (manifest.isNewerThanObservedGeneration()) {
-      return (new Status()).unknown();
-    }
     V1beta2StatefulSet v1beta2StatefulSet =
         KubernetesCacheDataConverter.getResource(manifest, V1beta2StatefulSet.class);
     return status(v1beta2StatefulSet);
@@ -119,27 +118,29 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
   }
 
   private Status status(V1beta2StatefulSet statefulSet) {
-    Status result = new Status();
-
     if (statefulSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("ondelete")) {
-      return result;
+      return Status.defaultStatus();
     }
 
     V1beta2StatefulSetStatus status = statefulSet.getStatus();
     if (status == null) {
-      result.unstable("No status reported yet").unavailable("No availability reported");
-      return result;
+      return Status.noneReported();
+    }
+
+    if (!generationMatches(statefulSet, status)) {
+      return Status.defaultStatus().unstable(UnstableReason.OLD_GENERATION.getMessage());
     }
 
     int desiredReplicas = defaultToZero(statefulSet.getSpec().getReplicas());
     int existing = defaultToZero(status.getReplicas());
     if (desiredReplicas > existing) {
-      return result.unstable("Waiting for at least the desired replica count to be met");
+      return Status.defaultStatus()
+          .unstable("Waiting for at least the desired replica count to be met");
     }
 
     existing = defaultToZero(status.getReadyReplicas());
     if (desiredReplicas > existing) {
-      return result.unstable("Waiting for all updated replicas to be ready");
+      return Status.defaultStatus().unstable("Waiting for all updated replicas to be ready");
     }
 
     String updateType = statefulSet.getSpec().getUpdateStrategy().getType();
@@ -152,26 +153,35 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
       Integer partition = rollingUpdate.getPartition();
       Integer replicas = status.getReplicas();
       if (replicas != null && partition != null && (updated < (replicas - partition))) {
-        return result.unstable("Waiting for partitioned roll out to finish");
+        return Status.defaultStatus().unstable("Waiting for partitioned roll out to finish");
       }
-      result.setStable(new Status.Condition(true, "Partitioned roll out complete"));
-      return result;
+      return Status.defaultStatus().stable("Partitioned roll out complete");
     }
 
     existing = defaultToZero(status.getCurrentReplicas());
     if (desiredReplicas > existing) {
-      return result.unstable("Waiting for all updated replicas to be scheduled");
+      return Status.defaultStatus().unstable("Waiting for all updated replicas to be scheduled");
     }
 
     if (!status.getCurrentRevision().equals(status.getUpdateRevision())) {
-      return result.unstable("Waiting for the updated revision to match the current revision");
+      return Status.defaultStatus()
+          .unstable("Waiting for the updated revision to match the current revision");
     }
 
-    return result;
+    return Status.defaultStatus();
+  }
+
+  private boolean generationMatches(
+      V1beta2StatefulSet statefulSet, V1beta2StatefulSetStatus status) {
+    Optional<Long> metadataGeneration =
+        Optional.ofNullable(statefulSet.getMetadata()).map(V1ObjectMeta::getGeneration);
+    Optional<Long> statusGeneration = Optional.ofNullable(status.getObservedGeneration());
+
+    return statusGeneration.isPresent() && statusGeneration.equals(metadataGeneration);
   }
 
   // Unboxes an Integer, returning 0 if the input is null
-  private int defaultToZero(@Nullable Integer input) {
+  private static int defaultToZero(@Nullable Integer input) {
     return input == null ? 0 : input;
   }
 
