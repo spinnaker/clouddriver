@@ -47,7 +47,7 @@ class SqlNames(
    * It always keeps prefix with tableNamespace but can shorten name and suffix in that order.
    * @return computed table name
    */
-  private fun checkTableName(prefix: String, name: String, suffix: String): String {
+  internal fun checkTableName(prefix: String, name: String, suffix: String): String {
     var base = prefix
     if (tableNamespace != null) {
       base = "${prefix + tableNamespace}_"
