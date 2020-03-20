@@ -50,6 +50,7 @@ dependencies {
 
   testImplementation project(":cats:cats-test")
 
+  testImplementation "dev.minutest:minutest"
   testImplementation "cglib:cglib-nodep"
   testImplementation "com.netflix.spinnaker.kork:kork-sql-test"
   testImplementation "com.nhaarman:mockito-kotlin"
@@ -66,4 +67,10 @@ dependencies {
   testImplementation "org.springframework:spring-test"
   testImplementation "org.testcontainers:mysql"
   testImplementation "mysql:mysql-connector-java"
+}
+
+test {
+  useJUnitPlatform {
+    includeEngines "junit-vintage", "junit-jupiter"
+  }
 }
