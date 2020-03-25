@@ -49,21 +49,22 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class KubectlJobExecutor {
-  @Value("${kubernetes.kubectl.executable:kubectl}")
-  String executable;
-
-  @Value("${kubernetes.o-auth.executable:oauth2l}")
-  String oAuthExecutable;
+  private final JobExecutor jobExecutor;
+  private final String executable;
+  private final String oAuthExecutable;
 
   private static final String NO_RESOURCE_TYPE_ERROR = "doesn't have a resource type";
-
-  private final JobExecutor jobExecutor;
 
   private final Gson gson = new Gson();
 
   @Autowired
-  KubectlJobExecutor(JobExecutor jobExecutor) {
+  KubectlJobExecutor(
+      JobExecutor jobExecutor,
+      @Value("${kubernetes.kubectl.executable:kubectl}") String executable,
+      @Value("${kubernetes.o-auth.executable:oauth2l}") String oAuthExecutable) {
     this.jobExecutor = jobExecutor;
+    this.executable = executable;
+    this.oAuthExecutable = oAuthExecutable;
   }
 
   private String configCurrentContext(KubernetesV2Credentials credentials) {
