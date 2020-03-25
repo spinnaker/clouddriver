@@ -201,8 +201,7 @@ class AbstractGoogleServerGroupCachingAgentTest {
                             new DistributionPolicyZoneConfiguration()
                                 .setZone("http://compute/zones/fakezone2"),
                             new DistributionPolicyZoneConfiguration()
-                                .setZone("http://compute/zones/fakezone3")))
-                    .setTargetShape("ANY"));
+                                .setZone("http://compute/zones/fakezone3"))));
 
     Compute compute =
         new StubComputeFactory().setInstanceGroupManagers(instanceGroupManager).create();
@@ -217,7 +216,6 @@ class AbstractGoogleServerGroupCachingAgentTest {
     assertThat(serverGroup.getZone()).isNull();
     assertThat(serverGroup.getZones())
         .containsExactlyInAnyOrder("fakezone1", "fakezone2", "fakezone3");
-    assertThat(serverGroup.getDistributionPolicy().getTargetShape()).isEqualTo("ANY");
   }
 
   @Test
