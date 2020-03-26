@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
@@ -28,7 +29,6 @@ import com.netflix.spinnaker.clouddriver.jobs.local.ReaderConsumer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric.ContainerMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
@@ -599,7 +599,7 @@ public class KubectlJobExecutor {
     return status.getOutput();
   }
 
-  public Collection<KubernetesPodMetric> topPod(
+  public ImmutableList<KubernetesPodMetric> topPod(
       KubernetesV2Credentials credentials, String namespace, String pod) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
     command.add("top");
@@ -615,63 +615,22 @@ public class KubectlJobExecutor {
       throw new KubectlException("Could not read metrics: " + status.getError());
     }
 
-    Map<String, KubernetesPodMetric> result = new HashMap<>();
-
-    String output = status.getOutput().trim();
-    if (StringUtils.isEmpty(output)) {
-      log.warn("No output from `kubectl top` command, no metrics to report.");
-      return new ArrayList<>();
-    }
-
-    String[] lines = output.split("\n");
-    if (lines.length <= 1) {
-      return new ArrayList<>();
-    }
-
-    // POD NAME CPU(cores) MEMORY(bytes) ...
-    String[] header = lines[0].trim().split("\\s+");
-
-    if (header.length <= 2) {
-      log.warn(
-          "Unexpected metric format -- no metrics to report based on table header {}.",
-          Arrays.asList(header));
-      return new ArrayList<>();
-    }
-
-    // CPU(cores) MEMORY(bytes)
-    String[] metricKeys = Arrays.copyOfRange(header, 2, header.length);
-    for (int i = 1; i < lines.length; i++) {
-      String[] entry = lines[i].trim().split("\\s+");
-      if (entry.length != header.length) {
-        log.warn("Entry {} does not match column width of {}, skipping", entry, header);
-      }
-
-      String podName = entry[0];
-      String containerName = entry[1];
-
-      Map<String, String> metrics = new HashMap<>();
-      for (int j = 0; j < metricKeys.length; j++) {
-        metrics.put(metricKeys[j], entry[j + 2]);
-      }
-
-      ContainerMetric containerMetric =
-          ContainerMetric.builder().containerName(containerName).metrics(metrics).build();
-
-      KubernetesPodMetric podMetric =
-          result.getOrDefault(
-              podName,
-              KubernetesPodMetric.builder()
-                  .podName(podName)
-                  .namespace(namespace)
-                  .containerMetrics(new ArrayList<>())
-                  .build());
-
-      podMetric.getContainerMetrics().add(containerMetric);
-
-      result.put(podName, podMetric);
-    }
-
-    return result.values();
+    ImmutableList<MetricParser.MetricLine> lines = MetricParser.parseMetrics(status.getOutput());
+    return lines.stream()
+        .collect(
+            ImmutableSetMultimap.toImmutableSetMultimap(
+                MetricParser.MetricLine::getPod, MetricParser.MetricLine::toContainerMetric))
+        .asMap()
+        .entrySet()
+        .stream()
+        .map(
+            podMetrics ->
+                KubernetesPodMetric.builder()
+                    .podName(podMetrics.getKey())
+                    .namespace(namespace)
+                    .containerMetrics(podMetrics.getValue())
+                    .build())
+        .collect(ImmutableList.toImmutableList());
   }
 
   public Void patch(
