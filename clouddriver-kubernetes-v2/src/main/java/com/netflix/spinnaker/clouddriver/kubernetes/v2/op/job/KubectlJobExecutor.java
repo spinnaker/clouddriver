@@ -615,14 +615,9 @@ public class KubectlJobExecutor {
       throw new KubectlException("Could not read metrics: " + status.getError());
     }
 
-    ImmutableList<MetricParser.MetricLine> lines = MetricParser.parseMetrics(status.getOutput());
-    return lines.stream()
-        .collect(
-            ImmutableSetMultimap.toImmutableSetMultimap(
-                MetricParser.MetricLine::getPod, MetricParser.MetricLine::toContainerMetric))
-        .asMap()
-        .entrySet()
-        .stream()
+    ImmutableSetMultimap<String, KubernetesPodMetric.ContainerMetric> metrics =
+        MetricParser.parseMetrics(status.getOutput());
+    return metrics.asMap().entrySet().stream()
         .map(
             podMetrics ->
                 KubernetesPodMetric.builder()

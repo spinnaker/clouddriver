@@ -16,11 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Streams;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric.ContainerMetric;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
@@ -45,23 +44,25 @@ final class MetricParser {
    * @param kubectlOutput the output from kubectl top
    * @return The parsed metrics
    */
-  static ImmutableList<MetricLine> parseMetrics(String kubectlOutput) {
+  static ImmutableSetMultimap<String, ContainerMetric> parseMetrics(String kubectlOutput) {
     Iterator<String> lines = lineSplitter.split(kubectlOutput.trim()).iterator();
     if (!lines.hasNext()) {
-      return ImmutableList.of();
+      return ImmutableSetMultimap.of();
     }
 
     Optional<MetricParser.LineParser> optionalParser =
         MetricParser.LineParser.withHeader(lines.next());
     if (!optionalParser.isPresent()) {
-      return ImmutableList.of();
+      return ImmutableSetMultimap.of();
     }
     MetricParser.LineParser parser = optionalParser.get();
     return Streams.stream(lines)
         .map(parser::readLine)
         .filter(Optional::isPresent)
         .map(Optional::get)
-        .collect(toImmutableList());
+        .collect(
+            ImmutableSetMultimap.toImmutableSetMultimap(
+                MetricParser.MetricLine::getPod, MetricParser.MetricLine::toContainerMetric));
   }
 
   @Slf4j
@@ -115,7 +116,7 @@ final class MetricParser {
     }
   }
 
-  static final class MetricLine {
+  private static final class MetricLine {
     @Getter private final String pod;
     private final String container;
     private final ImmutableMap<String, String> metrics;
