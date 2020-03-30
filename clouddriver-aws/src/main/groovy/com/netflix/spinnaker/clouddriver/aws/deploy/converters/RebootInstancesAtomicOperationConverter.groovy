@@ -47,7 +47,7 @@ class RebootInstancesAtomicOperationConverter extends AbstractAtomicOperationsCr
     try {
       def serverGroups = converted.instanceIds.findResults {
         def instance = amazonInstanceProvider.getInstance(converted.credentials.name, converted.region, it)
-        return instance?.extraAttributes?.serverGroup
+        return instance?.getExtraAttributes()?.serverGroup
       } as Set<String>
       converted.serverGroups = serverGroups
     } catch (Exception e) {

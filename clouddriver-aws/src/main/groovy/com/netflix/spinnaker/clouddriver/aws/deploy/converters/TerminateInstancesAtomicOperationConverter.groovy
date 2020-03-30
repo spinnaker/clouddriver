@@ -46,7 +46,7 @@ class TerminateInstancesAtomicOperationConverter extends AbstractAtomicOperation
     try {
       def serverGroups = converted.instanceIds.findResults {
         def instance = amazonInstanceProvider.getInstance(converted.credentials.name, converted.region, it)
-        return instance?.extraAttributes?.get("serverGroup")
+        return instance?.getExtraAttributes()?.get("serverGroup")
       } as Set<String>
       converted.serverGroups = serverGroups
     } catch (Exception e) {
