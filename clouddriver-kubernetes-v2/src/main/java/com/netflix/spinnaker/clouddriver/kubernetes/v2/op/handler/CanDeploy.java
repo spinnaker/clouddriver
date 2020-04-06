@@ -30,6 +30,12 @@ public interface CanDeploy {
       KubernetesV2Credentials credentials,
       KubernetesManifest manifest,
       KubernetesManifestStrategy.DeployStrategy deployStrategy) {
+    // If the manifest has a generateName, we must apply with kubectl create as all other operations
+    // require looking up a manifest by name, which will fail.
+    if (manifest.hasGenerateName()) {
+      KubernetesManifest result = credentials.create(manifest);
+      return new OperationResult().addManifest(result);
+    }
 
     switch (deployStrategy) {
       case RECREATE:

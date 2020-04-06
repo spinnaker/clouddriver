@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Netflix, Inc.
+ * Copyright 2020 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy.DeployStrategy;
@@ -97,10 +98,11 @@ final class CanDeployTest {
     KubernetesV2Credentials credentials = mock(KubernetesV2Credentials.class);
     KubernetesManifest manifest =
         ManifestFetcher.getManifest("candeploy/deployment-generate-name.yml");
+    KubernetesManifest createResult =
+        ManifestFetcher.getManifest("candeploy/deployment-generate-name-result.yml");
+    when(credentials.create(manifest)).thenReturn(createResult);
     handler.deploy(credentials, manifest, DeployStrategy.APPLY);
-    // TODO(ezimanyi): This is a bug, as a manifest with a generateName must be created with a
-    // create operation
-    verify(credentials).deploy(manifest);
+    verify(credentials).create(manifest);
     verifyNoMoreInteractions(credentials);
   }
 
@@ -109,9 +111,10 @@ final class CanDeployTest {
     KubernetesV2Credentials credentials = mock(KubernetesV2Credentials.class);
     KubernetesManifest manifest =
         ManifestFetcher.getManifest("candeploy/deployment-generate-name.yml");
+    KubernetesManifest createResult =
+        ManifestFetcher.getManifest("candeploy/deployment-generate-name-result.yml");
+    when(credentials.create(manifest)).thenReturn(createResult);
     OperationResult result = handler.deploy(credentials, manifest, DeployStrategy.APPLY);
-    // TODO(ezimanyi): This is a bug, as we should return the result of the create call, which will
-    // include the generated name
-    assertThat(result.getManifests()).containsExactlyInAnyOrder(manifest);
+    assertThat(result.getManifests()).containsExactlyInAnyOrder(createResult);
   }
 }

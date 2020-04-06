@@ -2,6 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: nginx-cknv6
   generateName: nginx-
 spec:
   replicas: 5
