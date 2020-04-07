@@ -101,7 +101,7 @@ final class KubernetesV2CredentialsTest {
         .containsExactlyInAnyOrder(
             Tag.of("account", ACCOUNT_NAME),
             Tag.of("action", "deploy"),
-            Tag.of("kind", KubernetesKind.DEPLOYMENT.toString()),
+            Tag.of("kinds", KubernetesKind.DEPLOYMENT.toString()),
             Tag.of("namespace", NAMESPACE),
             Tag.of("success", "true"));
   }
@@ -228,10 +228,8 @@ final class KubernetesV2CredentialsTest {
             Tag.of("action", "list"),
             Tag.of("kinds", "deployment,replicaSet"),
             Tag.of("namespace", NAMESPACE),
-            // It's potentially a bug that we record success as true here, though it *might* be
-            // deliberate as generally a KubectlException is thrown when we do get a response back
-            // from kubectl but fail parsing the result.
-            Tag.of("success", "true"));
+            Tag.of("success", "false"),
+            Tag.of("reason", "KubectlException"));
   }
 
   @Test
@@ -313,7 +311,7 @@ final class KubernetesV2CredentialsTest {
             Tag.of("kinds", "deployment,replicaSet"),
             Tag.of("namespace", NAMESPACE),
             Tag.of("success", "false"),
-            Tag.of("reason", "CustomException: Kubernetes error"));
+            Tag.of("reason", "CustomException"));
   }
 
   @Test

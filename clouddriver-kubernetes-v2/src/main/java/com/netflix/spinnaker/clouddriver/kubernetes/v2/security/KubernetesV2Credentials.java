@@ -611,12 +611,9 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
       String action, List<KubernetesKind> kinds, String namespace, Supplier<T> op) {
     Map<String, String> tags = new HashMap<>();
     tags.put("action", action);
-    if (kinds.size() == 1) {
-      tags.put("kind", kinds.get(0).toString());
-    } else {
-      tags.put(
-          "kinds", kinds.stream().map(KubernetesKind::toString).collect(Collectors.joining(",")));
-    }
+    tags.put(
+        "kinds",
+        kinds.stream().map(KubernetesKind::toString).sorted().collect(Collectors.joining(",")));
     tags.put("account", accountName);
     tags.put("namespace", StringUtils.isEmpty(namespace) ? "none" : namespace);
     tags.put("success", "true");
@@ -624,11 +621,12 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     try {
       return op.get();
     } catch (KubectlException e) {
-      // TODO(ezimanyi): We should be setting success to false here; this does not feel like success
+      tags.put("success", "false");
+      tags.put("reason", e.getClass().getSimpleName());
       throw e;
     } catch (Exception e) {
       tags.put("success", "false");
-      tags.put("reason", e.getClass().getSimpleName() + ": " + e.getMessage());
+      tags.put("reason", e.getClass().getSimpleName());
       throw new KubectlJobExecutor.KubectlException(
           "Failure running " + action + " on " + kinds + ": " + e.getMessage(), e);
     } finally {
