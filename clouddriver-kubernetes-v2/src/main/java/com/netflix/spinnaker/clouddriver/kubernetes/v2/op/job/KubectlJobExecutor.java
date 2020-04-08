@@ -629,6 +629,13 @@ public class KubectlJobExecutor {
     JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
+      if (status.getError().contains("not available")) {
+        log.warn(
+            String.format(
+                "Error fetching metrics for account %s: %s",
+                credentials.getAccountName(), status.getError()));
+        return ImmutableList.of();
+      }
       throw new KubectlException("Could not read metrics: " + status.getError());
     }
 

@@ -36,7 +36,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties.ResourceScope;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor.KubectlException;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.Collection;
 import java.util.Collections;
@@ -83,17 +82,7 @@ public abstract class KubernetesV2CachingAgent
   private ImmutableList<KubernetesManifest> loadResources(
       @Nonnull Iterable<KubernetesKind> kubernetesKinds, Optional<String> optionalNamespace) {
     String namespace = optionalNamespace.orElse(null);
-    try {
-      return credentials.list(ImmutableList.copyOf(kubernetesKinds), namespace);
-    } catch (KubectlException e) {
-      log.warn(
-          "{}: Failed to read kind {} from namespace {}: {}",
-          getAgentType(),
-          kubernetesKinds,
-          namespace,
-          e.getMessage());
-      throw e;
-    }
+    return credentials.list(ImmutableList.copyOf(kubernetesKinds), namespace);
   }
 
   @Nonnull
