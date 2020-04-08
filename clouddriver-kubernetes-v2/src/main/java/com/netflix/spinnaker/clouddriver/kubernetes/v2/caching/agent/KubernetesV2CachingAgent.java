@@ -171,16 +171,10 @@ public abstract class KubernetesV2CachingAgent
     log.info(getAgentType() + ": agent is starting");
     Map<String, Object> details = defaultIntrospectionDetails();
 
-    try {
-      long start = System.currentTimeMillis();
-      Map<KubernetesKind, List<KubernetesManifest>> primaryResourceList = loadPrimaryResourceList();
-      details.put("timeSpentInKubectlMs", System.currentTimeMillis() - start);
-      return buildCacheResult(primaryResourceList);
-    } catch (KubectlJobExecutor.NoResourceTypeException e) {
-      log.warn(
-          getAgentType() + ": resource for this caching agent is not supported for this cluster");
-      return new DefaultCacheResult(new HashMap<>());
-    }
+    long start = System.currentTimeMillis();
+    Map<KubernetesKind, List<KubernetesManifest>> primaryResourceList = loadPrimaryResourceList();
+    details.put("timeSpentInKubectlMs", System.currentTimeMillis() - start);
+    return buildCacheResult(primaryResourceList);
   }
 
   protected CacheResult buildCacheResult(KubernetesManifest resource) {

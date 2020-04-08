@@ -54,8 +54,6 @@ public class KubectlJobExecutor {
   private final String executable;
   private final String oAuthExecutable;
 
-  private static final String NO_RESOURCE_TYPE_ERROR = "doesn't have a resource type";
-
   private final Gson gson = new Gson();
 
   @Autowired
@@ -385,8 +383,6 @@ public class KubectlJobExecutor {
     if (status.getResult() != JobResult.Result.SUCCESS) {
       if (status.getError().contains("(NotFound)")) {
         return null;
-      } else if (status.getError().contains(NO_RESOURCE_TYPE_ERROR)) {
-        throw new NoResourceTypeException(status.getError());
       }
 
       throw new KubectlException(
@@ -416,12 +412,8 @@ public class KubectlJobExecutor {
         jobExecutor.runJob(new JobRequest(command), parseManifestList());
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
-      if (status.getError().contains(NO_RESOURCE_TYPE_ERROR)) {
-        throw new NoResourceTypeException(status.getError());
-      } else {
-        throw new KubectlException(
-            "Failed to read events from " + namespace + ": " + status.getError());
-      }
+      throw new KubectlException(
+          "Failed to read events from " + namespace + ": " + status.getError());
     }
 
     if (status.getError().contains("No resources found")) {
@@ -446,12 +438,8 @@ public class KubectlJobExecutor {
         jobExecutor.runJob(new JobRequest(command), parseManifestList());
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
-      if (status.getError().contains(NO_RESOURCE_TYPE_ERROR)) {
-        throw new NoResourceTypeException(status.getError());
-      } else {
-        throw new KubectlException(
-            "Failed to read " + kinds + " from " + namespace + ": " + status.getError());
-      }
+      throw new KubectlException(
+          "Failed to read " + kinds + " from " + namespace + ": " + status.getError());
     }
 
     if (status.getError().contains("No resources found")) {
@@ -757,14 +745,8 @@ public class KubectlJobExecutor {
     };
   }
 
-  public static class NoResourceTypeException extends RuntimeException {
-    protected NoResourceTypeException(String message) {
-      super(message);
-    }
-  }
-
   public static class KubectlException extends RuntimeException {
-    protected KubectlException(String message) {
+    KubectlException(String message) {
       super(message);
     }
 
