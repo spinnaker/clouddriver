@@ -353,12 +353,14 @@ final class KubernetesV2CredentialsTest {
     Exception cause = new CustomException("Kubernetes error");
     when(jobExecutor.list(eq(credentials), any(), any(), any())).thenThrow(cause);
 
-    // Assert that a The source exception is the cause is passed through without modification
+    // Assert that the source exception is wrapped in a KubectlException with details about the call
+    // that failed
     assertThatThrownBy(
             () ->
                 credentials.list(
                     ImmutableList.of(KubernetesKind.DEPLOYMENT, KubernetesKind.REPLICA_SET),
                     NAMESPACE))
+        .isInstanceOf(KubectlException.class)
         .hasMessageContaining("Failure running list")
         .hasCause(cause);
   }
