@@ -40,6 +40,7 @@ import java.io.EOFException;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.WillClose;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -721,7 +722,7 @@ public class KubectlJobExecutor {
   }
 
   private ReaderConsumer<ImmutableList<KubernetesManifest>> parseManifestList() {
-    return (BufferedReader r) -> {
+    return (@WillClose BufferedReader r) -> {
       try (JsonReader reader = new JsonReader(r)) {
         try {
           reader.beginObject();
@@ -744,6 +745,14 @@ public class KubectlJobExecutor {
         }
         reader.endObject();
         return manifestList.build();
+      } catch (IllegalStateException | JsonSyntaxException e) {
+        // An IllegalStageException is thrown when we call beginObject, nextName(), etc. and the
+        // next token is not what we are asserting it to be. A JsonSyntaxException is thrown when
+        // gson.fromJson isn't able to map the next token to a KubernetesManifest.
+        // In both of these cases, the error is due to the output from kubectl being malformed (or
+        // at least malformed relative to our expectations) so we'll wrap the exception in a
+        // KubectlException.
+        throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
       }
     };
   }
