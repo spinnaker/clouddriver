@@ -18,6 +18,12 @@ package com.netflix.spinnaker.clouddriver.event.config
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
 import com.netflix.spinnaker.clouddriver.event.persistence.InMemoryEventRepository
+import java.time.Duration
+import javax.validation.Constraint
+import javax.validation.ConstraintValidator
+import javax.validation.ConstraintValidatorContext
+import javax.validation.constraints.Min
+import kotlin.reflect.KClass
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -26,15 +32,8 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.validation.annotation.Validated
-import java.time.Duration
-import javax.validation.Constraint
-import javax.validation.ConstraintValidator
-import javax.validation.ConstraintValidatorContext
-import javax.validation.constraints.Min
-import kotlin.reflect.KClass
 
 @Configuration
-@ConditionalOnMissingBean(EventRepository::class)
 @EnableConfigurationProperties(MemoryEventRepositoryConfigProperties::class)
 open class MemoryEventRepositoryConfig {
 
@@ -45,6 +44,7 @@ open class MemoryEventRepositoryConfig {
   }
 
   @Bean
+  @ConditionalOnMissingBean(EventRepository::class)
   open fun eventRepository(
     properties: MemoryEventRepositoryConfigProperties,
     applicationEventPublisher: ApplicationEventPublisher,

@@ -61,6 +61,12 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
       if (createServerGroupDescription.getAvailabilityZones().size() != 1) {
         rejectValue(errors, "availabilityZones", "must.have.only.one");
       }
+
+      List<String> zones =
+          createServerGroupDescription.getAvailabilityZones().values().iterator().next();
+      if (zones == null || zones.isEmpty()) {
+        rejectValue(errors, "availabilityZones.zones", "not.nullable");
+      }
     } else {
       rejectValue(errors, "availabilityZones", "not.nullable");
     }
@@ -101,6 +107,15 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
 
     if (createServerGroupDescription.getEcsClusterName() == null) {
       rejectValue(errors, "ecsClusterName", "not.nullable");
+    }
+
+    if (createServerGroupDescription.getServiceDiscoveryAssociations() != null) {
+      for (CreateServerGroupDescription.ServiceDiscoveryAssociation association :
+          createServerGroupDescription.getServiceDiscoveryAssociations()) {
+        if (association.getRegistry() == null) {
+          rejectValue(errors, "serviceDiscoveryAssociations", "item.invalid");
+        }
+      }
     }
 
     boolean hasTargetGroup = StringUtils.isNotBlank(createServerGroupDescription.getTargetGroup());

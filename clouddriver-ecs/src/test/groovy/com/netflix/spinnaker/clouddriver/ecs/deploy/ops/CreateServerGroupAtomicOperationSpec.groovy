@@ -130,8 +130,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     then:
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
     iamClient.getRole(_) >> new GetRoleResult().withRole(role)
@@ -147,7 +151,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(0).containerPort == 1337
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -178,7 +182,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -243,7 +247,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     operation.subnetSelector = subnetSelector
     operation.securityGroupSelector = securityGroupSelector
 
-    subnetSelector.resolveSubnetsIds(_, _, _) >> ['subnet-12345']
+    subnetSelector.resolveSubnetsIds(_, _, _, _) >> ['subnet-12345']
     subnetSelector.getSubnetVpcIds(_, _, _) >> ['vpc-123']
     securityGroupSelector.resolveSecurityGroupNames(_, _, _, _) >> ['sg-12345']
 
@@ -252,8 +256,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     then:
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
-      new Service(serviceName: "${serviceName}-v007", createdAt: new Date()))
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
+      new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
 
@@ -310,7 +318,6 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     when:
     def request = operation.makeServiceRequest('task-def-arn',
-      'arn:aws:iam::test:test-role',
       'mygreatapp-stack1-details2-v0011',
       1)
 
@@ -472,10 +479,10 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'kcats'
     description.getFreeFormDetails() >> 'liated'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getContainerPort() >> 1337
-    description.targetGroup = 'target-group-arn'
+    description.getTargetGroup() >> 'target-group-arn'
     description.getPortProtocol() >> 'tcp'
     description.getComputeUnits() >> 9001
     description.getReservedMemory() >> 9001
@@ -542,8 +549,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
     description.getContainerToImageMap() >> [
       web: "docker-image-url/one",
@@ -610,8 +617,8 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
-    description.iamRole = 'None (No IAM role)'
+    description.getEcsClusterName() >> 'test-cluster'
+    description.getIamRole() >> 'None (No IAM role)'
     description.getLaunchType() >> 'FARGATE'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
     description.getContainerToImageMap() >> [
@@ -657,7 +664,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getApplication() >> 'v1'
     description.getStack() >> 'ecs'
     description.getFreeFormDetails() >> 'test'
-    description.ecsClusterName = 'test-cluster'
+    description.getEcsClusterName() >> 'test-cluster'
     description.getLaunchType() >> 'FARGATE'
     description.getNetworkMode() >> 'awsvpc'
     description.getResolvedTaskDefinitionArtifact() >> resolvedArtifact
@@ -708,6 +715,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
   def 'should use same port for host and container in host mode'() {
     given:
     def description = Mock(CreateServerGroupDescription)
+    description.getTargetGroup() >> 'target-group-arn'
     description.getContainerPort() >> 10000
     description.getNetworkMode() >> 'host'
     def operation = new CreateServerGroupAtomicOperation(description)
@@ -769,8 +777,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     then:
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
     iamClient.getRole(_) >> new GetRoleResult().withRole(role)
@@ -786,7 +798,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(0).containerPort == 1337
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -817,7 +829,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -888,8 +900,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     then:
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
     iamClient.getRole(_) >> new GetRoleResult().withRole(role)
@@ -908,7 +924,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(1).containerPort == 80
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -939,7 +955,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -1008,8 +1024,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     then:
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     1 * ecs.registerTaskDefinition(_) >> { arguments ->
       RegisterTaskDefinitionRequest request = arguments.get(0)
@@ -1030,7 +1050,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(0).containerPort == 80
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -1061,7 +1081,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }
@@ -1136,8 +1156,12 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
 
     then:
     ecs.listServices(_) >> new ListServicesResult().withServiceArns("${serviceName}-v007")
-    ecs.describeServices(_) >> new DescribeServicesResult().withServices(
+    ecs.describeServices({DescribeServicesRequest request ->
+      request.cluster == 'test-cluster'
+      request.services == ["${serviceName}-v007"]
+    }) >> new DescribeServicesResult().withServices(
       new Service(serviceName: "${serviceName}-v007", createdAt: new Date(), desiredCount: 3))
+    ecs.describeServices(_) >> new DescribeServicesResult()
 
     ecs.registerTaskDefinition(_) >> new RegisterTaskDefinitionResult().withTaskDefinition(taskDefinition)
     iamClient.getRole(_) >> new GetRoleResult().withRole(role)
@@ -1156,7 +1180,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       request.loadBalancers.get(1).containerPort == 80
       request.serviceRegistries == []
       request.desiredCount == 3
-      request.role == 'arn:aws:iam::test:test-role'
+      request.role == null
       request.placementConstraints.size() == 1
       request.placementConstraints.get(0).type == 'memberOf'
       request.placementConstraints.get(0).expression == 'attribute:ecs.instance-type =~ t2.*'
@@ -1187,7 +1211,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       assert request.serviceNamespace == ServiceNamespace.Ecs.toString()
       assert request.scalableDimension == ScalableDimension.EcsServiceDesiredCount.toString()
       assert request.resourceId == "service/test-cluster/${serviceName}-v008"
-      assert request.roleARN == 'arn:aws:iam::test:test-role'
+      assert request.roleARN == null
       assert request.minCapacity == 2
       assert request.maxCapacity == 4
     }

@@ -17,7 +17,11 @@
 package com.netflix.spinnaker.clouddriver.huaweicloud.client;
 
 import com.huawei.openstack4j.model.compute.ext.AvailabilityZone;
+import com.huawei.openstack4j.openstack.ecs.v1.domain.Flavor;
+import com.huawei.openstack4j.openstack.ims.v2.domain.Image;
 import com.huawei.openstack4j.openstack.vpc.v1.domain.SecurityGroup;
+import com.huawei.openstack4j.openstack.vpc.v1.domain.Subnet;
+import com.huawei.openstack4j.openstack.vpc.v1.domain.Vpc;
 import com.netflix.spinnaker.clouddriver.huaweicloud.exception.HuaweiCloudException;
 import java.util.List;
 
@@ -31,10 +35,43 @@ public interface HuaweiCloudClient {
   List<? extends AvailabilityZone> getZones(String region) throws HuaweiCloudException;
 
   /**
+   * List images in a region
+   *
+   * @param region
+   * @return
+   */
+  List<? extends Image> getImages(String region) throws HuaweiCloudException;
+
+  /**
+   * List instance types in a region
+   *
+   * @param region
+   * @param az
+   * @return
+   */
+  List<? extends Flavor> getInstanceTypes(String region, String az) throws HuaweiCloudException;
+
+  /**
    * List security groups in a region
    *
    * @param region
    * @return
    */
   List<? extends SecurityGroup> getSecurityGroups(String region) throws HuaweiCloudException;
+
+  /**
+   * List the available subnets in a region.
+   *
+   * @param region
+   * @return
+   */
+  List<? extends Subnet> getSubnets(String region) throws HuaweiCloudException;
+
+  /**
+   * List the available vpcs in a region.
+   *
+   * @param region
+   * @return
+   */
+  List<? extends Vpc> getVpcs(String region) throws HuaweiCloudException;
 }
