@@ -627,7 +627,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     } catch (Exception e) {
       tags.put("success", "false");
       tags.put("reason", e.getClass().getSimpleName());
-      throw new KubectlJobExecutor.KubectlException(
+      throw new KubectlException(
           "Failure running " + action + " on " + kinds + ": " + e.getMessage(), e);
     } finally {
       registry
