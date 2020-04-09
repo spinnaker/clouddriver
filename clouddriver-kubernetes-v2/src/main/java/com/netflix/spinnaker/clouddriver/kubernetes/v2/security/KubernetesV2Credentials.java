@@ -56,11 +56,6 @@ import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import io.kubernetes.client.openapi.models.V1beta1CustomResourceDefinition;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -80,9 +75,6 @@ import org.springframework.stereotype.Component;
 public class KubernetesV2Credentials implements KubernetesCredentials {
   private static final int CRD_EXPIRY_SECONDS = 30;
   private static final int NAMESPACE_EXPIRY_SECONDS = 30;
-  private static final Path SERVICE_ACCOUNT_NAMESPACE_PATH =
-      Paths.get("/var/run/secrets/kubernetes.io/serviceaccount/namespace");
-  private static final String DEFAULT_NAMESPACE = "default";
 
   private final Registry registry;
   private final Clock clock;
@@ -128,7 +120,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Include @Getter private final boolean debug;
 
-  private String cachedDefaultNamespace;
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
   private final KubernetesKindRegistry kindRegistry;
   private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
@@ -287,14 +278,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return Optional.ofNullable(crdSupplier.get().get(kubernetesKind));
   }
 
-  public String getDefaultNamespace() {
-    if (StringUtils.isEmpty(cachedDefaultNamespace)) {
-      cachedDefaultNamespace = lookupDefaultNamespace();
-    }
-
-    return cachedDefaultNamespace;
-  }
-
   @Nonnull
   public ImmutableList<KubernetesKind> getGlobalKinds() {
     return kindRegistry.getGlobalKinds().stream()
@@ -305,41 +288,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Nonnull
   public KubernetesKindProperties getKindProperties(@Nonnull KubernetesKind kind) {
     return kindRegistry.getKindPropertiesOrDefault(kind);
-  }
-
-  private Optional<String> serviceAccountNamespace() {
-    try {
-      return Files.lines(SERVICE_ACCOUNT_NAMESPACE_PATH, StandardCharsets.UTF_8).findFirst();
-    } catch (IOException e) {
-      log.debug("Failure looking up desired namespace", e);
-      return Optional.empty();
-    }
-  }
-
-  private Optional<String> kubectlNamespace() {
-    try {
-      return Optional.of(jobExecutor.defaultNamespace(this));
-    } catch (KubectlException e) {
-      log.debug("Failure looking up desired namespace", e);
-      return Optional.empty();
-    }
-  }
-
-  private String lookupDefaultNamespace() {
-    try {
-      if (serviceAccount) {
-        return serviceAccountNamespace().orElse(DEFAULT_NAMESPACE);
-      } else {
-        return kubectlNamespace().orElse(DEFAULT_NAMESPACE);
-      }
-    } catch (Exception e) {
-      log.debug(
-          "Error encountered looking up default namespace in account '{}', defaulting to {}",
-          accountName,
-          DEFAULT_NAMESPACE,
-          e);
-      return DEFAULT_NAMESPACE;
-    }
   }
 
   @Nonnull
@@ -512,20 +460,28 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         "top", KubernetesKind.POD, namespace, () -> jobExecutor.topPod(this, namespace, pod));
   }
 
-  public void deploy(KubernetesManifest manifest) {
-    runAndRecordMetrics(
+  public KubernetesManifest deploy(KubernetesManifest manifest) {
+    return runAndRecordMetrics(
         "deploy",
         manifest.getKind(),
         manifest.getNamespace(),
         () -> jobExecutor.deploy(this, manifest));
   }
 
-  public void replace(KubernetesManifest manifest) {
-    runAndRecordMetrics(
+  public KubernetesManifest replace(KubernetesManifest manifest) {
+    return runAndRecordMetrics(
         "replace",
         manifest.getKind(),
         manifest.getNamespace(),
         () -> jobExecutor.replace(this, manifest));
+  }
+
+  public KubernetesManifest create(KubernetesManifest manifest) {
+    return runAndRecordMetrics(
+        "create",
+        manifest.getKind(),
+        manifest.getNamespace(),
+        () -> jobExecutor.create(this, manifest));
   }
 
   public List<Integer> historyRollout(KubernetesKind kind, String namespace, String name) {
@@ -601,46 +557,25 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private <T> T runAndRecordMetrics(
       String action, List<KubernetesKind> kinds, String namespace, Supplier<T> op) {
-    T result = null;
-    Throwable failure = null;
-    KubectlException apiException = null;
+    Map<String, String> tags = new HashMap<>();
+    tags.put("action", action);
+    tags.put(
+        "kinds",
+        kinds.stream().map(KubernetesKind::toString).sorted().collect(Collectors.joining(",")));
+    tags.put("account", accountName);
+    tags.put("namespace", StringUtils.isEmpty(namespace) ? "none" : namespace);
+    tags.put("success", "true");
     long startTime = clock.monotonicTime();
     try {
-      result = op.get();
-    } catch (KubectlException e) {
-      apiException = e;
-    } catch (Exception e) {
-      failure = e;
+      return op.get();
+    } catch (RuntimeException e) {
+      tags.put("success", "false");
+      tags.put("reason", e.getClass().getSimpleName());
+      throw e;
     } finally {
-      Map<String, String> tags = new HashMap<>();
-      tags.put("action", action);
-      if (kinds.size() == 1) {
-        tags.put("kind", kinds.get(0).toString());
-      } else {
-        tags.put(
-            "kinds", kinds.stream().map(KubernetesKind::toString).collect(Collectors.joining(",")));
-      }
-      tags.put("account", accountName);
-      tags.put("namespace", StringUtils.isEmpty(namespace) ? "none" : namespace);
-      if (failure == null) {
-        tags.put("success", "true");
-      } else {
-        tags.put("success", "false");
-        tags.put("reason", failure.getClass().getSimpleName() + ": " + failure.getMessage());
-      }
-
       registry
           .timer(registry.createId("kubernetes.api", tags))
           .record(clock.monotonicTime() - startTime, TimeUnit.NANOSECONDS);
-
-      if (failure != null) {
-        throw new KubectlJobExecutor.KubectlException(
-            "Failure running " + action + " on " + kinds + ": " + failure.getMessage(), failure);
-      } else if (apiException != null) {
-        throw apiException;
-      } else {
-        return result;
-      }
     }
   }
 
