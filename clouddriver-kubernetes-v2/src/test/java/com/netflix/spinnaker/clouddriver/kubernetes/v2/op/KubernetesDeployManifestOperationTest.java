@@ -48,6 +48,7 @@ import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.moniker.Moniker;
+import org.apache.logging.log4j.util.Strings;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -170,14 +171,23 @@ final class KubernetesDeployManifestOperationTest {
             invocation ->
                 KubernetesKindProperties.withDefaultProperties(
                     invocation.getArgument(0, KubernetesKind.class)));
-    when(credentialsMock.getDefaultNamespace()).thenReturn(DEFAULT_NAMESPACE);
     when(credentialsMock.getResourcePropertyRegistry()).thenReturn(resourcePropertyRegistry);
     when(credentialsMock.get(KubernetesKind.SERVICE, "my-namespace", "my-service"))
         .thenReturn(
             ManifestFetcher.getManifest(
                 KubernetesDeployManifestOperationTest.class, "deploy/service.yml"));
     when(credentialsMock.deploy(any(KubernetesManifest.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0, KubernetesManifest.class));
+        .thenAnswer(
+            invocation -> {
+              // This simulates the fact that the Kubernetes API will add the default namespace if
+              // none is supplied on the manifest.
+              KubernetesManifest result =
+                  invocation.getArgument(0, KubernetesManifest.class).clone();
+              if (Strings.isEmpty(result.getNamespace())) {
+                result.setNamespace(DEFAULT_NAMESPACE);
+              }
+              return result;
+            });
     return credentialsMock;
   }
 

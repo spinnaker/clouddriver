@@ -591,9 +591,6 @@ public class KubectlJobExecutor {
   private List<String> kubectlNamespacedAuthPrefix(
       KubernetesV2Credentials credentials, String namespace) {
     List<String> command = kubectlAuthPrefix(credentials);
-    if (StringUtils.isEmpty(namespace)) {
-      namespace = credentials.getDefaultNamespace();
-    }
 
     if (StringUtils.isNotEmpty(namespace)) {
       command.add("--namespace=" + namespace);
