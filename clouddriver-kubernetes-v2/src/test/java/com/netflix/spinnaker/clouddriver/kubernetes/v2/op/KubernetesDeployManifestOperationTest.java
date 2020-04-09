@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -133,6 +134,35 @@ final class KubernetesDeployManifestOperationTest {
     assertThat(traffic.getLoadBalancers()).containsExactly("service my-service");
   }
 
+  @Test
+  void failsWhenServiceHasNoSelector() {
+    KubernetesDeployManifestDescription description =
+        baseDeployDescription("deploy/replicaset.yml")
+            .setServices(ImmutableList.of("service my-service-no-selector"))
+            .setEnableTraffic(true);
+    // todo: throw more helpful error
+    assertThatThrownBy(() -> deploy(description)).isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  void failsWhenServiceSelectorOverlapsWithTargetLabels() {
+    KubernetesDeployManifestDescription description =
+        baseDeployDescription("deploy/replicaset-overlapping-selector.yml")
+            .setServices(ImmutableList.of("service my-service"))
+            .setEnableTraffic(true);
+    // todo: this should not succeed because a subsequent disable operation would make the
+    // ReplicaSet invalid
+    OperationResult result = deploy(description);
+
+    KubernetesManifest manifest = Iterables.getOnlyElement(result.getManifests());
+    assertThat(manifest.getSpecTemplateLabels()).isNotEmpty();
+    assertThat(manifest.getSpecTemplateLabels().get())
+        .contains(entry("selector-key", "selector-value"));
+
+    KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
+    assertThat(traffic.getLoadBalancers()).containsExactly("service my-service");
+  }
+
   private static KubernetesDeployManifestDescription baseDeployDescription(String manifest) {
     KubernetesDeployManifestDescription deployManifestDescription =
         new KubernetesDeployManifestDescription()
@@ -176,6 +206,10 @@ final class KubernetesDeployManifestOperationTest {
         .thenReturn(
             ManifestFetcher.getManifest(
                 KubernetesDeployManifestOperationTest.class, "deploy/service.yml"));
+    when(credentialsMock.get(KubernetesKind.SERVICE, "my-namespace", "my-service-no-selector"))
+        .thenReturn(
+            ManifestFetcher.getManifest(
+                KubernetesDeployManifestOperationTest.class, "deploy/service-no-selector.yml"));
     when(credentialsMock.deploy(any(KubernetesManifest.class)))
         .thenAnswer(
             invocation -> {
