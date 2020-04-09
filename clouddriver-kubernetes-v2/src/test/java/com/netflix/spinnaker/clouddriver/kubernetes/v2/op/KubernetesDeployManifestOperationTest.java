@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask;
@@ -48,7 +49,6 @@ import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.moniker.Moniker;
-import org.apache.logging.log4j.util.Strings;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -183,7 +183,7 @@ final class KubernetesDeployManifestOperationTest {
               // none is supplied on the manifest.
               KubernetesManifest result =
                   invocation.getArgument(0, KubernetesManifest.class).clone();
-              if (Strings.isEmpty(result.getNamespace())) {
+              if (Strings.isNullOrEmpty(result.getNamespace())) {
                 result.setNamespace(DEFAULT_NAMESPACE);
               }
               return result;
