@@ -176,6 +176,8 @@ final class KubernetesDeployManifestOperationTest {
         .thenReturn(
             ManifestFetcher.getManifest(
                 KubernetesDeployManifestOperationTest.class, "deploy/service.yml"));
+    when(credentialsMock.deploy(any(KubernetesManifest.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0, KubernetesManifest.class));
     return credentialsMock;
   }
 

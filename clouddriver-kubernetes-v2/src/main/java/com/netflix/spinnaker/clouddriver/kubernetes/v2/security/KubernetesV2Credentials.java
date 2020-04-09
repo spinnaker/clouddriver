@@ -512,16 +512,16 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         "top", KubernetesKind.POD, namespace, () -> jobExecutor.topPod(this, namespace, pod));
   }
 
-  public void deploy(KubernetesManifest manifest) {
-    runAndRecordMetrics(
+  public KubernetesManifest deploy(KubernetesManifest manifest) {
+    return runAndRecordMetrics(
         "deploy",
         manifest.getKind(),
         manifest.getNamespace(),
         () -> jobExecutor.deploy(this, manifest));
   }
 
-  public void replace(KubernetesManifest manifest) {
-    runAndRecordMetrics(
+  public KubernetesManifest replace(KubernetesManifest manifest) {
+    return runAndRecordMetrics(
         "replace",
         manifest.getKind(),
         manifest.getNamespace(),
