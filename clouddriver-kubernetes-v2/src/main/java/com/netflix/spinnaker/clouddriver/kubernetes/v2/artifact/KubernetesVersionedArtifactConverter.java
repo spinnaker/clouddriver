@@ -18,7 +18,6 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
@@ -50,15 +49,6 @@ public class KubernetesVersionedArtifactConverter extends KubernetesArtifactConv
         .version(version)
         .reference(getDeployedName(name, version))
         .metadata(metadata)
-        .build();
-  }
-
-  @Override
-  public KubernetesCoordinates toCoordinates(Artifact artifact) {
-    return KubernetesCoordinates.builder()
-        .kind(getKind(artifact))
-        .name(getDeployedName(artifact))
-        .namespace(getNamespace(artifact))
         .build();
   }
 
