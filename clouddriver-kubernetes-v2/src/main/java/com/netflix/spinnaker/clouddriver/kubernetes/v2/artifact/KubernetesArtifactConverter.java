@@ -23,12 +23,21 @@ import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 
 public abstract class KubernetesArtifactConverter {
+  // Prevent subclassing from outside the package
+  KubernetesArtifactConverter() {}
+
+  public static KubernetesArtifactConverter getInstance(boolean versioned) {
+    return versioned
+        ? KubernetesVersionedArtifactConverter.INSTANCE
+        : KubernetesUnversionedArtifactConverter.INSTANCE;
+  }
+
   public abstract Artifact toArtifact(
       ArtifactProvider artifactProvider, KubernetesManifest manifest, String account);
 
   public abstract String getDeployedName(Artifact artifact);
 
-  protected String getType(KubernetesManifest manifest) {
+  protected final String getType(KubernetesManifest manifest) {
     return String.join("/", KubernetesCloudProvider.ID, manifest.getKind().toString());
   }
 }

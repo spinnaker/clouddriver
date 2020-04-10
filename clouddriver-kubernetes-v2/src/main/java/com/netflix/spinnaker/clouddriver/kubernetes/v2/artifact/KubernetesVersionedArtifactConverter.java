@@ -30,8 +30,13 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class KubernetesVersionedArtifactConverter extends KubernetesArtifactConverter {
-  private static final ObjectMapper objectMapper = new ObjectMapper();
+final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConverter {
+  static final KubernetesVersionedArtifactConverter INSTANCE =
+      new KubernetesVersionedArtifactConverter();
+
+  private final ObjectMapper objectMapper = new ObjectMapper();
+
+  private KubernetesVersionedArtifactConverter() {}
 
   @Override
   public Artifact toArtifact(

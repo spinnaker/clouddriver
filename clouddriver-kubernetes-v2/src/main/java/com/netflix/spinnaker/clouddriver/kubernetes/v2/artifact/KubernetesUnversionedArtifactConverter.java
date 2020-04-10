@@ -23,7 +23,12 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.HashMap;
 import java.util.Map;
 
-public class KubernetesUnversionedArtifactConverter extends KubernetesArtifactConverter {
+final class KubernetesUnversionedArtifactConverter extends KubernetesArtifactConverter {
+  static final KubernetesUnversionedArtifactConverter INSTANCE =
+      new KubernetesUnversionedArtifactConverter();
+
+  private KubernetesUnversionedArtifactConverter() {}
+
   @Override
   public Artifact toArtifact(
       ArtifactProvider provider, KubernetesManifest manifest, String account) {
