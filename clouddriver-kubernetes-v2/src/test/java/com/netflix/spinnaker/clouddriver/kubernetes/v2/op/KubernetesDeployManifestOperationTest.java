@@ -140,8 +140,7 @@ final class KubernetesDeployManifestOperationTest {
         baseDeployDescription("deploy/replicaset.yml")
             .setServices(ImmutableList.of("service my-service-no-selector"))
             .setEnableTraffic(true);
-    // todo: throw more helpful error
-    assertThatThrownBy(() -> deploy(description)).isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> deploy(description)).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
@@ -150,17 +149,7 @@ final class KubernetesDeployManifestOperationTest {
         baseDeployDescription("deploy/replicaset-overlapping-selector.yml")
             .setServices(ImmutableList.of("service my-service"))
             .setEnableTraffic(true);
-    // todo: this should not succeed because a subsequent disable operation would make the
-    // ReplicaSet invalid
-    OperationResult result = deploy(description);
-
-    KubernetesManifest manifest = Iterables.getOnlyElement(result.getManifests());
-    assertThat(manifest.getSpecTemplateLabels()).isNotEmpty();
-    assertThat(manifest.getSpecTemplateLabels().get())
-        .contains(entry("selector-key", "selector-value"));
-
-    KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(manifest);
-    assertThat(traffic.getLoadBalancers()).containsExactly("service my-service");
+    assertThatThrownBy(() -> deploy(description)).isInstanceOf(IllegalArgumentException.class);
   }
 
   private static KubernetesDeployManifestDescription baseDeployDescription(String manifest) {
