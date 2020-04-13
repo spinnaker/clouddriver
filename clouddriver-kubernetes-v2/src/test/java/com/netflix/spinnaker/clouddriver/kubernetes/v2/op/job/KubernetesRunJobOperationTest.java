@@ -43,7 +43,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.ManifestFetche
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
-import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -111,7 +110,6 @@ final class KubernetesRunJobOperationTest {
     KubernetesConfigurationProperties.ManagedAccount managedAccount =
         new KubernetesConfigurationProperties.ManagedAccount();
     managedAccount.setName("my-account");
-    managedAccount.setProviderVersion(ProviderVersion.v2);
 
     NamerRegistry.lookup()
         .withProvider(KubernetesCloudProvider.ID)
