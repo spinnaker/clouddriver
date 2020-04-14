@@ -369,8 +369,8 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   }
 
   @Override
-  public List<LinkedDockerRegistryConfiguration> getDockerRegistries() {
-    return Collections.emptyList();
+  public ImmutableList<LinkedDockerRegistryConfiguration> getDockerRegistries() {
+    return ImmutableList.of();
   }
 
   public KubernetesManifest get(KubernetesKind kind, String namespace, String name) {

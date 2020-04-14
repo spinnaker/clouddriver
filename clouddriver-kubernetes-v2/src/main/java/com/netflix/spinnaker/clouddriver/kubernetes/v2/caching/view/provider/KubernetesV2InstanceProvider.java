@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.ContainerLog;
@@ -119,7 +120,7 @@ public class KubernetesV2InstanceProvider
   private List<ContainerLog> getPodLogs(
       @Nonnull KubernetesV2Credentials credentials, @Nonnull V1Pod pod) {
     List<V1Container> initContainers =
-        Optional.ofNullable(pod.getSpec().getInitContainers()).orElse(Collections.emptyList());
+        Optional.ofNullable(pod.getSpec().getInitContainers()).orElse(ImmutableList.of());
     List<V1Container> containers = pod.getSpec().getContainers();
 
     return Stream.concat(initContainers.stream(), containers.stream())

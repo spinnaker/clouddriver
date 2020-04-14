@@ -34,7 +34,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -155,7 +154,7 @@ public class ArtifactReplacer {
                     input.getFullResourceName(),
                     r,
                     e);
-                return Collections.<Artifact>emptyList();
+                return ImmutableList.<Artifact>of();
               }
             })
         .flatMap(Collection::stream)

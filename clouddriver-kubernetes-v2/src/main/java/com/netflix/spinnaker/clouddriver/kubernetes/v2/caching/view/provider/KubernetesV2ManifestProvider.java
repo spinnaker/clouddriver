@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.CLUSTERS;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
@@ -141,7 +142,7 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
                 .stream()
                 .map(KubernetesCacheDataConverter::getManifest)
                 .collect(Collectors.toList())
-            : Collections.emptyList();
+            : ImmutableList.of();
 
     String metricKey =
         Keys.MetricCacheKey.createKey(
@@ -150,7 +151,7 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
         cacheUtils
             .getSingleEntry(Keys.Kind.KUBERNETES_METRIC.toString(), metricKey)
             .map(KubernetesCacheDataConverter::getMetrics)
-            .orElse(Collections.emptyList());
+            .orElse(ImmutableList.of());
 
     return KubernetesV2ManifestBuilder.buildManifest(credentials, manifest, events, metrics);
   }

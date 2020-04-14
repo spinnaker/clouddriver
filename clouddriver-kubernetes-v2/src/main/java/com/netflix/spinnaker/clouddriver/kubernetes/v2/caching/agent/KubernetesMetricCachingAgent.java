@@ -20,6 +20,8 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.Kind.KUBERNETES_METRIC;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.AgentIntervalAware;
@@ -62,14 +64,14 @@ public class KubernetesMetricCachingAgent extends KubernetesV2CachingAgent
   }
 
   @Override
-  protected List<KubernetesKind> primaryKinds() {
-    return Collections.emptyList();
+  protected ImmutableList<KubernetesKind> primaryKinds() {
+    return ImmutableList.of();
   }
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
     if (!credentials.isMetricsEnabled()) {
-      return new DefaultCacheResult(Collections.emptyMap());
+      return new DefaultCacheResult(ImmutableMap.of());
     }
 
     log.info(getAgentType() + ": agent is starting");

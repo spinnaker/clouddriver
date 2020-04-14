@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -338,7 +339,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
   @Override
   public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
     if (!handleReadRequests()) {
-      return Collections.emptyList();
+      return ImmutableList.of();
     }
 
     List<KubernetesKind> primaryKinds = primaryKinds();
