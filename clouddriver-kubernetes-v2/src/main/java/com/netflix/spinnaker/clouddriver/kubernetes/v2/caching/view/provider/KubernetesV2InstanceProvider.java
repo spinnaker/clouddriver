@@ -32,7 +32,6 @@ import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -109,7 +108,7 @@ public class KubernetesV2InstanceProvider
 
     // Short-circuit if pod cannot be found
     if (pod == null) {
-      return Collections.singletonList(
+      return ImmutableList.of(
           new ContainerLog("Error", "Failed to retrieve pod data; pod may have been deleted."));
     }
 

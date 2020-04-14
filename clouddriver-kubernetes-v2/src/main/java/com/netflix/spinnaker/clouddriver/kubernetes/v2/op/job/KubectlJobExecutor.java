@@ -376,8 +376,7 @@ public class KubectlJobExecutor {
 
   public KubernetesManifest get(
       KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
-    List<String> command =
-        kubectlNamespacedGet(credentials, Collections.singletonList(kind), namespace);
+    List<String> command = kubectlNamespacedGet(credentials, ImmutableList.of(kind), namespace);
     command.add(name);
 
     JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
@@ -402,8 +401,7 @@ public class KubectlJobExecutor {
   public ImmutableList<KubernetesManifest> eventsFor(
       KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command =
-        kubectlNamespacedGet(
-            credentials, Collections.singletonList(KubernetesKind.EVENT), namespace);
+        kubectlNamespacedGet(credentials, ImmutableList.of(KubernetesKind.EVENT), namespace);
     command.add("--field-selector");
     command.add(
         String.format(

@@ -37,7 +37,6 @@ import io.kubernetes.client.openapi.models.V1beta2RollingUpdateStatefulSetStrate
 import io.kubernetes.client.openapi.models.V1beta2StatefulSet;
 import io.kubernetes.client.openapi.models.V1beta2StatefulSetStatus;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -210,7 +209,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
       }
 
       KubernetesManifest service = services.get(key);
-      relationshipMap.put(manifest, Collections.singletonList(service));
+      relationshipMap.put(manifest, ImmutableList.of(service));
     }
   }
 }

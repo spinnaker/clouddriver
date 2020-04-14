@@ -33,7 +33,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -136,9 +135,7 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
         includeEvents
             ? cacheUtils
                 .getTransitiveRelationship(
-                    kind.toString(),
-                    Collections.singletonList(key),
-                    KubernetesKind.EVENT.toString())
+                    kind.toString(), ImmutableList.of(key), KubernetesKind.EVENT.toString())
                 .stream()
                 .map(KubernetesCacheDataConverter::getManifest)
                 .collect(Collectors.toList())

@@ -228,8 +228,8 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     CacheResult cacheResult = new DefaultCacheResult(new HashMap<>());
 
     log.info("{}: Evicting on demand '{}'", getAgentType(), key);
-    providerCache.evictDeletedItems(ON_DEMAND_TYPE, Collections.singletonList(key));
-    evictions.put(kind.toString(), Collections.singletonList(key));
+    providerCache.evictDeletedItems(ON_DEMAND_TYPE, ImmutableList.of(key));
+    evictions.put(kind.toString(), ImmutableList.of(key));
 
     return new OnDemandAgent.OnDemandResult(getOnDemandAgentType(), cacheResult, evictions);
   }

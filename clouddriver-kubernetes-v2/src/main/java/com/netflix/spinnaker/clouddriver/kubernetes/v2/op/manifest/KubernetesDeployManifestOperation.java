@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
@@ -78,7 +79,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     List<KubernetesManifest> deployManifests = new ArrayList<>();
     if (inputManifests == null || inputManifests.isEmpty()) {
       log.warn("Relying on deprecated single manifest input: " + description.getManifest());
-      inputManifests = Collections.singletonList(description.getManifest());
+      inputManifests = ImmutableList.of(description.getManifest());
     }
 
     inputManifests = inputManifests.stream().filter(Objects::nonNull).collect(Collectors.toList());

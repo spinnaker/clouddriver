@@ -35,7 +35,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPod
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,9 +48,8 @@ public class KubernetesMetricCachingAgent extends KubernetesV2CachingAgent
   @Getter protected String providerName = KubernetesCloudProvider.ID;
 
   @Getter
-  protected Collection<AgentDataType> providedDataTypes =
-      Collections.unmodifiableCollection(
-          Collections.singletonList(AUTHORITATIVE.forType(KUBERNETES_METRIC.toString())));
+  protected ImmutableList<AgentDataType> providedDataTypes =
+      ImmutableList.of(AUTHORITATIVE.forType(KUBERNETES_METRIC.toString()));
 
   protected KubernetesMetricCachingAgent(
       KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,

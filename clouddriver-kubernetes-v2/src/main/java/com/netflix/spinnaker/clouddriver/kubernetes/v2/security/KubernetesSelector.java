@@ -20,7 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.security;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Strings;
-import java.util.Collections;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.Data;
@@ -82,11 +82,11 @@ public class KubernetesSelector {
   }
 
   public static KubernetesSelector equals(String key, String value) {
-    return new KubernetesSelector(Kind.EQUALS, key, Collections.singletonList(value));
+    return new KubernetesSelector(Kind.EQUALS, key, ImmutableList.of(value));
   }
 
   public static KubernetesSelector notEquals(String key, String value) {
-    return new KubernetesSelector(Kind.NOT_EQUALS, key, Collections.singletonList(value));
+    return new KubernetesSelector(Kind.NOT_EQUALS, key, ImmutableList.of(value));
   }
 
   public static KubernetesSelector contains(String key, List<String> values) {

@@ -322,11 +322,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private ImmutableList<String> namespaceSupplier() {
     try {
       return jobExecutor
-          .list(
-              this,
-              Collections.singletonList(KubernetesKind.NAMESPACE),
-              "",
-              new KubernetesSelectorList())
+          .list(this, ImmutableList.of(KubernetesKind.NAMESPACE), "", new KubernetesSelectorList())
           .stream()
           .map(KubernetesManifest::getName)
           .collect(toImmutableList());
@@ -386,7 +382,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         namespace,
         () ->
             jobExecutor.list(
-                this, Collections.singletonList(kind), namespace, new KubernetesSelectorList()));
+                this, ImmutableList.of(kind), namespace, new KubernetesSelectorList()));
   }
 
   @Nonnull
@@ -396,7 +392,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         "list",
         kind,
         namespace,
-        () -> jobExecutor.list(this, Collections.singletonList(kind), namespace, selectors));
+        () -> jobExecutor.list(this, ImmutableList.of(kind), namespace, selectors));
   }
 
   @Nonnull
@@ -561,7 +557,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   private <T> T runAndRecordMetrics(
       String action, KubernetesKind kind, String namespace, Supplier<T> op) {
-    return runAndRecordMetrics(action, Collections.singletonList(kind), namespace, op);
+    return runAndRecordMetrics(action, ImmutableList.of(kind), namespace, op);
   }
 
   private <T> T runAndRecordMetrics(
