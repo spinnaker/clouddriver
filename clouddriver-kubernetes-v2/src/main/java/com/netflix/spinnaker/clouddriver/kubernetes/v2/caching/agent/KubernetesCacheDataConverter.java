@@ -23,6 +23,7 @@ import static java.lang.Math.toIntExact;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -165,7 +166,7 @@ public class KubernetesCacheDataConverter {
       return;
     }
 
-    if (onlySpinnakerManaged && StringUtils.isEmpty(cachingProperties.getApplication())) {
+    if (onlySpinnakerManaged && Strings.isNullOrEmpty(cachingProperties.getApplication())) {
       return;
     }
 
@@ -202,7 +203,7 @@ public class KubernetesCacheDataConverter {
     kubernetesCacheData.addItem(key, attributes);
 
     String application = moniker.getApp();
-    if (StringUtils.isEmpty(application)) {
+    if (Strings.isNullOrEmpty(application)) {
       log.debug(
           "Encountered not-spinnaker-owned resource "
               + namespace
@@ -320,11 +321,11 @@ public class KubernetesCacheDataConverter {
       log.warn("{}: manifest kind may not be null, {}", contextMessage.get(), manifest);
     }
 
-    if (StringUtils.isEmpty(manifest.getName())) {
+    if (Strings.isNullOrEmpty(manifest.getName())) {
       log.warn("{}: manifest name may not be null, {}", contextMessage.get(), manifest);
     }
 
-    if (StringUtils.isEmpty(manifest.getNamespace()) && kindProperties.isNamespaced()) {
+    if (Strings.isNullOrEmpty(manifest.getNamespace()) && kindProperties.isNamespaced()) {
       log.warn("{}: manifest namespace may not be null, {}", contextMessage.get(), manifest);
     }
   }

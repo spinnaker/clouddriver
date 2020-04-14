@@ -22,6 +22,7 @@ import static com.netflix.spinnaker.clouddriver.cache.OnDemandAgent.OnDemandType
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -268,7 +269,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     String name;
     KubernetesKind kind;
 
-    if (StringUtils.isEmpty(account) || !getAccountName().equals(account)) {
+    if (Strings.isNullOrEmpty(account) || !getAccountName().equals(account)) {
       return null;
     }
 
@@ -285,7 +286,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
       }
 
       name = parsedName.getRight();
-      if (StringUtils.isEmpty(name)) {
+      if (Strings.isNullOrEmpty(name)) {
         return null;
       }
     } catch (Exception e) {
@@ -393,7 +394,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
   }
 
   private boolean handleNamespace(String namespace) {
-    if (StringUtils.isEmpty(namespace)) {
+    if (Strings.isNullOrEmpty(namespace)) {
       return handleClusterScopedResources();
     }
     return getNamespaces().contains(namespace);

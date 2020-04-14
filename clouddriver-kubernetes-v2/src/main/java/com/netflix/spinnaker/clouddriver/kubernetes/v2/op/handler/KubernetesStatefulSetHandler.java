@@ -21,6 +21,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manife
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.STATEFUL_SET;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
@@ -44,7 +45,6 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -199,7 +199,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
 
     for (KubernetesManifest manifest : allResources.getOrDefault(STATEFUL_SET, new ArrayList<>())) {
       String serviceName = KubernetesStatefulSetHandler.serviceName(manifest);
-      if (StringUtils.isEmpty(serviceName)) {
+      if (Strings.isNullOrEmpty(serviceName)) {
         continue;
       }
 

@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.EVENT;
 
+import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.stereotype.Component;
 
@@ -101,9 +101,9 @@ public class KubernetesEventHandler extends KubernetesHandler {
     V1ObjectReference ref = event.getInvolvedObject();
 
     if (ref == null
-        || StringUtils.isEmpty(ref.getApiVersion())
-        || StringUtils.isEmpty(ref.getKind())
-        || StringUtils.isEmpty(ref.getName())) {
+        || Strings.isNullOrEmpty(ref.getApiVersion())
+        || Strings.isNullOrEmpty(ref.getKind())
+        || Strings.isNullOrEmpty(ref.getName())) {
       return null;
     }
 

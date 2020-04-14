@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.gson.Gson;
@@ -83,7 +84,7 @@ public class KubectlJobExecutor {
 
   public String defaultNamespace(KubernetesV2Credentials credentials) {
     String configCurrentContext = configCurrentContext(credentials);
-    if (StringUtils.isEmpty(configCurrentContext)) {
+    if (Strings.isNullOrEmpty(configCurrentContext)) {
       return "";
     }
 
@@ -185,7 +186,7 @@ public class KubectlJobExecutor {
           "Failed to delete " + id + " from " + namespace + ": " + status.getError());
     }
 
-    if (StringUtils.isEmpty(status.getOutput())
+    if (Strings.isNullOrEmpty(status.getOutput())
         || status.getOutput().equals("No output from command.")
         || status.getOutput().startsWith("No resources found")) {
       return new ArrayList<>();
@@ -242,7 +243,7 @@ public class KubectlJobExecutor {
     }
 
     String stdout = status.getOutput();
-    if (StringUtils.isEmpty(stdout)) {
+    if (Strings.isNullOrEmpty(stdout)) {
       return new ArrayList<>();
     }
 
@@ -717,7 +718,7 @@ public class KubectlJobExecutor {
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       String errMsg = status.getError();
-      if (StringUtils.isEmpty(errMsg)) {
+      if (Strings.isNullOrEmpty(errMsg)) {
         errMsg = status.getOutput();
       }
       if (errMsg.contains("not patched")) {

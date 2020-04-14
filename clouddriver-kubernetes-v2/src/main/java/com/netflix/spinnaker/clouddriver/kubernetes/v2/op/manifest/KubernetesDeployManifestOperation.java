@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
@@ -101,7 +102,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
     for (KubernetesManifest manifest : inputManifests) {
       if (credentials.getKindProperties(manifest.getKind()).isNamespaced()
-          && !StringUtils.isEmpty(description.getNamespaceOverride())) {
+          && !Strings.isNullOrEmpty(description.getNamespaceOverride())) {
         manifest.setNamespace(description.getNamespaceOverride());
       }
 
@@ -163,7 +164,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       KubernetesHandler deployer = properties.getHandler();
 
       Moniker moniker = cloneMoniker(description.getMoniker());
-      if (StringUtils.isEmpty(moniker.getCluster())) {
+      if (Strings.isNullOrEmpty(moniker.getCluster())) {
         moniker.setCluster(manifest.getFullResourceName());
       }
 

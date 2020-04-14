@@ -25,6 +25,7 @@ import static lombok.EqualsAndHashCode.Include;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.base.Strings;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,7 +69,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -572,7 +572,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
         "kinds",
         kinds.stream().map(KubernetesKind::toString).sorted().collect(Collectors.joining(",")));
     tags.put("account", accountName);
-    tags.put("namespace", StringUtils.isEmpty(namespace) ? "none" : namespace);
+    tags.put("namespace", Strings.isNullOrEmpty(namespace) ? "none" : namespace);
     tags.put("success", "true");
     long startTime = clock.monotonicTime();
     try {
