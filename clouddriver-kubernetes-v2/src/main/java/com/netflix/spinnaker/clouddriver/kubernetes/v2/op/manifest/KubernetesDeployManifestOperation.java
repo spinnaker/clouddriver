@@ -42,7 +42,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
@@ -171,7 +170,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       Artifact artifact = converter.toArtifact(provider, manifest, description.getAccount());
 
       String version = artifact.getVersion();
-      if (StringUtils.isNotEmpty(version) && version.startsWith("v")) {
+      if (Strings.nullToEmpty(version).startsWith("v")) {
         try {
           moniker.setSequence(Integer.valueOf(version.substring(1)));
         } catch (NumberFormatException e) {

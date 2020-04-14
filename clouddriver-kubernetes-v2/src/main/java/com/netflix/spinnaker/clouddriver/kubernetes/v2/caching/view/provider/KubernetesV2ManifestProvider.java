@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.LogicalKind.CLUSTERS;
 
+import com.google.common.base.Strings;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
@@ -37,7 +38,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -76,7 +76,7 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
     }
 
     KubernetesKind kind = parsedName.getLeft();
-    if (!credentials.getKindProperties(kind).isNamespaced() && StringUtils.isNotEmpty(location)) {
+    if (!credentials.getKindProperties(kind).isNamespaced() && !Strings.isNullOrEmpty(location)) {
       log.warn(
           "Kind {} is not namespaced, but namespace {} was provided (ignoring)", kind, location);
       location = "";

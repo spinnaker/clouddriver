@@ -168,7 +168,7 @@ public class KubectlJobExecutor {
       command.add("--grace-period=" + deleteOptions.getGracePeriodSeconds());
     }
 
-    if (StringUtils.isNotEmpty(deleteOptions.getPropagationPolicy())) {
+    if (!Strings.isNullOrEmpty(deleteOptions.getPropagationPolicy())) {
       throw new IllegalArgumentException(
           "Propagation policy is not yet supported as a delete option");
     }
@@ -177,7 +177,7 @@ public class KubectlJobExecutor {
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       String id;
-      if (StringUtils.isNotEmpty(name)) {
+      if (!Strings.isNullOrEmpty(name)) {
         id = kind + "/" + name;
       } else {
         id = labelSelectors.toString();
@@ -540,7 +540,7 @@ public class KubectlJobExecutor {
 
   private List<String> kubectlAuthPrefix(KubernetesV2Credentials credentials) {
     List<String> command = new ArrayList<>();
-    if (StringUtils.isNotEmpty(credentials.getKubectlExecutable())) {
+    if (!Strings.isNullOrEmpty(credentials.getKubectlExecutable())) {
       command.add(credentials.getKubectlExecutable());
     } else {
       command.add(executable);
@@ -562,12 +562,12 @@ public class KubectlJobExecutor {
       }
 
       String kubeconfigFile = credentials.getKubeconfigFile();
-      if (StringUtils.isNotEmpty(kubeconfigFile)) {
+      if (!Strings.isNullOrEmpty(kubeconfigFile)) {
         command.add("--kubeconfig=" + kubeconfigFile);
       }
 
       String context = credentials.getContext();
-      if (StringUtils.isNotEmpty(context)) {
+      if (!Strings.isNullOrEmpty(context)) {
         command.add("--context=" + context);
       }
     }
@@ -580,7 +580,7 @@ public class KubectlJobExecutor {
       KubernetesKind kind,
       String name,
       KubernetesSelectorList labelSelectors) {
-    if (StringUtils.isNotEmpty(name)) {
+    if (!Strings.isNullOrEmpty(name)) {
       command.add(kind + "/" + name);
     } else {
       command.add(kind.toString());
@@ -597,7 +597,7 @@ public class KubectlJobExecutor {
       KubernetesV2Credentials credentials, String namespace) {
     List<String> command = kubectlAuthPrefix(credentials);
 
-    if (StringUtils.isNotEmpty(namespace)) {
+    if (!Strings.isNullOrEmpty(namespace)) {
       command.add("--namespace=" + namespace);
     }
 
@@ -706,7 +706,7 @@ public class KubectlJobExecutor {
     }
 
     String mergeStrategy = options.getMergeStrategy().toString();
-    if (StringUtils.isNotEmpty(mergeStrategy)) {
+    if (!Strings.isNullOrEmpty(mergeStrategy)) {
       command.add("--type");
       command.add(mergeStrategy);
     }

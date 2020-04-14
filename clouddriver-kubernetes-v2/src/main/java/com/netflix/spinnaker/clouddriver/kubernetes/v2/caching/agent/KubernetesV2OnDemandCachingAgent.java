@@ -45,7 +45,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
@@ -295,7 +294,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
       return null;
     }
 
-    if (StringUtils.isNotEmpty(namespace) && !credentials.getKindProperties(kind).isNamespaced()) {
+    if (!Strings.isNullOrEmpty(namespace) && !credentials.getKindProperties(kind).isNamespaced()) {
       log.warn(
           "{}: Kind {} is not namespace but namespace {} was provided, ignoring",
           getAgentType(),
