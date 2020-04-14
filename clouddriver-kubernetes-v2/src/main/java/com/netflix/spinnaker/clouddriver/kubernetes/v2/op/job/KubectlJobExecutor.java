@@ -68,41 +68,6 @@ public class KubectlJobExecutor {
     this.oAuthExecutable = oAuthExecutable;
   }
 
-  private String configCurrentContext(KubernetesV2Credentials credentials) {
-    List<String> command = kubectlAuthPrefix(credentials);
-    command.add("config");
-    command.add("current-context");
-
-    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
-
-    if (status.getResult() != JobResult.Result.SUCCESS) {
-      throw new KubectlException("Failed get current configuration context");
-    }
-
-    return status.getOutput();
-  }
-
-  public String defaultNamespace(KubernetesV2Credentials credentials) {
-    String configCurrentContext = configCurrentContext(credentials);
-    if (Strings.isNullOrEmpty(configCurrentContext)) {
-      return "";
-    }
-
-    List<String> command = kubectlAuthPrefix(credentials);
-    command.add("config");
-    command.add("view");
-    command.add("-o");
-    String jsonPath = "{.contexts[?(@.name==\"" + configCurrentContext + "\")].context.namespace}";
-    command.add("\"jsonpath=" + jsonPath + "\"");
-
-    JobResult<String> status = jobExecutor.runJob(new JobRequest(command));
-
-    if (status.getResult() != JobResult.Result.SUCCESS) {
-      throw new KubectlException("Failed get current configuration context");
-    }
-    return status.getOutput();
-  }
-
   public String logs(
       KubernetesV2Credentials credentials, String namespace, String podName, String containerName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
