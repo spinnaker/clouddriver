@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collections;
 import java.util.List;
-import javax.validation.constraints.NotNull;
+import javax.annotation.Nonnull;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 
@@ -43,7 +43,7 @@ public class KubernetesSelector {
 
   @JsonCreator
   public KubernetesSelector(
-      @JsonProperty("kind") @NotNull Kind kind,
+      @JsonProperty("kind") @Nonnull Kind kind,
       @JsonProperty("key") String key,
       @JsonProperty("values") List<String> values) {
     if (StringUtils.isEmpty(key) && kind != Kind.ANY) {
