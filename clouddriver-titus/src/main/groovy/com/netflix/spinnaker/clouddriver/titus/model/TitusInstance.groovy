@@ -108,11 +108,11 @@ class TitusInstance implements Instance {
   }
 
   String getIpv4Address() {
-    ipv4Address
+    return ipv4Address
   }
 
   String getIpv6Address() {
-    ipv6Address
+    return ipv6Address
   }
 
   String getHostIp() {
