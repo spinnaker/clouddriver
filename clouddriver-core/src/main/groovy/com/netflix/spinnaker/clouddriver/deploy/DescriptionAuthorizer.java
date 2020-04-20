@@ -61,7 +61,7 @@ public class DescriptionAuthorizer<T> {
     this.fiatPermissionEvaluator = fiatPermissionEvaluator.orElse(null);
     this.opsSecurityConfigProps = opsSecurityConfigProps;
 
-    this.skipAuthorizationId = registry.createId("authorization.skip");
+    this.skipAuthorizationId = registry.createId("authorization.skipped");
     this.missingApplicationId = registry.createId("authorization.missingApplication");
     this.authorizationId = registry.createId("authorization");
   }
