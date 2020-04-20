@@ -41,7 +41,7 @@ class BasicAmazonDeployAtomicOperationConverter extends AbstractAtomicOperations
     def converted = objectMapper.convertValue(input, BasicAmazonDeployDescription)
     converted.credentials = getCredentialsObject(input.credentials as String)
 
-    if (converted.securityGroups) {
+    if (converted.securityGroups != null && !converted.securityGroups.isEmpty()) {
       for (Map.Entry<String, List<String>> entry : converted.availabilityZones) {
         String region = entry.key
 

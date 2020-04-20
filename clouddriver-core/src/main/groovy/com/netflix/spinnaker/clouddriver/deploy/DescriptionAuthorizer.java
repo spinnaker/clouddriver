@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
 import com.netflix.spinnaker.clouddriver.security.resources.ResourcesNameable;
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -116,10 +117,13 @@ public class DescriptionAuthorizer<T> {
                     "descriptionClass", description.getClass().getSimpleName()))
             .increment();
 
+        Collection<String> resourceNames =
+            Optional.ofNullable(resourcesNameable.getNames()).orElse(Collections.emptyList());
+
         log.info(
             "Skipping authorization for operation={}, resource names={}, resource applications={}",
             description.getClass().getSimpleName(),
-            resourcesNameable.getNames(),
+            resourceNames,
             resourcesNameable.getResourceApplications().toString());
       } else {
         applications.addAll(
