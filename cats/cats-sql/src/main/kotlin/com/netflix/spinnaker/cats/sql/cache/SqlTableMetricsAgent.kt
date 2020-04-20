@@ -4,18 +4,19 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.RunnableAgent
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
 import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider
+import com.netflix.spinnaker.clouddriver.sql.SqlAgent
+import java.time.Clock
+import java.util.concurrent.TimeUnit
 import org.jooq.DSLContext
 import org.jooq.impl.DSL.table
 import org.slf4j.LoggerFactory
-import java.time.Clock
-import java.util.concurrent.TimeUnit
 
 class SqlTableMetricsAgent(
   private val jooq: DSLContext,
   private val registry: Registry,
   private val clock: Clock,
   private val namespace: String?
-) : RunnableAgent, CustomScheduledAgent {
+) : RunnableAgent, CustomScheduledAgent, SqlAgent {
 
   companion object {
     private val DEFAULT_POLL_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(1)

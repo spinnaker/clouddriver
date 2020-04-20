@@ -16,60 +16,43 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.health;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
+import com.netflix.spectator.api.Registry;
+import com.netflix.spinnaker.clouddriver.core.AccountHealthIndicator;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.actuate.health.Health;
-import org.springframework.boot.actuate.health.HealthIndicator;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 
-@Component
-public class KubernetesHealthIndicator implements HealthIndicator {
+public class KubernetesHealthIndicator
+    extends AccountHealthIndicator<KubernetesNamedAccountCredentials> {
+  private static final String ID = "kubernetes";
   private final AccountCredentialsProvider accountCredentialsProvider;
-  private final AtomicReference<Map<String, String>> warningMessages = new AtomicReference<>(null);
 
   @Autowired
-  public KubernetesHealthIndicator(AccountCredentialsProvider accountCredentialsProvider) {
+  public KubernetesHealthIndicator(
+      Registry registry, AccountCredentialsProvider accountCredentialsProvider) {
+    super(ID, registry);
     this.accountCredentialsProvider = accountCredentialsProvider;
   }
 
   @Override
-  public Health health() {
-    Map<String, String> warnings = warningMessages.get();
-
-    Health.Builder resultBuilder = new Health.Builder().up();
-    warnings.forEach(resultBuilder::withDetail);
-
-    return resultBuilder.build();
+  protected ImmutableList<KubernetesNamedAccountCredentials> getAccounts() {
+    return accountCredentialsProvider.getAll().stream()
+        .filter(a -> a instanceof KubernetesNamedAccountCredentials)
+        .map(a -> (KubernetesNamedAccountCredentials) a)
+        .collect(toImmutableList());
   }
 
-  @Scheduled(fixedDelay = 300000L)
-  public void checkHealth() {
-    Map<String, String> warnings = new HashMap<>();
-
-    Set<KubernetesNamedAccountCredentials> kubernetesCredentialsSet =
-        accountCredentialsProvider.getAll().stream()
-            .filter(a -> a instanceof KubernetesNamedAccountCredentials)
-            .map(a -> (KubernetesNamedAccountCredentials) a)
-            .collect(Collectors.toSet());
-
-    for (KubernetesNamedAccountCredentials accountCredentials : kubernetesCredentialsSet) {
-      try {
-        KubernetesCredentials kubernetesCredentials = accountCredentials.getCredentials();
-        kubernetesCredentials.getDeclaredNamespaces();
-      } catch (Exception e) {
-        String accountName = String.format("kubernetes:%s", accountCredentials.getName());
-        warnings.put(accountName, e.getMessage());
-      }
+  @Override
+  protected Optional<String> accountHealth(KubernetesNamedAccountCredentials accountCredentials) {
+    try {
+      accountCredentials.getCredentials().getDeclaredNamespaces();
+      return Optional.empty();
+    } catch (RuntimeException e) {
+      return Optional.of(e.getMessage());
     }
-
-    warningMessages.set(warnings);
   }
 }

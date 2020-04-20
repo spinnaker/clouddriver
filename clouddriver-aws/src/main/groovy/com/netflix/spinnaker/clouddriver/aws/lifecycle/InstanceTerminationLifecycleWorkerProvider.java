@@ -16,8 +16,8 @@
 package com.netflix.spinnaker.clouddriver.aws.lifecycle;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.cats.thread.NamedThreadFactory;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.discovery.AwsEurekaSupport;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
@@ -76,8 +76,10 @@ public class InstanceTerminationLifecycleWorkerProvider {
     ExecutorService executorService =
         Executors.newFixedThreadPool(
             credentials.getRegions().size(),
-            new NamedThreadFactory(
-                InstanceTerminationLifecycleWorkerProvider.class.getSimpleName()));
+            new ThreadFactoryBuilder()
+                .setNameFormat(
+                    InstanceTerminationLifecycleWorkerProvider.class.getSimpleName() + "-%d")
+                .build());
 
     credentials
         .getRegions()

@@ -22,18 +22,19 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.Kuberne
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
-import io.kubernetes.client.models.V1Pod;
-import io.kubernetes.client.models.V1PodStatus;
+import io.kubernetes.client.openapi.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1PodStatus;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Getter;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -68,35 +69,52 @@ public class KubernetesPodHandler extends KubernetesHandler {
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    Status result = new Status();
     V1Pod pod = KubernetesCacheDataConverter.getResource(manifest, V1Pod.class);
     V1PodStatus status = pod.getStatus();
 
     if (status == null) {
-      result.unstable("No status reported yet").unavailable("No availability reported");
-      return result;
+      return Status.noneReported();
     }
 
+    PodPhase phase = PodPhase.fromString(status.getPhase());
+    if (phase.isUnstable()) {
+      return Status.defaultStatus().unstable(phase.getMessage()).unavailable(phase.getMessage());
+    }
+
+    return Status.defaultStatus();
+  }
+
+  private enum PodPhase {
     // https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
-    String phase = status.getPhase();
+    Pending(true, "Pod is pending"),
+    Running(false, ""),
+    Succeeded(false, ""),
+    Failed(true, "Pod has failed"),
+    Unknown(true, "Pod phase is unknown");
 
-    if (phase == null) {
-      result.unstable("No phase reported yet").unavailable("No availability reported");
-    } else if (phase.equals("pending")) {
-      result.unstable("Pod is 'pending'").unavailable("Pod has not been scheduled yet");
-    } else if (phase.equals("unknown")) {
-      result.unstable("Pod has 'unknown' phase").unavailable("No availability reported");
-    } else if (phase.equals("failed")) {
-      result.failed("Pod has 'failed'").unavailable("Pod is not running");
+    @Getter private String message;
+    @Getter private boolean unstable;
+
+    PodPhase(boolean unstable, String message) {
+      this.message = message;
+      this.unstable = unstable;
     }
 
-    return result;
+    static PodPhase fromString(@Nullable String phase) {
+      if (phase == null) {
+        return Unknown;
+      }
+      try {
+        return valueOf(phase);
+      } catch (IllegalArgumentException e) {
+        return Unknown;
+      }
+    }
   }
 
   @Override
-  public Map<String, Object> hydrateSearchResult(
-      Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
-    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
+  public Map<String, Object> hydrateSearchResult(InfrastructureCacheKey key) {
+    Map<String, Object> result = super.hydrateSearchResult(key);
     result.put("instanceId", result.get("name"));
 
     return result;

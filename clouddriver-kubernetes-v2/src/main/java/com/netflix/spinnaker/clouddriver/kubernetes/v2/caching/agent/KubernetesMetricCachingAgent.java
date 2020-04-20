@@ -20,6 +20,8 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.Kind.KUBERNETES_METRIC;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.AgentIntervalAware;
@@ -31,10 +33,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -48,9 +48,8 @@ public class KubernetesMetricCachingAgent extends KubernetesV2CachingAgent
   @Getter protected String providerName = KubernetesCloudProvider.ID;
 
   @Getter
-  protected Collection<AgentDataType> providedDataTypes =
-      Collections.unmodifiableCollection(
-          Collections.singletonList(AUTHORITATIVE.forType(KUBERNETES_METRIC.toString())));
+  protected ImmutableList<AgentDataType> providedDataTypes =
+      ImmutableList.of(AUTHORITATIVE.forType(KUBERNETES_METRIC.toString()));
 
   protected KubernetesMetricCachingAgent(
       KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
@@ -63,39 +62,21 @@ public class KubernetesMetricCachingAgent extends KubernetesV2CachingAgent
   }
 
   @Override
-  protected List<KubernetesKind> primaryKinds() {
-    return Collections.emptyList();
+  protected ImmutableList<KubernetesKind> primaryKinds() {
+    return ImmutableList.of();
   }
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
     if (!credentials.isMetricsEnabled()) {
-      return new DefaultCacheResult(Collections.emptyMap());
+      return new DefaultCacheResult(ImmutableMap.of());
     }
 
     log.info(getAgentType() + ": agent is starting");
     List<KubernetesPodMetric> podMetrics =
         getNamespaces()
             .parallelStream()
-            .map(
-                n -> {
-                  try {
-                    return credentials.topPod(n, null);
-                  } catch (KubectlJobExecutor.KubectlException e) {
-                    if (e.getMessage().contains("not available")) {
-                      log.warn(
-                          "{}: Metrics for namespace '"
-                              + n
-                              + "' in account '"
-                              + accountName
-                              + "' have not been recorded yet.",
-                          getAgentType());
-                      return Collections.<KubernetesPodMetric>emptyList();
-                    } else {
-                      throw e;
-                    }
-                  }
-                })
+            .map(n -> credentials.topPod(n, null))
             .flatMap(Collection::stream)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());

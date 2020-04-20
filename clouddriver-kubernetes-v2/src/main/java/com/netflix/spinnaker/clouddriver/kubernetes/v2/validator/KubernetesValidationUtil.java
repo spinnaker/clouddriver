@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.validator;
 
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
@@ -28,7 +30,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.validation.Errors;
 
 @Slf4j
@@ -73,7 +74,7 @@ public class KubernetesValidationUtil {
   }
 
   private boolean validateNotEmpty(String attribute, String value) {
-    if (StringUtils.isEmpty(value)) {
+    if (Strings.isNullOrEmpty(value)) {
       reject("empty", attribute);
       return false;
     }
@@ -98,7 +99,7 @@ public class KubernetesValidationUtil {
       return false;
     }
 
-    if (StringUtils.isEmpty(namespace)) {
+    if (Strings.isNullOrEmpty(namespace)) {
       return true;
     }
 
@@ -124,17 +125,18 @@ public class KubernetesValidationUtil {
     return true;
   }
 
+  // When validating a kind, we'll allow kinds that are either valid or unknown. This is to support
+  // the case where a user is deploying a multi-manifest (perhaps from a Helm chart) that contains
+  // a CRD and an object using that CRD.
+  private static final ImmutableSet<KubernetesKindStatus> validKindStatuses =
+      ImmutableSet.of(KubernetesKindStatus.VALID, KubernetesKindStatus.UNKNOWN);
+
   private boolean validateKind(KubernetesKind kind, KubernetesV2Credentials credentials) {
-    if (!credentials.isValidKind(kind)) {
-      KubernetesKindStatus kindStatus = credentials.getKindStatus(kind);
-      if (kindStatus != KubernetesKindStatus.VALID) {
-        reject(kindStatus.getErrorMessage(kind), kind.toString());
-      } else {
-        reject("notValidKind", kind.toString());
-      }
+    KubernetesKindStatus kindStatus = credentials.getKindStatus(kind);
+    if (!validKindStatuses.contains(kindStatus)) {
+      reject(kindStatus.getErrorMessage(kind), kind.toString());
       return false;
     }
-
     return true;
   }
 

@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentIntervalAware;
@@ -36,10 +37,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties.ResourceScope;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor.KubectlException;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,17 +82,7 @@ public abstract class KubernetesV2CachingAgent
   private ImmutableList<KubernetesManifest> loadResources(
       @Nonnull Iterable<KubernetesKind> kubernetesKinds, Optional<String> optionalNamespace) {
     String namespace = optionalNamespace.orElse(null);
-    try {
-      return credentials.list(ImmutableList.copyOf(kubernetesKinds), namespace);
-    } catch (KubectlException e) {
-      log.warn(
-          "{}: Failed to read kind {} from namespace {}: {}",
-          getAgentType(),
-          kubernetesKinds,
-          namespace,
-          e.getMessage());
-      throw e;
-    }
+    return credentials.list(ImmutableList.copyOf(kubernetesKinds), namespace);
   }
 
   @Nonnull
@@ -120,8 +109,7 @@ public abstract class KubernetesV2CachingAgent
     return primaryKinds().stream()
         .collect(
             ImmutableSetMultimap.toImmutableSetMultimap(
-                k -> credentials.getKindRegistry().getKindProperties(k).getResourceScope(),
-                Function.identity()));
+                k -> credentials.getKindProperties(k).getResourceScope(), Function.identity()));
   }
 
   protected Map<KubernetesKind, List<KubernetesManifest>> loadPrimaryResourceList() {
@@ -172,21 +160,14 @@ public abstract class KubernetesV2CachingAgent
     log.info(getAgentType() + ": agent is starting");
     Map<String, Object> details = defaultIntrospectionDetails();
 
-    try {
-      long start = System.currentTimeMillis();
-      Map<KubernetesKind, List<KubernetesManifest>> primaryResourceList = loadPrimaryResourceList();
-      details.put("timeSpentInKubectlMs", System.currentTimeMillis() - start);
-      return buildCacheResult(primaryResourceList);
-    } catch (KubectlJobExecutor.NoResourceTypeException e) {
-      log.warn(
-          getAgentType() + ": resource for this caching agent is not supported for this cluster");
-      return new DefaultCacheResult(new HashMap<>());
-    }
+    long start = System.currentTimeMillis();
+    Map<KubernetesKind, List<KubernetesManifest>> primaryResourceList = loadPrimaryResourceList();
+    details.put("timeSpentInKubectlMs", System.currentTimeMillis() - start);
+    return buildCacheResult(primaryResourceList);
   }
 
   protected CacheResult buildCacheResult(KubernetesManifest resource) {
-    return buildCacheResult(
-        Collections.singletonMap(resource.getKind(), Collections.singletonList(resource)));
+    return buildCacheResult(ImmutableMap.of(resource.getKind(), ImmutableList.of(resource)));
   }
 
   protected CacheResult buildCacheResult(Map<KubernetesKind, List<KubernetesManifest>> resources) {
@@ -203,7 +184,7 @@ public abstract class KubernetesV2CachingAgent
                 KubernetesCacheDataConverter.convertAsResource(
                     kubernetesCacheData,
                     accountName,
-                    credentials.getKindRegistry(),
+                    credentials.getKindProperties(rs.getKind()),
                     rs,
                     relationships.get(rs),
                     credentials.isOnlySpinnakerManaged());

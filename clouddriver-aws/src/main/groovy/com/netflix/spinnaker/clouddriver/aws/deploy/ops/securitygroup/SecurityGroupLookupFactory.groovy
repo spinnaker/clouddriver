@@ -20,12 +20,17 @@ import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.AuthorizeSecurityGroupIngressRequest
 import com.amazonaws.services.ec2.model.CreateSecurityGroupRequest
 import com.amazonaws.services.ec2.model.CreateTagsRequest
+import com.amazonaws.services.ec2.model.DeleteTagsRequest
 import com.amazonaws.services.ec2.model.DescribeSecurityGroupsRequest
+import com.amazonaws.services.ec2.model.DescribeTagsRequest
 import com.amazonaws.services.ec2.model.Filter
 import com.amazonaws.services.ec2.model.IpPermission
 import com.amazonaws.services.ec2.model.RevokeSecurityGroupIngressRequest
 import com.amazonaws.services.ec2.model.SecurityGroup
 import com.amazonaws.services.ec2.model.Tag
+import com.amazonaws.services.ec2.model.DescribeTagsResult
+import com.amazonaws.services.ec2.model.TagDescription
+import com.amazonaws.services.ec2.model.UpdateSecurityGroupRuleDescriptionsIngressRequest
 import com.google.common.collect.ImmutableSet
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.UpsertSecurityGroupDescription
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
@@ -234,6 +239,7 @@ class SecurityGroupLookupFactory {
   static class SecurityGroupUpdater {
     final SecurityGroup securityGroup
     private final AmazonEC2 amazonEC2
+    private final Logger log = LoggerFactory.getLogger(getClass())
 
     SecurityGroup getSecurityGroup() {
       securityGroup
@@ -242,6 +248,13 @@ class SecurityGroupLookupFactory {
     SecurityGroupUpdater(SecurityGroup securityGroup, AmazonEC2 amazonEC2) {
       this.securityGroup = securityGroup
       this.amazonEC2 = amazonEC2
+    }
+
+    void updateIngress(List<IpPermission> ipPermissionsToUpdate) {
+      amazonEC2.updateSecurityGroupRuleDescriptionsIngress(new UpdateSecurityGroupRuleDescriptionsIngressRequest(
+        groupId: securityGroup.groupId,
+        ipPermissions: ipPermissionsToUpdate
+      ))
     }
 
     void addIngress(List<IpPermission> ipPermissionsToAdd) {
@@ -258,6 +271,45 @@ class SecurityGroupLookupFactory {
         ipPermissions: ipPermissionsToRemove
       ))
       securityGroup.ipPermissions.removeAll(ipPermissionsToRemove)
+    }
+
+    void updateTags(UpsertSecurityGroupDescription description) {
+      String groupId = securityGroup.groupId
+      try {
+
+        //fetch -> delete -> create new tags to ensure they are consistent
+        DescribeTagsRequest describeTagsRequest = new DescribeTagsRequest().withFilters(
+          new Filter("resource-id", [groupId])
+        )
+        DescribeTagsResult tagsResult = amazonEC2.describeTags(describeTagsRequest)
+        List<TagDescription> tags1 = tagsResult.getTags()
+        Collection<Tag> oldTags = new HashSet()
+        tags1.each {
+          it -> oldTags.add(new Tag(it.key, it.value))
+        }
+
+        DeleteTagsRequest deleteTagsRequest = new DeleteTagsRequest()
+          .withResources(groupId)
+          .withTags(oldTags)
+        amazonEC2.deleteTags(deleteTagsRequest)
+
+        CreateTagsRequest createTagRequest = new CreateTagsRequest()
+        Collection<Tag> tags = new HashSet()
+        tags.add(new Tag("Name", description.name))
+        description.tags.each {
+          entry -> tags.add(new Tag(entry.key, entry.value))
+        }
+        createTagRequest.withResources(groupId).withTags(tags)
+        amazonEC2.createTags(createTagRequest)
+
+      } catch (Exception e) {
+        log.error(
+          "Unable to update tags for security group (groupName: {}, groupId: {})",
+          description.name,
+          groupId,
+          e
+        )
+      }
     }
 
   }

@@ -23,16 +23,19 @@ import static java.lang.Math.toIntExact;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.CacheKey;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.ClusterCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesCachingProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer;
@@ -40,14 +43,14 @@ import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
-import io.kubernetes.client.JSON;
+import io.kubernetes.client.openapi.JSON;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 public class KubernetesCacheDataConverter {
@@ -154,7 +157,7 @@ public class KubernetesCacheDataConverter {
   public static void convertAsResource(
       KubernetesCacheData kubernetesCacheData,
       String account,
-      KubernetesKindRegistry kindRegistry,
+      @Nonnull KubernetesKindProperties kindProperties,
       KubernetesManifest manifest,
       List<KubernetesManifest> resourceRelationships,
       boolean onlySpinnakerManaged) {
@@ -164,12 +167,12 @@ public class KubernetesCacheDataConverter {
       return;
     }
 
-    if (onlySpinnakerManaged && StringUtils.isEmpty(cachingProperties.getApplication())) {
+    if (onlySpinnakerManaged && Strings.isNullOrEmpty(cachingProperties.getApplication())) {
       return;
     }
 
     logMalformedManifest(
-        () -> "Converting " + manifest + " to a cached resource", manifest, kindRegistry);
+        () -> "Converting " + manifest + " to a cached resource", manifest, kindProperties);
 
     KubernetesKind kind = manifest.getKind();
 
@@ -201,14 +204,14 @@ public class KubernetesCacheDataConverter {
     kubernetesCacheData.addItem(key, attributes);
 
     String application = moniker.getApp();
-    if (StringUtils.isEmpty(application)) {
+    if (Strings.isNullOrEmpty(application)) {
       log.debug(
           "Encountered not-spinnaker-owned resource "
               + namespace
               + ":"
               + manifest.getFullResourceName());
     } else {
-      if (kindRegistry.getKindProperties(kind).hasClusterRelationship()) {
+      if (kindProperties.hasClusterRelationship()) {
         addLogicalRelationships(kubernetesCacheData, key, account, moniker);
       }
     }
@@ -266,8 +269,8 @@ public class KubernetesCacheDataConverter {
     kubernetesCacheData.addRelationship(infrastructureKey, applicationKey);
 
     String cluster = moniker.getCluster();
-    if (StringUtils.isNotEmpty(cluster)) {
-      Keys.CacheKey clusterKey = new Keys.ClusterCacheKey(account, application, cluster);
+    if (!Strings.isNullOrEmpty(cluster)) {
+      CacheKey clusterKey = new ClusterCacheKey(account, application, cluster);
       kubernetesCacheData.addRelationship(infrastructureKey, clusterKey);
       kubernetesCacheData.addRelationship(applicationKey, clusterKey);
     }
@@ -309,22 +312,17 @@ public class KubernetesCacheDataConverter {
   private static void logMalformedManifest(
       Supplier<String> contextMessage,
       KubernetesManifest manifest,
-      KubernetesKindRegistry kindRegistry) {
+      @Nonnull KubernetesKindProperties kindProperties) {
     if (manifest == null) {
       log.warn("{}: manifest may not be null", contextMessage.get());
       return;
     }
 
-    if (manifest.getKind() == null) {
-      log.warn("{}: manifest kind may not be null, {}", contextMessage.get(), manifest);
-    }
-
-    if (StringUtils.isEmpty(manifest.getName())) {
+    if (Strings.isNullOrEmpty(manifest.getName())) {
       log.warn("{}: manifest name may not be null, {}", contextMessage.get(), manifest);
     }
 
-    if (StringUtils.isEmpty(manifest.getNamespace())
-        && kindRegistry.getKindProperties(manifest.getKind()).isNamespaced()) {
+    if (Strings.isNullOrEmpty(manifest.getNamespace()) && kindProperties.isNamespaced()) {
       log.warn("{}: manifest namespace may not be null, {}", contextMessage.get(), manifest);
     }
   }

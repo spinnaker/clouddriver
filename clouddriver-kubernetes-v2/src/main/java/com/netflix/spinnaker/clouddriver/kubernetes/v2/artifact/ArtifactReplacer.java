@@ -22,6 +22,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.jayway.jsonpath.Configuration;
@@ -33,13 +34,12 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.Kube
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 
 @ParametersAreNonnullByDefault
 @Slf4j
@@ -65,7 +65,7 @@ public class ArtifactReplacer {
         .filter(
             a -> {
               String type = a.getType();
-              if (StringUtils.isEmpty(type)) {
+              if (Strings.isNullOrEmpty(type)) {
                 log.warn("Artifact {} without a type, ignoring", a);
                 return false;
               }
@@ -76,22 +76,31 @@ public class ArtifactReplacer {
 
               boolean locationMatches;
               String location = a.getLocation();
-              if (StringUtils.isEmpty(location)) {
-                locationMatches = StringUtils.isEmpty(namespace);
+              if (Strings.isNullOrEmpty(location)) {
+                locationMatches = Strings.isNullOrEmpty(namespace);
               } else {
                 locationMatches = location.equals(namespace);
               }
 
               boolean accountMatches;
-              String artifactAccount = KubernetesArtifactConverter.getAccount(a);
+              String artifactAccount = getAccount(a);
               // If the artifact fails to provide an account, we'll assume this was unintentional
               // and match anyways
               accountMatches =
-                  StringUtils.isEmpty(artifactAccount) || artifactAccount.equals(account);
+                  Strings.isNullOrEmpty(artifactAccount) || artifactAccount.equals(account);
 
               return accountMatches && locationMatches;
             })
         .collect(toImmutableList());
+  }
+
+  private static String getAccount(Artifact artifact) {
+    String account = "";
+    Map<String, Object> metadata = artifact.getMetadata();
+    if (metadata != null) {
+      account = (String) metadata.getOrDefault("account", "");
+    }
+    return account;
   }
 
   @Nonnull
@@ -145,7 +154,7 @@ public class ArtifactReplacer {
                     input.getFullResourceName(),
                     r,
                     e);
-                return Collections.<Artifact>emptyList();
+                return ImmutableList.<Artifact>of();
               }
             })
         .flatMap(Collection::stream)

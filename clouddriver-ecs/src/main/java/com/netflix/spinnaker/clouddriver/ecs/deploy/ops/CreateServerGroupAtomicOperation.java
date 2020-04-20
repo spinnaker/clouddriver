@@ -23,6 +23,7 @@ import com.amazonaws.services.applicationautoscaling.model.RegisterScalableTarge
 import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
 import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
 import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
+import com.amazonaws.services.applicationautoscaling.model.SuspendedState;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.AwsVpcConfiguration;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
@@ -49,6 +50,7 @@ import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
 import com.amazonaws.services.identitymanagement.model.GetRoleRequest;
 import com.amazonaws.services.identitymanagement.model.GetRoleResult;
 import com.amazonaws.services.identitymanagement.model.Role;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
@@ -74,6 +76,7 @@ import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +85,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class CreateServerGroupAtomicOperation
@@ -98,6 +103,11 @@ public class CreateServerGroupAtomicOperation
   protected static final String DOCKER_LABEL_KEY_STACK = "spinnaker.stack";
   protected static final String DOCKER_LABEL_KEY_DETAIL = "spinnaker.detail";
 
+  protected ObjectMapper mapper =
+      new ObjectMapper().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+
+  private final Logger log = LoggerFactory.getLogger(getClass());
+
   @Autowired EcsCloudMetricService ecsCloudMetricService;
   @Autowired IamPolicyReader iamPolicyReader;
 
@@ -106,8 +116,6 @@ public class CreateServerGroupAtomicOperation
   @Autowired SecurityGroupSelector securityGroupSelector;
 
   @Autowired ArtifactDownloader artifactDownloader;
-
-  @Autowired ObjectMapper mapper;
 
   public CreateServerGroupAtomicOperation(CreateServerGroupDescription description) {
     super(description, "CREATE_ECS_SERVER_GROUP");
@@ -139,8 +147,7 @@ public class CreateServerGroupAtomicOperation
     TaskDefinition taskDefinition = registerTaskDefinition(ecs, ecsServiceRole, newServerGroupName);
     updateTaskStatus("Done creating Amazon ECS Task Definition...");
 
-    Service service =
-        createService(ecs, taskDefinition, ecsServiceRole, newServerGroupName, sourceService);
+    Service service = createService(ecs, taskDefinition, newServerGroupName, sourceService);
 
     String resourceId = registerAutoScalingGroup(credentials, service, sourceTarget);
 
@@ -201,9 +208,10 @@ public class CreateServerGroupAtomicOperation
             .withMemoryReservation(description.getReservedMemory())
             .withImage(description.getDockerImageAddress());
 
-    Collection<PortMapping> portMappings = new LinkedList<>();
+    Set<PortMapping> portMappings = new HashSet<>();
 
-    if (description.getContainerPort() != null) {
+    if (!StringUtils.isEmpty(description.getTargetGroup())
+        && description.getContainerPort() != null) {
       PortMapping portMapping =
           new PortMapping()
               .withProtocol(
@@ -219,6 +227,27 @@ public class CreateServerGroupAtomicOperation
       }
 
       portMappings.add(portMapping);
+    }
+
+    if (description.getTargetGroupMappings() != null) {
+      for (CreateServerGroupDescription.TargetGroupProperties properties :
+          description.getTargetGroupMappings()) {
+        PortMapping portMapping =
+            new PortMapping()
+                .withProtocol(
+                    description.getPortProtocol() != null ? description.getPortProtocol() : "tcp");
+
+        if (AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())
+            || HOST_NETWORK_MODE.equals(description.getNetworkMode())) {
+          portMapping
+              .withHostPort(properties.getContainerPort())
+              .withContainerPort(properties.getContainerPort());
+        } else {
+          portMapping.withHostPort(0).withContainerPort(properties.getContainerPort());
+        }
+
+        portMappings.add(portMapping);
+      }
     }
 
     if (description.getServiceDiscoveryAssociations() != null) {
@@ -240,6 +269,7 @@ public class CreateServerGroupAtomicOperation
       }
     }
 
+    log.debug("The container port mappings are: {}", portMappings);
     containerDefinition.setPortMappings(portMappings);
 
     if (!NO_IMAGE_CREDENTIALS.equals(description.getDockerImageCredentialsSecret())
@@ -280,8 +310,7 @@ public class CreateServerGroupAtomicOperation
     }
 
     if (!NO_IAM_ROLE.equals(description.getIamRole()) && description.getIamRole() != null) {
-      checkRoleTrustRelations(description.getIamRole());
-      request.setTaskRoleArn(description.getIamRole());
+      request.setTaskRoleArn(checkRoleTrustRelations(description.getIamRole()).getRole().getArn());
     }
 
     if (!StringUtils.isEmpty(description.getLaunchType())) {
@@ -400,7 +429,6 @@ public class CreateServerGroupAtomicOperation
   private Service createService(
       AmazonECS ecs,
       TaskDefinition taskDefinition,
-      String ecsServiceRole,
       String newServerGroupName,
       Service sourceService) {
 
@@ -415,12 +443,14 @@ public class CreateServerGroupAtomicOperation
     }
 
     CreateServiceRequest request =
-        makeServiceRequest(taskDefinitionArn, ecsServiceRole, newServerGroupName, desiredCount);
+        makeServiceRequest(taskDefinitionArn, newServerGroupName, desiredCount);
 
     updateTaskStatus(
         String.format(
             "Creating %s of %s with %s for %s.",
             desiredCount, newServerGroupName, taskDefinitionArn, description.getAccount()));
+
+    log.debug("CreateServiceRequest being made is: {}", request.toString());
 
     Service service = ecs.createService(request).getService();
 
@@ -433,10 +463,7 @@ public class CreateServerGroupAtomicOperation
   }
 
   protected CreateServiceRequest makeServiceRequest(
-      String taskDefinitionArn,
-      String ecsServiceRole,
-      String newServerGroupName,
-      Integer desiredCount) {
+      String taskDefinitionArn, String newServerGroupName, Integer desiredCount) {
     Collection<LoadBalancer> loadBalancers =
         retrieveLoadBalancers(EcsServerGroupNameResolver.getEcsContainerName(newServerGroupName));
 
@@ -485,18 +512,13 @@ public class CreateServerGroupAtomicOperation
       request.withTags(taskDefTags).withEnableECSManagedTags(true).withPropagateTags("SERVICE");
     }
 
-    // Load balancer management role:
-    // N/A for non-load-balanced services
-    // Services using awsvpc mode must not specify a role in order to use the
-    // ECS service-linked role
-    if (!AWSVPC_NETWORK_MODE.equals(description.getNetworkMode()) && !loadBalancers.isEmpty()) {
-      request.withRole(ecsServiceRole);
-    }
-
     if (AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
       Collection<String> subnetIds =
           subnetSelector.resolveSubnetsIds(
-              description.getAccount(), description.getRegion(), description.getSubnetType());
+              description.getAccount(),
+              description.getRegion(),
+              description.getAvailabilityZones().get(description.getRegion()),
+              description.getSubnetType());
       Collection<String> vpcIds =
           subnetSelector.getSubnetVpcIds(
               description.getAccount(), description.getRegion(), subnetIds);
@@ -538,7 +560,6 @@ public class CreateServerGroupAtomicOperation
       AmazonCredentials credentials, Service service, ScalableTarget sourceTarget) {
 
     AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
-    String assumedRoleArn = inferAssumedRoleArn(credentials);
 
     Integer min = description.getCapacity().getMin();
     Integer max = description.getCapacity().getMax();
@@ -558,9 +579,13 @@ public class CreateServerGroupAtomicOperation
             .withResourceId(
                 String.format(
                     "service/%s/%s", description.getEcsClusterName(), service.getServiceName()))
-            .withRoleARN(assumedRoleArn)
             .withMinCapacity(min)
-            .withMaxCapacity(max);
+            .withMaxCapacity(max)
+            .withSuspendedState(
+                new SuspendedState()
+                    .withDynamicScalingInSuspended(false)
+                    .withDynamicScalingOutSuspended(false)
+                    .withScheduledScalingSuspended(false));
 
     updateTaskStatus("Creating Amazon Application Auto Scaling Scalable Target Definition...");
     // ECS DescribeService is eventually consistent, so sometimes RegisterScalableTarget will
@@ -642,7 +667,7 @@ public class CreateServerGroupAtomicOperation
     return String.format("arn:aws:iam::%s:%s", credentials.getAccountId(), role);
   }
 
-  private void checkRoleTrustRelations(String roleName) {
+  private GetRoleResult checkRoleTrustRelations(String roleName) {
     updateTaskStatus("Checking role trust relations for: " + roleName);
     AmazonIdentityManagement iamClient = getAmazonIdentityManagementClient();
 
@@ -664,6 +689,7 @@ public class CreateServerGroupAtomicOperation
               + roleName
               + " role does not have a trust relationship to ecs-tasks.amazonaws.com.");
     }
+    return response;
   }
 
   private DeploymentResult makeDeploymentResult(Service service) {
@@ -677,21 +703,46 @@ public class CreateServerGroupAtomicOperation
   }
 
   private Collection<LoadBalancer> retrieveLoadBalancers(String containerName) {
-    Collection<LoadBalancer> loadBalancers = new LinkedList<>();
-    if (description.getTargetGroup() != null && !description.getTargetGroup().isEmpty()) {
-      LoadBalancer loadBalancer = new LoadBalancer();
+    Set<LoadBalancer> loadBalancers = new HashSet<>();
+    Set<CreateServerGroupDescription.TargetGroupProperties> targetGroupMappings = new HashSet<>();
+
+    if (description.getTargetGroupMappings() != null
+        && !description.getTargetGroupMappings().isEmpty()) {
+      targetGroupMappings.addAll(description.getTargetGroupMappings());
+    }
+
+    if (StringUtils.isNotBlank(description.getTargetGroup())) {
+      CreateServerGroupDescription.TargetGroupProperties targetGroupMapping =
+          new CreateServerGroupDescription.TargetGroupProperties();
+
       String containerToUse =
-          description.getLoadBalancedContainer() != null
-                  && !description.getLoadBalancedContainer().isEmpty()
+          StringUtils.isNotBlank(description.getLoadBalancedContainer())
               ? description.getLoadBalancedContainer()
               : containerName;
+
+      targetGroupMapping.setContainerName(containerToUse);
+      targetGroupMapping.setContainerPort(description.getContainerPort());
+      targetGroupMapping.setTargetGroup(description.getTargetGroup());
+
+      targetGroupMappings.add(targetGroupMapping);
+    }
+
+    for (CreateServerGroupDescription.TargetGroupProperties targetGroupAssociation :
+        targetGroupMappings) {
+      LoadBalancer loadBalancer = new LoadBalancer();
+
+      String containerToUse =
+          StringUtils.isNotBlank(targetGroupAssociation.getContainerName())
+              ? targetGroupAssociation.getContainerName()
+              : containerName;
+
       loadBalancer.setContainerName(containerToUse);
-      loadBalancer.setContainerPort(description.getContainerPort());
+      loadBalancer.setContainerPort(targetGroupAssociation.getContainerPort());
 
       AmazonElasticLoadBalancing loadBalancingV2 = getAmazonElasticLoadBalancingClient();
 
       DescribeTargetGroupsRequest request =
-          new DescribeTargetGroupsRequest().withNames(description.getTargetGroup());
+          new DescribeTargetGroupsRequest().withNames(targetGroupAssociation.getTargetGroup());
       DescribeTargetGroupsResult describeTargetGroupsResult =
           loadBalancingV2.describeTargetGroups(request);
 
@@ -700,14 +751,19 @@ public class CreateServerGroupAtomicOperation
             describeTargetGroupsResult.getTargetGroups().get(0).getTargetGroupArn());
       } else if (describeTargetGroupsResult.getTargetGroups().size() > 1) {
         throw new IllegalArgumentException(
-            "There are multiple target groups with the name " + description.getTargetGroup() + ".");
+            "There are multiple target groups with the name "
+                + targetGroupAssociation.getTargetGroup()
+                + ".");
       } else {
         throw new IllegalArgumentException(
-            "There is no target group with the name " + description.getTargetGroup() + ".");
+            "There is no target group with the name "
+                + targetGroupAssociation.getTargetGroup()
+                + ".");
       }
 
       loadBalancers.add(loadBalancer);
     }
+
     return loadBalancers;
   }
 

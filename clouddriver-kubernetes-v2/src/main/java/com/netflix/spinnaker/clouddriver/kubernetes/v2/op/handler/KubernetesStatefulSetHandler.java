@@ -21,28 +21,29 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manife
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind.STATEFUL_SET;
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.Replacer;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesCoreCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.view.provider.KubernetesCacheUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
-import io.kubernetes.client.models.V1beta2RollingUpdateStatefulSetStrategy;
-import io.kubernetes.client.models.V1beta2StatefulSet;
-import io.kubernetes.client.models.V1beta2StatefulSetStatus;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import io.kubernetes.client.openapi.models.V1beta2RollingUpdateStatefulSetStrategy;
+import io.kubernetes.client.openapi.models.V1beta2StatefulSet;
+import io.kubernetes.client.openapi.models.V1beta2StatefulSetStatus;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.apache.commons.lang3.StringUtils;
+import javax.annotation.Nullable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -96,9 +97,6 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    if (manifest.isNewerThanObservedGeneration()) {
-      return (new Status()).unknown();
-    }
     V1beta2StatefulSet v1beta2StatefulSet =
         KubernetesCacheDataConverter.getResource(manifest, V1beta2StatefulSet.class);
     return status(v1beta2StatefulSet);
@@ -111,36 +109,37 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
   }
 
   @Override
-  public Map<String, Object> hydrateSearchResult(
-      Keys.InfrastructureCacheKey key, KubernetesCacheUtils cacheUtils) {
-    Map<String, Object> result = super.hydrateSearchResult(key, cacheUtils);
+  public Map<String, Object> hydrateSearchResult(InfrastructureCacheKey key) {
+    Map<String, Object> result = super.hydrateSearchResult(key);
     result.put("serverGroup", result.get("name"));
 
     return result;
   }
 
   private Status status(V1beta2StatefulSet statefulSet) {
-    Status result = new Status();
-
     if (statefulSet.getSpec().getUpdateStrategy().getType().equalsIgnoreCase("ondelete")) {
-      return result;
+      return Status.defaultStatus();
     }
 
     V1beta2StatefulSetStatus status = statefulSet.getStatus();
     if (status == null) {
-      result.unstable("No status reported yet").unavailable("No availability reported");
-      return result;
+      return Status.noneReported();
     }
 
-    Integer desiredReplicas = statefulSet.getSpec().getReplicas();
-    Integer existing = status.getReplicas();
-    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
-      return result.unstable("Waiting for at least the desired replica count to be met");
+    if (!generationMatches(statefulSet, status)) {
+      return Status.defaultStatus().unstable(UnstableReason.OLD_GENERATION.getMessage());
     }
 
-    existing = status.getReadyReplicas();
-    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
-      return result.unstable("Waiting for all updated replicas to be ready");
+    int desiredReplicas = defaultToZero(statefulSet.getSpec().getReplicas());
+    int existing = defaultToZero(status.getReplicas());
+    if (desiredReplicas > existing) {
+      return Status.defaultStatus()
+          .unstable("Waiting for at least the desired replica count to be met");
+    }
+
+    existing = defaultToZero(status.getReadyReplicas());
+    if (desiredReplicas > existing) {
+      return Status.defaultStatus().unstable("Waiting for all updated replicas to be ready");
     }
 
     String updateType = statefulSet.getSpec().getUpdateStrategy().getType();
@@ -153,22 +152,36 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
       Integer partition = rollingUpdate.getPartition();
       Integer replicas = status.getReplicas();
       if (replicas != null && partition != null && (updated < (replicas - partition))) {
-        return result.unstable("Waiting for partitioned roll out to finish");
+        return Status.defaultStatus().unstable("Waiting for partitioned roll out to finish");
       }
-      result.setStable(new Status.Condition(true, "Partitioned roll out complete"));
-      return result;
+      return Status.defaultStatus().stable("Partitioned roll out complete");
     }
 
-    existing = status.getCurrentReplicas();
-    if (existing == null || (desiredReplicas != null && desiredReplicas > existing)) {
-      return result.unstable("Waiting for all updated replicas to be scheduled");
+    existing = defaultToZero(status.getCurrentReplicas());
+    if (desiredReplicas > existing) {
+      return Status.defaultStatus().unstable("Waiting for all updated replicas to be scheduled");
     }
 
     if (!status.getCurrentRevision().equals(status.getUpdateRevision())) {
-      return result.unstable("Waiting for the updated revision to match the current revision");
+      return Status.defaultStatus()
+          .unstable("Waiting for the updated revision to match the current revision");
     }
 
-    return result;
+    return Status.defaultStatus();
+  }
+
+  private boolean generationMatches(
+      V1beta2StatefulSet statefulSet, V1beta2StatefulSetStatus status) {
+    Optional<Long> metadataGeneration =
+        Optional.ofNullable(statefulSet.getMetadata()).map(V1ObjectMeta::getGeneration);
+    Optional<Long> statusGeneration = Optional.ofNullable(status.getObservedGeneration());
+
+    return statusGeneration.isPresent() && statusGeneration.equals(metadataGeneration);
+  }
+
+  // Unboxes an Integer, returning 0 if the input is null
+  private static int defaultToZero(@Nullable Integer input) {
+    return input == null ? 0 : input;
   }
 
   @Override
@@ -185,7 +198,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
 
     for (KubernetesManifest manifest : allResources.getOrDefault(STATEFUL_SET, new ArrayList<>())) {
       String serviceName = KubernetesStatefulSetHandler.serviceName(manifest);
-      if (StringUtils.isEmpty(serviceName)) {
+      if (Strings.isNullOrEmpty(serviceName)) {
         continue;
       }
 
@@ -196,7 +209,7 @@ public class KubernetesStatefulSetHandler extends KubernetesHandler
       }
 
       KubernetesManifest service = services.get(key);
-      relationshipMap.put(manifest, Collections.singletonList(service));
+      relationshipMap.put(manifest, ImmutableList.of(service));
     }
   }
 }

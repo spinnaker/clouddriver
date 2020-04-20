@@ -46,7 +46,8 @@ class ApplicationsTest {
   private ApplicationService applicationService = mock(ApplicationService.class);
   private Spaces spaces = mock(Spaces.class);
   private Applications apps =
-      new Applications("pws", "some-apps-man-uri", "some-metrics-uri", applicationService, spaces);
+      new Applications(
+          "pws", "some-apps-man-uri", "some-metrics-uri", applicationService, spaces, 500, 16);
   private String spaceId = "space-guid";
   private CloudFoundrySpace cloudFoundrySpace =
       CloudFoundrySpace.builder()
@@ -65,7 +66,9 @@ class ApplicationsTest {
             "api.run.pivotal.io",
             "baduser",
             "badpassword",
-            false);
+            false,
+            500,
+            16);
 
     assertThatThrownBy(() -> client.getApplications().all())
         .isInstanceOf(CloudFoundryApiException.class);

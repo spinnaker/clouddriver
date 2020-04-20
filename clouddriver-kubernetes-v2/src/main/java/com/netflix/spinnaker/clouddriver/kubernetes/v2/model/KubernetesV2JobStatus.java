@@ -17,15 +17,16 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.provider.KubernetesModelUtil;
 import com.netflix.spinnaker.clouddriver.model.JobState;
 import com.netflix.spinnaker.clouddriver.model.JobStatus;
-import io.kubernetes.client.models.V1Job;
-import io.kubernetes.client.models.V1JobCondition;
-import io.kubernetes.client.models.V1JobSpec;
-import io.kubernetes.client.models.V1JobStatus;
-import io.kubernetes.client.models.V1Pod;
-import io.kubernetes.client.models.V1PodStatus;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobCondition;
+import io.kubernetes.client.openapi.models.V1JobSpec;
+import io.kubernetes.client.openapi.models.V1JobStatus;
+import io.kubernetes.client.openapi.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1PodStatus;
 import java.io.Serializable;
 import java.util.*;
 import lombok.Data;
@@ -78,7 +79,7 @@ public class KubernetesV2JobStatus implements JobStatus, Serializable {
 
     if (succeeded < completions) {
       List<V1JobCondition> conditions = status.getConditions();
-      conditions = conditions != null ? conditions : Collections.emptyList();
+      conditions = conditions != null ? conditions : ImmutableList.of();
       Optional<V1JobCondition> condition = conditions.stream().filter(this::jobFailed).findFirst();
       return condition.isPresent() ? JobState.Failed : JobState.Running;
     }

@@ -77,7 +77,7 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
         cacheData -> {
           long cacheTime = (long) cacheData.getAttributes().get("cacheTime");
           if (cacheTime < loadDataStart
-              && (int) cacheData.getAttributes().get("processedCount") > 0) {
+              && (int) cacheData.getAttributes().computeIfAbsent("processedCount", s -> 0) > 0) {
             toEvict.add(cacheData.getId());
           } else {
             toKeep.put(cacheData.getId(), cacheData);
@@ -95,6 +95,10 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
     onDemandCacheData.forEach(this::processOnDemandCacheData);
     results.put(ON_DEMAND.getNs(), toKeep.values());
 
+    log.debug(
+        "LoadBalancer cache loaded for Cloud Foundry account {}, ({} sec)",
+        accountName,
+        (getInternalClock().millis() - loadDataStart) / 1000);
     return new DefaultCacheResult(results, Collections.singletonMap(ON_DEMAND.getNs(), toEvict));
   }
 
@@ -106,7 +110,8 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
     String key = Keys.getLoadBalancerKey(account, cloudFoundryLoadBalancer);
     CacheData lbCacheData = onDemandCacheDataToKeep.get(key);
     if (lbCacheData != null && (long) lbCacheData.getAttributes().get("cacheTime") > start) {
-      Map<String, Collection<CacheData>> cacheResults = getCacheResultsFromCacheData(lbCacheData);
+      Map<String, Collection<ResourceCacheData>> cacheResults =
+          getCacheResultsFromCacheData(lbCacheData);
       onDemandCacheDataToKeep.remove(key);
       return cacheResults.get(LOAD_BALANCERS.getNs()).stream().findFirst().orElse(null);
     } else {

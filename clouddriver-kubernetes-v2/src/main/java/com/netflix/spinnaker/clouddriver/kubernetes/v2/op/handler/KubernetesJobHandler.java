@@ -28,11 +28,10 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
-import io.kubernetes.client.models.V1Job;
-import io.kubernetes.client.models.V1JobCondition;
-import io.kubernetes.client.models.V1JobSpec;
-import io.kubernetes.client.models.V1JobStatus;
-import java.util.Collections;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobCondition;
+import io.kubernetes.client.openapi.models.V1JobSpec;
+import io.kubernetes.client.openapi.models.V1JobStatus;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -87,11 +86,9 @@ public class KubernetesJobHandler extends KubernetesHandler implements ServerGro
   }
 
   private Status status(V1Job job) {
-    Status result = new Status();
     V1JobStatus status = job.getStatus();
     if (status == null) {
-      result.unstable("No status reported yet").unavailable("No availability reported");
-      return result;
+      return Status.noneReported();
     }
 
     int completions = 1;
@@ -106,16 +103,14 @@ public class KubernetesJobHandler extends KubernetesHandler implements ServerGro
 
     if (succeeded < completions) {
       List<V1JobCondition> conditions = status.getConditions();
-      conditions = conditions != null ? conditions : Collections.emptyList();
+      conditions = conditions != null ? conditions : ImmutableList.of();
       Optional<V1JobCondition> condition = conditions.stream().filter(this::jobFailed).findAny();
-      if (condition.isPresent()) {
-        return result.failed(condition.get().getMessage());
-      } else {
-        return result.unstable("Waiting for jobs to finish");
-      }
+      return condition
+          .map(v1JobCondition -> Status.defaultStatus().failed(v1JobCondition.getMessage()))
+          .orElseGet(() -> Status.defaultStatus().unstable("Waiting for jobs to finish"));
     }
 
-    return result;
+    return Status.defaultStatus();
   }
 
   private boolean jobFailed(V1JobCondition condition) {

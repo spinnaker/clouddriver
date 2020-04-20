@@ -1,6 +1,6 @@
 FROM ubuntu:bionic
-MAINTAINER delivery-engineering@netflix.com
-COPY --from=compile /compiled_sources/clouddriver-web/build/install/clouddriver /opt/clouddriver
+MAINTAINER sig-platform@spinnaker.io
+COPY clouddriver-web/build/install/clouddriver /opt/clouddriver
 
 RUN apt-get update && apt-get install -y curl gnupg && \
     curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
@@ -8,10 +8,11 @@ RUN apt-get update && apt-get install -y curl gnupg && \
     apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y \
-      openjdk-8-jre-headless \
+      openjdk-11-jre-headless \
       wget \
       google-cloud-sdk \
       google-cloud-sdk-app-engine-java \
+      google-cloud-sdk-app-engine-go \
       kubectl \
       python-pip && \
     pip install awscli==1.16.258 --upgrade && \
@@ -22,5 +23,6 @@ RUN curl -o  /usr/local/bin/aws-iam-authenticator https://amazon-eks.s3-us-west-
     ln -s    /usr/local/bin/aws-iam-authenticator /usr/local/bin/heptio-authenticator-aws
 
 RUN adduser --disabled-login --system spinnaker
+RUN mkdir -p /opt/clouddriver/plugins && chown -R spinnaker:nogroup /opt/clouddriver/plugins
 USER spinnaker
 CMD ["/opt/clouddriver/bin/clouddriver"]

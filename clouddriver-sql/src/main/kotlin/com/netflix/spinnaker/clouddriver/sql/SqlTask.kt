@@ -21,8 +21,8 @@ import com.netflix.spinnaker.clouddriver.data.task.Status
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskDisplayStatus
 import com.netflix.spinnaker.clouddriver.data.task.TaskState
-import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
+import org.slf4j.LoggerFactory
 
 /**
  * TOOD(rz): Refactor 'river to not use an active record pattern. This sucks.
@@ -32,7 +32,7 @@ class SqlTask(
   @JsonIgnore internal val ownerId: String,
   @JsonIgnore internal val requestId: String,
   @JsonIgnore internal val startTimeMs: Long,
-  private val sagaIds: MutableList<SagaId>,
+  private val sagaIds: MutableSet<SagaId>,
   private val repository: SqlTaskRepository
 ) : Task {
 
@@ -105,7 +105,7 @@ class SqlTask(
     log.debug("Added sagaId with name={} and id={} to task={}", sagaId.name, sagaId.id, id)
   }
 
-  override fun getSagaIds(): MutableList<SagaId> {
+  override fun getSagaIds(): MutableSet<SagaId> {
     return sagaIds
   }
 
@@ -114,6 +114,7 @@ class SqlTask(
   }
 
   override fun retry() {
+    this.dirty.set(true)
     repository.updateState(this, TaskState.STARTED)
   }
 

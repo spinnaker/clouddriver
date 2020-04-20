@@ -19,26 +19,20 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 
 import static com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler.DeployPriority.WORKLOAD_CONTROLLER_PRIORITY;
 
+import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResource;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesUnversionedArtifactConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesVersionedArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CustomKubernetesHandlerFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.KubernetesHandler;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 
 @Getter
 @Slf4j
 public class KubernetesResourceProperties {
   private final KubernetesHandler handler;
   private final boolean versioned;
-  private final KubernetesVersionedArtifactConverter versionedConverter =
-      new KubernetesVersionedArtifactConverter();
-  private final KubernetesUnversionedArtifactConverter unversionedConverter =
-      new KubernetesUnversionedArtifactConverter();
 
   public KubernetesResourceProperties(KubernetesHandler handler, boolean versioned) {
     this.handler = handler;
@@ -49,11 +43,11 @@ public class KubernetesResourceProperties {
       CustomKubernetesResource customResource) {
     String deployPriority = customResource.getDeployPriority();
     int deployPriorityValue;
-    if (StringUtils.isEmpty(deployPriority)) {
+    if (Strings.isNullOrEmpty(deployPriority)) {
       deployPriorityValue = WORKLOAD_CONTROLLER_PRIORITY.getValue();
     } else {
       try {
-        deployPriorityValue = Integer.valueOf(deployPriority);
+        deployPriorityValue = Integer.parseInt(deployPriority);
       } catch (NumberFormatException e) {
         deployPriorityValue =
             KubernetesHandler.DeployPriority.fromString(deployPriority).getValue();

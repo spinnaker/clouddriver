@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.event.CompositeSpinnakerEvent
 import com.netflix.spinnaker.clouddriver.event.EventMetadata
 import com.netflix.spinnaker.clouddriver.event.SpinnakerEvent
 import com.netflix.spinnaker.clouddriver.event.exceptions.AggregateChangeRejectedException
+import com.netflix.spinnaker.clouddriver.event.exceptions.DuplicateEventAggregateException
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
 import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository.ListAggregatesCriteria
 import com.netflix.spinnaker.clouddriver.sql.transactional
@@ -29,6 +30,8 @@ import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.kork.sql.routing.withPool
 import com.netflix.spinnaker.kork.version.ServiceVersion
 import de.huxhorn.sulky.ulid.ULID
+import java.sql.SQLIntegrityConstraintViolationException
+import java.util.UUID
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.impl.DSL.currentTimestamp
@@ -37,7 +40,6 @@ import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.table
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
-import java.util.UUID
 
 class SqlEventRepository(
   private val jooq: DSLContext,
@@ -50,6 +52,7 @@ class SqlEventRepository(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private val eventCountId = registry.createId("eventing.events")
+  private val eventErrorCountId = registry.createId("eventing.errors")
 
   override fun save(
     aggregateType: String,
@@ -82,10 +85,21 @@ class SqlEventRepository(
               field("version") to 0
             )
 
-            ctx.insertInto(AGGREGATES_TABLE)
-              .columns(initialAggregate.keys)
-              .values(initialAggregate.values)
-              .execute()
+            try {
+              ctx.insertInto(AGGREGATES_TABLE)
+                .columns(initialAggregate.keys)
+                .values(initialAggregate.values)
+                .execute()
+            } catch (e: SQLIntegrityConstraintViolationException) {
+              // In the event that two requests are made at the same time to create a new aggregate (via two diff
+              // clouddriver instances), catch the exception and bubble it up as a duplicate exception so that it
+              // may be processed in an idempotent way, rather than causing an error.
+              //
+              // This is preferential to going back to the database to load the existing aggregate record, since we
+              // already know the aggregate version will not match the originating version expected from this process
+              // and would fail just below anyway.
+              throw DuplicateEventAggregateException(e)
+            }
 
             Aggregate(aggregateType, aggregateId, 0)
           }()
@@ -138,11 +152,17 @@ class SqlEventRepository(
         }
       }
     } catch (e: AggregateChangeRejectedException) {
-      registry.counter(eventCountId.withTags("aggregateType", aggregateType)).increment(newEvents.size.toLong())
+      registry.counter(
+        eventErrorCountId
+          .withTags("aggregateType", aggregateType, "exception", e.javaClass.simpleName))
+        .increment()
       throw e
     } catch (e: Exception) {
       // This is totally handling it...
-      registry.counter(eventCountId.withTags("aggregateType", aggregateType)).increment(newEvents.size.toLong())
+      registry.counter(
+        eventErrorCountId
+          .withTags("aggregateType", aggregateType, "exception", e.javaClass.simpleName))
+        .increment()
       throw SqlEventSystemException("Failed saving new events", e)
     }
 

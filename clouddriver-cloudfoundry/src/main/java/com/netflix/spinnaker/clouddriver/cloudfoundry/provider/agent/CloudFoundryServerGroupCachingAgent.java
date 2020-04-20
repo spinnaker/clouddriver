@@ -92,7 +92,7 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
         cacheData -> {
           long cacheTime = (long) cacheData.getAttributes().get("cacheTime");
           if (cacheTime < loadDataStart
-              && (int) cacheData.getAttributes().get("processedCount") > 0) {
+              && (int) cacheData.getAttributes().computeIfAbsent("processedCount", s -> 0) > 0) {
             toEvict.add(cacheData.getId());
           } else {
             toKeep.put(cacheData.getId(), cacheData);
@@ -111,6 +111,7 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
         SERVER_GROUPS.getNs(),
         serverGroups.stream()
             .map(sg -> setServerGroupCacheData(toKeep, sg, loadDataStart))
+            .filter(c -> c != null && c.getId() != null)
             .collect(Collectors.toSet()));
     results.put(
         INSTANCES.getNs(),
@@ -119,6 +120,10 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
     onDemandCacheData.forEach(this::processOnDemandCacheData);
     results.put(ON_DEMAND.getNs(), toKeep.values());
 
+    log.debug(
+        "Cache loaded for Cloud Foundry account {}, ({} sec)",
+        accountName,
+        (getInternalClock().millis() - loadDataStart) / 1000);
     return new DefaultCacheResult(results, Collections.singletonMap(ON_DEMAND.getNs(), toEvict));
   }
 
@@ -143,13 +148,6 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
     String serverGroupName =
         Optional.ofNullable(data.get("serverGroupName")).map(Object::toString).orElse(null);
     if (serverGroupName == null) {
-      return null;
-    }
-    CloudFoundryServerGroup serverGroup =
-        this.getClient()
-            .getApplications()
-            .findServerGroupByNameAndSpaceId(serverGroupName, space.getId());
-    if (serverGroup == null) {
       return null;
     }
 
@@ -249,7 +247,8 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
     String key = Keys.getServerGroupKey(account, serverGroup.getName(), serverGroup.getRegion());
     CacheData sgCacheData = onDemandCacheDataToKeep.get(key);
     if (sgCacheData != null && (long) sgCacheData.getAttributes().get("cacheTime") > start) {
-      Map<String, Collection<CacheData>> cacheResults = getCacheResultsFromCacheData(sgCacheData);
+      Map<String, Collection<ResourceCacheData>> cacheResults =
+          getCacheResultsFromCacheData(sgCacheData);
       onDemandCacheDataToKeep.remove(key);
       return cacheResults.get(SERVER_GROUPS.getNs()).stream().findFirst().orElse(null);
     } else {

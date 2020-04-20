@@ -6,18 +6,19 @@ import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.sql.SqlProviderCache
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
 import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider
-import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationContext
+import com.netflix.spinnaker.clouddriver.sql.SqlAgent
 import java.time.Clock
 import java.util.concurrent.TimeUnit
 import kotlin.contracts.ExperimentalContracts
+import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationContext
 
 @ExperimentalContracts
 class SqlCleanupStaleOnDemandCachesAgent(
   private val applicationContext: ApplicationContext,
   private val registry: Registry,
   private val clock: Clock
-) : RunnableAgent, CustomScheduledAgent {
+) : RunnableAgent, CustomScheduledAgent, SqlAgent {
 
   companion object {
     private val DEFAULT_POLL_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(20)

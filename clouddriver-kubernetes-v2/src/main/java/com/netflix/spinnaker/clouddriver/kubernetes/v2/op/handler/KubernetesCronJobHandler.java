@@ -28,8 +28,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.caching.agent.KubernetesV
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.model.Manifest.Status;
-import io.kubernetes.client.models.V2alpha1CronJob;
-import io.kubernetes.client.models.V2alpha1CronJobStatus;
+import io.kubernetes.client.openapi.models.V2alpha1CronJob;
+import io.kubernetes.client.openapi.models.V2alpha1CronJobStatus;
 import javax.annotation.Nonnull;
 import org.springframework.stereotype.Component;
 
@@ -85,13 +85,11 @@ public class KubernetesCronJobHandler extends KubernetesHandler
   }
 
   private Status status(V2alpha1CronJob job) {
-    Status result = new Status();
     V2alpha1CronJobStatus status = job.getStatus();
     if (status == null) {
-      result.unstable("No status reported yet").unavailable("No availability reported");
-      return result;
+      return Status.noneReported();
     }
 
-    return result;
+    return Status.defaultStatus();
   }
 }

@@ -40,6 +40,11 @@ public class Task {
     startedAt = getTimestampFromStatus(grpcTask, TaskStatus.TaskState.StartInitiated);
     finishedAt = getTimestampFromStatus(grpcTask, TaskStatus.TaskState.Finished);
     containerIp = grpcTask.getTaskContextOrDefault("task.containerIp", null);
+    //  The agentId will be used temporarily by deck to lookup IPv6 until Titus API is updated.
+    agentId = grpcTask.getTaskContextOrDefault("agent.instanceId", null);
+    // Fetch ipv4 and ipv6 address from titus api if present
+    ipv4Address = grpcTask.getTaskContextOrDefault("task.containerIPv4", null);
+    ipv6Address = grpcTask.getTaskContextOrDefault("task.containerIPv6", null);
     logLocation = new HashMap<>();
     logLocation.put("ui", grpcTask.getLogLocation().getUi().getUrl());
     logLocation.put("liveStream", grpcTask.getLogLocation().getLiveStream().getUrl());
@@ -78,6 +83,9 @@ public class Task {
   private String logs;
   private String snapshots;
   private String containerIp;
+  private String agentId;
+  private String ipv4Address;
+  private String ipv6Address;
 
   private Map<String, Object> logLocation;
 
@@ -213,11 +221,35 @@ public class Task {
     return containerIp;
   }
 
+  public String getAgentId() {
+    return agentId;
+  }
+
+  public void setAgentId(String agentId) {
+    this.agentId = agentId;
+  }
+
   public void setContainerIp(String containerIp) {
     this.containerIp = containerIp;
   }
 
   public Map<String, Object> getLogLocation() {
     return logLocation;
+  }
+
+  public String getIpv4Address() {
+    return ipv4Address;
+  }
+
+  public void setIpv4Address(String ipv4Address) {
+    this.ipv4Address = ipv4Address;
+  }
+
+  public String getIpv6Address() {
+    return ipv6Address;
+  }
+
+  public void setIpv6Address(String ipv6Address) {
+    this.ipv6Address = ipv6Address;
   }
 }

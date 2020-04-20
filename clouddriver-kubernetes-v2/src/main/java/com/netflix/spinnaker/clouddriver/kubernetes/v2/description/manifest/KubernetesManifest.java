@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,7 +29,6 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Data;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -108,6 +108,15 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  public boolean hasGenerateName() {
+    if (!Strings.isNullOrEmpty(this.getName())) {
+      // If a name is present, it will be used instead of a generateName
+      return false;
+    }
+    return !Strings.isNullOrEmpty((String) getMetadata().get("generateName"));
+  }
+
+  @JsonIgnore
   public String getUid() {
     return (String) getMetadata().get("uid");
   }
@@ -120,7 +129,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   @JsonIgnore
   public String getNamespace() {
     String namespace = (String) getMetadata().get("namespace");
-    return StringUtils.isEmpty(namespace) ? "" : namespace;
+    return Strings.isNullOrEmpty(namespace) ? "" : namespace;
   }
 
   @JsonIgnore
@@ -225,6 +234,10 @@ public class KubernetesManifest extends HashMap<String, Object> {
       return Optional.empty();
     }
 
+    if (!(spec.get("template") instanceof Map)) {
+      return Optional.empty();
+    }
+
     Map<String, Object> template = (Map<String, Object>) spec.get("template");
     if (!template.containsKey("metadata")) {
       return Optional.empty();
@@ -255,6 +268,10 @@ public class KubernetesManifest extends HashMap<String, Object> {
       return Optional.empty();
     }
 
+    if (!(spec.get("template") instanceof Map)) {
+      return Optional.empty();
+    }
+
     Map<String, Object> template = (Map<String, Object>) spec.get("template");
     if (!template.containsKey("metadata")) {
       return Optional.empty();
@@ -279,8 +296,11 @@ public class KubernetesManifest extends HashMap<String, Object> {
     return get("status");
   }
 
+  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
+  // of calling this function.
+  @Deprecated
   @JsonIgnore
-  public Double getObservedGeneration() {
+  public int getObservedGeneration() {
     Object statusObj = getStatus();
     if (!(statusObj instanceof Map)) {
       throw new IllegalStateException(
@@ -291,24 +311,26 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
     Object observedGenObj = status.get("observedGeneration");
 
-    if (!(observedGenObj instanceof Double)) {
+    if (!(observedGenObj instanceof Number)) {
       throw new IllegalStateException(
-          "Expected status.observedGeneration to be an Double but was actually a "
+          "Expected status.observedGeneration to be a Number but was actually a "
               + observedGenObj.getClass());
     }
-    return (Double) observedGenObj;
+    return ((Number) observedGenObj).intValue();
   }
 
+  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
+  // of calling this function.
+  @Deprecated
   @JsonIgnore
-  public Double getGeneration() {
+  public int getGeneration() {
     Object generationObj = getMetadata().get("generation");
-
-    if (!(generationObj instanceof Double)) {
+    if (!(generationObj instanceof Number)) {
       throw new IllegalStateException(
-          "Expected metadata.generation to be an Double but was actually a "
+          "Expected metadata.generation to be a Number but was actually a "
               + generationObj.getClass());
     }
-    return (Double) generationObj;
+    return ((Number) generationObj).intValue();
   }
 
   @JsonIgnore
@@ -320,10 +342,13 @@ public class KubernetesManifest extends HashMap<String, Object> {
     return String.join(" ", kind.toString(), name);
   }
 
+  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
+  // of calling this function.
+  @Deprecated
   @JsonIgnore
   public boolean isNewerThanObservedGeneration() {
-    Double generation = getGeneration();
-    Double observedGeneration = getObservedGeneration();
+    int generation = getGeneration();
+    int observedGeneration = getObservedGeneration();
 
     return generation > observedGeneration;
   }

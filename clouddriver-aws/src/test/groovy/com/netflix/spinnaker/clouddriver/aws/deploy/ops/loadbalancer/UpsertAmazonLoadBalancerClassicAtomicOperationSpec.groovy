@@ -324,6 +324,88 @@ class UpsertAmazonLoadBalancerClassicAtomicOperationSpec extends Specification {
     return lba
   }
 
+  void "should restore listener policies when updating an existing load balancer"() {
+    given:
+    def httpListener = new Listener(protocol: "HTTP", loadBalancerPort: 80, instanceProtocol: "HTTP", instancePort: 8502)
+    def httpsListener = new Listener(protocol: "HTTPS", loadBalancerPort: 443, instanceProtocol: "HTTP", instancePort: 7001, sSLCertificateId: "foo")
+    def policies = ["cookiePolicy"]
+
+    def existingLB = new LoadBalancerDescription(
+      loadBalancerName: "kato-main-frontend",
+      listenerDescriptions: [
+        new ListenerDescription(listener: httpListener),
+        new ListenerDescription(listener: httpsListener, policyNames: policies)
+      ]
+    )
+
+    and:
+    description.subnetType = "internal"
+    description.setIsInternal(true)
+    description.vpcId = "vpcId"
+
+    // request listeners
+    description.listeners.clear()
+    description.listeners.addAll(
+      [
+        new UpsertAmazonLoadBalancerClassicDescription.Listener(
+          externalProtocol: UpsertAmazonLoadBalancerClassicDescription.Listener.ListenerType.HTTP,
+          externalPort: httpListener.loadBalancerPort,
+          internalPort: httpListener.instancePort
+        ),
+        new UpsertAmazonLoadBalancerClassicDescription.Listener(
+          externalProtocol: UpsertAmazonLoadBalancerClassicDescription.Listener.ListenerType.HTTPS,
+          externalPort: httpsListener.loadBalancerPort,
+          internalPort: httpsListener.instancePort,
+          sslCertificateId: "bar" //updated cert on listener
+        )
+    ])
+
+    when:
+    operation.operate([])
+
+    then:
+    1 * loadBalancing.describeLoadBalancers(_) >> new DescribeLoadBalancersResult(loadBalancerDescriptions: [existingLB])
+    1 * loadBalancing.describeLoadBalancerAttributes(_) >> new DescribeLoadBalancerAttributesResult()
+    1 * loadBalancing.deleteLoadBalancerListeners({
+      it.loadBalancerPorts == [httpsListener.loadBalancerPort]
+    } as DeleteLoadBalancerListenersRequest)
+
+    1 * loadBalancing.createLoadBalancerListeners(*_) >> { args ->
+      def request = args[0] as CreateLoadBalancerListenersRequest
+      assert request.loadBalancerName == description.name
+      assert request.listeners.size() == 1
+      assert request.listeners*.loadBalancerPort == [ httpsListener.loadBalancerPort ]
+    }
+
+    1 * loadBalancing.configureHealthCheck(new ConfigureHealthCheckRequest(
+      loadBalancerName: "kato-main-frontend",
+      healthCheck: new HealthCheck(
+        target: "HTTP:7001/health",
+        interval: 10,
+        timeout: 5,
+        unhealthyThreshold: 2,
+        healthyThreshold: 10
+      )
+    ))
+
+    1 * loadBalancing.modifyLoadBalancerAttributes(new ModifyLoadBalancerAttributesRequest(
+      loadBalancerName: "kato-main-frontend",
+      loadBalancerAttributes: new LoadBalancerAttributes(
+        crossZoneLoadBalancing: new CrossZoneLoadBalancing(enabled: true),
+        connectionDraining: new ConnectionDraining(enabled: false),
+        additionalAttributes: [],
+        connectionSettings:  new ConnectionSettings(idleTimeout: 60)
+      )
+    ))
+
+    1 * loadBalancing.setLoadBalancerPoliciesOfListener(*_) >> { args ->
+      def request = args[0] as SetLoadBalancerPoliciesOfListenerRequest
+      assert request.loadBalancerName == description.name
+      assert request.policyNames == policies
+      assert request.loadBalancerPort == httpsListener.loadBalancerPort
+    }
+  }
+
   void "should attempt to apply all listener modifications regardless of individual failures"() {
     given:
     def existingLoadBalancers = [

@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.artifact;
 
+import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
@@ -31,14 +32,14 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Cred
 import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import io.kubernetes.client.models.V1DeleteOptions;
+import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 
 @Slf4j
 public class KubernetesCleanupArtifactsOperation implements AtomicOperation<OperationResult> {
@@ -84,7 +85,7 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Oper
           getTask().updateStatus(OP_NAME, "Deleting artifact '" + a + '"');
           KubernetesHandler handler = properties.getHandler();
           String name = a.getName();
-          if (StringUtils.isNotEmpty(a.getVersion())) {
+          if (!Strings.isNullOrEmpty(a.getVersion())) {
             name = String.join("-", name, a.getVersion());
           }
           result.merge(
@@ -97,11 +98,12 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Oper
 
   private List<Artifact> artifactsToDelete(KubernetesManifest manifest) {
     KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
-    if (strategy.getMaxVersionHistory() == null) {
+    OptionalInt optionalMaxVersionHistory = strategy.getMaxVersionHistory();
+    if (!optionalMaxVersionHistory.isPresent()) {
       return new ArrayList<>();
     }
 
-    int maxVersionHistory = strategy.getMaxVersionHistory();
+    int maxVersionHistory = optionalMaxVersionHistory.getAsInt();
     Optional<Artifact> optional = KubernetesManifestAnnotater.getArtifact(manifest);
     if (!optional.isPresent()) {
       return new ArrayList<>();

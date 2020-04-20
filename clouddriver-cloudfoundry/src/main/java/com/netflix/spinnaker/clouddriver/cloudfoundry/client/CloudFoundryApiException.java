@@ -36,14 +36,15 @@ public class CloudFoundryApiException extends RuntimeException {
     super(
         Optional.ofNullable(errorCause)
             .map(e -> getMessage(e.getErrors().toArray(new String[0])))
-            .orElse(getRetrofitErrorMessage(retrofitError)));
+            .orElse(getRetrofitErrorMessage(retrofitError)),
+        retrofitError);
     if (errorCause != null) {
       this.errorCode = errorCause.getCode();
     }
   }
 
   public CloudFoundryApiException(RetrofitError retrofitError) {
-    super(getRetrofitErrorMessage(retrofitError));
+    super(getRetrofitErrorMessage(retrofitError), retrofitError);
   }
 
   public CloudFoundryApiException(Throwable t, String... errors) {
@@ -76,6 +77,6 @@ public class CloudFoundryApiException extends RuntimeException {
                   + ". raw response body: "
                   + response.getBody();
             })
-        .orElse("error, url :" + retrofitError.getUrl() + " body: " + retrofitError.getBody());
+        .orElse("error, url :" + retrofitError.getUrl() + " cause: " + retrofitError.getCause());
   }
 }
