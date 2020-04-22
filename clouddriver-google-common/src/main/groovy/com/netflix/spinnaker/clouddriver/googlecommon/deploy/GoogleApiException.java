@@ -22,11 +22,12 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import java.io.IOException;
 import java.util.Optional;
 import lombok.Value;
 
 @NonnullByDefault
-public class GoogleApiException extends RuntimeException {
+public class GoogleApiException extends IOException {
   GoogleApiException(String message) {
     super(message);
   }

@@ -77,7 +77,8 @@ public final class GoogleCommonSafeRetry {
       List<Integer> retryCodes,
       List<Integer> successCodes,
       Map<String, String> tags,
-      Registry registry) {
+      Registry registry)
+      throws GoogleApiException {
     boolean success = false;
     long startTime = registry.clock().monotonicTime();
     try {
