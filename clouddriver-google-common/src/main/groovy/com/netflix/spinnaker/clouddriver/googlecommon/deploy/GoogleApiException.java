@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.io.IOException;
 import java.util.Optional;
+import javax.annotation.ParametersAreNullableByDefault;
 import lombok.Value;
 
 @NonnullByDefault
@@ -48,6 +49,13 @@ public class GoogleApiException extends IOException {
     private final int statusCode;
     private final String message;
     private final String reason;
+
+    @ParametersAreNullableByDefault
+    private ErrorDetails(int statusCode, String message, String reason) {
+      this.statusCode = statusCode;
+      this.message = Strings.nullToEmpty(message);
+      this.reason = Strings.nullToEmpty(reason);
+    }
 
     static ErrorDetails fromGoogleJsonException(GoogleJsonResponseException e) {
       Optional<ErrorInfo> optionalErrorInfo =
