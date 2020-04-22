@@ -161,7 +161,7 @@ class SecurityGroupController {
     @PathVariable String region,
     @PathVariable String securityGroupNameOrId,
     @RequestParam(value = "vpcId", required = false) String vpcId,
-    @RequestParam(value = "getById", required = false, defaultValue = "false") String getById
+    @RequestParam(value = "getById", required = false, defaultValue = "false") boolean getById
   ) {
     def securityGroup = securityGroupProviders.findResults { secGrpProv ->
       if (secGrpProv.cloudProvider == cloudProvider) {
