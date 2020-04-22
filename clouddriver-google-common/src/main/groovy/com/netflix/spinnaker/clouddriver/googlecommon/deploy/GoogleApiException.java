@@ -19,40 +19,61 @@ package com.netflix.spinnaker.clouddriver.googlecommon.deploy;
 import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.googleapis.json.GoogleJsonError.ErrorInfo;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.Optional;
+import lombok.Value;
 
+@NonnullByDefault
 public class GoogleApiException extends RuntimeException {
   GoogleApiException(String message) {
     super(message);
   }
 
   static GoogleApiException fromGoogleJsonException(GoogleJsonResponseException e) {
-    Optional<ErrorInfo> optionalErrorInfo =
-        Optional.ofNullable(e.getDetails()).map(GoogleJsonError::getErrors)
-            .orElse(ImmutableList.of()).stream()
-            .findFirst();
+    ErrorDetails errorDetails = ErrorDetails.fromGoogleJsonException(e);
+    if (errorDetails.getReason().equals("resourceInUseByAnotherResource")) {
+      return new ResourceInUseException(errorDetails.toString());
+    }
+    return new GoogleApiException(errorDetails.toString());
+  }
 
-    if (optionalErrorInfo.isPresent()) {
-      ErrorInfo errorInfo = optionalErrorInfo.get();
-      String message =
-          String.format(
-              "Operation failed. Last attempt returned status code %s with error message %s and reason %s.",
-              e.getStatusCode(), errorInfo.getMessage(), errorInfo.getReason());
-      if ("resourceInUseByAnotherResource".equals(errorInfo.getReason())) {
-        return new ResourceInUseException(message);
+  @Value
+  private static class ErrorDetails {
+    private final int statusCode;
+    private final String message;
+    private final String reason;
+
+    static ErrorDetails fromGoogleJsonException(GoogleJsonResponseException e) {
+      Optional<ErrorInfo> optionalErrorInfo =
+          Optional.ofNullable(e.getDetails()).map(GoogleJsonError::getErrors)
+              .orElse(ImmutableList.of()).stream()
+              .findFirst();
+
+      if (optionalErrorInfo.isPresent()) {
+        ErrorInfo errorInfo = optionalErrorInfo.get();
+        return new ErrorDetails(e.getStatusCode(), errorInfo.getMessage(), errorInfo.getReason());
       } else {
-        return new GoogleApiException(message);
+        return new ErrorDetails(e.getStatusCode(), e.getMessage(), "");
       }
-    } else {
-      return new GoogleApiException(
+    }
+
+    @Override
+    public String toString() {
+      String base =
           String.format(
-              "Operation failed. Last attempt returned status code %s with message %s.",
-              e.getStatusCode(), e.getMessage()));
+              "Operation failed. Last attempt returned status code %s with error message %s",
+              statusCode, message);
+      if (Strings.isNullOrEmpty(reason)) {
+        return String.format("%s.", base);
+      } else {
+        return String.format("%s and reason %s.", base, reason);
+      }
     }
   }
 
-  public static class ResourceInUseException extends GoogleApiException {
+  public static final class ResourceInUseException extends GoogleApiException {
     ResourceInUseException(String message) {
       super(message);
     }
