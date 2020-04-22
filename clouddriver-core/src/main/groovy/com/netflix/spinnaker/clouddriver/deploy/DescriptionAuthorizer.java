@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.deploy;
 
 import static java.lang.String.format;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
@@ -28,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
 import com.netflix.spinnaker.clouddriver.security.resources.ResourcesNameable;
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -47,6 +47,7 @@ public class DescriptionAuthorizer<T> {
   private final FiatPermissionEvaluator fiatPermissionEvaluator;
   private final SecurityConfig.OperationsSecurityConfigurationProperties opsSecurityConfigProps;
 
+  private final Id skipAuthorizationId;
   private final Id missingApplicationId;
   private final Id authorizationId;
 
@@ -60,6 +61,7 @@ public class DescriptionAuthorizer<T> {
     this.fiatPermissionEvaluator = fiatPermissionEvaluator.orElse(null);
     this.opsSecurityConfigProps = opsSecurityConfigProps;
 
+    this.skipAuthorizationId = registry.createId("authorization.skipped");
     this.missingApplicationId = registry.createId("authorization.missingApplication");
     this.authorizationId = registry.createId("authorization");
   }
@@ -74,19 +76,25 @@ public class DescriptionAuthorizer<T> {
     String account = null;
     List<String> applications = new ArrayList<>();
     boolean requiresApplicationRestriction = true;
-    boolean requiresAuthentication = true;
 
     if (description instanceof AccountNameable) {
       AccountNameable accountNameable = (AccountNameable) description;
-      account = accountNameable.getAccount();
 
       requiresApplicationRestriction = accountNameable.requiresApplicationRestriction();
-      requiresAuthentication = accountNameable.requiresAuthentication(opsSecurityConfigProps);
-      if (!requiresAuthentication) {
+
+      if (!accountNameable.requiresAuthorization(opsSecurityConfigProps)) {
+        registry
+            .counter(
+                skipAuthorizationId.withTag(
+                    "descriptionClass", description.getClass().getSimpleName()))
+            .increment();
+
         log.info(
-            "Skipping authentication for operation `{}` in account `{}`.",
+            "Skipping authorization for operation `{}` in account `{}`.",
             description.getClass().getSimpleName(),
             accountNameable.getAccount());
+      } else {
+        account = accountNameable.getAccount();
       }
     }
 
@@ -101,16 +109,33 @@ public class DescriptionAuthorizer<T> {
 
     if (description instanceof ResourcesNameable) {
       ResourcesNameable resourcesNameable = (ResourcesNameable) description;
-      applications.addAll(
-          Optional.ofNullable(resourcesNameable.getResourceApplications())
-              .orElse(Collections.emptyList()).stream()
-              .filter(Objects::nonNull)
-              .collect(Collectors.toList()));
+
+      if (!resourcesNameable.requiresAuthorization()) {
+        registry
+            .counter(
+                skipAuthorizationId.withTag(
+                    "descriptionClass", description.getClass().getSimpleName()))
+            .increment();
+
+        Collection<String> resourceNames =
+            Optional.ofNullable(resourcesNameable.getNames()).orElse(Collections.emptyList());
+
+        log.info(
+            "Skipping authorization for operation={}, resource names={}, resource applications={}",
+            description.getClass().getSimpleName(),
+            resourceNames,
+            resourcesNameable.getResourceApplications().toString());
+      } else {
+        applications.addAll(
+            Optional.ofNullable(resourcesNameable.getResourceApplications())
+                .orElse(Collections.emptyList()).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList()));
+      }
     }
 
     boolean hasPermission = true;
-    if (requiresAuthentication
-        && account != null
+    if (account != null
         && !fiatPermissionEvaluator.hasPermission(auth, account, "ACCOUNT", "WRITE")) {
       hasPermission = false;
       errors.reject("authorization", format("Access denied to account %s", account));
@@ -134,16 +159,10 @@ public class DescriptionAuthorizer<T> {
                   "descriptionClass", description.getClass().getSimpleName()))
           .increment();
 
-      String rawJson = null;
-      try {
-        rawJson = objectMapper.writeValueAsString(description);
-      } catch (JsonProcessingException ignored) {
-      }
-
       log.warn(
-          "No application(s) specified for operation with account restriction (type: {}, rawJson: {})",
+          "No application(s) specified for operation with account restriction (type: {}, account: {})",
           description.getClass().getSimpleName(),
-          rawJson);
+          account);
     }
 
     registry
