@@ -33,6 +33,9 @@ public class GoogleApiException extends RuntimeException {
 
   static GoogleApiException fromGoogleJsonException(GoogleJsonResponseException e) {
     ErrorDetails errorDetails = ErrorDetails.fromGoogleJsonException(e);
+    if (errorDetails.getStatusCode() == 404) {
+      return new NotFoundException(errorDetails.toString());
+    }
     if (errorDetails.getReason().equals("resourceInUseByAnotherResource")) {
       return new ResourceInUseException(errorDetails.toString());
     }
@@ -75,6 +78,12 @@ public class GoogleApiException extends RuntimeException {
 
   public static final class ResourceInUseException extends GoogleApiException {
     ResourceInUseException(String message) {
+      super(message);
+    }
+  }
+
+  public static final class NotFoundException extends GoogleApiException {
+    NotFoundException(String message) {
       super(message);
     }
   }
