@@ -27,7 +27,6 @@ import com.netflix.spectator.api.DefaultRegistry;
 import com.netflix.spectator.api.Registry;
 import spock.lang.Shared
 import spock.lang.Specification
-import spock.lang.Unroll
 
 class GoogleCommonSafeRetrySpec extends Specification {
 
@@ -95,7 +94,7 @@ class GoogleCommonSafeRetrySpec extends Specification {
       2 * mockClosure() >> {
        throw new SocketTimeoutException()
       }
-      thrown(GoogleCommonSafeRetry.GoogleApiException)
+      thrown(GoogleApiException)
   }
 
   def "retry_until_404_ok"() {
@@ -143,6 +142,6 @@ class GoogleCommonSafeRetrySpec extends Specification {
       1 * mockClosure() >> {
        throw e
       }
-      thrown(GoogleCommonSafeRetry.GoogleApiException)
+      thrown(GoogleApiException)
   }
 }

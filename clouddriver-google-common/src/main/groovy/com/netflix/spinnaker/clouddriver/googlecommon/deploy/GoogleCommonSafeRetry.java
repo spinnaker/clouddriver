@@ -16,10 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.googlecommon.deploy;
 
-import com.google.api.client.googleapis.json.GoogleJsonError;
-import com.google.api.client.googleapis.json.GoogleJsonError.ErrorInfo;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
@@ -161,43 +158,6 @@ public final class GoogleCommonSafeRetry {
         return null;
       }
       throw e;
-    }
-  }
-
-  public static class GoogleApiException extends RuntimeException {
-    GoogleApiException(String message) {
-      super(message);
-    }
-
-    static GoogleApiException fromGoogleJsonException(GoogleJsonResponseException e) {
-      Optional<ErrorInfo> optionalErrorInfo =
-          Optional.ofNullable(e.getDetails()).map(GoogleJsonError::getErrors)
-              .orElse(ImmutableList.of()).stream()
-              .findFirst();
-
-      if (optionalErrorInfo.isPresent()) {
-        ErrorInfo errorInfo = optionalErrorInfo.get();
-        String message =
-            String.format(
-                "Operation failed. Last attempt returned status code %s with error message %s and reason %s.",
-                e.getStatusCode(), errorInfo.getMessage(), errorInfo.getReason());
-        if ("resourceInUseByAnotherResource".equals(errorInfo.getReason())) {
-          return new ResourceInUseException(message);
-        } else {
-          return new GoogleApiException(message);
-        }
-      } else {
-        return new GoogleApiException(
-            String.format(
-                "Operation failed. Last attempt returned status code %s with message %s.",
-                e.getStatusCode(), e.getMessage()));
-      }
-    }
-  }
-
-  public static class ResourceInUseException extends GoogleApiException {
-    ResourceInUseException(String message) {
-      super(message);
     }
   }
 }
