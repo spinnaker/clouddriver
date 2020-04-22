@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.appengine.deploy;
 
+import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.appengine.deploy.exception.AppengineOperationException;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
@@ -66,7 +67,6 @@ public class AppengineSafeRetry {
       String resource,
       @Nullable Task task,
       List<Integer> retryCodes,
-      List<Integer> successfulErrorCodes,
       Map<String, String> tags,
       Registry registry) {
     String action = tags.get("action");
@@ -77,7 +77,7 @@ public class AppengineSafeRetry {
 
     try {
       return googleCommonSafeRetry.doRetry(
-          operation, description, retryCodes, successfulErrorCodes, tags, registry);
+          operation, description, retryCodes, ImmutableList.of(), tags, registry);
     } catch (GoogleApiException e) {
       throw new AppengineOperationException(
           String.format("Failed to " + description, action, resource), e);

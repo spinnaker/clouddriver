@@ -78,8 +78,8 @@ class UpsertAppengineAutoscalingPolicyAtomicOperation extends AppengineAtomicOpe
       { callApi(projectName, loadBalancerName, serverGroupName, version) },
       "version",
       task,
-      [409],
-      [],
+      [409]
+      ,
       [action: "upsertAutoscalingPolicy", phase: BASE_PHASE],
       registry)
 

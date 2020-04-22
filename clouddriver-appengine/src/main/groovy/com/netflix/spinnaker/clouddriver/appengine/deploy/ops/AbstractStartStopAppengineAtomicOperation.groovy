@@ -24,7 +24,6 @@ import com.netflix.spinnaker.clouddriver.appengine.model.AppengineServerGroup
 import com.netflix.spinnaker.clouddriver.appengine.provider.view.AppengineClusterProvider
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import org.springframework.beans.factory.annotation.Autowired
 
 
@@ -75,8 +74,8 @@ abstract class AbstractStartStopAppengineAtomicOperation extends AppengineAtomic
       { callApi(project, loadBalancerName, serverGroupName, version) },
       "version",
       task,
-      [409],
-      [],
+      [409]
+      ,
       [action: verb, phase: basePhase],
       registry
     )
