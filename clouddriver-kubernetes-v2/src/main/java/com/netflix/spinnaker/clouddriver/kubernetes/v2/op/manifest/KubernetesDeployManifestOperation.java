@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.manifest;
 
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
@@ -25,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.ArtifactReplacer
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.artifact.KubernetesArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.*;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy.Versioned;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanLoadBalance;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler.CanScale;
@@ -40,7 +43,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
@@ -77,7 +79,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     List<KubernetesManifest> deployManifests = new ArrayList<>();
     if (inputManifests == null || inputManifests.isEmpty()) {
       log.warn("Relying on deprecated single manifest input: " + description.getManifest());
-      inputManifests = Collections.singletonList(description.getManifest());
+      inputManifests = ImmutableList.of(description.getManifest());
     }
 
     inputManifests = inputManifests.stream().filter(Objects::nonNull).collect(Collectors.toList());
@@ -99,12 +101,9 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     Set<Artifact> boundArtifacts = new HashSet<>();
 
     for (KubernetesManifest manifest : inputManifests) {
-      if (credentials.getKindProperties(manifest.getKind()).isNamespaced()) {
-        if (!StringUtils.isEmpty(description.getNamespaceOverride())) {
-          manifest.setNamespace(description.getNamespaceOverride());
-        } else if (StringUtils.isEmpty(manifest.getNamespace())) {
-          manifest.setNamespace(credentials.getDefaultNamespace());
-        }
+      if (credentials.getKindProperties(manifest.getKind()).isNamespaced()
+          && !Strings.isNullOrEmpty(description.getNamespaceOverride())) {
+        manifest.setNamespace(description.getNamespaceOverride());
       }
 
       KubernetesResourceProperties properties = findResourceProperties(manifest);
@@ -159,24 +158,20 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     for (KubernetesManifest manifest : deployManifests) {
       KubernetesResourceProperties properties = findResourceProperties(manifest);
       KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
-      boolean versioned = isVersioned(properties, strategy);
-      boolean useSourceCapacity = isUseSourceCapacity(strategy);
-      boolean recreate = isRecreate(strategy);
-      boolean replace = isReplace(strategy);
 
       KubernetesArtifactConverter converter =
-          versioned ? properties.getVersionedConverter() : properties.getUnversionedConverter();
+          KubernetesArtifactConverter.getInstance(isVersioned(properties, strategy));
       KubernetesHandler deployer = properties.getHandler();
 
       Moniker moniker = cloneMoniker(description.getMoniker());
-      if (StringUtils.isEmpty(moniker.getCluster())) {
+      if (Strings.isNullOrEmpty(moniker.getCluster())) {
         moniker.setCluster(manifest.getFullResourceName());
       }
 
       Artifact artifact = converter.toArtifact(provider, manifest, description.getAccount());
 
       String version = artifact.getVersion();
-      if (StringUtils.isNotEmpty(version) && version.startsWith("v")) {
+      if (Strings.nullToEmpty(version).startsWith("v")) {
         try {
           moniker.setSequence(Integer.valueOf(version.substring(1)));
         } catch (NumberFormatException e) {
@@ -192,7 +187,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
                   + " with artifact, relationships & moniker...");
       KubernetesManifestAnnotater.annotateManifest(manifest, artifact);
 
-      if (useSourceCapacity && deployer instanceof CanScale) {
+      if (strategy.isUseSourceCapacity() && deployer instanceof CanScale) {
         Double replicas = KubernetesSourceCapacity.getSourceCapacity(manifest, credentials);
         if (replicas != null) {
           manifest.setReplicas(replicas);
@@ -225,7 +220,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
               OP_NAME,
               "Submitting manifest " + manifest.getFullResourceName() + " to kubernetes master...");
       log.debug("Manifest in {} to be deployed: {}", accountName, manifest);
-      result.merge(deployer.deploy(credentials, manifest, recreate, replace));
+      result.merge(deployer.deploy(credentials, manifest, strategy.getDeployStrategy()));
 
       result.getCreatedArtifacts().add(artifact);
     }
@@ -285,8 +280,8 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
   private boolean isVersioned(
       KubernetesResourceProperties properties, KubernetesManifestStrategy strategy) {
-    if (strategy.getVersioned() != null) {
-      return strategy.getVersioned();
+    if (strategy.getVersioned() != Versioned.DEFAULT) {
+      return strategy.getVersioned() == Versioned.TRUE;
     }
 
     if (description.getVersioned() != null) {
@@ -294,22 +289,6 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     }
 
     return properties.isVersioned();
-  }
-
-  private boolean isRecreate(KubernetesManifestStrategy strategy) {
-    return strategy.getRecreate() != null ? strategy.getRecreate() : false;
-  }
-
-  private boolean isReplace(KubernetesManifestStrategy strategy) {
-    return strategy.getReplace() != null ? strategy.getReplace() : false;
-  }
-
-  private boolean isUseSourceCapacity(KubernetesManifestStrategy strategy) {
-    if (strategy.getUseSourceCapacity() != null) {
-      return strategy.getUseSourceCapacity();
-    }
-
-    return false;
   }
 
   // todo(lwander): move to kork

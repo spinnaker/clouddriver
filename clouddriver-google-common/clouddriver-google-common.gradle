@@ -5,10 +5,12 @@ dependencies {
 
   implementation "com.google.api-client:google-api-client"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
+  implementation "com.netflix.spinnaker.kork:kork-annotations"
   implementation "com.netflix.spectator:spectator-api"
   implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
   implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.slf4j:slf4j-api"
   implementation "org.springframework.security:spring-security-config"
   implementation "org.springframework.security:spring-security-core"
   implementation "org.springframework.security:spring-security-web"
