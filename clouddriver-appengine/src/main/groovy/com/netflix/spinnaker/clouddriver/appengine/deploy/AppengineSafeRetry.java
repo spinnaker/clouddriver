@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2020 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @NonnullByDefault
-public class AppengineSafeRetry {
+public final class AppengineSafeRetry {
   private final GoogleCommonSafeRetry googleCommonSafeRetry;
 
   @Autowired
@@ -79,8 +79,7 @@ public class AppengineSafeRetry {
       return googleCommonSafeRetry.doRetry(
           operation, description, retryCodes, ImmutableList.of(), tags, registry);
     } catch (GoogleApiException e) {
-      throw new AppengineOperationException(
-          String.format("Failed to " + description, action, resource), e);
+      throw new AppengineOperationException("Failed to " + description, e);
     }
   }
 }

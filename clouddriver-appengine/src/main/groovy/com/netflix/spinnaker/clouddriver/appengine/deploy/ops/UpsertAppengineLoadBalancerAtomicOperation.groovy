@@ -83,8 +83,7 @@ class UpsertAppengineLoadBalancerAtomicOperation extends AppengineAtomicOperatio
         callApiClosure,
         "service",
         task,
-        [409]
-        ,
+        [409],
         [action: "Upsert", phase: BASE_PHASE],
         registry
       )

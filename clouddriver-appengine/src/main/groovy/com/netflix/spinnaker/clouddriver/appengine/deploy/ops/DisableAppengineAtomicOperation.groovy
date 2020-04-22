@@ -74,8 +74,7 @@ class DisableAppengineAtomicOperation extends AppengineAtomicOperation<Void> {
       },
       "version",
       task,
-      [409]
-      ,
+      [409],
       [action: "Disable", phase: BASE_PHASE],
       registry
     )

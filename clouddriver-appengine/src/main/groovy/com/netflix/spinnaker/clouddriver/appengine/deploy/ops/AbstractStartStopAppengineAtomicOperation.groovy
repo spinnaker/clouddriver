@@ -74,8 +74,7 @@ abstract class AbstractStartStopAppengineAtomicOperation extends AppengineAtomic
       { callApi(project, loadBalancerName, serverGroupName, version) },
       "version",
       task,
-      [409]
-      ,
+      [409],
       [action: verb, phase: basePhase],
       registry
     )
