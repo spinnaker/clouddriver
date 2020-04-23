@@ -22,34 +22,24 @@ buildscript {
   }
 
   repositories {
-    jcenter()
-    maven { url "https://spinnaker.bintray.com/gradle" }
-    maven { url "https://plugins.gradle.org/m2/" }
-    if (spinnakerGradleVersion.endsWith("-SNAPSHOT")) {
-      mavenLocal()
-    }
+    gradlePluginPortal()
   }
 
   dependencies {
-    classpath "com.netflix.spinnaker.gradle:spinnaker-dev-plugin:$spinnakerGradleVersion"
-    if (Boolean.valueOf(enablePublishing)) {
-      classpath "com.netflix.spinnaker.gradle:spinnaker-gradle-project:$spinnakerGradleVersion"
-// TODO: nebula-publishing-plugin version override should be removed as soon as spinnaker-gradle-project is updated
-// this override is needed to omit compileOnly dependencies from generated pom.xml
-      classpath "com.netflix.nebula:nebula-publishing-plugin:12.0.1"
-    }
-    classpath "com.netflix.nebula:nebula-kotlin-plugin:$kotlinVersion"
     classpath "org.junit.platform:junit-platform-gradle-plugin:${junitPlatformVersion}"
-    classpath "org.jetbrains.kotlin:kotlin-allopen:$kotlinVersion"
   }
 }
 
-allprojects {
+plugins {
+  id 'io.spinnaker.project' version "$spinnakerGradleVersion" apply false
+  id "nebula.kotlin" version "$kotlinVersion" apply false
+  id "org.jetbrains.kotlin.plugin.allopen" version "$kotlinVersion" apply false
+  id "com.google.protobuf" version "0.8.12" apply false
+}
+
+subprojects {
   group = "com.netflix.spinnaker.clouddriver"
-  apply plugin: 'spinnaker.base-project'
-  if (Boolean.valueOf(enablePublishing)) {
-    apply plugin: 'spinnaker.project'
-  }
+  apply plugin: 'io.spinnaker.project'
 
   if (name != "clouddriver-bom") {
     apply plugin: 'java-library'
@@ -62,18 +52,6 @@ allprojects {
 
     dependencies {
       implementation platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
-
-      // This can be removed once there is a version of error-prone > 2.3.2. In 2.3.0, the
-      // @DoNotMock annotation was accidentally removed. It was put back, but hasn't made it into a
-      // release yet.
-      //
-      // In the meantime, kork depends on Guava 28.0, which depends on error-prone. There's no
-      // version listed, so Gradle resolves it to the newest version (2.3.2) which breaks the build
-      // because of that missing annotation. This block forces the build back to 2.2.0, the latest
-      // version that contains @DoNotMock.
-      implementation('com.google.errorprone:error_prone_annotations:2.2.0') {
-        force = true
-      }
 
       annotationProcessor platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
       annotationProcessor "org.projectlombok:lombok"
@@ -105,9 +83,7 @@ allprojects {
       }
     }
   }
-}
 
-subprojects { project ->
   if ([korkVersion, fiatVersion].any { it.endsWith("-SNAPSHOT") }) {
     logger.info("Enabling mavenLocal")
     repositories {

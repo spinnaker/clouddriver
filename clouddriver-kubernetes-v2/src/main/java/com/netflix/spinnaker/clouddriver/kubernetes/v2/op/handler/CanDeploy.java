@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.handler;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifestStrategy;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesSelectorList;
@@ -28,26 +29,37 @@ public interface CanDeploy {
   default OperationResult deploy(
       KubernetesV2Credentials credentials,
       KubernetesManifest manifest,
-      boolean recreate,
-      boolean replace) {
-    if (recreate) {
-      try {
-        credentials.delete(
-            manifest.getKind(),
-            manifest.getNamespace(),
-            manifest.getName(),
-            new KubernetesSelectorList(),
-            new V1DeleteOptions());
-      } catch (KubectlJobExecutor.KubectlException ignored) {
-      }
+      KubernetesManifestStrategy.DeployStrategy deployStrategy) {
+    // If the manifest has a generateName, we must apply with kubectl create as all other operations
+    // require looking up a manifest by name, which will fail.
+    if (manifest.hasGenerateName()) {
+      KubernetesManifest result = credentials.create(manifest);
+      return new OperationResult().addManifest(result);
     }
 
-    if (replace) {
-      credentials.replace(manifest);
-    } else {
-      credentials.deploy(manifest);
+    KubernetesManifest deployedManifest;
+    switch (deployStrategy) {
+      case RECREATE:
+        try {
+          credentials.delete(
+              manifest.getKind(),
+              manifest.getNamespace(),
+              manifest.getName(),
+              new KubernetesSelectorList(),
+              new V1DeleteOptions());
+        } catch (KubectlJobExecutor.KubectlException ignored) {
+        }
+        deployedManifest = credentials.deploy(manifest);
+        break;
+      case REPLACE:
+        deployedManifest = credentials.createOrReplace(manifest);
+        break;
+      case APPLY:
+        deployedManifest = credentials.deploy(manifest);
+        break;
+      default:
+        throw new AssertionError(String.format("Unknown deploy strategy: %s", deployStrategy));
     }
-
-    return new OperationResult().addManifest(manifest);
+    return new OperationResult().addManifest(deployedManifest);
   }
 }

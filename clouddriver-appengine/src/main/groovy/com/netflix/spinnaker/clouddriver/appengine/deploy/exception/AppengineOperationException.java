@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Google, Inc.
+ * Copyright 2016 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.netflix.spinnaker.clouddriver.appengine.deploy.exception;
 
-package com.netflix.spinnaker.clouddriver.google.deploy.exception
+public class AppengineOperationException extends RuntimeException {
+  public AppengineOperationException(String message) {
+    super(message);
+  }
 
-import groovy.transform.InheritConstructors
-
-@InheritConstructors
-class GoogleOperationException extends RuntimeException {}
+  public AppengineOperationException(String message, Throwable cause) {
+    super(message, cause);
+  }
+}
