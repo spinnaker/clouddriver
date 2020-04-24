@@ -91,7 +91,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
 
     Map<String, Object> launchTemplateSpec = asg["launchTemplate"] as Map
     String launchTemplateName = launchTemplateSpec?.get('launchTemplateName')
-    if (launchTemplateName) {
+    if (launchTemplateName != null) {
       String launchTemplateKey = Keys.getLaunchTemplateKey(launchTemplateName, account, region)
       CacheData launchTemplate = cacheView.get(LAUNCH_TEMPLATES.ns, launchTemplateKey)
       updateServerGroupLaunchSettings(serverGroupById, [launchTemplate])
