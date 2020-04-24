@@ -566,7 +566,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
   private static void updateServerGroupLaunchSettings(Map<String, AmazonServerGroup> serverGroups, Collection<CacheData> launchData) {
     for (ld in launchData) {
       if (ld.relationships != null && ld.relationships.containsKey(SERVER_GROUPS.ns)) {
-        ld.relationships.serverGroups.each {
+        ld.relationships[SERVER_GROUPS.ns].each {
           def serverGroup = serverGroups[it]
           if (serverGroup != null) {
             if (serverGroup.asg?.launchTemplate) {
@@ -591,7 +591,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
 
     imageData.each { ld ->
       if (ld.relationships != null && ld.relationships.containsKey(SERVER_GROUPS.ns)) {
-        def serverGroup = serverGroups[ld.relationships.serverGroups.first()]
+        def serverGroup = serverGroups[ld.relationships[SERVER_GROUPS.ns].first()]
         def imageId = ld.relationships[IMAGES.ns]?.first()
         if (serverGroup && imageId && images.containsKey(imageId)) {
           serverGroup.image = images[imageId].attributes
