@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toSet;
 
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -65,17 +66,14 @@ public class CloudFoundrySpaceCachingAgent extends AbstractCloudFoundryCachingAg
     List<CloudFoundrySpace> spaces = getCredentials().getSpacesLive();
 
     Map<String, Collection<CacheData>> results =
-        io.vavr.collection.HashMap.<String, Collection<CacheData>>of(
-                SPACES.getNs(),
-                spaces.stream()
-                    .map(
-                        s ->
-                            new ResourceCacheData(
-                                Keys.getSpaceKey(accountName, s.getRegion()),
-                                cacheView(s),
-                                emptyMap()))
-                    .collect(toSet()))
-            .toJavaMap();
+        ImmutableMap.of(
+            SPACES.getNs(),
+            spaces.stream()
+                .map(
+                    s ->
+                        new ResourceCacheData(
+                            Keys.getSpaceKey(accountName, s.getRegion()), cacheView(s), emptyMap()))
+                .collect(toSet()));
 
     log.debug(
         "Space cache loaded for Cloud Foundry account {}, ({} sec)",

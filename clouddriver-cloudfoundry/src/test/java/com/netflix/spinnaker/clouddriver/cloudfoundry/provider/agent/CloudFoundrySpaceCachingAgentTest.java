@@ -27,6 +27,8 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
@@ -88,10 +90,7 @@ class CloudFoundrySpaceCachingAgentTest {
             Keys.getSpaceKey(accountName, space2.getRegion()), cacheView(space2), emptyMap());
 
     Map<String, Collection<CacheData>> cacheResults =
-        io.vavr.collection.HashMap.<String, Collection<CacheData>>of(
-                SPACES.getNs(),
-                io.vavr.collection.HashSet.of(spaceCacheData1, spaceCacheData2).toJavaSet())
-            .toJavaMap();
+        ImmutableMap.of(SPACES.getNs(), ImmutableSet.of(spaceCacheData1, spaceCacheData2));
 
     CacheResult expectedCacheResult = new DefaultCacheResult(cacheResults, emptyMap());
 
