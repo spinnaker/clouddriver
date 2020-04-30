@@ -545,6 +545,16 @@ class StandardGceAttributeValidatorSpec extends Specification {
       validator.validateInstanceType("custom-24-29696", REGION, credentials)
     then:
       0 * errors._
+
+    when:
+      validator.validateInstanceType("e2-custom-24-29696", REGION, credentials)
+    then:
+      0 * errors._
+
+    when:
+      validator.validateInstanceType("n2-custom-32-122880", REGION, credentials)
+    then:
+      0 * errors._
   }
 
   void "invalid custom instance type"() {
@@ -558,7 +568,7 @@ class StandardGceAttributeValidatorSpec extends Specification {
       validator.validateInstanceType("custom--1234", ZONE, credentials)
       validator.validateInstanceType("custom-1-2345678", ZONE, credentials)
     then:
-      4 * errors.rejectValue("instanceType", "${DECORATOR}.instanceType.invalid", "Custom instance string must match pattern /custom-\\d{1,2}-\\d{4,6}/.")
+      4 * errors.rejectValue("instanceType", "${DECORATOR}.instanceType.invalid", "Custom instance string must match pattern /(.*)-?custom-(\\d{1,2})-(\\d{4,6})/.")
 
     when:
       validator.validateInstanceType("custom-1-6912", ZONE, credentials)

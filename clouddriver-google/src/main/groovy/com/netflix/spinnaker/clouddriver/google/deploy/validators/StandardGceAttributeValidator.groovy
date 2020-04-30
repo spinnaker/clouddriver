@@ -294,20 +294,22 @@ class StandardGceAttributeValidator {
 
   def validateInstanceType(String instanceType, String location, GoogleNamedAccountCredentials credentials) {
     validateNotEmpty(instanceType, "instanceType")
-    if (instanceType?.startsWith('custom')) {
+    if (instanceType?.contains('custom')) {
       validateCustomInstanceType(instanceType, location, credentials)
     }
   }
 
-  def customInstanceRegExp = /custom-\d{1,2}-\d{4,6}/
+  def customInstanceRegExp = /(.*)-?custom-(\d{1,2})-(\d{4,6})/
 
   def validateCustomInstanceType(String instanceType, String location, GoogleNamedAccountCredentials credentials) {
-    if (!(instanceType ==~ customInstanceRegExp)) {
-      errors.rejectValue("instanceType", "${context}.instanceType.invalid", "Custom instance string must match pattern /custom-\\d{1,2}-\\d{4,6}/.")
+    def customTypeMatcher = instanceType =~ customInstanceRegExp
+    if (!customTypeMatcher.matches()) {
+      errors.rejectValue("instanceType", "${context}.instanceType.invalid", "Custom instance string must match pattern /(.*)-?custom-(\\d{1,2})-(\\d{4,6})/.")
       return false
     }
 
-    def ( vCpuCount, memory ) = instanceType.split('-').tail().collect { it.toDouble() }
+    def vCpuCount = customTypeMatcher.group(2).toDouble()
+    def memory = customTypeMatcher.group(3).toDouble()
     def memoryInGbs = memory / 1024
 
     // Memory per vCPU must be between .9 GB and 6.5 GB
