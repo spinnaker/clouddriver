@@ -91,7 +91,7 @@ class AmazonHealthIndicator implements HealthIndicator {
           }
           ec2.describeAccountAttributes()
         } catch (AmazonServiceException e) {
-          if (!e.errorCode.equalsIgnoreCase("RequestLimitExceeded")) {
+          if (!e.errorCode?.equalsIgnoreCase("RequestLimitExceeded")) {
             throw new AmazonUnreachableException("Failed to describe account attributes for '${credentials.name}'", e)
           }
         }
