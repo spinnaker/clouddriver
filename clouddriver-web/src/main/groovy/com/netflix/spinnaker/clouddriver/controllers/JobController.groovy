@@ -45,6 +45,7 @@ class JobController {
   @Autowired
   FiatPermissionEvaluator fiatPermissionEvaluator
 
+  @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ') and hasPermission(#account, 'ACCOUNT', 'READ')")
   @ApiOperation(value = "Collect a JobStatus", notes = "Collects the output of the job.")
   @RequestMapping(value = "/{account}/{location}/{id:.+}", method = RequestMethod.GET)
   JobStatus collectJob(@ApiParam(value = "Application name", required = true) @PathVariable String application,
@@ -53,16 +54,7 @@ class JobController {
                        @ApiParam(value = "Unique identifier of job being looked up", required = true) @PathVariable String id) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     Collection<JobStatus> jobMatches = jobProviders.findResults {
-      // In Kubernetes Provider v1, collecting the job might end up deleting it if it finds out that it is finished.
-      // This logic should be removed when v1 is EOL
-      String requiredAuthorization = (it.getClass().getSimpleName() == "KubernetesJobProvider") ? "WRITE" : "READ"
-
-      if (fiatPermissionEvaluator.hasPermission(auth, application, "APPLICATION", requiredAuthorization) &&
-        fiatPermissionEvaluator.hasPermission(auth, account, "ACCOUNT", requiredAuthorization)) {
-        return it.collectJob(account, location, id)
-      } else {
-        return null
-      }
+      return it.collectJob(account, location, id)
     }
     if (!jobMatches) {
       throw new NotFoundException("Job not found (account: ${account}, location: ${location}, id: ${id})")
