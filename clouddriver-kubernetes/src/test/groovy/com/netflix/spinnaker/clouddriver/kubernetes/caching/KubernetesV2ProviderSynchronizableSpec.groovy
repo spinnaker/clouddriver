@@ -107,7 +107,6 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     credentials.getProviderVersion() == ProviderVersion.v2
     credentials.getEnvironment() == "test-account"
     credentials.getAccountType() == "test-account"
-    credentials.getSkin() == "v2"
     credentials.getCacheIntervalSeconds() == null
     credentials.getCacheThreads() == 1
 
