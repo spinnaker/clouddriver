@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.controllers
 
 import com.netflix.spinnaker.clouddriver.model.JobProvider
 import com.netflix.spinnaker.clouddriver.model.JobStatus
-import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import io.swagger.annotations.ApiOperation
 import io.swagger.annotations.ApiParam
@@ -41,9 +40,6 @@ class JobController {
 
   @Autowired
   MessageSource messageSource
-
-  @Autowired
-  FiatPermissionEvaluator fiatPermissionEvaluator
 
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ') and hasPermission(#account, 'ACCOUNT', 'READ')")
   @ApiOperation(value = "Collect a JobStatus", notes = "Collects the output of the job.")
