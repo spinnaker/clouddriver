@@ -75,4 +75,8 @@ class AmazonBlockDevice {
    */
   Boolean encrypted
 
+  /**
+   *  The KMS key Id to encrypt the EBS volume
+   */
+  String kmsKeyId
 }

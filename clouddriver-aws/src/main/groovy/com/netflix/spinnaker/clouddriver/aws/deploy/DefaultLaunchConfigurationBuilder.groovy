@@ -86,7 +86,8 @@ class DefaultLaunchConfigurationBuilder implements LaunchConfigurationBuilder {
           deleteOnTermination: mapping.ebs.deleteOnTermination,
           iops: mapping.ebs.iops,
           snapshotId: mapping.ebs.snapshotId,
-          encrypted: mapping.ebs.encrypted)
+          encrypted: mapping.ebs.encrypted,
+          kmsKeyId: mapping.ebs.kmsKeyId)
       } else {
         new AmazonBlockDevice(deviceName: mapping.deviceName, virtualName: mapping.virtualName)
       }
@@ -251,6 +252,9 @@ class DefaultLaunchConfigurationBuilder implements LaunchConfigurationBuilder {
             }
             if (encrypted) {
               ebs.withEncrypted(encrypted)
+            }
+            if (kmsKeyId) {
+              ebs.withKmsKeyId(kmsKeyId)
             }
           }
           mapping.withEbs(ebs)
