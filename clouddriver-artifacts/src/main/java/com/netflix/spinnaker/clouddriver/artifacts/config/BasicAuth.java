@@ -17,10 +17,11 @@
 package com.netflix.spinnaker.clouddriver.artifacts.config;
 
 import com.netflix.spinnaker.clouddriver.artifacts.CredentialReader;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.Optional;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.StringUtils;
 
+@NonnullByDefault
 public interface BasicAuth {
   String getUsername();
 
@@ -30,9 +31,9 @@ public interface BasicAuth {
 
   default Optional<String> getBasicAuthHeader() {
     String usernamePassword = null;
-    if (StringUtils.isNotEmpty(getUsernamePasswordFile())) {
+    if (!getUsernamePasswordFile().isEmpty()) {
       usernamePassword = CredentialReader.credentialsFromFile(getUsernamePasswordFile());
-    } else if (StringUtils.isNotEmpty(getUsername()) && StringUtils.isNotEmpty(getPassword())) {
+    } else if (!getUsername().isEmpty() && !getPassword().isEmpty()) {
       usernamePassword = getUsername() + ":" + getPassword();
     }
 

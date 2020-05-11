@@ -17,9 +17,10 @@
 package com.netflix.spinnaker.clouddriver.artifacts.config;
 
 import com.netflix.spinnaker.clouddriver.artifacts.CredentialReader;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.Optional;
-import org.apache.commons.lang3.StringUtils;
 
+@NonnullByDefault
 public interface TokenAuth {
   String getToken();
 
@@ -31,9 +32,9 @@ public interface TokenAuth {
 
   default Optional<String> getTokenAsString() {
     String token = null;
-    if (StringUtils.isNotEmpty(getTokenFile())) {
+    if (!getTokenFile().isEmpty()) {
       token = CredentialReader.credentialsFromFile(getTokenFile());
-    } else if (StringUtils.isNotEmpty(getToken())) {
+    } else if (!getToken().isEmpty()) {
       token = getToken();
     }
 
