@@ -17,12 +17,18 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.github;
 
+import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import com.netflix.spinnaker.clouddriver.artifacts.config.BasicAuth;
 import com.netflix.spinnaker.clouddriver.artifacts.config.TokenAuth;
-import lombok.Data;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import javax.annotation.ParametersAreNullableByDefault;
+import lombok.Builder;
+import lombok.Value;
+import org.springframework.boot.context.properties.ConstructorBinding;
 
-@Data
+@NonnullByDefault
+@Value
 final class GitHubArtifactAccount implements ArtifactAccount, BasicAuth, TokenAuth {
   private String name;
   /*
@@ -37,4 +43,22 @@ final class GitHubArtifactAccount implements ArtifactAccount, BasicAuth, TokenAu
   private String usernamePasswordFile;
   private String token;
   private String tokenFile;
+
+  @Builder
+  @ConstructorBinding
+  @ParametersAreNullableByDefault
+  GitHubArtifactAccount(
+      String name,
+      String username,
+      String password,
+      String usernamePasswordFile,
+      String token,
+      String tokenFile) {
+    this.name = Strings.nullToEmpty(name);
+    this.username = Strings.nullToEmpty(username);
+    this.password = Strings.nullToEmpty(password);
+    this.usernamePasswordFile = Strings.nullToEmpty(usernamePasswordFile);
+    this.token = Strings.nullToEmpty(token);
+    this.tokenFile = Strings.nullToEmpty(tokenFile);
+  }
 }

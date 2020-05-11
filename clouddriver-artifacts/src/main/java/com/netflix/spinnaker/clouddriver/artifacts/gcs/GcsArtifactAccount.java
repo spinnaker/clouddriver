@@ -17,11 +17,25 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.gcs;
 
+import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
-import lombok.Data;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import javax.annotation.ParametersAreNullableByDefault;
+import lombok.Builder;
+import lombok.Value;
+import org.springframework.boot.context.properties.ConstructorBinding;
 
-@Data
+@NonnullByDefault
+@Value
 final class GcsArtifactAccount implements ArtifactAccount {
-  private String name;
-  private String jsonPath;
+  private final String name;
+  private final String jsonPath;
+
+  @Builder
+  @ConstructorBinding
+  @ParametersAreNullableByDefault
+  GcsArtifactAccount(String name, String jsonPath) {
+    this.name = Strings.nullToEmpty(name);
+    this.jsonPath = Strings.nullToEmpty(jsonPath);
+  }
 }

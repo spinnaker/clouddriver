@@ -16,20 +16,35 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.jenkins;
 
+import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import com.netflix.spinnaker.clouddriver.artifacts.config.BasicAuth;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import javax.annotation.ParametersAreNullableByDefault;
+import lombok.Builder;
+import lombok.Value;
+import org.springframework.boot.context.properties.ConstructorBinding;
 
-@Data
-@RequiredArgsConstructor
+@NonnullByDefault
+@Value
 final class JenkinsArtifactAccount implements ArtifactAccount, BasicAuth {
   private final String name;
   private final String username;
   private final String password;
   private final String address;
 
+  @Builder
+  @ConstructorBinding
+  @ParametersAreNullableByDefault
+  JenkinsArtifactAccount(String name, String username, String password, String address) {
+    this.name = Strings.nullToEmpty(name);
+    this.username = Strings.nullToEmpty(username);
+    this.password = Strings.nullToEmpty(password);
+    this.address = Strings.nullToEmpty(address);
+  }
+
+  @Override
   public String getUsernamePasswordFile() {
-    return null;
+    return "";
   }
 }
