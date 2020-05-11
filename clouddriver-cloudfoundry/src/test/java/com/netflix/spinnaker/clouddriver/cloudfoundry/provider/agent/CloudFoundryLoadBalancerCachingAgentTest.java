@@ -279,6 +279,8 @@ class CloudFoundryLoadBalancerCachingAgentTest {
                 LOAD_BALANCERS.getNs(),
                 HashSet.of(loadBalancerCacheData1, loadBalancerCacheData2).toJavaSet(),
                 ON_DEMAND.getNs(),
+                emptySet(),
+                SERVER_GROUPS.getNs(),
                 emptySet())
             .toJavaMap();
     CacheResult expectedCacheResult =
@@ -362,6 +364,8 @@ class CloudFoundryLoadBalancerCachingAgentTest {
                 LOAD_BALANCERS.getNs(),
                 HashSet.of(onDemandCacheResults).toJavaSet(),
                 ON_DEMAND.getNs(),
+                emptySet(),
+                SERVER_GROUPS.getNs(),
                 emptySet())
             .toJavaMap();
 

@@ -84,12 +84,34 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
           }
         });
 
+    Map<String, CacheData> loadBalancersByServerGroupIds = new java.util.HashMap<>();
+    loadBalancers.stream()
+        .forEach(
+            lb ->
+                lb.getMappedApps().stream()
+                    .forEach(
+                        sg ->
+                            loadBalancersByServerGroupIds
+                                .computeIfAbsent(
+                                    sg.getId(),
+                                    (s) ->
+                                        new ResourceCacheData(
+                                            Keys.getServerGroupKey(
+                                                sg.getAccount(), sg.getName(), sg.getRegion()),
+                                            emptyMap(),
+                                            new java.util.HashMap<>()))
+                                .getRelationships()
+                                .computeIfAbsent(LOAD_BALANCERS.getNs(), k -> new HashSet<>())
+                                .add(lb.getId())));
+
     Map<String, Collection<CacheData>> results =
-        HashMap.<String, Collection<CacheData>>of(
+        HashMap.of(
                 LOAD_BALANCERS.getNs(),
                 loadBalancers.stream()
                     .map(lb -> setCacheData(toKeep, lb, loadDataStart))
-                    .collect(toSet()))
+                    .collect(toSet()),
+                SERVER_GROUPS.getNs(),
+                loadBalancersByServerGroupIds.values())
             .toJavaMap();
 
     onDemandCacheData.forEach(this::processOnDemandCacheData);
