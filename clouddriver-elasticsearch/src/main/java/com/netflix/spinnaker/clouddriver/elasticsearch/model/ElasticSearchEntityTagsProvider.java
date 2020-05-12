@@ -516,23 +516,36 @@ public class ElasticSearchEntityTagsProvider implements EntityTagsProvider {
                 entityTags ->
                     executor.submit(
                         () -> {
-                          AuthenticatedRequest.allowAnonymous(
-                              () -> front50Service.batchUpdate(entityTags));
+                          try {
+                            AuthenticatedRequest.allowAnonymous(
+                                () -> front50Service.batchUpdate(entityTags));
 
-                          log.info(
-                              "Deleted {} out of {} tags in namespace {}",
-                              countProcessed.addAndGet(entityTags.size()),
-                              entityTagsForNamespace.size(),
-                              namespace);
+                            log.info(
+                                "Deleted {} out of {} tags in namespace {}",
+                                countProcessed.addAndGet(entityTags.size()),
+                                entityTagsForNamespace.size(),
+                                namespace);
+                          } catch (Exception e) {
+                            log.error(
+                                "Failed to delete a batch of tags from front50 in namespace {}",
+                                namespace,
+                                e);
+                          }
                         }));
 
         try {
           executor.shutdown();
-          executor.awaitTermination(1, TimeUnit.HOURS);
+          executor.awaitTermination(15, TimeUnit.MINUTES);
           results.put("deletedFromSource", true);
         } catch (InterruptedException e) {
-          log.error("Failed to bulk remove tags from front50", e);
-          results.put("error", e);
+          String error =
+              String.format(
+                  "Failed to bulk remove tags from front50 in namespace %s due to timeout, please try again",
+                  namespace);
+
+          log.error(error, e);
+          results.put("error", error);
+          results.put("exception", e);
         }
       }
     }
