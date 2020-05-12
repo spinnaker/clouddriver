@@ -18,7 +18,6 @@
 package com.netflix.spinnaker.clouddriver.artifacts.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.IOException;
@@ -31,7 +30,12 @@ import org.apache.commons.lang3.NotImplementedException;
 public interface ArtifactCredentials {
   String getName();
 
-  ImmutableList<String> getTypes();
+  /**
+   * Returns the artifact types that are handled by these credentials.
+   *
+   * @return A list of artifact types, which should be immutable.
+   */
+  List<String> getTypes();
 
   InputStream download(Artifact artifact) throws IOException;
 
