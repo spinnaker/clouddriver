@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
+import java.util.Optional;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,22 +52,21 @@ final class GcsArtifactCredentials implements ArtifactCredentials {
       throws IOException, GeneralSecurityException {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
-    String credentialsPath = account.getJsonPath();
+    Optional<String> credentialsPath = account.getJsonPath();
 
     GoogleCredentials credentials;
-
-    if (credentialsPath.isEmpty()) {
-      log.info(
-          "artifacts.gcs.enabled without artifacts.gcs.[].jsonPath. Using default application credentials.");
-
-      credentials = GoogleCredentials.getApplicationDefault();
-    } else {
-      FileInputStream stream = new FileInputStream(credentialsPath);
+    if (credentialsPath.isPresent()) {
+      FileInputStream stream = new FileInputStream(credentialsPath.get());
       credentials =
           GoogleCredentials.fromStream(stream)
               .createScoped(Collections.singleton(StorageScopes.DEVSTORAGE_READ_ONLY));
 
       log.info("Loaded credentials from {}", credentialsPath);
+    } else {
+      log.info(
+          "artifacts.gcs.enabled without artifacts.gcs.[].jsonPath. Using default application credentials.");
+
+      credentials = GoogleCredentials.getApplicationDefault();
     }
 
     HttpRequestInitializer requestInitializer = new HttpCredentialsAdapter(credentials);

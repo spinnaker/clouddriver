@@ -23,18 +23,18 @@ import org.apache.commons.codec.binary.Base64;
 
 @NonnullByDefault
 public interface BasicAuth {
-  String getUsername();
+  Optional<String> getUsername();
 
-  String getPassword();
+  Optional<String> getPassword();
 
-  String getUsernamePasswordFile();
+  Optional<String> getUsernamePasswordFile();
 
   default Optional<String> getBasicAuthHeader() {
     String usernamePassword = null;
-    if (!getUsernamePasswordFile().isEmpty()) {
-      usernamePassword = CredentialReader.credentialsFromFile(getUsernamePasswordFile());
-    } else if (!getUsername().isEmpty() && !getPassword().isEmpty()) {
-      usernamePassword = getUsername() + ":" + getPassword();
+    if (getUsernamePasswordFile().isPresent()) {
+      usernamePassword = CredentialReader.credentialsFromFile(getUsernamePasswordFile().get());
+    } else if (getUsername().isPresent() && getPassword().isPresent()) {
+      usernamePassword = getUsername().get() + ":" + getPassword().get();
     }
 
     return Optional.ofNullable(usernamePassword)

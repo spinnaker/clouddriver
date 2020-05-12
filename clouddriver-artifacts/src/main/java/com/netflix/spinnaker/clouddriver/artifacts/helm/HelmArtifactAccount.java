@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import com.netflix.spinnaker.clouddriver.artifacts.config.BasicAuth;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import java.util.Optional;
 import javax.annotation.ParametersAreNullableByDefault;
 import lombok.Builder;
 import lombok.Value;
@@ -35,9 +36,9 @@ final class HelmArtifactAccount implements ArtifactAccount, BasicAuth {
     - username and password
     - usernamePasswordFile : path to file containing "username:password"
   */
-  private final String username;
-  private final String password;
-  private final String usernamePasswordFile;
+  private final Optional<String> username;
+  private final Optional<String> password;
+  private final Optional<String> usernamePasswordFile;
   private final String repository;
 
   @Builder
@@ -50,9 +51,9 @@ final class HelmArtifactAccount implements ArtifactAccount, BasicAuth {
       String usernamePasswordFile,
       String repository) {
     this.name = Strings.nullToEmpty(name);
-    this.username = Strings.nullToEmpty(username);
-    this.password = Strings.nullToEmpty(password);
-    this.usernamePasswordFile = Strings.nullToEmpty(usernamePasswordFile);
+    this.username = Optional.ofNullable(Strings.emptyToNull(username));
+    this.password = Optional.ofNullable(Strings.emptyToNull(password));
+    this.usernamePasswordFile = Optional.ofNullable(Strings.emptyToNull(usernamePasswordFile));
     this.repository = Strings.nullToEmpty(repository);
   }
 }

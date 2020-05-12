@@ -22,22 +22,19 @@ import java.util.Optional;
 
 @NonnullByDefault
 public interface TokenAuth {
-  String getToken();
+  Optional<String> getToken();
 
-  String getTokenFile();
+  Optional<String> getTokenFile();
 
   default Optional<String> getTokenAuthHeader() {
     return getTokenAsString().map(t -> "token " + t);
   }
 
   default Optional<String> getTokenAsString() {
-    String token = null;
-    if (!getTokenFile().isEmpty()) {
-      token = CredentialReader.credentialsFromFile(getTokenFile());
-    } else if (!getToken().isEmpty()) {
-      token = getToken();
+    Optional<String> result = getTokenFile().map(CredentialReader::credentialsFromFile);
+    if (result.isPresent()) {
+      return result;
     }
-
-    return Optional.ofNullable(token);
+    return getToken();
   }
 }

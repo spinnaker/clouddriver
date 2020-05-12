@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import com.netflix.spinnaker.clouddriver.artifacts.config.TokenAuth;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import java.util.Optional;
 import javax.annotation.ParametersAreNullableByDefault;
 import lombok.Builder;
 import lombok.Value;
@@ -29,15 +30,15 @@ import org.springframework.boot.context.properties.ConstructorBinding;
 @Value
 final class GitlabArtifactAccount implements ArtifactAccount, TokenAuth {
   private final String name;
-  private final String token;
-  private final String tokenFile;
+  private final Optional<String> token;
+  private final Optional<String> tokenFile;
 
   @Builder
   @ConstructorBinding
   @ParametersAreNullableByDefault
   GitlabArtifactAccount(String name, String token, String tokenFile) {
     this.name = Strings.nullToEmpty(name);
-    this.token = Strings.nullToEmpty(token);
-    this.tokenFile = Strings.nullToEmpty(tokenFile);
+    this.token = Optional.ofNullable(Strings.emptyToNull(token));
+    this.tokenFile = Optional.ofNullable(Strings.emptyToNull(tokenFile));
   }
 }
