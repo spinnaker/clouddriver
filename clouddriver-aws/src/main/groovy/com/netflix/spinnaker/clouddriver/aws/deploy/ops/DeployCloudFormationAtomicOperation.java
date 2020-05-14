@@ -58,6 +58,7 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         amazonClientProvider.getAmazonCloudFormation(
             description.getCredentials(), description.getRegion());
     String template = description.getTemplateBody();
+    validateTemplate(amazonCloudFormation, template);
     String roleARN = description.getRoleARN();
     List<Parameter> parameters =
         description.getParameters().entrySet().stream()
@@ -218,5 +219,15 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
                 new IllegalArgumentException(
                     "No CloudFormation Stack found with stack name " + description.getStackName()))
         .getStackId();
+  }
+
+  private void validateTemplate(AmazonCloudFormation amazonCloudFormation, String template) {
+    try {
+      amazonCloudFormation.validateTemplate(
+          new ValidateTemplateRequest().withTemplateBody(template));
+    } catch (AmazonCloudFormationException e) {
+      log.error("Error validating cloudformation template", e);
+      throw e;
+    }
   }
 }
