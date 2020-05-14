@@ -167,7 +167,7 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         // No changes on the stack, ignore failure
         return getStackId(amazonCloudFormation);
       }
-      log.error("Error changing stack", e);
+      log.error("Error updating stack", e);
       throw e;
     }
   }
