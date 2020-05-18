@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+['fiat', 'kork'].each { prj ->
+  String propName = "${prj}Composite"
+  String projectPath = "../$prj"
+  if (settings.ext.has(propName) && Boolean.parseBoolean(settings.ext.get(propName) as String)) {
+    includeBuild projectPath
+  }
+}
+
 rootProject.name = "clouddriver"
 
 def cloudProviderProjects = [
@@ -25,7 +33,7 @@ def cloudProviderProjects = [
   'dcos': [':clouddriver-dcos'],
   'gce': [':clouddriver-consul', ':clouddriver-google', ':clouddriver-google-common'],
   'huaweicloud': [':clouddriver-huaweicloud'],
-  'kubernetes': [':clouddriver-kubernetes', ':clouddriver-kubernetes-v1', ':clouddriver-kubernetes-v2', ':clouddriver-docker'],
+  'kubernetes': [':clouddriver-kubernetes'],
   'oracle': [':clouddriver-oracle'],
   'tencentcloud': [':clouddriver-tencentcloud']
 ]
@@ -33,8 +41,10 @@ cloudProviderProjects.put('gcp', cloudProviderProjects['appengine'] + cloudProvi
 cloudProviderProjects.put('titus', cloudProviderProjects['aws'] + ':clouddriver-titus' + ':clouddriver-docker')
 cloudProviderProjects.put('all', cloudProviderProjects.collectMany {_, proj -> proj}) // Include all cloud providers.
 
+String icp = settings.ext.has('includeCloudProviders') ? settings.ext.get('includeCloudProviders') : 'all'
+
 // Set as an ext variable so that build scripts can access it
-gradle.ext.includedCloudProviderProjects = includeCloudProviders.split(',')
+gradle.ext.includedCloudProviderProjects = icp.split(',')
   .collectMany { cloudProviderProjects[it.toLowerCase()] }
   .toSet()
   .toList()

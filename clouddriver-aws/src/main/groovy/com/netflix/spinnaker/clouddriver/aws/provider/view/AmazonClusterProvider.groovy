@@ -84,18 +84,30 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     }
 
     def asg = serverGroupData.attributes["asg"]
+    def serverGroupById = [(serverGroupData.id): new AmazonServerGroup(serverGroupData.attributes)]
+    def serverGroup = serverGroupById.values().first()
 
-    String launchConfigKey = Keys.getLaunchConfigKey(serverGroupData?.attributes['launchConfigName'] as String, account, region)
-    CacheData launchConfigs = cacheView.get(LAUNCH_CONFIGS.ns, launchConfigKey)
+    String imageId
 
-    String imageId = launchConfigs?.attributes?.get('imageId')
+    Map<String, Object> launchTemplateSpec = asg["launchTemplate"] as Map
+    String launchTemplateName = launchTemplateSpec?.get('launchTemplateName')
+    if (launchTemplateName != null) {
+      String launchTemplateKey = Keys.getLaunchTemplateKey(launchTemplateName, account, region)
+      CacheData launchTemplate = cacheView.get(LAUNCH_TEMPLATES.ns, launchTemplateKey)
+      updateServerGroupLaunchSettings(serverGroupById, [launchTemplate])
+      imageId = serverGroup.launchTemplate["launchTemplateData"]["imageId"]
+    } else {
+      String launchConfigKey = Keys.getLaunchConfigKey(serverGroupData?.attributes['launchConfigName'] as String, account, region)
+      CacheData launchConfigs = cacheView.get(LAUNCH_CONFIGS.ns, launchConfigKey)
+      updateServerGroupLaunchSettings(serverGroupById, [launchConfigs])
+      imageId = launchConfigs?.attributes?.get('imageId')
+    }
+
     CacheData imageConfigs = imageId ? cacheView.get(IMAGES.ns, Keys.getImageKey(imageId, account, region)) : null
-
-    def serverGroup = new AmazonServerGroup(serverGroupData.attributes)
-    serverGroup.accountName = account
-    serverGroup.launchConfig = launchConfigs ? launchConfigs.attributes : null
     serverGroup.image = imageConfigs ? imageConfigs.attributes : null
     serverGroup.buildInfo = imageConfigs ? getBuildInfoFromImage(imageConfigs) : null
+
+    serverGroup.accountName = account
 
     if (includeDetails) {
       Set<String> asgInstances = getAsgInstanceKeys(asg, account, region)
@@ -153,11 +165,12 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
   private Collection<AmazonCluster> allClustersByApplication(String application) {
     // TODO: only supports the equiv of includeDetails=true, consider adding support for the inverse
 
-    List<String> toFetch = [CLUSTERS.ns, SERVER_GROUPS.ns, LAUNCH_CONFIGS.ns, INSTANCES.ns, HEALTH.ns]
+    List<String> toFetch = [CLUSTERS.ns, SERVER_GROUPS.ns, LAUNCH_CONFIGS.ns, INSTANCES.ns, LAUNCH_TEMPLATES.ns]
     Map<String, CacheFilter> filters = [:]
-    filters[SERVER_GROUPS.ns] = RelationshipCacheFilter.include(INSTANCES.ns, LAUNCH_CONFIGS.ns)
+    filters[SERVER_GROUPS.ns] = RelationshipCacheFilter.include(INSTANCES.ns, LAUNCH_CONFIGS.ns, LAUNCH_TEMPLATES.ns)
     filters[LAUNCH_CONFIGS.ns] = RelationshipCacheFilter.include(IMAGES.ns, SERVER_GROUPS.ns)
-    filters[INSTANCES.ns] = RelationshipCacheFilter.include(SERVER_GROUPS.ns, HEALTH.ns)
+    filters[LAUNCH_TEMPLATES.ns] = RelationshipCacheFilter.include(IMAGES.ns, SERVER_GROUPS.ns)
+    filters[INSTANCES.ns] = RelationshipCacheFilter.include(SERVER_GROUPS.ns)
 
     def cacheResults = cacheView.getAllByApplication(toFetch, application, filters)
 
@@ -170,9 +183,14 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
       cacheResults[CLUSTERS.ns],
       TARGET_GROUPS.ns
     )
-    Collection<CacheData> allImages = resolveRelationshipDataForCollection(
-      cacheResults[LAUNCH_CONFIGS.ns],
-      IMAGES.ns
+
+    Collection<CacheData> allImages = []
+    allImages.addAll(
+      resolveRelationshipDataForCollection(cacheResults[LAUNCH_CONFIGS.ns], IMAGES.ns)
+    )
+
+    allImages.addAll(
+      resolveRelationshipDataForCollection(cacheResults[LAUNCH_TEMPLATES.ns], IMAGES.ns)
     )
 
     Map<String, AmazonLoadBalancer> loadBalancers = translateLoadBalancers(allLoadBalancers)
@@ -180,8 +198,8 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     Map<String, AmazonServerGroup> serverGroups = translateServerGroups(
       cacheResults[SERVER_GROUPS.ns],
       cacheResults[INSTANCES.ns],
-      cacheResults[HEALTH.ns],
       cacheResults[LAUNCH_CONFIGS.ns],
+      cacheResults[LAUNCH_TEMPLATES.ns],
       allImages
     )
 
@@ -211,7 +229,8 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     if (includeDetails) {
       Collection<CacheData> allLoadBalancers = resolveRelationshipDataForCollection(clusterData, LOAD_BALANCERS.ns)
       Collection<CacheData> allTargetGroups = resolveRelationshipDataForCollection(clusterData, TARGET_GROUPS.ns)
-      Collection<CacheData> allServerGroups = resolveRelationshipDataForCollection(clusterData, SERVER_GROUPS.ns, RelationshipCacheFilter.include(INSTANCES.ns, LAUNCH_CONFIGS.ns))
+      Collection<CacheData> allServerGroups = resolveRelationshipDataForCollection(
+        clusterData, SERVER_GROUPS.ns, RelationshipCacheFilter.include(INSTANCES.ns, LAUNCH_CONFIGS.ns, LAUNCH_TEMPLATES.ns))
 
       loadBalancers = translateLoadBalancers(allLoadBalancers)
       targetGroups = translateTargetGroups(allTargetGroups)
@@ -268,25 +287,11 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
   private Map<String, AmazonServerGroup> translateServerGroups(
     Collection<CacheData> serverGroupData,
     Collection<CacheData> instanceData,
-    Collection<CacheData> healthData,
     Collection<CacheData> launchConfigData,
+    Collection<CacheData> launchTemplateData,
     Collection<CacheData> imageData
   ) {
-    Map<String, AmazonInstance> instances = instanceData?.collectEntries { instanceEntry ->
-      AmazonInstance instance = new AmazonInstance(instanceEntry.attributes)
-      instance.name = instanceEntry.attributes.instanceId.toString()
-      [(instanceEntry.id): instance]
-    } ?: new HashMap<>()
-
-    healthData?.forEach {
-      def instanceId = it.relationships?.find {
-        r -> r.key == INSTANCES.ns && !r.value.empty
-      }?.value?.first()
-
-      if (instanceId != null && instances.containsKey(instanceId)) {
-        instances[instanceId].health << it.attributes
-      }
-    }
+    Map<String, AmazonInstance> instances = translateInstances(instanceData)
 
     Map<String, AmazonServerGroup> serverGroups = serverGroupData?.collectEntries { sg ->
       Map<String, String> parsed = Keys.parse(sg.id)
@@ -300,22 +305,17 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
       [(sg.id): serverGroup]
     }
 
-    Map<String, CacheData> images = imageData?.collectEntries { image ->
-      [(image.id): image]
-    }
+    // expand and set launch templates
+    updateServerGroupLaunchSettings(serverGroups, launchTemplateData)
 
-    launchConfigData.each { lc ->
-      if (lc.relationships.containsKey(SERVER_GROUPS.ns)) {
-        def sgKey = lc.relationships.serverGroups.first()
-        serverGroups[sgKey]?.launchConfig = lc.attributes
+    // expand and set launch configs
+    updateServerGroupLaunchSettings(serverGroups, launchConfigData)
 
-        def imageId = lc.relationships[IMAGES.ns]?.first()
-        if (imageId && images.containsKey(imageId)) {
-          serverGroups[sgKey]?.image = images[imageId].attributes
-          serverGroups[sgKey]?.buildInfo = getBuildInfoFromImage(images[imageId])
-        }
-      }
-    }
+    // update build info for launch templates
+    updateServerGroupBuildInfo(serverGroups, launchTemplateData, imageData)
+
+    // update build info for launch configs
+    updateServerGroupBuildInfo(serverGroups, launchConfigData, imageData)
 
     serverGroups
   }
@@ -363,6 +363,13 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     }.collectEntries {
       [(it.relationships[LAUNCH_CONFIGS.ns].first()): it.id]
     }
+
+    Map<String, String> templates = serverGroupData.findAll {
+      it.relationships[LAUNCH_TEMPLATES.ns]
+    }.collectEntries {
+      [(it.relationships[LAUNCH_TEMPLATES.ns].first()): it.id]
+    }
+
     Collection<CacheData> launchConfigs = cacheView.getAll(LAUNCH_CONFIGS.ns, launchConfigurations.keySet())
     Map<String, Collection<String>> allImages = [:]
     launchConfigs.each { launchConfig ->
@@ -376,6 +383,21 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
         allImages[imageId] << serverGroupId
       }
     }
+
+    Collection<CacheData> launchTemplates = cacheView.getAll(LAUNCH_TEMPLATES.ns, templates.keySet())
+    launchTemplates.each { launchTemplate ->
+      def serverGroupId = templates[launchTemplate.id]
+      String imageId = launchTemplate.relationships[IMAGES.ns]?.first()
+      def launchTemplateSpec = serverGroups[serverGroupId].asg?.launchTemplate as Map
+      serverGroups[serverGroupId].launchTemplate = getLaunchTemplateVersion(launchTemplate, launchTemplateSpec.version as String)
+      if (imageId) {
+        if (!allImages.containsKey(imageId)) {
+          allImages.put(imageId, [])
+        }
+        allImages[imageId] << serverGroupId
+      }
+    }
+
     Collection<CacheData> images = cacheView.getAll(IMAGES.ns, allImages.keySet())
     images.each { image ->
       def serverGroupIds = allImages[image.id]
@@ -508,5 +530,72 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
   @Override
   String buildServerGroupIdentifier(String account, String region, String serverGroupName) {
     return Keys.getServerGroupKey(serverGroupName, account, region)
+  }
+
+  /**
+   * Gets a launch template by version
+   */
+  private static Map<String, Object> getLaunchTemplateVersion(CacheData launchTemplate, String version) {
+    if (!launchTemplate) {
+      return null
+    }
+
+    Map<String, Object> launchTemplateAttrs = launchTemplate.attributes
+    def versions = launchTemplateAttrs["versions"] as List<Map>
+
+    // Handle special version placeholders: $Latest and $Default
+    if (version == '$Latest') {
+      return launchTemplateAttrs["latestVersion"] as Map
+    } else if (version == '$Default') {
+      return versions.find {
+        it["defaultVersion"] as Boolean
+      }
+    } else {
+      return versions.find {
+        it["versionNumber"] == version.toInteger()
+      }
+    }
+  }
+
+  /**
+   * Updates server groups launch config or template
+   */
+  private static void updateServerGroupLaunchSettings(Map<String, AmazonServerGroup> serverGroups, Collection<CacheData> launchData) {
+    for (ld in launchData) {
+      if (ld?.relationships?.containsKey(SERVER_GROUPS.ns)) {
+        ld.relationships[SERVER_GROUPS.ns].each {
+          def serverGroup = serverGroups[it]
+          if (serverGroup != null) {
+            if (serverGroup.asg?.launchTemplate) {
+              def launchTemplateSpec = serverGroup.asg.launchTemplate as Map
+              serverGroup.launchTemplate = getLaunchTemplateVersion(ld, launchTemplateSpec.version as String)
+            } else {
+              serverGroup.launchConfig = ld.attributes
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Updates server groups build info
+   */
+  private void updateServerGroupBuildInfo(
+    Map<String, AmazonServerGroup> serverGroups, Collection<CacheData> launchData, Collection<CacheData> imageData) {
+    Map<String, CacheData> images = imageData?.collectEntries { image ->
+      [(image.id): image]
+    }
+
+    launchData.each { ld ->
+      if (ld?.relationships?.containsKey(SERVER_GROUPS.ns)) {
+        def serverGroup = serverGroups[ld.relationships[SERVER_GROUPS.ns].first()]
+        def imageId = ld.relationships[IMAGES.ns]?.first()
+        if (serverGroup && imageId && images.containsKey(imageId)) {
+          serverGroup.image = images[imageId].attributes
+          serverGroup.buildInfo = getBuildInfoFromImage(images[imageId])
+        }
+      }
+    }
   }
 }

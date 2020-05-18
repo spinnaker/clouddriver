@@ -36,6 +36,7 @@ import org.springframework.util.StringUtils;
 public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map> {
 
   private static final String BASE_PHASE = "DEPLOY_CLOUDFORMATION_STACK";
+  private static final String NO_CHANGE_STACK_ERROR_MESSAGE = "No updates";
 
   @Autowired AmazonClientProvider amazonClientProvider;
 
@@ -58,6 +59,7 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
         amazonClientProvider.getAmazonCloudFormation(
             description.getCredentials(), description.getRegion());
     String template = description.getTemplateBody();
+    validateTemplate(amazonCloudFormation, template);
     String roleARN = description.getRoleARN();
     List<Parameter> parameters =
         description.getParameters().entrySet().stream()
@@ -161,8 +163,13 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
       UpdateStackResult updateStackResult = amazonCloudFormation.updateStack(updateStackRequest);
       return updateStackResult.getStackId();
     } catch (AmazonCloudFormationException e) {
-      // No changes on the stack, ignore failure
-      return getStackId(amazonCloudFormation);
+
+      if (e.getMessage().contains(NO_CHANGE_STACK_ERROR_MESSAGE)) {
+        // No changes on the stack, ignore failure
+        return getStackId(amazonCloudFormation);
+      }
+      log.error("Error updating stack", e);
+      throw e;
     }
   }
 
@@ -218,5 +225,15 @@ public class DeployCloudFormationAtomicOperation implements AtomicOperation<Map>
                 new IllegalArgumentException(
                     "No CloudFormation Stack found with stack name " + description.getStackName()))
         .getStackId();
+  }
+
+  private void validateTemplate(AmazonCloudFormation amazonCloudFormation, String template) {
+    try {
+      amazonCloudFormation.validateTemplate(
+          new ValidateTemplateRequest().withTemplateBody(template));
+    } catch (AmazonCloudFormationException e) {
+      log.error("Error validating cloudformation template", e);
+      throw e;
+    }
   }
 }

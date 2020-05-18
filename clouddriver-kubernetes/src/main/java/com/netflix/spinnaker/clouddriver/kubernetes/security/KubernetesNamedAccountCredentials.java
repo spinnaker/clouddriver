@@ -1,7 +1,7 @@
 /*
  * Copyright 2016 Google, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License")
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -12,6 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package com.netflix.spinnaker.clouddriver.kubernetes.security;
@@ -43,8 +44,6 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
 
   @Include private final String accountType;
 
-  @Include private final String skin;
-
   @Include private final int cacheThreads;
 
   @Include private final C credentials;
@@ -63,9 +62,6 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials>
         Optional.ofNullable(managedAccount.getEnvironment()).orElse(managedAccount.getName());
     this.accountType =
         Optional.ofNullable(managedAccount.getAccountType()).orElse(managedAccount.getName());
-    this.skin =
-        Optional.ofNullable(managedAccount.getSkin())
-            .orElse(managedAccount.getProviderVersion().toString());
     this.cacheThreads = managedAccount.getCacheThreads();
     this.cacheIntervalSeconds = managedAccount.getCacheIntervalSeconds();
 
