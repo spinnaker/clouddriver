@@ -77,10 +77,10 @@ public class TitusV2ClusterCachingAgent
   static final java.util.Set<AgentDataType> types =
       Collections.unmodifiableSet(
           Stream.of(
+                  AUTHORITATIVE.forType(CLUSTERS.ns),
                   AUTHORITATIVE.forType(SERVER_GROUPS.ns),
                   AUTHORITATIVE.forType(APPLICATIONS.ns),
                   INFORMATIVE.forType(IMAGES.ns),
-                  INFORMATIVE.forType(CLUSTERS.ns),
                   INFORMATIVE.forType(TARGET_GROUPS.ns))
               .collect(Collectors.toSet()));
 
