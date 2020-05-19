@@ -568,17 +568,17 @@ class StandardGceAttributeValidatorSpec extends Specification {
       validator.validateInstanceType("custom--1234", ZONE, credentials)
       validator.validateInstanceType("custom-1-2345678", ZONE, credentials)
     then:
-      4 * errors.rejectValue("instanceType", "${DECORATOR}.instanceType.invalid", "Custom instance string must match pattern /(.*)-?custom-(\\d{1,2})-(\\d{4,6})/.")
+      4 * errors.rejectValue("instanceType", "${DECORATOR}.instanceType.invalid", "Custom instance string must match pattern /(.*)-?custom-(\\d{1,2})-(\\d{3,6})/.")
 
     when:
-      validator.validateInstanceType("custom-1-6912", ZONE, credentials)
+      validator.validateInstanceType("custom-1-8448", ZONE, credentials)
     then:
-      1 * errors.rejectValue("instanceType", "${DECORATOR}.instanceType.invalid", "Memory per vCPU must be less than 6.5GB.")
+      1 * errors.rejectValue("instanceType", "${DECORATOR}.instanceType.invalid", "Memory per vCPU must be less than 8GB.")
 
     when:
-      validator.validateInstanceType("custom-2-1024", ZONE, credentials)
+      validator.validateInstanceType("custom-2-768", ZONE, credentials)
     then:
-      1 * errors.rejectValue("instanceType", "${DECORATOR}.instanceType.invalid", "Memory per vCPU must be greater than 0.9GB.")
+      1 * errors.rejectValue("instanceType", "${DECORATOR}.instanceType.invalid", "Memory per vCPU must be greater than 0.5GB.")
 
     when:
       validator.validateInstanceType("custom-1-1000", ZONE, credentials)
