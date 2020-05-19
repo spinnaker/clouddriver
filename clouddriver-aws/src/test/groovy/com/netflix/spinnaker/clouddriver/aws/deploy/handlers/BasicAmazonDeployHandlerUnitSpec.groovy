@@ -798,7 +798,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     })
 
     when:
-    def blockDeviceMappings = handler.buildBlockDeviceMappings(description, launchConfiguration)
+    def blockDeviceMappings = handler.buildBlockDeviceMappings(description, new BasicAmazonDeployHandler.LaunchSetting(launchConfiguration: launchConfiguration))
 
     then:
     convertBlockDeviceMappings(blockDeviceMappings) == convertBlockDeviceMappings(expectedTargetBlockDevices)
