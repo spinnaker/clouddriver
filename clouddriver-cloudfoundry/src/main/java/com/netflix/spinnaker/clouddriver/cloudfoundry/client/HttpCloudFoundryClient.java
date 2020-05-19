@@ -100,10 +100,6 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
     RetryableApiException(String message) {
       super(message);
     }
-
-    RetryableApiException(String message, Throwable cause) {
-      super(message, cause);
-    }
   }
 
   Response createRetryInterceptor(Interceptor.Chain chain) {
@@ -156,8 +152,7 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
             return response;
           });
     } catch (SocketTimeoutException e) {
-      throw new RetryableApiException(
-          "Timeout " + callName + " " + chain.request().httpUrl() + ",  ", e);
+      throw new RuntimeException(e);
     } catch (Exception e) {
       final Response response = lastResponse.get();
       if (response == null) {
