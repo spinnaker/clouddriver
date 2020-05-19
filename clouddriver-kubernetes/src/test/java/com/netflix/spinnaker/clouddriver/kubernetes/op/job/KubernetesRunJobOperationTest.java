@@ -54,6 +54,7 @@ import org.junit.runner.RunWith;
 final class KubernetesRunJobOperationTest {
   private static final String NAMESPACE = "my-namespace";
   private static final String GENERATE_SUFFIX = "-abcd";
+  private static final String DEPLOYED_JOB = "job my-job";
   private static final ResourcePropertyRegistry resourcePropertyRegistry =
       new GlobalResourcePropertyRegistry(
           ImmutableList.of(new KubernetesReplicaSetHandler(), new KubernetesServiceHandler()),
@@ -71,7 +72,7 @@ final class KubernetesRunJobOperationTest {
 
     assertThat(result.getManifestNamesByNamespace()).containsOnlyKeys(NAMESPACE);
     assertThat(result.getManifestNamesByNamespace().get(NAMESPACE))
-        .containsExactlyInAnyOrder("job my-job");
+        .containsExactlyInAnyOrder(DEPLOYED_JOB);
   }
 
   @Test
@@ -82,7 +83,7 @@ final class KubernetesRunJobOperationTest {
 
     assertThat(result.getManifestNamesByNamespace()).containsOnlyKeys(NAMESPACE);
     assertThat(result.getManifestNamesByNamespace().get(NAMESPACE))
-        .containsExactlyInAnyOrder("job my-job" + GENERATE_SUFFIX);
+        .containsExactlyInAnyOrder(DEPLOYED_JOB + GENERATE_SUFFIX);
   }
 
   @Test
@@ -94,7 +95,7 @@ final class KubernetesRunJobOperationTest {
 
     assertThat(result.getManifestNamesByNamespace()).containsOnlyKeys(overrideNamespace);
     assertThat(result.getManifestNamesByNamespace().get(overrideNamespace))
-        .containsExactlyInAnyOrder("job my-job");
+        .containsExactlyInAnyOrder(DEPLOYED_JOB);
   }
 
   private static KubernetesRunJobOperationDescription baseJobDescription(String manifest) {
