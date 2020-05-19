@@ -157,7 +157,7 @@ public class HttpCloudFoundryClient implements CloudFoundryClient {
           });
     } catch (SocketTimeoutException e) {
       throw new RetryableApiException(
-          "Timeout " + callName + " " + chain.request().httpUrl() + ",  attempting retry", e);
+          "Timeout " + callName + " " + chain.request().httpUrl() + ",  ", e);
     } catch (Exception e) {
       final Response response = lastResponse.get();
       if (response == null) {
