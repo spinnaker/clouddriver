@@ -175,6 +175,7 @@ class KubernetesLoadBalancerCachingAgent extends KubernetesV1CachingAgent implem
 
   @Override
   CacheResult loadData(ProviderCache providerCache) {
+    reloadNamespaces()
     Long start = System.currentTimeMillis()
     List<Service> services = loadServices()
 
