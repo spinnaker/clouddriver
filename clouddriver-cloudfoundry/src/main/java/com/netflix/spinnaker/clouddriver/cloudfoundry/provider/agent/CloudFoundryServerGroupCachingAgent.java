@@ -22,6 +22,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toSet;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.frigga.Names;
@@ -30,6 +31,7 @@ import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
@@ -41,6 +43,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCrede
 import com.netflix.spinnaker.moniker.Moniker;
 import io.vavr.collection.HashMap;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -306,5 +309,26 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
         Keys.getInstanceKey(this.getAccountName(), instance.getName()),
         cacheView(instance),
         emptyMap());
+  }
+
+  @Override
+  CacheData buildOnDemandCacheData(String key, Map<String, Collection<CacheData>> cacheResult) {
+    try {
+      return new DefaultCacheData(
+          key,
+          (int) TimeUnit.MINUTES.toSeconds(10), // ttl
+          io.vavr.collection.HashMap.<String, Object>of(
+                  "cacheTime",
+                  this.getInternalClock().instant().toEpochMilli(),
+                  "cacheResults",
+                  cacheViewMapper.writeValueAsString(cacheResult),
+                  "processedCount",
+                  0)
+              .toJavaMap(),
+          emptyMap(),
+          this.getInternalClock());
+    } catch (JsonProcessingException serializationException) {
+      throw new RuntimeException("cache results serialization failed", serializationException);
+    }
   }
 }
