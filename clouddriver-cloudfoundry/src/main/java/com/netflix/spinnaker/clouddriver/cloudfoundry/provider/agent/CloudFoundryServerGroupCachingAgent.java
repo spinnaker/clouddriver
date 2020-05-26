@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.toSet;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.netflix.frigga.Names;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
@@ -317,14 +318,13 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
       return new DefaultCacheData(
           key,
           (int) TimeUnit.MINUTES.toSeconds(10), // ttl
-          io.vavr.collection.HashMap.<String, Object>of(
-                  "cacheTime",
-                  this.getInternalClock().instant().toEpochMilli(),
-                  "cacheResults",
-                  cacheViewMapper.writeValueAsString(cacheResult),
-                  "processedCount",
-                  0)
-              .toJavaMap(),
+          ImmutableMap.of(
+              "cacheTime",
+              this.getInternalClock().instant().toEpochMilli(),
+              "cacheResults",
+              cacheViewMapper.writeValueAsString(cacheResult),
+              "processedCount",
+              0),
           emptyMap(),
           this.getInternalClock());
     } catch (JsonProcessingException serializationException) {
