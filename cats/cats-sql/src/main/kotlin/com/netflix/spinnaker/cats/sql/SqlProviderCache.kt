@@ -169,7 +169,8 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
       // TODO terrible hack because no AWS agent is authoritative for clusters, fix in ClusterCachingAgent
       // TODO same with namedImages - fix in AWS ImageCachingAgent
       if (
-        source.contains("clustercaching", ignoreCase = true) &&
+        (source.contains("clustercaching", ignoreCase = true) ||
+          source.matches(Regex(".*/Google(Zonal|Regional)ServerGroupCachingAgent"))) &&
         !authoritativeTypes.contains(CLUSTERS.ns) &&
         cacheResult.cacheResults
           .any {
