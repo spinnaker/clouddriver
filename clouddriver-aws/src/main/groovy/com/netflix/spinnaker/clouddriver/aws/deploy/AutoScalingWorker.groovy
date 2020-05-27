@@ -40,6 +40,7 @@ import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactor
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.kork.core.RetrySupport
 import groovy.util.logging.Slf4j
 
@@ -106,6 +107,7 @@ class AutoScalingWorker {
   private int maxInstances
   private int desiredInstances
 
+  private DeployDefaults deployDefaults
   private RegionScopedProviderFactory.RegionScopedProvider regionScopedProvider
 
   AutoScalingWorker() {
@@ -170,7 +172,7 @@ class AutoScalingWorker {
       settings = DefaultLaunchConfigurationBuilder.setAppSecurityGroup(
         subnetType,
         application,
-        regionScopedProvider.deployDefaults,
+        regionScopedProvider.getDeploymentDefaults(),
         regionScopedProvider.securityGroupService,
         settings
       )
