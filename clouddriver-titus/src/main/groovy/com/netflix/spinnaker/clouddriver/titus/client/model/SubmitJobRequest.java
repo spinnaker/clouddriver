@@ -79,7 +79,6 @@ public class SubmitJobRequest {
   private String detail;
   private String user;
   private String entryPoint;
-  private String cmd;
   private String iamProfile;
   private String capacityGroup;
   @Builder.Default private Boolean inService = true;

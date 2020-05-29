@@ -38,7 +38,6 @@ public class Job {
   private String user;
   private String version;
   private String entryPoint;
-  private String cmd;
   private String iamProfile;
   private String capacityGroup;
   private Boolean inService;
@@ -133,9 +132,6 @@ public class Job {
     digest = grpcJob.getJobDescriptor().getContainer().getImage().getDigest();
     entryPoint =
         grpcJob.getJobDescriptor().getContainer().getEntryPointList().stream()
-            .collect(Collectors.joining(" "));
-    cmd =
-        grpcJob.getJobDescriptor().getContainer().getCommandList().stream()
             .collect(Collectors.joining(" "));
     capacityGroup = grpcJob.getJobDescriptor().getCapacityGroup();
     cpu = (int) grpcJob.getJobDescriptor().getContainer().getResources().getCpu();
@@ -364,14 +360,6 @@ public class Job {
 
   public void setEntryPoint(String entryPoint) {
     this.entryPoint = entryPoint;
-  }
-
-  public String getCmd() {
-    return cmd;
-  }
-
-  public void setCmd(String cmd) {
-    this.cmd = cmd;
   }
 
   public int getInstances() {

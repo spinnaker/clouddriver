@@ -43,7 +43,6 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
   private Map<String, String> labels = new LinkedHashMap<>();
   private Map<String, String> containerAttributes = new LinkedHashMap<>();
   private String entryPoint;
-  private String cmd;
   private String iamProfile;
   private String capacityGroup;
   private String user;
@@ -126,7 +125,6 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
             .stack(stack)
             .detail(freeFormDetails)
             .entryPoint(entryPoint)
-            .cmd(cmd)
             .iamProfile(iamProfile)
             .capacityGroup(capacityGroup)
             .labels(labels)
@@ -338,14 +336,6 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
 
   public void setEntryPoint(String entryPoint) {
     this.entryPoint = entryPoint;
-  }
-
-  public String getCmd() {
-    return cmd;
-  }
-
-  public void setCmd(String cmd) {
-    this.cmd = cmd;
   }
 
   public String getIamProfile() {
