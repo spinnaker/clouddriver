@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.saga.config.SagaAutoConfiguration
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import java.time.Clock
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.assertj.AssertableApplicationContext
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -57,5 +58,8 @@ class SagaSystemTest : JUnit5Minutests {
   open class DependencyConfiguration {
     @Bean
     open fun registry(): Registry = NoopRegistry()
+
+    @Bean
+    open fun clock(): Clock = Clock.systemDefaultZone()
   }
 }

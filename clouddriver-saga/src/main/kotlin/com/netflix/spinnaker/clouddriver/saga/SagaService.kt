@@ -16,6 +16,7 @@
 package com.netflix.spinnaker.clouddriver.saga
 
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.clouddriver.saga.exceptions.IllegalSagaFlowStateException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaIntegrationException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaMissingRequiredCommandException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaNotFoundException
@@ -27,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import com.netflix.spinnaker.kork.annotations.Beta
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException
+import java.time.Clock
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
@@ -59,7 +61,8 @@ import org.springframework.core.ResolvableType
 @Beta
 class SagaService(
   private val sagaRepository: SagaRepository,
-  private val registry: Registry
+  private val registry: Registry,
+  private val clock: Clock
 ) : ApplicationContextAware {
 
   private lateinit var applicationContext: ApplicationContext
@@ -80,9 +83,24 @@ class SagaService(
 
     // TODO(rz): Validate that the startingCommand == the originating startingCommand payload?
 
-    SagaFlowIterator(sagaRepository, applicationContext, initialSaga, flow).forEach { flowState ->
+    for (flowState in SagaFlowIterator(sagaRepository, applicationContext, clock, initialSaga, flow)) {
       val saga = flowState.saga
       val action = flowState.action
+      val control = flowState.control
+
+      if (control != null) {
+        // Sleeping really isn't great, but since this is a blocking operation...
+        try {
+          Thread.sleep(control.delay.toMillis())
+        } catch (e: InterruptedException) {
+          throw SagaSystemException("Await delay interrupted", e).apply { retryable = true }
+        }
+        continue
+      }
+
+      if (action == null) {
+        throw IllegalSagaFlowStateException("IteratorState must have one of action or control")
+      }
 
       log.debug("Applying saga action ${action.javaClass.simpleName} for ${saga.name}/${saga.id}")
 

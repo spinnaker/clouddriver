@@ -17,6 +17,8 @@ package com.netflix.spinnaker.clouddriver.saga.flow
 
 import com.netflix.spinnaker.clouddriver.saga.SagaCommand
 import com.netflix.spinnaker.clouddriver.saga.SagaCommandCompleted
+import com.netflix.spinnaker.clouddriver.saga.exceptions.IllegalSagaFlowStateException
+import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaAwaitConditionTimeoutException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaNotFoundException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import com.netflix.spinnaker.clouddriver.saga.flow.seekers.SagaCommandCompletedEventSeeker
@@ -24,6 +26,8 @@ import com.netflix.spinnaker.clouddriver.saga.flow.seekers.SagaCommandEventSeeke
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import com.netflix.spinnaker.kork.exceptions.SystemException
+import java.time.Clock
+import java.time.Duration
 import org.slf4j.LoggerFactory
 import org.springframework.beans.BeansException
 import org.springframework.context.ApplicationContext
@@ -42,6 +46,7 @@ import org.springframework.context.ApplicationContext
 class SagaFlowIterator(
   private val sagaRepository: SagaRepository,
   private val applicationContext: ApplicationContext,
+  private val clock: Clock,
   saga: Saga,
   flow: SagaFlow
 ) : Iterator<SagaFlowIterator.IteratorState> {
@@ -66,12 +71,11 @@ class SagaFlowIterator(
     // The iterator needs the latest state of a saga to correctly determine in the next step to take.
     // This is kind of handy, since we can pass this newly refreshed state straight to the iterator consumer so they
     // don't need to concern themselves with that.
-    latestSaga = sagaRepository.get(context.sagaName, context.sagaId)
-      ?: throw SagaNotFoundException("Could not find Saga (${context.sagaName}/${context.sagaId} for flow traversal")
+    refreshSagaState()
 
     // To support resuming sagas, we want to seek to the next step that has not been processed,
     // which may not be the first step
-    seekToNextStep(latestSaga)
+    seekToNextStep()
 
     val nextStep = steps[index]
 
@@ -93,6 +97,19 @@ class SagaFlowIterator(
       steps.remove(nextStep)
     }
 
+    // If the next step is an await, this step may be run many times. We just need to check for the timeout and
+    // handle the failure modes if the step times out.
+    if (nextStep is SagaFlow.AwaitStep) {
+      nextStep.recordStartTimeIfUnset(clock)
+      if (nextStep.startTime.plus(nextStep.ttl).isBefore(clock.instant())) {
+        if (nextStep.onTimeoutBuilder != null) {
+          steps.addAll(index, nextStep.onTimeoutBuilder.steps)
+        } else {
+          throw SagaAwaitConditionTimeoutException()
+        }
+      }
+    }
+
     return index < steps.size
   }
 
@@ -105,7 +122,7 @@ class SagaFlowIterator(
    * TODO(rz): What if there is more than 1 of a particular command in a flow? :thinking_face: May need more metadata
    * in the [SagaCommandCompleted] event passed along...
    */
-  private fun seekToNextStep(saga: Saga) {
+  private fun seekToNextStep() {
     if (seeked) {
       // We only want to seek once
       return
@@ -113,7 +130,7 @@ class SagaFlowIterator(
     seeked = true
 
     index = listOf(SagaCommandCompletedEventSeeker(), SagaCommandEventSeeker())
-      .mapNotNull { it.invoke(index, steps, saga)?.coerceAtLeast(0) }
+      .mapNotNull { it.invoke(index, steps, latestSaga)?.coerceAtLeast(0) }
       .max()
       ?: index
 
@@ -124,6 +141,30 @@ class SagaFlowIterator(
 
   override fun next(): IteratorState {
     val step = steps[index]
+
+    if (step is SagaFlow.AwaitStep) {
+      val condition = try {
+        applicationContext.getBean(step.condition)
+      } catch (e: BeansException) {
+        throw SagaSystemException("Failed to create SagaFlow Await condition: ${step.condition.simpleName}", e)
+      }
+
+      val result = condition.apply(latestSaga)
+      log.trace("Await Supplier '${condition.javaClass.simpleName}' result: $result")
+      if (result) {
+        index += 1
+      } else {
+        return IteratorState(
+          saga = latestSaga,
+          action = null,
+          control = IteratorState.IteratorFlowControl(delay = step.interval),
+          iterator = this
+        )
+      }
+
+      return next()
+    }
+
     if (step !is SagaFlow.ActionStep) {
       // If this is thrown, it indicates a bug in the hasNext logic
       throw SystemException("step must be an action: $step")
@@ -140,8 +181,14 @@ class SagaFlowIterator(
     return IteratorState(
       saga = latestSaga,
       action = action as SagaAction<SagaCommand>,
+      control = null,
       iterator = this
     )
+  }
+
+  private fun refreshSagaState() {
+    latestSaga = sagaRepository.get(context.sagaName, context.sagaId)
+      ?: throw SagaNotFoundException("Could not find Saga (${context.sagaName}/${context.sagaId} for flow traversal")
   }
 
   /**
@@ -153,9 +200,16 @@ class SagaFlowIterator(
    */
   data class IteratorState(
     val saga: Saga,
-    val action: SagaAction<SagaCommand>,
+    val action: SagaAction<SagaCommand>?,
+    val control: IteratorFlowControl?,
     private val iterator: SagaFlowIterator
   ) {
+
+    init {
+      if (action == null && control == null) {
+        throw IllegalSagaFlowStateException("IteratorState must have either an action or control defined")
+      }
+    }
 
     /**
      * @return Whether or not there are more flow steps after this item. This may evaluate to true if the next
@@ -164,6 +218,10 @@ class SagaFlowIterator(
     fun hasMoreSteps(): Boolean {
       return iterator.hasNext()
     }
+
+    data class IteratorFlowControl(
+      val delay: Duration
+    )
   }
 
   private data class Context(

@@ -30,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import java.time.Clock
 import java.util.function.Predicate
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.assertj.AssertableApplicationContext
@@ -44,6 +45,7 @@ import strikt.assertions.isEqualTo
  * Shows an example of how to wire up a Saga using Spring!
  */
 class SpringExampleTest : JUnit5Minutests {
+
   fun tests() = rootContext<ApplicationContextRunner> {
     context("a saga flow") {
       fixture {
@@ -81,6 +83,9 @@ class SpringExampleTest : JUnit5Minutests {
   open class DependencyConfiguration {
     @Bean
     open fun registry(): Registry = NoopRegistry()
+
+    @Bean
+    open fun clock(): Clock = Clock.systemDefaultZone()
 
     @Bean
     open fun action1(): Action1 = Action1()

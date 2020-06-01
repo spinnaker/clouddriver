@@ -16,12 +16,18 @@
 package com.netflix.spinnaker.clouddriver.saga.flow
 
 import com.google.common.annotations.Beta
+import com.netflix.spinnaker.clouddriver.saga.exceptions.IllegalSagaFlowStateException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaFlowActionNotFoundException
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow.InjectLocation.AFTER
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow.InjectLocation.BEFORE
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.util.function.Consumer
+import java.util.function.Function
 import java.util.function.Predicate
+import java.util.function.Supplier
 
 /**
  * A high-level DSL to help build and visualize the workflow that a [Saga] will take towards completion.
@@ -34,6 +40,16 @@ class SagaFlow {
   internal val steps: MutableList<Step> = mutableListOf()
   internal var exceptionHandler: Class<out SagaExceptionHandler>? = null
   internal var completionHandler: Class<out SagaCompletionHandler<*>>? = null
+
+  private val clock: Clock
+
+  constructor() {
+    clock = Clock.systemDefaultZone()
+  }
+
+  constructor(clock: Clock) {
+    this.clock = clock
+  }
 
   /**
    * An action to take next.
@@ -99,6 +115,50 @@ class SagaFlow {
   }
 
   /**
+   * Define an await state condition step.
+   *
+   * An await step will yield active execution of the [Saga] until [condition] has returned true. This is different
+   * than [on], in that if the test fails initially, it will retry until [ttl] expires. Should the wait expire,
+   * an optional [onTimeoutBuilder] can be used to perform alternative logic.
+   *
+   * It is not suggested to use [onTimeoutBuilder] as an error handler that cleans up, but rather an fallback
+   * branch to achieve the same result.
+   *
+   * @param condition The boolean [Supplier] that will evaluate if the desired awaited state has been achieved
+   * @param ttl The amount of time the flow will attempt to retry [condition]
+   * @param interval The amount of time between [supplier] attempts
+   */
+  fun await(
+    condition: Class<out Function<Saga, Boolean>>,
+    ttl: Duration,
+    interval: Duration,
+    onTimeoutBuilder: ((SagaFlow) -> Unit)?
+  ): SagaFlow {
+    steps.add(AwaitStep(condition, ttl, interval, onTimeoutBuilder?.let { SagaFlow().also(it) }))
+    return this
+  }
+
+  /**
+   * Java-compatible interface.
+   */
+  fun await(
+    condition: Class<out Function<Saga, Boolean>>,
+    ttl: Duration,
+    interval: Duration,
+    onTimeoutBuilder: Consumer<SagaFlow>? = null
+  ): SagaFlow {
+    steps.add(AwaitStep(
+      condition,
+      ttl,
+      interval,
+      onTimeoutBuilder?.let { builder ->
+        SagaFlow().also { builder.accept(this) }
+      }
+    ))
+    return this
+  }
+
+  /**
    * An optional [SagaCompletionHandler].
    *
    * @param handler The [SagaCompletionHandler] to invoke on completion
@@ -121,6 +181,27 @@ class SagaFlow {
   interface Step
   inner class ActionStep(val action: Class<out SagaAction<*>>) : Step
   inner class ConditionStep(val predicate: Class<out Predicate<Saga>>, val nestedBuilder: SagaFlow) : Step
+  inner class AwaitStep(
+    val condition: Class<out Function<Saga, Boolean>>,
+    val ttl: Duration,
+    val interval: Duration,
+    val onTimeoutBuilder: SagaFlow?
+  ) : Step {
+
+    val startTime: Instant
+      get() = _startTime ?: throw IllegalSagaFlowStateException("Await step has not started yet")
+
+    private var _startTime: Instant? = null
+
+    /**
+     * Records the time the [AwaitStep] is initially encountered within the iterator.
+     */
+    fun recordStartTimeIfUnset(clock: Clock) {
+      if (_startTime == null) {
+        _startTime = clock.instant()
+      }
+    }
+  }
 
   enum class InjectLocation {
     BEFORE,

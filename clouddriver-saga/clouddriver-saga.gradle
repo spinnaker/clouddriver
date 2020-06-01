@@ -16,6 +16,7 @@ dependencies {
   implementation "org.hibernate.validator:hibernate-validator"
 
   testImplementation project(":clouddriver-saga-test")
+  testImplementation "com.netflix.spinnaker.kork:kork-test"
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.junit.platform:junit-platform-runner"

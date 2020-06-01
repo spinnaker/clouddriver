@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.saga.persistence.DefaultSagaRepository
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer.ClassSubtypeLocator
 import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer.SubtypeLocator
+import java.time.Clock
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -44,9 +45,10 @@ open class SagaAutoConfiguration {
   @Bean
   open fun sagaService(
     sagaRepository: SagaRepository,
-    registry: Registry
+    registry: Registry,
+    clock: Clock
   ): SagaService =
-    SagaService(sagaRepository, registry)
+    SagaService(sagaRepository, registry, clock)
 
   @Bean
   open fun sagaEventSubtypeLocator(): SubtypeLocator {

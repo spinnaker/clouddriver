@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import dev.minutest.junit.JUnit5Minutests
 import io.mockk.every
 import io.mockk.mockk
+import java.time.Clock
 import org.springframework.context.ApplicationContext
 
 abstract class AbstractSagaTest : JUnit5Minutests {
@@ -52,7 +53,7 @@ abstract class AbstractSagaTest : JUnit5Minutests {
       }
       registerBeans(applicationContext, *options.registerTypes.toTypedArray())
 
-      sagaService = SagaService(sagaRepository, NoopRegistry()).apply {
+      sagaService = SagaService(sagaRepository, NoopRegistry(), Clock.systemDefaultZone()).apply {
         setApplicationContext(applicationContext)
       }
     }
@@ -72,6 +73,12 @@ abstract class AbstractSagaTest : JUnit5Minutests {
   protected fun registerBeans(applicationContext: ApplicationContext, vararg clazz: Class<*>) {
     clazz.forEach {
       every { applicationContext.getBean(eq(it)) } returns it.newInstance()
+    }
+  }
+
+  protected fun registerBeans(applicationContext: ApplicationContext, vararg obj: Any) {
+    obj.forEach {
+      every { applicationContext.getBean(eq(it::class.java)) } returns it
     }
   }
 }
