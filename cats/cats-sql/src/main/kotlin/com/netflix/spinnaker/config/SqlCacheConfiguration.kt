@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.netflix.discovery.EurekaClient
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AgentScheduler
@@ -124,9 +126,12 @@ class SqlCacheConfiguration {
       log.info("Configured coroutine context with newFixedThreadPoolContext of $poolSize threads")
     }
 
+    // stores dates like java.time.Instant as a String with the format "2017-04-06T16:29:44.947869272Z" instead of a Map
+    val mapper = ObjectMapper().registerModule(JavaTimeModule()).disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+
     return SqlNamedCacheFactory(
       jooq,
-      ObjectMapper(),
+      mapper,
       dispatcher,
       clock,
       sqlProperties.retries,
