@@ -32,6 +32,9 @@ public abstract class AbstractCloudFoundryDescription implements AccountNameable
 
   @Override
   public String getAccount() {
-    return credentials.getName();
+    if (credentials != null) {
+      return credentials.getName();
+    }
+    throw new IllegalStateException("Credentials must not be null");
   }
 }
