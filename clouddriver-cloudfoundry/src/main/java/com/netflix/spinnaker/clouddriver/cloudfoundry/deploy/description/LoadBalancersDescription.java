@@ -17,8 +17,6 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -28,9 +26,4 @@ import lombok.EqualsAndHashCode;
 public class LoadBalancersDescription extends AbstractCloudFoundryServerGroupDescription {
   private List<String> routes;
   private CloudFoundrySpace space;
-
-  @Override
-  public Collection<String> getApplications() {
-    return Collections.singletonList(getServerGroupName().split("-")[0]);
-  }
 }
