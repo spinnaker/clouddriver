@@ -17,8 +17,8 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
 import com.netflix.spinnaker.clouddriver.security.resources.AccountNameable;
 import lombok.Data;
 
@@ -28,11 +28,10 @@ public abstract class AbstractCloudFoundryDescription implements AccountNameable
 
   private String region;
 
-  @JsonProperty("credentials")
-  private String account;
+  @JsonIgnore private CloudFoundryCredentials credentials;
 
   @Override
   public String getAccount() {
-    return account;
+    return credentials.getName();
   }
 }

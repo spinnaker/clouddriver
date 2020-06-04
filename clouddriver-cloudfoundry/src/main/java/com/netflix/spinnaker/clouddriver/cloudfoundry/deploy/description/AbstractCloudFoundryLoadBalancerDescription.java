@@ -17,21 +17,12 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
-import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
-import java.util.Collection;
-import java.util.Collections;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
 public abstract class AbstractCloudFoundryLoadBalancerDescription
-    extends AbstractCloudFoundryDescription implements ApplicationNameable {
+    extends AbstractCloudFoundryDescription {
   CloudFoundrySpace space;
-  private String cluster;
-
-  @Override
-  public Collection<String> getApplications() {
-    return Collections.singletonList(cluster.split("-")[0]);
-  }
 }

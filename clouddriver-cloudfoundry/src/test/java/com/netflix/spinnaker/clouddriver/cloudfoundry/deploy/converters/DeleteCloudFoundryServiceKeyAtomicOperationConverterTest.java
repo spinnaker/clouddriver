@@ -104,7 +104,7 @@ class DeleteCloudFoundryServiceKeyAtomicOperationConverterTest {
                 .setSpace(cloudFoundrySpace)
                 .setRegion(region)
                 .setClient(cloudFoundryClient)
-                .setAccount(accountName);
+                .setCredentials(cloudFoundryCredentials);
 
     DeleteCloudFoundryServiceKeyDescription result = converter.convertDescription(input);
 

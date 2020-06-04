@@ -99,7 +99,7 @@ class CreateCloudFoundryServiceKeyAtomicOperationConverterTest {
                 .setSpace(cloudFoundrySpace)
                 .setRegion(region)
                 .setClient(cloudFoundryClient)
-                .setAccount(accountName);
+                .setCredentials(cloudFoundryCredentials);
 
     CreateCloudFoundryServiceKeyDescription result = converter.convertDescription(input);
 

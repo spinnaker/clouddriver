@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
 import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
+import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Collection;
 import java.util.Collections;
 import lombok.Data;
@@ -28,10 +29,17 @@ public abstract class AbstractCloudFoundryServerGroupDescription
     extends AbstractCloudFoundryDescription implements ApplicationNameable {
   private String serverGroupId;
   private String serverGroupName;
+
   private String cluster;
+  private Moniker moniker;
 
   @Override
   public Collection<String> getApplications() {
-    return Collections.singletonList(cluster.split("-")[0]);
+    if (moniker != null) {
+      return Collections.singletonList(moniker.getApp());
+    } else if (cluster != null) {
+      return Collections.singletonList(cluster.split("-")[0]);
+    }
+    return Collections.singletonList(serverGroupName.split("-")[0]);
   }
 }
