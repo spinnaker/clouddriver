@@ -83,8 +83,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    AmazonIdentityManagement iam =
-        amazonClientProvider.getIam(account, Regions.DEFAULT_REGION.getName(), false);
+    AmazonIdentityManagement iam = amazonClientProvider.getIam(account, getIamRegion(), false);
 
     Set<IamRole> cacheableRoles = fetchIamRoles(iam, accountName);
     Map<String, Collection<CacheData>> newDataMap = generateFreshData(cacheableRoles);
@@ -132,6 +131,17 @@ public class IamRoleCachingAgent implements CachingAgent {
     Map<String, Collection<String>> evictionsByKey = new HashMap<>();
     evictionsByKey.put(IAM_ROLE.toString(), evictedKeys);
     return evictionsByKey;
+  }
+
+  private String getIamRegion() {
+    // use a region from the account for correct endpoint resolution
+    String region =
+        !account.getRegions().isEmpty() && account.getRegions().get(0) != null
+            ? account.getRegions().get(0).getName()
+            : Regions.DEFAULT_REGION.getName();
+
+    log.debug("retrieving IAM Roles from region: {}", region);
+    return region;
   }
 
   Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
