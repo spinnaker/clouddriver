@@ -146,7 +146,7 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
         Boolean associatePublicIpAddress
 
         List<String> securityGroups
-        List<String> classicLinkVPCSecurityGroups = []
+        List<String> classicLinkVPCSecurityGroups = null
         if (ancestorAsg.launchTemplate != null) {
           LaunchTemplateVersion launchTemplateVersion = sourceRegionScopedProvider
             .launchTemplateService.getLaunchTemplateVersion(ancestorAsg.launchTemplate)
@@ -168,7 +168,9 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
           iamInstanceProfile = launchTemplateData.iamInstanceProfile?.name
           instanceMonitoring = launchTemplateData.monitoring?.enabled
           spotPrice = launchTemplateData.instanceMarketOptions?.spotOptions?.maxPrice
-          associatePublicIpAddress = launchTemplateData.networkInterfaces*.associatePublicIpAddress?.any()
+          if (!launchTemplateData.networkInterfaces?.empty && launchTemplateData.networkInterfaces*.associatePublicIpAddress?.any()) {
+            associatePublicIpAddress = true
+          }
         } else {
           def ancestorLaunchConfiguration = sourceRegionScopedProvider
             .asgService.getLaunchConfiguration(ancestorAsg.launchConfigurationName)

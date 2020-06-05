@@ -91,17 +91,6 @@ class CopyLastAsgAtomicOperationUnitSpec extends Specification {
       version: launchTemplateVersion.versionNumber.toString(),
     )
 
-    def serverGroup = new AutoScalingGroup(
-      autoScalingGroupName: "asgard-stack-v000",
-      minSize: 0,
-      maxSize: 2,
-      desiredCapacity: 4,
-      tags: [
-        new TagDescription(key: "Name", value: "name-tag")
-      ],
-      launchTemplate: launchTemplateSpec
-    )
-
     def description = new BasicAmazonDeployDescription(
       application: "asgard",
       stack: "stack",
@@ -144,6 +133,12 @@ class CopyLastAsgAtomicOperationUnitSpec extends Specification {
 
     op.basicAmazonDeployDescriptionValidator = Stub(BasicAmazonDeployDescriptionValidator)
 
+    ec2.describeLaunchTemplateVersions(_) >> { DescribeLaunchTemplateVersionsRequest request ->
+      assert request.launchTemplateName == launchTemplateSpec.launchTemplateName
+      assert launchTemplateSpec.version in request.versions
+      new DescribeLaunchTemplateVersionsResult(launchTemplateVersions: [launchTemplateVersion])
+    }
+
     when:
     def result = op.operate([])
 
@@ -152,20 +147,23 @@ class CopyLastAsgAtomicOperationUnitSpec extends Specification {
     result.serverGroupNameByRegion['us-west-1'] == 'asgard-stack-v001'
     result.serverGroupNames == ['asgard-stack-v001', 'asgard-stack-v001']
 
-    2 * ec2.describeLaunchTemplateVersions(_) >> { DescribeLaunchTemplateVersionsRequest request ->
-      assert request.launchTemplateName == launchTemplateSpec.launchTemplateName
-      assert launchTemplateSpec.version in request.versions
-      new DescribeLaunchTemplateVersionsResult(launchTemplateVersions: [launchTemplateVersion])
-    }
-
     2 * mockAutoScaling.describeAutoScalingGroups(_) >> {
-      new DescribeAutoScalingGroupsResult().withAutoScalingGroups([serverGroup])
+      def mockAsg = Mock(AutoScalingGroup)
+      mockAsg.getAutoScalingGroupName() >> "asgard-stack-v000"
+      mockAsg.getMinSize() >> 0
+      mockAsg.getMaxSize() >> 2
+      mockAsg.getDesiredCapacity() >> 4
+      mockAsg.getLaunchTemplate() >> launchTemplateSpec
+      mockAsg.getTags() >> [new TagDescription().withKey('Name').withValue('name-tag')]
+      new DescribeAutoScalingGroupsResult().withAutoScalingGroups([mockAsg])
     }
 
     2 * serverGroupNameResolver.resolveLatestServerGroupName("asgard-stack") >> { "asgard-stack-v000" }
     0 * serverGroupNameResolver._
-    1 * deployHandler.handle(expectedDeployDescription(expectedSpotPrice, "us-east-1"), _) >> new DeploymentResult(serverGroupNames: ['asgard-stack-v001'], serverGroupNameByRegion: ['us-east-1': 'asgard-stack-v001'])
-    1 * deployHandler.handle(expectedDeployDescription(expectedSpotPrice,"us-west-1"), _) >> new DeploymentResult(serverGroupNames: ['asgard-stack-v001'], serverGroupNameByRegion: ['us-west-1': 'asgard-stack-v001'])
+    1 * deployHandler.handle(expectedDescription(expectedSpotPrice, "us-east-1", true), _) >>
+      new DeploymentResult(serverGroupNames: ['asgard-stack-v001'], serverGroupNameByRegion: ['us-east-1': 'asgard-stack-v001'])
+    1 * deployHandler.handle(expectedDescription(expectedSpotPrice, "us-west-1", true), _) >>
+      new DeploymentResult(serverGroupNames: ['asgard-stack-v001'], serverGroupNameByRegion: ['us-west-1': 'asgard-stack-v001'])
 
     where:
     requestSpotPrice | ancestorSpotPrice || expectedSpotPrice
@@ -259,7 +257,8 @@ class CopyLastAsgAtomicOperationUnitSpec extends Specification {
     null             | null              || null
   }
 
-  private static BasicAmazonDeployDescription expectedDeployDescription(Double expectedSpotPrice, String region) {
+  private static BasicAmazonDeployDescription expectedDescription(
+    Double expectedSpotPrice, String region, boolean setLaunchTemplate = false) {
     return new BasicAmazonDeployDescription(
       application: 'asgard',
       stack: 'stack',
@@ -269,6 +268,7 @@ class CopyLastAsgAtomicOperationUnitSpec extends Specification {
       capacity: new BasicAmazonDeployDescription.Capacity(min: 1, max: 3, desired: 5),
       tags: [Name: 'name-tag'],
       spotPrice: expectedSpotPrice,
+      setLaunchTemplate: setLaunchTemplate,
       source: new BasicAmazonDeployDescription.Source(
         asgName: "asgard-stack-v000",
         account: 'baz',
