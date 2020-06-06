@@ -204,18 +204,6 @@ class CopyLastAsgAtomicOperationUnitSpec extends Specification {
       }
     }
     op.basicAmazonDeployDescriptionValidator = Stub(BasicAmazonDeployDescriptionValidator)
-    def expectedDeployDescription = { region ->
-      new BasicAmazonDeployDescription(application: 'asgard', stack: 'stack', keyPair: 'key-pair-name',
-        securityGroups: ['someGroupName', 'sg-12345a'], availabilityZones: [(region): null],
-        capacity: new BasicAmazonDeployDescription.Capacity(min: 1, max: 3, desired: 5),
-        tags: [Name: 'name-tag'],
-        spotPrice: expectedSpotPrice,
-        source: new BasicAmazonDeployDescription.Source(
-          asgName: "asgard-stack-v000",
-          account: 'baz',
-          region: null
-        ))
-    }
 
     when:
     def result = op.operate([])
@@ -245,8 +233,8 @@ class CopyLastAsgAtomicOperationUnitSpec extends Specification {
     }
     2 * serverGroupNameResolver.resolveLatestServerGroupName("asgard-stack") >> { "asgard-stack-v000" }
     0 * serverGroupNameResolver._
-    1 * deployHandler.handle(expectedDeployDescription('us-east-1'), _) >> new DeploymentResult(serverGroupNames: ['asgard-stack-v001'], serverGroupNameByRegion: ['us-east-1': 'asgard-stack-v001'])
-    1 * deployHandler.handle(expectedDeployDescription('us-west-1'), _) >> new DeploymentResult(serverGroupNames: ['asgard-stack-v001'], serverGroupNameByRegion: ['us-west-1': 'asgard-stack-v001'])
+    1 * deployHandler.handle(expectedDescription(expectedSpotPrice, 'us-east-1'), _) >> new DeploymentResult(serverGroupNames: ['asgard-stack-v001'], serverGroupNameByRegion: ['us-east-1': 'asgard-stack-v001'])
+    1 * deployHandler.handle(expectedDescription(expectedSpotPrice, 'us-west-1'), _) >> new DeploymentResult(serverGroupNames: ['asgard-stack-v001'], serverGroupNameByRegion: ['us-west-1': 'asgard-stack-v001'])
 
     where:
     requestSpotPrice | ancestorSpotPrice || expectedSpotPrice
