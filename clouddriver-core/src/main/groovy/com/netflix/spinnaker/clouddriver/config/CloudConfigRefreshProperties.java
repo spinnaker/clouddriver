@@ -16,14 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.config;
 
-import com.netflix.spinnaker.clouddriver.cache.CloudConfigRefreshConfig;
 import lombok.Data;
-import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
 
-@AutoConfigureBefore(CloudConfigRefreshConfig.class)
-@Configuration
 @Data
 @ConfigurationProperties("cloud.config")
 public class CloudConfigRefreshProperties {
