@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.security.resources.AccountNameable
 import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable
 import com.netflix.spinnaker.clouddriver.security.resources.ResourcesNameable
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import org.springframework.security.authentication.TestingAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import spock.lang.Specification
@@ -39,7 +40,7 @@ class DescriptionAuthorizerSpec extends Specification {
 
   def setup() {
     opsSecurityConfigProps = new SecurityConfig.OperationsSecurityConfigurationProperties()
-    authorizer = new DescriptionAuthorizer(registry, new ObjectMapper(), Optional.of(evaluator), opsSecurityConfigProps)
+    authorizer = new DescriptionAuthorizer(registry, Optional.of(evaluator), opsSecurityConfigProps)
   }
 
   def "should authorize passed description"() {
