@@ -24,6 +24,7 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.config.server.EnableConfigServer;
 import org.springframework.cloud.context.refresh.ContextRefresher;
 import org.springframework.context.annotation.*;
@@ -34,6 +35,7 @@ import org.springframework.context.annotation.*;
  */
 @Configuration
 @AutoConfigureAfter({RedisCacheConfig.class})
+@EnableConfigurationProperties(CloudConfigRefreshProperties.class)
 public class CloudConfigRefreshConfig {
 
   @Configuration
