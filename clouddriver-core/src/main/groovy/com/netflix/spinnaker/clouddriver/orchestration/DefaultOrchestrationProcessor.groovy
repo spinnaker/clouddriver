@@ -113,6 +113,7 @@ class DefaultOrchestrationProcessor implements OrchestrationProcessor {
             TimedCallable.forClosure(registry, thisOp) {
               results << atomicOperation.operate(results)
 
+              // TODO(rz): OperationEvents seem like a half-step towards "after" logic... maybe this can disappear?
               atomicOperation.events.each { OperationEvent event ->
                 operationEventHandlers.each {
                   try {

@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEvent;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * An AtomicOperation is the most fundamental, low-level unit of work in a workflow. Implementations
@@ -36,7 +37,34 @@ public interface AtomicOperation<R> {
    */
   R operate(List priorOutputs);
 
+  /** Returns whether or not the AtomicOperation supports the given {@link OperationLifecycle}. */
+  default boolean supportsLifecycle(OperationLifecycle lifecycle) {
+    return false;
+  }
+
+  /** Logic for {@code OperationLifecycle.BEFORE}. */
+  @Nullable
+  default Object beforeOperate() {
+    return null;
+  }
+
+  /** Logic for {@code OperationLifecycle.AFTER}. */
+  @Nullable
+  default Object afterOperate() {
+    return null;
+  }
+
   default Collection<OperationEvent> getEvents() {
     return Collections.emptyList();
+  }
+
+  /**
+   * Available lifecycle hooks that an AtomicOperation can implement additional logic for.
+   *
+   * <p>Orca will automatically call these lifecycles for every AtomicOperation.
+   */
+  enum OperationLifecycle {
+    BEFORE,
+    AFTER;
   }
 }

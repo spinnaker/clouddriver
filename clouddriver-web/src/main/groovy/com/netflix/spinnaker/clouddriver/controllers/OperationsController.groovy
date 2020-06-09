@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.OperationsService
+import com.netflix.spinnaker.clouddriver.orchestration.OperationsService.ResolvedAtomicOperations
 import com.netflix.spinnaker.clouddriver.orchestration.OrchestrationProcessor
 import com.netflix.spinnaker.kork.exceptions.ConstraintViolationException
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
@@ -36,6 +37,8 @@ import org.springframework.web.bind.annotation.RestController
 import javax.annotation.Nonnull
 import javax.annotation.Nullable
 import javax.annotation.PreDestroy
+import javax.servlet.http.HttpServletResponse
+import javax.validation.constraints.Null
 import java.util.concurrent.TimeUnit
 
 import static java.lang.String.format
@@ -66,9 +69,10 @@ class OperationsController {
   @PostMapping("/ops")
   StartOperationResult operations(
     @RequestParam(value = "clientRequestId", required = false) String clientRequestId,
-    @RequestBody List<Map<String, Map>> requestBody) {
-    List<AtomicOperation> atomicOperations = operationsService.collectAtomicOperations(requestBody)
-    return start(atomicOperations, clientRequestId)
+    @RequestBody List<Map<String, Map>> requestBody,
+    HttpServletResponse response) {
+    ResolvedAtomicOperations atomicOperations = operationsService.collectAtomicOperations(requestBody)
+    return start(atomicOperations, clientRequestId, response)
   }
 
   /**
@@ -79,18 +83,20 @@ class OperationsController {
   StartOperationResult operation(
     @PathVariable("name") String name,
     @RequestParam(value = "clientRequestId", required = false) String clientRequestId,
-    @RequestBody Map requestBody) {
-    List<AtomicOperation> atomicOperations = operationsService.collectAtomicOperations([[(name): requestBody]])
-    return start(atomicOperations, clientRequestId)
+    @RequestBody Map requestBody,
+    HttpServletResponse response) {
+    ResolvedAtomicOperations atomicOperations = operationsService.collectAtomicOperations([[(name): requestBody]])
+    return start(atomicOperations, clientRequestId, response)
   }
 
   @PostMapping("/{cloudProvider}/ops")
   StartOperationResult cloudProviderOperations(
     @PathVariable("cloudProvider") String cloudProvider,
     @RequestParam(value = "clientRequestId", required = false) String clientRequestId,
-    @RequestBody List<Map<String, Map>> requestBody) {
-    List<AtomicOperation> atomicOperations = operationsService.collectAtomicOperations(cloudProvider, requestBody)
-    return start(atomicOperations, clientRequestId)
+    @RequestBody List<Map<String, Map>> requestBody,
+    HttpServletResponse response) {
+    ResolvedAtomicOperations atomicOperations = operationsService.collectAtomicOperations(cloudProvider, requestBody)
+    return start(atomicOperations, clientRequestId, response)
   }
 
   @PostMapping("/{cloudProvider}/ops/{name}")
@@ -98,9 +104,10 @@ class OperationsController {
     @PathVariable("cloudProvider") String cloudProvider,
     @PathVariable("name") String name,
     @RequestParam(value = "clientRequestId", required = false) String clientRequestId,
-    @RequestBody Map requestBody) {
-    List<AtomicOperation> atomicOperations = operationsService.collectAtomicOperations(cloudProvider, [[(name): requestBody]])
-    return start(atomicOperations, clientRequestId)
+    @RequestBody Map requestBody,
+    HttpServletResponse response) {
+    ResolvedAtomicOperations atomicOperations = operationsService.collectAtomicOperations(cloudProvider, [[(name): requestBody]])
+    return start(atomicOperations, clientRequestId, response)
   }
 
   @GetMapping("/task/{id}")
@@ -140,7 +147,7 @@ class OperationsController {
     if (atomicOperations.isEmpty()) {
       throw new NotFoundException("No saga was found for this task id: $id - can't resume")
     }
-    
+
     return start(atomicOperations, t.requestId)
   }
 
@@ -163,6 +170,19 @@ class OperationsController {
     }
   }
 
+  private StartOperationResult start(
+    @Nonnull ResolvedAtomicOperations resolvedAtomicOperations,
+    @Nullable String id,
+    HttpServletResponse response
+  ) {
+    if (resolvedAtomicOperations.isUnsupportedLifecycle()) {
+      response.setStatus(200)
+      return new StartOperationResult(null)
+    } else {
+      return start(resolvedAtomicOperations.atomicOperations, id)
+    }
+  }
+
   private StartOperationResult start(@Nonnull List<AtomicOperation> atomicOperations, @Nullable String id) {
     Task task =
       orchestrationProcessor.process(
@@ -179,6 +199,9 @@ class OperationsController {
 
     @JsonProperty
     String getResourceUri() {
+      if (id == null) {
+        return null;
+      }
       return format("/task/%s", id)
     }
   }
