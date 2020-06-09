@@ -17,13 +17,6 @@
 package com.netflix.spinnaker.clouddriver.deploy
 
 import com.netflix.spinnaker.clouddriver.orchestration.VersionedCloudProviderOperation
-import com.netflix.spinnaker.clouddriver.security.resources.AccountNameable
-import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable
-import com.netflix.spinnaker.clouddriver.security.resources.ResourcesNameable
-import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.security.core.Authentication
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.validation.Errors
 
 public abstract class DescriptionValidator<T> implements VersionedCloudProviderOperation {

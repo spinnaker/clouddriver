@@ -91,24 +91,26 @@ public class OperationsService {
   }
 
   @Nonnull
-  public List<AtomicOperation> collectAtomicOperations(@Nonnull List<Map<String, Map>> inputs) {
+  public ResolvedAtomicOperations collectAtomicOperations(@Nonnull List<Map<String, Map>> inputs) {
     return collectAtomicOperations(null, inputs);
   }
 
   @Nonnull
-  public List<AtomicOperation> collectAtomicOperations(
+  public ResolvedAtomicOperations collectAtomicOperations(
       @Nullable String cloudProvider, @Nonnull List<Map<String, Map>> inputs) {
     List<AtomicOperationBindingResult> results = convert(cloudProvider, inputs);
 
-    List<AtomicOperation> atomicOperations = new ArrayList<>();
+    List<AtomicOperation<?>> atomicOperations = new ArrayList<>();
     results.forEach(
         bindingResult -> {
           if (bindingResult.errors.hasErrors()) {
             throw new DescriptionValidationException(bindingResult.errors);
           }
-          atomicOperations.add(bindingResult.atomicOperation);
+          if (bindingResult.supportsLifecycle) {
+            atomicOperations.add(bindingResult.atomicOperation);
+          }
         });
-    return atomicOperations;
+    return new ResolvedAtomicOperations(atomicOperations, atomicOperations.isEmpty());
   }
 
   private List<AtomicOperationBindingResult> convert(
@@ -204,7 +206,20 @@ public class OperationsService {
                                 .increment();
                           }
 
-                          return new AtomicOperationBindingResult(atomicOperation, errors);
+                          if (operationInput.isLifecycleOperation()) {
+                            if (!atomicOperation.supportsLifecycle(
+                                operationInput.operationLifecycle)) {
+                              // Not supporting a lifecycle is not an error condition. It's OK!
+                              return new AtomicOperationBindingResult(
+                                  atomicOperation, errors, false);
+                            } else {
+                              atomicOperation =
+                                  new LifecycleAwareAtomicOperation(
+                                      atomicOperation, operationInput.operationLifecycle);
+                            }
+                          }
+
+                          return new AtomicOperationBindingResult(atomicOperation, errors, true);
                         }))
         .collect(Collectors.toList());
   }
@@ -290,6 +305,7 @@ public class OperationsService {
   public static class AtomicOperationBindingResult {
     private AtomicOperation atomicOperation;
     private Errors errors;
+    private boolean supportsLifecycle;
   }
 
   @Data
@@ -298,11 +314,22 @@ public class OperationsService {
     @Nullable private String accountName;
     @Nullable private String account;
     @Nullable private String cloudProvider;
+    @Nullable private AtomicOperation.OperationLifecycle operationLifecycle;
+
+    public boolean isLifecycleOperation() {
+      return operationLifecycle != null;
+    }
 
     @Nullable
     public String computeAccountName() {
       return Optional.ofNullable(credentials)
           .orElse(Optional.ofNullable(accountName).orElse(account));
     }
+  }
+
+  @Value
+  public static class ResolvedAtomicOperations {
+    private List<AtomicOperation<?>> atomicOperations;
+    private boolean unsupportedLifecycle;
   }
 }
