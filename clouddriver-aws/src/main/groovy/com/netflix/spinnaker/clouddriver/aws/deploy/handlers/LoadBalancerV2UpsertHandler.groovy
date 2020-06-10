@@ -33,7 +33,15 @@ class LoadBalancerV2UpsertHandler {
 
   private static final String ATTRIBUTE_IDLE_TIMEOUT = "idle_timeout.timeout_seconds"
   private static final String ATTRIBUTE_DELETION_PROTECTION = "deletion_protection.enabled"
-  private static final String ATTRIBUTE_PROXY_PROTOCOL_V2_ENABLED = "proxy_protocol_v2.enabled"
+
+  //Defaults for Target Group Attributes
+  private static final String DE_REGISTRATION_DELAY = "300"
+  private static Boolean STICKINESS_ENABLED = false
+  private static String STICKINESS_TYPE = "lb_cookie"
+  private static String STICKINESS_DURATION = "86400"
+  private static Boolean PROXY_PROTOCOL_V2 = false
+  /** The following attribute is supported only if the target is a Lambda function. */
+  private static Boolean MULTI_VALUE_HEADERS_ENABLED = false
 
   private static Task getTask() {
     TaskRepository.threadLocalTask.get()
@@ -44,45 +52,72 @@ class LoadBalancerV2UpsertHandler {
   }
   private static String modifyTargetGroupAttributes(AmazonElasticLoadBalancing loadBalancing, LoadBalancer loadBalancer, TargetGroup targetGroup, UpsertAmazonLoadBalancerV2Description.Attributes attributes, DeployDefaults deployDefaults) {
 
-    def currentTargetGroupAttributes = loadBalancing.describeTargetGroupAttributes(new DescribeTargetGroupAttributesRequest()
-      .withTargetGroupArn(targetGroup.targetGroupArn)).attributes
-
     def targetGroupAttributes = []
-    if (attributes) {
-      if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType()))
-      {
-        if (attributes.multiValueHeadersEnabled != null) {
-          targetGroupAttributes.add(new TargetGroupAttribute(key: "lambda.multi_value_headers.enabled", value: attributes.multiValueHeadersEnabled))
-        }
-      } else {
-        Integer deregistrationDelay = [attributes.deregistrationDelay, deployDefaults?.loadBalancing?.deregistrationDelayDefault].findResult(Closure.IDENTITY)
-        if (deregistrationDelay != null) {
-          targetGroupAttributes.add(new TargetGroupAttribute(key: "deregistration_delay.timeout_seconds", value: deregistrationDelay.toString()))
-        }
-        if (loadBalancer.type == 'application') {
-          if (attributes.stickinessEnabled != null) {
-            targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.enabled", value: attributes.stickinessEnabled.toString()))
+
+    //Create Target Group Attributes with values provided in description, set to defaults other wise
+    if(deployDefaults !=null) {
+      if (attributes) {
+        if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType()))
+        {
+          def multiValueHeaderAttribute = attributes.multiValueHeadersEnabled ?: MULTI_VALUE_HEADERS_ENABLED
+          targetGroupAttributes.add(new TargetGroupAttribute(key: "lambda.multi_value_headers.enabled", value: multiValueHeaderAttribute))
+
+        } else {
+          Integer deregistrationDelay = [attributes.deregistrationDelay, deployDefaults?.loadBalancing?.deregistrationDelayDefault].findResult(Closure.IDENTITY)
+
+          def deregistrationDealyAttribute = deregistrationDelay?.toString() ?: DE_REGISTRATION_DELAY
+          targetGroupAttributes.add(new TargetGroupAttribute(key: "deregistration_delay.timeout_seconds", value: deregistrationDealyAttribute))
           }
-          if (attributes.stickinessType != null) {
-            targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.type", value: attributes.stickinessType))
+          if (loadBalancer.type == 'application') {
+            def stickinessEnabledAttribute = attributes.stickinessEnabled?.toString() ?: STICKINESS_ENABLED
+            targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.enabled", value: stickinessEnabledAttribute))
+
+            def stickinessTypeAttribute = attributes.stickinessType ?: STICKINESS_TYPE
+              targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.type", value: stickinessTypeAttribute))
+
+            def stickinessDurationAttribute = attributes.stickinessDuration?.toString() ?: STICKINESS_DURATION
+            targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.lb_cookie.duration_seconds", value: stickinessDurationAttribute))
+
           }
-          if (attributes.stickinessDuration != null) {
-            targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.lb_cookie.duration_seconds", value: attributes.stickinessDuration.toString()))
-          }
-        }
-        if (loadBalancer.type == 'network' ) {
-          if(attributes.proxyProtocolV2 != null) {
-            boolean currentProxyProtocolV2 = currentTargetGroupAttributes.find { it.key == ATTRIBUTE_PROXY_PROTOCOL_V2_ENABLED }?.getValue().toBoolean()
-            if (currentProxyProtocolV2 != null && currentProxyProtocolV2 != attributes.proxyProtocolV2) {
-              targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: currentProxyProtocolV2))
+          if (loadBalancer.type == 'network' ) {
+            def proxyProtocolV2Attribute = attributes.proxyProtocolV2 ?: PROXY_PROTOCOL_V2
+            targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: proxyProtocolV2Attribute))
+
             }
-            else {
-              targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: attributes.proxyProtocolV2))
+          }
+        }
+    else {
+      // Modify Target Group Attributes
+      if (attributes) {
+        if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType()))
+        {
+          if (attributes.multiValueHeadersEnabled != null) {
+            targetGroupAttributes.add(new TargetGroupAttribute(key: "lambda.multi_value_headers.enabled", value: attributes.multiValueHeadersEnabled))
+          }
+        } else {
+          Integer deregistrationDelay = [attributes.deregistrationDelay, deployDefaults?.loadBalancing?.deregistrationDelayDefault].findResult(Closure.IDENTITY)
+          if (deregistrationDelay != null) {
+            targetGroupAttributes.add(new TargetGroupAttribute(key: "deregistration_delay.timeout_seconds", value: deregistrationDelay.toString()))
+          }
+          if (loadBalancer.type == 'application') {
+            if (attributes.stickinessEnabled != null) {
+              targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.enabled", value: attributes.stickinessEnabled.toString()))
+            }
+            if (attributes.stickinessType != null) {
+              targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.type", value: attributes.stickinessType))
+            }
+            if (attributes.stickinessDuration != null) {
+              targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.lb_cookie.duration_seconds", value: attributes.stickinessDuration.toString()))
+            }
+          }
+          if (loadBalancer.type == 'network' ) {
+            if(attributes.proxyProtocolV2 != null) {
+                targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: attributes.proxyProtocolV2))
+              }
             }
           }
         }
       }
-    }
 
     try {
       loadBalancing.modifyTargetGroupAttributes(new ModifyTargetGroupAttributesRequest()
