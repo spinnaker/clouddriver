@@ -33,6 +33,7 @@ class LoadBalancerV2UpsertHandler {
 
   private static final String ATTRIBUTE_IDLE_TIMEOUT = "idle_timeout.timeout_seconds"
   private static final String ATTRIBUTE_DELETION_PROTECTION = "deletion_protection.enabled"
+  private static final String ATTRIBUTE_PROXY_PROTOCOL_V2_ENABLED = "proxy_protocol_v2.enabled"
 
   private static Task getTask() {
     TaskRepository.threadLocalTask.get()
@@ -42,6 +43,10 @@ class LoadBalancerV2UpsertHandler {
     return modifyTargetGroupAttributes(loadBalancing, loadBalancer, targetGroup, attributes, null)
   }
   private static String modifyTargetGroupAttributes(AmazonElasticLoadBalancing loadBalancing, LoadBalancer loadBalancer, TargetGroup targetGroup, UpsertAmazonLoadBalancerV2Description.Attributes attributes, DeployDefaults deployDefaults) {
+
+    def currentTargetGroupAttributes = loadBalancing.describeTargetGroupAttributes(new DescribeTargetGroupAttributesRequest()
+      .withTargetGroupArn(targetGroup.targetGroupArn)).attributes
+
     def targetGroupAttributes = []
     if (attributes) {
       if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType()))
@@ -67,7 +72,13 @@ class LoadBalancerV2UpsertHandler {
         }
         if (loadBalancer.type == 'network' ) {
           if(attributes.proxyProtocolV2 != null) {
-            targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: attributes.proxyProtocolV2))
+            boolean currentProxyProtocolV2 = currentTargetGroupAttributes.find { it.key == ATTRIBUTE_PROXY_PROTOCOL_V2_ENABLED }?.getValue().toBoolean()
+            if (currentProxyProtocolV2 != null && currentProxyProtocolV2 != attributes.proxyProtocolV2) {
+              targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: currentProxyProtocolV2))
+            }
+            else {
+              targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: attributes.proxyProtocolV2))
+            }
           }
         }
       }

@@ -83,6 +83,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
   )
   def loadBalancerArn = "test:arn"
   def targetGroupArn = "test:target:group:arn"
+  def targetGroupAttributes = [deregistrationDelay: 300, stickinessEnabled: false, stickinessType: "lb_cookie", stickinessDuration: 86400]
   def targetGroup = new TargetGroup(targetGroupArn: targetGroupArn, targetGroupName: targetGroupName, port: 80, protocol: ProtocolEnum.HTTP)
   def targetGroupOld = new TargetGroup(targetGroupArn: targetGroupArn, targetGroupName: "target-group-foo-existing", port: 80, protocol: ProtocolEnum.HTTP)
   def loadBalancerOld = new LoadBalancer(loadBalancerName: "foo-main-frontend", loadBalancerArn: loadBalancerArn, type: "application")
@@ -156,6 +157,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.describeTargetGroupAttributes(_) >> new DescribeTargetGroupAttributesResult(attributes:  [targetGroupAttributes])
     0 * _
   }
 
@@ -181,6 +183,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.describeTargetGroupAttributes(_) >> new DescribeTargetGroupAttributesResult(attributes:  [targetGroupAttributes])
     0 * _
   }
 
@@ -206,6 +209,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.describeTargetGroupAttributes(_) >> new DescribeTargetGroupAttributesResult(attributes:  [targetGroupAttributes])
     0 * _
   }
 
@@ -232,6 +236,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.describeTargetGroupAttributes(_) >> new DescribeTargetGroupAttributesResult(attributes:  [targetGroupAttributes])
     0 * _
   }
 
@@ -259,6 +264,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: []))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.describeTargetGroupAttributes(_) >> new DescribeTargetGroupAttributesResult(attributes:  [targetGroupAttributes])
     0 * _
     thrown AtomicOperationException
   }
@@ -286,6 +292,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.deleteListener(new DeleteListenerRequest(listenerArn: listenerArn))
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.describeTargetGroupAttributes(_) >> new DescribeTargetGroupAttributesResult(attributes:  [targetGroupAttributes])
     0 * _
   }
 
@@ -327,6 +334,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
       resourceArn: loadBalancerArn
     ))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.describeTargetGroupAttributes(_) >> new DescribeTargetGroupAttributesResult(attributes:  [targetGroupAttributes])
     0 * _
   }
 }
