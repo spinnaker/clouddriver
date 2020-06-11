@@ -50,7 +50,7 @@ class LoadBalancerV2UpsertHandler {
   //Create Target Group Attributes with values provided in description, set to defaults other wise
   static String createTargetGroupAttributes(AmazonElasticLoadBalancing loadBalancing, LoadBalancer loadBalancer, TargetGroup targetGroup, UpsertAmazonLoadBalancerV2Description.Attributes attributes, DeployDefaults deployDefaults) {
     def targetGroupAttributes = []
-    log.info("Creating target group attributes for targetGroup {} with attributes {} ", targetGroup.targetGroupName, attributes)
+    log.info("Creating target group attributes for targetGroup {}", targetGroup.targetGroupName)
     if (attributes) {
       if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType())) {
         def multiValueHeaderAttribute = attributes.multiValueHeadersEnabled ?: MULTI_VALUE_HEADERS_ENABLED
@@ -85,7 +85,7 @@ class LoadBalancerV2UpsertHandler {
   // Modify target group attributes with attributes that are set in the description , do not update attributes that are not set
   private static String modifyTargetGroupAttributes(AmazonElasticLoadBalancing loadBalancing, LoadBalancer loadBalancer, TargetGroup targetGroup, UpsertAmazonLoadBalancerV2Description.Attributes attributes, DeployDefaults deployDefaults) {
 
-    log.info("Update target group attributes for targetGroup {} with attributes {} ", targetGroup.targetGroupName, attributes)
+    log.info("Update target group attributes for targetGroup {}", targetGroup.targetGroupName)
     def targetGroupAttributes = []
     if (attributes) {
       if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType())) {
