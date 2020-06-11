@@ -45,6 +45,7 @@ import com.netflix.spinnaker.clouddriver.aws.data.ArnUtils;
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider;
 import com.netflix.spinnaker.clouddriver.titus.caching.Keys;
