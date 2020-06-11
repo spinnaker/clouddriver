@@ -203,12 +203,8 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
       allImages
     )
 
-    Collection<AmazonCluster> clusters = cacheResults[CLUSTERS.ns].findResults { clusterData ->
+    Collection<AmazonCluster> clusters = cacheResults[CLUSTERS.ns].collect { clusterData ->
       Map<String, String> clusterKey = Keys.parse(clusterData.id)
-
-      if (clusterKey == null) {
-        return null
-      }
 
       AmazonCluster cluster = new AmazonCluster()
       cluster.accountName = clusterKey.account
@@ -218,7 +214,7 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
       cluster.loadBalancers = clusterData.relationships[LOAD_BALANCERS.ns]?.findResults { loadBalancers.get(it) }
       cluster.targetGroups = clusterData.relationships[TARGET_GROUPS.ns]?.findResults { targetGroups.get(it) }
 
-      return cluster
+      cluster
     }
 
     return clusters
