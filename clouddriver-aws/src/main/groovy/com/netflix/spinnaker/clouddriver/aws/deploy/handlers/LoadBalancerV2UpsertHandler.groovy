@@ -85,12 +85,10 @@ class LoadBalancerV2UpsertHandler {
 
             }
           }
-        }
-    else {
+        } else {
       // Modify Target Group Attributes
       if (attributes) {
-        if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType()))
-        {
+        if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroup.getTargetType())) {
           if (attributes.multiValueHeadersEnabled != null) {
             targetGroupAttributes.add(new TargetGroupAttribute(key: "lambda.multi_value_headers.enabled", value: attributes.multiValueHeadersEnabled))
           }
@@ -110,24 +108,24 @@ class LoadBalancerV2UpsertHandler {
               targetGroupAttributes.add(new TargetGroupAttribute(key: "stickiness.lb_cookie.duration_seconds", value: attributes.stickinessDuration.toString()))
             }
           }
-          if (loadBalancer.type == 'network' ) {
-            if(attributes.proxyProtocolV2 != null) {
-                targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: attributes.proxyProtocolV2))
-              }
+          if (loadBalancer.type == 'network') {
+            if (attributes.proxyProtocolV2 != null) {
+              targetGroupAttributes.add(new TargetGroupAttribute(key: "proxy_protocol_v2.enabled", value: attributes.proxyProtocolV2))
             }
           }
         }
       }
-
-    try {
-      loadBalancing.modifyTargetGroupAttributes(new ModifyTargetGroupAttributesRequest()
-        .withTargetGroupArn(targetGroup.targetGroupArn)
-        .withAttributes(targetGroupAttributes))
-      task.updateStatus BASE_PHASE, "Modified target group ${targetGroup.targetGroupName} attributes."
-    } catch (AmazonServiceException e) {
-      return handleError("Failed to modify attributes for target group ${targetGroup.targetGroupName} - reason: ${e.toString()}.", e)
     }
-
+    if(targetGroupAttributes.size()!=0) {
+      try {
+        loadBalancing.modifyTargetGroupAttributes(new ModifyTargetGroupAttributesRequest()
+          .withTargetGroupArn(targetGroup.targetGroupArn)
+          .withAttributes(targetGroupAttributes))
+        task.updateStatus BASE_PHASE, "Modified target group ${targetGroup.targetGroupName} attributes."
+      } catch (AmazonServiceException e) {
+        return handleError("Failed to modify attributes for target group ${targetGroup.targetGroupName} - reason: ${e.toString()}.", e)
+      }
+    }
     return null
   }
 
