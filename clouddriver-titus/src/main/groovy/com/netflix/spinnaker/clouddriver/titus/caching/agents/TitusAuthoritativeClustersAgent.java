@@ -26,8 +26,7 @@ public class TitusAuthoritativeClustersAgent extends CatsClusterCachingAgent {
     super(
         Keys.getServerGroupKey("*", "*", "*", "*"),
         Keys::parse,
-        sg -> Keys.getClusterKey(sg.get("cluster"), sg.get("application"), sg.get("account")),
-        Keys::getApplicationKey);
+        sg -> Keys.getClusterKey(sg.get("cluster"), sg.get("application"), sg.get("account")));
   }
 
   @Override
