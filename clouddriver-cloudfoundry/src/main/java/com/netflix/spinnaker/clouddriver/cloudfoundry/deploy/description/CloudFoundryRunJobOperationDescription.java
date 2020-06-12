@@ -12,11 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package com.netflix.spinnaker.clouddriver.cloudfoundry.job;
+package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description;
 
-import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.AbstractCloudFoundryDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryServerGroup;
 import javax.annotation.Nullable;
 import lombok.Data;
@@ -24,7 +24,8 @@ import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class CloudFoundryRunJobOperationDescription extends AbstractCloudFoundryDescription {
+public class CloudFoundryRunJobOperationDescription
+    extends AbstractCloudFoundryServerGroupDescription {
 
   private CloudFoundryServerGroup serverGroup;
   @Nullable private String jobName;
