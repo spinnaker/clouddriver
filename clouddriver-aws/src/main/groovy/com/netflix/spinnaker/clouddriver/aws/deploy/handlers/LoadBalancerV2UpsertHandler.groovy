@@ -35,7 +35,7 @@ class LoadBalancerV2UpsertHandler {
   private static final String ATTRIBUTE_DELETION_PROTECTION = "deletion_protection.enabled"
 
   //Defaults for Target Group Attributes
-  private static final String DE_REGISTRATION_DELAY = "300"
+  private static final String DEREGISTRATION_DELAY = "300"
   private static final Boolean STICKINESS_ENABLED = false
   private static final String STICKINESS_TYPE = "lb_cookie"
   private static final String STICKINESS_DURATION = "86400"
@@ -59,7 +59,7 @@ class LoadBalancerV2UpsertHandler {
       } else {
         Integer deregistrationDelay = [attributes.deregistrationDelay, deployDefaults?.loadBalancing?.deregistrationDelayDefault].findResult(Closure.IDENTITY)
 
-        def deregistrationDealyAttribute = deregistrationDelay?.toString() ?: DE_REGISTRATION_DELAY
+        def deregistrationDealyAttribute = deregistrationDelay?.toString() ?: DEREGISTRATION_DELAY
         targetGroupAttributes.add(new TargetGroupAttribute(key: "deregistration_delay.timeout_seconds", value: deregistrationDealyAttribute))
       }
       if (loadBalancer.type == 'application') {
@@ -119,7 +119,7 @@ class LoadBalancerV2UpsertHandler {
   }
 
   static String updateTargetGroupAttributes(AmazonElasticLoadBalancing loadBalancing, TargetGroup targetGroup, List<TargetGroupAttribute> targetGroupAttributes) {
-    if (targetGroupAttributes.size() != 0) {
+    if (!targetGroupAttributes.isEmpty()) {
       try {
         loadBalancing.modifyTargetGroupAttributes(new ModifyTargetGroupAttributesRequest()
           .withTargetGroupArn(targetGroup.targetGroupArn)
