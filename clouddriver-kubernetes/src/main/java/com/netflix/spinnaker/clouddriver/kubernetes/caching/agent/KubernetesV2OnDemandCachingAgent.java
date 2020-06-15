@@ -333,7 +333,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type == OnDemandType.Manifest && cloudProvider.equals(KubernetesCloudProvider.ID);
+    return type.equals(OnDemandType.Manifest) && cloudProvider.equals(KubernetesCloudProvider.ID);
   }
 
   @Override

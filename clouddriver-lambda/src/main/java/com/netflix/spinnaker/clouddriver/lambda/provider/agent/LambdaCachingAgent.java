@@ -266,7 +266,7 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type == OnDemandType.Function && cloudProvider.equals(AmazonCloudProvider.ID);
+    return type.equals(OnDemandType.Function) && cloudProvider.equals(AmazonCloudProvider.ID);
   }
 
   @Override
