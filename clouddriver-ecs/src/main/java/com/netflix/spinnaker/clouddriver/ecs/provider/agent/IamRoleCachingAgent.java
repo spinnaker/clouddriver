@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,15 +134,21 @@ public class IamRoleCachingAgent implements CachingAgent {
     return evictionsByKey;
   }
 
-  private String getIamRegion() {
-    // use a region from the account for correct endpoint resolution
-    String region =
+  protected String getIamRegion() {
+    // sample a region from the account in case the default won't work
+    String testRegion =
         !account.getRegions().isEmpty() && account.getRegions().get(0) != null
             ? account.getRegions().get(0).getName()
-            : Regions.DEFAULT_REGION.getName();
+            : "";
 
-    log.debug("retrieving IAM Roles from region: {}", region);
-    return region;
+    if (StringUtils.isNotBlank(testRegion)
+        && (testRegion.startsWith("cn-") || testRegion.startsWith("us-gov-"))) {
+      log.debug("retrieving IAM Roles from given region: {}", testRegion);
+      return testRegion;
+    }
+
+    log.debug("retrieving IAM Roles from default region: {}", Regions.DEFAULT_REGION.getName());
+    return Regions.DEFAULT_REGION.getName();
   }
 
   Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
