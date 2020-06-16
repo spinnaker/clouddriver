@@ -16,11 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.security;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.netflix.spinnaker.fiat.model.Authorization;
-import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Implementations of this interface will provide properties specific to a named account object,
@@ -88,7 +85,6 @@ public interface AccountCredentials<T> {
    *
    * @return typed credentials object
    */
-  @JsonIgnore
   T getCredentials();
 
   /**
@@ -98,6 +94,10 @@ public interface AccountCredentials<T> {
    */
   String getCloudProvider();
 
+  default boolean isEnabled() {
+    return true;
+  }
+
   /**
    * A user in ANY required group should be allowed access to this account.
    *
@@ -105,36 +105,7 @@ public interface AccountCredentials<T> {
    *     accessible by all.
    */
   @Deprecated
-  List<String> getRequiredGroupMembership();
-
-  default Permissions getPermissions() {
-    Set<String> rgm =
-        Optional.ofNullable(getRequiredGroupMembership())
-            .map(
-                l ->
-                    l.stream()
-                        .map(
-                            s ->
-                                Optional.ofNullable(s)
-                                    .map(String::trim)
-                                    .map(String::toLowerCase)
-                                    .orElse(""))
-                        .filter(s -> !s.isEmpty())
-                        .collect(Collectors.toSet()))
-            .orElse(Collections.EMPTY_SET);
-    if (rgm.isEmpty()) {
-      return Permissions.EMPTY;
-    }
-
-    Permissions.Builder perms = new Permissions.Builder();
-    for (String role : rgm) {
-      perms.add(Authorization.READ, role);
-      perms.add(Authorization.WRITE, role);
-    }
-    return perms.build();
-  }
-
-  default boolean isEnabled() {
-    return true;
+  default List<String> getRequiredGroupMembership() {
+    return Collections.emptyList();
   }
 }

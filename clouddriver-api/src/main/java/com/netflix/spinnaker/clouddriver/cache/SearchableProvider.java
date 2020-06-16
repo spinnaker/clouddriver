@@ -20,7 +20,6 @@ import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.provider.Provider;
-import groovy.transform.Canonical;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -99,7 +98,6 @@ public interface SearchableProvider extends Provider {
     Map<String, String> hydrateResult(Cache cacheView, Map<String, String> result, String id);
   }
 
-  @Canonical
   @Data
   @AllArgsConstructor
   @NoArgsConstructor

@@ -32,7 +32,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credent
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
-import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import com.netflix.spinnaker.kork.configserver.ConfigFileService
 import spock.lang.Specification
 
