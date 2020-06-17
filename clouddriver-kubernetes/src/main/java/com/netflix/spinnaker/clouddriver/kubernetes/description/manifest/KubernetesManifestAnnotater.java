@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.netflix.frigga.Names;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.ArrayList;
@@ -227,6 +228,7 @@ public class KubernetesManifestAnnotater {
         .build();
   }
 
+  @NonnullByDefault
   public static KubernetesManifestTraffic getTraffic(KubernetesManifest manifest) {
     Map<String, String> annotations = manifest.getAnnotations();
 
@@ -236,6 +238,7 @@ public class KubernetesManifestAnnotater {
     return new KubernetesManifestTraffic(loadBalancers);
   }
 
+  @NonnullByDefault
   public static void setTraffic(KubernetesManifest manifest, KubernetesManifestTraffic traffic) {
     Map<String, String> annotations = manifest.getAnnotations();
     ImmutableList<String> loadBalancers = traffic.getLoadBalancers();
