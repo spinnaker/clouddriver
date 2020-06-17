@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.op.manifest;
 
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
@@ -61,7 +62,7 @@ public abstract class AbstractKubernetesEnableDisableManifestOperation
 
   private List<String> determineLoadBalancers(KubernetesManifest target) {
     getTask().updateStatus(OP_NAME, "Getting load balancer list to " + getVerbName() + "...");
-    List<String> result = description.getLoadBalancers();
+    ImmutableList<String> result = description.getLoadBalancers();
     if (!result.isEmpty()) {
       getTask().updateStatus(OP_NAME, "Using supplied list [" + String.join(", ", result) + "]");
     } else {

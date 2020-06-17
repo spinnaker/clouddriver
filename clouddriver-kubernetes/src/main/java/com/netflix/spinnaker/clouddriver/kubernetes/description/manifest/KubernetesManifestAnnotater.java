@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
@@ -237,7 +238,7 @@ public class KubernetesManifestAnnotater {
 
   public static void setTraffic(KubernetesManifest manifest, KubernetesManifestTraffic traffic) {
     Map<String, String> annotations = manifest.getAnnotations();
-    List<String> loadBalancers = traffic.getLoadBalancers();
+    ImmutableList<String> loadBalancers = traffic.getLoadBalancers();
 
     if (annotations.containsKey(LOAD_BALANCERS)) {
       KubernetesManifestTraffic currentTraffic = getTraffic(manifest);
