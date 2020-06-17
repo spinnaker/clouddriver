@@ -99,7 +99,7 @@ public abstract class AbstractKubernetesEnableDisableManifestOperation
                 () ->
                     new IllegalStateException(
                         String.format(
-                            "Could not find load balancer. (kind: %s, name: %s, namespace: %s",
+                            "Could not find load balancer. (kind: %s, name: %s, namespace: %s)",
                             name.getLeft(), name.getRight(), target.getNamespace())));
 
     List<JsonPatch> patch = patchResource(loadBalancerHandler, loadBalancer, target);
