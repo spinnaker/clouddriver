@@ -62,7 +62,7 @@ public abstract class AbstractKubernetesEnableDisableManifestOperation
   private List<String> determineLoadBalancers(KubernetesManifest target) {
     getTask().updateStatus(OP_NAME, "Getting load balancer list to " + getVerbName() + "...");
     List<String> result = description.getLoadBalancers();
-    if (result != null && !result.isEmpty()) {
+    if (!result.isEmpty()) {
       getTask().updateStatus(OP_NAME, "Using supplied list [" + String.join(", ", result) + "]");
     } else {
       KubernetesManifestTraffic traffic = KubernetesManifestAnnotater.getTraffic(target);
