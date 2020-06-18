@@ -16,10 +16,12 @@
 
 package com.netflix.spinnaker.cats.cache;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Beta
 public class CacheIntrospectionStore {
   private static final CacheIntrospectionStore store = new CacheIntrospectionStore();
 

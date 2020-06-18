@@ -18,11 +18,13 @@ package com.netflix.spinnaker.cats.cache;
 
 import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.text.SimpleDateFormat;
 import java.util.Map;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+@Beta
 @Data
 @NoArgsConstructor
 public class DefaultAgentIntrospection implements AgentIntrospection {

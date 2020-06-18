@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
+@Beta
 public interface ExecutionInstrumentation {
   void executionStarted(Agent agent);
 

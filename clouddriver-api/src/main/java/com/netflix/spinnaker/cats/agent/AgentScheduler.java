@@ -16,7 +16,10 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /** An AgentScheduler manages the execution of a CachingAgent. */
+@Beta
 public interface AgentScheduler<T extends AgentLock> {
   void schedule(
       Agent agent,

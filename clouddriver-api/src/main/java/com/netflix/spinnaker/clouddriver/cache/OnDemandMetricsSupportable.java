@@ -17,8 +17,10 @@
 
 package com.netflix.spinnaker.clouddriver.cache;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.function.Supplier;
 
+@Beta
 public interface OnDemandMetricsSupportable {
   String ON_DEMAND_TOTAL_TIME = "onDemand_total";
   String DATA_READ = "onDemand_read";

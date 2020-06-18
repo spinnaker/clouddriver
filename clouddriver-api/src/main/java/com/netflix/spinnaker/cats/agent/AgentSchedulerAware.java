@@ -16,10 +16,13 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /**
  * This class is used to identify classes (typically Providers or Agents) that are capable of
  * returning the agent scheduler they are associated with.
  */
+@Beta
 public abstract class AgentSchedulerAware {
   private AgentScheduler agentScheduler;
 

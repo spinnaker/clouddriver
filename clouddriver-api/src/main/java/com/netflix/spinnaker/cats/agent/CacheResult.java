@@ -17,11 +17,13 @@
 package com.netflix.spinnaker.cats.agent;
 
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
 /** The result of a CachingAgent run. */
+@Beta
 public interface CacheResult {
   /** @return The CacheDatas to cache, keyed by item type. */
   Map<String, Collection<CacheData>> getCacheResults();

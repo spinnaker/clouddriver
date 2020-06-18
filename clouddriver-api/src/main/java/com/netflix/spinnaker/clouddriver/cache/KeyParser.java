@@ -16,8 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.cache;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Map;
 
+@Beta
 public interface KeyParser {
 
   /**

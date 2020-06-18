@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.cache;
 
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,6 +30,7 @@ import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@Beta
 public interface OnDemandAgent {
   Logger logger = LoggerFactory.getLogger(OnDemandAgent.class);
 

@@ -20,6 +20,7 @@ import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.provider.Provider;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+@Beta
 public interface SearchableProvider extends Provider {
 
   /** Names of caches to search by default */

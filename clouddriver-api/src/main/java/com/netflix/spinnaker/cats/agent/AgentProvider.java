@@ -16,8 +16,10 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Collection;
 
+@Beta
 public interface AgentProvider {
   boolean supports(String providerName);
 

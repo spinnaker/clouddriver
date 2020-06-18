@@ -17,9 +17,11 @@
 package com.netflix.spinnaker.cats.provider;
 
 import com.netflix.spinnaker.cats.agent.Agent;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Collection;
 
 /** A Provider has many Agents. */
+@Beta
 public interface Provider {
   String getProviderName();
 

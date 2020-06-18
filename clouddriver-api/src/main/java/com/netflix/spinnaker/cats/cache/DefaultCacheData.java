@@ -17,12 +17,14 @@
 
 package com.netflix.spinnaker.cats.cache;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.time.Clock;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 /** An immutable CacheData. */
+@Beta
 public class DefaultCacheData implements CacheData {
   private final String id;
   private final int ttlSeconds;

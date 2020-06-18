@@ -17,7 +17,9 @@
 package com.netflix.spinnaker.cats.agent;
 
 import com.netflix.spinnaker.cats.provider.ProviderRegistry;
+import com.netflix.spinnaker.kork.annotations.Beta;
 
+@Beta
 public interface Agent {
   /** @return the type of this agent. */
   String getAgentType();

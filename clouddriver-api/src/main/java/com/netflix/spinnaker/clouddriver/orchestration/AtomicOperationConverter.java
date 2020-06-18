@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.orchestration;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -24,6 +25,7 @@ import javax.annotation.Nullable;
  * Implementations of this trait will provide an object capable of converting a Map of input
  * parameters to an operation's description object and an {@link AtomicOperation} instance.
  */
+@Beta
 public interface AtomicOperationConverter extends VersionedCloudProviderOperation {
   /**
    * This method takes a Map input and converts it to an {@link AtomicOperation} instance.

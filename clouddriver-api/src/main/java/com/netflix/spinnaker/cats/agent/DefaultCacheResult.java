@@ -17,12 +17,14 @@
 package com.netflix.spinnaker.cats.agent;
 
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.Getter;
 
 /** An immutable CacheResult. */
+@Beta
 public class DefaultCacheResult implements CacheResult {
   private final Map<String, Collection<CacheData>> cacheResults;
   private final Map<String, Collection<String>> evictions;

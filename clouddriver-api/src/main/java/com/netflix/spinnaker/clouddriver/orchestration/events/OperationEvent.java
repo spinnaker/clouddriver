@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.orchestration.events;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
+@Beta
 public interface OperationEvent {
   Type getType();
 

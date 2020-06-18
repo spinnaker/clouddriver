@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.core;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.lang.annotation.Annotation;
 
 /**
@@ -24,6 +25,7 @@ import java.lang.annotation.Annotation;
  * different implementations with annotation class indicated by {@code getAnnotation} method to
  * identify the cloud provider specific implementations
  */
+@Beta
 public interface CloudProvider {
   /**
    * A unique string that identifies the cloud provider implementation

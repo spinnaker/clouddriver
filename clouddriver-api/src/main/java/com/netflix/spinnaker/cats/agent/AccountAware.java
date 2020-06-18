@@ -16,10 +16,13 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /**
  * This interface is used to identify classes (typically Agents) that are capable of returning the
  * name of the account they are associated with.
  */
+@Beta
 public interface AccountAware {
   /** Get the name of the account this object is associated with. */
   String getAccountName();

@@ -16,12 +16,14 @@
 
 package com.netflix.spinnaker.cats.cache;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
 /** Cache provides view access to data keyed by type and identifier. */
+@Beta
 public interface Cache {
 
   /**

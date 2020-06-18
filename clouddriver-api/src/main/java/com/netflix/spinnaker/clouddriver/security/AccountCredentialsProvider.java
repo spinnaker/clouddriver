@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.security;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Set;
 
 /**
@@ -23,6 +24,7 @@ import java.util.Set;
  * AccountCredentials} objects. For manipulating the backing of this provider, consumers of this API
  * should get access to its corresponding {@link AccountCredentialsRepository}
  */
+@Beta
 public interface AccountCredentialsProvider {
 
   /**

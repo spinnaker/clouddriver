@@ -18,8 +18,10 @@
 package com.netflix.spinnaker.clouddriver.orchestration;
 
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import javax.annotation.Nullable;
 
+@Beta
 public interface VersionedCloudProviderOperation {
   /**
    * Various operations can satisfy different provider's versions. This operation will only be

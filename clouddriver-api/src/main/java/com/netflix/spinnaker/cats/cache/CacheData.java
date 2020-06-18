@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.cats.cache;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Collection;
 import java.util.Map;
 
@@ -25,6 +26,7 @@ import java.util.Map;
  *
  * <p>Note: Not all caches may support a per record ttl
  */
+@Beta
 public interface CacheData {
   String getId();
 

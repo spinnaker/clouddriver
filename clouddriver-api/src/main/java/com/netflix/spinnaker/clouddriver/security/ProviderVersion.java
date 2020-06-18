@@ -17,6 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.security;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
+@Beta
 public enum ProviderVersion {
   v1,
   v2

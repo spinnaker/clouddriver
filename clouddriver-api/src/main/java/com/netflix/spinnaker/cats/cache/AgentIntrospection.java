@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.cats.cache;
 
 import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.kork.annotations.Beta;
 
 /**
  * This is meant to store data about a single agent execution that _doesn't_ make sense to
@@ -26,6 +27,7 @@ import com.netflix.spinnaker.cats.agent.CacheResult;
  * agents are executing, allowing users to both diagnose faulty/underprovisioned nodes, as well as
  * tune their caching configuration by adjusting provider-specific fields.
  */
+@Beta
 public interface AgentIntrospection {
   String getId();
 

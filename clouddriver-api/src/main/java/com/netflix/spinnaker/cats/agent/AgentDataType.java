@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /**
  * Describes both the type name as well as authority for an Agent's provided data.
  *
@@ -24,6 +26,7 @@ package com.netflix.spinnaker.cats.agent;
  * data, its results will contribute to the data set for that type, but is never considered the
  * complete set of data, so will not result in deletions when elements are no longer present.
  */
+@Beta
 public class AgentDataType {
   public enum Authority {
     AUTHORITATIVE,

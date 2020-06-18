@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
+@Beta
 public class AgentLock {
   private final Agent agent;
 

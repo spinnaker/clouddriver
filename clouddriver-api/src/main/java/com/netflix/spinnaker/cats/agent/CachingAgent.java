@@ -22,6 +22,7 @@ import com.netflix.spinnaker.cats.cache.CacheIntrospectionStore;
 import com.netflix.spinnaker.cats.cache.DefaultAgentIntrospection;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderRegistry;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
  * <p>The data set for a caching agent is scoped to the provider and agent type. For example an
  * agent might load clusters for the AWS provider, and be scoped to a particular account and region.
  */
+@Beta
 public interface CachingAgent extends Agent {
   /**
    * @return the data types this Agent returns

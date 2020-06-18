@@ -17,9 +17,11 @@
 
 package com.netflix.spinnaker.clouddriver.cache;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Objects;
 import lombok.Data;
 
+@Beta
 @Data
 public class OnDemandType {
   private final String value;

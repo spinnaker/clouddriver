@@ -16,8 +16,10 @@
 
 package com.netflix.spinnaker.cats.cache;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Collection;
 
+@Beta
 public interface CacheFilter {
   enum Type {
     RELATIONSHIP
