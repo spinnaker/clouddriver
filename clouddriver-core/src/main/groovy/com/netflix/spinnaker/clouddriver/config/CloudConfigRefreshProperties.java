@@ -22,7 +22,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Data
 @ConfigurationProperties("cloud.config")
 public class CloudConfigRefreshProperties {
-
-  private boolean enabled;
-  private int refreshInterval = 60;
+  private int refreshIntervalSeconds = 60;
 }

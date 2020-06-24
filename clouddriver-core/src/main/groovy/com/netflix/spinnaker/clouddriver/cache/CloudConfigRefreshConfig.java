@@ -16,12 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.cache;
 
-import com.netflix.spinnaker.cats.cluster.DefaultAgentIntervalProvider;
 import com.netflix.spinnaker.clouddriver.config.CloudConfigRefreshProperties;
 import com.netflix.spinnaker.clouddriver.refresh.CloudConfigRefreshScheduler;
 import com.netflix.spinnaker.kork.configserver.autoconfig.RemoteConfigSourceConfigured;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,7 +29,8 @@ import org.springframework.context.annotation.*;
 
 /**
  * Create a {@link CloudConfigRefreshScheduler} to refresh the Spring Cloud Config Server from an
- * environment repository backend on a schedule that matches the cache refresh schedule.
+ * environment repository backend on a schedule that can be defined in the spring profile or has a
+ * sensible default (60 seconds)..
  */
 @Configuration
 @AutoConfigureAfter({RedisCacheConfig.class})
@@ -44,21 +43,11 @@ public class CloudConfigRefreshConfig {
   static class RemoteConfigSourceConfiguration {
 
     @Bean
-    @ConditionalOnProperty(
-        value = "cloud.config.enabled",
-        havingValue = "true",
-        matchIfMissing = false)
+    @ConditionalOnProperty(prefix = "cloud.config", value = "refreshIntervalSeconds")
     public CloudConfigRefreshScheduler cloudConfigIntervalRefreshScheduler(
         ContextRefresher contextRefresher, CloudConfigRefreshProperties cloudConfigProperties) {
       return new CloudConfigRefreshScheduler(
-          contextRefresher, cloudConfigProperties.getRefreshInterval());
-    }
-
-    @Bean
-    @ConditionalOnBean(DefaultAgentIntervalProvider.class)
-    public CloudConfigRefreshScheduler intervalProviderConfigRefreshScheduler(
-        ContextRefresher contextRefresher, DefaultAgentIntervalProvider agentIntervalProvider) {
-      return new CloudConfigRefreshScheduler(contextRefresher, agentIntervalProvider.getInterval());
+          contextRefresher, cloudConfigProperties.getRefreshIntervalSeconds());
     }
 
     @Bean
