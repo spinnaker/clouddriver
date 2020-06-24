@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.cache;
 import com.netflix.spinnaker.clouddriver.config.CloudConfigRefreshProperties;
 import com.netflix.spinnaker.clouddriver.refresh.CloudConfigRefreshScheduler;
 import com.netflix.spinnaker.kork.configserver.autoconfig.RemoteConfigSourceConfigured;
-import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -33,7 +32,6 @@ import org.springframework.context.annotation.*;
  * sensible default (60 seconds)..
  */
 @Configuration
-@AutoConfigureAfter({RedisCacheConfig.class})
 @EnableConfigurationProperties(CloudConfigRefreshProperties.class)
 public class CloudConfigRefreshConfig {
 
