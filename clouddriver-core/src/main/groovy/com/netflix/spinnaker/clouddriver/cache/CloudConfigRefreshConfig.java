@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.cache;
 import com.netflix.spinnaker.clouddriver.config.CloudConfigRefreshProperties;
 import com.netflix.spinnaker.clouddriver.refresh.CloudConfigRefreshScheduler;
 import com.netflix.spinnaker.kork.configserver.autoconfig.RemoteConfigSourceConfigured;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.config.server.EnableConfigServer;
@@ -41,18 +40,14 @@ public class CloudConfigRefreshConfig {
   static class RemoteConfigSourceConfiguration {
 
     @Bean
-    @ConditionalOnProperty(prefix = "cloud.config", value = "refreshIntervalSeconds")
+    @ConditionalOnProperty(
+        prefix = "cloud.config",
+        value = "refreshIntervalSeconds",
+        matchIfMissing = true)
     public CloudConfigRefreshScheduler cloudConfigIntervalRefreshScheduler(
         ContextRefresher contextRefresher, CloudConfigRefreshProperties cloudConfigProperties) {
       return new CloudConfigRefreshScheduler(
           contextRefresher, cloudConfigProperties.getRefreshIntervalSeconds());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public CloudConfigRefreshScheduler defaultIntervalConfigRefreshScheduler(
-        ContextRefresher contextRefresher) {
-      return new CloudConfigRefreshScheduler(contextRefresher, 60);
     }
   }
 }
