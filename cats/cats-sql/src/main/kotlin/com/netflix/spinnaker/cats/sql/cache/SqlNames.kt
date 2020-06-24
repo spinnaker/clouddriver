@@ -75,6 +75,24 @@ class SqlNames(
     throw IllegalArgumentException("property sql.table-namespace $tableNamespace is too long")
   }
 
+  /**
+   * Truncates the agent string if too long to fit in @SqlConstraints.maxAgentLength
+   * @return agent string to store
+   */
+  @VisibleForTesting
+  internal fun checkAgentName(agent: String?): String? {
+    if (agent == null) {
+      return null
+    }
+    if (agent.length <= sqlConstraints.maxAgentLength) {
+      return agent
+    }
+
+    val hash = Hashing.murmur3_128().hashBytes((agent).toByteArray()).toString().substring(0..15)
+    val available = sqlConstraints.maxAgentLength - hash.length - 1
+    return agent.substring(0..available) + hash
+  }
+
   companion object {
     private val schemaVersion = SqlSchemaVersion.current()
     private val typeSanitization = """[^A-Za-z0-9_]""".toRegex()

@@ -41,6 +41,22 @@ class SqlNamesTest : JUnit5Minutests {
     }
   }
 
+  fun agentTests() = rootContext<SqlNames> {
+    fixture {
+      SqlNames()
+    }
+    listOf(
+      Pair(null, null),
+      Pair("myagent", "myagent"),
+      Pair("abcdefghij".repeat(20), "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabb43b982e477772f")
+    ).forEach { test ->
+      test("max length of table name is checked: ${test.first}") {
+        expectThat(checkAgentName(test.first))
+          .isEqualTo(test.second)
+      }
+    }
+  }
+
   private inner class TableName(
     val name: String,
     val suffix: String,
