@@ -43,7 +43,7 @@ import com.google.api.services.compute.model.AutoscalingPolicy;
 import com.google.api.services.compute.model.AutoscalingPolicyCpuUtilization;
 import com.google.api.services.compute.model.AutoscalingPolicyCustomMetricUtilization;
 import com.google.api.services.compute.model.AutoscalingPolicyLoadBalancingUtilization;
-import com.google.api.services.compute.model.AutoscalingPolicyScaleDownControl;
+import com.google.api.services.compute.model.AutoscalingPolicyScaleInControl;
 import com.google.api.services.compute.model.DistributionPolicy;
 import com.google.api.services.compute.model.Instance;
 import com.google.api.services.compute.model.InstanceGroupManager;
@@ -68,6 +68,7 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
+import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider;
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder;
 import com.netflix.spinnaker.clouddriver.google.cache.CacheResultBuilder.CacheDataBuilder;
@@ -84,7 +85,7 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.Cu
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CustomMetricUtilization.UtilizationTargetType;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.FixedOrPercent;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.LoadBalancingUtilization;
-import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.ScaleDownControl;
+import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.ScaleInControl;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleDistributionPolicy;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstance;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleInstances;
@@ -127,7 +128,7 @@ abstract class AbstractGoogleServerGroupCachingAgent
           INFORMATIVE.forType(LOAD_BALANCERS.getNs()));
 
   private static final String ON_DEMAND_TYPE =
-      String.join(":", GoogleCloudProvider.getID(), OnDemandType.ServerGroup.name());
+      String.join(":", GoogleCloudProvider.getID(), OnDemandType.ServerGroup.getValue());
 
   private static final Splitter COMMA = Splitter.on(',').omitEmptyStrings().trimResults();
   private static final MapSplitter IMAGE_DESCRIPTION_SPLITTER =
@@ -921,7 +922,7 @@ abstract class AbstractGoogleServerGroupCachingAgent
     output.setMaxNumReplicas(input.getMaxNumReplicas());
     output.setMinNumReplicas(input.getMinNumReplicas());
     output.setMode(valueOf(AutoscalingMode.class, input.getMode()));
-    output.setScaleDownControl(convertScaleDownControl(input.getScaleDownControl()));
+    output.setScaleInControl(convertScaleInControl(input.getScaleInControl()));
     return output;
   }
 
@@ -968,20 +969,20 @@ abstract class AbstractGoogleServerGroupCachingAgent
     return output;
   }
 
-  private static ScaleDownControl convertScaleDownControl(
-      @Nullable AutoscalingPolicyScaleDownControl input) {
+  private static ScaleInControl convertScaleInControl(
+      @Nullable AutoscalingPolicyScaleInControl input) {
     if (input == null) {
       return null;
     }
-    FixedOrPercent maxScaledDownReplicas = null;
-    if (input.getMaxScaledDownReplicas() != null) {
-      maxScaledDownReplicas = new FixedOrPercent();
-      maxScaledDownReplicas.setFixed(input.getMaxScaledDownReplicas().getFixed());
-      maxScaledDownReplicas.setPercent(input.getMaxScaledDownReplicas().getPercent());
+    FixedOrPercent maxScaledInReplicas = null;
+    if (input.getMaxScaledInReplicas() != null) {
+      maxScaledInReplicas = new FixedOrPercent();
+      maxScaledInReplicas.setFixed(input.getMaxScaledInReplicas().getFixed());
+      maxScaledInReplicas.setPercent(input.getMaxScaledInReplicas().getPercent());
     }
-    ScaleDownControl output = new ScaleDownControl();
+    ScaleInControl output = new ScaleInControl();
     output.setTimeWindowSec(input.getTimeWindowSec());
-    output.setMaxScaledDownReplicas(maxScaledDownReplicas);
+    output.setMaxScaledInReplicas(maxScaledInReplicas);
     return output;
   }
 
