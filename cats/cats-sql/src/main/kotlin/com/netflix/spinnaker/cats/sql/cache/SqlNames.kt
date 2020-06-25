@@ -88,9 +88,19 @@ class SqlNames(
       return agent
     }
 
-    val hash = Hashing.murmur3_128().hashBytes((agent).toByteArray()).toString().substring(0..15)
-    val available = sqlConstraints.maxAgentLength - hash.length - 1
-    return agent.substring(0..available) + hash
+    val hash = Hashing.murmur3_128().hashBytes((agent).toByteArray()).toString()
+    val colIdx = agent.indexOf(':')
+
+    // We want to store at least <type>:<some hash bytes>
+    if (colIdx > sqlConstraints.maxAgentLength - 2) {
+      throw IllegalArgumentException("Type ${agent.substring(0, colIdx)} is too long, record cannot be stored")
+    }
+
+    // How much we can keep of the agent string, we need to preserve the colon
+    val available = Math.max(sqlConstraints.maxAgentLength - hash.length - 1, colIdx)
+    // How much of the hash will fit if we want to preserve the colon
+    val hashLength = Math.min(hash.length, sqlConstraints.maxAgentLength - colIdx - 1)
+    return agent.substring(0..available) + hash.substring(0, hashLength)
   }
 
   companion object {

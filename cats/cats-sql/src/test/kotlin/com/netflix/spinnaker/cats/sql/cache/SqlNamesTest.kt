@@ -17,8 +17,10 @@ package com.netflix.spinnaker.cats.sql.cache
 
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import strikt.api.expect
 import strikt.api.expectThat
-import strikt.assertions.isEqualTo
+import strikt.assertions.*
+import java.lang.IllegalArgumentException
 
 class SqlNamesTest : JUnit5Minutests {
 
@@ -48,11 +50,23 @@ class SqlNamesTest : JUnit5Minutests {
     listOf(
       Pair(null, null),
       Pair("myagent", "myagent"),
-      Pair("abcdefghij".repeat(20), "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabb43b982e477772f")
+      Pair("abcdefghij".repeat(20),
+        "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdebb43b982e477772faa2e899f65d0a86b"),
+      Pair("abcdefghij".repeat(10) + ":" + "abcdefghij".repeat(10),
+        "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij:20f5a9d8d3f4f18cfec8a40eda"),
+      Pair("abcdefghij:" + "abcdefghij".repeat(20),
+        "abcdefghij:abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcd5bfa5c163877f247769cd6b488dff339")
     ).forEach { test ->
       test("max length of table name is checked: ${test.first}") {
         expectThat(checkAgentName(test.first))
           .isEqualTo(test.second)
+      }
+    }
+
+    test("do not accept types that are too long") {
+      expect {
+        that(kotlin.runCatching { checkAgentName("abcdefghij".repeat(20) + ":abcdefghij") }
+          .exceptionOrNull()).isA<IllegalArgumentException>()
       }
     }
   }
