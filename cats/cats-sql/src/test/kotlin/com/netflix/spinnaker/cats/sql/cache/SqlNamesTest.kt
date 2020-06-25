@@ -17,10 +17,11 @@ package com.netflix.spinnaker.cats.sql.cache
 
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import java.lang.IllegalArgumentException
 import strikt.api.expect
 import strikt.api.expectThat
-import strikt.assertions.*
-import java.lang.IllegalArgumentException
+import strikt.assertions.isA
+import strikt.assertions.isEqualTo
 
 class SqlNamesTest : JUnit5Minutests {
 
