@@ -129,14 +129,6 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
             Keys.getTaskDefinitionKey(accountName, region, service.getTaskDefinition());
         TaskDefinition taskDefinition = taskDefinitionCacheClient.get(taskDefinitionCacheKey);
 
-        if (taskDefinition == null) {
-          log.debug(
-              "Provided task definition '{}' is null for service '{}'",
-              service.getTaskDefinition(),
-              service.getServiceName());
-          continue;
-        }
-
         boolean lacksNetworkBindings = isTaskMissingNetworkBindings(task);
         if (task.getContainers().isEmpty()
             || (lacksNetworkBindings && isTaskMissingNetworkInterfaces(task))) {
@@ -181,6 +173,14 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth>
       String serviceName,
       Service loadBalancerService,
       TaskDefinition taskDefinition) {
+
+    if (taskDefinition == null) {
+      log.debug(
+          "Provided task definition '{}' is null for task '{}'.",
+          loadBalancerService.getTaskDefinition(),
+          task.getTaskArn());
+      return null;
+    }
 
     List<LoadBalancer> loadBalancers = loadBalancerService.getLoadBalancers();
     log.debug("LoadBalancerService found {} load balancers.", loadBalancers.size());
