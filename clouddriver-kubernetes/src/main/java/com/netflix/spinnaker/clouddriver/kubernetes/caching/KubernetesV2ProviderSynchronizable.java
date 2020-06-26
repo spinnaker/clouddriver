@@ -129,11 +129,9 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
   }
 
   private void deleteAccounts(List<String> deletedAccounts) {
-    if (deletedAccounts.isEmpty()) {
-      return;
-    }
     log.info(
-        "Deleted {} accounts, removing from repository and caching agents", deletedAccounts.size());
+        "{} accounts were deleted and need to be removed from repository and caching agents",
+        deletedAccounts.size());
     deletedAccounts.forEach(
         accountCredentialsRepository::delete); // delete from endpoint /credentials
     ProviderUtils.unscheduleAndDeregisterAgents(
@@ -194,11 +192,11 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
 
         log.info("Adding {} agents for account {}", newlyAddedAgents.size(), credentials.getName());
 
-        kubernetesV2Provider.stageAllAgents(newlyAddedAgents);
+        kubernetesV2Provider.stageAgents(newlyAddedAgents);
         stagedAccountNames.add(credentials.getName());
       } catch (Exception e) {
         log.warn(
-            "Error encountered scheduling new agents for account {} -- using old agent set instead",
+            "Error encountered scheduling new agents for account {} -- using its old agent set instead",
             credentials.getName(),
             e);
       }
@@ -213,9 +211,9 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
     // running system).
     if (kubernetesV2Provider.getAgentScheduler() != null) {
       ProviderUtils.rescheduleAgents(
-          kubernetesV2Provider, new ArrayList<>(kubernetesV2Provider.getNextAgentSet()));
+          kubernetesV2Provider, new ArrayList<>(kubernetesV2Provider.getStagedAgents()));
     }
 
-    kubernetesV2Provider.addStagedAgents();
+    kubernetesV2Provider.promoteStagedAgents();
   }
 }

@@ -36,24 +36,22 @@ public class KubernetesV2Provider extends AgentSchedulerAware implements Provide
 
   private Collection<Agent> agents = emptyAgentCollection();
 
-  private Collection<Agent> nextAgentSet = emptyAgentCollection();
+  private Collection<Agent> stagedAgents = emptyAgentCollection();
 
   private static Collection<Agent> emptyAgentCollection() {
     return Collections.newSetFromMap(new ConcurrentHashMap<>());
   }
 
-  public void stageAllAgents(Collection<Agent> agents) {
-    nextAgentSet.addAll(agents);
+  public void stageAgents(Collection<Agent> agents) {
+    stagedAgents.addAll(agents);
   }
 
   public void clearStagedAgents() {
-    nextAgentSet.clear();
+    stagedAgents.clear();
   }
 
-  public void addStagedAgents() {
-    Collection<Agent> nextAgentSetCopy = emptyAgentCollection();
-    nextAgentSetCopy.addAll(nextAgentSet);
-    agents.addAll(nextAgentSetCopy);
+  public void promoteStagedAgents() {
+    agents.addAll(stagedAgents);
     clearStagedAgents();
   }
 
