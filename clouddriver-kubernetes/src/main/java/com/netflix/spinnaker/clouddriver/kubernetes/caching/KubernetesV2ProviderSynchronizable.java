@@ -182,12 +182,11 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
         "Synchronizing caching agents for {} new or changed V2 Kubernetes accounts.",
         newAndChangedAccounts.size());
 
-    Set<String> accountNames = new HashSet<>();
+    Set<String> stagedAccountNames = new HashSet<>();
 
-    try {
-      for (KubernetesNamedAccountCredentials<KubernetesV2Credentials> credentials :
-          newAndChangedAccounts) {
-        accountNames.add(credentials.getName());
+    for (KubernetesNamedAccountCredentials<KubernetesV2Credentials> credentials :
+        newAndChangedAccounts) {
+      try {
         List<Agent> newlyAddedAgents =
             kubernetesV2CachingAgentDispatcher.buildAllCachingAgents(credentials).stream()
                 .map(c -> (Agent) c)
@@ -196,14 +195,17 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
         log.info("Adding {} agents for account {}", newlyAddedAgents.size(), credentials.getName());
 
         kubernetesV2Provider.stageAllAgents(newlyAddedAgents);
+        stagedAccountNames.add(credentials.getName());
+      } catch (Exception e) {
+        log.warn(
+            "Error encountered scheduling new agents for account {} -- using old agent set instead",
+            credentials.getName(),
+            e);
       }
-    } catch (Exception e) {
-      log.warn("Error encountered scheduling new agents -- using old agent set instead", e);
-      kubernetesV2Provider.clearStagedAgents();
     }
 
     // Remove existing agents belonging to changed accounts
-    ProviderUtils.unscheduleAndDeregisterAgents(accountNames, catsModule);
+    ProviderUtils.unscheduleAndDeregisterAgents(stagedAccountNames, catsModule);
 
     // If there is an agent scheduler, then this provider has been through the AgentController in
     // the past.
