@@ -582,7 +582,7 @@ public class Applications {
     }
     if (command != null && command.isEmpty()) {
       throw new IllegalArgumentException(
-          "Buildpack commands cannot be empty. Either a custom command is provided or set to null to use the original buildpack command.");
+          "Buildpack commands cannot be empty. Please specify a custom command or set it to null to use the original buildpack command.");
     }
 
     safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
