@@ -30,6 +30,8 @@ import org.springframework.stereotype.Component
 @Component
 class TitusDeployAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
+  private static final String SKIP_SECURITY_GROUP_VALIDATION_LABEL = "spinnaker.skipSecurityGroupValidation"
+
   @Autowired
   AwsLookupUtil awsLookupUtil
 
@@ -55,12 +57,17 @@ class TitusDeployAtomicOperationConverter extends AbstractAtomicOperationsCreden
     def converted = objectMapper.convertValue(input, TitusDeployDescription)
     converted.credentials = getCredentialsObject(input.credentials as String)
 
-    if (converted.securityGroups != null && !converted.securityGroups.isEmpty()) {
-      converted.setSecurityGroupNames(
-        awsLookupUtil.convertSecurityGroupsToNames(converted.account, converted.region, converted.securityGroups)
-      )
+    // Used as a workaround to skip conversion of cross account security groups which will fail
+    // since the SG's may not map to same account / region , this setup is used to support titus cross account setup
+    boolean skipSecurityGroupValidation =
+      Boolean.valueOf(converted.labels.getOrDefault(SKIP_SECURITY_GROUP_VALIDATION_LABEL, String.valueOf(false)))
+    if (!skipSecurityGroupValidation) {
+      if (converted.securityGroups != null && !converted.securityGroups.isEmpty()) {
+        converted.setSecurityGroupNames(
+          awsLookupUtil.convertSecurityGroupsToNames(converted.account, converted.region, converted.securityGroups)
+        )
+      }
     }
-
     converted
   }
 }
