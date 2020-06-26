@@ -580,6 +580,11 @@ public class Applications {
     if (healthCheckEndpoint != null && !healthCheckEndpoint.isEmpty() && healthCheck != null) {
       healthCheck.setData(new Process.HealthCheckData().setEndpoint(healthCheckEndpoint));
     }
+    if (command != null && command.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Buildpack commands cannot be empty. Either a custom command is provided or set to null to use the original buildpack command.");
+    }
+
     safelyCall(() -> api.updateProcess(guid, new UpdateProcess(command, healthCheck)));
   }
 
