@@ -32,7 +32,7 @@ public abstract class AbstractAccountCredentials<T> implements AccountCredential
   @JsonIgnore
   public abstract T getCredentials();
 
-  // Todo: make Fiat an acceptable dependency for clouddriver-api so this can be pushed back up to AccountCredentials
+  // Todo: make Fiat an acceptable dependency for clouddriver-api and push up to AccountCredentials
   public Permissions getPermissions() {
     Set<String> rgm =
         Optional.ofNullable(getRequiredGroupMembership())
