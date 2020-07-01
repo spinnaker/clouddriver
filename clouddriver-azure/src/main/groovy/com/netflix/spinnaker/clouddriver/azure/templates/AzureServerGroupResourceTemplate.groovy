@@ -109,7 +109,7 @@ class AzureServerGroupResourceTemplate {
   interface TemplateVariables {}
 
   static class CoreServerGroupTemplateVariables implements TemplateVariables {
-    final String apiVersion = "2018-10-01"
+    final String apiVersion = "2019-03-01"
     String publicIPAddressName = ""
     String publicIPAddressID = ""
     String publicIPAddressType = ""
@@ -361,6 +361,7 @@ class AzureServerGroupResourceTemplate {
       name = description.name
       type = "Microsoft.Compute/virtualMachineScaleSets"
       location = "[parameters('${locationParameterName}')]"
+
       def currentTime = System.currentTimeMillis()
       tags = [:]
       tags.createdTime = currentTime.toString()
@@ -431,6 +432,25 @@ class AzureServerGroupResourceTemplate {
       name = description.sku.name
       tier = description.sku.tier
       capacity = description.sku.capacity
+    }
+  }
+
+  // Scheduled Event Profiles
+  static class ScheduledEventsProfile {
+    TerminateNotificationProfile terminateNotificationProfile
+
+    ScheduledEventsProfile(AzureServerGroupDescription description) {
+      terminateNotificationProfile = new TerminateNotificationProfile(description)
+    }
+  }
+
+  static class TerminateNotificationProfile {
+    String notBeforeTimeout
+    Boolean enable
+
+    TerminateNotificationProfile(AzureServerGroupDescription description) {
+      enable = true
+      notBeforeTimeout = "PT" + description.terminationNotBeforeTimeout + "M"
     }
   }
 
@@ -645,6 +665,7 @@ class AzureServerGroupResourceTemplate {
     StorageProfile storageProfile
     ScaleSetOsProfile osProfile
     ScaleSetNetworkProfileProperty networkProfile
+    ScheduledEventsProfile scheduledEventsProfile
 
     ScaleSetVMProfileProperty(AzureServerGroupDescription description) {
       storageProfile = description.image.isCustom ?
@@ -656,6 +677,10 @@ class AzureServerGroupResourceTemplate {
       }
       else{
         osProfile = new ScaleSetOsProfileProperty(description)
+      }
+
+      if (description.terminationNotBeforeTimeout != null) {
+        scheduledEventsProfile = new ScheduledEventsProfile(description)
       }
 
       networkProfile = new ScaleSetNetworkProfileProperty(description)
