@@ -25,11 +25,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+// Todo: remove this class once these methods no longer need to be separated from AccountCredentials
 public abstract class AbstractAccountCredentials<T> implements AccountCredentials<T> {
 
+  // Todo: use jackson mixin on AccountCredentials rather than putting annotation here
   @JsonIgnore
   public abstract T getCredentials();
 
+  // Todo: make Fiat an acceptable dependency for clouddriver-api so this can be pushed back up to AccountCredentials
   public Permissions getPermissions() {
     Set<String> rgm =
         Optional.ofNullable(getRequiredGroupMembership())
