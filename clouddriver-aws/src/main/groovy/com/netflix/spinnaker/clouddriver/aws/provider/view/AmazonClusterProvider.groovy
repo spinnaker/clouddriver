@@ -177,20 +177,22 @@ class AmazonClusterProvider implements ClusterProvider<AmazonCluster>, ServerGro
     // lbs and images can span applications and can't currently be indexed by app
     Collection<CacheData> allLoadBalancers = resolveRelationshipDataForCollection(
       cacheResults[CLUSTERS.ns],
-      LOAD_BALANCERS.ns
+      LOAD_BALANCERS.ns,
+      RelationshipCacheFilter.none()
     )
     Collection<CacheData> allTargetGroups = resolveRelationshipDataForCollection(
       cacheResults[CLUSTERS.ns],
-      TARGET_GROUPS.ns
+      TARGET_GROUPS.ns,
+      RelationshipCacheFilter.none()
     )
 
     Collection<CacheData> allImages = []
     allImages.addAll(
-      resolveRelationshipDataForCollection(cacheResults[LAUNCH_CONFIGS.ns], IMAGES.ns)
+      resolveRelationshipDataForCollection(cacheResults[LAUNCH_CONFIGS.ns], IMAGES.ns, RelationshipCacheFilter.none())
     )
 
     allImages.addAll(
-      resolveRelationshipDataForCollection(cacheResults[LAUNCH_TEMPLATES.ns], IMAGES.ns)
+      resolveRelationshipDataForCollection(cacheResults[LAUNCH_TEMPLATES.ns], IMAGES.ns, RelationshipCacheFilter.none())
     )
 
     Map<String, AmazonLoadBalancer> loadBalancers = translateLoadBalancers(allLoadBalancers)

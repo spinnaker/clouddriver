@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Armory
+ * Copyright 2020 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.config
+package com.netflix.spinnaker.clouddriver.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties("sql.constraints")
-class SqlConstraints {
-  var maxTableNameLength: Int = 64
-  // 352 * 2 + 64 (max rel_type length) == 768; 768 * 4 (utf8mb4) == 3072 == Aurora's max index length
-  var maxIdLength: Int = 352
-  var maxAgentLength: Int = 127
+@Data
+@ConfigurationProperties("cloud.config")
+public class CloudConfigRefreshProperties {
+  private int refreshIntervalSeconds = 60;
 }
