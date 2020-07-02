@@ -190,6 +190,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
 
     def targetPools = []
     def internalLoadBalancers = []
+    def internalHttpLoadBalancers = []
     def sslLoadBalancers = []
     def tcpLoadBalancers = []
 
@@ -204,6 +205,8 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
 
       // Queue ILBs to update, but wait to update metadata until Https LBs are calculated.
       internalLoadBalancers = foundLoadBalancers.findAll { it.loadBalancerType == GoogleLoadBalancerType.INTERNAL }
+
+      internalHttpLoadBalancers = foundLoadBalancers.findAll { it.loadBalancerType == GoogleLoadBalancerType.INTERNAL_MANAGED }
 
       // Queue SSL LBs to update.
       sslLoadBalancers = foundLoadBalancers.findAll { it.loadBalancerType == GoogleLoadBalancerType.SSL }
@@ -251,7 +254,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                          ACCESS_CONFIG_TYPE)
 
     def hasBackendServices = (instanceMetadata &&
-      instanceMetadata.containsKey(BACKEND_SERVICE_NAMES)) || sslLoadBalancers || tcpLoadBalancers
+      instanceMetadata.containsKey(BACKEND_SERVICE_NAMES) && !internalHttpLoadBalancers) || sslLoadBalancers || tcpLoadBalancers
 
     // Resolve and queue the backend service updates, but don't execute yet.
     // We need to resolve this information to set metadata in the template so enable can know about the
@@ -310,10 +313,10 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
 
     // Update the instance metadata for ILBs and queue up region backend service calls.
     List<BackendService> regionBackendServicesToUpdate = []
-    if (internalLoadBalancers) {
+    if (internalLoadBalancers || internalHttpLoadBalancers) {
       List<String> existingRegionalLbs = instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
-      def ilbServices = internalLoadBalancers.collect { it.backendService.name }
-      def ilbNames = internalLoadBalancers.collect { it.name }
+      def ilbServices = internalLoadBalancers.collect { it.backendService.name } + (instanceMetadata[BACKEND_SERVICE_NAMES]?.split(",") as List) ?: []
+      def ilbNames = internalLoadBalancers.collect { it.name } + internalHttpLoadBalancers.collect { it.name }
 
       ilbNames.each { String ilbName ->
         if (!(ilbName in existingRegionalLbs))  {
@@ -488,7 +491,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
         .setTargetPools(targetPools)
         .setAutoHealingPolicies(autoHealingPolicy)
 
-    if (hasBackendServices && (description?.loadBalancingPolicy || description?.source?.serverGroupName))  {
+    if (!internalLoadBalancers && (description?.loadBalancingPolicy || description?.source?.serverGroupName))  {
       List<NamedPort> namedPorts = []
       def sourceGroupName = description?.source?.serverGroupName
 
@@ -517,8 +520,8 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     }
 
     def willUpdateBackendServices = !description.disableTraffic && hasBackendServices
+    def willUpdateRegionalBackendServices = !description.disableTraffic && (internalLoadBalancers || internalHttpLoadBalancers)
     def willCreateAutoscaler = autoscalerIsSpecified(description)
-    def willUpdateIlbs = !description.disableTraffic && internalLoadBalancers
 
     if (isRegional) {
       if (description.distributionPolicy) {
@@ -546,7 +549,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           "compute.regionInstanceGroupManagers.insert",
           TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
 
-      if (willUpdateBackendServices || willCreateAutoscaler || willUpdateIlbs) {
+      if (willUpdateBackendServices || willCreateAutoscaler || willUpdateRegionalBackendServices) {
         // Before updating the Backend Services or creating the Autoscaler we must wait until the managed instance group is created.
         googleOperationPoller.waitForRegionalOperation(compute, project, region, migCreateOperation.getName(),
           null, task, "managed instance group $serverGroupName", BASE_PHASE)
@@ -570,7 +573,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
           "compute.instanceGroupManagers.insert",
           TAG_SCOPE, SCOPE_ZONAL, TAG_ZONE, zone)
 
-      if (willUpdateBackendServices || willCreateAutoscaler || willUpdateIlbs) {
+      if (willUpdateBackendServices || willCreateAutoscaler || willUpdateRegionalBackendServices) {
         // Before updating the Backend Services or creating the Autoscaler we must wait until the managed instance group is created.
         googleOperationPoller.waitForZonalOperation(compute, project, zone, migCreateOperation.getName(),
           null, task, "managed instance group $serverGroupName", BASE_PHASE)
@@ -607,7 +610,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       }
     }
 
-    if (willUpdateIlbs) {
+    if (willUpdateRegionalBackendServices) {
       regionBackendServicesToUpdate.each { BackendService backendService ->
         safeRetry.doRetry(
           updateRegionBackendServices(compute, project, region, backendService.name, backendService),

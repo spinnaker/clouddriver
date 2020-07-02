@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.google.model.*
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalHttpLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
@@ -238,6 +239,9 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
         case GoogleLoadBalancerType.HTTP:
           loadBalancer = objectMapper.convertValue(it.attributes, GoogleHttpLoadBalancer)
           break
+        case GoogleLoadBalancerType.INTERNAL_MANAGED:
+          loadBalancer = objectMapper.convertValue(it.attributes, GoogleInternalHttpLoadBalancer)
+          break
         case GoogleLoadBalancerType.NETWORK:
           loadBalancer = objectMapper.convertValue(it.attributes, GoogleNetworkLoadBalancer)
           break
@@ -301,6 +305,11 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
         Utils.determineHttpLoadBalancerDisabledState(loadBalancer, serverGroup)
     }
 
+    def internalHttpLoadBalancers = loadBalancers.findAll { it.type == GoogleLoadBalancerType.INTERNAL_MANAGED }
+    def internalHttpDisabledStates = internalHttpLoadBalancers.collect { loadBalancer ->
+        Utils.determineInternalHttpLoadBalancerDisabledState(loadBalancer, serverGroup)
+    }
+
     def sslLoadBalancers = loadBalancers.findAll { it.type == GoogleLoadBalancerType.SSL }
     def sslDisabledStates = sslLoadBalancers.collect { loadBalancer ->
       Utils.determineSslLoadBalancerDisabledState(loadBalancer, serverGroup)
@@ -330,6 +339,9 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
     }
     if (internalDisabledStates) {
       isDisabled &= internalDisabledStates.every { it }
+    }
+    if (internalHttpDisabledStates) {
+      isDisabled &= internalHttpDisabledStates.every { it }
     }
     if (sslDisabledStates) {
       isDisabled &= sslDisabledStates.every { it }

@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleBackendService
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHostRule
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalHttpLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancedBackend
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GooglePathMatcher
@@ -256,14 +257,24 @@ class Utils {
 
   static List<GoogleBackendService> getBackendServicesFromHttpLoadBalancerView(GoogleHttpLoadBalancer.View googleLoadBalancer) {
     List<GoogleBackendService> backendServices = [googleLoadBalancer.defaultService]
-    List<GooglePathMatcher> pathMatchers = googleLoadBalancer?.hostRules?.collect { GoogleHostRule hostRule -> hostRule.pathMatcher }
+    collectBackendServicesFromHostRules(googleLoadBalancer?.hostRules, backendServices)
+    return backendServices;
+  }
+
+  static List<GoogleBackendService> getBackendServicesFromInternalHttpLoadBalancerView(GoogleInternalHttpLoadBalancer.View googleLoadBalancer) {
+    List<GoogleBackendService> backendServices = [googleLoadBalancer.defaultService]
+    collectBackendServicesFromHostRules(googleLoadBalancer?.hostRules, backendServices)
+    return backendServices
+  }
+
+  static void collectBackendServicesFromHostRules(List<GoogleHostRule> hostRules, List<GoogleBackendService> backendServices) {
+    List<GooglePathMatcher> pathMatchers = hostRules.collect { GoogleHostRule hostRule -> hostRule.pathMatcher }
     pathMatchers?.each { GooglePathMatcher pathMatcher ->
       backendServices << pathMatcher.defaultService
       pathMatcher?.pathRules?.each { GooglePathRule googlePathRule ->
         backendServices << googlePathRule.backendService
       }
     }
-    return backendServices
   }
 
   static List<String> getBackendServicesFromUrlMap(UrlMap urlMap) {
@@ -289,6 +300,20 @@ class Utils {
         .collect { GCEUtil.getLocalName(it.serverGroupUrl) }
 
     return loadBalancer.name in httpLoadBalancersFromMetadata && !(serverGroup.name in backendGroupNames)
+  }
+
+  static boolean determineInternalHttpLoadBalancerDisabledState(GoogleInternalHttpLoadBalancer loadBalancer,
+                                                                GoogleServerGroup serverGroup) {
+    def loadBalancersFromMetadata = serverGroup.asg.get(REGIONAL_LOAD_BALANCER_NAMES)
+    def backendServicesFromMetadata = serverGroup.asg.get(BACKEND_SERVICE_NAMES)
+    List<List<GoogleLoadBalancedBackend>> serviceBackends = getBackendServicesFromInternalHttpLoadBalancerView(loadBalancer.view)
+        .findAll { it && it.name in backendServicesFromMetadata }
+        .collect { it.backends }
+    List<String> backendGroupNames = serviceBackends.flatten()
+        .findAll { serverGroup.region == Utils.getRegionFromGroupUrl(it.serverGroupUrl) }
+        .collect { GCEUtil.getLocalName(it.serverGroupUrl) }
+
+    return loadBalancer.name in loadBalancersFromMetadata && !(serverGroup.name in backendGroupNames)
   }
 
   static String decorateXpnResourceIdIfNeeded(String managedProjectId, String xpnResource) {
