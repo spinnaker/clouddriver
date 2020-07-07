@@ -104,7 +104,7 @@ class AutoScalingWorker {
   /** Launch Templates properties **/
   private Boolean setLaunchTemplate
   private Boolean requireIMDSv2
-  private Boolean associateIpV6Address
+  private Boolean associateIPv6Address
 
   private int minInstances
   private int maxInstances
@@ -182,7 +182,7 @@ class AutoScalingWorker {
 
       final LaunchTemplate launchTemplate = regionScopedProvider
         .getLaunchTemplateService()
-        .createLaunchTemplate(settings, DefaultLaunchConfigurationBuilder.createName(settings), requireIMDSv2, associateIpV6Address)
+        .createLaunchTemplate(settings, DefaultLaunchConfigurationBuilder.createName(settings), requireIMDSv2, associateIPv6Address)
       launchTemplateSpecification = new LaunchTemplateSpecification(
         launchTemplateId: launchTemplate.launchTemplateId, version: launchTemplate.latestVersionNumber)
     } else {

@@ -85,7 +85,7 @@ public class LaunchTemplateService {
       LaunchConfigurationSettings settings,
       String launchTemplateName,
       Boolean requireIMDSv2,
-      Boolean associateIpV6Address) {
+      Boolean associateIPv6Address) {
     final RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(settings.getAmi())
@@ -138,7 +138,7 @@ public class LaunchTemplateService {
     request.withNetworkInterfaces(
         new LaunchTemplateInstanceNetworkInterfaceSpecificationRequest()
             .withAssociatePublicIpAddress(settings.getAssociatePublicIpAddress())
-            .withIpv6AddressCount(associateIpV6Address != null && associateIpV6Address ? 1 : 0)
+            .withIpv6AddressCount(associateIPv6Address != null && associateIPv6Address ? 1 : 0)
             .withGroups(settings.getSecurityGroups())
             .withDeviceIndex(0));
 
