@@ -138,7 +138,7 @@ public class LaunchTemplateService {
     request.withNetworkInterfaces(
         new LaunchTemplateInstanceNetworkInterfaceSpecificationRequest()
             .withAssociatePublicIpAddress(settings.getAssociatePublicIpAddress())
-            .withIpv6AddressCount(associateIPv6Address != null && associateIPv6Address ? 1 : 0)
+            .withIpv6AddressCount(associateIPv6Address ? 1 : 0)
             .withGroups(settings.getSecurityGroups())
             .withDeviceIndex(0));
 
