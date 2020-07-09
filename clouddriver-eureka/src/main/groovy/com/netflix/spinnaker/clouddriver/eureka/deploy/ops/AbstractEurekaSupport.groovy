@@ -147,12 +147,12 @@ abstract class AbstractEurekaSupport {
           } else {
             // If we're trying to set the status to UP, and the instance is already UP (or hasn't registered yet),
             // skip it.
-            if (instanceDetails.instance.status != DiscoveryStatus.OUT_OF_SERVICE.value) {
-              log.debug("Instance ${instanceId} is already UP in discovery, skipping.")
+            if (instanceDetails.instance.status == DiscoveryStatus.OUT_OF_SERVICE.value) {
+              resp = eureka.resetInstanceStatus(applicationName, instanceId, DiscoveryStatus.OUT_OF_SERVICE.value)
+            } else {
+              log.debug("Instance {} is {} in discovery, no override to remove", instanceId, instanceDetails.instance.status)
               skipped.add(instanceId)
               return
-            } else {
-              resp = eureka.resetInstanceStatus(applicationName, instanceId, DiscoveryStatus.OUT_OF_SERVICE.value)
             }
           }
 
