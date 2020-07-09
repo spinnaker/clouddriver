@@ -86,7 +86,7 @@ class EnableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnitS
                 app: "asg1"
             ]
         ]
-    1 * eureka.resetInstanceStatus('asg1', 'i1', AbstractEurekaSupport.DiscoveryStatus.Disable.value)
+    1 * eureka.resetInstanceStatus('asg1', 'i1', AbstractEurekaSupport.DiscoveryStatus.DOWN.value)
   }
 
   def 'should skip discovery if not enabled for account'() {
