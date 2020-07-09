@@ -151,8 +151,17 @@ class LocalFileUserDataProvider implements UserDataProvider {
       .replace('%%cluster%%', cluster)
       .replace('%%stack%%', stack)
       .replace('%%detail%%', detail)
-      .replace(userDataRequest.launchTemplate ? '%%launchtemplate%%' : '%%launchconfig%%', userDataRequest.launchSettingName)
       .replace('%%tier%%', '')
+
+    if (userDataRequest.launchTemplate) {
+      result = result
+        .replace('%%launchtemplate%%' : userDataRequest.launchSettingName)
+        .replace('%%launchconfig%%' : '')
+    } else {
+      result = result
+        .replace('%%launchconfig%%' : userDataRequest.launchSettingName)
+        .replace('%%launchtemplate%%' : '')
+    }
 
     List<String> additionalEnvVars = []
     additionalEnvVars << names.countries ? "NETFLIX_COUNTRIES=${names.countries}" : null
