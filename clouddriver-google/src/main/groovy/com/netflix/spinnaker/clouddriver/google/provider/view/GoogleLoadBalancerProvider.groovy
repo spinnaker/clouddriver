@@ -211,7 +211,7 @@ class GoogleLoadBalancerProvider implements LoadBalancerProvider<GoogleLoadBalan
             urlMapName = httpView.urlMapName
             break
           case (GoogleLoadBalancerType.INTERNAL_MANAGED):
-            GoogleInternalHttpLoadBalancer.View httpView = view as GoogleInternalHttpLoadBalancer.View
+            GoogleInternalHttpLoadBalancer.InternalHttpLbView httpView = view as GoogleInternalHttpLoadBalancer.InternalHttpLbView
             backendServices = Utils.getBackendServicesFromInternalHttpLoadBalancerView(httpView).collect { it.name }
             urlMapName = httpView.urlMapName
             break
@@ -284,7 +284,7 @@ class GoogleLoadBalancerProvider implements LoadBalancerProvider<GoogleLoadBalan
       case GoogleLoadBalancerType.INTERNAL_MANAGED:
         instancePort = 'http'
         loadBalancerPort = Utils.derivePortOrPortRange(view.portRange)
-        GoogleInternalHttpLoadBalancer.View httpView = view as GoogleInternalHttpLoadBalancer.View
+        GoogleInternalHttpLoadBalancer.InternalHttpLbView httpView = view as GoogleInternalHttpLoadBalancer.InternalHttpLbView
         List<GoogleBackendService> backendServices = Utils.getBackendServicesFromInternalHttpLoadBalancerView(httpView)
         backendServiceHealthChecks = backendServices.collectEntries { [it.name, it.healthCheck.view] }
         break

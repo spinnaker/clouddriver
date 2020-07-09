@@ -185,14 +185,15 @@ class DeleteGoogleInternalHttpLoadBalancerAtomicOperationUnitSpec extends Specif
       def urlMaps = Mock(Compute.RegionUrlMaps)
       def urlMapsList = Mock(Compute.RegionUrlMaps.List)
       def urlMap = new UrlMap(
-          name: URL_MAP_NAME,
-          defaultService: BACKEND_SERVICE_URL,
-          pathMatchers: [
-              [defaultService: BACKEND_SERVICE_URL+"2",
-               pathRules: [
-                  [service: BACKEND_SERVICE_URL+"3"], [service: BACKEND_SERVICE_URL]
-               ]]
-          ])
+        name: URL_MAP_NAME,
+        defaultService: BACKEND_SERVICE_URL,
+        pathMatchers: [
+          new PathMatcher(defaultService: BACKEND_SERVICE_URL + "2",
+            pathRules: [
+              new PathRule(service: BACKEND_SERVICE_URL + "3"), new PathRule(service: BACKEND_SERVICE_URL)
+            ]
+          )
+        ])
       def backendServices = Mock(Compute.RegionBackendServices)
       def backendServicesGet = Mock(Compute.RegionBackendServices.Get)
       def backendServicesGet2 = Mock(Compute.RegionBackendServices.Get)
