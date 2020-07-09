@@ -177,7 +177,8 @@ class DiscoverySupportUnitSpec extends Specification {
     1 * eureka.getInstanceInfo(_) >>
       [
         instance: [
-          app: appName
+          app: appName,
+          status: "OUT_OF_SERVICE"
         ]
       ]
 
@@ -208,7 +209,7 @@ class DiscoverySupportUnitSpec extends Specification {
     then:
     task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
     1 * task.fail()
-    1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName ] ]
+    1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName, status: "OUT_OF_SERVICE" ] ]
     1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
     1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> response(200)
     1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
@@ -240,7 +241,7 @@ class DiscoverySupportUnitSpec extends Specification {
 
     then:
     task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
-    1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName ] ]
+    1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName, status: "OUT_OF_SERVICE" ] ]
     1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
     1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> response(200)
     1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
@@ -273,7 +274,7 @@ class DiscoverySupportUnitSpec extends Specification {
 
     then:
     task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
-    1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName ] ]
+    1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName, status: "OUT_OF_SERVICE" ] ]
     1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
     1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> response(200)
     1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
@@ -312,12 +313,10 @@ class DiscoverySupportUnitSpec extends Specification {
     } >>
       [
         instance: [
-          app: appName
+          app: appName,
+          status: "UNKNOWN"
         ]
       ]
-    instanceIds.each {
-      1 * eureka.resetInstanceStatus(appName, it, AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> response(200)
-    }
 
     where:
     failure << [httpError(404), httpError(406), httpError(503), amazonError(503)]
@@ -372,7 +371,8 @@ class DiscoverySupportUnitSpec extends Specification {
     1 * eureka.getInstanceInfo('i-123') >>
       [
         instance: [
-          app: appName
+          app: appName,
+          status: "OUT_OF_SERVICE"
         ]
       ]
     3 * eureka.resetInstanceStatus(appName, 'i-123', AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >>> [response(302), response(201), response(200)]
@@ -430,7 +430,8 @@ class DiscoverySupportUnitSpec extends Specification {
     1 * eureka.getInstanceInfo(_) >>
       [
         instance: [
-          app: appName
+          app: appName,
+          status: "OUT_OF_SERVICE"
         ]
       ]
     1 * task.fail()

@@ -83,7 +83,8 @@ class EnableAsgAtomicOperationUnitSpec extends EnableDisableAtomicOperationUnitS
     1 * eureka.getInstanceInfo('i1') >>
         [
             instance: [
-                app: "asg1"
+                app: "asg1",
+                status: "OUT_OF_SERVICE"
             ]
         ]
     1 * eureka.resetInstanceStatus('asg1', 'i1', AbstractEurekaSupport.DiscoveryStatus.DOWN.value)
