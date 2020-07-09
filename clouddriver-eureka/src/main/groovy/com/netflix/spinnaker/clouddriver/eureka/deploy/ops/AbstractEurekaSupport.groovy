@@ -116,7 +116,7 @@ abstract class AbstractEurekaSupport {
         sleep eurekaSupportConfigurationProperties.throttleMillis
       }
 
-      if (discoveryStatus == DiscoveryStatus.DOWN) {
+      if (discoveryStatus == DiscoveryStatus.OUT_OF_SERVICE) {
         if (index % eurekaSupportConfigurationProperties.attemptShortCircuitEveryNInstances == 0) {
           try {
             def hasUpInstances = doesCachedClusterContainDiscoveryStatus(
@@ -142,17 +142,17 @@ abstract class AbstractEurekaSupport {
 
           Response resp
 
-          if (discoveryStatus == DiscoveryStatus.DOWN) {
+          if (discoveryStatus == DiscoveryStatus.OUT_OF_SERVICE) {
             resp = eureka.updateInstanceStatus(applicationName, instanceId, discoveryStatus.value)
           } else {
             // If we're trying to set the status to UP, and the instance is already UP (or hasn't registered yet),
             // skip it.
-            if (instanceDetails.instance.status != DiscoveryStatus.DOWN.value) {
+            if (instanceDetails.instance.status != DiscoveryStatus.OUT_OF_SERVICE.value) {
               log.debug("Instance ${instanceId} is already UP in discovery, skipping.")
               skipped.add(instanceId)
               return
             } else {
-              resp = eureka.resetInstanceStatus(applicationName, instanceId, DiscoveryStatus.DOWN.value)
+              resp = eureka.resetInstanceStatus(applicationName, instanceId, DiscoveryStatus.OUT_OF_SERVICE.value)
             }
           }
 
@@ -161,7 +161,7 @@ abstract class AbstractEurekaSupport {
           }
         }
       } catch (RetrofitError retrofitError) {
-        if (discoveryStatus == DiscoveryStatus.DOWN) {
+        if (discoveryStatus == DiscoveryStatus.OUT_OF_SERVICE) {
           def alwaysSkippable = retrofitError.response?.status == 404
           def willSkip = alwaysSkippable || !strict
           def skippingOrNot = willSkip ? "skipping" : "not skipping"
@@ -352,7 +352,7 @@ abstract class AbstractEurekaSupport {
 
   enum DiscoveryStatus {
     UP('UP'),
-    DOWN('OUT_OF_SERVICE')
+    OUT_OF_SERVICE('OUT_OF_SERVICE')
 
     String value
 

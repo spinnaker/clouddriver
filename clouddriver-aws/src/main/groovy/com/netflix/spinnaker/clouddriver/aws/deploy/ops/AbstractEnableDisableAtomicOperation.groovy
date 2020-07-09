@@ -200,7 +200,7 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
 
       // eureka registration
       if (credentials.discoveryEnabled && instanceIds) {
-        def status = disable ? AbstractEurekaSupport.DiscoveryStatus.DOWN : AbstractEurekaSupport.DiscoveryStatus.UP
+        def status = disable ? AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE : AbstractEurekaSupport.DiscoveryStatus.UP
         task.updateStatus phaseName, "Marking ASG $serverGroupName as $status with Discovery"
 
         def enableDisableInstanceDiscoveryDescription = new EnableDisableInstanceDiscoveryDescription(

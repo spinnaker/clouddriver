@@ -105,7 +105,7 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
       }
 
       if (job.tasks) {
-        def status = disable ? AbstractEurekaSupport.DiscoveryStatus.DOWN : AbstractEurekaSupport.DiscoveryStatus.UP
+        def status = disable ? AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE : AbstractEurekaSupport.DiscoveryStatus.UP
         task.updateStatus phaseName, "Marking ServerGroup $serverGroupName as $status with Discovery"
 
         def enableDisableInstanceDiscoveryDescription = new EnableDisableInstanceDiscoveryDescription(

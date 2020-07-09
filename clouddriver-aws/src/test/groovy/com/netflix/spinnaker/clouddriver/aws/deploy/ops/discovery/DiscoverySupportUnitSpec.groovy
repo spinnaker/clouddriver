@@ -100,7 +100,7 @@ class DiscoverySupportUnitSpec extends Specification {
 
     when:
     discoverySupport.updateDiscoveryStatusForInstances(
-      description, task, "phase", AbstractEurekaSupport.DiscoveryStatus.DOWN, instances
+      description, task, "phase", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE, instances
     )
 
     then:
@@ -150,7 +150,7 @@ class DiscoverySupportUnitSpec extends Specification {
 
     when:
     discoverySupport.updateDiscoveryStatusForInstances(
-      description, task, "phase", AbstractEurekaSupport.DiscoveryStatus.DOWN, instances
+      description, task, "phase", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE, instances
     )
 
     then:
@@ -184,7 +184,7 @@ class DiscoverySupportUnitSpec extends Specification {
 
     0 * task.fail()
     instanceIds.each {
-      1 * eureka.resetInstanceStatus(appName, it, AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> response(200)
+      1 * eureka.resetInstanceStatus(appName, it, AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> response(200)
     }
 
     where:
@@ -210,9 +210,9 @@ class DiscoverySupportUnitSpec extends Specification {
     task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
     1 * task.fail()
     1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName, status: "OUT_OF_SERVICE" ] ]
-    1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
-    1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> response(200)
-    1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
+    1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> httpError(500)
+    1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> response(200)
+    1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> httpError(500)
     1 * task.updateStatus("PHASE", { it.startsWith("Looking up discovery") })
     3 * task.updateStatus("PHASE", { it.startsWith("Attempting to mark") })
     1 * task.updateStatus("PHASE", { it.startsWith("Failed marking instances 'UP'")})
@@ -242,9 +242,9 @@ class DiscoverySupportUnitSpec extends Specification {
     then:
     task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
     1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName, status: "OUT_OF_SERVICE" ] ]
-    1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
-    1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> response(200)
-    1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
+    1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> httpError(500)
+    1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> response(200)
+    1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> httpError(500)
     1 * task.updateStatus("PHASE", { it.startsWith("Looking up discovery") })
     3 * task.updateStatus("PHASE", { it.startsWith("Attempting to mark") })
     0 * task.updateStatus("PHASE", { it.startsWith("Failed marking instances 'UP'")})
@@ -275,9 +275,9 @@ class DiscoverySupportUnitSpec extends Specification {
     then:
     task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
     1 * eureka.getInstanceInfo(_) >> [ instance: [ app: appName, status: "OUT_OF_SERVICE" ] ]
-    1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
-    1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> response(200)
-    1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> httpError(500)
+    1 * eureka.resetInstanceStatus(appName, "bad", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> httpError(500)
+    1 * eureka.resetInstanceStatus(appName, "good", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> response(200)
+    1 * eureka.resetInstanceStatus(appName, "also-bad", AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> httpError(500)
     1 * task.updateStatus("PHASE", { it.startsWith("Looking up discovery") })
     3 * task.updateStatus("PHASE", { it.startsWith("Attempting to mark") })
     1 * task.updateStatus("PHASE", { it.startsWith("Failed marking instances 'UP'")})
@@ -375,7 +375,7 @@ class DiscoverySupportUnitSpec extends Specification {
           status: "OUT_OF_SERVICE"
         ]
       ]
-    3 * eureka.resetInstanceStatus(appName, 'i-123', AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >>> [response(302), response(201), response(200)]
+    3 * eureka.resetInstanceStatus(appName, 'i-123', AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >>> [response(302), response(201), response(200)]
     4 * task.getStatus() >> new DefaultTaskStatus(state: TaskState.STARTED)
     0 * task.fail()
 
@@ -389,7 +389,7 @@ class DiscoverySupportUnitSpec extends Specification {
 
   void "should NOT fail disable operation if instance is not found"() {
     given:
-    def status = AbstractEurekaSupport.DiscoveryStatus.DOWN
+    def status = AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE
     def task = Mock(Task)
     def description = new EnableDisableInstanceDiscoveryDescription(
       region: 'us-east-1',
@@ -436,7 +436,7 @@ class DiscoverySupportUnitSpec extends Specification {
       ]
     1 * task.fail()
     instanceIds.eachWithIndex { it, idx ->
-      1 * eureka.resetInstanceStatus(appName, it, AbstractEurekaSupport.DiscoveryStatus.DOWN.value) >> {
+      1 * eureka.resetInstanceStatus(appName, it, AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE.value) >> {
         if (!result[idx]) {
           throw new RuntimeException("blammo")
         }
