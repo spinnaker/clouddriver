@@ -44,6 +44,7 @@ dependencies {
   implementation "com.netflix.spinnaker.moniker:moniker"
   implementation "commons-io:commons-io"
   implementation "io.swagger:swagger-annotations"
+  implementation "io.reactivex:rxjava"
   implementation "org.codehaus.groovy:groovy-all"
   implementation "org.slf4j:slf4j-api"
   implementation "org.springframework.boot:spring-boot-starter-actuator"
