@@ -65,6 +65,7 @@ import org.springframework.stereotype.Component
 
 import static com.google.common.base.Preconditions.checkArgument
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGION_BACKEND_SERVICE_NAMES
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.LOAD_BALANCING_POLICY
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES
@@ -254,7 +255,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
                                                          ACCESS_CONFIG_TYPE)
 
     def hasBackendServices = (instanceMetadata &&
-      instanceMetadata.containsKey(BACKEND_SERVICE_NAMES) && !internalHttpLoadBalancers) || sslLoadBalancers || tcpLoadBalancers
+      instanceMetadata.containsKey(BACKEND_SERVICE_NAMES)) || sslLoadBalancers || tcpLoadBalancers
 
     // Resolve and queue the backend service updates, but don't execute yet.
     // We need to resolve this information to set metadata in the template so enable can know about the
@@ -315,7 +316,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     List<BackendService> regionBackendServicesToUpdate = []
     if (internalLoadBalancers || internalHttpLoadBalancers) {
       List<String> existingRegionalLbs = instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
-      def ilbServices = internalLoadBalancers.collect { it.backendService.name } + (instanceMetadata[BACKEND_SERVICE_NAMES]?.split(",") as List) ?: []
+      def ilbServices = internalLoadBalancers.collect { it.backendService.name } + (instanceMetadata[REGION_BACKEND_SERVICE_NAMES]?.split(",") as List) ?: []
       def ilbNames = internalLoadBalancers.collect { it.name } + internalHttpLoadBalancers.collect { it.name }
 
       ilbNames.each { String ilbName ->

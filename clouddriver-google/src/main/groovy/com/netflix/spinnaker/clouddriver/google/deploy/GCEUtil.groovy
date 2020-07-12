@@ -67,6 +67,7 @@ class GCEUtil {
   public static final String REGIONAL_LOAD_BALANCER_NAMES = "load-balancer-names"
   public static final String GLOBAL_LOAD_BALANCER_NAMES = "global-load-balancer-names"
   public static final String BACKEND_SERVICE_NAMES = "backend-service-names"
+  public static final String REGION_BACKEND_SERVICE_NAMES = "region-backend-service-names"
   public static final String LOAD_BALANCING_POLICY = "load-balancing-policy"
   public static final String SELECT_ZONES = 'select-zones'
   public static final String AUTOSCALING_POLICY = 'autoscaling-policy'
@@ -1137,7 +1138,7 @@ class GCEUtil {
       }
       GoogleHttpLoadBalancingPolicy policy = objectMapper.readValue(policyJson, GoogleHttpLoadBalancingPolicy)
 
-      List<String> backendServiceNames = metadataMap?.get(BACKEND_SERVICE_NAMES)?.split(",") ?: []
+      List<String> backendServiceNames = metadataMap?.get(REGION_BACKEND_SERVICE_NAMES)?.split(",") ?: []
       if (backendServiceNames) {
         backendServiceNames.each { String backendServiceName ->
           BackendService backendService = executor.timeExecute(
@@ -1610,7 +1611,7 @@ class GCEUtil {
     if (foundInternalHttpLoadBalancers) {
       Metadata instanceMetadata = serverGroup?.launchConfig?.instanceTemplate?.properties?.metadata
       Map metadataMap = buildMapFromMetadata(instanceMetadata)
-      List<String> backendServiceNames = metadataMap?.get(BACKEND_SERVICE_NAMES)?.split(",")
+      List<String> backendServiceNames = metadataMap?.get(REGION_BACKEND_SERVICE_NAMES)?.split(",")
       if (backendServiceNames) {
         backendServiceNames.each { String backendServiceName ->
           BackendService backendService = executor.timeExecute(

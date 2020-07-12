@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.ops.loadbalancer;
 
-import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES;
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES;
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGION_BACKEND_SERVICE_NAMES;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -1020,18 +1020,19 @@ public class UpsertGoogleInternalHttpLoadBalancerAtomicOperation
               REGIONAL_LOAD_BALANCER_NAMES,
               regionalLbs.stream().distinct().collect(Collectors.joining(",")));
 
-          String backendsStr = instanceMetadata.get(BACKEND_SERVICE_NAMES);
+          String backendsStr = instanceMetadata.get(REGION_BACKEND_SERVICE_NAMES);
           List<String> bsNames =
               backendsStr != null
                   ? new ArrayList<>(Arrays.asList(backendsStr.split(",")))
                   : new ArrayList<>();
           bsNames.add(backendService.getName());
           instanceMetadata.put(
-              BACKEND_SERVICE_NAMES, bsNames.stream().distinct().collect(Collectors.joining(",")));
+              REGION_BACKEND_SERVICE_NAMES,
+              bsNames.stream().distinct().collect(Collectors.joining(",")));
         } else {
           Map<String, String> instanceMetadata = new HashMap<>(2);
           instanceMetadata.put(REGIONAL_LOAD_BALANCER_NAMES, loadBalancerName);
-          instanceMetadata.put(BACKEND_SERVICE_NAMES, backendService.getName());
+          instanceMetadata.put(REGION_BACKEND_SERVICE_NAMES, backendService.getName());
           templateOpMap.put("instanceMetadata", instanceMetadata);
         }
 

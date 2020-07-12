@@ -28,10 +28,8 @@ import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.INST
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.LOAD_BALANCERS;
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.ON_DEMAND;
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.SERVER_GROUPS;
-import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES;
-import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES;
-import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.LOAD_BALANCING_POLICY;
-import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES;
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.*;
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGION_BACKEND_SERVICE_NAMES;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -866,6 +864,12 @@ abstract class AbstractGoogleServerGroupCachingAgent
       if (metadata.containsKey(BACKEND_SERVICE_NAMES)) {
         autoscalerGroup.put(
             BACKEND_SERVICE_NAMES, COMMA.splitToList(metadata.get(BACKEND_SERVICE_NAMES)));
+      }
+
+      if (metadata.containsKey(REGION_BACKEND_SERVICE_NAMES)) {
+        autoscalerGroup.put(
+            REGION_BACKEND_SERVICE_NAMES,
+            COMMA.splitToList(metadata.get(REGION_BACKEND_SERVICE_NAMES)));
       }
 
       if (metadata.containsKey(LOAD_BALANCING_POLICY)) {

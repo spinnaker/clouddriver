@@ -40,6 +40,7 @@ import org.springframework.util.ClassUtils
 import java.text.SimpleDateFormat
 
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGION_BACKEND_SERVICE_NAMES
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES
 
@@ -306,7 +307,7 @@ class Utils {
   static boolean determineInternalHttpLoadBalancerDisabledState(GoogleInternalHttpLoadBalancer loadBalancer,
                                                                 GoogleServerGroup serverGroup) {
     def loadBalancersFromMetadata = serverGroup.asg.get(REGIONAL_LOAD_BALANCER_NAMES)
-    def backendServicesFromMetadata = serverGroup.asg.get(BACKEND_SERVICE_NAMES)
+    def backendServicesFromMetadata = serverGroup.asg.get(REGION_BACKEND_SERVICE_NAMES)
     List<List<GoogleLoadBalancedBackend>> serviceBackends = getBackendServicesFromInternalHttpLoadBalancerView(loadBalancer.view)
         .findAll { it && it.name in backendServicesFromMetadata }
         .collect { it.backends }
