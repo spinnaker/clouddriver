@@ -221,7 +221,7 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
       serverGroupData.each { CacheData serverGroupCacheData ->
         GoogleServerGroup serverGroup = serverGroupFromCacheData(serverGroupCacheData, clusterView.accountName, instances, securityGroups, loadBalancers)
         clusterView.serverGroups << serverGroup.view
-        clusterView.loadBalancers.addAll(serverGroup.loadBalancers*.view)
+        clusterView.loadBalancers.addAll(serverGroup.loadBalancers)
       }
       log.debug("Server groups added to cluster: ${clusterView?.serverGroups?.collect { it?.name }}")
     }
