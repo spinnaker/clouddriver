@@ -31,6 +31,8 @@ public class TitusRegion {
   private final String url;
   private final int port;
   private final List<String> featureFlags;
+  private final String eurekaName;
+  private final String eurekaRegion;
 
   private <T> T notNull(T val, String name) {
     if (val == null) {
@@ -49,7 +51,9 @@ public class TitusRegion {
       String applicationName,
       String url,
       Integer port,
-      List<String> featureFlags) {
+      List<String> featureFlags,
+      String eurekaName,
+      String eurekaRegion) {
     this.name = notNull(name, "name");
     this.account = notNull(account, "account");
     this.endpoint = EndpointValidator.validateEndpoint(endpoint);
@@ -69,6 +73,16 @@ public class TitusRegion {
     } else {
       this.featureFlags = featureFlags;
     }
+    if (eurekaName == null) {
+      this.eurekaName = null;
+    } else {
+      this.eurekaName = eurekaName;
+    }
+    if (eurekaRegion == null) {
+      this.eurekaRegion = null;
+    } else {
+      this.eurekaRegion = eurekaRegion;
+    }
   }
 
   public TitusRegion(
@@ -80,7 +94,9 @@ public class TitusRegion {
       String applicationName,
       String url,
       Integer port,
-      List<String> featureFlags) {
+      List<String> featureFlags,
+      String eurekaName,
+      String eurekaRegion) {
     this(
         name,
         account,
@@ -91,7 +107,9 @@ public class TitusRegion {
         applicationName,
         url,
         port,
-        featureFlags);
+        featureFlags,
+        eurekaName,
+        eurekaRegion);
   }
 
   public String getAccount() {
@@ -132,6 +150,14 @@ public class TitusRegion {
 
   public List<String> getFeatureFlags() {
     return featureFlags;
+  }
+
+  public String getEurekaName() {
+    return eurekaName;
+  }
+
+  public String getEurekaRegion() {
+    return eurekaRegion;
   }
 
   @Override
