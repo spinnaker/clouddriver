@@ -32,7 +32,6 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationConverter;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationsRegistry;
 import com.netflix.spinnaker.clouddriver.orchestration.OrchestrationProcessor;
-import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import groovy.lang.Closure;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -1038,7 +1037,7 @@ public class UpsertGoogleInternalHttpLoadBalancerAtomicOperation
 
         AtomicOperationConverter converter =
             atomicOperationsRegistry.getAtomicOperationConverter(
-                "modifyGoogleServerGroupInstanceTemplateDescription", "gce", ProviderVersion.v1);
+                "modifyGoogleServerGroupInstanceTemplateDescription", "gce");
         AtomicOperation templateOp = converter.convertOperation(templateOpMap);
         orchestrationProcessor.process(
             new ArrayList<>(Arrays.asList(templateOp)), UUID.randomUUID().toString());
