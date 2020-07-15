@@ -17,14 +17,17 @@
 
 package com.netflix.spinnaker.clouddriver.deploy;
 
-import com.netflix.spinnaker.clouddriver.orchestration.VersionedCloudProviderOperation;
-import java.util.List;
-import org.springframework.validation.Errors;
+public interface ValidationErrors {
 
-public abstract class DescriptionValidator<T> implements VersionedCloudProviderOperation {
-  public static String getValidatorName(String description) {
-    return description + "Validator";
-  }
+  void reject(String errorCode);
 
-  public abstract void validate(List priorDescriptions, T description, Errors errors);
+  void reject(String errorCode, String defaultMessage);
+
+  void reject(String errorCode, Object[] errorArgs, String defaultMessage);
+
+  void rejectValue(String field, String errorCode);
+
+  void rejectValue(String field, String errorCode, String defaultMessage);
+
+  void rejectValue(String field, String errorCode, Object[] errorArgs, String defaultMessage);
 }
