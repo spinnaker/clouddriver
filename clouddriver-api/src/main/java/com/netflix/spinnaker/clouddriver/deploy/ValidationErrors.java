@@ -17,6 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.deploy;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
+@Beta
 public interface ValidationErrors {
 
   void reject(String errorCode);
