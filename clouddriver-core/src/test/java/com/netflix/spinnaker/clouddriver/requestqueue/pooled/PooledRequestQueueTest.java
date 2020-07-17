@@ -24,6 +24,10 @@ import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
@@ -43,52 +47,101 @@ final class PooledRequestQueueTest {
     PooledRequestQueue queue =
         new PooledRequestQueue(dynamicConfigService, new NoopRegistry(), 5000, 10, 1);
 
+    CountDownLatch block = new CountDownLatch(1);
     assertThatThrownBy(
-            () ->
+            () -> {
+              try {
                 queue.execute(
                     "foo",
                     () -> {
-                      Thread.sleep(20);
+                      block.await();
                       return 12345L;
-                    }))
+                    });
+              } finally {
+                block.countDown();
+              }
+            })
         .isInstanceOf(PromiseTimeoutException.class);
   }
 
   @Test
-  void timesOutRequestIfDoesNotStartInTime() throws Throwable {
+  void timesOutRequestIfDoesNotStartInTime() throws Exception {
+    long startTimeout = 20;
     PooledRequestQueue queue =
-        new PooledRequestQueue(dynamicConfigService, new NoopRegistry(), 10, 10, 1);
-    AtomicBoolean itRan = new AtomicBoolean(false);
-    Callable<Void> didItRun =
-        () -> {
-          itRan.set(true);
-          return null;
-        };
+        new PooledRequestQueue(
+            dynamicConfigService, new NoopRegistry(), startTimeout, 5 * startTimeout, 1);
 
-    CountDownLatch latch = new CountDownLatch(1);
-    Callable<Void> jerkThread =
-        () -> {
-          latch.countDown();
-          Thread.sleep(40);
-          return null;
-        };
+    ExecutorService executor = Executors.newCachedThreadPool();
 
-    new Thread(
+    CountDownLatch blockingJobStarted = new CountDownLatch(1);
+    CountDownLatch testJobExited = new CountDownLatch(1);
+
+    // Block the queue with a job that holds onto the only executor slot until our test job
+    // has exited.
+    executor.submit(
+        safeRun(
             () -> {
-              try {
-                queue.execute("foo", jerkThread);
-              } catch (PromiseTimeoutException e) {
-                // expected
-              } catch (Throwable t) {
-                // TODO: propagate
-              }
-            })
-        .start();
+              queue.execute(
+                  "foo",
+                  () -> {
+                    blockingJobStarted.countDown();
+                    testJobExited.await();
+                    return null;
+                  });
+            }));
 
-    latch.await();
+    // Submit another job to the queue, and ensure that it is rejected before starting.
+    AtomicBoolean testJobRan = new AtomicBoolean(false);
+    Future<Void> testJob =
+        executor.submit(
+            safeRun(
+                () -> {
+                  try {
+                    blockingJobStarted.await();
+                    queue.execute(
+                        "foo",
+                        () -> {
+                          testJobRan.set(true);
+                          return null;
+                        });
+                  } finally {
+                    testJobExited.countDown();
+                  }
+                }));
 
-    assertThatThrownBy(() -> queue.execute("foo", didItRun))
-        .isInstanceOf(PromiseNotStartedException.class);
-    assertThat(itRan.get()).isFalse();
+    // Wait for our jobs to finish and interrupt them if they take longer than a reasonable
+    // amount of time (where reasonable is a few times the startup timeout).
+    executor.shutdown();
+    executor.awaitTermination(5 * startTimeout, TimeUnit.MILLISECONDS);
+    executor.shutdownNow();
+
+    assertThatThrownBy(testJob::get).hasCauseInstanceOf(PromiseNotStartedException.class);
+    assertThat(testJobRan.get()).isFalse();
+  }
+
+  /**
+   * Translates a {@link ThrowingRunnable} into a {@link Callable<Void>}.
+   *
+   * <p>Invoking the {@link Callable} calls {@link ThrowingRunnable#run()}. Any {@link Exception}
+   * that is thrown is propagated, and any non-{@link Exception} {@link Throwable} is wrapped in a
+   * {@link RuntimeException}.
+   */
+  private static Callable<Void> safeRun(ThrowingRunnable throwingRunnable) {
+    return () -> {
+      try {
+        throwingRunnable.run();
+      } catch (Exception e) {
+        throw e;
+      } catch (Throwable t) {
+        throw new RuntimeException(t);
+      }
+      return null;
+    };
+  }
+
+  /** A {@link Runnable} that allows an arbitrary {@link Throwable} to be thrown. */
+  @FunctionalInterface
+  private interface ThrowingRunnable {
+    void run() throws Throwable;
   }
 }
