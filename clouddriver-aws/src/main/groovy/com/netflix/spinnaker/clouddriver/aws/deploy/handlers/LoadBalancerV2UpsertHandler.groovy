@@ -491,9 +491,9 @@ class LoadBalancerV2UpsertHandler {
         List<RuleCondition> conditions = rule.conditions.collect { condition ->
           if (condition.field == 'http-request-method') {
             HttpRequestMethodConditionConfig httpRequestMethodConditionConfig = new HttpRequestMethodConditionConfig().withValues(condition.values)
-            return new RuleCondition().withField(condition.field).withHttpRequestMethodConfig(httpRequestMethodConditionConfig)
+            new RuleCondition().withField(condition.field).withHttpRequestMethodConfig(httpRequestMethodConditionConfig)
           } else {
-            return new RuleCondition().withField(condition.field).withValues(condition.values)
+            new RuleCondition().withField(condition.field).withValues(condition.values)
           }
         }
 
