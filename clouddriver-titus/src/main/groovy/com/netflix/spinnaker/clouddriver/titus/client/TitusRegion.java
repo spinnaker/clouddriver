@@ -73,16 +73,8 @@ public class TitusRegion {
     } else {
       this.featureFlags = featureFlags;
     }
-    if (eurekaName == null) {
-      this.eurekaName = null;
-    } else {
-      this.eurekaName = eurekaName;
-    }
-    if (eurekaRegion == null) {
-      this.eurekaRegion = null;
-    } else {
-      this.eurekaRegion = eurekaRegion;
-    }
+    this.eurekaRegion = eurekaRegion;
+    this.eurekaName = eurekaName;
   }
 
   public TitusRegion(
