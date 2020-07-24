@@ -4,6 +4,7 @@ import com.netflix.spinnaker.cats.sql.cache.SqlSchemaVersion
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import com.netflix.spinnaker.kork.sql.config.SqlProperties
 import com.netflix.spinnaker.security.AuthenticatedRequest
+import java.sql.Connection
 import java.sql.DriverManager
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -39,14 +40,9 @@ class CatsSqlAdminController(
   ): CleanTablesResult {
 
     validatePermissions()
-    validateParams(currentNamespace, truncateNamespace)
+    validateNamespaceParams(currentNamespace, truncateNamespace)
 
-    val conn = DriverManager.getConnection(
-      properties.migration.jdbcUrl,
-      properties.migration.user,
-      properties.migration.password
-    )
-
+    val conn = getConnection()
     val tablesTruncated = mutableListOf<String>()
     val sql = "show tables like 'cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%'"
 
@@ -74,14 +70,9 @@ class CatsSqlAdminController(
   ): CleanTablesResult {
 
     validatePermissions()
-    validateParams(currentNamespace, dropNamespace)
+    validateNamespaceParams(currentNamespace, dropNamespace)
 
-    val conn = DriverManager.getConnection(
-      properties.migration.jdbcUrl,
-      properties.migration.user,
-      properties.migration.password
-    )
-
+    val conn = getConnection()
     val tablesDropped = mutableListOf<String>()
     val sql = "show tables like 'cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%'"
 
@@ -102,7 +93,39 @@ class CatsSqlAdminController(
     return CleanTablesResult(tableCount = tablesDropped.size, tables = tablesDropped)
   }
 
-  private fun validateParams(currentNamespace: String?, targetNamespace: String) {
+  @PutMapping(path = ["drop_version/{version}"])
+  fun dropTablesByVersion(@PathVariable("version") dropVersion: String): CleanTablesResult {
+    validatePermissions()
+
+    val conn = getConnection()
+    val sql = "show tables like 'cats_v$dropVersion%"
+    val tablesDropped = mutableListOf<String>()
+
+    conn.use { c ->
+      val jooq = DSL.using(c, SQLDialect.MYSQL)
+      val rs = jooq.fetch(sql).intoResultSet()
+
+      while (rs.next()) {
+        val table = rs.getString(1)
+        val dropSql = "drop table `$table`"
+        log.info("Dropping $table")
+
+        jooq.query(dropSql).execute()
+        tablesDropped.add(table)
+      }
+    }
+
+    return CleanTablesResult(tableCount = tablesDropped.size, tables = tablesDropped)
+  }
+
+  private fun getConnection(): Connection {
+    return DriverManager.getConnection(
+      properties.migration.jdbcUrl,
+      properties.migration.user,
+      properties.migration.password)
+  }
+
+  private fun validateNamespaceParams(currentNamespace: String?, targetNamespace: String) {
     if (currentNamespace == null) {
       throw IllegalStateException("truncate can only be called when sql.tableNamespace is set")
     }
