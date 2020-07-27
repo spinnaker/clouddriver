@@ -96,9 +96,12 @@ class CatsSqlAdminController(
   @PutMapping(path = ["drop_version/{version}"])
   fun dropTablesByVersion(@PathVariable("version") dropVersion: String): CleanTablesResult {
     validatePermissions()
+    if (!SqlSchemaVersion.values().any { it.version == dropVersion.toInt() }) {
+      throw IllegalArgumentException("Invalid CATS SQL version.")
+    }
 
     val conn = getConnection()
-    val sql = "show tables like 'cats_v$dropVersion%"
+    val sql = "show tables like 'cats_v${dropVersion}_%"
     val tablesDropped = mutableListOf<String>()
 
     conn.use { c ->

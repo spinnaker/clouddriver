@@ -86,7 +86,7 @@ class SqlCache(
    * @param ids the ids of the records that will be removed.
    */
   override fun evictAll(type: String, ids: Collection<String>) {
-    val hashedIds = ids.asSequence().map { getIdHash(it) }.toSet()
+    val hashedIds = ids.map { getIdHash(it) }
     evictAllInternal(type, hashedIds)
   }
 
@@ -208,7 +208,7 @@ class SqlCache(
       return mutableListOf()
     }
 
-    val hashedIds = ids.asSequence().map { getIdHash(it) }.toSet()
+    val hashedIds = ids.map { getIdHash(it) }
     val relationshipPrefixes = getRelationshipFilterPrefixes(cacheFilter)
 
     val result = if (relationshipPrefixes.isEmpty()) {
@@ -368,7 +368,7 @@ class SqlCache(
     val existing = mutableListOf<String>()
     val batchSize =
       dynamicConfigService.getConfig(Int::class.java, "sql.cache.read-batch-size", 500)
-    val hashedIds = identifiers.asSequence().map { getIdHash(it) }.toSet()
+    val hashedIds = identifiers.map { getIdHash(it) }
 
     if (coroutineContext.useAsync(hashedIds.size, this::useAsync)) {
       withAsync = true
@@ -683,10 +683,7 @@ class SqlCache(
       return result
     }
 
-    val idHashesToDelete = existingIdHashes
-      .asSequence()
-      .filter { !currentIdHashes.contains(it) }
-      .toSet()
+    val idHashesToDelete = existingIdHashes.filter { !currentIdHashes.contains(it) }
 
     evictAllInternal(type, idHashesToDelete)
 
@@ -700,16 +697,11 @@ class SqlCache(
   ): StoreResult {
     val result = StoreResult()
 
-    val relAgentHashToRelAgent = mutableMapOf<String, String>()
     val relAgentHashes = items.asSequence()
       .filter { it.relationships.isNotEmpty() }
       .map { it.relationships.keys }
       .flatten()
-      .map {
-        val relAgentHash = getAgentHash(it)
-        relAgentHashToRelAgent[relAgentHash] = it
-        return@map relAgentHash
-      }
+      .map { getAgentHash(it) }
       .toSet()
 
     if (relAgentHashes.isEmpty()) {
@@ -741,7 +733,7 @@ class SqlCache(
         relAgentHashes
           .map { relAgentHash ->
             result.selectQueries.incrementAndGet()
-            getRelationshipKeys(relType, type, relAgentHash)
+            getRelationshipKeysAndAgent(relType, type, relAgentHash)
           }
           .flatten()
       }
@@ -762,11 +754,10 @@ class SqlCache(
     existingRevRelKeys
       .forEach {
         oldRevIds[it.key()] = it.uuid
-        oldRevIdsToType[it.key()] =
-          relAgentHashToRelAgent[it.rel_agent_hash]?.substringBefore(
-            delimiter = ":",
-            missingDelimiterValue = ""
-          )
+        oldRevIdsToType[it.key()] = it.rel_agent?.substringBefore(
+          delimiter = ":",
+          missingDelimiterValue = ""
+        )
       }
 
     val currentIds = mutableSetOf<String>()
@@ -832,7 +823,8 @@ class SqlCache(
       }
 
     val now = clock.millis()
-    var ulid = ULID().nextValue()
+    val ulid = ULID()
+    var ulidValue = ulid.nextValue()
 
     newFwdRelEntries.chunked(
       dynamicConfigService.getConfig(
@@ -858,7 +850,7 @@ class SqlCache(
         insert.apply {
           chunk.forEach {
             values(
-              ulid.toString(),
+              ulidValue.toString(),
               it.id_hash,
               it.id,
               it.rel_id_hash,
@@ -868,7 +860,7 @@ class SqlCache(
               it.rel_type,
               now
             )
-            ulid = ULID().nextMonotonicValue(ulid)
+            ulidValue = ulid.nextMonotonicValue(ulidValue)
           }
         }
 
@@ -907,7 +899,7 @@ class SqlCache(
           insert.apply {
             chunk.forEach {
               values(
-                ulid.toString(),
+                ulidValue.toString(),
                 it.id_hash,
                 it.id,
                 it.rel_id_hash,
@@ -917,7 +909,7 @@ class SqlCache(
                 it.rel_type,
                 now
               )
-              ulid = ULID().nextMonotonicValue(ulid)
+              ulidValue = ulid.nextMonotonicValue(ulidValue)
             }
           }
 
@@ -1062,7 +1054,7 @@ class SqlCache(
    * @return the hashed value.
    */
   private fun getSha256Hash(str: String): String {
-    return Hashing.sha256().hashBytes(str.toByteArray()).toString()
+    return Hashing.sha256().hashUnencodedChars(str).toString()
   }
 
   /**
@@ -1106,9 +1098,9 @@ class SqlCache(
   }
 
   /**
-   * Returns the following identifying fields of records matching the given rel agent hash and
-   * rel type from the relationship table of the given type: uuid, id hash, rel id hash, and rel
-   * agent hash.
+   * Returns the rel agent and the following identifying fields of records matching the given rel
+   * agent hash and rel type from the relationship table of the given type: uuid, id hash, rel id
+   * hash, and rel agent hash.
    *
    * @param type the type of the relationship table.
    * @param origType the rel type of the records whose identifying fields are retrieved.
@@ -1116,14 +1108,20 @@ class SqlCache(
    * @return list of relationship entries with uuid, id hash, rel id hash, and rel agent hash
    * populated.
    */
-  private fun getRelationshipKeys(
+  private fun getRelationshipKeysAndAgent(
     type: String,
     origType: String,
     relAgentHash: String
   ): MutableList<RelEntry> {
     return withRetry(RetryCategory.READ) {
       jooq
-        .select(field("uuid"), field("id_hash"), field("rel_id_hash"), field("rel_agent_hash"))
+        .select(
+          field("uuid"),
+          field("id_hash"),
+          field("rel_id_hash"),
+          field("rel_agent_hash"),
+          field("rel_agent")
+        )
         .from(table(sqlNames.relTableName(type)))
         .where(
           field("rel_agent_hash").eq(relAgentHash),
@@ -1550,7 +1548,7 @@ class SqlCache(
       hashedIds.chunked(
         dynamicConfigService.getConfig(
           Int::class.java,
-          "sql.cache.read-batch-size",
+          "sql.cache.write-batch-size",
           300
         )
       ) { chunk ->
