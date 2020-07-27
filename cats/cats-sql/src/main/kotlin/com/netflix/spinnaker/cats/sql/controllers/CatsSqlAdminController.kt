@@ -125,7 +125,8 @@ class CatsSqlAdminController(
     return DriverManager.getConnection(
       properties.migration.jdbcUrl,
       properties.migration.user,
-      properties.migration.password)
+      properties.migration.password
+    )
   }
 
   private fun validateNamespaceParams(currentNamespace: String?, targetNamespace: String) {

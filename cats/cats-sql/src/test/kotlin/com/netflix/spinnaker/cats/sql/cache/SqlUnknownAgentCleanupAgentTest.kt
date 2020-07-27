@@ -131,10 +131,12 @@ class SqlUnknownAgentCleanupAgentTest : JUnit5Minutests {
     val registry = NoopRegistry()
 
     val subject =
-      SqlUnknownAgentCleanupAgent(StaticObjectProvider(providerRegistry),
-                                  dslContext,
-                                  registry,
-                                  SqlNames())
+      SqlUnknownAgentCleanupAgent(
+        StaticObjectProvider(providerRegistry),
+        dslContext,
+        registry,
+        SqlNames()
+      )
 
     fun seedDatabase(includeTestAccount: Boolean, includeProdAccount: Boolean) {
       SqlNames().run {
