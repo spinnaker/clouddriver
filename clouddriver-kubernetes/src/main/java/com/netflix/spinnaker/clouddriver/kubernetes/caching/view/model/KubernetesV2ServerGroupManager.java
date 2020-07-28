@@ -17,15 +17,12 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManager;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,37 +48,25 @@ public class KubernetesV2ServerGroupManager extends ManifestBasedModel
 
   public static KubernetesV2ServerGroupManager fromCacheData(
       KubernetesV2ServerGroupManagerCacheData data) {
-    CacheData cd = data.getServerGroupManagerData();
-    List<CacheData> serverGroupData = data.getServerGroupData();
-    if (cd == null) {
-      return null;
-    }
-
-    if (serverGroupData == null) {
-      serverGroupData = new ArrayList<>();
-    }
-
-    KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
-
+    KubernetesManifest manifest =
+        KubernetesCacheDataConverter.getManifest(data.getServerGroupManagerData());
     if (manifest == null) {
-      log.warn("Cache data {} inserted without a manifest", cd.getId());
+      log.warn(
+          "Cache data {} inserted without a manifest", data.getServerGroupManagerData().getId());
       return null;
     }
 
     Set<KubernetesV2ServerGroupSummary> serverGroups =
-        serverGroupData.stream()
+        data.getServerGroupData().stream()
             .map(
                 sg ->
                     KubernetesV2ServerGroup.fromCacheData(
-                        KubernetesV2ServerGroupCacheData.builder()
-                            .serverGroupData(sg)
-                            .instanceData(new ArrayList<>())
-                            .loadBalancerData(new ArrayList<>())
-                            .build()))
+                        KubernetesV2ServerGroupCacheData.builder().serverGroupData(sg).build()))
             .filter(Objects::nonNull)
             .map(KubernetesV2ServerGroup::toServerGroupSummary)
             .collect(Collectors.toSet());
 
-    return new KubernetesV2ServerGroupManager(manifest, cd.getId(), serverGroups);
+    return new KubernetesV2ServerGroupManager(
+        manifest, data.getServerGroupManagerData().getId(), serverGroups);
   }
 }

@@ -144,24 +144,8 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
   }
 
   public static KubernetesV2ServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
-    CacheData cd = cacheData.getServerGroupData();
-    List<CacheData> instanceData = cacheData.getInstanceData();
-    List<Keys.InfrastructureCacheKey> serverGroupManagerKeys =
-        cacheData.getServerGroupManagerKeys();
-    if (cd == null) {
-      return null;
-    }
-
-    if (instanceData == null) {
-      instanceData = new ArrayList<>();
-    }
-
-    if (serverGroupManagerKeys == null) {
-      serverGroupManagerKeys = new ArrayList<>();
-    }
-
     List<ServerGroupManagerSummary> serverGroupManagers =
-        serverGroupManagerKeys.stream()
+        cacheData.getServerGroupManagerKeys().stream()
             .map(
                 k ->
                     ServerGroupManagerSummary.builder()
@@ -171,15 +155,16 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
                         .build())
             .collect(Collectors.toList());
 
-    KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
+    KubernetesManifest manifest =
+        KubernetesCacheDataConverter.getManifest(cacheData.getServerGroupData());
 
     if (manifest == null) {
-      log.warn("Cache data {} inserted without a manifest", cd.getId());
+      log.warn("Cache data {} inserted without a manifest", cacheData.getServerGroupData().getId());
       return null;
     }
 
     List<KubernetesV2Instance> instances =
-        instanceData.stream()
+        cacheData.getInstanceData().stream()
             .map(KubernetesV2Instance::fromCacheData)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
@@ -210,7 +195,12 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
     loadBalancers.addAll(explicitLoadBalancers);
 
     return new KubernetesV2ServerGroup(
-        manifest, cd.getId(), instances, loadBalancers, serverGroupManagers, disabled);
+        manifest,
+        cacheData.getServerGroupData().getId(),
+        instances,
+        loadBalancers,
+        serverGroupManagers,
+        disabled);
   }
 
   public KubernetesV2ServerGroupSummary toServerGroupSummary() {
