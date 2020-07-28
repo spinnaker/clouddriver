@@ -76,7 +76,7 @@ public class KubernetesV2LoadBalancer extends ManifestBasedModel
                         KubernetesV2ServerGroupCacheData.builder()
                             .serverGroupData(d)
                             .instanceData(serverGroupToInstanceData.get(d.getId()))
-                            .loadBalancerData(ImmutableList.of(cd))
+                            .loadBalancerKeys(ImmutableList.of(cd.getId()))
                             .build()))
             .filter(Objects::nonNull)
             .map(KubernetesV2ServerGroup::toLoadBalancerServerGroup)

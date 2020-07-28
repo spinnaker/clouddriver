@@ -21,11 +21,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -146,6 +146,11 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
   public static KubernetesV2ServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
     List<ServerGroupManagerSummary> serverGroupManagers =
         cacheData.getServerGroupManagerKeys().stream()
+            .map(Keys::parseKey)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .filter(k -> k instanceof InfrastructureCacheKey)
+            .map(k -> (InfrastructureCacheKey) k)
             .map(
                 k ->
                     ServerGroupManagerSummary.builder()
@@ -182,8 +187,7 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
             .collect(Collectors.toSet());
 
     Set<String> loadBalancers =
-        cacheData.getLoadBalancerData().stream()
-            .map(CacheData::getId)
+        cacheData.getLoadBalancerKeys().stream()
             .map(Keys::parseKey)
             .filter(Optional::isPresent)
             .map(Optional::get)
