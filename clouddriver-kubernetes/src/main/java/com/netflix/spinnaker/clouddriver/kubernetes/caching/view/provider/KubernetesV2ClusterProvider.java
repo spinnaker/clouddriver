@@ -279,13 +279,6 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
       List<CacheData> clusterServerGroups =
           clusterToServerGroups.getOrDefault(clusterDatum.getId(), new ArrayList<>());
 
-      List<CacheData> clusterLoadBalancers =
-          clusterServerGroups.stream()
-              .map(CacheData::getId)
-              .map(id -> serverGroupToLoadBalancers.getOrDefault(id, new ArrayList<>()))
-              .flatMap(Collection::stream)
-              .collect(Collectors.toList());
-
       List<KubernetesV2ServerGroup> serverGroups =
           clusterServerGroups.stream()
               .map(
@@ -307,7 +300,10 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
               .collect(Collectors.toList());
 
       List<KubernetesV2LoadBalancer> loadBalancers =
-          clusterLoadBalancers.stream()
+          clusterServerGroups.stream()
+              .map(CacheData::getId)
+              .map(id -> serverGroupToLoadBalancers.getOrDefault(id, new ArrayList<>()))
+              .flatMap(Collection::stream)
               .map(
                   cd ->
                       KubernetesV2LoadBalancer.fromCacheData(
@@ -320,6 +316,6 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
       result.add(new KubernetesV2Cluster(clusterDatum.getId(), serverGroups, loadBalancers));
     }
 
-    return result.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+    return result;
   }
 }
