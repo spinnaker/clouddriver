@@ -21,7 +21,6 @@ import java.sql.SQLException
 import java.sql.SQLSyntaxErrorException
 import java.time.Clock
 import java.time.Duration
-import java.util.Arrays
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
 import javax.annotation.PreDestroy
@@ -85,8 +84,8 @@ class SqlCache(
    * @param type the type of the records that will be removed.
    * @param ids the ids of the records that will be removed.
    */
-  override fun evictAll(type: String, ids: Collection<String>) {
-    val hashedIds = ids.map { getIdHash(it) }
+  override fun evictAll(type: String, ids: Collection<String?>) {
+    val hashedIds = ids.asSequence().filterNotNull().map { getIdHash(it) }.toList()
     evictAllInternal(type, hashedIds)
   }
 
@@ -187,13 +186,13 @@ class SqlCache(
    * @param ids the ids
    * @return the items matching the type and ids
    */
-  override fun getAll(type: String, ids: MutableCollection<String>?): MutableCollection<CacheData> {
+  override fun getAll(type: String, ids: MutableCollection<String?>?): MutableCollection<CacheData> {
     return getAll(type, ids, null as CacheFilter?)
   }
 
   override fun getAll(
     type: String,
-    ids: MutableCollection<String>?,
+    ids: MutableCollection<String?>?,
     cacheFilter: CacheFilter?
   ): MutableCollection<CacheData> {
     if (ids.isNullOrEmpty()) {
@@ -208,7 +207,7 @@ class SqlCache(
       return mutableListOf()
     }
 
-    val hashedIds = ids.map { getIdHash(it) }
+    val hashedIds = ids.asSequence().filterNotNull().map { getIdHash(it) }.toList()
     val relationshipPrefixes = getRelationshipFilterPrefixes(cacheFilter)
 
     val result = if (relationshipPrefixes.isEmpty()) {
@@ -240,8 +239,8 @@ class SqlCache(
    * @return the items matching the type and identifiers
    */
   override fun getAll(type: String, vararg identifiers: String?): MutableCollection<CacheData> {
-    val ids = mutableListOf<String>()
-    identifiers.forEach { ids.add(it!!) }
+    val ids = mutableListOf<String?>()
+    identifiers.forEach { ids.add(it) }
     return getAll(type, ids)
   }
 
@@ -361,14 +360,14 @@ class SqlCache(
    */
   override fun existingIdentifiers(
     type: String,
-    identifiers: MutableCollection<String>
+    identifiers: MutableCollection<String?>
   ): MutableCollection<String> {
     var selects = 0
     var withAsync = false
     val existing = mutableListOf<String>()
     val batchSize =
       dynamicConfigService.getConfig(Int::class.java, "sql.cache.read-batch-size", 500)
-    val hashedIds = identifiers.map { getIdHash(it) }
+    val hashedIds = identifiers.asSequence().filterNotNull().map { getIdHash(it) }.toList()
 
     if (coroutineContext.useAsync(hashedIds.size, this::useAsync)) {
       withAsync = true
@@ -469,7 +468,7 @@ class SqlCache(
   }
 
   override fun get(type: String, id: String?, cacheFilter: CacheFilter?): CacheData? {
-    val result = getAll(type, Arrays.asList<String>(id), cacheFilter)
+    val result = getAll(type, mutableListOf(id), cacheFilter)
     return if (result.isEmpty()) {
       null
     } else result.iterator().next()
@@ -481,7 +480,7 @@ class SqlCache(
    * @param type the type of the record that will be removed.
    * @param id the id of the record that will be removed.
    */
-  override fun evict(type: String, id: String) {
+  override fun evict(type: String, id: String?) {
     evictAll(type, listOf(id))
   }
 
