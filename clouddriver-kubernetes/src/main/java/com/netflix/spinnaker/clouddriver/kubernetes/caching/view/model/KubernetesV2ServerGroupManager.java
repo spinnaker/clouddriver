@@ -26,18 +26,18 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroupManager;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @EqualsAndHashCode(callSuper = true)
-@Data
 @Slf4j
-public class KubernetesV2ServerGroupManager extends ManifestBasedModel
+@Value
+public final class KubernetesV2ServerGroupManager extends ManifestBasedModel
     implements ServerGroupManager {
-  private KubernetesManifest manifest;
-  private Keys.InfrastructureCacheKey key;
-  private Set<KubernetesV2ServerGroupSummary> serverGroups;
+  private final KubernetesManifest manifest;
+  private final Keys.InfrastructureCacheKey key;
+  private final Set<KubernetesV2ServerGroupSummary> serverGroups;
 
   private KubernetesV2ServerGroupManager(
       KubernetesManifest manifest, String key, Set<KubernetesV2ServerGroupSummary> serverGroups) {

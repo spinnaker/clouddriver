@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer;
@@ -45,26 +46,26 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.Data;
+import javax.validation.constraints.Null;
 import lombok.EqualsAndHashCode;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @EqualsAndHashCode(callSuper = true)
-@Data
 @Slf4j
-public class KubernetesV2ServerGroup extends ManifestBasedModel implements ServerGroup {
-  private Boolean disabled;
-  private Set<String> zones = new HashSet<>();
-  private Set<KubernetesV2Instance> instances = new HashSet<>();
-  private Set<String> loadBalancers = new HashSet<>();
-  private Set<String> securityGroups = new HashSet<>();
-  private List<ServerGroupManagerSummary> serverGroupManagers = new ArrayList<>();
-  private Map<String, Object> launchConfig = new HashMap<>();
-  private Capacity capacity = new Capacity();
-  private ImageSummary imageSummary;
-  private ImagesSummary imagesSummary;
-  private KubernetesManifest manifest;
-  private Keys.InfrastructureCacheKey key;
+@Value
+public final class KubernetesV2ServerGroup extends ManifestBasedModel implements ServerGroup {
+  private final boolean disabled;
+  private final Set<KubernetesV2Instance> instances;
+  private final Set<String> loadBalancers;
+  private final List<ServerGroupManagerSummary> serverGroupManagers;
+  private final Capacity capacity;
+  private final KubernetesManifest manifest;
+  private final Keys.InfrastructureCacheKey key;
+
+  private final Set<String> zones = ImmutableSet.of();
+  private final Set<String> securityGroups = ImmutableSet.of();
+  private final Map<String, Object> launchConfig = ImmutableMap.of();
 
   @JsonIgnore
   private static final ArtifactReplacer dockerImageReplacer =
@@ -191,7 +192,7 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
             .map(Keys::parseKey)
             .filter(Optional::isPresent)
             .map(Optional::get)
-            .map(k -> (Keys.InfrastructureCacheKey) k)
+            .map(k -> (InfrastructureCacheKey) k)
             .map(k -> KubernetesManifest.getFullResourceName(k.getKubernetesKind(), k.getName()))
             .collect(Collectors.toSet());
 
@@ -229,6 +230,13 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         .isDisabled(isDisabled())
         .cloudProvider(KubernetesCloudProvider.ID)
         .build();
+  }
+
+  @Deprecated
+  @Null
+  @Override
+  public ImageSummary getImageSummary() {
+    return null;
   }
 
   @Override

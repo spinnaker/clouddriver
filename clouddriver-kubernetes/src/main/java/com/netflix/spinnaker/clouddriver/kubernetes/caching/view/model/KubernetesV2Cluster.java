@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.model.Cluster;
@@ -24,31 +25,31 @@ import com.netflix.spinnaker.moniker.Moniker;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import lombok.Data;
+import lombok.Value;
 
-@Data
-public class KubernetesV2Cluster implements Cluster {
-  private String name;
-  private Moniker moniker;
-  private String type = KubernetesCloudProvider.ID;
-  private String accountName;
-  private Set<KubernetesV2ServerGroup> serverGroups = new HashSet<>();
-  private Set<KubernetesV2LoadBalancer> loadBalancers = new HashSet<>();
-  private String application;
+@Value
+public final class KubernetesV2Cluster implements Cluster {
+  private final String name;
+  private final Moniker moniker;
+  private final String type = KubernetesCloudProvider.ID;
+  private final String accountName;
+  private final Set<KubernetesV2ServerGroup> serverGroups;
+  private final Set<KubernetesV2LoadBalancer> loadBalancers;
+  private final String application;
 
   public KubernetesV2Cluster(String rawKey) {
-    Keys.ClusterCacheKey key = (Keys.ClusterCacheKey) Keys.parseKey(rawKey).get();
-    this.name = key.getName();
-    this.accountName = key.getAccount();
-    this.application = key.getApplication();
-    this.moniker = Moniker.builder().cluster(name).app(application).build();
+    this(rawKey, ImmutableList.of(), ImmutableList.of());
   }
 
   public KubernetesV2Cluster(
       String rawKey,
       List<KubernetesV2ServerGroup> serverGroups,
       List<KubernetesV2LoadBalancer> loadBalancers) {
-    this(rawKey);
+    Keys.ClusterCacheKey key = (Keys.ClusterCacheKey) Keys.parseKey(rawKey).get();
+    this.name = key.getName();
+    this.accountName = key.getAccount();
+    this.application = key.getApplication();
+    this.moniker = Moniker.builder().cluster(name).app(application).build();
     this.serverGroups = new HashSet<>(serverGroups);
     this.loadBalancers = new HashSet<>(loadBalancers);
   }
