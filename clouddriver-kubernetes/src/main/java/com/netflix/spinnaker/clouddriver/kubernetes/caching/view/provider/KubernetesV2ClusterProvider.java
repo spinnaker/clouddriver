@@ -209,7 +209,6 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
 
   private Set<KubernetesV2Cluster> translateClusters(Collection<CacheData> clusterData) {
     return clusterData.stream()
-        .filter(Objects::nonNull)
         .map(clusterDatum -> new KubernetesV2Cluster(clusterDatum.getId()))
         .collect(Collectors.toSet());
   }
