@@ -88,7 +88,7 @@ public class KubernetesV2LoadBalancerProvider
 
     KubernetesKind kind = parsedName.getLeft();
     String name = parsedName.getRight();
-    String key = Keys.InfrastructureCacheKey.createKey(kind, account, name, name);
+    String key = Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name);
 
     Optional<CacheData> optionalLoadBalancerData = cacheUtils.getSingleEntry(kind.toString(), key);
     if (!optionalLoadBalancerData.isPresent()) {

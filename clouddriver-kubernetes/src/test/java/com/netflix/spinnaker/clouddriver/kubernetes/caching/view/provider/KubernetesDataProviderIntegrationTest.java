@@ -405,9 +405,8 @@ final class KubernetesDataProviderIntegrationTest {
     List<KubernetesV2LoadBalancer> results =
         loadBalancerProvider.byAccountAndRegionAndName(
             ACCOUNT_NAME, "frontend-ns", "service frontend");
-    // TODO(ezimanyi): This is a bug; we are not properly looking up the load balancer, so always
-    // return null
-    assertThat(results).isNull();
+    assertThat(results).hasSize(1);
+    assertFrontendLoadBalancer(softly, results.iterator().next());
   }
 
   @Test
