@@ -77,7 +77,7 @@ public class KubernetesV2LoadBalancerProvider
   }
 
   @Override
-  public List<LoadBalancerProvider.Details> byAccountAndRegionAndName(
+  public List<KubernetesV2LoadBalancer> byAccountAndRegionAndName(
       String account, String namespace, String fullName) {
     Pair<KubernetesKind, String> parsedName;
     try {

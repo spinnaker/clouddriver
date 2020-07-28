@@ -24,7 +24,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.K
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManager;
-import com.netflix.spinnaker.clouddriver.model.ServerGroupSummary;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -41,10 +40,10 @@ public class KubernetesV2ServerGroupManager extends ManifestBasedModel
     implements ServerGroupManager {
   private KubernetesManifest manifest;
   private Keys.InfrastructureCacheKey key;
-  private Set<ServerGroupSummary> serverGroups;
+  private Set<KubernetesV2ServerGroupSummary> serverGroups;
 
   private KubernetesV2ServerGroupManager(
-      KubernetesManifest manifest, String key, Set<ServerGroupSummary> serverGroups) {
+      KubernetesManifest manifest, String key, Set<KubernetesV2ServerGroupSummary> serverGroups) {
     this.manifest = manifest;
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
     this.serverGroups = serverGroups;
@@ -67,7 +66,7 @@ public class KubernetesV2ServerGroupManager extends ManifestBasedModel
       return null;
     }
 
-    Set<ServerGroupSummary> serverGroups =
+    Set<KubernetesV2ServerGroupSummary> serverGroups =
         serverGroupData.stream()
             .map(
                 data ->

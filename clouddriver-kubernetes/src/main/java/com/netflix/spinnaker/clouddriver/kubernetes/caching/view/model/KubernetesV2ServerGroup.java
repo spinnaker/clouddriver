@@ -32,11 +32,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestTraffic;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
-import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManager.ServerGroupManagerSummary;
-import com.netflix.spinnaker.clouddriver.model.ServerGroupSummary;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,7 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 public class KubernetesV2ServerGroup extends ManifestBasedModel implements ServerGroup {
   private Boolean disabled;
   private Set<String> zones = new HashSet<>();
-  private Set<Instance> instances = new HashSet<>();
+  private Set<KubernetesV2Instance> instances = new HashSet<>();
   private Set<String> loadBalancers = new HashSet<>();
   private Set<String> securityGroups = new HashSet<>();
   private List<ServerGroupManagerSummary> serverGroupManagers = new ArrayList<>();
@@ -223,7 +221,7 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         cacheData.getServerGroupManagerKeys());
   }
 
-  public ServerGroupSummary toServerGroupSummary() {
+  public KubernetesV2ServerGroupSummary toServerGroupSummary() {
     return KubernetesV2ServerGroupSummary.builder()
         .name(getName())
         .account(getAccount())
@@ -238,7 +236,7 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
         .detachedInstances(new HashSet<>())
         .instances(
             instances.stream()
-                .map(i -> ((KubernetesV2Instance) i).toLoadBalancerInstance())
+                .map(KubernetesV2Instance::toLoadBalancerInstance)
                 .collect(Collectors.toSet()))
         .name(getName())
         .region(getRegion())

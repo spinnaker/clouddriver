@@ -20,13 +20,10 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.model.Cluster;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.Data;
 
 @Data
@@ -35,8 +32,8 @@ public class KubernetesV2Cluster implements Cluster {
   private Moniker moniker;
   private String type = KubernetesCloudProvider.ID;
   private String accountName;
-  private Set<ServerGroup> serverGroups = new HashSet<>();
-  private Set<LoadBalancer> loadBalancers = new HashSet<>();
+  private Set<KubernetesV2ServerGroup> serverGroups = new HashSet<>();
+  private Set<KubernetesV2LoadBalancer> loadBalancers = new HashSet<>();
   private String application;
 
   public KubernetesV2Cluster(String rawKey) {
@@ -52,10 +49,7 @@ public class KubernetesV2Cluster implements Cluster {
       List<KubernetesV2ServerGroup> serverGroups,
       List<KubernetesV2LoadBalancer> loadBalancers) {
     this(rawKey);
-    this.serverGroups =
-        serverGroups.stream().map(sg -> (ServerGroup) sg).collect(Collectors.toSet());
-
-    this.loadBalancers =
-        loadBalancers.stream().map(sg -> (LoadBalancer) sg).collect(Collectors.toSet());
+    this.serverGroups = new HashSet<>(serverGroups);
+    this.loadBalancers = new HashSet<>(loadBalancers);
   }
 }
