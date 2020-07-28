@@ -190,9 +190,9 @@ final class KubernetesDataProviderIntegrationTest {
         clusters.stream().collect(toImmutableMap(KubernetesV2Cluster::getName, c -> c));
 
     assertFrontendServiceCluster(softly, clusterLookup.get("service frontend"));
-    assertFrontendCluster(softly, clusterLookup.get("deployment frontend"), false);
+    assertFrontendCluster(softly, clusterLookup.get("deployment frontend"), true);
     assertBackendServiceCluster(softly, clusterLookup.get("service backendlb"));
-    assertBackendCluster(softly, clusterLookup.get("replicaSet backend"), false);
+    assertBackendCluster(softly, clusterLookup.get("replicaSet backend"), true);
   }
 
   @Test
@@ -212,7 +212,7 @@ final class KubernetesDataProviderIntegrationTest {
         clusters.stream().collect(toImmutableMap(KubernetesV2Cluster::getName, c -> c));
 
     assertBackendServiceCluster(softly, clusterLookup.get("service backendlb"));
-    assertBackendCluster(softly, clusterLookup.get("replicaSet backend"), false);
+    assertBackendCluster(softly, clusterLookup.get("replicaSet backend"), true);
   }
 
   @Test
@@ -228,7 +228,7 @@ final class KubernetesDataProviderIntegrationTest {
         clusters.stream().collect(toImmutableMap(KubernetesV2Cluster::getName, c -> c));
 
     assertBackendServiceCluster(softly, clusterLookup.get("service backendlb"));
-    assertBackendCluster(softly, clusterLookup.get("replicaSet backend"), false);
+    assertBackendCluster(softly, clusterLookup.get("replicaSet backend"), true);
   }
 
   @Test
@@ -243,7 +243,7 @@ final class KubernetesDataProviderIntegrationTest {
     KubernetesV2Cluster cluster =
         clusterProvider.getCluster("frontendapp", ACCOUNT_NAME, "deployment frontend");
     assertThat(cluster).isNotNull();
-    assertFrontendCluster(softly, cluster, false);
+    assertFrontendCluster(softly, cluster, true);
   }
 
   @Test
@@ -251,7 +251,7 @@ final class KubernetesDataProviderIntegrationTest {
     KubernetesV2Cluster cluster =
         clusterProvider.getCluster("frontendapp", ACCOUNT_NAME, "deployment frontend", true);
     assertThat(cluster).isNotNull();
-    assertFrontendCluster(softly, cluster, false);
+    assertFrontendCluster(softly, cluster, true);
   }
 
   @Test
@@ -259,7 +259,7 @@ final class KubernetesDataProviderIntegrationTest {
     KubernetesV2Cluster cluster =
         clusterProvider.getCluster("frontendapp", ACCOUNT_NAME, "deployment frontend", false);
     assertThat(cluster).isNotNull();
-    assertFrontendCluster(softly, cluster, true);
+    assertFrontendCluster(softly, cluster, false);
   }
 
   @Test
@@ -287,7 +287,7 @@ final class KubernetesDataProviderIntegrationTest {
         clusters.stream().collect(toImmutableMap(KubernetesV2Cluster::getName, c -> c));
 
     assertBackendServiceCluster(softly, clusterLookup.get("service backendlb"));
-    assertBackendCluster(softly, clusterLookup.get("replicaSet backend"), true);
+    assertBackendCluster(softly, clusterLookup.get("replicaSet backend"), false);
   }
 
   @Test
@@ -536,7 +536,7 @@ final class KubernetesDataProviderIntegrationTest {
   }
 
   private void assertFrontendCluster(
-      SoftAssertions softly, KubernetesV2Cluster cluster, boolean summary) {
+      SoftAssertions softly, KubernetesV2Cluster cluster, boolean includeDetails) {
     softly.assertThat(cluster.getMoniker().getApp()).isEqualTo("frontendapp");
     softly.assertThat(cluster.getMoniker().getCluster()).isEqualTo("deployment frontend");
     softly.assertThat(cluster.getType()).isEqualTo("kubernetes");
@@ -544,21 +544,18 @@ final class KubernetesDataProviderIntegrationTest {
     softly.assertThat(cluster.getName()).isEqualTo("deployment frontend");
     softly.assertThat(cluster.getApplication()).isEqualTo("frontendapp");
 
-    if (summary) {
-      softly.assertThat(cluster.getServerGroups()).isEmpty();
-    } else {
+    if (includeDetails) {
       assertFrontendServerGroups(softly, cluster.getServerGroups());
-    }
-
-    if (summary) {
-      softly.assertThat(cluster.getLoadBalancers()).isEmpty();
-    } else {
       // TODO(ezimanyi): The same load balancer is being returned multiple times (likely due to
       // finding all relationships to it). This should be fixed to return it only once.
       softly.assertThat(cluster.getLoadBalancers()).hasSize(4);
-      if (!cluster.getLoadBalancers().isEmpty())
+      if (!cluster.getLoadBalancers().isEmpty()) {
         assertFrontendLoadBalancer(
             softly, (KubernetesV2LoadBalancer) cluster.getLoadBalancers().iterator().next());
+      }
+    } else {
+      softly.assertThat(cluster.getServerGroups()).isEmpty();
+      softly.assertThat(cluster.getLoadBalancers()).isEmpty();
     }
   }
 
@@ -915,7 +912,7 @@ final class KubernetesDataProviderIntegrationTest {
   }
 
   private void assertBackendCluster(
-      SoftAssertions softly, KubernetesV2Cluster cluster, boolean summary) {
+      SoftAssertions softly, KubernetesV2Cluster cluster, boolean includeDetails) {
     softly.assertThat(cluster.getMoniker().getApp()).isEqualTo("backendapp");
     softly.assertThat(cluster.getMoniker().getCluster()).isEqualTo("replicaSet backend");
     softly.assertThat(cluster.getType()).isEqualTo("kubernetes");
@@ -923,21 +920,17 @@ final class KubernetesDataProviderIntegrationTest {
     softly.assertThat(cluster.getName()).isEqualTo("replicaSet backend");
     softly.assertThat(cluster.getApplication()).isEqualTo("backendapp");
 
-    if (summary) {
-      softly.assertThat(cluster.getServerGroups()).isEmpty();
-    } else {
+    if (includeDetails) {
       assertBackendServerGroups(softly, cluster.getServerGroups());
-    }
-
-    if (summary) {
-      softly.assertThat(cluster.getLoadBalancers()).isEmpty();
-    } else {
       softly.assertThat(cluster.getLoadBalancers()).hasSize(1);
       // If soft assertion above already failed, don't try to further validate.
       if (!cluster.getLoadBalancers().isEmpty()) {
         assertBackendLoadBalancer(
             softly, (KubernetesV2LoadBalancer) cluster.getLoadBalancers().iterator().next());
       }
+    } else {
+      softly.assertThat(cluster.getServerGroups()).isEmpty();
+      softly.assertThat(cluster.getLoadBalancers()).isEmpty();
     }
   }
 
