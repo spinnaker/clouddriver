@@ -239,6 +239,7 @@ final class KubernetesDataProviderIntegrationTest {
 
   @Test
   void getSingleCluster(SoftAssertions softly) {
+    // When not explicitly passing the includeDetails flag, it should default to true.
     KubernetesV2Cluster cluster =
         clusterProvider.getCluster("frontendapp", ACCOUNT_NAME, "deployment frontend");
     assertThat(cluster).isNotNull();
@@ -251,6 +252,14 @@ final class KubernetesDataProviderIntegrationTest {
         clusterProvider.getCluster("frontendapp", ACCOUNT_NAME, "deployment frontend", true);
     assertThat(cluster).isNotNull();
     assertFrontendCluster(softly, cluster, false);
+  }
+
+  @Test
+  void getSingleClusterWithoutDetails(SoftAssertions softly) {
+    KubernetesV2Cluster cluster =
+        clusterProvider.getCluster("frontendapp", ACCOUNT_NAME, "deployment frontend", false);
+    assertThat(cluster).isNotNull();
+    assertFrontendCluster(softly, cluster, true);
   }
 
   @Test
@@ -547,8 +556,9 @@ final class KubernetesDataProviderIntegrationTest {
       // TODO(ezimanyi): The same load balancer is being returned multiple times (likely due to
       // finding all relationships to it). This should be fixed to return it only once.
       softly.assertThat(cluster.getLoadBalancers()).hasSize(4);
-      assertFrontendLoadBalancer(
-          softly, (KubernetesV2LoadBalancer) cluster.getLoadBalancers().iterator().next());
+      if (!cluster.getLoadBalancers().isEmpty())
+        assertFrontendLoadBalancer(
+            softly, (KubernetesV2LoadBalancer) cluster.getLoadBalancers().iterator().next());
     }
   }
 
@@ -633,8 +643,6 @@ final class KubernetesDataProviderIntegrationTest {
     softly.assertThat(serverGroup.getInstanceCounts().getTotal()).isEqualTo(2);
     softly.assertThat(serverGroup.getLoadBalancers()).containsExactly("service frontend");
     softly.assertThat(serverGroup.getUid()).isEqualTo("29630998-bdee-4586-ac64-45223d7ef7d5");
-    // When using a deployment, the prior server group is not disabled as labels aren't changed;
-    // instead this server group is scaled down to 0 instances.
     softly.assertThat(serverGroup.isDisabled()).isFalse();
     softly.assertThat(serverGroup.getRegion()).isEqualTo("frontend-ns");
     softly.assertThat(serverGroup.getServerGroupManagers()).hasSize(1);
