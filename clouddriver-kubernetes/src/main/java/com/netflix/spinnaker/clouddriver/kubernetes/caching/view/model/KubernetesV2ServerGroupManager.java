@@ -49,8 +49,10 @@ public class KubernetesV2ServerGroupManager extends ManifestBasedModel
     this.serverGroups = serverGroups;
   }
 
-  private static KubernetesV2ServerGroupManager fromCacheData(
-      CacheData cd, List<CacheData> serverGroupData) {
+  public static KubernetesV2ServerGroupManager fromCacheData(
+      KubernetesV2ServerGroupManagerCacheData data) {
+    CacheData cd = data.getServerGroupManagerData();
+    List<CacheData> serverGroupData = data.getServerGroupData();
     if (cd == null) {
       return null;
     }
@@ -69,10 +71,10 @@ public class KubernetesV2ServerGroupManager extends ManifestBasedModel
     Set<KubernetesV2ServerGroupSummary> serverGroups =
         serverGroupData.stream()
             .map(
-                data ->
+                sg ->
                     KubernetesV2ServerGroup.fromCacheData(
                         KubernetesV2ServerGroupCacheData.builder()
-                            .serverGroupData(data)
+                            .serverGroupData(sg)
                             .instanceData(new ArrayList<>())
                             .loadBalancerData(new ArrayList<>())
                             .build()))
@@ -81,10 +83,5 @@ public class KubernetesV2ServerGroupManager extends ManifestBasedModel
             .collect(Collectors.toSet());
 
     return new KubernetesV2ServerGroupManager(manifest, cd.getId(), serverGroups);
-  }
-
-  public static KubernetesV2ServerGroupManager fromCacheData(
-      KubernetesV2ServerGroupManagerCacheData data) {
-    return fromCacheData(data.getServerGroupManagerData(), data.getServerGroupData());
   }
 }

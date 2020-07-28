@@ -143,11 +143,11 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
     this.capacity = Capacity.builder().desired(desired).build();
   }
 
-  private static KubernetesV2ServerGroup fromCacheData(
-      CacheData cd,
-      List<CacheData> instanceData,
-      List<CacheData> loadBalancerData,
-      List<Keys.InfrastructureCacheKey> serverGroupManagerKeys) {
+  public static KubernetesV2ServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
+    CacheData cd = cacheData.getServerGroupData();
+    List<CacheData> instanceData = cacheData.getInstanceData();
+    List<Keys.InfrastructureCacheKey> serverGroupManagerKeys =
+        cacheData.getServerGroupManagerKeys();
     if (cd == null) {
       return null;
     }
@@ -197,7 +197,7 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
             .collect(Collectors.toSet());
 
     Set<String> loadBalancers =
-        loadBalancerData.stream()
+        cacheData.getLoadBalancerData().stream()
             .map(CacheData::getId)
             .map(Keys::parseKey)
             .filter(Optional::isPresent)
@@ -206,19 +206,11 @@ public class KubernetesV2ServerGroup extends ManifestBasedModel implements Serve
             .map(k -> KubernetesManifest.getFullResourceName(k.getKubernetesKind(), k.getName()))
             .collect(Collectors.toSet());
 
-    Boolean disabled = loadBalancers.isEmpty() && !explicitLoadBalancers.isEmpty();
+    boolean disabled = loadBalancers.isEmpty() && !explicitLoadBalancers.isEmpty();
     loadBalancers.addAll(explicitLoadBalancers);
 
     return new KubernetesV2ServerGroup(
         manifest, cd.getId(), instances, loadBalancers, serverGroupManagers, disabled);
-  }
-
-  public static KubernetesV2ServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
-    return fromCacheData(
-        cacheData.getServerGroupData(),
-        cacheData.getInstanceData(),
-        cacheData.getLoadBalancerData(),
-        cacheData.getServerGroupManagerKeys());
   }
 
   public KubernetesV2ServerGroupSummary toServerGroupSummary() {
