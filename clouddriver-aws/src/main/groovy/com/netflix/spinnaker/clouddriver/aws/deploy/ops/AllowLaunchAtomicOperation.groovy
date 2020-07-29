@@ -94,12 +94,12 @@ class AllowLaunchAtomicOperation implements AtomicOperation<ResolvedAmiResult> {
     }
 
     if (amiLocation == ResolvedAmiLocation.TARGET && !ownerCredentials) {
-      task.updateStatus BASE_PHASE, "AMI found in target account and owner not managed: skipping allow launch and tag syncing"
+      task.updateStatus BASE_PHASE, "AMI found in target account, but the AMI owner account is unmanaged: skipping allow launch and tag syncing"
       return resolvedAmi
     }
 
     if (amiLocation == ResolvedAmiLocation.SOURCE && !ownerCredentials) {
-      task.updateStatus BASE_PHASE, "AMI found in source account but owner is not managed, unable to share AMI"
+      task.updateStatus BASE_PHASE, "AMI found in source account, but the owner account is unmanaged: unable to share AMI"
       throw new IllegalArgumentException("Unable to find owner of resolved AMI $resolvedAmi")
     }
 
