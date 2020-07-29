@@ -39,6 +39,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.K
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupHandler;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,6 +51,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -163,7 +166,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                       .map(CacheData::getId)
                       .collect(Collectors.toList());
 
-              return cacheUtils.<KubernetesV2ServerGroup>resourceModelFromCacheData(
+              return serverGroupFromCacheData(
                   KubernetesV2ServerGroupCacheData.builder()
                       .serverGroupData(cd)
                       .instanceData(instanceData)
@@ -263,7 +266,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                   clusterServerGroups.stream()
                       .map(
                           cd ->
-                              cacheUtils.<KubernetesV2ServerGroup>resourceModelFromCacheData(
+                              serverGroupFromCacheData(
                                   KubernetesV2ServerGroupCacheData.builder()
                                       .serverGroupData(cd)
                                       .instanceData(
@@ -279,7 +282,6 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                                           serverGroupToServerGroupManagerKeys.getOrDefault(
                                               cd.getId(), new ArrayList<>()))
                                       .build()))
-                      .filter(Objects::nonNull)
                       .collect(Collectors.toList());
 
               List<KubernetesV2LoadBalancer> loadBalancers =
@@ -300,5 +302,18 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
               return new KubernetesV2Cluster(clusterDatum.getId(), serverGroups, loadBalancers);
             })
         .collect(toSet());
+  }
+
+  private final ServerGroupHandler DEFAULT_SERVER_GROUP_HANDLER = new ServerGroupHandler() {};
+
+  @Nonnull
+  private KubernetesV2ServerGroup serverGroupFromCacheData(
+      @Nonnull KubernetesV2ServerGroupCacheData cacheData) {
+    KubernetesHandler handler = cacheUtils.getHandler(cacheData);
+    ServerGroupHandler serverGroupHandler =
+        handler instanceof ServerGroupHandler
+            ? (ServerGroupHandler) handler
+            : DEFAULT_SERVER_GROUP_HANDLER;
+    return serverGroupHandler.fromCacheData(cacheData);
   }
 }

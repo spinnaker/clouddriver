@@ -23,13 +23,11 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.ManifestBasedModel;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ModelHandler;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -165,16 +163,5 @@ public class KubernetesCacheUtils {
         .getResourcePropertyRegistry(key.getAccount())
         .get(kind)
         .getHandler();
-  }
-
-  @SuppressWarnings("unchecked")
-  public <T extends ManifestBasedModel> T resourceModelFromCacheData(
-      KubernetesV2CacheData cacheData) {
-    KubernetesHandler handler = getHandler(cacheData);
-    if (handler instanceof ModelHandler) {
-      return (T) ((ModelHandler) handler).fromCacheData(cacheData);
-    } else {
-      return null;
-    }
   }
 }
