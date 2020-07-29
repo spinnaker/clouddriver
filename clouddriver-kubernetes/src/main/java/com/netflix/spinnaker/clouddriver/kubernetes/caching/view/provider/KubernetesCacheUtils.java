@@ -25,10 +25,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.ManifestBasedModel;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2CacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ModelHandler;
 import java.util.ArrayList;
@@ -39,6 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -153,18 +153,24 @@ public class KubernetesCacheUtils {
     return result;
   }
 
+  @Nonnull
+  KubernetesHandler getHandler(@Nonnull KubernetesV2CacheData cacheData) {
+    Keys.InfrastructureCacheKey key =
+        (Keys.InfrastructureCacheKey) Keys.parseKey(cacheData.primaryData().getId()).get();
+    // TODO(ezimanyi): The kind is also stored directly on the cache data; get it from there instead
+    // of reading it from the manifest.
+    KubernetesKind kind =
+        KubernetesCacheDataConverter.getManifest(cacheData.primaryData()).getKind();
+    return resourcePropertyResolver
+        .getResourcePropertyRegistry(key.getAccount())
+        .get(kind)
+        .getHandler();
+  }
+
   @SuppressWarnings("unchecked")
   public <T extends ManifestBasedModel> T resourceModelFromCacheData(
       KubernetesV2CacheData cacheData) {
-    Keys.InfrastructureCacheKey key =
-        (Keys.InfrastructureCacheKey) Keys.parseKey(cacheData.primaryData().getId()).get();
-    KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cacheData.primaryData());
-
-    KubernetesResourceProperties properties =
-        resourcePropertyResolver
-            .getResourcePropertyRegistry(key.getAccount())
-            .get(manifest.getKind());
-    KubernetesHandler handler = properties.getHandler();
+    KubernetesHandler handler = getHandler(cacheData);
     if (handler instanceof ModelHandler) {
       return (T) ((ModelHandler) handler).fromCacheData(cacheData);
     } else {
