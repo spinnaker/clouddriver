@@ -54,7 +54,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -123,6 +125,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
         .orElse(null);
   }
 
+  @Nullable
   @Override
   public KubernetesV2ServerGroup getServerGroup(
       String account, String namespace, String name, boolean includeDetails) {
@@ -136,38 +139,20 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
     KubernetesKind kind = parsedName.getLeft();
     String shortName = parsedName.getRight();
     String key = InfrastructureCacheKey.createKey(kind, account, namespace, shortName);
-    List<String> relatedTypes =
-        kindMap.translateSpinnakerKind(INSTANCES).stream()
-            .map(KubernetesKind::toString)
-            .collect(Collectors.toList());
 
-    relatedTypes.addAll(
-        kindMap.translateSpinnakerKind(LOAD_BALANCERS).stream()
+    String[] relatedTypes =
+        Stream.of(INSTANCES, LOAD_BALANCERS, SERVER_GROUP_MANAGERS)
+            .map(kindMap::translateSpinnakerKind)
+            .flatMap(Collection::stream)
             .map(KubernetesKind::toString)
-            .collect(Collectors.toList()));
+            .toArray(String[]::new);
 
     Optional<CacheData> serverGroupData =
         cacheUtils.getSingleEntryWithRelationships(
-            kind.toString(),
-            key,
-            RelationshipCacheFilter.include(relatedTypes.toArray(new String[0])));
+            kind.toString(), key, RelationshipCacheFilter.include(relatedTypes));
 
     return serverGroupData
-        .map(
-            cd -> {
-              ImmutableCollection<CacheData> instanceData =
-                  cacheUtils.getRelationships(ImmutableList.of(cd), INSTANCES).get(cd.getId());
-
-              Collection<String> loadBalancerKeys =
-                  cacheUtils.getRelationshipKeys(cd, LOAD_BALANCERS);
-
-              return serverGroupFromCacheData(
-                  KubernetesV2ServerGroupCacheData.builder()
-                      .serverGroupData(cd)
-                      .instanceData(instanceData)
-                      .loadBalancerKeys(loadBalancerKeys)
-                      .build());
-            })
+        .map(cacheData -> loadServerGroups(ImmutableList.of(cacheData)).get(cacheData.getId()))
         .orElse(null);
   }
 

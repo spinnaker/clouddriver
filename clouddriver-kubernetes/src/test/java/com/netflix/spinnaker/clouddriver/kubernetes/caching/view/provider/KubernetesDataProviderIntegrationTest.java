@@ -299,6 +299,15 @@ final class KubernetesDataProviderIntegrationTest {
   }
 
   @Test
+  void getServerGroupWithManager(SoftAssertions softly) {
+    KubernetesV2ServerGroup serverGroup =
+        clusterProvider.getServerGroup(
+            ACCOUNT_NAME, "frontend-ns", "replicaSet frontend-5c6559f75f");
+    assertThat(serverGroup).isNotNull();
+    assertFrontendCurrentServerGroup(softly, serverGroup);
+  }
+
+  @Test
   void getServerGroupWrongNamespace(SoftAssertions softly) {
     KubernetesV2ServerGroup serverGroup =
         clusterProvider.getServerGroup(ACCOUNT_NAME, "frontend-ns", "replicaSet backend-v014");
