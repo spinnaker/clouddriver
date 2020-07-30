@@ -30,6 +30,7 @@ import static java.util.stream.Collectors.toSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
@@ -143,7 +144,9 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
 
     Optional<CacheData> serverGroupData =
         cacheUtils.getSingleEntryWithRelationships(
-            kind.toString(), key, relatedTypes.toArray(new String[0]));
+            kind.toString(),
+            key,
+            RelationshipCacheFilter.include(relatedTypes.toArray(new String[0])));
 
     return serverGroupData
         .map(

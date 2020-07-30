@@ -79,8 +79,8 @@ public class KubernetesCacheUtils {
   }
 
   public Optional<CacheData> getSingleEntryWithRelationships(
-      String type, String key, String... to) {
-    return Optional.ofNullable(cache.get(type, key, RelationshipCacheFilter.include(to)));
+      String type, String key, RelationshipCacheFilter cacheFilter) {
+    return Optional.ofNullable(cache.get(type, key, cacheFilter));
   }
 
   /** Returns a collection of all relationships of a given SpinnakerKind for a CacheData. */
