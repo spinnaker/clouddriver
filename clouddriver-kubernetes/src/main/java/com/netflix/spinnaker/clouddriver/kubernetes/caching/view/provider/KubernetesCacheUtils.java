@@ -111,16 +111,12 @@ class KubernetesCacheUtils {
    * Gets the data for all relationships of a given Spinnaker kind for a collection of CacheData
    * items.
    */
-  ImmutableCollection<CacheData> getRelationships(
+  ImmutableMultimap<String, CacheData> getRelationships(
       Collection<CacheData> cacheData, SpinnakerKind spinnakerKind) {
-    // TODO(ezimanyi): We're relying on collecting to a Set for deduplication, which isn't great
-    // because CacheData doesn't override equals so we're only deduplicating references.
-    // This is fine because getRelationships does return at most one reference per id, but
-    // is somewhat fragile.
-    return relationshipTypes(spinnakerKind)
-        .map(kind -> getRelationships(cacheData, kind).values())
-        .flatMap(Collection::stream)
-        .collect(toImmutableSet());
+    ImmutableListMultimap.Builder<String, CacheData> result = ImmutableListMultimap.builder();
+    relationshipTypes(spinnakerKind)
+        .forEach(type -> result.putAll(getRelationships(cacheData, type)));
+    return result.build();
   }
 
   /** Gets the data for all relationships of a given type for a collection of CacheData items. */

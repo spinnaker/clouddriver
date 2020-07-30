@@ -118,14 +118,10 @@ public class KubernetesV2LoadBalancerProvider
 
   private Set<KubernetesV2LoadBalancer> fromLoadBalancerCacheData(
       List<CacheData> loadBalancerData) {
-    Collection<CacheData> serverGroupData =
-        cacheUtils.getRelationships(loadBalancerData, SERVER_GROUPS);
-    Collection<CacheData> instanceData = cacheUtils.getRelationships(serverGroupData, INSTANCES);
-
     ImmutableMultimap<String, CacheData> loadBalancerToServerGroups =
-        cacheUtils.mapByRelationship(serverGroupData, LOAD_BALANCERS);
+        cacheUtils.getRelationships(loadBalancerData, SERVER_GROUPS);
     ImmutableMultimap<String, CacheData> serverGroupToInstances =
-        cacheUtils.mapByRelationship(instanceData, SERVER_GROUPS);
+        cacheUtils.getRelationships(loadBalancerToServerGroups.values(), INSTANCES);
 
     return loadBalancerData.stream()
         .map(
