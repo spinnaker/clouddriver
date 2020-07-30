@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableListMultimap;
@@ -114,12 +115,11 @@ public class KubernetesCacheUtils {
 
   public Collection<CacheData> loadRelationshipsFromCache(
       Collection<CacheData> sources, String relationshipType) {
-    List<String> keys =
+    return cache.getAll(
+        relationshipType,
         sources.stream()
             .flatMap(cd -> relationshipKeys(cd, relationshipType))
-            .collect(Collectors.toList());
-
-    return cache.getAll(relationshipType, keys);
+            .collect(toImmutableSet()));
   }
 
   /*
