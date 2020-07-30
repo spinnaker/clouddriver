@@ -20,6 +20,8 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -32,11 +34,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -126,21 +125,14 @@ public class KubernetesCacheUtils {
   /*
    * Builds a map of all keys belonging to `sourceKind` that are related to any entries in `targetData`
    */
-  public Map<String, Collection<CacheData>> mapByRelationship(
+  public ImmutableMultimap<String, CacheData> mapByRelationship(
       Collection<CacheData> targetData, SpinnakerKind sourceKind) {
-    Map<String, Collection<CacheData>> result = new HashMap<>();
-
-    for (CacheData datum : targetData) {
-      Collection<String> sourceKeys = getRelationshipKeys(datum, sourceKind);
-
-      for (String sourceKey : sourceKeys) {
-        Collection<CacheData> storedData = result.getOrDefault(sourceKey, new ArrayList<>());
-        storedData.add(datum);
-        result.put(sourceKey, storedData);
-      }
-    }
-
-    return result;
+    ImmutableListMultimap.Builder<String, CacheData> builder = ImmutableListMultimap.builder();
+    targetData.forEach(
+        datum ->
+            getRelationshipKeys(datum, sourceKind)
+                .forEach(sourceKey -> builder.put(sourceKey, datum)));
+    return builder.build();
   }
 
   /** Returns a stream of all relationships of a given type for a given CacheData. */

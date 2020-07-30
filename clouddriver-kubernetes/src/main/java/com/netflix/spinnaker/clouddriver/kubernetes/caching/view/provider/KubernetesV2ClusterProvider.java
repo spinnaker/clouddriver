@@ -28,6 +28,7 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toSet;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
@@ -249,11 +250,11 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
               .collect(Collectors.toList()));
     }
 
-    Map<String, Collection<CacheData>> serverGroupToLoadBalancers =
+    ImmutableMultimap<String, CacheData> serverGroupToLoadBalancers =
         cacheUtils.mapByRelationship(loadBalancerData, SERVER_GROUPS);
-    Map<String, Collection<CacheData>> serverGroupToInstances =
+    ImmutableMultimap<String, CacheData> serverGroupToInstances =
         cacheUtils.mapByRelationship(instanceData, SERVER_GROUPS);
-    Map<String, Collection<CacheData>> loadBalancerToServerGroups =
+    ImmutableMultimap<String, CacheData> loadBalancerToServerGroups =
         cacheUtils.mapByRelationship(serverGroupData, LOAD_BALANCERS);
 
     return clusterData.stream()
@@ -269,13 +270,9 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                               serverGroupFromCacheData(
                                   KubernetesV2ServerGroupCacheData.builder()
                                       .serverGroupData(cd)
-                                      .instanceData(
-                                          serverGroupToInstances.getOrDefault(
-                                              cd.getId(), new ArrayList<>()))
+                                      .instanceData(serverGroupToInstances.get(cd.getId()))
                                       .loadBalancerKeys(
-                                          serverGroupToLoadBalancers
-                                              .getOrDefault(cd.getId(), new ArrayList<>())
-                                              .stream()
+                                          serverGroupToLoadBalancers.get(cd.getId()).stream()
                                               .map(CacheData::getId)
                                               .collect(toImmutableList()))
                                       .serverGroupManagerKeys(
@@ -287,14 +284,13 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
               List<KubernetesV2LoadBalancer> loadBalancers =
                   clusterServerGroups.stream()
                       .map(CacheData::getId)
-                      .map(id -> serverGroupToLoadBalancers.getOrDefault(id, new ArrayList<>()))
+                      .map(serverGroupToLoadBalancers::get)
                       .flatMap(Collection::stream)
                       .map(
                           cd ->
                               KubernetesV2LoadBalancer.fromCacheData(
                                   cd,
-                                  loadBalancerToServerGroups.getOrDefault(
-                                      cd.getId(), new ArrayList<>()),
+                                  loadBalancerToServerGroups.get(cd.getId()),
                                   serverGroupToInstances))
                       .filter(Objects::nonNull)
                       .collect(Collectors.toList());

@@ -22,6 +22,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.description.Spinnaker
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUP_MANAGERS;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroupManager;
@@ -29,9 +30,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.K
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupManagerHandler;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManagerProvider;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -65,7 +64,7 @@ public class KubernetesV2ServerGroupManagerProvider
     Collection<CacheData> serverGroupData =
         cacheUtils.getRelationships(serverGroupManagerData, SERVER_GROUPS);
 
-    Map<String, Collection<CacheData>> managerToServerGroupMap =
+    ImmutableMultimap<String, CacheData> managerToServerGroupMap =
         cacheUtils.mapByRelationship(serverGroupData, SERVER_GROUP_MANAGERS);
 
     return serverGroupManagerData.stream()
@@ -74,8 +73,7 @@ public class KubernetesV2ServerGroupManagerProvider
                 serverGroupManagerFromCacheData(
                     KubernetesV2ServerGroupManagerCacheData.builder()
                         .serverGroupManagerData(cd)
-                        .serverGroupData(
-                            managerToServerGroupMap.getOrDefault(cd.getId(), new ArrayList<>()))
+                        .serverGroupData(managerToServerGroupMap.get(cd.getId()))
                         .build()))
         .collect(Collectors.toSet());
   }

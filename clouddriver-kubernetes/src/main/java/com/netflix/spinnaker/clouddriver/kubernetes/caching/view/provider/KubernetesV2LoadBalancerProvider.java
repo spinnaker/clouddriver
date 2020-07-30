@@ -23,6 +23,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.description.Spinnaker
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUPS;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
@@ -35,7 +36,6 @@ import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -130,18 +130,16 @@ public class KubernetesV2LoadBalancerProvider
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
 
-    Map<String, Collection<CacheData>> loadBalancerToServerGroups =
+    ImmutableMultimap<String, CacheData> loadBalancerToServerGroups =
         cacheUtils.mapByRelationship(serverGroupData, LOAD_BALANCERS);
-    Map<String, Collection<CacheData>> serverGroupToInstances =
+    ImmutableMultimap<String, CacheData> serverGroupToInstances =
         cacheUtils.mapByRelationship(instanceData, SERVER_GROUPS);
 
     return loadBalancerData.stream()
         .map(
             cd ->
                 KubernetesV2LoadBalancer.fromCacheData(
-                    cd,
-                    loadBalancerToServerGroups.getOrDefault(cd.getId(), new ArrayList<>()),
-                    serverGroupToInstances))
+                    cd, loadBalancerToServerGroups.get(cd.getId()), serverGroupToInstances))
         .filter(Objects::nonNull)
         .collect(Collectors.toSet());
   }
