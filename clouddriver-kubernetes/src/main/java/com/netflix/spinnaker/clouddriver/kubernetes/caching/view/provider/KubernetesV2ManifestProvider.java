@@ -113,7 +113,7 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
         .getSingleEntry(CLUSTERS.toString(), Keys.ClusterCacheKey.createKey(account, app, cluster))
         .map(
             c ->
-                cacheUtils.loadRelationshipsFromCache(c, kind).stream()
+                cacheUtils.getRelationships(c, kind).stream()
                     .map(cd -> fromCacheData(cd, credentials, false))
                     .filter(m -> m.getLocation().equals(location))
                     .sorted(

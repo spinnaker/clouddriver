@@ -39,12 +39,12 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
+@NonnullByDefault
 @Slf4j
 public class KubernetesCacheUtils {
   private final Cache cache;
@@ -90,7 +90,6 @@ public class KubernetesCacheUtils {
         .collect(toImmutableList());
   }
 
-  @NonnullByDefault
   public Collection<CacheData> getRelationships(CacheData cacheData, String relationshipType) {
     return getRelationships(ImmutableSet.of(cacheData), relationshipType);
   }
@@ -101,11 +100,6 @@ public class KubernetesCacheUtils {
         .map(kind -> getRelationships(cacheData, kind))
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
-  }
-
-  public Collection<CacheData> loadRelationshipsFromCache(
-      CacheData source, String relationshipType) {
-    return getRelationships(ImmutableSet.of(source), relationshipType);
   }
 
   public Collection<CacheData> getRelationships(
@@ -131,7 +125,6 @@ public class KubernetesCacheUtils {
   }
 
   /** Returns a stream of all relationships of a given type for a given CacheData. */
-  @NonnullByDefault
   private Stream<String> relationshipKeys(CacheData cacheData, String type) {
     Collection<String> relationships = cacheData.getRelationships().get(type);
     // Avoiding creating an Optional here as this is deeply nested in performance-sensitive code.
@@ -142,13 +135,11 @@ public class KubernetesCacheUtils {
   }
 
   /** Given a spinnaker kind, returns a stream of the relationship types representing that kind. */
-  @NonnullByDefault
   private Stream<String> relationshipTypes(SpinnakerKind spinnakerKind) {
     return kindMap.translateSpinnakerKind(spinnakerKind).stream().map(KubernetesKind::toString);
   }
 
-  @Nonnull
-  KubernetesHandler getHandler(@Nonnull KubernetesV2CacheData cacheData) {
+  KubernetesHandler getHandler(KubernetesV2CacheData cacheData) {
     Keys.InfrastructureCacheKey key =
         (Keys.InfrastructureCacheKey) Keys.parseKey(cacheData.primaryData().getId()).get();
     // TODO(ezimanyi): The kind is also stored directly on the cache data; get it from there instead
