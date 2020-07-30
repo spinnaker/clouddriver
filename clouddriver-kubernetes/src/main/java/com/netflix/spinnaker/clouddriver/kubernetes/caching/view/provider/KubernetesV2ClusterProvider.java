@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
@@ -207,20 +206,10 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
             clusterDatum -> {
               ImmutableCollection<CacheData> clusterServerGroups =
                   clusterToServerGroups.get(clusterDatum.getId());
-
-              ImmutableMultimap<String, CacheData> serverGroupToInstances =
-                  cacheUtils.getRelationships(clusterServerGroups, INSTANCES);
               ImmutableMap<String, KubernetesV2ServerGroup> serverGroups =
-                  loadServerGroups(clusterServerGroups, serverGroupToInstances);
-
-              ImmutableMultimap<String, CacheData> serverGroupToLoadBalancers =
-                  cacheUtils.getRelationships(clusterServerGroups, LOAD_BALANCERS);
-
+                  loadServerGroups(clusterServerGroups);
               List<KubernetesV2LoadBalancer> loadBalancers =
-                  clusterServerGroups.stream()
-                      .map(CacheData::getId)
-                      .map(serverGroupToLoadBalancers::get)
-                      .flatMap(Collection::stream)
+                  cacheUtils.getRelationships(clusterServerGroups, LOAD_BALANCERS).values().stream()
                       .map(
                           cd ->
                               KubernetesV2LoadBalancer.fromCacheData(
@@ -240,8 +229,9 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
   }
 
   private ImmutableMap<String, KubernetesV2ServerGroup> loadServerGroups(
-      ImmutableCollection<CacheData> serverGroupData,
-      Multimap<String, CacheData> serverGroupToInstances) {
+      ImmutableCollection<CacheData> serverGroupData) {
+    ImmutableMultimap<String, CacheData> serverGroupToInstances =
+        cacheUtils.getRelationships(serverGroupData, INSTANCES);
     return serverGroupData.stream()
         .collect(
             toImmutableMap(
