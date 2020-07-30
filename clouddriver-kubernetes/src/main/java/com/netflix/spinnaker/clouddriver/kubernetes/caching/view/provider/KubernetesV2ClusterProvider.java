@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
@@ -28,7 +29,9 @@ import static java.util.stream.Collectors.toSet;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
@@ -203,27 +206,16 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
             clusterDatum -> {
               ImmutableCollection<CacheData> clusterServerGroups =
                   clusterToServerGroups.get(clusterDatum.getId());
-              ImmutableMultimap<String, CacheData> serverGroupToLoadBalancers =
-                  cacheUtils.getRelationships(clusterServerGroups, LOAD_BALANCERS);
+
               ImmutableMultimap<String, CacheData> serverGroupToInstances =
                   cacheUtils.getRelationships(clusterServerGroups, INSTANCES);
+              ImmutableMap<String, KubernetesV2ServerGroup> serverGroups =
+                  loadServerGroups(clusterServerGroups, serverGroupToInstances);
+
+              ImmutableMultimap<String, CacheData> serverGroupToLoadBalancers =
+                  cacheUtils.getRelationships(clusterServerGroups, LOAD_BALANCERS);
               ImmutableMultimap<String, CacheData> loadBalancerToServerGroups =
                   cacheUtils.mapByRelationship(clusterServerGroups, LOAD_BALANCERS);
-
-              List<KubernetesV2ServerGroup> serverGroups =
-                  clusterServerGroups.stream()
-                      .map(
-                          cd ->
-                              serverGroupFromCacheData(
-                                  KubernetesV2ServerGroupCacheData.builder()
-                                      .serverGroupData(cd)
-                                      .instanceData(serverGroupToInstances.get(cd.getId()))
-                                      .loadBalancerKeys(
-                                          cacheUtils.getRelationshipKeys(cd, LOAD_BALANCERS))
-                                      .serverGroupManagerKeys(
-                                          cacheUtils.getRelationshipKeys(cd, SERVER_GROUP_MANAGERS))
-                                      .build()))
-                      .collect(Collectors.toList());
 
               List<KubernetesV2LoadBalancer> loadBalancers =
                   clusterServerGroups.stream()
@@ -239,9 +231,29 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                       .filter(Objects::nonNull)
                       .collect(Collectors.toList());
 
-              return new KubernetesV2Cluster(clusterDatum.getId(), serverGroups, loadBalancers);
+              return new KubernetesV2Cluster(
+                  clusterDatum.getId(), serverGroups.values(), loadBalancers);
             })
         .collect(toSet());
+  }
+
+  private ImmutableMap<String, KubernetesV2ServerGroup> loadServerGroups(
+      ImmutableCollection<CacheData> serverGroupData,
+      Multimap<String, CacheData> serverGroupToInstances) {
+    return serverGroupData.stream()
+        .collect(
+            toImmutableMap(
+                CacheData::getId,
+                cd ->
+                    serverGroupFromCacheData(
+                        KubernetesV2ServerGroupCacheData.builder()
+                            .serverGroupData(cd)
+                            .instanceData(serverGroupToInstances.get(cd.getId()))
+                            .loadBalancerKeys(cacheUtils.getRelationshipKeys(cd, LOAD_BALANCERS))
+                            .serverGroupManagerKeys(
+                                cacheUtils.getRelationshipKeys(cd, SERVER_GROUP_MANAGERS))
+                            .build()),
+                (sg1, sg2) -> sg1));
   }
 
   private final ServerGroupHandler DEFAULT_SERVER_GROUP_HANDLER = new ServerGroupHandler() {};
