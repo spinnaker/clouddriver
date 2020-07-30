@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
@@ -220,9 +219,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                                       .serverGroupData(cd)
                                       .instanceData(serverGroupToInstances.get(cd.getId()))
                                       .loadBalancerKeys(
-                                          serverGroupToLoadBalancers.get(cd.getId()).stream()
-                                              .map(CacheData::getId)
-                                              .collect(toImmutableList()))
+                                          cacheUtils.getRelationshipKeys(cd, LOAD_BALANCERS))
                                       .serverGroupManagerKeys(
                                           cacheUtils.getRelationshipKeys(cd, SERVER_GROUP_MANAGERS))
                                       .build()))
