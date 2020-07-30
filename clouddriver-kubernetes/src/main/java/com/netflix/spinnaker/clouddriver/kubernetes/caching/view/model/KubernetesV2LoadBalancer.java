@@ -17,20 +17,13 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
-import java.util.Collection;
-import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -52,28 +45,6 @@ public final class KubernetesV2LoadBalancer extends ManifestBasedModel
     this.manifest = manifest;
     this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
     this.serverGroups = serverGroups;
-  }
-
-  @Nullable
-  @ParametersAreNonnullByDefault
-  public static KubernetesV2LoadBalancer fromCacheData(
-      CacheData cd,
-      Collection<CacheData> serverGroupData,
-      Multimap<String, CacheData> serverGroupToInstanceData) {
-    return fromCacheData(
-        cd,
-        serverGroupData.stream()
-            .map(
-                d ->
-                    KubernetesV2ServerGroup.fromCacheData(
-                        KubernetesV2ServerGroupCacheData.builder()
-                            .serverGroupData(d)
-                            .instanceData(serverGroupToInstanceData.get(d.getId()))
-                            .loadBalancerKeys(ImmutableList.of(cd.getId()))
-                            .build()))
-            .filter(Objects::nonNull)
-            .map(KubernetesV2ServerGroup::toLoadBalancerServerGroup)
-            .collect(toImmutableSet()));
   }
 
   @Nullable

@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.LOAD_BALANCERS;
@@ -31,6 +32,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ApplicationCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -117,7 +120,7 @@ public class KubernetesV2LoadBalancerProvider
   }
 
   private Set<KubernetesV2LoadBalancer> fromLoadBalancerCacheData(
-      List<CacheData> loadBalancerData) {
+      Collection<CacheData> loadBalancerData) {
     ImmutableMultimap<String, CacheData> loadBalancerToServerGroups =
         cacheUtils.getRelationships(loadBalancerData, SERVER_GROUPS);
     ImmutableMultimap<String, CacheData> serverGroupToInstances =
@@ -125,9 +128,21 @@ public class KubernetesV2LoadBalancerProvider
 
     return loadBalancerData.stream()
         .map(
-            cd ->
+            lb ->
                 KubernetesV2LoadBalancer.fromCacheData(
-                    cd, loadBalancerToServerGroups.get(cd.getId()), serverGroupToInstances))
+                    lb,
+                    loadBalancerToServerGroups.get(lb.getId()).stream()
+                        .map(
+                            sg ->
+                                KubernetesV2ServerGroup.fromCacheData(
+                                    KubernetesV2ServerGroupCacheData.builder()
+                                        .serverGroupData(sg)
+                                        .instanceData(serverGroupToInstances.get(sg.getId()))
+                                        .loadBalancerKeys(ImmutableList.of(lb.getId()))
+                                        .build()))
+                        .filter(Objects::nonNull)
+                        .map(KubernetesV2ServerGroup::toLoadBalancerServerGroup)
+                        .collect(toImmutableSet())))
         .filter(Objects::nonNull)
         .collect(Collectors.toSet());
   }
