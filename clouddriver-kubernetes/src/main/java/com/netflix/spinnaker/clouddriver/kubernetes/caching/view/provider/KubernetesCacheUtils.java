@@ -21,6 +21,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -36,7 +37,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -91,13 +91,12 @@ public class KubernetesCacheUtils {
         .collect(toImmutableList());
   }
 
-  public Collection<CacheData> getTransitiveRelationship(
-      String from, List<String> sourceKeys, String to) {
-    Collection<CacheData> sourceData =
-        cache.getAll(from, sourceKeys, RelationshipCacheFilter.include(to));
-    return cache.getAll(
-        to,
-        sourceData.stream().flatMap(cd -> relationshipKeys(cd, to)).collect(Collectors.toList()));
+  public Collection<CacheData> getRelationships(String from, String sourceKey, String to) {
+    CacheData sourceData = cache.get(from, sourceKey, RelationshipCacheFilter.include(to));
+    if (sourceData == null) {
+      return ImmutableList.of();
+    }
+    return cache.getAll(to, relationshipKeys(sourceData, to).collect(toImmutableSet()));
   }
 
   public Collection<CacheData> getRelationships(

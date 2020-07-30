@@ -134,8 +134,7 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
     List<KubernetesManifest> events =
         includeEvents
             ? cacheUtils
-                .getTransitiveRelationship(
-                    kind.toString(), ImmutableList.of(key), KubernetesKind.EVENT.toString())
+                .getRelationships(kind.toString(), key, KubernetesKind.EVENT.toString())
                 .stream()
                 .map(KubernetesCacheDataConverter::getManifest)
                 .collect(Collectors.toList())

@@ -106,9 +106,9 @@ public class KubernetesV2LoadBalancerProvider
         kindMap.translateSpinnakerKind(LOAD_BALANCERS).stream()
             .map(
                 kind ->
-                    cacheUtils.getTransitiveRelationship(
+                    cacheUtils.getRelationships(
                         APPLICATIONS.toString(),
-                        ImmutableList.of(ApplicationCacheKey.createKey(application)),
+                        ApplicationCacheKey.createKey(application),
                         kind.toString()))
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
