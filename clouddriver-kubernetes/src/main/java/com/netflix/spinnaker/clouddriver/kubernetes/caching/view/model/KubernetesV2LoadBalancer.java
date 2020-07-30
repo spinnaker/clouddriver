@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -30,7 +32,8 @@ import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -51,22 +54,14 @@ public final class KubernetesV2LoadBalancer extends ManifestBasedModel
     this.serverGroups = serverGroups;
   }
 
+  @Nullable
+  @ParametersAreNonnullByDefault
   public static KubernetesV2LoadBalancer fromCacheData(
       CacheData cd,
       Collection<CacheData> serverGroupData,
       Multimap<String, CacheData> serverGroupToInstanceData) {
-    if (cd == null) {
-      return null;
-    }
-
-    KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
-
-    if (manifest == null) {
-      log.warn("Cache data {} inserted without a manifest", cd.getId());
-      return null;
-    }
-
-    Set<LoadBalancerServerGroup> serverGroups =
+    return fromCacheData(
+        cd,
         serverGroupData.stream()
             .map(
                 d ->
@@ -78,8 +73,18 @@ public final class KubernetesV2LoadBalancer extends ManifestBasedModel
                             .build()))
             .filter(Objects::nonNull)
             .map(KubernetesV2ServerGroup::toLoadBalancerServerGroup)
-            .collect(Collectors.toSet());
+            .collect(toImmutableSet()));
+  }
 
-    return new KubernetesV2LoadBalancer(manifest, cd.getId(), serverGroups);
+  @Nullable
+  @ParametersAreNonnullByDefault
+  public static KubernetesV2LoadBalancer fromCacheData(
+      CacheData cd, Set<LoadBalancerServerGroup> loadBalancerServerGroups) {
+    KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
+    if (manifest == null) {
+      log.warn("Cache data {} inserted without a manifest", cd.getId());
+      return null;
+    }
+    return new KubernetesV2LoadBalancer(manifest, cd.getId(), loadBalancerServerGroups);
   }
 }
