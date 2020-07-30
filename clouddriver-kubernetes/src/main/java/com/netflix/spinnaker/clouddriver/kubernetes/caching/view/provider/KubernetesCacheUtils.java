@@ -90,24 +90,25 @@ public class KubernetesCacheUtils {
         .collect(toImmutableList());
   }
 
-  public Collection<CacheData> getRelationships(@Nonnull CacheData cacheData, String to) {
-    return cache.getAll(to, relationshipKeys(cacheData, to).collect(toImmutableSet()));
+  @NonnullByDefault
+  public Collection<CacheData> getRelationships(CacheData cacheData, String relationshipType) {
+    return getRelationships(ImmutableSet.of(cacheData), relationshipType);
   }
 
   public Collection<CacheData> getRelationships(
       Collection<CacheData> cacheData, SpinnakerKind spinnakerKind) {
     return relationshipTypes(spinnakerKind)
-        .map(kind -> loadRelationshipsFromCache(cacheData, kind))
+        .map(kind -> getRelationships(cacheData, kind))
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
   }
 
   public Collection<CacheData> loadRelationshipsFromCache(
       CacheData source, String relationshipType) {
-    return loadRelationshipsFromCache(ImmutableSet.of(source), relationshipType);
+    return getRelationships(ImmutableSet.of(source), relationshipType);
   }
 
-  public Collection<CacheData> loadRelationshipsFromCache(
+  public Collection<CacheData> getRelationships(
       Collection<CacheData> sources, String relationshipType) {
     return cache.getAll(
         relationshipType,

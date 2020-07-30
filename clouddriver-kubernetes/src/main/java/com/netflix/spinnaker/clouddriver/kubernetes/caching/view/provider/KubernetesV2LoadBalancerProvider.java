@@ -120,13 +120,13 @@ public class KubernetesV2LoadBalancerProvider
       List<CacheData> loadBalancerData) {
     List<CacheData> serverGroupData =
         kindMap.translateSpinnakerKind(SERVER_GROUPS).stream()
-            .map(kind -> cacheUtils.loadRelationshipsFromCache(loadBalancerData, kind.toString()))
+            .map(kind -> cacheUtils.getRelationships(loadBalancerData, kind.toString()))
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
 
     List<CacheData> instanceData =
         kindMap.translateSpinnakerKind(INSTANCES).stream()
-            .map(kind -> cacheUtils.loadRelationshipsFromCache(serverGroupData, kind.toString()))
+            .map(kind -> cacheUtils.getRelationships(serverGroupData, kind.toString()))
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
 
