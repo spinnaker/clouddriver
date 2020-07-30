@@ -82,7 +82,7 @@ class KubernetesCacheUtils {
     return Optional.ofNullable(cache.get(type, key, cacheFilter));
   }
 
-  /** Gets the data for all relationships of a given Spinnaker kind for a CacheData items. */
+  /** Gets the data for all relationships of a given Spinnaker kind for a CacheData item. */
   ImmutableCollection<String> getRelationshipKeys(
       CacheData cacheData, SpinnakerKind spinnakerKind) {
     return relationshipTypes(spinnakerKind)
@@ -90,7 +90,7 @@ class KubernetesCacheUtils {
         .collect(toImmutableList());
   }
 
-  /** Gets the data for all relationships of a given type for a CacheData items. */
+  /** Gets the data for all relationships of a given type for a CacheData item. */
   Collection<CacheData> getRelationships(CacheData cacheData, String relationshipType) {
     return getRelationships(ImmutableSet.of(cacheData), relationshipType);
   }
