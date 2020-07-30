@@ -31,7 +31,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupManage
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManagerProvider;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -66,7 +65,7 @@ public class KubernetesV2ServerGroupManagerProvider
     Collection<CacheData> serverGroupData =
         cacheUtils.getRelationships(serverGroupManagerData, SERVER_GROUPS);
 
-    Map<String, List<CacheData>> managerToServerGroupMap =
+    Map<String, Collection<CacheData>> managerToServerGroupMap =
         cacheUtils.mapByRelationship(serverGroupData, SERVER_GROUP_MANAGERS);
 
     return serverGroupManagerData.stream()

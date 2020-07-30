@@ -130,9 +130,9 @@ public class KubernetesV2LoadBalancerProvider
             .flatMap(Collection::stream)
             .collect(Collectors.toList());
 
-    Map<String, List<CacheData>> loadBalancerToServerGroups =
+    Map<String, Collection<CacheData>> loadBalancerToServerGroups =
         cacheUtils.mapByRelationship(serverGroupData, LOAD_BALANCERS);
-    Map<String, List<CacheData>> serverGroupToInstances =
+    Map<String, Collection<CacheData>> serverGroupToInstances =
         cacheUtils.mapByRelationship(instanceData, SERVER_GROUPS);
 
     return loadBalancerData.stream()

@@ -126,15 +126,15 @@ public class KubernetesCacheUtils {
   /*
    * Builds a map of all keys belonging to `sourceKind` that are related to any entries in `targetData`
    */
-  public Map<String, List<CacheData>> mapByRelationship(
+  public Map<String, Collection<CacheData>> mapByRelationship(
       Collection<CacheData> targetData, SpinnakerKind sourceKind) {
-    Map<String, List<CacheData>> result = new HashMap<>();
+    Map<String, Collection<CacheData>> result = new HashMap<>();
 
     for (CacheData datum : targetData) {
       Collection<String> sourceKeys = getRelationshipKeys(datum, sourceKind);
 
       for (String sourceKey : sourceKeys) {
-        List<CacheData> storedData = result.getOrDefault(sourceKey, new ArrayList<>());
+        Collection<CacheData> storedData = result.getOrDefault(sourceKey, new ArrayList<>());
         storedData.add(datum);
         result.put(sourceKey, storedData);
       }

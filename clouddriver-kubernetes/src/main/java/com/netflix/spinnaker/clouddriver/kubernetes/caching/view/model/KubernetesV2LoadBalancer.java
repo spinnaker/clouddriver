@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -54,7 +53,7 @@ public final class KubernetesV2LoadBalancer extends ManifestBasedModel
 
   public static KubernetesV2LoadBalancer fromCacheData(
       CacheData cd,
-      List<CacheData> serverGroupData,
+      Collection<CacheData> serverGroupData,
       Map<String, ? extends Collection<CacheData>> serverGroupToInstanceData) {
     if (cd == null) {
       return null;
