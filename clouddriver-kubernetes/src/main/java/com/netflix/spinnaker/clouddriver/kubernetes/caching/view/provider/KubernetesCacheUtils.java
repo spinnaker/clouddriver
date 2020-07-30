@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinna
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -81,8 +83,8 @@ public class KubernetesCacheUtils {
 
   private Collection<String> aggregateRelationshipsBySpinnakerKind(
       CacheData source, SpinnakerKind kind) {
-    return kindMap.translateSpinnakerKind(kind).stream()
-        .map(g -> source.getRelationships().get(g.toString()))
+    return relationshipTypes(kind)
+        .map(g -> source.getRelationships().get(g))
         .filter(Objects::nonNull)
         .flatMap(Collection::stream)
         .filter(Objects::nonNull)
@@ -106,8 +108,8 @@ public class KubernetesCacheUtils {
 
   public Collection<CacheData> getAllRelationshipsOfSpinnakerKind(
       Collection<CacheData> cacheData, SpinnakerKind spinnakerKind) {
-    return kindMap.translateSpinnakerKind(spinnakerKind).stream()
-        .map(kind -> loadRelationshipsFromCache(cacheData, kind.toString()))
+    return relationshipTypes(spinnakerKind)
+        .map(kind -> loadRelationshipsFromCache(cacheData, kind))
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
   }
@@ -149,6 +151,12 @@ public class KubernetesCacheUtils {
     }
 
     return result;
+  }
+
+  /** Given a spinnaker kind, returns a stream of the relationship types representing that kind. */
+  @NonnullByDefault
+  private Stream<String> relationshipTypes(SpinnakerKind spinnakerKind) {
+    return kindMap.translateSpinnakerKind(spinnakerKind).stream().map(KubernetesKind::toString);
   }
 
   @Nonnull
