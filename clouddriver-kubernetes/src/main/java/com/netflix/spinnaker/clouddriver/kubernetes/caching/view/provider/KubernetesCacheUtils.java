@@ -140,19 +140,6 @@ class KubernetesCacheUtils {
         Multimaps.transformValues(relKeys, relData::get), Objects::nonNull);
   }
 
-  /*
-   * Builds a map of all keys belonging to `sourceKind` that are related to any entries in `targetData`
-   */
-  ImmutableMultimap<String, CacheData> mapByRelationship(
-      Collection<CacheData> targetData, SpinnakerKind sourceKind) {
-    ImmutableListMultimap.Builder<String, CacheData> builder = ImmutableListMultimap.builder();
-    targetData.forEach(
-        datum ->
-            getRelationshipKeys(datum, sourceKind)
-                .forEach(sourceKey -> builder.put(sourceKey, datum)));
-    return builder.build();
-  }
-
   /** Returns a stream of all relationships of a given type for a given CacheData. */
   private Stream<String> relationshipKeys(CacheData cacheData, String type) {
     Collection<String> relationships = cacheData.getRelationships().get(type);

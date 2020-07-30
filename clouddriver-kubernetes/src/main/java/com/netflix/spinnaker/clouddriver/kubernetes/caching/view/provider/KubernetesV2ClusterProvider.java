@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
@@ -214,8 +215,6 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
 
               ImmutableMultimap<String, CacheData> serverGroupToLoadBalancers =
                   cacheUtils.getRelationships(clusterServerGroups, LOAD_BALANCERS);
-              ImmutableMultimap<String, CacheData> loadBalancerToServerGroups =
-                  cacheUtils.mapByRelationship(clusterServerGroups, LOAD_BALANCERS);
 
               List<KubernetesV2LoadBalancer> loadBalancers =
                   clusterServerGroups.stream()
@@ -226,8 +225,11 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                           cd ->
                               KubernetesV2LoadBalancer.fromCacheData(
                                   cd,
-                                  loadBalancerToServerGroups.get(cd.getId()),
-                                  serverGroupToInstances))
+                                  cacheUtils.getRelationshipKeys(cd, SERVER_GROUPS).stream()
+                                      .map(serverGroups::get)
+                                      .filter(Objects::nonNull)
+                                      .map(KubernetesV2ServerGroup::toLoadBalancerServerGroup)
+                                      .collect(toImmutableSet())))
                       .filter(Objects::nonNull)
                       .collect(Collectors.toList());
 
