@@ -34,7 +34,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -84,10 +83,7 @@ public class KubernetesCacheUtils {
   private Collection<String> aggregateRelationshipsBySpinnakerKind(
       CacheData source, SpinnakerKind kind) {
     return relationshipTypes(kind)
-        .map(g -> source.getRelationships().get(g))
-        .filter(Objects::nonNull)
-        .flatMap(Collection::stream)
-        .filter(Objects::nonNull)
+        .flatMap(t -> relationshipKeys(source, t))
         .collect(Collectors.toList());
   }
 
@@ -97,13 +93,7 @@ public class KubernetesCacheUtils {
         cache.getAll(from, sourceKeys, RelationshipCacheFilter.include(to));
     return cache.getAll(
         to,
-        sourceData.stream()
-            .map(CacheData::getRelationships)
-            .filter(Objects::nonNull)
-            .map(r -> r.get(to))
-            .filter(Objects::nonNull)
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList()));
+        sourceData.stream().flatMap(cd -> relationshipKeys(cd, to)).collect(Collectors.toList()));
   }
 
   public Collection<CacheData> getAllRelationshipsOfSpinnakerKind(
@@ -123,11 +113,7 @@ public class KubernetesCacheUtils {
       Collection<CacheData> sources, String relationshipType) {
     List<String> keys =
         sources.stream()
-            .map(CacheData::getRelationships)
-            .filter(Objects::nonNull)
-            .map(r -> r.get(relationshipType))
-            .filter(Objects::nonNull)
-            .flatMap(Collection::stream)
+            .flatMap(cd -> relationshipKeys(cd, relationshipType))
             .collect(Collectors.toList());
 
     return cache.getAll(relationshipType, keys);
@@ -151,6 +137,17 @@ public class KubernetesCacheUtils {
     }
 
     return result;
+  }
+
+  /** Returns a stream of all relationships of a given type for a given CacheData. */
+  @NonnullByDefault
+  private Stream<String> relationshipKeys(CacheData cacheData, String type) {
+    Collection<String> relationships = cacheData.getRelationships().get(type);
+    // Avoiding creating an Optional here as this is deeply nested in performance-sensitive code.
+    if (relationships == null) {
+      return Stream.empty();
+    }
+    return relationships.stream();
   }
 
   /** Given a spinnaker kind, returns a stream of the relationship types representing that kind. */
