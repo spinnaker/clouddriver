@@ -46,7 +46,7 @@ import org.springframework.stereotype.Component;
 @Component
 @NonnullByDefault
 @Slf4j
-public class KubernetesCacheUtils {
+class KubernetesCacheUtils {
   private final Cache cache;
   private final KubernetesSpinnakerKindMap kindMap;
   private final KubernetesAccountResolver resourcePropertyResolver;
@@ -61,28 +61,28 @@ public class KubernetesCacheUtils {
     this.resourcePropertyResolver = resourcePropertyResolver;
   }
 
-  public Collection<CacheData> getAllKeys(String type) {
+  Collection<CacheData> getAllKeys(String type) {
     return cache.getAll(type);
   }
 
-  public Collection<String> getAllKeysMatchingPattern(String type, String key) {
+  Collection<String> getAllKeysMatchingPattern(String type, String key) {
     return cache.filterIdentifiers(type, key);
   }
 
-  public Collection<CacheData> getAllDataMatchingPattern(String type, String key) {
+  Collection<CacheData> getAllDataMatchingPattern(String type, String key) {
     return cache.getAll(type, getAllKeysMatchingPattern(type, key));
   }
 
-  public Optional<CacheData> getSingleEntry(String type, String key) {
+  Optional<CacheData> getSingleEntry(String type, String key) {
     return Optional.ofNullable(cache.get(type, key));
   }
 
-  public Optional<CacheData> getSingleEntryWithRelationships(
+  Optional<CacheData> getSingleEntryWithRelationships(
       String type, String key, RelationshipCacheFilter cacheFilter) {
     return Optional.ofNullable(cache.get(type, key, cacheFilter));
   }
 
-  /** Returns a collection of all relationships of a given SpinnakerKind for a CacheData. */
+  /** Gets the data for all relationships of a given Spinnaker kind for a CacheData items. */
   ImmutableCollection<String> getRelationshipKeys(
       CacheData cacheData, SpinnakerKind spinnakerKind) {
     return relationshipTypes(spinnakerKind)
@@ -90,11 +90,16 @@ public class KubernetesCacheUtils {
         .collect(toImmutableList());
   }
 
-  public Collection<CacheData> getRelationships(CacheData cacheData, String relationshipType) {
+  /** Gets the data for all relationships of a given type for a CacheData items. */
+  Collection<CacheData> getRelationships(CacheData cacheData, String relationshipType) {
     return getRelationships(ImmutableSet.of(cacheData), relationshipType);
   }
 
-  public Collection<CacheData> getRelationships(
+  /**
+   * Gets the data for all relationships of a given Spinnaker kind for a collection of CacheData
+   * items.
+   */
+  Collection<CacheData> getRelationships(
       Collection<CacheData> cacheData, SpinnakerKind spinnakerKind) {
     return relationshipTypes(spinnakerKind)
         .map(kind -> getRelationships(cacheData, kind))
@@ -102,8 +107,8 @@ public class KubernetesCacheUtils {
         .collect(Collectors.toList());
   }
 
-  public Collection<CacheData> getRelationships(
-      Collection<CacheData> sources, String relationshipType) {
+  /** Gets the data for all relationships of a given type for a collection of CacheData items. */
+  Collection<CacheData> getRelationships(Collection<CacheData> sources, String relationshipType) {
     return cache.getAll(
         relationshipType,
         sources.stream()
@@ -114,7 +119,7 @@ public class KubernetesCacheUtils {
   /*
    * Builds a map of all keys belonging to `sourceKind` that are related to any entries in `targetData`
    */
-  public ImmutableMultimap<String, CacheData> mapByRelationship(
+  ImmutableMultimap<String, CacheData> mapByRelationship(
       Collection<CacheData> targetData, SpinnakerKind sourceKind) {
     ImmutableListMultimap.Builder<String, CacheData> builder = ImmutableListMultimap.builder();
     targetData.forEach(
