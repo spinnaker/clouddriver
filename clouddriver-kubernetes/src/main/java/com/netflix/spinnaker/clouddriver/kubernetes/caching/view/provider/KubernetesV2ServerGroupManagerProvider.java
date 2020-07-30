@@ -62,10 +62,9 @@ public class KubernetesV2ServerGroupManagerProvider
     }
 
     Collection<CacheData> serverGroupManagerData =
-        cacheUtils.getAllRelationshipsOfSpinnakerKind(
-            ImmutableList.of(applicationDatum), SERVER_GROUP_MANAGERS);
+        cacheUtils.getRelationships(ImmutableList.of(applicationDatum), SERVER_GROUP_MANAGERS);
     Collection<CacheData> serverGroupData =
-        cacheUtils.getAllRelationshipsOfSpinnakerKind(serverGroupManagerData, SERVER_GROUPS);
+        cacheUtils.getRelationships(serverGroupManagerData, SERVER_GROUPS);
 
     Map<String, List<CacheData>> managerToServerGroupMap =
         cacheUtils.mapByRelationship(serverGroupData, SERVER_GROUP_MANAGERS);

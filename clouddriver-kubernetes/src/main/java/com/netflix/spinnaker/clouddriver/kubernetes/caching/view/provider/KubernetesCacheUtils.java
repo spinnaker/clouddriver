@@ -17,6 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -80,11 +83,12 @@ public class KubernetesCacheUtils {
     return Optional.ofNullable(cache.get(type, key, RelationshipCacheFilter.include(to)));
   }
 
-  private Collection<String> aggregateRelationshipsBySpinnakerKind(
-      CacheData source, SpinnakerKind kind) {
-    return relationshipTypes(kind)
-        .flatMap(t -> relationshipKeys(source, t))
-        .collect(Collectors.toList());
+  /** Returns a collection of all relationships of a given SpinnakerKind for a CacheData. */
+  ImmutableCollection<String> getRelationshipKeys(
+      CacheData cacheData, SpinnakerKind spinnakerKind) {
+    return relationshipTypes(spinnakerKind)
+        .flatMap(t -> relationshipKeys(cacheData, t))
+        .collect(toImmutableList());
   }
 
   public Collection<CacheData> getTransitiveRelationship(
@@ -96,7 +100,7 @@ public class KubernetesCacheUtils {
         sourceData.stream().flatMap(cd -> relationshipKeys(cd, to)).collect(Collectors.toList()));
   }
 
-  public Collection<CacheData> getAllRelationshipsOfSpinnakerKind(
+  public Collection<CacheData> getRelationships(
       Collection<CacheData> cacheData, SpinnakerKind spinnakerKind) {
     return relationshipTypes(spinnakerKind)
         .map(kind -> loadRelationshipsFromCache(cacheData, kind))
@@ -127,7 +131,7 @@ public class KubernetesCacheUtils {
     Map<String, List<CacheData>> result = new HashMap<>();
 
     for (CacheData datum : targetData) {
-      Collection<String> sourceKeys = aggregateRelationshipsBySpinnakerKind(datum, sourceKind);
+      Collection<String> sourceKeys = getRelationshipKeys(datum, sourceKind);
 
       for (String sourceKey : sourceKeys) {
         List<CacheData> storedData = result.getOrDefault(sourceKey, new ArrayList<>());
