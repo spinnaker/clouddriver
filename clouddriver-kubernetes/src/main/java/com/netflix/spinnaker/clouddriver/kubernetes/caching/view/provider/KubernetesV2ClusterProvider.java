@@ -156,18 +156,11 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
     return serverGroupData
         .map(
             cd -> {
-              List<CacheData> instanceData =
-                  kindMap.translateSpinnakerKind(INSTANCES).stream()
-                      .map(k -> cacheUtils.getRelationships(ImmutableList.of(cd), k.toString()))
-                      .flatMap(Collection::stream)
-                      .collect(Collectors.toList());
+              Collection<CacheData> instanceData =
+                  cacheUtils.getRelationships(ImmutableList.of(cd), INSTANCES);
 
-              List<String> loadBalancerKeys =
-                  kindMap.translateSpinnakerKind(LOAD_BALANCERS).stream()
-                      .map(k -> cacheUtils.getRelationships(ImmutableList.of(cd), k.toString()))
-                      .flatMap(Collection::stream)
-                      .map(CacheData::getId)
-                      .collect(Collectors.toList());
+              Collection<String> loadBalancerKeys =
+                  cacheUtils.getRelationshipKeys(cd, LOAD_BALANCERS);
 
               return serverGroupFromCacheData(
                   KubernetesV2ServerGroupCacheData.builder()
@@ -206,25 +199,10 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
   }
 
   private Set<KubernetesV2Cluster> loadClusters(Collection<CacheData> clusterData) {
-    // TODO(lwander) possible optimization: store lb relationships in cluster object to cut down on
-    // number of loads here.
-    List<CacheData> serverGroupData =
-        kindMap.translateSpinnakerKind(SERVER_GROUPS).stream()
-            .map(kind -> cacheUtils.getRelationships(clusterData, kind.toString()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
-
-    List<CacheData> loadBalancerData =
-        kindMap.translateSpinnakerKind(LOAD_BALANCERS).stream()
-            .map(kind -> cacheUtils.getRelationships(serverGroupData, kind.toString()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
-
-    List<CacheData> instanceData =
-        kindMap.translateSpinnakerKind(INSTANCES).stream()
-            .map(kind -> cacheUtils.getRelationships(serverGroupData, kind.toString()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
+    Collection<CacheData> serverGroupData = cacheUtils.getRelationships(clusterData, SERVER_GROUPS);
+    Collection<CacheData> loadBalancerData =
+        cacheUtils.getRelationships(serverGroupData, LOAD_BALANCERS);
+    Collection<CacheData> instanceData = cacheUtils.getRelationships(serverGroupData, INSTANCES);
 
     Map<String, List<CacheData>> clusterToServerGroups = new HashMap<>();
     for (CacheData serverGroupDatum : serverGroupData) {

@@ -108,7 +108,8 @@ class KubernetesCacheUtils {
   }
 
   /** Gets the data for all relationships of a given type for a collection of CacheData items. */
-  Collection<CacheData> getRelationships(Collection<CacheData> sources, String relationshipType) {
+  private Collection<CacheData> getRelationships(
+      Collection<CacheData> sources, String relationshipType) {
     return cache.getAll(
         relationshipType,
         sources.stream()

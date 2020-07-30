@@ -118,17 +118,9 @@ public class KubernetesV2LoadBalancerProvider
 
   private Set<KubernetesV2LoadBalancer> fromLoadBalancerCacheData(
       List<CacheData> loadBalancerData) {
-    List<CacheData> serverGroupData =
-        kindMap.translateSpinnakerKind(SERVER_GROUPS).stream()
-            .map(kind -> cacheUtils.getRelationships(loadBalancerData, kind.toString()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
-
-    List<CacheData> instanceData =
-        kindMap.translateSpinnakerKind(INSTANCES).stream()
-            .map(kind -> cacheUtils.getRelationships(serverGroupData, kind.toString()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
+    Collection<CacheData> serverGroupData =
+        cacheUtils.getRelationships(loadBalancerData, SERVER_GROUPS);
+    Collection<CacheData> instanceData = cacheUtils.getRelationships(serverGroupData, INSTANCES);
 
     ImmutableMultimap<String, CacheData> loadBalancerToServerGroups =
         cacheUtils.mapByRelationship(serverGroupData, LOAD_BALANCERS);
