@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.LOAD_BALANCERS;
@@ -24,6 +25,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.description.Spinnaker
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
@@ -102,18 +104,16 @@ public class KubernetesV2LoadBalancerProvider
 
   @Override
   public Set<KubernetesV2LoadBalancer> getApplicationLoadBalancers(String application) {
-    List<CacheData> loadBalancerData =
-        kindMap.translateSpinnakerKind(LOAD_BALANCERS).stream()
-            .map(
-                kind ->
-                    cacheUtils.getRelationships(
-                        APPLICATIONS.toString(),
-                        ApplicationCacheKey.createKey(application),
-                        kind.toString()))
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
-
-    return fromLoadBalancerCacheData(loadBalancerData);
+    return cacheUtils
+        .getSingleEntry(APPLICATIONS.toString(), ApplicationCacheKey.createKey(application))
+        .map(
+            applicationData ->
+                fromLoadBalancerCacheData(
+                    kindMap.translateSpinnakerKind(LOAD_BALANCERS).stream()
+                        .map(kind -> cacheUtils.getRelationships(applicationData, kind.toString()))
+                        .flatMap(Collection::stream)
+                        .collect(toImmutableList())))
+        .orElseGet(ImmutableSet::of);
   }
 
   private Set<KubernetesV2LoadBalancer> fromLoadBalancerCacheData(

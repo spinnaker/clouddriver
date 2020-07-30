@@ -21,7 +21,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -91,12 +90,8 @@ public class KubernetesCacheUtils {
         .collect(toImmutableList());
   }
 
-  public Collection<CacheData> getRelationships(String from, String sourceKey, String to) {
-    CacheData sourceData = cache.get(from, sourceKey, RelationshipCacheFilter.include(to));
-    if (sourceData == null) {
-      return ImmutableList.of();
-    }
-    return cache.getAll(to, relationshipKeys(sourceData, to).collect(toImmutableSet()));
+  public Collection<CacheData> getRelationships(@Nonnull CacheData cacheData, String to) {
+    return cache.getAll(to, relationshipKeys(cacheData, to).collect(toImmutableSet()));
   }
 
   public Collection<CacheData> getRelationships(

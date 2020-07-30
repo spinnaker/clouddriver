@@ -129,13 +129,10 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(data);
     String namespace = manifest.getNamespace();
     KubernetesKind kind = manifest.getKind();
-    String key = data.getId();
 
     List<KubernetesManifest> events =
         includeEvents
-            ? cacheUtils
-                .getRelationships(kind.toString(), key, KubernetesKind.EVENT.toString())
-                .stream()
+            ? cacheUtils.getRelationships(data, KubernetesKind.EVENT.toString()).stream()
                 .map(KubernetesCacheDataConverter::getManifest)
                 .collect(Collectors.toList())
             : ImmutableList.of();

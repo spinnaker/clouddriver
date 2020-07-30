@@ -81,8 +81,13 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
     String applicationKey = Keys.ApplicationCacheKey.createKey(application);
     return groupByAccountName(
         loadClusterSummaries(
-            cacheUtils.getRelationships(
-                APPLICATIONS.toString(), applicationKey, CLUSTERS.toString())));
+            cacheUtils
+                .getSingleEntryWithRelationships(
+                    APPLICATIONS.toString(),
+                    applicationKey,
+                    RelationshipCacheFilter.include(CLUSTERS.toString()))
+                .map(d -> cacheUtils.getRelationships(d, CLUSTERS.toString()))
+                .orElseGet(ImmutableList::of)));
   }
 
   @Override
