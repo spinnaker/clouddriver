@@ -187,6 +187,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
                   loadServerGroups(clusterServerGroups);
               List<KubernetesV2LoadBalancer> loadBalancers =
                   cacheUtils.getRelationships(clusterServerGroups, LOAD_BALANCERS).values().stream()
+                      .filter(cacheUtils.distinctById())
                       .map(
                           cd ->
                               KubernetesV2LoadBalancer.fromCacheData(

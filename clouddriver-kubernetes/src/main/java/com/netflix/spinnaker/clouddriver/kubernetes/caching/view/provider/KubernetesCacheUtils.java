@@ -40,8 +40,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -169,6 +172,15 @@ class KubernetesCacheUtils {
   RelationshipCacheFilter getCacheFilter(Collection<SpinnakerKind> spinnakerKinds) {
     return RelationshipCacheFilter.include(
         spinnakerKinds.stream().flatMap(this::relationshipTypes).toArray(String[]::new));
+  }
+
+  /**
+   * Returns a Predicate that returns true the first time it sees a CacheData with a given id, and
+   * false all subsequent times.
+   */
+  Predicate<CacheData> distinctById() {
+    Set<String> seen = new HashSet<>();
+    return cd -> seen.add(cd.getId());
   }
 
   KubernetesHandler getHandler(KubernetesV2CacheData cacheData) {

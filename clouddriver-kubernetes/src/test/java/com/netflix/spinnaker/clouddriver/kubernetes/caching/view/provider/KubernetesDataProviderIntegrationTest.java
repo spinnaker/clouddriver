@@ -551,9 +551,7 @@ final class KubernetesDataProviderIntegrationTest {
 
     if (includeDetails) {
       assertFrontendServerGroups(softly, cluster.getServerGroups());
-      // TODO(ezimanyi): The same load balancer is being returned multiple times (likely due to
-      // finding all relationships to it). This should be fixed to return it only once.
-      softly.assertThat(cluster.getLoadBalancers()).hasSize(2);
+      softly.assertThat(cluster.getLoadBalancers()).hasSize(1);
       if (!cluster.getLoadBalancers().isEmpty()) {
         assertFrontendLoadBalancer(softly, cluster.getLoadBalancers().iterator().next());
       }
