@@ -41,7 +41,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.Kubernete
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
@@ -54,7 +53,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
@@ -64,12 +62,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2Cluster> {
   private final KubernetesCacheUtils cacheUtils;
-  private final KubernetesSpinnakerKindMap kindMap;
+  private final RelationshipCacheFilter serverGroupRelationships;
 
   @Autowired
-  KubernetesV2ClusterProvider(KubernetesCacheUtils cacheUtils, KubernetesSpinnakerKindMap kindMap) {
+  KubernetesV2ClusterProvider(KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
-    this.kindMap = kindMap;
+    this.serverGroupRelationships =
+        cacheUtils.getCacheFilter(
+            ImmutableList.of(INSTANCES, LOAD_BALANCERS, SERVER_GROUP_MANAGERS));
   }
 
   @Override
@@ -140,16 +140,8 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
     String shortName = parsedName.getRight();
     String key = InfrastructureCacheKey.createKey(kind, account, namespace, shortName);
 
-    String[] relatedTypes =
-        Stream.of(INSTANCES, LOAD_BALANCERS, SERVER_GROUP_MANAGERS)
-            .map(kindMap::translateSpinnakerKind)
-            .flatMap(Collection::stream)
-            .map(KubernetesKind::toString)
-            .toArray(String[]::new);
-
     Optional<CacheData> serverGroupData =
-        cacheUtils.getSingleEntryWithRelationships(
-            kind.toString(), key, RelationshipCacheFilter.include(relatedTypes));
+        cacheUtils.getSingleEntryWithRelationships(kind.toString(), key, serverGroupRelationships);
 
     return serverGroupData
         .map(cacheData -> loadServerGroups(ImmutableList.of(cacheData)).get(cacheData.getId()))

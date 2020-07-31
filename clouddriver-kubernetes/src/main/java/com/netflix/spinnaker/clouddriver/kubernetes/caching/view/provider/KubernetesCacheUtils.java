@@ -155,6 +155,15 @@ class KubernetesCacheUtils {
     return kindMap.translateSpinnakerKind(spinnakerKind).stream().map(KubernetesKind::toString);
   }
 
+  /**
+   * Given a collection of Spinnaker kinds, return a cache filter restricting relationships to those
+   * kinds.
+   */
+  RelationshipCacheFilter getCacheFilter(Collection<SpinnakerKind> spinnakerKinds) {
+    return RelationshipCacheFilter.include(
+        spinnakerKinds.stream().flatMap(this::relationshipTypes).toArray(String[]::new));
+  }
+
   KubernetesHandler getHandler(KubernetesV2CacheData cacheData) {
     Keys.InfrastructureCacheKey key =
         (Keys.InfrastructureCacheKey) Keys.parseKey(cacheData.primaryData().getId()).get();

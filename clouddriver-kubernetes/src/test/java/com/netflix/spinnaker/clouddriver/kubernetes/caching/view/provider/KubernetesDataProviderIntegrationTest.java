@@ -147,7 +147,7 @@ final class KubernetesDataProviderIntegrationTest {
   private static KubernetesV2ApplicationProvider applicationProvider =
       new KubernetesV2ApplicationProvider(cacheUtils);
   private static KubernetesV2ClusterProvider clusterProvider =
-      new KubernetesV2ClusterProvider(cacheUtils, kindMap);
+      new KubernetesV2ClusterProvider(cacheUtils);
   private static KubernetesV2InstanceProvider instanceProvider =
       new KubernetesV2InstanceProvider(cacheUtils, accountResolver);
   private static KubernetesV2LoadBalancerProvider loadBalancerProvider =
