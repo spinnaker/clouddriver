@@ -43,6 +43,10 @@ public interface KubernetesCredentialFactory<C extends KubernetesCredentials> {
   default String getKubeconfigFile(
       ConfigFileService configFileService,
       KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+    if (managedAccount.isServiceAccount()) {
+      return "";
+    }
+
     if (StringUtils.isNotEmpty(managedAccount.getKubeconfigFile())) {
       return configFileService.getLocalPath(managedAccount.getKubeconfigFile());
     }

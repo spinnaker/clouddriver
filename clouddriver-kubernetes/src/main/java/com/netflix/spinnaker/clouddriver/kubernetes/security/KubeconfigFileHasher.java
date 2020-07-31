@@ -26,6 +26,9 @@ import lombok.extern.slf4j.Slf4j;
 public class KubeconfigFileHasher {
 
   public static String hashKubeconfigFile(String filepath) {
+    if (filepath == null || filepath.isEmpty()) {
+      return "";
+    }
     try {
       byte[] contents = Files.readAllBytes(Paths.get(filepath));
       return Hashing.sha256().hashBytes(contents).toString();
