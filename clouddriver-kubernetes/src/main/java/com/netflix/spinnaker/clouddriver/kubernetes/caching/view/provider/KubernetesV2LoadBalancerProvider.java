@@ -107,9 +107,7 @@ public class KubernetesV2LoadBalancerProvider
         .map(
             applicationData ->
                 fromLoadBalancerCacheData(
-                    cacheUtils
-                        .getRelationships(ImmutableList.of(applicationData), LOAD_BALANCERS)
-                        .get(applicationData.getId())))
+                    cacheUtils.getRelationships(applicationData, LOAD_BALANCERS)))
         .orElseGet(ImmutableSet::of);
   }
 

@@ -22,6 +22,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutableSetMultimap;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -105,6 +106,12 @@ class KubernetesCacheUtils {
   Collection<CacheData> getRelationships(CacheData cacheData, String relationshipType) {
     return cache.getAll(
         relationshipType, relationshipKeys(cacheData, relationshipType).collect(toImmutableSet()));
+  }
+
+  /** Gets the data for all relationships of a given Spinnaker kind for a single CacheData item. */
+  ImmutableCollection<CacheData> getRelationships(
+      CacheData cacheData, SpinnakerKind spinnakerKind) {
+    return getRelationships(ImmutableList.of(cacheData), spinnakerKind).get(cacheData.getId());
   }
 
   /**

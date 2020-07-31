@@ -22,7 +22,6 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.description.Spinnaker
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUP_MANAGERS;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
@@ -60,9 +59,7 @@ public class KubernetesV2ServerGroupManagerProvider
     }
 
     ImmutableCollection<CacheData> serverGroupManagerData =
-        cacheUtils
-            .getRelationships(ImmutableList.of(applicationDatum), SERVER_GROUP_MANAGERS)
-            .get(applicationDatum.getId());
+        cacheUtils.getRelationships(applicationDatum, SERVER_GROUP_MANAGERS);
 
     ImmutableMultimap<String, CacheData> managerToServerGroupMap =
         cacheUtils.getRelationships(serverGroupManagerData, SERVER_GROUPS);
