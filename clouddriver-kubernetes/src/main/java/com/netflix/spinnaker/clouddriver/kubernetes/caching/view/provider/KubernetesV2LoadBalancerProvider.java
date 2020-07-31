@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.INSTANCES;
@@ -34,7 +33,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ApplicationCach
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
@@ -57,13 +55,10 @@ import org.springframework.stereotype.Component;
 public class KubernetesV2LoadBalancerProvider
     implements LoadBalancerProvider<KubernetesV2LoadBalancer> {
   private final KubernetesCacheUtils cacheUtils;
-  private final KubernetesSpinnakerKindMap kindMap;
 
   @Autowired
-  KubernetesV2LoadBalancerProvider(
-      KubernetesCacheUtils cacheUtils, KubernetesSpinnakerKindMap kindMap) {
+  KubernetesV2LoadBalancerProvider(KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
-    this.kindMap = kindMap;
   }
 
   @Override
@@ -112,10 +107,9 @@ public class KubernetesV2LoadBalancerProvider
         .map(
             applicationData ->
                 fromLoadBalancerCacheData(
-                    kindMap.translateSpinnakerKind(LOAD_BALANCERS).stream()
-                        .map(kind -> cacheUtils.getRelationships(applicationData, kind.toString()))
-                        .flatMap(Collection::stream)
-                        .collect(toImmutableList())))
+                    cacheUtils
+                        .getRelationships(ImmutableList.of(applicationData), LOAD_BALANCERS)
+                        .get(applicationData.getId())))
         .orElseGet(ImmutableSet::of);
   }
 
