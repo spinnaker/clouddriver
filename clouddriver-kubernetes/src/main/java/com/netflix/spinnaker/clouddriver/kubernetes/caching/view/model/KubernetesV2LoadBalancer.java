@@ -18,24 +18,28 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
+import com.netflix.spinnaker.moniker.Moniker;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-@EqualsAndHashCode(callSuper = true)
 @Slf4j
 @Value
-public final class KubernetesV2LoadBalancer extends ManifestBasedModel
-    implements LoadBalancer, LoadBalancerProvider.Details {
+public final class KubernetesV2LoadBalancer
+    implements KubernetesResource, LoadBalancer, LoadBalancerProvider.Details {
   private final Set<LoadBalancerServerGroup> serverGroups;
   private final KubernetesManifest manifest;
   private final String account;
@@ -57,5 +61,58 @@ public final class KubernetesV2LoadBalancer extends ManifestBasedModel
       return null;
     }
     return new KubernetesV2LoadBalancer(manifest, cd.getId(), loadBalancerServerGroups);
+  }
+
+  @Override
+  public String getType() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public String getName() {
+    return getManifest().getFullResourceName();
+  }
+
+  @Override
+  public String getDisplayName() {
+    return getManifest().getName();
+  }
+
+  @Override
+  public KubernetesApiVersion getApiVersion() {
+    return getManifest().getApiVersion();
+  }
+
+  @Override
+  public String getNamespace() {
+    return getManifest().getNamespace();
+  }
+
+  public String getRegion() {
+    return getManifest().getNamespace();
+  }
+
+  @Override
+  public String getCloudProvider() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public Map<String, String> getLabels() {
+    return getManifest().getLabels();
+  }
+
+  @Override
+  public KubernetesKind getKind() {
+    return getManifest().getKind();
+  }
+
+  @Override
+  public Moniker getMoniker() {
+    return NamerRegistry.lookup()
+        .withProvider(KubernetesCloudProvider.ID)
+        .withAccount(account)
+        .withResource(KubernetesManifest.class)
+        .deriveMoniker(manifest);
   }
 }

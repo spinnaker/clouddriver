@@ -24,6 +24,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
@@ -32,6 +33,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.model.SecurityGroup;
 import com.netflix.spinnaker.clouddriver.model.SecurityGroupSummary;
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule;
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
+import com.netflix.spinnaker.moniker.Moniker;
 import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.openapi.models.V1NetworkPolicy;
 import io.kubernetes.client.openapi.models.V1NetworkPolicyEgressRule;
@@ -39,6 +42,7 @@ import io.kubernetes.client.openapi.models.V1NetworkPolicyIngressRule;
 import io.kubernetes.client.openapi.models.V1NetworkPolicyPort;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
@@ -53,10 +57,9 @@ import lombok.NoArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-@EqualsAndHashCode(callSuper = true)
 @Slf4j
 @Value
-public final class KubernetesV2SecurityGroup extends ManifestBasedModel implements SecurityGroup {
+public final class KubernetesV2SecurityGroup implements KubernetesResource, SecurityGroup {
   private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =
       ImmutableSet.of(EXTENSIONS_V1BETA1, NETWORKING_K8S_IO_V1BETA1, NETWORKING_K8S_IO_V1);
 
@@ -67,6 +70,7 @@ public final class KubernetesV2SecurityGroup extends ManifestBasedModel implemen
   private final Set<Rule> inboundRules;
   private final Set<Rule> outboundRules;
 
+  @Override
   public String getAccountName() {
     return account;
   }
@@ -157,6 +161,60 @@ public final class KubernetesV2SecurityGroup extends ManifestBasedModel implemen
             port == null
                 ? null
                 : new TreeSet<>(ImmutableList.of(new StringPortRange(port.toString()))));
+  }
+
+  @Override
+  public String getType() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public String getName() {
+    return getManifest().getFullResourceName();
+  }
+
+  @Override
+  public String getDisplayName() {
+    return getManifest().getName();
+  }
+
+  @Override
+  public KubernetesApiVersion getApiVersion() {
+    return getManifest().getApiVersion();
+  }
+
+  @Override
+  public String getNamespace() {
+    return getManifest().getNamespace();
+  }
+
+  @Override
+  public String getRegion() {
+    return getManifest().getNamespace();
+  }
+
+  @Override
+  public String getCloudProvider() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public Map<String, String> getLabels() {
+    return getManifest().getLabels();
+  }
+
+  @Override
+  public KubernetesKind getKind() {
+    return getManifest().getKind();
+  }
+
+  @Override
+  public Moniker getMoniker() {
+    return NamerRegistry.lookup()
+        .withProvider(KubernetesCloudProvider.ID)
+        .withAccount(getAccount())
+        .withResource(KubernetesManifest.class)
+        .deriveMoniker(manifest);
   }
 
   @Data

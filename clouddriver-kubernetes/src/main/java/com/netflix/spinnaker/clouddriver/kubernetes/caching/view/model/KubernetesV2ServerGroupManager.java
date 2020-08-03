@@ -17,24 +17,28 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManager;
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
+import com.netflix.spinnaker.moniker.Moniker;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-@EqualsAndHashCode(callSuper = true)
 @Slf4j
 @Value
-public final class KubernetesV2ServerGroupManager extends ManifestBasedModel
-    implements ServerGroupManager {
+public final class KubernetesV2ServerGroupManager
+    implements KubernetesResource, ServerGroupManager {
   private final KubernetesManifest manifest;
   private final String account;
   private final Set<KubernetesV2ServerGroupSummary> serverGroups;
@@ -68,5 +72,53 @@ public final class KubernetesV2ServerGroupManager extends ManifestBasedModel
 
     return new KubernetesV2ServerGroupManager(
         manifest, data.getServerGroupManagerData().getId(), serverGroups);
+  }
+
+  @Override
+  public String getName() {
+    return getManifest().getFullResourceName();
+  }
+
+  @Override
+  public String getDisplayName() {
+    return getManifest().getName();
+  }
+
+  @Override
+  public KubernetesApiVersion getApiVersion() {
+    return getManifest().getApiVersion();
+  }
+
+  @Override
+  public String getNamespace() {
+    return getManifest().getNamespace();
+  }
+
+  @Override
+  public String getRegion() {
+    return getManifest().getNamespace();
+  }
+
+  public String getCloudProvider() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public Map<String, String> getLabels() {
+    return getManifest().getLabels();
+  }
+
+  @Override
+  public KubernetesKind getKind() {
+    return getManifest().getKind();
+  }
+
+  @Override
+  public Moniker getMoniker() {
+    return NamerRegistry.lookup()
+        .withProvider(KubernetesCloudProvider.ID)
+        .withAccount(account)
+        .withResource(KubernetesManifest.class)
+        .deriveMoniker(manifest);
   }
 }

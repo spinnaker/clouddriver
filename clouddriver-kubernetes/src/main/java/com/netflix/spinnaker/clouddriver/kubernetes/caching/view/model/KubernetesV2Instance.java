@@ -18,13 +18,18 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.provider.KubernetesModelUtil;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
+import com.netflix.spinnaker.moniker.Moniker;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,14 +37,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.validation.constraints.Null;
-import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-@EqualsAndHashCode(callSuper = true)
 @Slf4j
 @Value
-public final class KubernetesV2Instance extends ManifestBasedModel implements Instance {
+public final class KubernetesV2Instance implements Instance, KubernetesResource {
   private final List<Map<String, Object>> health;
   private final KubernetesManifest manifest;
   private final String account;
@@ -102,6 +105,7 @@ public final class KubernetesV2Instance extends ManifestBasedModel implements In
         .build();
   }
 
+  @Override
   public HealthState getHealthState() {
     return KubernetesModelUtil.getHealthState(health);
   }
@@ -109,11 +113,61 @@ public final class KubernetesV2Instance extends ManifestBasedModel implements In
   // An implementor of the Instance interface is implicitly expected to return a globally-unique ID
   // as its name because InstanceViewModel serializes it as such for API responses and Deck then
   // relies on it to disambiguate between instances.
+  @Override
   public String getName() {
-    return super.getUid();
+    return getManifest().getUid();
   }
 
+  @Override
   public String getHumanReadableName() {
-    return super.getName();
+    return getManifest().getFullResourceName();
+  }
+
+  @Override
+  public String getZone() {
+    return getManifest().getNamespace();
+  }
+
+  @Override
+  public String getProviderType() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public String getDisplayName() {
+    return getManifest().getName();
+  }
+
+  @Override
+  public KubernetesApiVersion getApiVersion() {
+    return getManifest().getApiVersion();
+  }
+
+  @Override
+  public String getNamespace() {
+    return getManifest().getNamespace();
+  }
+
+  @Override
+  public String getCloudProvider() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public Map<String, String> getLabels() {
+    return getManifest().getLabels();
+  }
+
+  @Override
+  public KubernetesKind getKind() {
+    return getManifest().getKind();
+  }
+
+  public Moniker getMoniker() {
+    return NamerRegistry.lookup()
+        .withProvider(KubernetesCloudProvider.ID)
+        .withAccount(account)
+        .withResource(KubernetesManifest.class)
+        .deriveMoniker(manifest);
   }
 }

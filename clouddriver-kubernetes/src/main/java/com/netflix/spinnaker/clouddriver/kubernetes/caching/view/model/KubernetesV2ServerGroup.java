@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,6 +30,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestTraffic;
@@ -36,7 +39,11 @@ import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManager.ServerGroupManagerSummary;
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import com.netflix.spinnaker.moniker.Moniker;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,14 +54,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.validation.constraints.Null;
-import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-@EqualsAndHashCode(callSuper = true)
 @Slf4j
 @Value
-public final class KubernetesV2ServerGroup extends ManifestBasedModel implements ServerGroup {
+public final class KubernetesV2ServerGroup implements KubernetesResource, ServerGroup {
   private final boolean disabled;
   private final Set<KubernetesV2Instance> instances;
   private final Set<String> loadBalancers;
@@ -274,5 +279,75 @@ public final class KubernetesV2ServerGroup extends ManifestBasedModel implements
                     .build();
               }
             });
+  }
+
+  @Override
+  public Long getCreatedTime() {
+    Map<String, String> metadata =
+        (Map<String, String>) getManifest().getOrDefault("metadata", new HashMap<>());
+    String timestamp = metadata.get("creationTimestamp");
+    try {
+      if (!Strings.isNullOrEmpty(timestamp)) {
+        return (new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX").parse(timestamp)).getTime();
+      }
+    } catch (ParseException e) {
+      log.warn("Failed to parse timestamp: ", e);
+    }
+
+    return null;
+  }
+
+  @Override
+  public String getType() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public String getName() {
+    return getManifest().getFullResourceName();
+  }
+
+  @Override
+  public String getDisplayName() {
+    return getManifest().getName();
+  }
+
+  @Override
+  public KubernetesApiVersion getApiVersion() {
+    return getManifest().getApiVersion();
+  }
+
+  @Override
+  public String getNamespace() {
+    return getManifest().getNamespace();
+  }
+
+  @Override
+  public String getRegion() {
+    return getManifest().getNamespace();
+  }
+
+  @Override
+  public String getCloudProvider() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public Map<String, String> getLabels() {
+    return getManifest().getLabels();
+  }
+
+  @Override
+  public KubernetesKind getKind() {
+    return getManifest().getKind();
+  }
+
+  @Override
+  public Moniker getMoniker() {
+    return NamerRegistry.lookup()
+        .withProvider(KubernetesCloudProvider.ID)
+        .withAccount(account)
+        .withResource(KubernetesManifest.class)
+        .deriveMoniker(manifest);
   }
 }
