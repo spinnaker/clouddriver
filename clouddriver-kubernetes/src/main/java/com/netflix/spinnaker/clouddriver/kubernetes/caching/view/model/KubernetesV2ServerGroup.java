@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -44,7 +46,6 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -106,14 +107,13 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
         .build();
   }
 
-  public Map<String, Object> getBuildInfo() {
-    return new ImmutableMap.Builder<String, Object>()
-        .put(
-            "images",
-            dockerImageReplacer.findAll(getManifest()).stream()
-                .map(Artifact::getReference)
-                .collect(Collectors.toSet()))
-        .build();
+  public ImmutableMap<String, ImmutableList<String>> getBuildInfo() {
+    return ImmutableMap.of(
+        "images",
+        dockerImageReplacer.findAll(getManifest()).stream()
+            .map(Artifact::getReference)
+            .distinct()
+            .collect(toImmutableList()));
   }
 
   @Override
@@ -246,39 +246,12 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
 
   @Override
   public ImagesSummary getImagesSummary() {
-    Map<String, Object> buildInfo = getBuildInfo();
-    Set<String> images = (HashSet<String>) buildInfo.get("images");
     return () ->
         ImmutableList.of(
-            new ImageSummary() {
-
-              @Override
-              public String getServerGroupName() {
-                return getManifest().getName();
-              }
-
-              @Override
-              public String getImageId() {
-                return null;
-              }
-
-              @Override
-              public String getImageName() {
-                return null;
-              }
-
-              @Override
-              public Map<String, Object> getImage() {
-                return null;
-              }
-
-              @Override
-              public Map<String, Object> getBuildInfo() {
-                return new ImmutableMap.Builder<String, Object>()
-                    .put("images", new ArrayList<>(images))
-                    .build();
-              }
-            });
+            KubernetesV2ImageSummary.builder()
+                .serverGroupName(getManifest().getName())
+                .buildInfo(getBuildInfo())
+                .build());
   }
 
   @Override
