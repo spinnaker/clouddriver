@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
@@ -44,8 +45,18 @@ import lombok.extern.slf4j.Slf4j;
 @Value
 public final class KubernetesV2Instance implements Instance, KubernetesResource {
   private final List<Map<String, Object>> health;
-  private final KubernetesManifest manifest;
   private final String account;
+  // An implementor of the Instance interface is implicitly expected to return a globally-unique ID
+  // as its name because InstanceViewModel serializes it as such for API responses and Deck then
+  // relies on it to disambiguate between instances.
+  private final String name;
+  private final String humanReadableName;
+  private final String namespace;
+  private final String displayName;
+  private final KubernetesApiVersion apiVersion;
+  private final KubernetesKind kind;
+  private final Map<String, String> labels;
+  private final Moniker moniker;
 
   @Null
   @Override
@@ -54,12 +65,24 @@ public final class KubernetesV2Instance implements Instance, KubernetesResource 
   }
 
   private KubernetesV2Instance(KubernetesManifest manifest, String key) {
-    this.manifest = manifest;
     this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
-    this.health = new ArrayList<>();
+    this.name = manifest.getUid();
+    this.humanReadableName = manifest.getFullResourceName();
+    this.namespace = manifest.getNamespace();
+    this.displayName = manifest.getName();
+    this.apiVersion = manifest.getApiVersion();
+    this.kind = manifest.getKind();
+    this.labels = ImmutableMap.copyOf(manifest.getLabels());
+    this.moniker =
+        NamerRegistry.lookup()
+            .withProvider(KubernetesCloudProvider.ID)
+            .withAccount(account)
+            .withResource(KubernetesManifest.class)
+            .deriveMoniker(manifest);
 
+    this.health = new ArrayList<>();
     V1PodStatus status =
-        KubernetesCacheDataConverter.getResource(this.manifest.getStatus(), V1PodStatus.class);
+        KubernetesCacheDataConverter.getResource(manifest.getStatus(), V1PodStatus.class);
     if (status != null) {
       health.add(new KubernetesV2Health(status).toMap());
       if (status.getContainerStatuses() != null) {
@@ -110,22 +133,9 @@ public final class KubernetesV2Instance implements Instance, KubernetesResource 
     return KubernetesModelUtil.getHealthState(health);
   }
 
-  // An implementor of the Instance interface is implicitly expected to return a globally-unique ID
-  // as its name because InstanceViewModel serializes it as such for API responses and Deck then
-  // relies on it to disambiguate between instances.
-  @Override
-  public String getName() {
-    return getManifest().getUid();
-  }
-
-  @Override
-  public String getHumanReadableName() {
-    return getManifest().getFullResourceName();
-  }
-
   @Override
   public String getZone() {
-    return getManifest().getNamespace();
+    return namespace;
   }
 
   @Override
@@ -134,40 +144,7 @@ public final class KubernetesV2Instance implements Instance, KubernetesResource 
   }
 
   @Override
-  public String getDisplayName() {
-    return getManifest().getName();
-  }
-
-  @Override
-  public KubernetesApiVersion getApiVersion() {
-    return getManifest().getApiVersion();
-  }
-
-  @Override
-  public String getNamespace() {
-    return getManifest().getNamespace();
-  }
-
-  @Override
   public String getCloudProvider() {
     return KubernetesCloudProvider.ID;
-  }
-
-  @Override
-  public Map<String, String> getLabels() {
-    return getManifest().getLabels();
-  }
-
-  @Override
-  public KubernetesKind getKind() {
-    return getManifest().getKind();
-  }
-
-  public Moniker getMoniker() {
-    return NamerRegistry.lookup()
-        .withProvider(KubernetesCloudProvider.ID)
-        .withAccount(account)
-        .withResource(KubernetesManifest.class)
-        .deriveMoniker(manifest);
   }
 }

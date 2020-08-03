@@ -22,6 +22,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion.NETWORKING_K8S_IO_V1BETA1;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
@@ -63,9 +64,14 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
   private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =
       ImmutableSet.of(EXTENSIONS_V1BETA1, NETWORKING_K8S_IO_V1BETA1, NETWORKING_K8S_IO_V1);
 
-  private final KubernetesManifest manifest;
   private final String account;
   private final String id;
+  private final String namespace;
+  private final String displayName;
+  private final KubernetesApiVersion apiVersion;
+  private final KubernetesKind kind;
+  private final Map<String, String> labels;
+  private final Moniker moniker;
 
   private final Set<Rule> inboundRules;
   private final Set<Rule> outboundRules;
@@ -87,9 +93,20 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
 
   private KubernetesV2SecurityGroup(
       KubernetesManifest manifest, String key, Set<Rule> inboundRules, Set<Rule> outboundRules) {
-    this.manifest = manifest;
     this.id = manifest.getFullResourceName();
     this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
+    this.kind = manifest.getKind();
+    this.apiVersion = manifest.getApiVersion();
+    this.displayName = manifest.getName();
+    this.namespace = manifest.getNamespace();
+    this.labels = ImmutableMap.copyOf(manifest.getLabels());
+    this.moniker =
+        NamerRegistry.lookup()
+            .withProvider(KubernetesCloudProvider.ID)
+            .withAccount(account)
+            .withResource(KubernetesManifest.class)
+            .deriveMoniker(manifest);
+
     this.inboundRules = inboundRules;
     this.outboundRules = outboundRules;
   }
@@ -170,51 +187,17 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
 
   @Override
   public String getName() {
-    return getManifest().getFullResourceName();
-  }
-
-  @Override
-  public String getDisplayName() {
-    return getManifest().getName();
-  }
-
-  @Override
-  public KubernetesApiVersion getApiVersion() {
-    return getManifest().getApiVersion();
-  }
-
-  @Override
-  public String getNamespace() {
-    return getManifest().getNamespace();
+    return id;
   }
 
   @Override
   public String getRegion() {
-    return getManifest().getNamespace();
+    return namespace;
   }
 
   @Override
   public String getCloudProvider() {
     return KubernetesCloudProvider.ID;
-  }
-
-  @Override
-  public Map<String, String> getLabels() {
-    return getManifest().getLabels();
-  }
-
-  @Override
-  public KubernetesKind getKind() {
-    return getManifest().getKind();
-  }
-
-  @Override
-  public Moniker getMoniker() {
-    return NamerRegistry.lookup()
-        .withProvider(KubernetesCloudProvider.ID)
-        .withAccount(getAccount())
-        .withResource(KubernetesManifest.class)
-        .deriveMoniker(manifest);
   }
 
   @Data

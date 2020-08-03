@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
@@ -41,13 +42,30 @@ import lombok.extern.slf4j.Slf4j;
 public final class KubernetesV2LoadBalancer
     implements KubernetesResource, LoadBalancer, LoadBalancerProvider.Details {
   private final Set<LoadBalancerServerGroup> serverGroups;
-  private final KubernetesManifest manifest;
   private final String account;
+  private final String name;
+  private final String namespace;
+  private final String displayName;
+  private final KubernetesApiVersion apiVersion;
+  private final KubernetesKind kind;
+  private final Map<String, String> labels;
+  private final Moniker moniker;
 
   private KubernetesV2LoadBalancer(
       KubernetesManifest manifest, String key, Set<LoadBalancerServerGroup> serverGroups) {
-    this.manifest = manifest;
     this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
+    this.name = manifest.getFullResourceName();
+    this.displayName = manifest.getName();
+    this.apiVersion = manifest.getApiVersion();
+    this.kind = manifest.getKind();
+    this.namespace = manifest.getNamespace();
+    this.labels = ImmutableMap.copyOf(manifest.getLabels());
+    this.moniker =
+        NamerRegistry.lookup()
+            .withProvider(KubernetesCloudProvider.ID)
+            .withAccount(account)
+            .withResource(KubernetesManifest.class)
+            .deriveMoniker(manifest);
     this.serverGroups = serverGroups;
   }
 
@@ -68,51 +86,12 @@ public final class KubernetesV2LoadBalancer
     return KubernetesCloudProvider.ID;
   }
 
-  @Override
-  public String getName() {
-    return getManifest().getFullResourceName();
-  }
-
-  @Override
-  public String getDisplayName() {
-    return getManifest().getName();
-  }
-
-  @Override
-  public KubernetesApiVersion getApiVersion() {
-    return getManifest().getApiVersion();
-  }
-
-  @Override
-  public String getNamespace() {
-    return getManifest().getNamespace();
-  }
-
   public String getRegion() {
-    return getManifest().getNamespace();
+    return namespace;
   }
 
   @Override
   public String getCloudProvider() {
     return KubernetesCloudProvider.ID;
-  }
-
-  @Override
-  public Map<String, String> getLabels() {
-    return getManifest().getLabels();
-  }
-
-  @Override
-  public KubernetesKind getKind() {
-    return getManifest().getKind();
-  }
-
-  @Override
-  public Moniker getMoniker() {
-    return NamerRegistry.lookup()
-        .withProvider(KubernetesCloudProvider.ID)
-        .withAccount(account)
-        .withResource(KubernetesManifest.class)
-        .deriveMoniker(manifest);
   }
 }

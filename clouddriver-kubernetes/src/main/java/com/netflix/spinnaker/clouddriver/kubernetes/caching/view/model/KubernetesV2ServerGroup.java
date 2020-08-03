@@ -66,8 +66,16 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
   private final Set<String> loadBalancers;
   private final List<ServerGroupManagerSummary> serverGroupManagers;
   private final Capacity capacity;
-  private final KubernetesManifest manifest;
   private final String account;
+  private final String name;
+  private final String namespace;
+  private final String displayName;
+  private final KubernetesApiVersion apiVersion;
+  private final KubernetesKind kind;
+  private final Map<String, String> labels;
+  private final Moniker moniker;
+  private final Long createdTime;
+  private final ImmutableMap<String, ImmutableList<String>> buildInfo;
 
   private final Set<String> zones = ImmutableSet.of();
   private final Set<String> securityGroups = ImmutableSet.of();
@@ -107,15 +115,6 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
         .build();
   }
 
-  public ImmutableMap<String, ImmutableList<String>> getBuildInfo() {
-    return ImmutableMap.of(
-        "images",
-        dockerImageReplacer.findAll(getManifest()).stream()
-            .map(Artifact::getReference)
-            .distinct()
-            .collect(toImmutableList()));
-  }
-
   @Override
   public Boolean isDisabled() {
     return disabled;
@@ -128,8 +127,27 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
       Set<String> loadBalancers,
       List<ServerGroupManagerSummary> serverGroupManagers,
       Boolean disabled) {
-    this.manifest = manifest;
     this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
+    this.kind = manifest.getKind();
+    this.apiVersion = manifest.getApiVersion();
+    this.namespace = manifest.getNamespace();
+    this.name = manifest.getFullResourceName();
+    this.displayName = manifest.getName();
+    this.labels = ImmutableMap.copyOf(manifest.getLabels());
+    this.moniker =
+        NamerRegistry.lookup()
+            .withProvider(KubernetesCloudProvider.ID)
+            .withAccount(account)
+            .withResource(KubernetesManifest.class)
+            .deriveMoniker(manifest);
+    this.createdTime = getCreatedTime(manifest);
+    this.buildInfo =
+        ImmutableMap.of(
+            "images",
+            dockerImageReplacer.findAll(manifest).stream()
+                .map(Artifact::getReference)
+                .distinct()
+                .collect(toImmutableList()));
     this.instances = new HashSet<>(instances);
     this.loadBalancers = loadBalancers;
     this.serverGroupManagers = serverGroupManagers;
@@ -249,15 +267,14 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
     return () ->
         ImmutableList.of(
             KubernetesV2ImageSummary.builder()
-                .serverGroupName(getManifest().getName())
-                .buildInfo(getBuildInfo())
+                .serverGroupName(displayName)
+                .buildInfo(buildInfo)
                 .build());
   }
 
-  @Override
-  public Long getCreatedTime() {
+  private static Long getCreatedTime(KubernetesManifest manifest) {
     Map<String, String> metadata =
-        (Map<String, String>) getManifest().getOrDefault("metadata", new HashMap<>());
+        (Map<String, String>) manifest.getOrDefault("metadata", new HashMap<>());
     String timestamp = metadata.get("creationTimestamp");
     try {
       if (!Strings.isNullOrEmpty(timestamp)) {
@@ -276,51 +293,12 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
   }
 
   @Override
-  public String getName() {
-    return getManifest().getFullResourceName();
-  }
-
-  @Override
-  public String getDisplayName() {
-    return getManifest().getName();
-  }
-
-  @Override
-  public KubernetesApiVersion getApiVersion() {
-    return getManifest().getApiVersion();
-  }
-
-  @Override
-  public String getNamespace() {
-    return getManifest().getNamespace();
-  }
-
-  @Override
   public String getRegion() {
-    return getManifest().getNamespace();
+    return namespace;
   }
 
   @Override
   public String getCloudProvider() {
     return KubernetesCloudProvider.ID;
-  }
-
-  @Override
-  public Map<String, String> getLabels() {
-    return getManifest().getLabels();
-  }
-
-  @Override
-  public KubernetesKind getKind() {
-    return getManifest().getKind();
-  }
-
-  @Override
-  public Moniker getMoniker() {
-    return NamerRegistry.lookup()
-        .withProvider(KubernetesCloudProvider.ID)
-        .withAccount(account)
-        .withResource(KubernetesManifest.class)
-        .deriveMoniker(manifest);
   }
 }
