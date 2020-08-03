@@ -42,7 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 public final class KubernetesV2Instance extends ManifestBasedModel implements Instance {
   private final List<Map<String, Object>> health;
   private final KubernetesManifest manifest;
-  private final Keys.InfrastructureCacheKey key;
+  private final String account;
 
   @Null
   @Override
@@ -52,7 +52,7 @@ public final class KubernetesV2Instance extends ManifestBasedModel implements In
 
   private KubernetesV2Instance(KubernetesManifest manifest, String key) {
     this.manifest = manifest;
-    this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
+    this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
     this.health = new ArrayList<>();
 
     V1PodStatus status =

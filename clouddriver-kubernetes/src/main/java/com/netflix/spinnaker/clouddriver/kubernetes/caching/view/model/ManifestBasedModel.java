@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
@@ -77,21 +76,13 @@ public abstract class ManifestBasedModel {
   public Moniker getMoniker() {
     return NamerRegistry.lookup()
         .withProvider(KubernetesCloudProvider.ID)
-        .withAccount(getAccountName())
+        .withAccount(getAccount())
         .withResource(KubernetesManifest.class)
         .deriveMoniker(getManifest());
   }
 
   public Map<String, String> getLabels() {
     return getManifest().getLabels();
-  }
-
-  public String getAccountName() {
-    return getKey().getAccount();
-  }
-
-  public String getAccount() {
-    return getAccountName();
   }
 
   public Long getCreatedTime() {
@@ -115,5 +106,5 @@ public abstract class ManifestBasedModel {
 
   protected abstract KubernetesManifest getManifest();
 
-  protected abstract Keys.InfrastructureCacheKey getKey();
+  public abstract String getAccount();
 }

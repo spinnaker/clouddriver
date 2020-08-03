@@ -61,7 +61,7 @@ public final class KubernetesV2ServerGroup extends ManifestBasedModel implements
   private final List<ServerGroupManagerSummary> serverGroupManagers;
   private final Capacity capacity;
   private final KubernetesManifest manifest;
-  private final Keys.InfrastructureCacheKey key;
+  private final String account;
 
   private final Set<String> zones = ImmutableSet.of();
   private final Set<String> securityGroups = ImmutableSet.of();
@@ -124,7 +124,7 @@ public final class KubernetesV2ServerGroup extends ManifestBasedModel implements
       List<ServerGroupManagerSummary> serverGroupManagers,
       Boolean disabled) {
     this.manifest = manifest;
-    this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
+    this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
     this.instances = new HashSet<>(instances);
     this.loadBalancers = loadBalancers;
     this.serverGroupManagers = serverGroupManagers;

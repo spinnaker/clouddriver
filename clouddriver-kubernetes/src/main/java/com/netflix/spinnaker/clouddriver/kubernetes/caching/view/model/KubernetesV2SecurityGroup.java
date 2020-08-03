@@ -61,11 +61,15 @@ public final class KubernetesV2SecurityGroup extends ManifestBasedModel implemen
       ImmutableSet.of(EXTENSIONS_V1BETA1, NETWORKING_K8S_IO_V1BETA1, NETWORKING_K8S_IO_V1);
 
   private final KubernetesManifest manifest;
-  private final Keys.InfrastructureCacheKey key;
+  private final String account;
   private final String id;
 
   private final Set<Rule> inboundRules;
   private final Set<Rule> outboundRules;
+
+  public String getAccountName() {
+    return account;
+  }
 
   @Override
   public String getApplication() {
@@ -81,7 +85,7 @@ public final class KubernetesV2SecurityGroup extends ManifestBasedModel implemen
       KubernetesManifest manifest, String key, Set<Rule> inboundRules, Set<Rule> outboundRules) {
     this.manifest = manifest;
     this.id = manifest.getFullResourceName();
-    this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
+    this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
     this.inboundRules = inboundRules;
     this.outboundRules = outboundRules;
   }

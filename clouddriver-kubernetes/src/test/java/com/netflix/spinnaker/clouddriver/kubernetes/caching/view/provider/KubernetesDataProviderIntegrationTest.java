@@ -596,7 +596,6 @@ final class KubernetesDataProviderIntegrationTest {
     softly.assertThat(serverGroup.getMoniker().getSequence()).isEqualTo(1);
     softly.assertThat(serverGroup.getCapacity().getDesired()).isEqualTo(0);
     softly.assertThat(serverGroup.getAccount()).isEqualTo("my-account");
-    softly.assertThat(serverGroup.getAccountName()).isEqualTo("my-account");
     softly.assertThat(serverGroup.getKind()).isEqualTo(KubernetesKind.REPLICA_SET);
     softly.assertThat(serverGroup.getName()).isEqualTo("replicaSet frontend-64545c4c54");
     softly.assertThat(serverGroup.getInstanceCounts().getUp()).isEqualTo(0);
@@ -634,7 +633,6 @@ final class KubernetesDataProviderIntegrationTest {
     softly.assertThat(serverGroup.getMoniker().getSequence()).isEqualTo(2);
     softly.assertThat(serverGroup.getCapacity().getDesired()).isEqualTo(2);
     softly.assertThat(serverGroup.getAccount()).isEqualTo("my-account");
-    softly.assertThat(serverGroup.getAccountName()).isEqualTo("my-account");
     softly.assertThat(serverGroup.getKind()).isEqualTo(KubernetesKind.REPLICA_SET);
     softly.assertThat(serverGroup.getName()).isEqualTo("replicaSet frontend-5c6559f75f");
     softly.assertThat(serverGroup.getInstanceCounts().getUp()).isEqualTo(2);
@@ -965,7 +963,6 @@ final class KubernetesDataProviderIntegrationTest {
     softly.assertThat(serverGroup.getMoniker().getSequence()).isEqualTo(14);
     softly.assertThat(serverGroup.getCapacity().getDesired()).isEqualTo(1);
     softly.assertThat(serverGroup.getAccount()).isEqualTo("my-account");
-    softly.assertThat(serverGroup.getAccountName()).isEqualTo("my-account");
     softly.assertThat(serverGroup.getKind()).isEqualTo(KubernetesKind.REPLICA_SET);
     softly.assertThat(serverGroup.getName()).isEqualTo("replicaSet backend-v014");
     softly.assertThat(serverGroup.getInstanceCounts().getUp()).isEqualTo(1);
@@ -1002,7 +999,6 @@ final class KubernetesDataProviderIntegrationTest {
     softly.assertThat(serverGroup.getMoniker().getSequence()).isEqualTo(15);
     softly.assertThat(serverGroup.getCapacity().getDesired()).isEqualTo(1);
     softly.assertThat(serverGroup.getAccount()).isEqualTo("my-account");
-    softly.assertThat(serverGroup.getAccountName()).isEqualTo("my-account");
     softly.assertThat(serverGroup.getKind()).isEqualTo(KubernetesKind.REPLICA_SET);
     softly.assertThat(serverGroup.getName()).isEqualTo("replicaSet backend-v015");
     softly.assertThat(serverGroup.getInstanceCounts().getUp()).isEqualTo(1);

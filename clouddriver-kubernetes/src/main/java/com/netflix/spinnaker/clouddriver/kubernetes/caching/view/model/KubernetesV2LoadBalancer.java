@@ -38,12 +38,12 @@ public final class KubernetesV2LoadBalancer extends ManifestBasedModel
     implements LoadBalancer, LoadBalancerProvider.Details {
   private final Set<LoadBalancerServerGroup> serverGroups;
   private final KubernetesManifest manifest;
-  private final Keys.InfrastructureCacheKey key;
+  private final String account;
 
   private KubernetesV2LoadBalancer(
       KubernetesManifest manifest, String key, Set<LoadBalancerServerGroup> serverGroups) {
     this.manifest = manifest;
-    this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
+    this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
     this.serverGroups = serverGroups;
   }
 
