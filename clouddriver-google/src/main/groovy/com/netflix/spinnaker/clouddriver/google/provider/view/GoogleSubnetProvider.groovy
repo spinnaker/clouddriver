@@ -78,7 +78,7 @@ class GoogleSubnetProvider implements SubnetProvider<GoogleSubnet> {
       account: parts.account,
       region: parts.region,
       selfLink: subnet.selfLink,
-      purpose: subnet.purpose
+      purpose: subnet.purpose ?: "n/a"
     )
   }
 
