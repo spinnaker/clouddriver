@@ -20,13 +20,14 @@ package com.netflix.spinnaker.clouddriver.kubernetes.security;
 import com.google.common.hash.Hashing;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class KubeconfigFileHasher {
 
-  public static String hashKubeconfigFile(String filepath) {
-    if (filepath == null || filepath.isEmpty()) {
+  public static String hashKubeconfigFile(@Nonnull String filepath) {
+    if (filepath.isEmpty()) {
       return "";
     }
     try {
