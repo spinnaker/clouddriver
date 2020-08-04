@@ -23,11 +23,12 @@ import com.netflix.spinnaker.cats.agent.AccountAware;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import javax.annotation.Nonnull;
 import lombok.Getter;
 
 public abstract class KubernetesCachingAgent<C extends KubernetesCredentials>
     implements CachingAgent, AccountAware {
-  @Getter protected final String accountName;
+  @Getter @Nonnull protected final String accountName;
   protected final Registry registry;
   protected final C credentials;
   protected final ObjectMapper objectMapper;
