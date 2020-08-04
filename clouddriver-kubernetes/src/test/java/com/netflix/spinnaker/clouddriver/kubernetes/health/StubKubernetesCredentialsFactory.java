@@ -41,9 +41,6 @@ final class StubKubernetesCredentialsFactory<T extends KubernetesCredentials>
   }
 
   @Override
-  public void validateAccount(ManagedAccount managedAccount) {}
-
-  @Override
   public String getKubeconfigFile(
       ConfigFileService configFileService, ManagedAccount managedAccount) {
     return System.getProperty("user.home") + "/.kube/config";

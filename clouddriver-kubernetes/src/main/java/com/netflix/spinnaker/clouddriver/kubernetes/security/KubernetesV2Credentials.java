@@ -698,7 +698,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
     public KubernetesV2Credentials build(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
-      validateAccount(managedAccount);
+      managedAccount.validate();
       NamerRegistry.lookup()
           .withProvider(KubernetesCloudProvider.ID)
           .withAccount(managedAccount.getName())
