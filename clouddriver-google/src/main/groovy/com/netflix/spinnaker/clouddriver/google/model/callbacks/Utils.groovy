@@ -266,7 +266,7 @@ class Utils {
   static List<GoogleBackendService> getBackendServicesFromInternalHttpLoadBalancerView(InternalHttpLbView googleLoadBalancer) {
     List<GoogleBackendService> backendServices = [googleLoadBalancer.defaultService]
     collectBackendServicesFromHostRules(googleLoadBalancer?.hostRules, backendServices)
-    return backendServices.findAll { it != null }
+    return backendServices
   }
 
   static void collectBackendServicesFromHostRules(List<GoogleHostRule> hostRules, List<GoogleBackendService> backendServices) {
@@ -276,7 +276,7 @@ class Utils {
       pathMatcher?.pathRules?.each { GooglePathRule googlePathRule ->
         backendServices << googlePathRule.backendService
       }
-    }
+    }?.findAll { it != null }
   }
 
   static List<String> getBackendServicesFromUrlMap(UrlMap urlMap) {
