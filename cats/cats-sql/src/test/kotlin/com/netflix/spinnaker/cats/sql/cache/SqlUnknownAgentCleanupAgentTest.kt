@@ -51,10 +51,12 @@ class SqlUnknownAgentCleanupAgentTest : JUnit5Minutests {
 
     context("test and prod accounts exist") {
       deriveFixture {
-        fixture.providerAgents.addAll(listOf(
-          testCachingAgent(),
-          prodCachingAgent()
-        ))
+        fixture.providerAgents.addAll(
+          listOf(
+            testCachingAgent(),
+            prodCachingAgent()
+          )
+        )
         seedDatabase(includeTestAccount = true, includeProdAccount = true)
         fixture
       }

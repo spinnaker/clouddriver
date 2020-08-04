@@ -3,7 +3,7 @@ package com.netflix.spinnaker.cats.sql.cache
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
-import com.netflix.spinnaker.cats.cache.DefaultCacheData
+import com.netflix.spinnaker.cats.cache.DefaultJsonCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.cache.WriteableCache
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
@@ -63,8 +63,10 @@ class SqlCache(
     private const val onDemandType = "onDemand"
 
     private val schemaVersion = SqlSchemaVersion.current()
-    private val useRegexp = """.*[\?\[].*""".toRegex()
-    private val cleanRegexp = """\.+\*""".toRegex()
+    private val useRegexp =
+      """.*[\?\[].*""".toRegex()
+    private val cleanRegexp =
+      """\.+\*""".toRegex()
 
     private val log = LoggerFactory.getLogger(SqlCache::class.java)
   }
@@ -852,10 +854,14 @@ class SqlCache(
     if (!createdTables.contains(type)) {
       try {
         withRetry(RetryCategory.WRITE) {
-          jooq.execute("CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(type)} " +
-            "LIKE cats_v${schemaVersion}_resource_template")
-          jooq.execute("CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(type)} " +
-            "LIKE cats_v${schemaVersion}_rel_template")
+          jooq.execute(
+            "CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(type)} " +
+              "LIKE cats_v${schemaVersion}_resource_template"
+          )
+          jooq.execute(
+            "CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(type)} " +
+              "LIKE cats_v${schemaVersion}_rel_template"
+          )
         }
 
         createdTables.add(type)
@@ -867,10 +873,14 @@ class SqlCache(
       // TODO not sure if best schema for onDemand
       try {
         withRetry(RetryCategory.WRITE) {
-          jooq.execute("CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(onDemandType)} " +
-            "LIKE cats_v${schemaVersion}_resource_template")
-          jooq.execute("CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(onDemandType)} " +
-            "LIKE cats_v${schemaVersion}_rel_template")
+          jooq.execute(
+            "CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(onDemandType)} " +
+              "LIKE cats_v${schemaVersion}_resource_template"
+          )
+          jooq.execute(
+            "CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(onDemandType)} " +
+              "LIKE cats_v${schemaVersion}_rel_template"
+          )
         }
 
         createdTables.add(onDemandType)
@@ -970,7 +980,7 @@ class SqlCache(
               .fetch()
               .getValues(0)
               .asSequence()
-              .map { mapper.readValue(it as String, DefaultCacheData::class.java) }
+              .map { mapper.readValue(it as String, DefaultJsonCacheData::class.java) }
               .toList()
           )
         }
@@ -1033,7 +1043,7 @@ class SqlCache(
             .fetch()
             .getValues(0)
             .asSequence()
-            .map { mapper.readValue(it as String, DefaultCacheData::class.java) }
+            .map { mapper.readValue(it as String, DefaultJsonCacheData::class.java) }
             .toList()
         )
       }
@@ -1136,8 +1146,8 @@ class SqlCache(
     relationshipPrefixes: List<String>
   ):
     DataWithRelationshipPointersResult {
-    return getDataWithRelationships(type, emptyList(), relationshipPrefixes)
-  }
+      return getDataWithRelationships(type, emptyList(), relationshipPrefixes)
+    }
 
   private fun getDataWithRelationships(
     type: String,
@@ -1247,7 +1257,7 @@ class SqlCache(
         .where(field("ID").`in`(*ids.toTypedArray()))
         .fetch()
         .getValues(0)
-        .map { mapper.readValue(it as String, DefaultCacheData::class.java) }
+        .map { mapper.readValue(it as String, DefaultJsonCacheData::class.java) }
         .toList()
     }
   }
@@ -1305,7 +1315,7 @@ class SqlCache(
     while (resultSet.next()) {
       if (!resultSet.getString(1).isNullOrBlank()) {
         try {
-          cacheData.add(mapper.readValue(resultSet.getString(1), DefaultCacheData::class.java))
+          cacheData.add(mapper.readValue(resultSet.getString(1), DefaultJsonCacheData::class.java))
         } catch (e: Exception) {
           log.error("Failed to deserialize cached value: type $type, body ${resultSet.getString(1)}", e)
         }

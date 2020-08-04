@@ -17,33 +17,28 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
-import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
-import lombok.Data;
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.EqualsAndHashCode;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @EqualsAndHashCode(callSuper = true)
-@Data
 @Slf4j
-public class KubernetesV2LoadBalancer extends ManifestBasedModel
+@Value
+public final class KubernetesV2LoadBalancer extends ManifestBasedModel
     implements LoadBalancer, LoadBalancerProvider.Details {
-  private Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
-  private KubernetesManifest manifest;
-  private Keys.InfrastructureCacheKey key;
+  private final Set<LoadBalancerServerGroup> serverGroups;
+  private final KubernetesManifest manifest;
+  private final Keys.InfrastructureCacheKey key;
 
   private KubernetesV2LoadBalancer(
       KubernetesManifest manifest, String key, Set<LoadBalancerServerGroup> serverGroups) {
@@ -52,35 +47,15 @@ public class KubernetesV2LoadBalancer extends ManifestBasedModel
     this.serverGroups = serverGroups;
   }
 
+  @Nullable
+  @ParametersAreNonnullByDefault
   public static KubernetesV2LoadBalancer fromCacheData(
-      CacheData cd,
-      List<CacheData> serverGroupData,
-      Map<String, List<CacheData>> serverGroupToInstanceData) {
-    if (cd == null) {
-      return null;
-    }
-
+      CacheData cd, Set<LoadBalancerServerGroup> loadBalancerServerGroups) {
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
-
     if (manifest == null) {
       log.warn("Cache data {} inserted without a manifest", cd.getId());
       return null;
     }
-
-    Set<LoadBalancerServerGroup> serverGroups =
-        serverGroupData.stream()
-            .map(
-                d ->
-                    KubernetesV2ServerGroup.fromCacheData(
-                        KubernetesV2ServerGroupCacheData.builder()
-                            .serverGroupData(d)
-                            .instanceData(serverGroupToInstanceData.get(d.getId()))
-                            .loadBalancerData(ImmutableList.of(cd))
-                            .build()))
-            .filter(Objects::nonNull)
-            .map(KubernetesV2ServerGroup::toLoadBalancerServerGroup)
-            .collect(Collectors.toSet());
-
-    return new KubernetesV2LoadBalancer(manifest, cd.getId(), serverGroups);
+    return new KubernetesV2LoadBalancer(manifest, cd.getId(), loadBalancerServerGroups);
   }
 }
