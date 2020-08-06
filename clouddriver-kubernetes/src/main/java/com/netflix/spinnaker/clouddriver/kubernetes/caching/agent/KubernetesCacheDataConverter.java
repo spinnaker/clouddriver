@@ -32,7 +32,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.CacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ClusterCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -42,7 +41,6 @@ import com.netflix.spinnaker.moniker.Moniker;
 import io.kubernetes.client.openapi.JSON;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -127,12 +125,7 @@ public class KubernetesCacheDataConverter {
       @Nonnull KubernetesKindProperties kindProperties,
       KubernetesManifest manifest,
       List<KubernetesManifest> resourceRelationships) {
-    logMalformedManifest(
-        () -> "Converting " + manifest + " to a cached resource", manifest, kindProperties);
-
     KubernetesKind kind = manifest.getKind();
-
-    KubernetesApiVersion apiVersion = manifest.getApiVersion();
     String name = manifest.getName();
     String namespace = manifest.getNamespace();
     Moniker moniker =
@@ -145,7 +138,7 @@ public class KubernetesCacheDataConverter {
     Map<String, Object> attributes =
         new ImmutableMap.Builder<String, Object>()
             .put("kind", kind)
-            .put("apiVersion", apiVersion)
+            .put("apiVersion", manifest.getApiVersion())
             .put("name", name)
             .put("namespace", namespace)
             .put("fullResourceName", manifest.getFullResourceName())
@@ -156,19 +149,9 @@ public class KubernetesCacheDataConverter {
     Keys.CacheKey key = new Keys.InfrastructureCacheKey(kind, account, namespace, name);
     kubernetesCacheData.addItem(key, attributes);
 
-    String application = moniker.getApp();
-    if (Strings.isNullOrEmpty(application)) {
-      log.debug(
-          "Encountered not-spinnaker-owned resource "
-              + namespace
-              + ":"
-              + manifest.getFullResourceName());
-    } else {
-      if (kindProperties.hasClusterRelationship()) {
-        addLogicalRelationships(kubernetesCacheData, key, account, moniker);
-      }
+    if (kindProperties.hasClusterRelationship() && !Strings.isNullOrEmpty(moniker.getApp())) {
+      addLogicalRelationships(kubernetesCacheData, key, account, moniker);
     }
-
     kubernetesCacheData.addRelationships(
         key, ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
     kubernetesCacheData.addRelationships(
@@ -256,24 +239,6 @@ public class KubernetesCacheDataConverter {
               + " entries and "
               + relationshipCount(entry.getValue())
               + " relationships");
-    }
-  }
-
-  private static void logMalformedManifest(
-      Supplier<String> contextMessage,
-      KubernetesManifest manifest,
-      @Nonnull KubernetesKindProperties kindProperties) {
-    if (manifest == null) {
-      log.warn("{}: manifest may not be null", contextMessage.get());
-      return;
-    }
-
-    if (Strings.isNullOrEmpty(manifest.getName())) {
-      log.warn("{}: manifest name may not be null, {}", contextMessage.get(), manifest);
-    }
-
-    if (Strings.isNullOrEmpty(manifest.getNamespace()) && kindProperties.isNamespaced()) {
-      log.warn("{}: manifest namespace may not be null, {}", contextMessage.get(), manifest);
     }
   }
 
