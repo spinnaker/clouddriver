@@ -33,7 +33,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.CacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ClusterCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesCachingProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -127,18 +126,7 @@ public class KubernetesCacheDataConverter {
       @Nonnull String account,
       @Nonnull KubernetesKindProperties kindProperties,
       KubernetesManifest manifest,
-      List<KubernetesManifest> resourceRelationships,
-      boolean onlySpinnakerManaged) {
-    KubernetesCachingProperties cachingProperties =
-        KubernetesManifestAnnotater.getCachingProperties(manifest);
-    if (cachingProperties.isIgnore()) {
-      return;
-    }
-
-    if (onlySpinnakerManaged && Strings.isNullOrEmpty(cachingProperties.getApplication())) {
-      return;
-    }
-
+      List<KubernetesManifest> resourceRelationships) {
     logMalformedManifest(
         () -> "Converting " + manifest + " to a cached resource", manifest, kindProperties);
 
@@ -163,7 +151,6 @@ public class KubernetesCacheDataConverter {
             .put("fullResourceName", manifest.getFullResourceName())
             .put("manifest", manifest)
             .put("moniker", moniker)
-            .put("application", cachingProperties.getApplication())
             .build();
 
     Keys.CacheKey key = new Keys.InfrastructureCacheKey(kind, account, namespace, name);

@@ -31,10 +31,12 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesCachingProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties.ResourceScope;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
@@ -44,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -181,6 +184,13 @@ public abstract class KubernetesV2CachingAgent
     return buildCacheResult(ImmutableMap.of(resource.getKind(), ImmutableList.of(resource)));
   }
 
+  private Predicate<KubernetesManifest> removeIgnored(boolean onlySpinnakerManaged) {
+    return m -> {
+      KubernetesCachingProperties props = KubernetesManifestAnnotater.getCachingProperties(m);
+      return !props.isIgnore() && !(onlySpinnakerManaged && props.getApplication().isEmpty());
+    };
+  }
+
   protected CacheResult buildCacheResult(Map<KubernetesKind, List<KubernetesManifest>> resources) {
     KubernetesCacheData kubernetesCacheData = new KubernetesCacheData();
     Map<KubernetesManifest, List<KubernetesManifest>> relationships =
@@ -195,6 +205,7 @@ public abstract class KubernetesV2CachingAgent
                     .get(m.getKind())
                     .getHandler()
                     .removeSensitiveKeys(m))
+        .filter(removeIgnored(credentials.isOnlySpinnakerManaged()))
         .forEach(
             rs -> {
               try {
@@ -203,8 +214,7 @@ public abstract class KubernetesV2CachingAgent
                     accountName,
                     credentials.getKindProperties(rs.getKind()),
                     rs,
-                    relationships.get(rs),
-                    credentials.isOnlySpinnakerManaged());
+                    relationships.get(rs));
                 KubernetesCacheDataConverter.convertAsArtifact(
                     kubernetesCacheData, accountName, rs);
               } catch (RuntimeException e) {
