@@ -213,6 +213,7 @@ public abstract class KubernetesV2CachingAgent
                     kubernetesCacheData,
                     accountName,
                     credentials.getKindProperties(rs.getKind()),
+                    credentials.getNamer(),
                     rs,
                     relationships.get(rs));
                 KubernetesCacheDataConverter.convertAsArtifact(

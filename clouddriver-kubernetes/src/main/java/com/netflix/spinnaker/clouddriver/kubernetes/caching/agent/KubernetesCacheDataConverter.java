@@ -27,7 +27,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.CacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ClusterCacheKey;
@@ -36,8 +35,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
+import com.netflix.spinnaker.moniker.Namer;
 import io.kubernetes.client.openapi.JSON;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -123,17 +122,13 @@ public class KubernetesCacheDataConverter {
       KubernetesCacheData kubernetesCacheData,
       @Nonnull String account,
       @Nonnull KubernetesKindProperties kindProperties,
+      @Nonnull Namer<KubernetesManifest> namer,
       KubernetesManifest manifest,
       List<KubernetesManifest> resourceRelationships) {
     KubernetesKind kind = manifest.getKind();
     String name = manifest.getName();
     String namespace = manifest.getNamespace();
-    Moniker moniker =
-        NamerRegistry.lookup()
-            .withProvider(KubernetesCloudProvider.ID)
-            .withAccount(account)
-            .withResource(KubernetesManifest.class)
-            .deriveMoniker(manifest);
+    Moniker moniker = namer.deriveMoniker(manifest);
 
     Map<String, Object> attributes =
         new ImmutableMap.Builder<String, Object>()
