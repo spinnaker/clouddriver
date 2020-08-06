@@ -39,7 +39,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
-import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import io.kubernetes.client.openapi.JSON;
 import java.util.*;
@@ -63,39 +62,20 @@ public class KubernetesCacheDataConverter {
   // consensus on this yet.
   @Getter private static final List<KubernetesKind> stickyKinds = Arrays.asList(SERVICE, POD);
 
-  private static Optional<Keys.CacheKey> convertAsArtifact(
+  private static void convertAsArtifact(
       KubernetesCacheData kubernetesCacheData, String account, KubernetesManifest manifest) {
-    String namespace = manifest.getNamespace();
-    Optional<Artifact> optional = KubernetesManifestAnnotater.getArtifact(manifest, account);
-    if (!optional.isPresent()) {
-      return Optional.empty();
-    }
-
-    Artifact artifact = optional.get();
-
-    if (artifact.getType() == null) {
-      log.debug(
-          "No assigned artifact type for resource "
-              + namespace
-              + ":"
-              + manifest.getFullResourceName());
-      return Optional.empty();
-    }
-
-    Map<String, Object> attributes =
-        new ImmutableMap.Builder<String, Object>()
-            .put("artifact", artifact)
-            .put(
-                "creationTimestamp",
-                Optional.ofNullable(manifest.getCreationTimestamp()).orElse(""))
-            .build();
-
-    Keys.CacheKey key =
-        new Keys.ArtifactCacheKey(
-            artifact.getType(), artifact.getName(), artifact.getLocation(), artifact.getVersion());
-
-    kubernetesCacheData.addItem(key, attributes);
-    return Optional.of(key);
+    KubernetesManifestAnnotater.getArtifact(manifest, account)
+        .ifPresent(
+            artifact -> {
+              kubernetesCacheData.addItem(
+                  new Keys.ArtifactCacheKey(
+                      artifact.getType(),
+                      artifact.getName(),
+                      artifact.getLocation(),
+                      artifact.getVersion()),
+                  ImmutableMap.of(
+                      "artifact", artifact, "creationTimestamp", manifest.getCreationTimestamp()));
+            });
   }
 
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
@@ -207,8 +187,7 @@ public class KubernetesCacheDataConverter {
     kubernetesCacheData.addRelationships(
         key, implicitRelationships(manifest, account, resourceRelationships));
 
-    KubernetesCacheDataConverter.convertAsArtifact(kubernetesCacheData, account, manifest)
-        .ifPresent(artifactKey -> kubernetesCacheData.addRelationship(key, artifactKey));
+    KubernetesCacheDataConverter.convertAsArtifact(kubernetesCacheData, account, manifest);
   }
 
   public static List<KubernetesPodMetric.ContainerMetric> getMetrics(CacheData cacheData) {
