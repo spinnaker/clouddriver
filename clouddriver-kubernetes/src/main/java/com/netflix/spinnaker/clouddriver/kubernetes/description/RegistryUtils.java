@@ -19,43 +19,24 @@ package com.netflix.spinnaker.clouddriver.kubernetes.description;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class RegistryUtils {
-  private static Optional<KubernetesHandler> lookupHandler(
-      ResourcePropertyRegistry propertyRegistry, KubernetesKind kind) {
-    if (kind == null) {
-      return Optional.empty();
-    }
-
-    KubernetesResourceProperties properties = propertyRegistry.get(kind);
-
-    KubernetesHandler handler = properties.getHandler();
-
-    if (handler == null) {
-      return Optional.empty();
-    }
-
-    return Optional.of(handler);
-  }
 
   public static void removeSensitiveKeys(
       ResourcePropertyRegistry propertyRegistry, KubernetesManifest manifest) {
-    lookupHandler(propertyRegistry, manifest.getKind())
-        .ifPresent(h -> h.removeSensitiveKeys(manifest));
+    propertyRegistry.get(manifest.getKind()).getHandler().removeSensitiveKeys(manifest);
   }
 
   public static void addRelationships(
       ResourcePropertyRegistry propertyRegistry,
-      KubernetesKind kind,
+      @Nonnull KubernetesKind kind,
       Map<KubernetesKind, List<KubernetesManifest>> allResources,
       Map<KubernetesManifest, List<KubernetesManifest>> relationshipMap) {
-    lookupHandler(propertyRegistry, kind)
-        .ifPresent(h -> h.addRelationships(allResources, relationshipMap));
+    propertyRegistry.get(kind).getHandler().addRelationships(allResources, relationshipMap);
   }
 }
