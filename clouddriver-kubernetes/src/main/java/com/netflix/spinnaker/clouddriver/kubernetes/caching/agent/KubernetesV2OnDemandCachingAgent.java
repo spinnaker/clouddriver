@@ -87,15 +87,13 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesV2Cachi
     Map<String, Object> details = defaultIntrospectionDetails();
 
     Long start = System.currentTimeMillis();
-    Map<KubernetesKind, List<KubernetesManifest>> primaryResource;
-    primaryResource = loadPrimaryResourceList();
+    Map<KubernetesKind, List<KubernetesManifest>> primaryResource = loadPrimaryResourceList();
 
     details.put("timeSpentInKubectlMs", System.currentTimeMillis() - start);
 
     List<String> primaryKeys =
         primaryResource.values().stream()
             .flatMap(Collection::stream)
-            .map(rs -> objectMapper.convertValue(rs, KubernetesManifest.class))
             .map(mf -> Keys.InfrastructureCacheKey.createKey(mf, accountName))
             .collect(Collectors.toList());
 
