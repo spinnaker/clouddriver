@@ -168,6 +168,10 @@ public class KubernetesCacheDataConverter {
     return mapper.convertValue(cacheData.getAttributes().get("manifest"), KubernetesManifest.class);
   }
 
+  public static Moniker getMoniker(CacheData cacheData) {
+    return mapper.convertValue(cacheData.getAttributes().get("moniker"), Moniker.class);
+  }
+
   public static KubernetesManifest convertToManifest(Object o) {
     return mapper.convertValue(o, KubernetesManifest.class);
   }
