@@ -31,7 +31,6 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.RegistryUtils;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties.ResourceScope;
@@ -189,7 +188,13 @@ public abstract class KubernetesV2CachingAgent
 
     resources.values().stream()
         .flatMap(Collection::stream)
-        .peek(m -> RegistryUtils.removeSensitiveKeys(credentials.getResourcePropertyRegistry(), m))
+        .peek(
+            m ->
+                credentials
+                    .getResourcePropertyRegistry()
+                    .get(m.getKind())
+                    .getHandler()
+                    .removeSensitiveKeys(m))
         .forEach(
             rs -> {
               try {
@@ -221,9 +226,12 @@ public abstract class KubernetesV2CachingAgent
         .forEach(
             k -> {
               try {
-                RegistryUtils.addRelationships(
-                    credentials.getResourcePropertyRegistry(), k, allResources, result);
-              } catch (Exception e) {
+                credentials
+                    .getResourcePropertyRegistry()
+                    .get(k)
+                    .getHandler()
+                    .addRelationships(allResources, result);
+              } catch (RuntimeException e) {
                 log.warn("{}: Failure adding relationships for {}", getAgentType(), k, e);
               }
             });
