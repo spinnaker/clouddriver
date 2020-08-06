@@ -62,7 +62,7 @@ public class KubernetesCacheDataConverter {
   // consensus on this yet.
   @Getter private static final List<KubernetesKind> stickyKinds = Arrays.asList(SERVICE, POD);
 
-  private static void convertAsArtifact(
+  static void convertAsArtifact(
       KubernetesCacheData kubernetesCacheData, String account, KubernetesManifest manifest) {
     KubernetesManifestAnnotater.getArtifact(manifest, account)
         .ifPresent(
@@ -186,8 +186,6 @@ public class KubernetesCacheDataConverter {
         key, ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
     kubernetesCacheData.addRelationships(
         key, implicitRelationships(manifest, account, resourceRelationships));
-
-    KubernetesCacheDataConverter.convertAsArtifact(kubernetesCacheData, account, manifest);
   }
 
   public static List<KubernetesPodMetric.ContainerMetric> getMetrics(CacheData cacheData) {
