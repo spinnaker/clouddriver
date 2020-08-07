@@ -492,7 +492,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
         .setTargetPools(targetPools)
         .setAutoHealingPolicies(autoHealingPolicy)
 
-    if (!internalLoadBalancers && (description?.loadBalancingPolicy || description?.source?.serverGroupName))  {
+    if ((hasBackendServices || internalHttpLoadBalancers) && (description?.loadBalancingPolicy || description?.source?.serverGroupName))  {
       List<NamedPort> namedPorts = []
       def sourceGroupName = description?.source?.serverGroupName
 

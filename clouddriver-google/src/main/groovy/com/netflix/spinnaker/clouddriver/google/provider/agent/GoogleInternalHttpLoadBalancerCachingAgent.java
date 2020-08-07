@@ -25,7 +25,6 @@ import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCrede
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.*;
-import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -679,18 +678,18 @@ public class GoogleInternalHttpLoadBalancerCachingAgent
     if (healthCheck.getTcpHealthCheck() != null) {
       port = healthCheck.getTcpHealthCheck().getPort();
       hcType = GoogleHealthCheck.HealthCheckType.TCP;
-    } else if (DefaultGroovyMethods.asBoolean(healthCheck.getSslHealthCheck())) {
+    } else if (healthCheck.getSslHealthCheck() != null) {
       port = healthCheck.getSslHealthCheck().getPort();
       hcType = GoogleHealthCheck.HealthCheckType.SSL;
-    } else if (DefaultGroovyMethods.asBoolean(healthCheck.getHttpHealthCheck())) {
+    } else if (healthCheck.getHttpHealthCheck() != null) {
       port = healthCheck.getHttpHealthCheck().getPort();
       requestPath = healthCheck.getHttpHealthCheck().getRequestPath();
       hcType = GoogleHealthCheck.HealthCheckType.HTTP;
-    } else if (DefaultGroovyMethods.asBoolean(healthCheck.getHttpsHealthCheck())) {
+    } else if (healthCheck.getHttpsHealthCheck() != null) {
       port = healthCheck.getHttpsHealthCheck().getPort();
       requestPath = healthCheck.getHttpsHealthCheck().getRequestPath();
       hcType = GoogleHealthCheck.HealthCheckType.HTTPS;
-    } else if (DefaultGroovyMethods.asBoolean(healthCheck.getUdpHealthCheck())) {
+    } else if (healthCheck.getUdpHealthCheck() != null) {
       port = healthCheck.getUdpHealthCheck().getPort();
       hcType = GoogleHealthCheck.HealthCheckType.UDP;
     }

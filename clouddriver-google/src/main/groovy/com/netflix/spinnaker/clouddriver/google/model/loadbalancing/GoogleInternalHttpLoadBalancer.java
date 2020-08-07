@@ -17,18 +17,18 @@
 package com.netflix.spinnaker.clouddriver.google.model.loadbalancing;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
-import groovy.transform.ToString;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
+import lombok.Value;
 
-@ToString(includeSuper = true)
-@groovy.transform.EqualsAndHashCode(callSuper = true)
+@Data
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 public class GoogleInternalHttpLoadBalancer extends GoogleLoadBalancer {
-  GoogleLoadBalancerType type = GoogleLoadBalancerType.INTERNAL_MANAGED;
-  GoogleLoadBalancingScheme loadBalancingScheme = GoogleLoadBalancingScheme.INTERNAL_MANAGED;
+  final GoogleLoadBalancerType type = GoogleLoadBalancerType.INTERNAL_MANAGED;
+  final GoogleLoadBalancingScheme loadBalancingScheme = GoogleLoadBalancingScheme.INTERNAL_MANAGED;
 
   /** Default backend service a request is sent to if no host rules are matched. */
   GoogleBackendService defaultService;
@@ -48,80 +48,14 @@ public class GoogleInternalHttpLoadBalancer extends GoogleLoadBalancer {
   String network;
   String subnet;
 
-  @Override
-  public GoogleLoadBalancerType getType() {
-    return type;
-  }
-
-  @Override
-  public void setType(GoogleLoadBalancerType type) {
-    this.type = type;
-  }
-
-  @Override
-  public GoogleLoadBalancingScheme getLoadBalancingScheme() {
-    return loadBalancingScheme;
-  }
-
-  @Override
-  public void setLoadBalancingScheme(GoogleLoadBalancingScheme loadBalancingScheme) {
-    this.loadBalancingScheme = loadBalancingScheme;
-  }
-
-  public GoogleBackendService getDefaultService() {
-    return defaultService;
-  }
-
-  public void setDefaultService(GoogleBackendService defaultService) {
-    this.defaultService = defaultService;
-  }
-
-  public List<GoogleHostRule> getHostRules() {
-    return hostRules;
-  }
-
-  public void setHostRules(List<GoogleHostRule> hostRules) {
-    this.hostRules = hostRules;
-  }
-
-  public String getCertificate() {
-    return certificate;
-  }
-
-  public void setCertificate(String certificate) {
-    this.certificate = certificate;
-  }
-
-  public String getUrlMapName() {
-    return urlMapName;
-  }
-
-  public void setUrlMapName(String urlMapName) {
-    this.urlMapName = urlMapName;
-  }
-
-  public String getNetwork() {
-    return network;
-  }
-
-  public void setNetwork(String network) {
-    this.network = network;
-  }
-
-  public String getSubnet() {
-    return subnet;
-  }
-
-  public void setSubnet(String subnet) {
-    this.subnet = subnet;
-  }
-
   @JsonIgnore
   public InternalHttpLbView getView() {
     return new InternalHttpLbView();
   }
 
-  @EqualsAndHashCode(callSuper = false)
+  @Value
+  @EqualsAndHashCode(callSuper = true)
+  @ToString(callSuper = true)
   public class InternalHttpLbView extends GoogleLoadBalancerView {
     GoogleLoadBalancerType loadBalancerType = GoogleInternalHttpLoadBalancer.this.type;
     GoogleLoadBalancingScheme loadBalancingScheme =
@@ -141,81 +75,5 @@ public class GoogleInternalHttpLoadBalancer extends GoogleLoadBalancer {
     String urlMapName = GoogleInternalHttpLoadBalancer.this.urlMapName;
     String network = GoogleInternalHttpLoadBalancer.this.network;
     String subnet = GoogleInternalHttpLoadBalancer.this.subnet;
-
-    Set<LoadBalancerServerGroup> serverGroups = new HashSet<>();
-
-    @Override
-    public GoogleLoadBalancerType getLoadBalancerType() {
-      return loadBalancerType;
-    }
-
-    @Override
-    public GoogleLoadBalancingScheme getLoadBalancingScheme() {
-      return loadBalancingScheme;
-    }
-
-    @Override
-    public String getName() {
-      return name;
-    }
-
-    @Override
-    public String getAccount() {
-      return account;
-    }
-
-    @Override
-    public String getRegion() {
-      return region;
-    }
-
-    @Override
-    public Long getCreatedTime() {
-      return createdTime;
-    }
-
-    @Override
-    public String getIpAddress() {
-      return ipAddress;
-    }
-
-    @Override
-    public String getIpProtocol() {
-      return ipProtocol;
-    }
-
-    @Override
-    public String getPortRange() {
-      return portRange;
-    }
-
-    public GoogleBackendService getDefaultService() {
-      return defaultService;
-    }
-
-    public List<GoogleHostRule> getHostRules() {
-      return hostRules;
-    }
-
-    public String getCertificate() {
-      return certificate;
-    }
-
-    public String getUrlMapName() {
-      return urlMapName;
-    }
-
-    public String getNetwork() {
-      return network;
-    }
-
-    public String getSubnet() {
-      return subnet;
-    }
-
-    @Override
-    public Set<LoadBalancerServerGroup> getServerGroups() {
-      return serverGroups;
-    }
   }
 }

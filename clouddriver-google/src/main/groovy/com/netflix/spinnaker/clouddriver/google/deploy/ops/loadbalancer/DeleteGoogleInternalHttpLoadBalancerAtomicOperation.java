@@ -20,7 +20,6 @@ import groovy.lang.Closure;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.*;
-import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class DeleteGoogleInternalHttpLoadBalancerAtomicOperation
@@ -183,7 +182,7 @@ public class DeleteGoogleInternalHttpLoadBalancerAtomicOperation
       backendServiceUrls = ImmutableSet.copyOf(backendServiceUrls).asList();
 
       // Backend services. Also, get health check URLs.
-      List<String> healthCheckUrls = new ArrayList<>();
+      Set<String> healthCheckUrls = new HashSet<>();
       for (String backendServiceUrl : backendServiceUrls) {
         final String backendServiceName = GCEUtil.getLocalName(backendServiceUrl);
         getTask()
@@ -241,8 +240,6 @@ public class DeleteGoogleInternalHttpLoadBalancerAtomicOperation
 
         healthCheckUrls.addAll(backendService.getHealthChecks());
       }
-
-      DefaultGroovyMethods.unique(healthCheckUrls);
 
       final Long timeoutSeconds = description.getDeleteOperationTimeoutSeconds();
 
