@@ -20,7 +20,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalKind.CLUSTERS;
 
 import com.google.common.collect.ImmutableList;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Manifest;
@@ -36,7 +35,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -118,40 +116,18 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
         .map(
             c ->
                 cacheUtils.getRelationships(c, kind).stream()
-                    .map(cd -> fromCacheData(cd, credentials, false))
+                    .map(
+                        cd ->
+                            KubernetesV2ManifestBuilder.buildManifest(
+                                credentials,
+                                KubernetesCacheDataConverter.getManifest(cd),
+                                ImmutableList.of(),
+                                ImmutableList.of()))
                     .filter(m -> m.getLocation().equals(location))
                     .sorted(
                         (m1, m2) ->
                             handler.comparatorFor(sort).compare(m1.getManifest(), m2.getManifest()))
                     .collect(Collectors.toList()))
         .orElse(new ArrayList<>());
-  }
-
-  @Nonnull
-  private KubernetesV2Manifest fromCacheData(
-      CacheData data, KubernetesV2Credentials credentials, boolean includeEvents) {
-    KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(data);
-    String namespace = manifest.getNamespace();
-    KubernetesKind kind = manifest.getKind();
-
-    List<KubernetesManifest> events =
-        includeEvents
-            ? cacheUtils.getRelationships(data, KubernetesKind.EVENT.toString()).stream()
-                .map(KubernetesCacheDataConverter::getManifest)
-                .collect(Collectors.toList())
-            : ImmutableList.of();
-
-    List<KubernetesPodMetric.ContainerMetric> metrics =
-        includeEvents
-            ? cacheUtils
-                .getSingleEntry(
-                    Keys.Kind.KUBERNETES_METRIC.toString(),
-                    Keys.MetricCacheKey.createKey(
-                        kind, credentials.getAccountName(), namespace, manifest.getName()))
-                .map(KubernetesCacheDataConverter::getMetrics)
-                .orElse(ImmutableList.of())
-            : ImmutableList.of();
-
-    return KubernetesV2ManifestBuilder.buildManifest(credentials, manifest, events, metrics);
   }
 }
