@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.POD;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.SERVICE;
 import static java.lang.Math.toIntExact;
@@ -25,6 +26,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
@@ -34,6 +36,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMet
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest.OwnerReference;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.moniker.Moniker;
@@ -41,8 +44,8 @@ import com.netflix.spinnaker.moniker.Namer;
 import io.kubernetes.client.openapi.JSON;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -125,11 +128,12 @@ public class KubernetesCacheDataConverter {
         key, new Keys.InfrastructureCacheKey(POD, account, namespace, podName));
   }
 
+  @ParametersAreNonnullByDefault
   public static void convertAsResource(
       KubernetesCacheData kubernetesCacheData,
-      @Nonnull String account,
-      @Nonnull KubernetesKindProperties kindProperties,
-      @Nonnull Namer<KubernetesManifest> namer,
+      String account,
+      KubernetesKindProperties kindProperties,
+      Namer<KubernetesManifest> namer,
       KubernetesManifest manifest,
       List<KubernetesManifest> resourceRelationships) {
     KubernetesKind kind = manifest.getKind();
@@ -200,22 +204,23 @@ public class KubernetesCacheDataConverter {
     }
   }
 
-  private static Set<Keys.CacheKey> implicitRelationships(
+  @NonnullByDefault
+  private static ImmutableSet<CacheKey> implicitRelationships(
       KubernetesManifest source, String account, List<KubernetesManifest> manifests) {
-    String namespace = source.getNamespace();
-    manifests = manifests == null ? new ArrayList<>() : manifests;
     return manifests.stream()
-        .map(m -> new Keys.InfrastructureCacheKey(m.getKind(), account, namespace, m.getName()))
-        .collect(Collectors.toSet());
+        .map(
+            m ->
+                new Keys.InfrastructureCacheKey(
+                    m.getKind(), account, source.getNamespace(), m.getName()))
+        .collect(toImmutableSet());
   }
 
-  static Set<Keys.CacheKey> ownerReferenceRelationships(
-      String account, String namespace, List<KubernetesManifest.OwnerReference> references) {
-    references = references == null ? new ArrayList<>() : references;
-
+  @NonnullByDefault
+  static ImmutableSet<CacheKey> ownerReferenceRelationships(
+      String account, String namespace, List<OwnerReference> references) {
     return references.stream()
         .map(r -> new Keys.InfrastructureCacheKey(r.getKind(), account, namespace, r.getName()))
-        .collect(Collectors.toSet());
+        .collect(toImmutableSet());
   }
 
   static void logStratifiedCacheData(
