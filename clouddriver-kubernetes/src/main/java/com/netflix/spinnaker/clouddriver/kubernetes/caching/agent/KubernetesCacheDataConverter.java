@@ -35,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
 import io.kubernetes.client.openapi.JSON;
@@ -74,6 +75,7 @@ public class KubernetesCacheDataConverter {
             });
   }
 
+  @NonnullByDefault
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
     String id = current.getId();
     Map<String, Object> attributes = new HashMap<>(current.getAttributes());
@@ -96,7 +98,12 @@ public class KubernetesCacheDataConverter {
                       return res;
                     }));
 
-    return defaultCacheData(id, ttl, attributes, relationships);
+    // when no relationship exists, and `null` is written in place of a value, the old value of the
+    // relationship (whatever was picked up the prior cache cycle) is persisted, leaving sticky
+    // relationship data in the cache. we don't zero out all non existing relationships because it
+    // winds up causing far more writes to redis.
+    stickyKinds.forEach(k -> relationships.computeIfAbsent(k.toString(), s -> new ArrayList<>()));
+    return new DefaultCacheData(id, ttl, attributes, relationships);
   }
 
   public static void convertPodMetric(
@@ -174,21 +181,6 @@ public class KubernetesCacheDataConverter {
   public static <T> T getResource(Object manifest, Class<T> clazz) {
     // A little hacky, but the only way to deserialize any timestamps using string constructors
     return json.deserialize(json.serialize(manifest), clazz);
-  }
-
-  private static CacheData defaultCacheData(
-      String id,
-      int ttlSeconds,
-      Map<String, Object> attributes,
-      Map<String, Collection<String>> relationships) {
-    // when no relationship exists, and `null` is written in place of a value, the old value of the
-    // relationship
-    // (whatever was picked up the prior cache cycle) is persisted, leaving sticky relationship data
-    // in the cache.
-    // we don't zero out all non existing relationships because it winds up causing far more writes
-    // to redis.
-    stickyKinds.forEach(k -> relationships.computeIfAbsent(k.toString(), (s) -> new ArrayList<>()));
-    return new DefaultCacheData(id, ttlSeconds, attributes, relationships);
   }
 
   private static void addLogicalRelationships(
