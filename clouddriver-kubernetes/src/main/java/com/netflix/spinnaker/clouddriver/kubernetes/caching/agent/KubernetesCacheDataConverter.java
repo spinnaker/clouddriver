@@ -22,7 +22,6 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.SERVICE;
 import static java.lang.Math.toIntExact;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -32,7 +31,6 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.CacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ClusterCacheKey;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -44,7 +42,6 @@ import com.netflix.spinnaker.moniker.Namer;
 import io.kubernetes.client.openapi.JSON;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -109,25 +106,6 @@ public class KubernetesCacheDataConverter {
     return new DefaultCacheData(id, ttl, attributes, relationships);
   }
 
-  public static void convertPodMetric(
-      KubernetesCacheData kubernetesCacheData,
-      @Nonnull String account,
-      KubernetesPodMetric podMetric) {
-    String podName = podMetric.getPodName();
-    String namespace = podMetric.getNamespace();
-    Map<String, Object> attributes =
-        new ImmutableMap.Builder<String, Object>()
-            .put("name", podName)
-            .put("namespace", namespace)
-            .put("metrics", podMetric.getContainerMetrics())
-            .build();
-
-    Keys.CacheKey key = new Keys.MetricCacheKey(POD, account, namespace, podName);
-    kubernetesCacheData.addItem(key, attributes);
-    kubernetesCacheData.addRelationship(
-        key, new Keys.InfrastructureCacheKey(POD, account, namespace, podName));
-  }
-
   @ParametersAreNonnullByDefault
   public static void convertAsResource(
       KubernetesCacheData kubernetesCacheData,
@@ -162,12 +140,6 @@ public class KubernetesCacheDataConverter {
         key, ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
     kubernetesCacheData.addRelationships(
         key, implicitRelationships(manifest, account, resourceRelationships));
-  }
-
-  public static List<KubernetesPodMetric.ContainerMetric> getMetrics(CacheData cacheData) {
-    return mapper.convertValue(
-        cacheData.getAttributes().get("metrics"),
-        new TypeReference<List<KubernetesPodMetric.ContainerMetric>>() {});
   }
 
   public static KubernetesManifest getManifest(CacheData cacheData) {
