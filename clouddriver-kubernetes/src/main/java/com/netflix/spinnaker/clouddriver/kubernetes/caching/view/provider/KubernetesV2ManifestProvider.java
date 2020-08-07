@@ -137,14 +137,16 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
                 .collect(Collectors.toList())
             : ImmutableList.of();
 
-    String metricKey =
-        Keys.MetricCacheKey.createKey(
-            kind, credentials.getAccountName(), namespace, manifest.getName());
     List<KubernetesPodMetric.ContainerMetric> metrics =
-        cacheUtils
-            .getSingleEntry(Keys.Kind.KUBERNETES_METRIC.toString(), metricKey)
-            .map(KubernetesCacheDataConverter::getMetrics)
-            .orElse(ImmutableList.of());
+        includeEvents
+            ? cacheUtils
+                .getSingleEntry(
+                    Keys.Kind.KUBERNETES_METRIC.toString(),
+                    Keys.MetricCacheKey.createKey(
+                        kind, credentials.getAccountName(), namespace, manifest.getName()))
+                .map(KubernetesCacheDataConverter::getMetrics)
+                .orElse(ImmutableList.of())
+            : ImmutableList.of();
 
     return KubernetesV2ManifestBuilder.buildManifest(credentials, manifest, events, metrics);
   }

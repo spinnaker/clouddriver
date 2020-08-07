@@ -85,7 +85,7 @@ public class KubernetesV2LiveManifestProvider implements ManifestProvider<Kubern
             : ImmutableList.of();
 
     List<KubernetesPodMetric.ContainerMetric> metrics = ImmutableList.of();
-    if (kind.equals(KubernetesKind.POD) && credentials.isMetricsEnabled()) {
+    if (includeEvents && kind.equals(KubernetesKind.POD) && credentials.isMetricsEnabled()) {
       metrics =
           credentials.topPod(namespace, parsedName.getRight()).stream()
               .map(KubernetesPodMetric::getContainerMetrics)
