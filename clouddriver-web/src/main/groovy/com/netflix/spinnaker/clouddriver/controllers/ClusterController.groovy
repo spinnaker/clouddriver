@@ -22,7 +22,7 @@ import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.model.Summary
-
+import com.netflix.spinnaker.clouddriver.model.TargetServerGroup
 import com.netflix.spinnaker.clouddriver.model.view.ClusterViewModelPostProcessor
 import com.netflix.spinnaker.clouddriver.model.view.ServerGroupViewModelPostProcessor
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue

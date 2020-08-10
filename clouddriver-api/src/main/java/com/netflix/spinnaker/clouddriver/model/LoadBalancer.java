@@ -17,8 +17,8 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
+import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -42,7 +42,7 @@ public interface LoadBalancer {
    * @return moniker
    */
   default Moniker getMoniker() {
-    return NamerRegistry.getDefaultNamer().deriveMoniker(this);
+    return new FriggaReflectiveNamer().deriveMoniker(this);
   }
 
   /**

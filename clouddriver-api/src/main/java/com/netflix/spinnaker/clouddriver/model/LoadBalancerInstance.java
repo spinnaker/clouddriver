@@ -21,7 +21,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 
 @Data
 @Builder
@@ -40,7 +39,7 @@ public class LoadBalancerInstance {
   }
 
   public String getName() {
-    if (StringUtils.isEmpty(name)) {
+    if (name == null || name.isEmpty()) {
       return id;
     } else {
       return name;

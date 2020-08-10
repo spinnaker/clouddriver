@@ -16,16 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule;
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
+import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 /** A representation of a security group */
-@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "class")
 public interface SecurityGroup {
 
   /**
@@ -59,7 +57,7 @@ public interface SecurityGroup {
    * @return moniker
    */
   default Moniker getMoniker() {
-    return NamerRegistry.getDefaultNamer().deriveMoniker(this);
+    return new FriggaReflectiveNamer().deriveMoniker(this);
   }
 
   /**

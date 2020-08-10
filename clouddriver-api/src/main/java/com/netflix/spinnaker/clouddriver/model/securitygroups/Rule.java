@@ -16,18 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.model.securitygroups;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import java.util.SortedSet;
 import lombok.Data;
-import org.apache.commons.lang3.ObjectUtils;
 
-/**
- * An abstract interface representing a security rule.
- *
- * @see IpRangeRule
- * @see SecurityGroupRule
- */
-@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "class")
+/** An abstract interface representing a security rule. */
 public interface Rule {
   /**
    * The port ranges associated with this rule
@@ -49,8 +41,19 @@ public interface Rule {
         return 1;
       }
 
-      int res = ObjectUtils.compare(this.startPort, o.startPort);
-      return res == 0 ? ObjectUtils.compare(this.endPort, o.endPort) : res;
+      int res = comparePortsNullSafe(this.startPort, o.startPort);
+      return res == 0 ? comparePortsNullSafe(this.endPort, o.endPort) : res;
+    }
+
+    private int comparePortsNullSafe(final Integer c1, final Integer c2) {
+      if (c1 == c2) {
+        return 0;
+      } else if (c1 == null) {
+        return -1;
+      } else if (c2 == null) {
+        return 1;
+      }
+      return c1.compareTo(c2);
     }
   }
 }
