@@ -42,12 +42,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class KubernetesV2ManifestProvider {
+public class KubernetesManifestProvider {
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesAccountResolver accountResolver;
 
   @Autowired
-  public KubernetesV2ManifestProvider(
+  public KubernetesManifestProvider(
       KubernetesAccountResolver accountResolver, KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
     this.accountResolver = accountResolver;

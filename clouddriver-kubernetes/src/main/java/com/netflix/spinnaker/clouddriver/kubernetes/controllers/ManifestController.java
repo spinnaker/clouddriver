@@ -18,8 +18,8 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.controllers;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Manifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesV2ManifestProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesV2ManifestProvider.Sort;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider.Sort;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest;
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
@@ -39,13 +39,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/manifests")
 public class ManifestController {
-  final KubernetesV2ManifestProvider manifestProvider;
+  final KubernetesManifestProvider manifestProvider;
 
   final RequestQueue requestQueue;
 
   @Autowired
   public ManifestController(
-      KubernetesV2ManifestProvider manifestProvider, RequestQueue requestQueue) {
+      KubernetesManifestProvider manifestProvider, RequestQueue requestQueue) {
     this.manifestProvider = manifestProvider;
     this.requestQueue = requestQueue;
   }

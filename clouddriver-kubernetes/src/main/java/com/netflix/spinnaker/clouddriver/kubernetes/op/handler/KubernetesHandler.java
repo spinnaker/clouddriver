@@ -28,7 +28,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesV2ManifestProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -162,7 +162,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
     }
   }
 
-  public Comparator<KubernetesManifest> comparatorFor(KubernetesV2ManifestProvider.Sort sort) {
+  public Comparator<KubernetesManifest> comparatorFor(KubernetesManifestProvider.Sort sort) {
     switch (sort) {
       case AGE:
         return ageComparator();

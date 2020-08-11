@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.provider.view;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Manifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesV2ManifestProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesV2JobStatus;
@@ -44,11 +44,11 @@ import org.springframework.stereotype.Component;
 public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatus> {
   @Getter private final String platform = "kubernetes";
   private final AccountCredentialsProvider accountCredentialsProvider;
-  private final KubernetesV2ManifestProvider manifestProvider;
+  private final KubernetesManifestProvider manifestProvider;
 
   KubernetesV2JobProvider(
       AccountCredentialsProvider accountCredentialsProvider,
-      KubernetesV2ManifestProvider manifestProvider) {
+      KubernetesManifestProvider manifestProvider) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.manifestProvider = manifestProvider;
   }
