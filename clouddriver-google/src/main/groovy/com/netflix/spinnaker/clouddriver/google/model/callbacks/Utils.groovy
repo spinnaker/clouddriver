@@ -91,32 +91,40 @@ class Utils {
     return lastIndex != -1 ? fullUrl.substring(lastIndex + 1) : fullUrl
   }
 
-  private static Splitter onSlash = Splitter.on('/').omitEmptyStrings()
-
   /**
-   * Splits the input string on slashes, and returns the element of the specified
-   * index, starting from the end of the string. The last component has index 0,
-   * the second-to-last has index 1, etc.
-   * @param input input string to split
-   * @param index
-   * @return The corresponding portion of the string, or an empty string if
-   * the string does not have the required number of parts.
+   * Given a URI representing a GCP target proxy, returns the corresponding
+   * {@link GoogleTargetProxyType}, or {@link GoogleTargetProxyType#UNKNOWN}
+   * if no {@link GoogleTargetProxyType} could be derived from the URI.
+   * @param fullUrl the URI to parse
+   * @return the corresponding {@link GoogleTargetProxyType}
    */
   @CompileStatic
   @Nonnull
-  private static String getUrlPart(@Nonnull String input, int index) {
-    return Lists.reverse(onSlash.splitToList(input))
-      .stream()
-      .skip(index)
-      .findFirst()
-      .orElse("")
+  static GoogleTargetProxyType getTargetProxyType(@Nullable String fullUrl) {
+    String resourceType = getResourceType(Strings.nullToEmpty(fullUrl))
+    return GoogleTargetProxyType.fromResourceType(resourceType)
   }
 
+  private static final Splitter onSlash = Splitter.on('/').omitEmptyStrings()
+
+  /**
+   * Given a URI representing a GCP resource, returns the type of the resource.
+   *
+   * This function splits the input URI on slashes, and returns the second-to-last
+   * part, which will generally be the type of the resource. Callers must ensure
+   * that their URI follows this pattern for the results to be meaningful.
+   * @param uri URI to split
+   * @return The resource type of the URI, or the empty string if a resource type
+   * could not be parsed from the URI.
+   */
   @CompileStatic
   @Nonnull
-  static GoogleTargetProxyType getTargetProxyType(@Nullable String fullUrl) {
-    String name = getUrlPart(Strings.nullToEmpty(fullUrl), 1)
-    return GoogleTargetProxyType.fromIdentifier(name)
+  private static String getResourceType(@Nonnull String uri) {
+    return Lists.reverse(onSlash.splitToList(uri))
+      .stream()
+      .skip(1)
+      .findFirst()
+      .orElse("")
   }
 
   static String getZoneFromInstanceUrl(String fullUrl) {

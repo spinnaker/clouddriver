@@ -25,7 +25,15 @@ public enum GoogleTargetProxyType {
   TCP,
   UNKNOWN;
 
-  public static GoogleTargetProxyType fromIdentifier(String identifier) {
+  /**
+   * Given a string representing a resource type (as found in the URI for a target proxy), returns
+   * the corresponding {@link GoogleTargetProxyType}, or {@link GoogleTargetProxyType#UNKNOWN} if no
+   * {@link GoogleTargetProxyType} matches the resource type.
+   *
+   * @param identifier the identifier
+   * @return the corresponding {@link GoogleTargetProxyType}
+   */
+  public static GoogleTargetProxyType fromResourceType(String identifier) {
     switch (identifier) {
       case "targetHttpProxies":
         return GoogleTargetProxyType.HTTP;
