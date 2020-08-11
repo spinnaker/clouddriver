@@ -17,8 +17,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Set;
 
+@Beta
 public interface ServerGroupManagerProvider<S extends ServerGroupManager> {
   Set<S> getServerGroupManagersByApplication(String application);
 }

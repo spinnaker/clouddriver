@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 import java.util.HashMap;
@@ -28,6 +29,7 @@ import java.util.Set;
  * through its relationship to {@link ServerGroup} objects. This interface provides a contract for
  * retrieving the name of the load balancer and the names of the server groups that it is servicing.
  */
+@Beta
 public interface LoadBalancer {
   /**
    * Name of the load balancer

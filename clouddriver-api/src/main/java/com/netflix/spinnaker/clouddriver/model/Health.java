@@ -16,10 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /**
  * Marker interface to represent a Health object. The concrete object will be serialized for
  * consumers.
  */
+@Beta
 public interface Health {
   /** @return health state indication */
   HealthState getState();

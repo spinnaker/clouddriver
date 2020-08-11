@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import java.util.Set;
+
+import com.netflix.spinnaker.kork.annotations.Beta;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,6 +28,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Beta
 public class LoadBalancerServerGroup {
   String name;
   String account;

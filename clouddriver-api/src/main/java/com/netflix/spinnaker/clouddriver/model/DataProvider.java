@@ -16,9 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.io.OutputStream;
 import java.util.Map;
 
+@Beta
 public interface DataProvider {
   enum IdentifierType {
     Static,

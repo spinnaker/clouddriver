@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.List;
 import java.util.Set;
 
@@ -31,6 +33,7 @@ import java.util.Set;
  * LoadBalancerProvider interface while each controller will merge with its &lt;Cloud
  * &gt;LoadBalancerProvider.
  */
+@Beta
 public interface LoadBalancerProvider<T extends LoadBalancer> {
   String getCloudProvider();
 

@@ -17,10 +17,13 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 
+@Beta
 public interface FunctionProvider {
   Collection<? extends Function> getAllFunctions();
 

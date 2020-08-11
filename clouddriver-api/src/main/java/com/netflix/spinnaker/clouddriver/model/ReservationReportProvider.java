@@ -16,8 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Map;
 
+@Beta
 public interface ReservationReportProvider<T extends ReservationReport> {
   T getReservationReport(String name, Map<String, String> filters);
 }

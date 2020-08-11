@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
+@Beta
 public interface InstanceProvider<T extends Instance, S> {
   /**
    * Returns the platform the instance provider

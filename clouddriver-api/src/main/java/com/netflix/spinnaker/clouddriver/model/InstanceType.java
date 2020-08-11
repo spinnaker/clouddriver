@@ -16,7 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /** A representation of an instance type */
+@Beta
 public interface InstanceType {
   String getName();
 }

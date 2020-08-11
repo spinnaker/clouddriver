@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 import java.util.*;
@@ -29,6 +30,7 @@ import lombok.NoArgsConstructor;
  * A server group provides a relationship to many instances, and exists within a defined region and
  * one or more zones.
  */
+@Beta
 public interface ServerGroup {
   /**
    * The name of the server group

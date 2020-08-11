@@ -16,7 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /** A JobState defines the set of possible states a job can be in. */
+@Beta
 public enum JobState {
   Starting,
   Running,

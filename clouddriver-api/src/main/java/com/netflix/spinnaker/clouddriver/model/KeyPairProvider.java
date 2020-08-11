@@ -16,8 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Set;
 
+@Beta
 public interface KeyPairProvider<T extends KeyPair> {
   Set<T> getAll();
 }

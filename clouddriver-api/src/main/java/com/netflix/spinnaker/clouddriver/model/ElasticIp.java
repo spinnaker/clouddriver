@@ -16,7 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /** A representation of an elastic ip */
+@Beta
 public interface ElasticIp {
   /**
    * The type of this elastic ip. May reference the cloud provider to which it is associated

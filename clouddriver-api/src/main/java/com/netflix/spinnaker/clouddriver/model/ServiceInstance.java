@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
+@Beta
 public interface ServiceInstance {
   String getServiceInstanceName();
 

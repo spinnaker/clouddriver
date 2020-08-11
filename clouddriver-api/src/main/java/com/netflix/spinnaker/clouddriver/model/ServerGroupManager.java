@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,6 +27,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+@Beta
 public interface ServerGroupManager {
   String getName();
 

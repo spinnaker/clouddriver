@@ -16,10 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.io.Serializable;
 import java.util.Map;
 
 /** A JobStatus reflects the state of a running or completed job. */
+@Beta
 public interface JobStatus {
   String getName();
 

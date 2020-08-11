@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 import java.util.HashMap;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** A representation of a security group */
+@Beta
 public interface SecurityGroup {
 
   /**

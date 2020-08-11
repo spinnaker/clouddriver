@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -26,6 +28,7 @@ import javax.annotation.Nullable;
  * Cluster} objects. This interface defines the common contract for which various providers may be
  * queried for their known clusters. This interface assumes implementations may span cross account.
  */
+@Beta
 public interface ClusterProvider<T extends Cluster> {
   /**
    * Looks up all of the clusters available to this provider. Keyed on account name.

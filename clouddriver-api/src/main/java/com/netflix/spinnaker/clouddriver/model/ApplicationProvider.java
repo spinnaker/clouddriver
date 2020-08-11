@@ -17,6 +17,8 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -25,6 +27,7 @@ import javax.annotation.Nullable;
  * This interface defines a common contract for which various providers may be queried about their
  * known applications.
  */
+@Beta
 public interface ApplicationProvider {
   /**
    * Looks up all of the {@link Application} objects known to this provider

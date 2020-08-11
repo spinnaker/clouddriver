@@ -17,12 +17,15 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Map;
 import java.util.Set;
 
 /**
  * An application is a top-level construct that provides an association to {@link Cluster} objects.
  */
+@Beta
 public interface Application {
   /**
    * The name of the application

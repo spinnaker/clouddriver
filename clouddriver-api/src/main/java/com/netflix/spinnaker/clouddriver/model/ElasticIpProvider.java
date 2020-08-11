@@ -16,8 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Set;
 
+@Beta
 public interface ElasticIpProvider<T extends ElasticIp> {
   Set<T> getAllByAccount(String account);
 

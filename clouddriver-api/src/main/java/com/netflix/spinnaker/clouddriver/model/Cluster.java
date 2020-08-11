@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
+import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 import java.util.Collections;
@@ -30,6 +31,7 @@ import lombok.NoArgsConstructor;
  * A cluster is an object that provides an association between an account, many server groups, and
  * many load balancers.
  */
+@Beta
 public interface Cluster {
   /**
    * The name of the cluster

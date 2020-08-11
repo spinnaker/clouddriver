@@ -16,8 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Map;
 
+@Beta
 public interface JobProvider<T extends JobStatus> {
   String getPlatform();
 

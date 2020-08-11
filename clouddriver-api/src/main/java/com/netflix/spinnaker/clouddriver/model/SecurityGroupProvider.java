@@ -16,8 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Collection;
 
+@Beta
 public interface SecurityGroupProvider<T extends SecurityGroup> {
   String getCloudProvider();
 

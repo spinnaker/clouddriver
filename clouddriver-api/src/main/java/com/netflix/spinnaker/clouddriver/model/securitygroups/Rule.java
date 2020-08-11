@@ -17,9 +17,12 @@
 package com.netflix.spinnaker.clouddriver.model.securitygroups;
 
 import java.util.SortedSet;
+
+import com.netflix.spinnaker.kork.annotations.Beta;
 import lombok.Data;
 
 /** An abstract interface representing a security rule. */
+@Beta
 public interface Rule {
   /**
    * The port ranges associated with this rule

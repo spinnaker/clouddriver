@@ -16,8 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.Optional;
 
+@Beta
 public interface ImageProvider {
   Optional<Image> getImageById(String imageId);
 

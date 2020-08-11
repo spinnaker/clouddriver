@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +26,7 @@ import java.util.Map;
  * Primarily a marker interface, but provides the representation of an instance, which exists within
  * a {@link ServerGroup}. Concrete implementations should provide more-specific data.
  */
+@Beta
 public interface Instance {
   /**
    * The name of the instance. By convention this is expected to be globally unique.

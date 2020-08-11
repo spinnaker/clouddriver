@@ -16,9 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /**
  * Summary objects are views into particular pieces of a server group. Instead of requesting an
  * entire server group (including all instances and load balancers and whatnot), clients can request
  * a Summary that contains just the information needed.
  */
+@Beta
 public interface Summary {}

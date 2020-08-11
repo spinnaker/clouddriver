@@ -16,7 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /** A representation of a key pair */
+@Beta
 public interface KeyPair {
   /** The name of the key pair. */
   String getKeyName();

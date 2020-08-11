@@ -16,7 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
+
 /** A representation of a subnet */
+@Beta
 public interface Subnet {
   /**
    * The cloud provider associated with this subnet

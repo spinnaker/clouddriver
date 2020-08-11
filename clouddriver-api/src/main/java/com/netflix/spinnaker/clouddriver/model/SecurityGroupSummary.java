@@ -16,9 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 
+@Beta
 public interface SecurityGroupSummary {
   String getName();
 

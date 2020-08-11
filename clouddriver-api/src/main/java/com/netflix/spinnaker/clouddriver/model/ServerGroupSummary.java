@@ -17,8 +17,10 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
+import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 
+@Beta
 public interface ServerGroupSummary {
   String getName();
 
