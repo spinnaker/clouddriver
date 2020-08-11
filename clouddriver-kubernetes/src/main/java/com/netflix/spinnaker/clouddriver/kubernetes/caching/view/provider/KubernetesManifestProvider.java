@@ -95,6 +95,7 @@ public class KubernetesManifestProvider {
     return KubernetesV2ManifestBuilder.buildManifest(credentials, manifest, events, metrics);
   }
 
+  @Nullable
   public List<KubernetesV2Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
     Optional<KubernetesV2Credentials> optionalCredentials = accountResolver.getCredentials(account);

@@ -128,7 +128,7 @@ public class ManifestController {
       return null;
     }
 
-    if (manifests.isEmpty()) {
+    if (manifests == null) {
       throw new NotFoundException("No manifests matching " + request + " found");
     }
 
