@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMet
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import java.util.ArrayList;
@@ -43,7 +42,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class KubernetesV2ManifestProvider implements ManifestProvider<KubernetesV2Manifest> {
+public class KubernetesV2ManifestProvider {
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesAccountResolver accountResolver;
 
@@ -54,7 +53,6 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
     this.accountResolver = accountResolver;
   }
 
-  @Override
   @Nullable
   public KubernetesV2Manifest getManifest(
       String account, String location, String name, boolean includeEvents) {
@@ -97,7 +95,6 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
     return KubernetesV2ManifestBuilder.buildManifest(credentials, manifest, events, metrics);
   }
 
-  @Override
   public List<KubernetesV2Manifest> getClusterAndSortAscending(
       String account, String location, String kind, String app, String cluster, Sort sort) {
     Optional<KubernetesV2Credentials> optionalCredentials = accountResolver.getCredentials(account);
@@ -129,5 +126,10 @@ public class KubernetesV2ManifestProvider implements ManifestProvider<Kubernetes
                             handler.comparatorFor(sort).compare(m1.getManifest(), m2.getManifest()))
                     .collect(Collectors.toList()))
         .orElse(new ArrayList<>());
+  }
+
+  public enum Sort {
+    AGE,
+    SIZE
   }
 }
