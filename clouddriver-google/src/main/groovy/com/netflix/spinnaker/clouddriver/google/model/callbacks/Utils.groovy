@@ -20,6 +20,9 @@ import com.google.api.services.compute.model.Metadata
 import com.google.api.services.compute.model.PathMatcher
 import com.google.api.services.compute.model.PathRule
 import com.google.api.services.compute.model.UrlMap
+import com.google.common.base.Splitter
+import com.google.common.base.Strings
+import com.google.common.collect.Lists
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleBackendService
@@ -34,9 +37,12 @@ import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GooglePathRu
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleSslLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleTargetProxyType
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleTcpLoadBalancer
+import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import org.springframework.util.ClassUtils
 
+import javax.annotation.Nonnull
+import javax.annotation.Nullable
 import java.text.SimpleDateFormat
 
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
@@ -85,33 +91,32 @@ class Utils {
     return lastIndex != -1 ? fullUrl.substring(lastIndex + 1) : fullUrl
   }
 
-  static GoogleTargetProxyType getTargetProxyType(String fullUrl) {
-    if (!fullUrl) {
-      throw new IllegalArgumentException("Target proxy url ${fullUrl} malformed.")
-    }
+  private static Splitter onSlash = Splitter.on('/').omitEmptyStrings()
 
-    int lastIndex = fullUrl.lastIndexOf('/')
-    if (lastIndex == -1) {
-      throw new IllegalArgumentException("Target proxy url ${fullUrl} malformed.")
-    }
-    String withoutName = fullUrl.substring(0, lastIndex)
-    switch (getLocalName(withoutName)) {
-      case 'targetHttpProxies':
-        return GoogleTargetProxyType.HTTP
-        break
-      case 'targetHttpsProxies':
-        return GoogleTargetProxyType.HTTPS
-        break
-      case 'targetSslProxies':
-        return GoogleTargetProxyType.SSL
-        break
-      case 'targetTcpProxies':
-        return GoogleTargetProxyType.TCP
-        break
-      default:
-        throw new IllegalArgumentException("Target proxy url ${fullUrl} has unknown type.")
-        break
-    }
+  /**
+   * Splits the input string on slashes, and returns the element of the specified
+   * index, starting from the end of the string. The last component has index 0,
+   * the second-to-last has index 1, etc.
+   * @param input input string to split
+   * @param index
+   * @return The corresponding portion of the string, or an empty string if
+   * the string does not have the required number of parts.
+   */
+  @CompileStatic
+  @Nonnull
+  private static String getUrlPart(@Nonnull String input, int index) {
+    return Lists.reverse(onSlash.splitToList(input))
+      .stream()
+      .skip(index)
+      .findFirst()
+      .orElse("")
+  }
+
+  @CompileStatic
+  @Nonnull
+  static GoogleTargetProxyType getTargetProxyType(@Nullable String fullUrl) {
+    String name = getUrlPart(Strings.nullToEmpty(fullUrl), 1)
+    return GoogleTargetProxyType.fromIdentifier(name)
   }
 
   static String getZoneFromInstanceUrl(String fullUrl) {
