@@ -25,8 +25,12 @@ import com.netflix.spinnaker.clouddriver.azure.common.AzureUtilities
 import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancer
 import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureNamedImage
+import com.netflix.spinnaker.clouddriver.model.Capacity
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
+import com.netflix.spinnaker.clouddriver.model.DefaultInstanceCounts
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 
 class AzureServerGroupDescription extends AzureResourceOpsDescription implements ServerGroup {
@@ -43,7 +47,7 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
   final String type = AzureCloudProvider.ID
   final String cloudProvider = AzureCloudProvider.ID
   Map<String, Object> launchConfig
-  ServerGroup.Capacity capacity
+  DefaultCapacity capacity
   ServerGroup.ImagesSummary imagesSummary
   ServerGroup.ImageSummary imageSummary
 
@@ -133,9 +137,9 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
   }
 
   @Override
-  ServerGroup.InstanceCounts getInstanceCounts() {
+  InstanceCounts getInstanceCounts() {
     Collection<AzureInstance> instances = getInstances()
-    new ServerGroup.InstanceCounts(
+    new DefaultInstanceCounts(
       total: instances?.size() ?: 0,
       up: filterInstancesByHealthState(instances, HealthState.Up)?.size() ?: 0,
       down: filterInstancesByHealthState(instances, HealthState.Down)?.size() ?: 0,
@@ -145,8 +149,8 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
   }
 
   @Override
-  ServerGroup.Capacity getCapacity() {
-    new ServerGroup.Capacity(
+  Capacity getCapacity() {
+    new DefaultCapacity(
       min: 1,
       max: instances ? instances.size() : 1,
       desired: instances ? instances.size() : 1

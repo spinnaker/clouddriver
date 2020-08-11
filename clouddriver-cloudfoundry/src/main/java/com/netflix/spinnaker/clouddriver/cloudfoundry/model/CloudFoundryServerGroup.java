@@ -27,8 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryCloudProvider;
-import com.netflix.spinnaker.clouddriver.model.Image;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.clouddriver.model.*;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
 import io.vavr.collection.HashMap;
@@ -213,7 +212,7 @@ public class CloudFoundryServerGroup extends CloudFoundryModel implements Server
 
   @Override
   public InstanceCounts getInstanceCounts() {
-    return new InstanceCounts(
+    return new DefaultInstanceCounts(
         instances.size(),
         (int) instances.stream().filter(in -> Up.equals(in.getHealthState())).count(),
         (int) instances.stream().filter(in -> Down.equals(in.getHealthState())).count(),
@@ -224,7 +223,7 @@ public class CloudFoundryServerGroup extends CloudFoundryModel implements Server
 
   @Override
   public Capacity getCapacity() {
-    return new ServerGroup.Capacity(instances.size(), instances.size(), instances.size());
+    return new DefaultCapacity(instances.size(), instances.size(), instances.size());
   }
 
   public String getStack() {

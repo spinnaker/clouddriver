@@ -24,13 +24,14 @@ import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonTargetGroup
 import com.netflix.spinnaker.clouddriver.aws.model.TargetGroupServerGroupProvider
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerInstance
 import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonInstance
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonServerGroup
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerServerGroup
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Lazy
@@ -183,12 +184,12 @@ class AmazonLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadBalan
   }
 
   private static LoadBalancerServerGroup createLoadBalancerServerGroup(AmazonServerGroup serverGroup, String healthKey, String name) {
-    return new LoadBalancerServerGroup(
+    return new DefaultLoadBalancerServerGroup(
       name: serverGroup.name,
       isDisabled: serverGroup.isDisabled(),
       instances: serverGroup.instances ? serverGroup.instances.collect { instance ->
         def health = instance.health.find { it[healthKey] == name } ?: [:]
-        new LoadBalancerInstance(
+        new DefaultLoadBalancerInstance(
           id: instance.name,
           zone: instance.zone,
           health:

@@ -21,6 +21,7 @@ import com.amazonaws.services.ecs.model.Service
 import com.amazonaws.services.ecs.model.UpdateServiceResult
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 
 class ResizeServiceAtomicOperationSpec extends CommonAtomicOperation {
@@ -33,7 +34,7 @@ class ResizeServiceAtomicOperationSpec extends CommonAtomicOperation {
     def operation = new ResizeServiceAtomicOperation(new ResizeServiceDescription(
       credentials: credentials,
       serverGroupName: serviceName,
-      capacity: new ServerGroup.Capacity(1, 2, 1)
+      capacity: new DefaultCapacity(1, 2, 1)
     ))
 
     operation.amazonClientProvider = amazonClientProvider

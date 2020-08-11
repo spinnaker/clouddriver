@@ -25,6 +25,7 @@ import com.amazonaws.services.autoscaling.model.LifecycleHook
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest
 import com.netflix.spinnaker.clouddriver.data.task.Task
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import spock.lang.Specification
 import spock.lang.Subject
@@ -36,7 +37,7 @@ class DefaultAfterResizeEventHandlerSpec extends Specification {
   def amazonAutoScaling = Mock(AmazonAutoScaling)
 
   def autoScalingGroup = new AutoScalingGroup().withAutoScalingGroupName("app-v001")
-  def capacity = new ServerGroup.Capacity(0, 100, 0)
+  def capacity = new DefaultCapacity(0, 100, 0)
 
   def event = new AfterResizeEvent(
     task,

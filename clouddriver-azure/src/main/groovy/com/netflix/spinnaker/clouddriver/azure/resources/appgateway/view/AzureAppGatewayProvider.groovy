@@ -29,7 +29,7 @@ import com.netflix.spinnaker.clouddriver.azure.resources.common.cache.Keys
 import com.netflix.spinnaker.clouddriver.azure.resources.loadbalancer.model.AzureLoadBalancer
 import com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model.AzureServerGroupDescription
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerServerGroup
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -98,7 +98,7 @@ class AzureAppGatewayProvider implements LoadBalancerProvider<AzureLoadBalancer>
     description.serverGroups?.each { serverGroup ->
       AzureServerGroupDescription asg = clusterProvider.getServerGroup(loadBalancer.account, loadBalancer.region, serverGroup)
 
-      loadBalancer.serverGroups.add(new LoadBalancerServerGroup (
+      loadBalancer.serverGroups.add(new DefaultLoadBalancerServerGroup (
         name: serverGroup,
         isDisabled: asg.isDisabled(),
         detachedInstances: [],

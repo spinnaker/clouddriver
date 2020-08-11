@@ -26,9 +26,9 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.provider.KubernetesModelUtil;
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerInstance;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import com.netflix.spinnaker.moniker.Moniker;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 import java.util.ArrayList;
@@ -105,8 +105,8 @@ public final class KubernetesV2Instance implements Instance, KubernetesResource 
     return new KubernetesV2Instance(manifest, cd.getId(), moniker);
   }
 
-  public LoadBalancerInstance toLoadBalancerInstance() {
-    return LoadBalancerInstance.builder()
+  public DefaultLoadBalancerInstance toLoadBalancerInstance() {
+    return DefaultLoadBalancerInstance.builder()
         .health(
             health.stream()
                 .reduce(

@@ -31,7 +31,9 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskState
 import com.netflix.spinnaker.clouddriver.eureka.api.Eureka
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.EurekaSupportConfigurationProperties
+import com.netflix.spinnaker.clouddriver.model.Capacity
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.EnableDisableInstanceDiscoveryDescription
@@ -590,8 +592,8 @@ class DiscoverySupportUnitSpec extends Specification {
     Set<String> loadBalancers
     Set<String> securityGroups
     Map<String, Object> launchConfig
-    ServerGroup.InstanceCounts instanceCounts
-    ServerGroup.Capacity capacity
+    InstanceCounts instanceCounts
+    Capacity capacity
     Boolean isDisabled() {disabled}
     ServerGroup.ImageSummary getImageSummary() {}
     ServerGroup.ImagesSummary getImagesSummary() {}

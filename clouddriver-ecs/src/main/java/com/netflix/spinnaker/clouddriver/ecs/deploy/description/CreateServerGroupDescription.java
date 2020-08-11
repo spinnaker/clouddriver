@@ -18,7 +18,7 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
 import com.amazonaws.services.ecs.model.PlacementConstraint;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +60,7 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   @Nullable String dockerImageAddress;
   String dockerImageCredentialsSecret;
 
-  ServerGroup.Capacity capacity;
+  DefaultCapacity capacity;
 
   Map<String, List<String>> availabilityZones;
 

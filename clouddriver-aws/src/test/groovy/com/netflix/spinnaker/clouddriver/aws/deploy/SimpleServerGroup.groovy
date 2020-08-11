@@ -16,7 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy
 
+import com.netflix.spinnaker.clouddriver.model.Capacity
 import com.netflix.spinnaker.clouddriver.model.Instance
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 
 class SimpleServerGroup implements ServerGroup {
@@ -31,8 +33,8 @@ class SimpleServerGroup implements ServerGroup {
   Set<String> loadBalancers
   Set<String> securityGroups
   Map<String, Object> launchConfig
-  ServerGroup.InstanceCounts instanceCounts
-  ServerGroup.Capacity capacity
+  InstanceCounts instanceCounts
+  Capacity capacity
   ServerGroup.ImageSummary imageSummary
   ServerGroup.ImagesSummary imagesSummary
 

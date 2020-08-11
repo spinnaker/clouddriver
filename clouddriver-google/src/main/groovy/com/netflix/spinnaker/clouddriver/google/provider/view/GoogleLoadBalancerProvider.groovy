@@ -31,9 +31,9 @@ import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.*
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerInstance
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerServerGroup
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -156,7 +156,7 @@ class GoogleLoadBalancerProvider implements LoadBalancerProvider<GoogleLoadBalan
           break
       }
 
-      def loadBalancerServerGroup = new LoadBalancerServerGroup(
+      def loadBalancerServerGroup = new DefaultLoadBalancerServerGroup(
           name: serverGroup.name,
           region: serverGroup.region,
           isDisabled: isDisabled,
@@ -177,7 +177,7 @@ class GoogleLoadBalancerProvider implements LoadBalancerProvider<GoogleLoadBalan
           return
         }
 
-        loadBalancerServerGroup.instances << new LoadBalancerInstance(
+        loadBalancerServerGroup.instances << new DefaultLoadBalancerInstance(
             id: googleLoadBalancerHealth.instanceName,
             zone: googleLoadBalancerHealth.instanceZone,
             health: [

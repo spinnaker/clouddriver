@@ -22,10 +22,6 @@ import com.netflix.spinnaker.moniker.Moniker;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Beta
 public interface ServerGroupManager {
@@ -41,15 +37,5 @@ public interface ServerGroupManager {
 
   default Map<String, String> getLabels() {
     return new HashMap<>();
-  }
-
-  @Data
-  @Builder
-  @NoArgsConstructor
-  @AllArgsConstructor
-  class ServerGroupManagerSummary {
-    String name;
-    String location;
-    String account;
   }
 }

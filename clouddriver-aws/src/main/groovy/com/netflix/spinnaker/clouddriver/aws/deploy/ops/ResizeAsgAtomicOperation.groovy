@@ -26,7 +26,7 @@ import com.netflix.spinnaker.clouddriver.aws.event.AfterResizeEventHandler
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.clouddriver.model.Capacity
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -63,7 +63,7 @@ class ResizeAsgAtomicOperation implements AtomicOperation<Void> {
 
   private void resizeAsg(String asgName,
                          String region,
-                         ServerGroup.Capacity capacity,
+                         Capacity capacity,
                          ResizeAsgDescription.Constraints constraints) {
     task.updateStatus PHASE, "Beginning resize of ${asgName} in ${region} to ${capacity}."
 

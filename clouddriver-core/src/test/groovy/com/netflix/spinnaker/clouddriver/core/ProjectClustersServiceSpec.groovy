@@ -17,8 +17,11 @@ package com.netflix.spinnaker.clouddriver.core
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
+import com.netflix.spinnaker.clouddriver.model.Capacity
 import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
+import com.netflix.spinnaker.clouddriver.model.DefaultInstanceCounts
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import spock.lang.Shared
@@ -119,7 +122,7 @@ class ProjectClustersServiceSpec extends Specification {
       name: "orca-main",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 2L, new ServerGroup.InstanceCounts(total: 1, up: 1))
+        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 2L, new DefaultInstanceCounts(total: 1, up: 1))
       ]
     )
 
@@ -134,7 +137,7 @@ class ProjectClustersServiceSpec extends Specification {
       name: "deck-main",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "deck-main-v001", "us-west-1", 31, 1L, new ServerGroup.InstanceCounts(total: 2, up: 1, down: 1))
+        makeServerGroup("prod", "deck-main-v001", "us-west-1", 31, 1L, new DefaultInstanceCounts(total: 2, up: 1, down: 1))
       ]
     )
 
@@ -166,7 +169,7 @@ class ProjectClustersServiceSpec extends Specification {
       name: "orca-main",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 1L, new ServerGroup.InstanceCounts(total: 1, up: 1))
+        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 1L, new DefaultInstanceCounts(total: 1, up: 1))
       ]
     )
 
@@ -181,7 +184,7 @@ class ProjectClustersServiceSpec extends Specification {
       name: "deck-main",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "deck-main-v001", "us-west-1", 31, 1L, new ServerGroup.InstanceCounts(total: 2, up: 1, down: 1))
+        makeServerGroup("prod", "deck-main-v001", "us-west-1", 31, 1L, new DefaultInstanceCounts(total: 2, up: 1, down: 1))
       ]
     )
 
@@ -213,7 +216,7 @@ class ProjectClustersServiceSpec extends Specification {
       name: "orca-main",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 1L, new ServerGroup.InstanceCounts(total: 1, up: 1))
+        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 1L, new DefaultInstanceCounts(total: 1, up: 1))
       ]
     )
 
@@ -228,7 +231,7 @@ class ProjectClustersServiceSpec extends Specification {
       name: "deck-main",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "deck-main-v001", "us-west-1", 31, 1L, new ServerGroup.InstanceCounts(total: 2, up: 1, down: 1))
+        makeServerGroup("prod", "deck-main-v001", "us-west-1", 31, 1L, new DefaultInstanceCounts(total: 2, up: 1, down: 1))
       ]
     )
 
@@ -279,14 +282,14 @@ class ProjectClustersServiceSpec extends Specification {
       name: "orca-main",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 1L, new ServerGroup.InstanceCounts(total: 1, up: 1))
+        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 1L, new DefaultInstanceCounts(total: 1, up: 1))
       ]
     )
     1 * clusterProvider.getCluster("orca", "prod", "orca-test") >> new TestCluster(
       name: "orca-test",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "orca-test-v001", "us-west-1", 3, 5L, new ServerGroup.InstanceCounts(total: 1, up: 1))
+        makeServerGroup("prod", "orca-test-v001", "us-west-1", 3, 5L, new DefaultInstanceCounts(total: 1, up: 1))
       ]
     )
     0 * clusterProvider._
@@ -297,7 +300,7 @@ class ProjectClustersServiceSpec extends Specification {
       [account: "prod", stack: "main", applications: ["orca"]]
     ]
 
-    TestServerGroup disabledServerGroup = makeServerGroup("prod", "orca-main-v003", "us-east-1", 5, 5L, new ServerGroup.InstanceCounts(total: 1, up: 1))
+    TestServerGroup disabledServerGroup = makeServerGroup("prod", "orca-main-v003", "us-east-1", 5, 5L, new DefaultInstanceCounts(total: 1, up: 1))
     disabledServerGroup.disabled = true
 
     when:
@@ -326,8 +329,8 @@ class ProjectClustersServiceSpec extends Specification {
       name: "orca-main",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 1L, new ServerGroup.InstanceCounts(total: 1, up: 1)),
-        makeServerGroup("prod", "orca-main-v002", "us-east-1", 4, 4L, new ServerGroup.InstanceCounts(total: 1, up: 1)),
+        makeServerGroup("prod", "orca-main-v001", "us-east-1", 3, 1L, new DefaultInstanceCounts(total: 1, up: 1)),
+        makeServerGroup("prod", "orca-main-v002", "us-east-1", 4, 4L, new DefaultInstanceCounts(total: 1, up: 1)),
         disabledServerGroup
       ])
 
@@ -377,7 +380,7 @@ class ProjectClustersServiceSpec extends Specification {
       name: "orca-main-foo",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "orca-main-foo-v001", "us-east-1", 3, 1L, new ServerGroup.InstanceCounts(total: 1, up: 1)),
+        makeServerGroup("prod", "orca-main-foo-v001", "us-east-1", 3, 1L, new DefaultInstanceCounts(total: 1, up: 1)),
       ])
     0 * clusterProvider._
   }
@@ -387,7 +390,7 @@ class ProjectClustersServiceSpec extends Specification {
     projectConfig.config.clusters = [
       [account: "prod", stack: "main", detail: "foo", applications: ["orca"]]
     ]
-    def disabledServerGroup = makeServerGroup("prod", "orca-main-foo-v005", "us-west-1", 6, 7L, new ServerGroup.InstanceCounts(total: 1, up: 1))
+    def disabledServerGroup = makeServerGroup("prod", "orca-main-foo-v005", "us-west-1", 6, 7L, new DefaultInstanceCounts(total: 1, up: 1))
     disabledServerGroup.disabled = true
 
     when:
@@ -436,10 +439,10 @@ class ProjectClustersServiceSpec extends Specification {
       name: "orca-main-foo",
       accountName: "prod",
       serverGroups: [
-        makeServerGroup("prod", "orca-main-foo-v001", "us-east-1", 3, 1L, new ServerGroup.InstanceCounts(total: 1, up: 1)),
-        makeServerGroup("prod", "orca-main-foo-v003", "us-west-1", 4, 2L, new ServerGroup.InstanceCounts(total: 1, up: 1)),
-        makeServerGroup("prod", "orca-main-foo-v004", "us-west-1", 5, 3L, new ServerGroup.InstanceCounts(total: 1, up: 1)),
-        makeServerGroup("prod", "orca-main-foo-v005", "us-west-1", 5, 6L, new ServerGroup.InstanceCounts(total: 1, up: 1)),
+        makeServerGroup("prod", "orca-main-foo-v001", "us-east-1", 3, 1L, new DefaultInstanceCounts(total: 1, up: 1)),
+        makeServerGroup("prod", "orca-main-foo-v003", "us-west-1", 4, 2L, new DefaultInstanceCounts(total: 1, up: 1)),
+        makeServerGroup("prod", "orca-main-foo-v004", "us-west-1", 5, 3L, new DefaultInstanceCounts(total: 1, up: 1)),
+        makeServerGroup("prod", "orca-main-foo-v005", "us-west-1", 5, 6L, new DefaultInstanceCounts(total: 1, up: 1)),
         disabledServerGroup
       ])
   }
@@ -453,7 +456,7 @@ class ProjectClustersServiceSpec extends Specification {
                                   String region,
                                   Integer buildNumber,
                                   Long createdTime,
-                                  ServerGroup.InstanceCounts instanceCounts) {
+                                  InstanceCounts instanceCounts) {
     def imageSummary = new TestImageSummary(buildInfo: [jenkins: [name: 'job', host: 'host', number: buildNumber.toString()]])
     new TestServerGroup(
       name: name,
@@ -497,7 +500,7 @@ class ProjectClustersServiceSpec extends Specification {
     Set<String> loadBalancers
     Set<String> securityGroups
     Map<String, Object> launchConfig
-    ServerGroup.Capacity capacity
+    Capacity capacity
     Set<String> zones
 
     Boolean isDisabled() { disabled }

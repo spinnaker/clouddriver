@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.CreateServerGroupAtomicOperation
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
@@ -45,7 +46,7 @@ class EcsCreateServerGroupAtomicOperationConverterSpec extends Specification {
       computeUnits             : 256,
       reservedMemory           : 512,
       dockerImageAddress       : 'docker-url',
-      capacity                 : new ServerGroup.Capacity(0, 2, 1,),
+      capacity                 : new DefaultCapacity(0, 2, 1,),
       availabilityZones        : ['us-west-1': ['us-west-1a']],
       placementStrategySequence: [new PlacementStrategy().withType(PlacementStrategyType.Random)],
       region                   : 'us-west-1',

@@ -17,21 +17,12 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.kork.annotations.Beta;
-import java.util.Set;
 
 @Beta
-public interface LoadBalancerServerGroup {
+public interface ServerGroupManagerSummary {
   String getName();
 
+  String getLocation();
+
   String getAccount();
-
-  String getRegion();
-
-  Boolean getIsDisabled();
-
-  Set<String> getDetachedInstances();
-
-  Set<? extends LoadBalancerInstance> getInstances();
-
-  String getCloudProvider();
 }

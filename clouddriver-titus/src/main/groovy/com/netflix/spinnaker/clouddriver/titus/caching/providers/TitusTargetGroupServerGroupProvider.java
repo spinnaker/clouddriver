@@ -24,7 +24,8 @@ import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonTargetGroup;
 import com.netflix.spinnaker.clouddriver.aws.model.TargetGroupServerGroupProvider;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerInstance;
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider;
 import com.netflix.spinnaker.clouddriver.titus.caching.Keys;
@@ -91,12 +92,12 @@ public class TitusTargetGroupServerGroupProvider implements TargetGroupServerGro
           Map<String, String> targetGroupDetails =
               com.netflix.spinnaker.clouddriver.aws.data.Keys.parse(targetGroup);
 
-          Set<LoadBalancerInstance> targetGroupInstances = new HashSet<>();
+          Set<DefaultLoadBalancerInstance> targetGroupInstances = new HashSet<>();
           if (serverGroup.getRelationships().containsKey(INSTANCES.ns)) {
             for (String instanceKey : serverGroup.getRelationships().get(INSTANCES.ns)) {
               Map instanceDetails = instances.get(instanceKey);
 
-              Optional<LoadBalancerInstance> instance =
+              Optional<DefaultLoadBalancerInstance> instance =
                   getInstanceHealth(instanceKey, instanceDetails, targetGroupDetails);
               if (instance.isPresent()) {
                 targetGroupInstances.add(instance.get());
@@ -113,7 +114,7 @@ public class TitusTargetGroupServerGroupProvider implements TargetGroupServerGro
           Map attributes = serverGroup.getAttributes();
           Map job = (Map) attributes.get("job");
           LoadBalancerServerGroup loadBalancerServerGroup =
-              new LoadBalancerServerGroup(
+              new DefaultLoadBalancerServerGroup(
                   job.get("name").toString(),
                   attributes.get("account").toString(),
                   attributes.get("region").toString(),
@@ -129,7 +130,7 @@ public class TitusTargetGroupServerGroupProvider implements TargetGroupServerGro
                 .set(
                     "instances",
                     targetGroupInstances.stream()
-                        .map(LoadBalancerInstance::getId)
+                        .map(DefaultLoadBalancerInstance::getId)
                         .collect(Collectors.toSet()));
           }
         }
@@ -144,7 +145,7 @@ public class TitusTargetGroupServerGroupProvider implements TargetGroupServerGro
         : Collections.emptyList();
   }
 
-  private Optional<LoadBalancerInstance> getInstanceHealth(
+  private Optional<DefaultLoadBalancerInstance> getInstanceHealth(
       String instanceKey, Map instanceDetails, Map<String, String> targetGroupDetails) {
     String healthKey;
     try {
@@ -163,7 +164,7 @@ public class TitusTargetGroupServerGroupProvider implements TargetGroupServerGro
     Map<String, Object> health = getTargetGroupHealth(instanceKey, targetGroupDetails, healthData);
 
     return Optional.of(
-        new LoadBalancerInstance(
+        new DefaultLoadBalancerInstance(
             ((Map) instanceDetails.get("task")).get("id").toString(), null, health));
   }
 

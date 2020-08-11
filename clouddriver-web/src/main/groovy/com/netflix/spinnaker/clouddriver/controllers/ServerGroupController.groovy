@@ -20,11 +20,14 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.model.Capacity
 import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.Instance
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManager
+import com.netflix.spinnaker.clouddriver.model.ServerGroupManagerSummary
 import com.netflix.spinnaker.clouddriver.model.view.ClusterViewModelPostProcessor
 import com.netflix.spinnaker.clouddriver.model.view.ServerGroupViewModelPostProcessor
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue
@@ -253,17 +256,17 @@ class ServerGroupController {
     Map buildInfo
     Long createdTime
 
-    ServerGroup.Capacity capacity
+    Capacity capacity
 
     List<InstanceViewModel> instances
     Set<String> loadBalancers
     Set<String> targetGroups
     Set<String> securityGroups
-    ServerGroup.InstanceCounts instanceCounts
+    InstanceCounts instanceCounts
     Map<String, Object> tags
     Map<String, String> labels
     Map providerMetadata
-    List<ServerGroupManager.ServerGroupManagerSummary> serverGroupManagers
+    List<ServerGroupManagerSummary> serverGroupManagers
 
     @JsonIgnore
     Map<String, Object> extraAttributes = new HashMap<>()

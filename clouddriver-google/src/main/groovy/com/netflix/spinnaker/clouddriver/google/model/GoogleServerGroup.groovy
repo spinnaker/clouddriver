@@ -26,8 +26,12 @@ import com.google.api.services.compute.model.StatefulPolicy
 import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerView
+import com.netflix.spinnaker.clouddriver.model.Capacity
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
+import com.netflix.spinnaker.clouddriver.model.DefaultInstanceCounts
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.moniker.Moniker
@@ -152,10 +156,10 @@ class GoogleServerGroup implements GoogleLabeledResource {
     }
 
     @Override
-    ServerGroup.Capacity getCapacity() {
+    Capacity getCapacity() {
       def asg = GoogleServerGroup.this.asg
       asg ?
-          new ServerGroup.Capacity(min: asg.minSize ? asg.minSize as Integer : 0,
+          new DefaultCapacity(min: asg.minSize ? asg.minSize as Integer : 0,
                                    max: asg.maxSize ? asg.maxSize as Integer : 0,
                                    desired: asg.desiredCapacity ? asg.desiredCapacity as Integer : 0) :
           null
@@ -215,8 +219,8 @@ class GoogleServerGroup implements GoogleLabeledResource {
     }
 
     @Override
-    ServerGroup.InstanceCounts getInstanceCounts() {
-      new ServerGroup.InstanceCounts(
+    InstanceCounts getInstanceCounts() {
+      new DefaultInstanceCounts(
           total: instances.size(),
           up: filterInstancesByHealthState(instances, HealthState.Up)?.size() ?: 0,
           down: filterInstancesByHealthState(instances, HealthState.Down)?.size() ?: 0,

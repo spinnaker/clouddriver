@@ -26,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.clouddriver.model.SimpleCluster
 import spock.lang.Specification
 
 class AWSServerGroupNameResolverSpec extends Specification {
@@ -53,7 +54,7 @@ class AWSServerGroupNameResolverSpec extends Specification {
     then:
     1 * amazonClusterProvider.getCluster('application', account, 'application-stack-details') >> {
       // should only include server groups in the target region
-      new Cluster.SimpleCluster(type: 'aws', serverGroups: [
+      new SimpleCluster(type: 'aws', serverGroups: [
           sG('application-stack-details-v000', 1, region),
           sG('application-stack-details-v999', 0, region),
           sG('application-stack-details-v001', 0, 'us-east-1')
@@ -61,7 +62,7 @@ class AWSServerGroupNameResolverSpec extends Specification {
     }
     1 * googleClusterProvider.getCluster('application', account, 'application-stack-details') >> {
       // wrong cluster type, should not be included in taken slots
-      new Cluster.SimpleCluster(type: 'google', serverGroups: [
+      new SimpleCluster(type: 'google', serverGroups: [
         sG('application-stack-details-v001', 0, region)
       ])
     }
@@ -87,7 +88,7 @@ class AWSServerGroupNameResolverSpec extends Specification {
 
     then:
     1 * amazonClusterProvider.getCluster('application', account, clusterName) >> {
-      new Cluster.SimpleCluster(type: 'aws', serverGroups: [
+      new SimpleCluster(type: 'aws', serverGroups: [
         sG("${clusterName}-v999", 0, region)
       ])
     }
@@ -102,7 +103,7 @@ class AWSServerGroupNameResolverSpec extends Specification {
 
     then:
     1 * amazonClusterProvider.getCluster('application', account, clusterName) >> {
-      new Cluster.SimpleCluster(type: 'aws', serverGroups: [
+      new SimpleCluster(type: 'aws', serverGroups: [
         sG('application-stack-details-v999', 0, region)
       ])
     }
@@ -129,7 +130,7 @@ class AWSServerGroupNameResolverSpec extends Specification {
 
     then:
     1 * amazonClusterProvider.getCluster('application', account, clusterName) >> {
-      new Cluster.SimpleCluster(type: 'aws', serverGroups: [
+      new SimpleCluster(type: 'aws', serverGroups: [
         sG("${clusterName}-v999", 0, region)
       ])
     }

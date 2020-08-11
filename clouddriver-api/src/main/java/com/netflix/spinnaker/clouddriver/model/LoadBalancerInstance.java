@@ -1,7 +1,7 @@
 /*
- * Copyright 2016 Google, Inc.
+ * Copyright 2020 Armory
  *
- * Licensed under the Apache License, Version 2.0 (the "License")
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -18,33 +18,14 @@ package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Map;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
 @Beta
-public class LoadBalancerInstance {
-  String id;
-  String name;
-  String zone;
-  Map<String, Object> health;
+public interface LoadBalancerInstance {
+  String getId();
 
-  public LoadBalancerInstance(String id, String zone, Map<String, Object> health) {
-    this.id = id;
-    this.zone = zone;
-    this.health = health;
-  }
+  String getName();
 
-  public String getName() {
-    if (name == null || name.isEmpty()) {
-      return id;
-    } else {
-      return name;
-    }
-  }
+  String getZone();
+
+  Map<String, Object> getHealth();
 }

@@ -21,7 +21,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.api.services.appengine.v1.model.Service
 import com.netflix.spinnaker.clouddriver.appengine.AppengineCloudProvider
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerInstance
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerServerGroup
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
 import com.netflix.spinnaker.moniker.Moniker
 import groovy.transform.AutoClone
@@ -64,7 +65,7 @@ class AppengineLoadBalancer implements LoadBalancer, Serializable {
   Void setLoadBalancerServerGroups(Set<AppengineServerGroup> serverGroups) {
     this.serverGroups = serverGroups?.collect { serverGroup ->
       def instances = serverGroup.isDisabled() ? [] : serverGroup.instances?.collect { instance ->
-          new LoadBalancerInstance(id: instance.name, health: [state: instance.healthState.toString() as Object])
+          new DefaultLoadBalancerInstance(id: instance.name, health: [state: instance.healthState.toString() as Object])
         } ?: []
 
       def detachedInstances = serverGroup.isDisabled() ? serverGroup.instances?.collect { it.name } ?: [] : []
@@ -82,7 +83,7 @@ class AppengineLoadBalancer implements LoadBalancer, Serializable {
     null
   }
 
-  static class AppengineLoadBalancerServerGroup extends LoadBalancerServerGroup {
+  static class AppengineLoadBalancerServerGroup extends DefaultLoadBalancerServerGroup {
     Boolean allowsGradualTrafficMigration
   }
 }

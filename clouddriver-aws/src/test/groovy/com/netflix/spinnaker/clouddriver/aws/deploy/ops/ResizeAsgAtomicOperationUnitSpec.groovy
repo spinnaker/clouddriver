@@ -25,6 +25,8 @@ import com.netflix.spinnaker.clouddriver.aws.deploy.description.ResizeAsgDescrip
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.model.Capacity
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -46,7 +48,7 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
       asgs: [[
         serverGroupName: "myasg-stack-v000",
         region         : "us-west-1",
-        capacity       : new ServerGroup.Capacity(
+        capacity       : new DefaultCapacity(
           min    : 1,
           max    : 2,
           desired: 5
@@ -118,7 +120,7 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
       asgs: [[
                serverGroupName: "myasg-stack-v000",
                region         : "us-west-1",
-               capacity       : new ServerGroup.Capacity(min: minSize, max: maxSize, desired: desired)
+               capacity       : new DefaultCapacity(min: minSize, max: maxSize, desired: desired)
              ]]
     )
     def operation = new ResizeAsgAtomicOperation(description)
@@ -150,7 +152,7 @@ class ResizeAsgAtomicOperationUnitSpec extends Specification {
     null    | null    | null    | 0
   }
 
-  private static ServerGroup.Capacity capacity(int min, int max, int desired) {
-    return new ServerGroup.Capacity(min: min, max: max, desired: desired)
+  private static Capacity capacity(int min, int max, int desired) {
+    return new DefaultCapacity(min: min, max: max, desired: desired)
   }
 }

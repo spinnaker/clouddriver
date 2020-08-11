@@ -23,9 +23,6 @@ import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 /**
  * A cluster is an object that provides an association between an account, many server groups, and
@@ -79,17 +76,6 @@ public interface Cluster {
   @Empty
   // TODO(ttomsu): Why are load balancers associated with Clusters instead of ServerGroups?
   Set<? extends LoadBalancer> getLoadBalancers();
-
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  class SimpleCluster implements Cluster {
-    String name;
-    String type;
-    String accountName;
-    Set<ServerGroup> serverGroups;
-    Set<LoadBalancer> loadBalancers;
-  }
 
   default Map<String, Object> getExtraAttributes() {
     return Collections.EMPTY_MAP;

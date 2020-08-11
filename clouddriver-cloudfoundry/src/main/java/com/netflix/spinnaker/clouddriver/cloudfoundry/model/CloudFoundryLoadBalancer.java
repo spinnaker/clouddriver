@@ -25,8 +25,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryCloudProvider;
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerInstance;
+import com.netflix.spinnaker.clouddriver.model.DefaultLoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Set;
@@ -90,7 +91,7 @@ public class CloudFoundryLoadBalancer extends CloudFoundryModel implements LoadB
     return mappedApps.stream()
         .map(
             app ->
-                new LoadBalancerServerGroup(
+                new DefaultLoadBalancerServerGroup(
                     app.getName(),
                     account,
                     app.getRegion(),
@@ -99,7 +100,7 @@ public class CloudFoundryLoadBalancer extends CloudFoundryModel implements LoadB
                     app.getInstances().stream()
                         .map(
                             it ->
-                                new LoadBalancerInstance(
+                                new DefaultLoadBalancerInstance(
                                     it.getId(), it.getName(), null, it.getHealth().get(0)))
                         .collect(toSet()),
                     CloudFoundryCloudProvider.ID))

@@ -29,7 +29,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.ProcessSta
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.ScaleCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -43,7 +43,7 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest
     desc = new ScaleCloudFoundryServerGroupDescription();
     desc.setClient(client);
     desc.setServerGroupName("myapp");
-    desc.setCapacity(ServerGroup.Capacity.builder().desired(2).build());
+    desc.setCapacity(DefaultCapacity.builder().desired(2).build());
   }
 
   @Test
@@ -65,7 +65,7 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest
   @Test
   void scaleForStoppedServerGroup() {
     desc.setScaleStoppedServerGroup(true);
-    desc.setCapacity(ServerGroup.Capacity.builder().desired(2).min(2).max(3).build());
+    desc.setCapacity(DefaultCapacity.builder().desired(2).min(2).max(3).build());
     OperationPoller poller = mock(OperationPoller.class);
 
     //noinspection unchecked
@@ -106,7 +106,7 @@ class ScaleCloudFoundryServerGroupAtomicOperationTest
 
   @Test
   void scaleDownToZero() {
-    desc.setCapacity(new ServerGroup.Capacity(1, 1, 0));
+    desc.setCapacity(new DefaultCapacity(1, 1, 0));
     OperationPoller poller = mock(OperationPoller.class);
 
     //noinspection unchecked

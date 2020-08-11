@@ -36,6 +36,7 @@ import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamTrustRelationship
 import com.netflix.spinnaker.clouddriver.ecs.services.EcsCloudMetricService
 import com.netflix.spinnaker.clouddriver.ecs.services.SecurityGroupSelector
 import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.kork.artifacts.model.Artifact
 
@@ -110,7 +111,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       tags: ['label1': 'value1', 'fruit': 'tomato'],
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
-      capacity: new ServerGroup.Capacity(1, 1, 1),
+      capacity: new DefaultCapacity(1, 1, 1),
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
       placementStrategySequence: [placementStrategy],
       placementConstraints: [placementConstraint],
@@ -225,7 +226,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       computeUnits: 9001,
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
-      capacity: new ServerGroup.Capacity(1, 1, 1),
+      capacity: new DefaultCapacity(1, 1, 1),
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
       placementStrategySequence: [],
       launchType: 'FARGATE',
@@ -487,7 +488,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
     description.getComputeUnits() >> 9001
     description.getReservedMemory() >> 9001
     description.getDockerImageAddress() >> 'docker-image-url'
-    description.capacity = new ServerGroup.Capacity(1, 1, 1)
+    description.capacity = new DefaultCapacity(1, 1, 1)
     description.availabilityZones = ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']]
     description.placementStrategySequence = []
 
@@ -757,7 +758,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       tags: ['label1': 'value1', 'fruit': 'tomato'],
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
-      capacity: new ServerGroup.Capacity(1, 1, 1),
+      capacity: new DefaultCapacity(1, 1, 1),
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
       placementStrategySequence: [placementStrategy],
       placementConstraints: [placementConstraint],
@@ -880,7 +881,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       tags: ['label1': 'value1', 'fruit': 'tomato'],
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
-      capacity: new ServerGroup.Capacity(1, 1, 1),
+      capacity: new DefaultCapacity(1, 1, 1),
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
       placementStrategySequence: [placementStrategy],
       placementConstraints: [placementConstraint],
@@ -1004,7 +1005,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       tags: ['label1': 'value1', 'fruit': 'tomato'],
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
-      capacity: new ServerGroup.Capacity(1, 1, 1),
+      capacity: new DefaultCapacity(1, 1, 1),
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
       placementStrategySequence: [placementStrategy],
       placementConstraints: [placementConstraint],
@@ -1136,7 +1137,7 @@ class CreateServerGroupAtomicOperationSpec extends CommonAtomicOperation {
       tags: ['label1': 'value1', 'fruit': 'tomato'],
       reservedMemory: 9002,
       dockerImageAddress: 'docker-image-url',
-      capacity: new ServerGroup.Capacity(1, 1, 1),
+      capacity: new DefaultCapacity(1, 1, 1),
       availabilityZones: ['us-west-1': ['us-west-1a', 'us-west-1b', 'us-west-1c']],
       placementStrategySequence: [placementStrategy],
       placementConstraints: [placementConstraint],

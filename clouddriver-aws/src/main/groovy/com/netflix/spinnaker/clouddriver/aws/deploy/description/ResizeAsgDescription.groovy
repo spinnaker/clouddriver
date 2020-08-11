@@ -16,11 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.description
 
-import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable
 
 class ResizeAsgDescription extends AbstractAmazonCredentialsDescription implements ServerGroupsNameable {
-  ServerGroup.Capacity capacity
+  DefaultCapacity capacity
   List<AsgTargetDescription> asgs = []
 
   @Override
@@ -29,11 +29,11 @@ class ResizeAsgDescription extends AbstractAmazonCredentialsDescription implemen
   }
 
   static class Constraints {
-    ServerGroup.Capacity capacity
+    DefaultCapacity capacity
   }
 
   static class AsgTargetDescription extends AsgDescription {
-    ServerGroup.Capacity capacity = new ServerGroup.Capacity()
+    DefaultCapacity capacity = new DefaultCapacity()
     Constraints constraints = new Constraints()
 
     @Override

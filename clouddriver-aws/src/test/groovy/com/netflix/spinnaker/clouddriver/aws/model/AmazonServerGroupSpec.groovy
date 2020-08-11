@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.model
 
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -39,7 +40,7 @@ class AmazonServerGroupSpec extends Specification {
       serverGroup.instances = [buildAmazonInstance(state)]
 
     when:
-      ServerGroup.InstanceCounts counts =  serverGroup.getInstanceCounts()
+    InstanceCounts counts =  serverGroup.getInstanceCounts()
 
     then:
       counts.total == 1

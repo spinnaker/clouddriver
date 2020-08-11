@@ -24,8 +24,10 @@ import com.netflix.spinnaker.clouddriver.core.services.Front50Service
 import com.netflix.spinnaker.clouddriver.exceptions.TrafficGuardException
 import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.clouddriver.model.SimpleCluster
 import com.netflix.spinnaker.clouddriver.model.SimpleInstance
 import com.netflix.spinnaker.clouddriver.model.SimpleServerGroup
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
@@ -81,13 +83,13 @@ class TrafficGuardSpec extends Specification {
       name     : name,
       disabled : false,
       instances: instances,
-      capacity : new ServerGroup.Capacity(min: 0, max: 4, desired: 3)
+      capacity : new DefaultCapacity(min: 0, max: 4, desired: 3)
     ] + overrides)
     return serverGroup
   }
 
   Cluster makeCluster(List<ServerGroup> serverGroups) {
-    return new Cluster.SimpleCluster(
+    return new SimpleCluster(
       serverGroups: serverGroups
     )
   }
@@ -204,8 +206,8 @@ class TrafficGuardSpec extends Specification {
     given:
     addGuard([account: "test", location: "us-east-1", stack: "foo"])
     List<ServerGroup> serverGroupsGoingAway =
-      [makeServerGroup("app-foo-v000", 3, 0, [capacity: new ServerGroup.Capacity(min: 3, max: 3, desired: 3)]),
-       makeServerGroup("app-foo-v001", 3, 0, [capacity: new ServerGroup.Capacity(min: 3, max: 3, desired: 3)])]
+      [makeServerGroup("app-foo-v000", 3, 0, [capacity: new DefaultCapacity(min: 3, max: 3, desired: 3)]),
+       makeServerGroup("app-foo-v001", 3, 0, [capacity: new DefaultCapacity(min: 3, max: 3, desired: 3)])]
 
     when:
     trafficGuard.verifyTrafficRemoval(
@@ -222,8 +224,8 @@ class TrafficGuardSpec extends Specification {
     given:
     addGuard([account: "test", location: "us-east-1", stack: "foo"])
     List<ServerGroup> serverGroupsGoingAway =
-      [makeServerGroup("app-foo-v000", 3, 0, [capacity: new ServerGroup.Capacity(min: 3, max: 3, desired: 3)]),
-       makeServerGroup("app-foo-v001", 3, 0, [capacity: new ServerGroup.Capacity(min: 3, max: 3, desired: 3)])]
+      [makeServerGroup("app-foo-v000", 3, 0, [capacity: new DefaultCapacity(min: 3, max: 3, desired: 3)]),
+       makeServerGroup("app-foo-v001", 3, 0, [capacity: new DefaultCapacity(min: 3, max: 3, desired: 3)])]
 
     when:
     trafficGuard.verifyTrafficRemoval(
@@ -257,15 +259,15 @@ class TrafficGuardSpec extends Specification {
     where:
     serverGroupsGoingAway << [
       // only one pinned server group going away
-      [makeServerGroup("app-foo-v000", 100, 0, [capacity: new ServerGroup.Capacity(min: 100, max: 100, desired: 100)])],
+      [makeServerGroup("app-foo-v000", 100, 0, [capacity: new DefaultCapacity(min: 100, max: 100, desired: 100)])],
 
       // only some of the server groups going away are pinned
-      [makeServerGroup("app-foo-v000", 10, 0, [capacity: new ServerGroup.Capacity(min: 10, max: 10, desired: 10)]),
-       makeServerGroup("app-foo-v001", 10, 0, [capacity: new ServerGroup.Capacity(min: 10, max: 100, desired: 10)])],
+      [makeServerGroup("app-foo-v000", 10, 0, [capacity: new DefaultCapacity(min: 10, max: 10, desired: 10)]),
+       makeServerGroup("app-foo-v001", 10, 0, [capacity: new DefaultCapacity(min: 10, max: 100, desired: 10)])],
 
       // the pinned server groups have different sizes
-      [makeServerGroup("app-foo-v000", 10, 0, [capacity: new ServerGroup.Capacity(min: 1, max: 1, desired: 1)]),
-       makeServerGroup("app-foo-v001", 10, 0, [capacity: new ServerGroup.Capacity(min: 100, max: 100, desired: 100)])]
+      [makeServerGroup("app-foo-v000", 10, 0, [capacity: new DefaultCapacity(min: 1, max: 1, desired: 1)]),
+       makeServerGroup("app-foo-v001", 10, 0, [capacity: new DefaultCapacity(min: 100, max: 100, desired: 100)])]
     ]
   }
 

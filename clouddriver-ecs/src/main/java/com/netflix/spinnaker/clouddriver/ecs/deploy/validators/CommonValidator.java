@@ -20,7 +20,7 @@ import com.netflix.spinnaker.clouddriver.aws.deploy.description.AbstractAmazonCr
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator;
 import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.clouddriver.model.Capacity;
 import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -62,7 +62,7 @@ abstract class CommonValidator extends DescriptionValidator {
     return true;
   }
 
-  void validateCapacity(ValidationErrors errors, ServerGroup.Capacity capacity) {
+  void validateCapacity(ValidationErrors errors, Capacity capacity) {
     if (capacity != null) {
       boolean desiredNotNull = capacity.getDesired() != null;
       boolean minNotNull = capacity.getMin() != null;

@@ -17,7 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.description.servergroup;
 
-import com.netflix.spinnaker.clouddriver.model.ServerGroup.Capacity;
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -25,5 +25,5 @@ import lombok.EqualsAndHashCode;
 @Data
 public class KubernetesResizeServerGroupDescription
     extends KubernetesServerGroupOperationDescription {
-  Capacity capacity;
+  DefaultCapacity capacity;
 }

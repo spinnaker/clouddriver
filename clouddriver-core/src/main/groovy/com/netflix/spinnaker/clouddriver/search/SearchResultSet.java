@@ -45,5 +45,5 @@ public class SearchResultSet {
   String query;
 
   /** The paginated list of objects matching the query */
-  List<Map<String, Object>> results = new ArrayList<>();
+  @Builder.Default List<Map<String, Object>> results = new ArrayList<>();
 }

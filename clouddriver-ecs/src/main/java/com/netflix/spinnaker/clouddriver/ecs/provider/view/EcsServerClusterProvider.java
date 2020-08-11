@@ -39,10 +39,7 @@ import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector;
-import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
-import com.netflix.spinnaker.clouddriver.model.Instance;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.clouddriver.model.*;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import java.util.ArrayList;
@@ -269,8 +266,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         .setEnvironmentVariables(containerDefinition.getEnvironment());
   }
 
-  private ServerGroup.Capacity buildServerGroupCapacity(int desiredCount, ScalableTarget target) {
-    ServerGroup.Capacity capacity = new ServerGroup.Capacity();
+  private Capacity buildServerGroupCapacity(int desiredCount, ScalableTarget target) {
+    DefaultCapacity capacity = new DefaultCapacity();
     capacity.setDesired(desiredCount);
     if (target != null) {
       capacity.setMin(target.getMinCapacity());
@@ -305,7 +302,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       com.amazonaws.services.ecs.model.TaskDefinition taskDefinition,
       List<String> eniSubnets,
       List<String> eniSecurityGroups) {
-    ServerGroup.InstanceCounts instanceCounts = buildInstanceCount(instances);
+    InstanceCounts instanceCounts = buildInstanceCount(instances);
     TaskDefinition ecsTaskDefinition = buildTaskDefinition(taskDefinition);
     EcsServerGroup.Image image = new EcsServerGroup.Image();
     image.setImageId(ecsTaskDefinition.getContainerImage());
@@ -318,7 +315,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       return null;
     }
 
-    ServerGroup.Capacity capacity = buildServerGroupCapacity(desiredCount, scalableTarget);
+    Capacity capacity = buildServerGroupCapacity(desiredCount, scalableTarget);
 
     String vpcId = "None";
     Set<String> securityGroups = new HashSet<>();
@@ -400,8 +397,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return serverGroup;
   }
 
-  private ServerGroup.InstanceCounts buildInstanceCount(Set<Instance> instances) {
-    ServerGroup.InstanceCounts instanceCounts = new ServerGroup.InstanceCounts();
+  private InstanceCounts buildInstanceCount(Set<Instance> instances) {
+    DefaultInstanceCounts instanceCounts = new DefaultInstanceCounts();
     for (Instance instance : instances) {
       switch (instance.getHealthState()) {
         case Up:

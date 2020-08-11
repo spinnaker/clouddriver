@@ -20,8 +20,12 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.model.Capacity
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
+import com.netflix.spinnaker.clouddriver.model.DefaultInstanceCounts
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
 import com.netflix.spinnaker.clouddriver.titus.client.model.DisruptionBudget
@@ -58,7 +62,7 @@ class TitusServerGroup implements ServerGroup, Serializable {
   Map labels
   Map containerAttributes
   Set<Instance> instances = [] as Set
-  ServerGroup.Capacity capacity
+  Capacity capacity
   DisruptionBudget disruptionBudget
   TitusServerGroupResources resources = new TitusServerGroupResources()
   TitusServerGroupPlacement placement = new TitusServerGroupPlacement()
@@ -103,7 +107,7 @@ class TitusServerGroup implements ServerGroup, Serializable {
     placement.account = account
     placement.region = region
     instances = job.tasks.findAll { it != null }.collect { new TitusInstance(job, it) } as Set
-    capacity = new ServerGroup.Capacity(min: job.instancesMin, max: job.instancesMax, desired: job.instancesDesired)
+    capacity = new DefaultCapacity(min: job.instancesMin, max: job.instancesMax, desired: job.instancesDesired)
     disabled = !job.inService
     securityGroups = job.securityGroups
     hardConstraints = job.hardConstraints
@@ -180,9 +184,9 @@ class TitusServerGroup implements ServerGroup, Serializable {
   }
 
   @Override
-  ServerGroup.InstanceCounts getInstanceCounts() {
+  InstanceCounts getInstanceCounts() {
     Set<Instance> instances = getInstances()
-    new ServerGroup.InstanceCounts(
+    new DefaultInstanceCounts(
       total: instances.size(),
       up: filterInstancesByHealthState(instances, HealthState.Up)?.size() ?: 0,
       down: filterInstancesByHealthState(instances, HealthState.Down)?.size() ?: 0,

@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 
 class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec {
@@ -339,7 +340,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.computeUnits = 256
     description.reservedMemory = 512
     description.dockerImageAddress = 'docker-image-url'
-    description.capacity = new ServerGroup.Capacity(1, 2, 1)
+    description.capacity = new DefaultCapacity(1, 2, 1)
     description.availabilityZones = ['us-west-1': ['us-west-1a']]
     description.placementStrategySequence = [new PlacementStrategy().withType(PlacementStrategyType.Random)]
 

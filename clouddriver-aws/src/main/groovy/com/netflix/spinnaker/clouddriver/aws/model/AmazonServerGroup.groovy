@@ -20,8 +20,12 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
+import com.netflix.spinnaker.clouddriver.model.Capacity
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
+import com.netflix.spinnaker.clouddriver.model.DefaultInstanceCounts
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import groovy.transform.CompileStatic
 
@@ -121,9 +125,9 @@ class AmazonServerGroup implements ServerGroup, Serializable {
   }
 
   @Override
-  ServerGroup.InstanceCounts getInstanceCounts() {
+  InstanceCounts getInstanceCounts() {
     Collection<Instance> instances = getInstances()
-    new ServerGroup.InstanceCounts(
+    new DefaultInstanceCounts(
       total: instances.size(),
       up: filterInstancesByHealthState(instances, HealthState.Up)?.size() ?: 0,
       down: filterInstancesByHealthState(instances, HealthState.Down)?.size() ?: 0,
@@ -133,9 +137,9 @@ class AmazonServerGroup implements ServerGroup, Serializable {
   }
 
   @Override
-  ServerGroup.Capacity getCapacity() {
+  Capacity getCapacity() {
     if (asg) {
-      return new ServerGroup.Capacity(
+      return new DefaultCapacity(
         min: asg.minSize ? asg.minSize as Integer : 0,
         max: asg.maxSize ? asg.maxSize as Integer : 0,
         desired: asg.desiredCapacity ? asg.desiredCapacity as Integer : 0

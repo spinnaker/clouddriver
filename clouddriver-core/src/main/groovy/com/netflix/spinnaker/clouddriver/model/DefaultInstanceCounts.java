@@ -16,22 +16,25 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-import com.netflix.spinnaker.kork.annotations.Beta;
-import java.util.Set;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Beta
-public interface LoadBalancerServerGroup {
-  String getName();
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+public class DefaultInstanceCounts implements InstanceCounts {
+  @Builder.Default private Integer total = 0;
 
-  String getAccount();
+  @Builder.Default private Integer up = 0;
 
-  String getRegion();
+  @Builder.Default private Integer down = 0;
 
-  Boolean getIsDisabled();
+  @Builder.Default private Integer unknown = 0;
 
-  Set<String> getDetachedInstances();
+  @Builder.Default private Integer outOfService = 0;
 
-  Set<? extends LoadBalancerInstance> getInstances();
-
-  String getCloudProvider();
+  @Builder.Default private Integer starting = 0;
 }

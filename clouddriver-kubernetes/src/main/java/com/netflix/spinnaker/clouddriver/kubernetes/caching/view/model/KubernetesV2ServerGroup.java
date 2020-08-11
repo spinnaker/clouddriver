@@ -37,10 +37,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestTraffic;
-import com.netflix.spinnaker.clouddriver.model.HealthState;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import com.netflix.spinnaker.clouddriver.model.ServerGroupManager.ServerGroupManagerSummary;
+import com.netflix.spinnaker.clouddriver.model.*;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.text.ParseException;
@@ -85,8 +82,8 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
       new ArtifactReplacer(ImmutableList.of(Replacer.dockerImage()));
 
   @Override
-  public ServerGroup.InstanceCounts getInstanceCounts() {
-    return ServerGroup.InstanceCounts.builder()
+  public InstanceCounts getInstanceCounts() {
+    return DefaultInstanceCounts.builder()
         .total(Ints.checkedCast(instances.size()))
         .up(
             Ints.checkedCast(
@@ -159,7 +156,7 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
       log.warn("Unable to cast replica count from unexpected type: {}", odesired.getClass());
     }
 
-    this.capacity = Capacity.builder().desired(desired).build();
+    this.capacity = DefaultCapacity.builder().desired(desired).build();
   }
 
   public static KubernetesV2ServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
@@ -172,7 +169,7 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
             .map(k -> (InfrastructureCacheKey) k)
             .map(
                 k ->
-                    ServerGroupManagerSummary.builder()
+                    DefaultServerGroupManagerSummary.builder()
                         .account(k.getAccount())
                         .location(k.getNamespace())
                         .name(k.getName())
@@ -238,7 +235,7 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
   }
 
   public LoadBalancerServerGroup toLoadBalancerServerGroup() {
-    return LoadBalancerServerGroup.builder()
+    return DefaultLoadBalancerServerGroup.builder()
         .account(getAccount())
         .detachedInstances(new HashSet<>())
         .instances(

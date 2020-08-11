@@ -16,9 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.tencentcloud.model;
 
-import com.netflix.spinnaker.clouddriver.model.HealthState;
-import com.netflix.spinnaker.clouddriver.model.Instance;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.clouddriver.model.*;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.clouddriver.tencentcloud.TencentCloudProvider;
 import com.netflix.spinnaker.clouddriver.tencentcloud.client.AutoScalingClient;
@@ -141,7 +139,7 @@ public class TencentCloudServerGroup implements ServerGroup, TencentCloudBasicRe
 
   @Override
   public InstanceCounts getInstanceCounts() {
-    InstanceCounts counts = new InstanceCounts();
+    DefaultInstanceCounts counts = new DefaultInstanceCounts();
     counts.setTotal(instances.size());
     counts.setUp(filterInstancesByHealthState(instances, HealthState.Up).size());
     counts.setDown(filterInstancesByHealthState(instances, HealthState.Down).size());
@@ -154,7 +152,7 @@ public class TencentCloudServerGroup implements ServerGroup, TencentCloudBasicRe
 
   @Override
   public Capacity getCapacity() {
-    Capacity capacity = new Capacity();
+    DefaultCapacity capacity = new DefaultCapacity();
     capacity.setMin(
         Math.toIntExact(asg != null && asg.getMinSize() != null ? asg.getMinSize() : 0));
     capacity.setMax(

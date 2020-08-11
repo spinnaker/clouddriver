@@ -18,7 +18,11 @@ package com.netflix.spinnaker.clouddriver.appengine.model
 
 import com.google.api.services.appengine.v1.model.Version
 import com.netflix.spinnaker.clouddriver.appengine.AppengineCloudProvider
+import com.netflix.spinnaker.clouddriver.model.Capacity
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
+import com.netflix.spinnaker.clouddriver.model.DefaultInstanceCounts
 import com.netflix.spinnaker.clouddriver.model.HealthState
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import groovy.transform.CompileStatic
 import groovy.transform.EqualsAndHashCode
@@ -67,8 +71,8 @@ class AppengineServerGroup implements ServerGroup, Serializable {
   }
 
   @Override
-  ServerGroup.InstanceCounts getInstanceCounts() {
-    new ServerGroup.InstanceCounts(
+  InstanceCounts getInstanceCounts() {
+    new DefaultInstanceCounts(
       down: 0,
       outOfService: (Integer) instances?.count { it.healthState == HealthState.OutOfService } ?: 0,
       up: (Integer) instances?.count { it.healthState == HealthState.Up } ?: 0,
@@ -79,7 +83,7 @@ class AppengineServerGroup implements ServerGroup, Serializable {
   }
 
   @Override
-  ServerGroup.Capacity getCapacity() {
+  Capacity getCapacity() {
     Integer instanceCount = instances?.size() ?: 0
 
     switch (scalingPolicy?.type) {
@@ -90,24 +94,24 @@ class AppengineServerGroup implements ServerGroup, Serializable {
         * */
         def min = computeMinForAutomaticScaling(scalingPolicy)
         def max = computeMaxForAutomaticScaling(scalingPolicy)
-        return new ServerGroup.Capacity(min: min,
+        return new DefaultCapacity(min: min,
                                         max: max,
                                         desired: min)
         break
       case ScalingPolicyType.BASIC:
         def desired = servingStatus == ServingStatus.SERVING ? instanceCount : 0
-        return new ServerGroup.Capacity(min: 0,
+        return new DefaultCapacity(min: 0,
                                         max: scalingPolicy.maxInstances,
                                         desired: desired)
         break
       case ScalingPolicyType.MANUAL:
         def desired = servingStatus == ServingStatus.SERVING ? scalingPolicy.instances : 0
-        return new ServerGroup.Capacity(min: 0,
+        return new DefaultCapacity(min: 0,
                                         max: scalingPolicy.instances,
                                         desired: desired)
         break
       default:
-        return new ServerGroup.Capacity(min: instanceCount, max: instanceCount, desired: instanceCount)
+        return new DefaultCapacity(min: instanceCount, max: instanceCount, desired: instanceCount)
         break
     }
   }

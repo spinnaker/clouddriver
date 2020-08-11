@@ -36,6 +36,8 @@ import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ServiceCachingAgent
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskCachingAgent
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService
 import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
+import com.netflix.spinnaker.clouddriver.model.DefaultInstanceCounts
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
@@ -374,7 +376,7 @@ class EcsServerClusterProviderSpec extends Specification {
       ],
       vpcId: 'vpc-1234',
       securityGroups: ['sg-1234'],
-      instanceCounts: new ServerGroup.InstanceCounts(
+      instanceCounts: new DefaultInstanceCounts(
         total: 1,
         up: 1,
         down: 0,
@@ -382,7 +384,7 @@ class EcsServerClusterProviderSpec extends Specification {
         outOfService: 0,
         starting: 0
       ),
-      capacity: new ServerGroup.Capacity(
+      capacity: new DefaultCapacity(
         min: 1,
         max: 2,
         desired: 1

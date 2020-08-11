@@ -70,7 +70,7 @@ import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import com.netflix.spinnaker.clouddriver.model.ServerGroupManager.ServerGroupManagerSummary;
+import com.netflix.spinnaker.clouddriver.model.ServerGroupManagerSummary;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupSummary;
 import com.netflix.spinnaker.clouddriver.search.SearchResultSet;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;

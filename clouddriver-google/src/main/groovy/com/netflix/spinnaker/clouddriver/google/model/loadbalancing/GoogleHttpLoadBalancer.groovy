@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.google.model.loadbalancing
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup
 import groovy.transform.Canonical
 import groovy.transform.EqualsAndHashCode

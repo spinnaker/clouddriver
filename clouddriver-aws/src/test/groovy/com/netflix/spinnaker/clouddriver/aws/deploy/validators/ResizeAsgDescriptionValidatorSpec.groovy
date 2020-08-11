@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ResizeAsgDescription
 import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import spock.lang.Shared
 import spock.lang.Specification
@@ -36,7 +37,7 @@ class ResizeAsgDescriptionValidatorSpec extends Specification {
       asgs: [new ResizeAsgDescription.AsgTargetDescription(
         serverGroupName: "foo",
         region: "us-west-1",
-        capacity: new ServerGroup.Capacity(min: 5, max: 3)
+        capacity: new DefaultCapacity(min: 5, max: 3)
       )],
       credentials: Stub(NetflixAmazonCredentials)
     )
@@ -49,7 +50,7 @@ class ResizeAsgDescriptionValidatorSpec extends Specification {
     1 * errors.rejectValue('capacity', _, ['5', '3'], _)
 
     when:
-    description.asgs[0].capacity = new ServerGroup.Capacity(min: 3, max: 5, desired: 7)
+    description.asgs[0].capacity = new DefaultCapacity(min: 3, max: 5, desired: 7)
     validator.validate([], description, errors)
 
     then:

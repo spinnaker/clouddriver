@@ -34,6 +34,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.clouddriver.model.SimpleCluster
 import org.springframework.beans.factory.annotation.Autowired
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -156,7 +157,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
     1 * launchTemplateService.createLaunchTemplate(_,_,_,_) >>
       new LaunchTemplate(launchTemplateId: "id", latestVersionNumber: 0, launchTemplateName: "lt")
     1 * clusterProvider.getCluster('myasg', 'test', 'myasg') >> {
-      new Cluster.SimpleCluster(type: 'aws', serverGroups: [
+      new SimpleCluster(type: 'aws', serverGroups: [
         sG('myasg-v011', 0, 'us-east-1'), sG('myasg-v099', 1, 'us-west-1')
       ])
     }
@@ -186,7 +187,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
     then:
     1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null) >> 'lcName'
     1 * clusterProvider.getCluster('myasg', 'test', 'myasg') >> {
-      new Cluster.SimpleCluster(type: 'aws', serverGroups: [
+      new SimpleCluster(type: 'aws', serverGroups: [
         sG('myasg-v011', 0, 'us-east-1'), sG('myasg-v099', 1, 'us-west-1')
       ])
     }

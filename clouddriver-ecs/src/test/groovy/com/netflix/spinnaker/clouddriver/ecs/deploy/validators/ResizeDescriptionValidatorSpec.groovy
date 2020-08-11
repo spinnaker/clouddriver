@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 
 class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
@@ -110,7 +111,7 @@ class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
     description.credentials = TestCredential.named('test')
     description.region = 'us-west-1'
     description.serverGroupName = 'myapp-kcats-liated-v007'
-    description.capacity = new ServerGroup.Capacity(
+    description.capacity = new DefaultCapacity(
       desired: 1,
       min: 1,
       max: 2

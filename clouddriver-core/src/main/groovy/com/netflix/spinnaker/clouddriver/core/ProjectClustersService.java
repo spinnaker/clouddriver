@@ -20,9 +20,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service;
-import com.netflix.spinnaker.clouddriver.model.Cluster;
-import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import com.netflix.spinnaker.clouddriver.model.*;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -236,7 +234,7 @@ public class ProjectClustersService {
     public String stack;
     public String detail;
     public List<ApplicationClusterModel> applications;
-    public ServerGroup.InstanceCounts instanceCounts;
+    public InstanceCounts instanceCounts;
 
     public ClusterModel(
         String account, String stack, String detail, List<ApplicationClusterModel> applications) {
@@ -247,8 +245,8 @@ public class ProjectClustersService {
       this.instanceCounts = getInstanceCounts();
     }
 
-    ServerGroup.InstanceCounts getInstanceCounts() {
-      ServerGroup.InstanceCounts instanceCounts = new ServerGroup.InstanceCounts();
+    InstanceCounts getInstanceCounts() {
+      DefaultInstanceCounts instanceCounts = new DefaultInstanceCounts();
 
       applications.stream()
           .flatMap(a -> a.clusters.stream())
@@ -337,7 +335,7 @@ public class ProjectClustersService {
   static class RegionClusterModel {
     public String region;
     public List<DeployedBuild> builds = new ArrayList<>();
-    public ServerGroup.InstanceCounts instanceCounts = new ServerGroup.InstanceCounts();
+    public DefaultInstanceCounts instanceCounts = new DefaultInstanceCounts();
 
     public RegionClusterModel(String region) {
       this.region = region;
@@ -387,13 +385,11 @@ public class ProjectClustersService {
     }
   }
 
-  private static void incrementInstanceCounts(
-      ServerGroup source, ServerGroup.InstanceCounts target) {
+  private static void incrementInstanceCounts(ServerGroup source, DefaultInstanceCounts target) {
     incrementInstanceCounts(source.getInstanceCounts(), target);
   }
 
-  private static void incrementInstanceCounts(
-      ServerGroup.InstanceCounts source, ServerGroup.InstanceCounts target) {
+  private static void incrementInstanceCounts(InstanceCounts source, DefaultInstanceCounts target) {
     target.setTotal(target.getTotal() + source.getTotal());
     target.setUp(target.getUp() + source.getUp());
     target.setDown(target.getDown() + source.getDown());

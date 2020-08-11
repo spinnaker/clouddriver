@@ -21,10 +21,6 @@ import com.netflix.spinnaker.kork.annotations.Beta;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.frigga.FriggaReflectiveNamer;
 import java.util.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 /**
  * A server group provides a relationship to many instances, and exists within a defined region and
@@ -163,7 +159,7 @@ public interface ServerGroup {
   @Deprecated
   ImageSummary getImageSummary();
 
-  default List<ServerGroupManager.ServerGroupManagerSummary> getServerGroupManagers() {
+  default List<ServerGroupManagerSummary> getServerGroupManagers() {
     return new ArrayList<>();
   }
 
@@ -173,61 +169,6 @@ public interface ServerGroup {
 
   default Map<String, Object> getExtraAttributes() {
     return Collections.EMPTY_MAP;
-  }
-
-  @Builder
-  @NoArgsConstructor
-  @AllArgsConstructor
-  @Data
-  static class InstanceCounts {
-    /** Total number of instances in the server group */
-    private Integer total = 0;
-    /** Total number of "Up" instances (all health indicators report "Up" or "Unknown") */
-    private Integer up = 0;
-    /** Total number of "Down" instances (at least one health indicator reports "Down") */
-    private Integer down = 0;
-    /**
-     * Total number of "Unknown" instances (all health indicators report "Unknown", or no health
-     * indicators reported)
-     */
-    private Integer unknown = 0;
-    /**
-     * Total number of "OutOfService" instances (at least one health indicator reports
-     * "OutOfService", none are "Down"
-     */
-    private Integer outOfService = 0;
-    /**
-     * Total number of "Starting" instances (where any health indicator reports "Starting" and none
-     * are "Down" or "OutOfService")
-     */
-    private Integer starting = 0;
-  }
-
-  @Builder
-  @NoArgsConstructor
-  @AllArgsConstructor
-  @Data
-  public static class Capacity {
-    /**
-     * Minimum number of instances required in this server group. If provider specific {@code
-     * ServerGroup} does not have a notion of min then this should be same as {@code desired}
-     */
-    private Integer min;
-    /**
-     * Max number of instances required in this server group. If provider specific {@code
-     * ServerGroup} does not have a notion of max then this should be same as {@code desired}
-     */
-    private Integer max;
-    /** Desired number of instances required in this server group */
-    private Integer desired;
-
-    /**
-     * @return true if the capacity of this server group is fixed, i.e min, max and desired are all
-     *     the same
-     */
-    public boolean isPinned() {
-      return Objects.equals(max, desired) && Objects.equals(desired, min);
-    }
   }
 
   /**

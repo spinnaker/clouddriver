@@ -16,22 +16,18 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-import com.netflix.spinnaker.kork.annotations.Beta;
 import java.util.Set;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Beta
-public interface LoadBalancerServerGroup {
-  String getName();
-
-  String getAccount();
-
-  String getRegion();
-
-  Boolean getIsDisabled();
-
-  Set<String> getDetachedInstances();
-
-  Set<? extends LoadBalancerInstance> getInstances();
-
-  String getCloudProvider();
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class SimpleCluster implements Cluster {
+  String name;
+  String type;
+  String accountName;
+  Set<ServerGroup> serverGroups;
+  Set<LoadBalancer> loadBalancers;
 }

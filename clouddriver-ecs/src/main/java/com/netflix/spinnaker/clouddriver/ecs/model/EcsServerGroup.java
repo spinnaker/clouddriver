@@ -16,7 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.model;
 
+import com.netflix.spinnaker.clouddriver.model.Capacity;
 import com.netflix.spinnaker.clouddriver.model.Instance;
+import com.netflix.spinnaker.clouddriver.model.InstanceCounts;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import java.util.Map;
 import java.util.Set;

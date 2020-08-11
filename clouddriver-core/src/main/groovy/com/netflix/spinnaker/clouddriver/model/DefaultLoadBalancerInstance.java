@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Armory
+ * Copyright 2020 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,26 +12,40 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.kork.annotations.Beta;
-import java.util.Set;
+import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @Beta
-public interface LoadBalancerServerGroup {
-  String getName();
+public class DefaultLoadBalancerInstance implements LoadBalancerInstance {
+  String id;
+  String name;
+  String zone;
+  Map<String, Object> health;
 
-  String getAccount();
+  public DefaultLoadBalancerInstance(String id, String zone, Map<String, Object> health) {
+    this.id = id;
+    this.zone = zone;
+    this.health = health;
+  }
 
-  String getRegion();
-
-  Boolean getIsDisabled();
-
-  Set<String> getDetachedInstances();
-
-  Set<? extends LoadBalancerInstance> getInstances();
-
-  String getCloudProvider();
+  public String getName() {
+    if (name == null || name.isEmpty()) {
+      return id;
+    } else {
+      return name;
+    }
+  }
 }

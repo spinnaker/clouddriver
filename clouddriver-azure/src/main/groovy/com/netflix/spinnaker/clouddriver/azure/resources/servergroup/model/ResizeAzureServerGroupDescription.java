@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.azure.resources.servergroup.model;
 
+import com.netflix.spinnaker.clouddriver.model.DefaultCapacity;
 import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,7 +26,7 @@ public class ResizeAzureServerGroupDescription extends AzureServerGroupDescripti
     implements ServerGroupsNameable {
   private String serverGroupName;
   private Integer targetSize;
-  private Capacity capacity;
+  private DefaultCapacity capacity;
 
   public String getServerGroupName() {
     return serverGroupName;
@@ -43,11 +44,11 @@ public class ResizeAzureServerGroupDescription extends AzureServerGroupDescripti
     this.targetSize = targetSize;
   }
 
-  public Capacity getCapacity() {
+  public DefaultCapacity getCapacity() {
     return capacity;
   }
 
-  public void setCapacity(Capacity capacity) {
+  public void setCapacity(DefaultCapacity capacity) {
     this.capacity = capacity;
   }
 
