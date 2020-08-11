@@ -16,9 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.model.securitygroups;
 
-import java.util.SortedSet;
-
 import com.netflix.spinnaker.kork.annotations.Beta;
+import java.util.SortedSet;
 import lombok.Data;
 
 /** An abstract interface representing a security rule. */

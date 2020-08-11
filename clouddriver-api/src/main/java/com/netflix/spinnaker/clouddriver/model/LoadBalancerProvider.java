@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
 import com.netflix.spinnaker.kork.annotations.Beta;
-
 import java.util.List;
 import java.util.Set;
 

@@ -16,9 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-import java.util.Map;
-
 import com.netflix.spinnaker.kork.annotations.Beta;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
