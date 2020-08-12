@@ -21,8 +21,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurati
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
 import org.apache.commons.lang3.StringUtils;
 
-public interface KubernetesCredentialFactory<C extends KubernetesCredentials> {
-  C build(KubernetesConfigurationProperties.ManagedAccount managedAccount);
+public interface KubernetesCredentialFactory {
+  KubernetesV2Credentials build(KubernetesConfigurationProperties.ManagedAccount managedAccount);
 
   default String getKubeconfigFile(
       ConfigFileService configFileService,

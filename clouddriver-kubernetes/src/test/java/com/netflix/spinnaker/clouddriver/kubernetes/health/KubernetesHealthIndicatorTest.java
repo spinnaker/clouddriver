@@ -42,14 +42,12 @@ final class KubernetesHealthIndicatorTest {
   private static final String ERROR_MESSAGE = "Failed to get namespaces";
   private static final Registry REGISTRY = new NoopRegistry();
 
-  private static final KubernetesCredentialFactory<KubernetesV2Credentials>
-      HEALTHY_CREDENTIAL_FACTORY =
-          StubKubernetesCredentialsFactory.getInstance(mockHealthyCredentials(NAMESPACES));
+  private static final KubernetesCredentialFactory HEALTHY_CREDENTIAL_FACTORY =
+      StubKubernetesCredentialsFactory.getInstance(mockHealthyCredentials(NAMESPACES));
 
-  private static final KubernetesCredentialFactory<KubernetesV2Credentials>
-      UNHEALTHY_CREDENTIAL_FACTORY =
-          StubKubernetesCredentialsFactory.getInstance(
-              mockUnhealthyCredentials(new RuntimeException(ERROR_MESSAGE)));
+  private static final KubernetesCredentialFactory UNHEALTHY_CREDENTIAL_FACTORY =
+      StubKubernetesCredentialsFactory.getInstance(
+          mockUnhealthyCredentials(new RuntimeException(ERROR_MESSAGE)));
 
   @Test
   void healthyWithNoAccounts() {
@@ -139,15 +137,13 @@ final class KubernetesHealthIndicatorTest {
     return managedAccount;
   }
 
-  private static KubernetesNamedAccountCredentials<KubernetesV2Credentials> healthyAccount(
-      String name) {
-    return new KubernetesNamedAccountCredentials<>(
+  private static KubernetesNamedAccountCredentials healthyAccount(String name) {
+    return new KubernetesNamedAccountCredentials(
         getManagedAccount(name), HEALTHY_CREDENTIAL_FACTORY);
   }
 
-  private static KubernetesNamedAccountCredentials<KubernetesV2Credentials> unhealthyAccount(
-      String name) {
-    return new KubernetesNamedAccountCredentials<>(
+  private static KubernetesNamedAccountCredentials unhealthyAccount(String name) {
+    return new KubernetesNamedAccountCredentials(
         getManagedAccount(name), UNHEALTHY_CREDENTIAL_FACTORY);
   }
 

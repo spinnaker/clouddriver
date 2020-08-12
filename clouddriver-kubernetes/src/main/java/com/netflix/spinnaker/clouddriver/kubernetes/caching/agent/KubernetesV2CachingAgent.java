@@ -70,7 +70,7 @@ public abstract class KubernetesV2CachingAgent
   @Getter protected final Long agentInterval;
 
   protected KubernetesV2CachingAgent(
-      KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+      KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,

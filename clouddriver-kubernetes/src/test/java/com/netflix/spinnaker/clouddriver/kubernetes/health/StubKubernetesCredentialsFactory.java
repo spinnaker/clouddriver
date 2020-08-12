@@ -22,12 +22,10 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentia
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
 
-final class StubKubernetesCredentialsFactory
-    implements KubernetesCredentialFactory<KubernetesV2Credentials> {
+final class StubKubernetesCredentialsFactory implements KubernetesCredentialFactory {
   private final KubernetesV2Credentials credentials;
 
-  static KubernetesCredentialFactory<KubernetesV2Credentials> getInstance(
-      KubernetesV2Credentials credentials) {
+  static KubernetesCredentialFactory getInstance(KubernetesV2Credentials credentials) {
     return new StubKubernetesCredentialsFactory(credentials);
   }
 

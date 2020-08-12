@@ -71,7 +71,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class KubernetesV2Credentials implements KubernetesCredentials {
+public class KubernetesV2Credentials {
   private static final int CRD_EXPIRY_SECONDS = 30;
   private static final int NAMESPACE_EXPIRY_SECONDS = 30;
 
@@ -333,7 +333,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     }
   }
 
-  @Override
   public List<String> getDeclaredNamespaces() {
     List<String> result;
     if (!namespaces.isEmpty()) {
@@ -354,7 +353,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return metrics && permissionValidator.isMetricsReadable();
   }
 
-  @Override
   public Map<String, String> getSpinnakerKindMap() {
     Map<String, String> kindMap =
         new HashMap<>(kubernetesSpinnakerKindMap.kubernetesToSpinnakerKindStringMap());
@@ -365,7 +363,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return kindMap;
   }
 
-  @Override
   public ImmutableList<LinkedDockerRegistryConfiguration> getDockerRegistries() {
     return ImmutableList.of();
   }
@@ -690,7 +687,7 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
 
   @Component
   @RequiredArgsConstructor
-  public static class Factory implements KubernetesCredentialFactory<KubernetesV2Credentials> {
+  public static class Factory implements KubernetesCredentialFactory {
     private final Registry spectatorRegistry;
     private final KubernetesNamerRegistry kubernetesNamerRegistry;
     private final KubectlJobExecutor jobExecutor;

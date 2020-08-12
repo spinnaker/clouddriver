@@ -159,8 +159,7 @@ final class KubernetesDataProviderIntegrationTest {
 
   @BeforeAll
   static void prepareCache() {
-    KubernetesNamedAccountCredentials<KubernetesV2Credentials> credentials =
-        getNamedAccountCredentials();
+    KubernetesNamedAccountCredentials credentials = getNamedAccountCredentials();
     credentialsRepository.save(credentials.getName(), credentials);
     dispatcher
         .buildAllCachingAgents(credentials)
@@ -487,8 +486,7 @@ final class KubernetesDataProviderIntegrationTest {
     return jobExecutor;
   }
 
-  private static KubernetesNamedAccountCredentials<KubernetesV2Credentials>
-      getNamedAccountCredentials() {
+  private static KubernetesNamedAccountCredentials getNamedAccountCredentials() {
     KubernetesConfigurationProperties.ManagedAccount managedAccount =
         new KubernetesConfigurationProperties.ManagedAccount();
     managedAccount.setName(ACCOUNT_NAME);
@@ -505,7 +503,7 @@ final class KubernetesDataProviderIntegrationTest {
             new AccountResourcePropertyRegistry.Factory(resourcePropertyRegistry),
             new KubernetesKindRegistry.Factory(new GlobalKubernetesKindRegistry()),
             kindMap);
-    return new KubernetesNamedAccountCredentials<>(managedAccount, credentialFactory);
+    return new KubernetesNamedAccountCredentials(managedAccount, credentialFactory);
   }
 
   // This is documenting the current cluster that is returned representing a service, but we

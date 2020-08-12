@@ -138,8 +138,7 @@ final class KubernetesRunJobOperationTest {
     return runJobDescription;
   }
 
-  private static KubernetesNamedAccountCredentials<KubernetesV2Credentials>
-      getNamedAccountCredentials() {
+  private static KubernetesNamedAccountCredentials getNamedAccountCredentials() {
     KubernetesConfigurationProperties.ManagedAccount managedAccount =
         new KubernetesConfigurationProperties.ManagedAccount();
     managedAccount.setName("my-account");
@@ -152,7 +151,7 @@ final class KubernetesRunJobOperationTest {
     KubernetesV2Credentials mockV2Credentials = getMockKubernetesV2Credentials();
     KubernetesV2Credentials.Factory credentialFactory = mock(KubernetesV2Credentials.Factory.class);
     when(credentialFactory.build(managedAccount)).thenReturn(mockV2Credentials);
-    return new KubernetesNamedAccountCredentials<>(managedAccount, credentialFactory);
+    return new KubernetesNamedAccountCredentials(managedAccount, credentialFactory);
   }
 
   private static KubernetesV2Credentials getMockKubernetesV2Credentials() {

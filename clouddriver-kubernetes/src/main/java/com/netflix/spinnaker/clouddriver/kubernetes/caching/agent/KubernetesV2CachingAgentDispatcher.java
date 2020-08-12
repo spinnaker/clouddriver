@@ -48,7 +48,7 @@ public class KubernetesV2CachingAgentDispatcher {
   }
 
   public Collection<KubernetesV2CachingAgent> buildAllCachingAgents(
-      KubernetesNamedAccountCredentials<KubernetesV2Credentials> credentials) {
+      KubernetesNamedAccountCredentials credentials) {
     KubernetesV2Credentials v2Credentials = credentials.getCredentials();
     List<KubernetesV2CachingAgent> result = new ArrayList<>();
     Long agentInterval =

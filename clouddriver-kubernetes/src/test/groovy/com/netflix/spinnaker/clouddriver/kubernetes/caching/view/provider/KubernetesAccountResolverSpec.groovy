@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider
 
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry
@@ -46,15 +45,6 @@ class KubernetesAccountResolverSpec extends Specification {
     }
     credentials.isPresent()
     credentials.get() == v2Credentials
-
-    when:
-    credentials = accountResolver.getCredentials(ACCOUNT_NAME)
-
-    then:
-    1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> Mock(KubernetesCredentials)
-    }
-    !credentials.isPresent()
 
     when:
     credentials = accountResolver.getCredentials(ACCOUNT_NAME)
@@ -92,17 +82,8 @@ class KubernetesAccountResolverSpec extends Specification {
     registry = accountResolver.getResourcePropertyRegistry(ACCOUNT_NAME)
 
     then:
-    1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> Mock(KubernetesCredentials)
-    }
-    registry == globalResourcePropertyRegistry
-
-    when:
-    registry = accountResolver.getResourcePropertyRegistry(ACCOUNT_NAME)
-
-    then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(AccountCredentials) {
-      getCredentials() >> Mock(KubernetesCredentials)
+      getCredentials() >> Mock(KubernetesV2Credentials)
     }
     registry == globalResourcePropertyRegistry
 

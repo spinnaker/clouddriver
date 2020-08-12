@@ -156,8 +156,7 @@ final class KubernetesCoreCachingAgentTest {
   /**
    * Returns a KubernetesNamedAccountCredentials that contains a mock KubernetesV2Credentials object
    */
-  private static KubernetesNamedAccountCredentials<KubernetesV2Credentials>
-      getNamedAccountCredentials() {
+  private static KubernetesNamedAccountCredentials getNamedAccountCredentials() {
     KubernetesConfigurationProperties.ManagedAccount managedAccount =
         new KubernetesConfigurationProperties.ManagedAccount();
     managedAccount.setName(ACCOUNT);
@@ -165,7 +164,7 @@ final class KubernetesCoreCachingAgentTest {
     KubernetesV2Credentials mockV2Credentials = mockKubernetesV2Credentials();
     KubernetesV2Credentials.Factory credentialFactory = mock(KubernetesV2Credentials.Factory.class);
     when(credentialFactory.build(managedAccount)).thenReturn(mockV2Credentials);
-    return new KubernetesNamedAccountCredentials<>(managedAccount, credentialFactory);
+    return new KubernetesNamedAccountCredentials(managedAccount, credentialFactory);
   }
 
   /**
@@ -174,7 +173,7 @@ final class KubernetesCoreCachingAgentTest {
    * collection of those agents.
    */
   private static ImmutableCollection<KubernetesCoreCachingAgent> createCachingAgents(
-      KubernetesNamedAccountCredentials<KubernetesV2Credentials> credentials, int agentCount) {
+      KubernetesNamedAccountCredentials credentials, int agentCount) {
     return IntStream.range(0, agentCount)
         .mapToObj(
             i ->
