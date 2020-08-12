@@ -24,14 +24,25 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.gson.Gson;
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.ReplaceResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import io.kubernetes.client.openapi.JSON;
+import io.kubernetes.client.openapi.models.V1ConfigMapEnvSource;
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1ContainerBuilder;
+import io.kubernetes.client.openapi.models.V1Deployment;
 import io.kubernetes.client.openapi.models.V1DeploymentBuilder;
+import io.kubernetes.client.openapi.models.V1DeploymentSpec;
+import io.kubernetes.client.openapi.models.V1EnvFromSource;
 import io.kubernetes.client.openapi.models.V1HorizontalPodAutoscalerBuilder;
+import io.kubernetes.client.openapi.models.V1PodSpec;
+import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
+import io.kubernetes.client.openapi.models.V1ReplicaSet;
+import io.kubernetes.client.openapi.models.V1ReplicaSetBuilder;
+import io.kubernetes.client.openapi.models.V1ReplicaSetSpec;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +61,9 @@ final class ArtifactReplacerTest {
   // we want this test to be realistic.
   private static final JSON json = new JSON();
   private static final Gson gson = new Gson();
+
+  private static final String NAMESPACE = "ns";
+  private static final String ACCOUNT = "my-account";
 
   @Test
   void extractsDeploymentNameFromHpa() {
@@ -133,6 +147,259 @@ final class ArtifactReplacerTest {
     }
   }
 
+  @Test
+  void emptyReplace() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.dockerImage()));
+    KubernetesManifest deployment = getDeploymentWithContainer(getContainer("nginx:112"));
+
+    ReplaceResult result =
+        artifactReplacer.replaceAll(deployment, ImmutableList.of(), NAMESPACE, ACCOUNT);
+
+    assertThat(result.getManifest()).isEqualTo(deployment);
+    assertThat(result.getBoundArtifacts()).isEmpty();
+  }
+
+  @Test
+  void replacesDockerImage() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.dockerImage()));
+    KubernetesManifest deployment = getDeploymentWithContainer(getContainer("nginx"));
+
+    Artifact inputArtifact =
+        Artifact.builder().type("docker/image").name("nginx").reference("nginx:1.19.1").build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            deployment, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(extractImage(result.getManifest())).contains("nginx:1.19.1");
+    assertThat(result.getBoundArtifacts()).hasSize(1);
+    assertThat(Iterables.getOnlyElement(result.getBoundArtifacts())).isEqualTo(inputArtifact);
+  }
+
+  /**
+   * If there is already a tag on the image in the manifest, we currently don't replace it. We may
+   * want to change this behavior in the future, but this test is documenting the current behavior.
+   */
+  @Test
+  void doesNotReplaceImageWithTag() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.dockerImage()));
+    KubernetesManifest deployment = getDeploymentWithContainer(getContainer("nginx:1.18.0"));
+
+    Artifact inputArtifact =
+        Artifact.builder().type("docker/image").name("nginx").reference("nginx:1.19.1").build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            deployment, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(result.getManifest()).isEqualTo(deployment);
+    assertThat(result.getBoundArtifacts()).isEmpty();
+  }
+
+  /**
+   * Only artifacts of type kubernetes/* need to have the same account as the manifest to be
+   * replaced.
+   */
+  @Test
+  void nonKubernetesArtifactIgnoresDifferentAccount() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.dockerImage()));
+    KubernetesManifest deployment = getDeploymentWithContainer(getContainer("nginx"));
+
+    Artifact inputArtifact =
+        Artifact.builder()
+            .type("docker/image")
+            .name("nginx")
+            .putMetadata("account", "another-account")
+            .reference("nginx:1.19.1")
+            .build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            deployment, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(extractImage(result.getManifest())).contains("nginx:1.19.1");
+    assertThat(result.getBoundArtifacts()).hasSize(1);
+    assertThat(Iterables.getOnlyElement(result.getBoundArtifacts())).isEqualTo(inputArtifact);
+  }
+
+  /**
+   * Only artifacts of type kubernetes/* need to have the same namespace as the manifest to be
+   * replaced.
+   */
+  @Test
+  void nonKubernetesArtifactIgnoresDifferentNamespace() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.dockerImage()));
+    KubernetesManifest deployment = getDeploymentWithContainer(getContainer("nginx"));
+
+    Artifact inputArtifact =
+        Artifact.builder()
+            .type("docker/image")
+            .name("nginx")
+            .location("another-namespace")
+            .reference("nginx:1.19.1")
+            .build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            deployment, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(extractImage(result.getManifest())).contains("nginx:1.19.1");
+    assertThat(result.getBoundArtifacts()).hasSize(1);
+    assertThat(Iterables.getOnlyElement(result.getBoundArtifacts())).isEqualTo(inputArtifact);
+  }
+
+  @Test
+  void replacesConfigMap() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.configMapEnv()));
+    KubernetesManifest replicaSet = getReplicaSetWithEnvFrom("my-config-map");
+
+    Artifact inputArtifact =
+        Artifact.builder()
+            .type("kubernetes/configMap")
+            .name("my-config-map")
+            .location(NAMESPACE)
+            .version("v003")
+            .reference("my-config-map-v003")
+            .putMetadata("account", ACCOUNT)
+            .build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(extractEnvRef(result.getManifest())).contains("my-config-map-v003");
+    assertThat(result.getBoundArtifacts()).hasSize(1);
+
+    Artifact replacedArtifact = Iterables.getOnlyElement(result.getBoundArtifacts());
+    assertThat(replacedArtifact).isEqualTo(inputArtifact);
+  }
+
+  @Test
+  void replacesConfigMapArtifactMissingAccount() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.configMapEnv()));
+    KubernetesManifest replicaSet = getReplicaSetWithEnvFrom("my-config-map");
+
+    Artifact inputArtifact =
+        Artifact.builder()
+            .type("kubernetes/configMap")
+            .name("my-config-map")
+            .location(NAMESPACE)
+            .version("v003")
+            .reference("my-config-map-v003")
+            .build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(extractEnvRef(result.getManifest())).contains("my-config-map-v003");
+    assertThat(result.getBoundArtifacts()).hasSize(1);
+
+    Artifact replacedArtifact = Iterables.getOnlyElement(result.getBoundArtifacts());
+    assertThat(replacedArtifact).isEqualTo(inputArtifact);
+  }
+
+  @Test
+  void doesNotReplaceConfigmapWrongAccount() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.configMapEnv()));
+    KubernetesManifest replicaSet = getReplicaSetWithEnvFrom("my-config-map");
+
+    Artifact inputArtifact =
+        Artifact.builder()
+            .type("kubernetes/configMap")
+            .name("my-config-map")
+            .location(NAMESPACE)
+            .version("v003")
+            .reference("my-config-map-v003")
+            .putMetadata("account", "other-account")
+            .build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(extractEnvRef(result.getManifest())).contains("my-config-map");
+    assertThat(result.getBoundArtifacts()).hasSize(0);
+  }
+
+  @Test
+  void doesNotReplaceConfigmapWrongNamespace() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.configMapEnv()));
+    KubernetesManifest replicaSet = getReplicaSetWithEnvFrom("my-config-map");
+
+    Artifact inputArtifact =
+        Artifact.builder()
+            .type("kubernetes/configMap")
+            .name("my-config-map")
+            .location("other-namespace")
+            .version("v003")
+            .reference("my-config-map-v003")
+            .putMetadata("account", ACCOUNT)
+            .build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(
+            replicaSet, ImmutableList.of(inputArtifact), NAMESPACE, ACCOUNT);
+
+    assertThat(extractEnvRef(result.getManifest())).contains("my-config-map");
+    assertThat(result.getBoundArtifacts()).hasSize(0);
+  }
+
+  @Test
+  void replacesConfigMapNoNamespace() {
+    ArtifactReplacer artifactReplacer =
+        new ArtifactReplacer(ImmutableList.of(Replacer.configMapEnv()));
+    KubernetesManifest replicaSet = getReplicaSetWithEnvFrom("my-config-map");
+
+    Artifact inputArtifact =
+        Artifact.builder()
+            .type("kubernetes/configMap")
+            .name("my-config-map")
+            .version("v003")
+            .reference("my-config-map-v003")
+            .putMetadata("account", ACCOUNT)
+            .build();
+    ReplaceResult result =
+        artifactReplacer.replaceAll(replicaSet, ImmutableList.of(inputArtifact), "", ACCOUNT);
+
+    assertThat(extractEnvRef(result.getManifest())).contains("my-config-map-v003");
+    assertThat(result.getBoundArtifacts()).hasSize(1);
+
+    Artifact replacedArtifact = Iterables.getOnlyElement(result.getBoundArtifacts());
+    assertThat(replacedArtifact).isEqualTo(inputArtifact);
+  }
+
+  // Extracts the first container image from a Kubernetes manifest representing a deployment
+  private Optional<String> extractImage(KubernetesManifest manifest) {
+    // We want to use the Kubernetes-supported json deserializer so need to first serialize
+    // the manifest to a string.
+    V1Deployment deployment = json.deserialize(json.serialize(manifest), V1Deployment.class);
+    return Optional.ofNullable(deployment.getSpec())
+        .map(V1DeploymentSpec::getTemplate)
+        .map(V1PodTemplateSpec::getSpec)
+        .map(V1PodSpec::getContainers)
+        .map(c -> c.get(0))
+        .map(V1Container::getImage);
+  }
+
+  // Extracts the config map ref for the first env ref for the first container in a Kubernetes
+  // manifest representing a deployment.
+  private Optional<String> extractEnvRef(KubernetesManifest manifest) {
+    // We want to use the Kubernetes-supported json deserializer so need to first serialize
+    // the manifest to a string.
+    V1ReplicaSet replicaSet = json.deserialize(json.serialize(manifest), V1ReplicaSet.class);
+    return Optional.ofNullable(replicaSet.getSpec())
+        .map(V1ReplicaSetSpec::getTemplate)
+        .map(V1PodTemplateSpec::getSpec)
+        .map(V1PodSpec::getContainers)
+        .map(c -> c.get(0))
+        .map(V1Container::getEnvFrom)
+        .map(e -> e.get(0))
+        .map(V1EnvFromSource::getConfigMapRef)
+        .map(V1ConfigMapEnvSource::getName);
+  }
+
   private KubernetesManifest getHpa(String kind, String name) {
     String hpa =
         json.serialize(
@@ -191,6 +458,31 @@ final class ArtifactReplacerTest {
                 .withNewSpec()
                 .addAllToContainers(containers)
                 .addAllToInitContainers(initContainers)
+                .endSpec()
+                .endTemplate()
+                .endSpec()
+                .build());
+    return gson.fromJson(deployment, KubernetesManifest.class);
+  }
+
+  private KubernetesManifest getReplicaSetWithEnvFrom(String configMapRef) {
+    String deployment =
+        json.serialize(
+            new V1ReplicaSetBuilder()
+                .withNewMetadata()
+                .withName("my-app-deployment")
+                .endMetadata()
+                .withNewSpec()
+                .withReplicas(3)
+                .withNewTemplate()
+                .withNewSpec()
+                .addNewContainer()
+                .addNewEnvFrom()
+                .withNewConfigMapRef()
+                .withNewName(configMapRef)
+                .endConfigMapRef()
+                .endEnvFrom()
+                .endContainer()
                 .endSpec()
                 .endTemplate()
                 .endSpec()
