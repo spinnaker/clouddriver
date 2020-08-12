@@ -22,7 +22,7 @@ RUN curl -o  /usr/local/bin/aws-iam-authenticator https://amazon-eks.s3.us-west-
   chmod +x /usr/local/bin/aws-iam-authenticator && \
   ln -s    /usr/local/bin/aws-iam-authenticator /usr/local/bin/heptio-authenticator-aws
 
-RUN adduser --disabled-login --system spinnaker
+RUN adduser --system --uid 10111 --group spinnaker
 RUN mkdir -p /opt/clouddriver/plugins && chown -R spinnaker:nogroup /opt/clouddriver/plugins
 USER spinnaker
 CMD ["/opt/clouddriver/bin/clouddriver"]
