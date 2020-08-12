@@ -33,7 +33,7 @@ import lombok.Getter;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @ParametersAreNonnullByDefault
 public class KubernetesNamedAccountCredentials
-    extends AbstractAccountCredentials<KubernetesV2Credentials> {
+    extends AbstractAccountCredentials<KubernetesCredentials> {
   private final String cloudProvider = "kubernetes";
 
   @Nonnull @Include private final String name;
@@ -44,7 +44,7 @@ public class KubernetesNamedAccountCredentials
 
   @Include private final int cacheThreads;
 
-  @Include private final KubernetesV2Credentials credentials;
+  @Include private final KubernetesCredentials credentials;
 
   @Include private final List<String> requiredGroupMembership;
 
@@ -53,7 +53,7 @@ public class KubernetesNamedAccountCredentials
   @Include private final Long cacheIntervalSeconds;
 
   public KubernetesNamedAccountCredentials(
-      ManagedAccount managedAccount, KubernetesV2Credentials.Factory credentialFactory) {
+      ManagedAccount managedAccount, KubernetesCredentials.Factory credentialFactory) {
     managedAccount.validate();
     this.name = Objects.requireNonNull(managedAccount.getName());
     this.environment =

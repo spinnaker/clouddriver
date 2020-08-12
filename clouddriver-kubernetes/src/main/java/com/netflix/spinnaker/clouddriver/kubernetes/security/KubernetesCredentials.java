@@ -72,7 +72,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class KubernetesV2Credentials {
+public class KubernetesCredentials {
   private static final int CRD_EXPIRY_SECONDS = 30;
   private static final int NAMESPACE_EXPIRY_SECONDS = 30;
 
@@ -131,7 +131,7 @@ public class KubernetesV2Credentials {
           this::namespaceSupplier, NAMESPACE_EXPIRY_SECONDS, TimeUnit.SECONDS);
   @Getter private final Namer<KubernetesManifest> namer;
 
-  private KubernetesV2Credentials(
+  private KubernetesCredentials(
       Registry registry,
       KubectlJobExecutor jobExecutor,
       KubernetesConfigurationProperties.ManagedAccount managedAccount,
@@ -697,11 +697,11 @@ public class KubernetesV2Credentials {
     private final KubernetesKindRegistry.Factory kindRegistryFactory;
     private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
 
-    public KubernetesV2Credentials build(
+    public KubernetesCredentials build(
         KubernetesConfigurationProperties.ManagedAccount managedAccount) {
       Namer<KubernetesManifest> manifestNamer =
           kubernetesNamerRegistry.get(managedAccount.getNamingStrategy());
-      return new KubernetesV2Credentials(
+      return new KubernetesCredentials(
           spectatorRegistry,
           jobExecutor,
           managedAccount,

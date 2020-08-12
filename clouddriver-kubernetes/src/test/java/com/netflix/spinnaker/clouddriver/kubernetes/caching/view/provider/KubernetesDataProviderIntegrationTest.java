@@ -60,10 +60,10 @@ import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregis
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ManifestFetcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.GlobalKubernetesKindRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesKindRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesSelectorList;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.model.Application;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
@@ -471,7 +471,7 @@ final class KubernetesDataProviderIntegrationTest {
   private static KubectlJobExecutor getJobExecutor() {
     KubectlJobExecutor jobExecutor = mock(KubectlJobExecutor.class, new ReturnsSmartNulls());
     when(jobExecutor.list(
-            any(KubernetesV2Credentials.class),
+            any(KubernetesCredentials.class),
             anyList(),
             any(String.class),
             any(KubernetesSelectorList.class)))
@@ -494,8 +494,8 @@ final class KubernetesDataProviderIntegrationTest {
     managedAccount.setKinds(ImmutableList.of("deployment", "replicaSet", "service", "pod"));
     managedAccount.setMetrics(false);
 
-    KubernetesV2Credentials.Factory credentialFactory =
-        new KubernetesV2Credentials.Factory(
+    KubernetesCredentials.Factory credentialFactory =
+        new KubernetesCredentials.Factory(
             new NoopRegistry(),
             new KubernetesNamerRegistry(ImmutableList.of(new KubernetesManifestNamer())),
             getJobExecutor(),

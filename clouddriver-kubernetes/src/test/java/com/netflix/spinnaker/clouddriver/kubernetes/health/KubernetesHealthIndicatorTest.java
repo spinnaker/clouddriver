@@ -27,8 +27,8 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.*;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -155,26 +155,26 @@ final class KubernetesHealthIndicatorTest {
     return new DefaultAccountCredentialsProvider(accountRepository);
   }
 
-  private static KubernetesV2Credentials mockHealthyCredentials(ImmutableList<String> namespaces) {
-    KubernetesV2Credentials credentials = mock(KubernetesV2Credentials.class);
+  private static KubernetesCredentials mockHealthyCredentials(ImmutableList<String> namespaces) {
+    KubernetesCredentials credentials = mock(KubernetesCredentials.class);
     when(credentials.getDeclaredNamespaces()).thenReturn(namespaces);
     return credentials;
   }
 
-  private static KubernetesV2Credentials mockUnhealthyCredentials(RuntimeException exception) {
-    KubernetesV2Credentials credentials = mock(KubernetesV2Credentials.class);
+  private static KubernetesCredentials mockUnhealthyCredentials(RuntimeException exception) {
+    KubernetesCredentials credentials = mock(KubernetesCredentials.class);
     when(credentials.getDeclaredNamespaces()).thenThrow(exception);
     return credentials;
   }
 
-  private static KubernetesV2Credentials.Factory mockHealthyCredentialsFactory() {
-    KubernetesV2Credentials.Factory factory = mock(KubernetesV2Credentials.Factory.class);
+  private static KubernetesCredentials.Factory mockHealthyCredentialsFactory() {
+    KubernetesCredentials.Factory factory = mock(KubernetesCredentials.Factory.class);
     when(factory.build(any())).thenReturn(mockHealthyCredentials(NAMESPACES));
     return factory;
   }
 
-  private static KubernetesV2Credentials.Factory mockUnhealthyCredentialsFactory() {
-    KubernetesV2Credentials.Factory factory = mock(KubernetesV2Credentials.Factory.class);
+  private static KubernetesCredentials.Factory mockUnhealthyCredentialsFactory() {
+    KubernetesCredentials.Factory factory = mock(KubernetesCredentials.Factory.class);
     when(factory.build(any()))
         .thenReturn(mockUnhealthyCredentials(new RuntimeException(ERROR_MESSAGE)));
     return factory;

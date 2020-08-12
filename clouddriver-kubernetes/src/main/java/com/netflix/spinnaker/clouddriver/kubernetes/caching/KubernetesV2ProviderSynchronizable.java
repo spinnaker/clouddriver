@@ -22,8 +22,8 @@ import com.netflix.spinnaker.cats.module.CatsModule;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -37,7 +37,7 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
   private final AccountCredentialsRepository accountCredentialsRepository;
   private final KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher;
   private final KubernetesConfigurationProperties kubernetesConfigurationProperties;
-  private final KubernetesV2Credentials.Factory credentialFactory;
+  private final KubernetesCredentials.Factory credentialFactory;
   private final CatsModule catsModule;
 
   public KubernetesV2ProviderSynchronizable(
@@ -45,7 +45,7 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
-      KubernetesV2Credentials.Factory credentialFactory,
+      KubernetesCredentials.Factory credentialFactory,
       CatsModule catsModule) {
     this.kubernetesV2Provider = kubernetesV2Provider;
     this.accountCredentialsRepository = accountCredentialsRepository;
