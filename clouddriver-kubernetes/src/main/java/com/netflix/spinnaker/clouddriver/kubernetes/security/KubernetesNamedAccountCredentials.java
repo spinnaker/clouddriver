@@ -53,7 +53,7 @@ public class KubernetesNamedAccountCredentials
   @Include private final Long cacheIntervalSeconds;
 
   public KubernetesNamedAccountCredentials(
-      ManagedAccount managedAccount, KubernetesCredentialFactory credentialFactory) {
+      ManagedAccount managedAccount, KubernetesV2Credentials.Factory credentialFactory) {
     managedAccount.validate();
     this.name = Objects.requireNonNull(managedAccount.getName());
     this.environment =

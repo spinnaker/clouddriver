@@ -67,6 +67,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -687,7 +688,7 @@ public class KubernetesV2Credentials {
 
   @Component
   @RequiredArgsConstructor
-  public static class Factory implements KubernetesCredentialFactory {
+  public static class Factory {
     private final Registry spectatorRegistry;
     private final KubernetesNamerRegistry kubernetesNamerRegistry;
     private final KubectlJobExecutor jobExecutor;
@@ -709,6 +710,21 @@ public class KubernetesV2Credentials {
           kubernetesSpinnakerKindMap,
           getKubeconfigFile(configFileService, managedAccount),
           manifestNamer);
+    }
+
+    private String getKubeconfigFile(
+        ConfigFileService configFileService,
+        KubernetesConfigurationProperties.ManagedAccount managedAccount) {
+      if (StringUtils.isNotEmpty(managedAccount.getKubeconfigFile())) {
+        return configFileService.getLocalPath(managedAccount.getKubeconfigFile());
+      }
+
+      if (StringUtils.isNotEmpty(managedAccount.getKubeconfigContents())) {
+        return configFileService.getLocalPathForContents(
+            managedAccount.getKubeconfigContents(), managedAccount.getName());
+      }
+
+      return "";
     }
   }
 }

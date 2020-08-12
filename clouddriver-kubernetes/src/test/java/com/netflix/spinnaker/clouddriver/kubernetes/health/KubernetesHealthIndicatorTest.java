@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.health;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.clouddriver.security.*;
@@ -41,13 +41,6 @@ final class KubernetesHealthIndicatorTest {
   private static final ImmutableList<String> NAMESPACES = ImmutableList.of();
   private static final String ERROR_MESSAGE = "Failed to get namespaces";
   private static final Registry REGISTRY = new NoopRegistry();
-
-  private static final KubernetesCredentialFactory HEALTHY_CREDENTIAL_FACTORY =
-      StubKubernetesCredentialsFactory.getInstance(mockHealthyCredentials(NAMESPACES));
-
-  private static final KubernetesCredentialFactory UNHEALTHY_CREDENTIAL_FACTORY =
-      StubKubernetesCredentialsFactory.getInstance(
-          mockUnhealthyCredentials(new RuntimeException(ERROR_MESSAGE)));
 
   @Test
   void healthyWithNoAccounts() {
@@ -139,12 +132,12 @@ final class KubernetesHealthIndicatorTest {
 
   private static KubernetesNamedAccountCredentials healthyAccount(String name) {
     return new KubernetesNamedAccountCredentials(
-        getManagedAccount(name), HEALTHY_CREDENTIAL_FACTORY);
+        getManagedAccount(name), mockHealthyCredentialsFactory());
   }
 
   private static KubernetesNamedAccountCredentials unhealthyAccount(String name) {
     return new KubernetesNamedAccountCredentials(
-        getManagedAccount(name), UNHEALTHY_CREDENTIAL_FACTORY);
+        getManagedAccount(name), mockUnhealthyCredentialsFactory());
   }
 
   private static AccountCredentials nonKubernetesAccount(String name) {
@@ -172,5 +165,18 @@ final class KubernetesHealthIndicatorTest {
     KubernetesV2Credentials credentials = mock(KubernetesV2Credentials.class);
     when(credentials.getDeclaredNamespaces()).thenThrow(exception);
     return credentials;
+  }
+
+  private static KubernetesV2Credentials.Factory mockHealthyCredentialsFactory() {
+    KubernetesV2Credentials.Factory factory = mock(KubernetesV2Credentials.Factory.class);
+    when(factory.build(any())).thenReturn(mockHealthyCredentials(NAMESPACES));
+    return factory;
+  }
+
+  private static KubernetesV2Credentials.Factory mockUnhealthyCredentialsFactory() {
+    KubernetesV2Credentials.Factory factory = mock(KubernetesV2Credentials.Factory.class);
+    when(factory.build(any()))
+        .thenReturn(mockUnhealthyCredentials(new RuntimeException(ERROR_MESSAGE)));
+    return factory;
   }
 }
