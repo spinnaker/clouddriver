@@ -22,11 +22,9 @@ import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric
-import com.netflix.spinnaker.clouddriver.kubernetes.security.GlobalKubernetesKindRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesKindRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesManifestNamer
@@ -75,7 +73,13 @@ metadata:
 
     when:
     KubernetesCacheData kubernetesCacheData = new KubernetesCacheData()
-    KubernetesCacheDataConverter.convertAsResource(kubernetesCacheData, account, KubernetesKindProperties.create(kind, true), manifest, [], false)
+    KubernetesCacheDataConverter.convertAsResource(
+      kubernetesCacheData,
+      account,
+      KubernetesKindProperties.create(kind, true),
+      new KubernetesManifestNamer(),
+      manifest,
+      [])
     def optional = kubernetesCacheData.toCacheData().stream().filter({
       cd -> cd.id == Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name)
     }).findFirst()
@@ -100,7 +104,6 @@ metadata:
 
     where:
     kind                       | apiVersion                              | account           | application | cluster       | namespace        | name
-    KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | null              | null        | null          | "some-namespace" | "a-name-v000"
     KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "one-app"   | "the-cluster" | "some-namespace" | "a-name-v000"
     KubernetesKind.DEPLOYMENT  | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "one-app"   | "the-cluster" | "some-namespace" | "a-name"
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1                 | "another-account" | "your-app"  | null          | "some-namespace" | "what-name"
@@ -123,49 +126,6 @@ metadata:
     KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "the-cluster" | "some-namespace" | "a-name-v000"
     KubernetesKind.DEPLOYMENT  | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "the-cluster" | "some-namespace" | "a-name"
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1                 | "another-account" | "cluster"     | "some-namespace" | "what-name"
-  }
-
-  @Unroll
-  def "correctly builds cache data entry for pod metrics"() {
-    setup:
-    KubernetesCacheData kubernetesCacheData = new KubernetesCacheData()
-    def account = "my-account"
-    def namespace = "my-namespace"
-    def podName = "pod-name"
-    def podMetric = KubernetesPodMetric.builder()
-      .podName(podName)
-      .namespace(namespace)
-      .containerMetrics(containerMetrics)
-      .build()
-    def metricKey = new Keys.MetricCacheKey(KubernetesKind.POD, account, namespace, podName)
-
-    when:
-    KubernetesCacheDataConverter.convertPodMetric(kubernetesCacheData, account, podMetric)
-    List<CacheData> cacheDataList = kubernetesCacheData.toCacheData()
-
-    then:
-    CacheData cacheData = cacheDataList
-      .stream()
-      .filter({cd -> cd.id == metricKey.toString()})
-      .findFirst().get()
-    cacheData.attributes == [
-      name: podName,
-      namespace: namespace,
-      metrics: containerMetrics
-    ]
-
-    when:
-    def metrics = KubernetesCacheDataConverter.getMetrics(cacheData)
-
-    then:
-    metrics == containerMetrics
-
-    where:
-    containerMetrics << [
-      [containerMetric("container-a")],
-      [containerMetric("container-a"), containerMetric("container-b")],
-      []
-    ]
   }
 
   def containerMetric(String containerName) {

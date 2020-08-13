@@ -28,7 +28,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestStrategy;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
@@ -39,13 +39,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class KubernetesCleanupArtifactsOperation implements AtomicOperation<OperationResult> {
   private final KubernetesCleanupArtifactsDescription description;
-  private final KubernetesV2Credentials credentials;
-  private final String accountName;
+  private final KubernetesCredentials credentials;
+  @Nonnull private final String accountName;
   private final ArtifactProvider artifactProvider;
   private static final String OP_NAME = "CLEANUP_KUBERNETES_ARTIFACTS";
 

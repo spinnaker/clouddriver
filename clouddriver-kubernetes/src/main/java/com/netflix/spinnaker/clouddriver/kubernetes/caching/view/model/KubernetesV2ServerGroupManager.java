@@ -17,75 +17,88 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
-import com.netflix.spinnaker.cats.cache.CacheData;
+import com.google.common.collect.ImmutableMap;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManager;
-import com.netflix.spinnaker.clouddriver.model.ServerGroupSummary;
-import java.util.ArrayList;
-import java.util.List;
+import com.netflix.spinnaker.moniker.Moniker;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-@EqualsAndHashCode(callSuper = true)
-@Data
 @Slf4j
-public class KubernetesV2ServerGroupManager extends ManifestBasedModel
-    implements ServerGroupManager {
-  private KubernetesManifest manifest;
-  private Keys.InfrastructureCacheKey key;
-  private Set<ServerGroupSummary> serverGroups;
+@Value
+public final class KubernetesV2ServerGroupManager
+    implements KubernetesResource, ServerGroupManager {
+  // private final KubernetesManifest manifest;
+  private final String account;
+  private final Set<KubernetesV2ServerGroupSummary> serverGroups;
+  private final String name;
+  private final String namespace;
+  private final String displayName;
+  private final KubernetesApiVersion apiVersion;
+  private final KubernetesKind kind;
+  private final Map<String, String> labels;
+  private final Moniker moniker;
+  private final Long createdTime;
 
   private KubernetesV2ServerGroupManager(
-      KubernetesManifest manifest, String key, Set<ServerGroupSummary> serverGroups) {
-    this.manifest = manifest;
-    this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
+      KubernetesManifest manifest,
+      String key,
+      Moniker moniker,
+      Set<KubernetesV2ServerGroupSummary> serverGroups) {
+    this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
+    this.kind = manifest.getKind();
+    this.apiVersion = manifest.getApiVersion();
+    this.namespace = manifest.getNamespace();
+    this.name = manifest.getFullResourceName();
+    this.displayName = manifest.getName();
+    this.labels = ImmutableMap.copyOf(manifest.getLabels());
+    this.moniker = moniker;
     this.serverGroups = serverGroups;
-  }
-
-  private static KubernetesV2ServerGroupManager fromCacheData(
-      CacheData cd, List<CacheData> serverGroupData) {
-    if (cd == null) {
-      return null;
-    }
-
-    if (serverGroupData == null) {
-      serverGroupData = new ArrayList<>();
-    }
-
-    KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
-
-    if (manifest == null) {
-      log.warn("Cache data {} inserted without a manifest", cd.getId());
-      return null;
-    }
-
-    Set<ServerGroupSummary> serverGroups =
-        serverGroupData.stream()
-            .map(
-                data ->
-                    KubernetesV2ServerGroup.fromCacheData(
-                        KubernetesV2ServerGroupCacheData.builder()
-                            .serverGroupData(data)
-                            .instanceData(new ArrayList<>())
-                            .loadBalancerData(new ArrayList<>())
-                            .build()))
-            .filter(Objects::nonNull)
-            .map(KubernetesV2ServerGroup::toServerGroupSummary)
-            .collect(Collectors.toSet());
-
-    return new KubernetesV2ServerGroupManager(manifest, cd.getId(), serverGroups);
+    this.createdTime = manifest.getFormattedCreationTimestamp();
   }
 
   public static KubernetesV2ServerGroupManager fromCacheData(
       KubernetesV2ServerGroupManagerCacheData data) {
-    return fromCacheData(data.getServerGroupManagerData(), data.getServerGroupData());
+    KubernetesManifest manifest =
+        KubernetesCacheDataConverter.getManifest(data.getServerGroupManagerData());
+    if (manifest == null) {
+      log.warn(
+          "Cache data {} inserted without a manifest", data.getServerGroupManagerData().getId());
+      return null;
+    }
+
+    Set<KubernetesV2ServerGroupSummary> serverGroups =
+        data.getServerGroupData().stream()
+            .map(
+                sg ->
+                    KubernetesV2ServerGroup.fromCacheData(
+                        KubernetesV2ServerGroupCacheData.builder().serverGroupData(sg).build()))
+            .filter(Objects::nonNull)
+            .map(KubernetesV2ServerGroup::toServerGroupSummary)
+            .collect(Collectors.toSet());
+
+    Moniker moniker = KubernetesCacheDataConverter.getMoniker(data.getServerGroupManagerData());
+    return new KubernetesV2ServerGroupManager(
+        manifest, data.getServerGroupManagerData().getId(), moniker, serverGroups);
+  }
+
+  @Override
+  public String getRegion() {
+    return namespace;
+  }
+
+  public String getCloudProvider() {
+    return KubernetesCloudProvider.ID;
   }
 }

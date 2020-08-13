@@ -19,12 +19,10 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -39,8 +37,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class KubernetesV2CachingAgentDispatcher
-    implements KubernetesCachingAgentDispatcher<KubernetesV2Credentials> {
+public class KubernetesV2CachingAgentDispatcher {
   private final ObjectMapper objectMapper;
   private final Registry registry;
 
@@ -50,24 +47,22 @@ public class KubernetesV2CachingAgentDispatcher
     this.registry = registry;
   }
 
-  @Override
-  public Collection<KubernetesCachingAgent<KubernetesV2Credentials>> buildAllCachingAgents(
-      KubernetesNamedAccountCredentials<KubernetesV2Credentials> credentials) {
-    KubernetesV2Credentials v2Credentials = credentials.getCredentials();
-    List<KubernetesCachingAgent<KubernetesV2Credentials>> result = new ArrayList<>();
+  public Collection<KubernetesV2CachingAgent> buildAllCachingAgents(
+      KubernetesNamedAccountCredentials credentials) {
+    KubernetesCredentials kubernetesCredentials = credentials.getCredentials();
+    List<KubernetesV2CachingAgent> result = new ArrayList<>();
     Long agentInterval =
         Optional.ofNullable(credentials.getCacheIntervalSeconds())
             .map(TimeUnit.SECONDS::toMillis)
             .orElse(null);
 
-    ResourcePropertyRegistry propertyRegistry = v2Credentials.getResourcePropertyRegistry();
+    ResourcePropertyRegistry propertyRegistry = kubernetesCredentials.getResourcePropertyRegistry();
 
     IntStream.range(0, credentials.getCacheThreads())
         .forEach(
             i ->
                 propertyRegistry.values().stream()
                     .map(KubernetesResourceProperties::getHandler)
-                    .filter(Objects::nonNull)
                     .map(
                         h ->
                             h.buildCachingAgent(
@@ -80,20 +75,8 @@ public class KubernetesV2CachingAgentDispatcher
                     .filter(Objects::nonNull)
                     .forEach(result::add));
 
-    IntStream.range(0, credentials.getCacheThreads())
-        .forEach(
-            i ->
-                result.add(
-                    new KubernetesMetricCachingAgent(
-                        credentials,
-                        objectMapper,
-                        registry,
-                        i,
-                        credentials.getCacheThreads(),
-                        agentInterval)));
-
     return result.stream()
-        .collect(Collectors.toMap(KubernetesCachingAgent::getAgentType, c -> c, (a, b) -> b))
+        .collect(Collectors.toMap(KubernetesV2CachingAgent::getAgentType, c -> c, (a, b) -> b))
         .values();
   }
 }

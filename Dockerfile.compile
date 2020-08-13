@@ -3,9 +3,9 @@ RUN apt-get update && apt-get install -y \
     openjdk-8-jdk \
     openjdk-11-jdk \
  && rm -rf /var/lib/apt/lists/*
-MAINTAINER sig-platform@spinnaker.io
+LABEL maintainer="sig-platform@spinnaker.io"
 ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64
 ENV JDK_18 /usr/lib/jvm/java-8-openjdk-amd64
 ENV GRADLE_USER_HOME /workspace/.gradle
-ENV GRADLE_OPTS "-Xmx6g -Xms6g"
+ENV GRADLE_OPTS "-Xmx4g -Xms2g"
 CMD ./gradlew --no-daemon -PenableCrossCompilerPlugin=true clouddriver-web:installDist -x test
