@@ -17,7 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.jayway.jsonpath.Criteria.where;
 import static com.jayway.jsonpath.Filter.filter;
 
@@ -37,6 +36,7 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -83,7 +83,7 @@ public class Replacer {
     this.nameFromReference = Optional.ofNullable(nameFromReference).orElse(a -> a);
   }
 
-  ImmutableCollection<Artifact> getArtifacts(DocumentContext document) {
+  Stream<Artifact> getArtifacts(DocumentContext document) {
     return Streams.stream(document.<ArrayNode>read(findPath).elements())
         .map(JsonNode::asText)
         .map(
@@ -92,20 +92,18 @@ public class Replacer {
                     .type(type.getType())
                     .reference(ref)
                     .name(nameFromReference.apply(ref))
-                    .build())
-        .collect(toImmutableList());
+                    .build());
   }
 
   ImmutableCollection<Artifact> replaceArtifacts(
       DocumentContext obj, Collection<Artifact> artifacts) {
-    ImmutableSet.Builder<Artifact> replacedArtifacts = new ImmutableSet.Builder<>();
-    artifacts.forEach(
-        artifact -> {
-          boolean wasReplaced = replaceIfPossible(obj, artifact);
-          if (wasReplaced) {
-            replacedArtifacts.add(artifact);
-          }
-        });
+    ImmutableSet.Builder<Artifact> replacedArtifacts = ImmutableSet.builder();
+    for (Artifact artifact : artifacts) {
+      boolean wasReplaced = replaceIfPossible(obj, artifact);
+      if (wasReplaced) {
+        replacedArtifacts.add(artifact);
+      }
+    }
     return replacedArtifacts.build();
   }
 

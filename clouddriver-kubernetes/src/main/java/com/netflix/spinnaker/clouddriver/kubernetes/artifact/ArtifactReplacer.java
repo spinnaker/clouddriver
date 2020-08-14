@@ -23,6 +23,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.jayway.jsonpath.Configuration;
@@ -37,6 +38,7 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Value;
@@ -98,10 +100,12 @@ public class ArtifactReplacer {
     }
 
     ImmutableList<Artifact> filteredArtifacts = filterArtifacts(namespace, account, artifacts);
-    ImmutableSet.Builder<Artifact> replacedArtifacts = new ImmutableSet.Builder<>();
-    replacers.forEach(
-        replacer ->
-            replacedArtifacts.addAll(replacer.replaceArtifacts(document, filteredArtifacts)));
+    ImmutableSet.Builder<Artifact> replacedArtifacts = ImmutableSet.builder();
+    for (Replacer replacer : replacers) {
+      ImmutableCollection<Artifact> replaced =
+          replacer.replaceArtifacts(document, filteredArtifacts);
+      replacedArtifacts.addAll(replaced);
+    }
 
     try {
       return new ReplaceResult(
@@ -122,7 +126,7 @@ public class ArtifactReplacer {
     }
 
     return replacers.stream()
-        .map(
+        .flatMap(
             r -> {
               try {
                 return r.getArtifacts(document);
@@ -134,10 +138,9 @@ public class ArtifactReplacer {
                     input.getFullResourceName(),
                     r,
                     e);
-                return ImmutableList.<Artifact>of();
+                return Stream.empty();
               }
             })
-        .flatMap(Collection::stream)
         .collect(toImmutableSet());
   }
 
