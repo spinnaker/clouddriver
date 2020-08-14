@@ -135,7 +135,7 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
       KubernetesManifest manifest =
           objectMapper.convertValue(rawLastAppliedConfiguration, KubernetesManifest.class);
       return Optional.of(manifest);
-    } catch (Exception e) {
+    } catch (RuntimeException e) {
       log.warn("Malformed lastAppliedConfiguration entry in {}: ", artifact, e);
       return Optional.empty();
     }

@@ -33,6 +33,7 @@ import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
@@ -93,8 +94,7 @@ public class ArtifactReplacer {
     try {
       document = JsonPath.using(configuration).parse(mapper.writeValueAsString(input));
     } catch (JsonProcessingException e) {
-      log.error("Malformed manifest", e);
-      throw new RuntimeException(e);
+      throw new UncheckedIOException("Malformed manifest", e);
     }
 
     ImmutableList<Artifact> filteredArtifacts = filterArtifacts(namespace, account, artifacts);
@@ -108,8 +108,7 @@ public class ArtifactReplacer {
           mapper.readValue(document.jsonString(), KubernetesManifest.class),
           replacedArtifacts.build());
     } catch (IOException e) {
-      log.error("Malformed Document Context", e);
-      throw new RuntimeException(e);
+      throw new UncheckedIOException("Malformed manifest", e);
     }
   }
 
@@ -119,7 +118,7 @@ public class ArtifactReplacer {
     try {
       document = JsonPath.using(configuration).parse(mapper.writeValueAsString(input));
     } catch (JsonProcessingException e) {
-      throw new RuntimeException("Malformed manifest", e);
+      throw new UncheckedIOException("Malformed manifest", e);
     }
 
     return replacers.stream()
