@@ -46,9 +46,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Replacer {
   private final KubernetesArtifactType type;
-  private final String path;
-  private final Filter findFilter;
-  private final Function<Artifact, Filter> replaceFilter;
+  private final JsonPath findPath;
+  private final Function<Artifact, JsonPath> replacePathSupplier;
   private final Function<String, String> nameFromReference;
 
   /**
@@ -71,14 +70,21 @@ public class Replacer {
       Function<Artifact, Filter> replaceFilter,
       @Nullable Function<String, String> nameFromReference) {
     this.type = Objects.requireNonNull(type);
-    this.path = Objects.requireNonNull(path);
-    this.findFilter = Optional.ofNullable(findFilter).orElse(filter(a -> true));
-    this.replaceFilter = Objects.requireNonNull(replaceFilter);
+    Objects.requireNonNull(path);
+    Objects.requireNonNull(replaceFilter);
+    if (findFilter != null) {
+      this.findPath = JsonPath.compile(path, findFilter);
+      this.replacePathSupplier =
+          a -> JsonPath.compile(path, replaceFilter.apply(a).and(findFilter));
+    } else {
+      this.findPath = JsonPath.compile(path, filter(a -> true));
+      this.replacePathSupplier = a -> JsonPath.compile(path, replaceFilter.apply(a));
+    }
     this.nameFromReference = Optional.ofNullable(nameFromReference).orElse(a -> a);
   }
 
   ImmutableCollection<Artifact> getArtifacts(DocumentContext document) {
-    return Streams.stream(document.<ArrayNode>read(path, findFilter).elements())
+    return Streams.stream(document.<ArrayNode>read(findPath).elements())
         .map(JsonNode::asText)
         .map(
             ref ->
@@ -108,7 +114,7 @@ public class Replacer {
       return false;
     }
 
-    JsonPath path = JsonPath.compile(this.path, findFilter.and(replaceFilter.apply(artifact)));
+    JsonPath path = replacePathSupplier.apply(artifact);
     log.debug("Processed jsonPath == {}", path.getPath());
 
     Object get;
