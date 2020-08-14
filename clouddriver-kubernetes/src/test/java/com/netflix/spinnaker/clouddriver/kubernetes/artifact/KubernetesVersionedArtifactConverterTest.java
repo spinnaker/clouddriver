@@ -87,8 +87,9 @@ final class KubernetesVersionedArtifactConverterTest {
   void findsMatchingVersionByEquality() {
     KubernetesManifest manifest1 = getStubManifest();
     KubernetesManifest manifest2 = getStubManifest();
-    manifest1.put("data", ImmutableMap.of("key", 1, "value", 2));
-    manifest2.put("data", ImmutableMap.of("key", 3, "value", 2));
+    // Add some random data so that the two manifests are different.
+    manifest1.put("data", ImmutableMap.of("key", 1));
+    manifest2.put("data", ImmutableMap.of("key", 3));
 
     String version1 = "v001";
     String version2 = "v002";
