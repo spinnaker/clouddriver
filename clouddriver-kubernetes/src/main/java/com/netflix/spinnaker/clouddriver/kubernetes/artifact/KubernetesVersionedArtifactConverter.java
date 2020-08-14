@@ -23,9 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import javax.annotation.Nonnull;
@@ -43,19 +41,14 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
   @Override
   public Artifact toArtifact(
       ArtifactProvider provider, KubernetesManifest manifest, @Nonnull String account) {
-    String type = getType(manifest);
-    String name = manifest.getName();
-    String location = manifest.getNamespace();
-    String version = getVersion(provider, type, name, location, account, manifest);
-    Map<String, Object> metadata = new HashMap<>();
-    metadata.put("account", account);
+    String version = getVersion(provider, account, manifest);
     return Artifact.builder()
-        .type(type)
-        .name(name)
-        .location(location)
+        .type(getType(manifest))
+        .name(manifest.getName())
+        .location(manifest.getNamespace())
         .version(version)
-        .reference(getDeployedName(name, version))
-        .metadata(metadata)
+        .reference(getDeployedName(manifest.getName(), version))
+        .putMetadata("account", account)
         .build();
   }
 
@@ -69,13 +62,10 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
   }
 
   private String getVersion(
-      ArtifactProvider provider,
-      String type,
-      String name,
-      String location,
-      @Nonnull String account,
-      KubernetesManifest manifest) {
-    ImmutableList<Artifact> priorVersions = provider.getArtifacts(type, name, location, account);
+      ArtifactProvider provider, @Nonnull String account, KubernetesManifest manifest) {
+    ImmutableList<Artifact> priorVersions =
+        provider.getArtifacts(
+            getType(manifest), manifest.getName(), manifest.getNamespace(), account);
 
     Optional<String> maybeVersion = findMatchingVersion(priorVersions, manifest);
     if (maybeVersion.isPresent()) {
