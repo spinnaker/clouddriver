@@ -119,12 +119,15 @@ final class KubernetesVersionedArtifactConverterTest {
         new VersionTestCase(ImmutableList.of("v000"), "v001"),
         new VersionTestCase(ImmutableList.of(), "v000"),
         new VersionTestCase(ImmutableList.of("v001"), "v002"),
+        new VersionTestCase(ImmutableList.of("abc", "", "v001"), "v002"),
         new VersionTestCase(ImmutableList.of("v001", "v002", "v003"), "v004"),
         new VersionTestCase(ImmutableList.of("v000", "v002", "v003"), "v004"),
         new VersionTestCase(ImmutableList.of("v002", "v000", "v001"), "v003"),
         new VersionTestCase(ImmutableList.of("v000", "v001", "v003"), "v004"),
         new VersionTestCase(ImmutableList.of("v001", "v000", "v003"), "v004"),
-        new VersionTestCase(ImmutableList.of("v1000"), "v1001"));
+        new VersionTestCase(ImmutableList.of("v999"), "v1000"),
+        new VersionTestCase(ImmutableList.of("v1000"), "v1001"),
+        new VersionTestCase(ImmutableList.of("v12345", "v98765"), "v98766"));
   }
 
   @RequiredArgsConstructor
