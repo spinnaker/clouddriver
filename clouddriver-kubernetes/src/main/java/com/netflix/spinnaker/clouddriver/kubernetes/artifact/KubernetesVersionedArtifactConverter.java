@@ -43,7 +43,7 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
       ArtifactProvider provider, KubernetesManifest manifest, @Nonnull String account) {
     String version = getVersion(provider, account, manifest);
     return Artifact.builder()
-        .type(getType(manifest))
+        .type(artifactType(manifest.getKind()))
         .name(manifest.getName())
         .location(manifest.getNamespace())
         .version(version)
@@ -65,7 +65,7 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
       ArtifactProvider provider, @Nonnull String account, KubernetesManifest manifest) {
     ImmutableList<Artifact> priorVersions =
         provider.getArtifacts(
-            getType(manifest), manifest.getName(), manifest.getNamespace(), account);
+            artifactType(manifest.getKind()), manifest.getName(), manifest.getNamespace(), account);
 
     Optional<String> maybeVersion = findMatchingVersion(priorVersions, manifest);
     if (maybeVersion.isPresent()) {

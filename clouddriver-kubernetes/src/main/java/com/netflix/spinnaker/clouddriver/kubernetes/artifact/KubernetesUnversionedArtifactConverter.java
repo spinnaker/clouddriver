@@ -31,7 +31,7 @@ final class KubernetesUnversionedArtifactConverter extends KubernetesArtifactCon
   public Artifact toArtifact(
       ArtifactProvider provider, KubernetesManifest manifest, String account) {
     return Artifact.builder()
-        .type(getType(manifest))
+        .type(artifactType(manifest.getKind()))
         .name(manifest.getName())
         .location(manifest.getNamespace())
         .reference(manifest.getName())
