@@ -474,7 +474,8 @@ final class KubernetesDataProviderIntegrationTest {
   @Test
   void getArtifacts(SoftAssertions softly) {
     List<Artifact> artifacts =
-        artifactProvider.getArtifacts("kubernetes/replicaSet", "backend", "backend-ns");
+        artifactProvider.getArtifacts(
+            "kubernetes/replicaSet", "backend", "backend-ns", ACCOUNT_NAME);
     softly.assertThat(artifacts).hasSize(2);
     softly
         .assertThat(artifacts)
@@ -495,14 +496,24 @@ final class KubernetesDataProviderIntegrationTest {
   @Test
   void getArtifactsWrongType(SoftAssertions softly) {
     List<Artifact> artifacts =
-        artifactProvider.getArtifacts("kubernetes/deployment", "backend", "backend-ns");
+        artifactProvider.getArtifacts(
+            "kubernetes/deployment", "backend", "backend-ns", ACCOUNT_NAME);
     softly.assertThat(artifacts).isEmpty();
   }
 
   @Test
   void getArtifactsWrongNamespace(SoftAssertions softly) {
     List<Artifact> artifacts =
-        artifactProvider.getArtifacts("kubernetes/replicaSet", "backend", "frontend-ns");
+        artifactProvider.getArtifacts(
+            "kubernetes/replicaSet", "backend", "frontend-ns", ACCOUNT_NAME);
+    softly.assertThat(artifacts).isEmpty();
+  }
+
+  @Test
+  void getArtifactsWrongAccount(SoftAssertions softly) {
+    List<Artifact> artifacts =
+        artifactProvider.getArtifacts(
+            "kubernetes/replicaSet", "backend", "backend-ns", "wrong-account");
     softly.assertThat(artifacts).isEmpty();
   }
 

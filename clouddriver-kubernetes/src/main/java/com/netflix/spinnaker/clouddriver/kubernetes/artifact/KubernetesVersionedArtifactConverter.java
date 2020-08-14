@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -40,7 +42,7 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
 
   @Override
   public Artifact toArtifact(
-      ArtifactProvider provider, KubernetesManifest manifest, String account) {
+      ArtifactProvider provider, KubernetesManifest manifest, @Nonnull String account) {
     String type = getType(manifest);
     String name = manifest.getName();
     String location = manifest.getNamespace();
@@ -71,12 +73,9 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
       String type,
       String name,
       String location,
-      String account,
+      @Nonnull String account,
       KubernetesManifest manifest) {
-    List<Artifact> priorVersions =
-        provider.getArtifacts(type, name, location).stream()
-            .filter(a -> account.equals(a.getMetadata("account")))
-            .collect(Collectors.toList());
+    ImmutableList<Artifact> priorVersions = provider.getArtifacts(type, name, location, account);
 
     Optional<String> maybeVersion = findMatchingVersion(priorVersions, manifest);
     if (maybeVersion.isPresent()) {
