@@ -44,7 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @NonnullByDefault
 @Slf4j
-public class Replacer {
+public final class Replacer {
   private final KubernetesArtifactType type;
   private final JsonPath findPath;
   private final Function<Artifact, JsonPath> replacePathSupplier;
@@ -137,9 +137,9 @@ public class Replacer {
           .replaceFilter(a -> filter(where("image").is(a.getName())))
           .nameFromReference(
               ref -> {
-                int atIndex = ref.indexOf('@');
                 // @ can only show up in image references denoting a digest
                 // https://github.com/docker/distribution/blob/95daa793b83a21656fe6c13e6d5cf1c3999108c7/reference/regexp.go#L70
+                int atIndex = ref.indexOf('@');
                 if (atIndex >= 0) {
                   return ref.substring(0, atIndex);
                 }
@@ -147,16 +147,13 @@ public class Replacer {
                 // : can be used to denote a port, part of a digest (already matched) or a tag
                 // https://github.com/docker/distribution/blob/95daa793b83a21656fe6c13e6d5cf1c3999108c7/reference/regexp.go#L69
                 int lastColonIndex = ref.lastIndexOf(':');
-
-                if (lastColonIndex < 0) {
-                  return ref;
+                if (lastColonIndex >= 0) {
+                  // we don't need to check if this is a tag, or a port. ports will be matched
+                  // lazily if they are numeric, and are treated as tags first:
+                  // https://github.com/docker/distribution/blob/95daa793b83a21656fe6c13e6d5cf1c3999108c7/reference/regexp.go#L34
+                  return ref.substring(0, lastColonIndex);
                 }
-
-                // we don't need to check if this is a tag, or a port. ports will be matched lazily
-                // if
-                // they are numeric, and are treated as tags first:
-                // https://github.com/docker/distribution/blob/95daa793b83a21656fe6c13e6d5cf1c3999108c7/reference/regexp.go#L34
-                return ref.substring(0, lastColonIndex);
+                return ref;
               })
           .type(KubernetesArtifactType.DockerImage)
           .build();
