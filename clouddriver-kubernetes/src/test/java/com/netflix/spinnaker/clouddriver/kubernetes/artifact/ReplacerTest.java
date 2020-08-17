@@ -68,7 +68,7 @@ import org.junit.runner.RunWith;
  * The goal of this class is to do a test on each of the statically-defined replacers in {@link
  * Replacer}. Given {@link Replacer} has only package-private functions and users would only be
  * consuming these wrapped in an {@link ArtifactReplacer} we will do the same here; for each {@link
- * Replacer}, we wrap it in an {@link ArtifactReplacer} and check that it can find an replace the
+ * Replacer}, we wrap it in an {@link ArtifactReplacer} and check that it can find and replace the
  * expected artifacts on a Kubernetes object.
  *
  * <p>While {@link ArtifactReplacerTest} is focused more on the logic of {@link ArtifactReplacer}
