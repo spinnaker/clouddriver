@@ -27,6 +27,7 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Instance;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.ContainerLog;
@@ -118,7 +119,13 @@ final class KubernetesV2InstanceProviderTest {
   @Test
   void getConsoleOutputSuccess() {
     KubernetesManifest manifest = getKubernetesManifest();
-    when(credentials.get(KubernetesKind.POD, NAMESPACE, POD_NAME)).thenReturn(manifest);
+    when(credentials.get(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.POD)
+                .namespace(NAMESPACE)
+                .name(POD_NAME)
+                .build()))
+        .thenReturn(manifest);
     when(credentials.logs(anyString(), anyString(), anyString())).thenReturn(LOG_OUTPUT);
 
     List<ContainerLog> logs = provider.getConsoleOutput(ACCOUNT, NAMESPACE, POD_FULL_NAME);
@@ -137,7 +144,13 @@ final class KubernetesV2InstanceProviderTest {
     pod.getSpec().setInitContainers(null);
     KubernetesManifest manifest = json.deserialize(json.serialize(pod), KubernetesManifest.class);
 
-    when(credentials.get(KubernetesKind.POD, NAMESPACE, POD_NAME)).thenReturn(manifest);
+    when(credentials.get(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.POD)
+                .namespace(NAMESPACE)
+                .name(POD_NAME)
+                .build()))
+        .thenReturn(manifest);
     when(credentials.logs(anyString(), anyString(), anyString())).thenReturn(LOG_OUTPUT);
 
     List<ContainerLog> logs = provider.getConsoleOutput(ACCOUNT, NAMESPACE, POD_FULL_NAME);
@@ -151,7 +164,13 @@ final class KubernetesV2InstanceProviderTest {
   @Test
   void getConsoleOutputKubectlException() {
     KubernetesManifest manifest = getKubernetesManifest();
-    when(credentials.get(KubernetesKind.POD, NAMESPACE, POD_NAME)).thenReturn(manifest);
+    when(credentials.get(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.POD)
+                .namespace(NAMESPACE)
+                .name(POD_NAME)
+                .build()))
+        .thenReturn(manifest);
     when(credentials.logs(anyString(), anyString(), anyString()))
         .thenThrow(new KubectlJobExecutor.KubectlException(LOG_OUTPUT, null));
 
@@ -209,7 +228,13 @@ final class KubernetesV2InstanceProviderTest {
 
   @Test
   void getConsoleOutputPodNotFoundShouldReturnErrorContainerLog() {
-    when(credentials.get(KubernetesKind.POD, NAMESPACE, POD_NAME)).thenReturn(null);
+    when(credentials.get(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.POD)
+                .namespace(NAMESPACE)
+                .name(POD_NAME)
+                .build()))
+        .thenReturn(null);
 
     List<ContainerLog> logs = provider.getConsoleOutput(ACCOUNT, NAMESPACE, POD_FULL_NAME);
 

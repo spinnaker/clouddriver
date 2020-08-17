@@ -33,8 +33,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ApplicationCach
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,7 +45,6 @@ import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -79,18 +77,18 @@ public class KubernetesV2LoadBalancerProvider
   @Override
   public List<KubernetesV2LoadBalancer> byAccountAndRegionAndName(
       String account, String namespace, String fullName) {
-    Pair<KubernetesKind, String> parsedName;
+    KubernetesCoordinates coords;
     try {
-      parsedName = KubernetesManifest.fromFullResourceName(fullName);
-    } catch (Exception e) {
+      coords =
+          KubernetesCoordinates.builder().namespace(namespace).fullResourceName(fullName).build();
+    } catch (IllegalArgumentException e) {
       return null;
     }
 
-    KubernetesKind kind = parsedName.getLeft();
-    String name = parsedName.getRight();
-    String key = Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name);
+    String key = Keys.InfrastructureCacheKey.createKey(account, coords);
 
-    Optional<CacheData> optionalLoadBalancerData = cacheUtils.getSingleEntry(kind.toString(), key);
+    Optional<CacheData> optionalLoadBalancerData =
+        cacheUtils.getSingleEntry(coords.getKind().toString(), key);
     if (!optionalLoadBalancerData.isPresent()) {
       return null;
     }

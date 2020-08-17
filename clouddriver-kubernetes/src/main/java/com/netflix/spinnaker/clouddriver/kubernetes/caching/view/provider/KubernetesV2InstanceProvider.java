@@ -23,8 +23,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Instance;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.ContainerLog;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
@@ -38,7 +37,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -63,18 +61,18 @@ public class KubernetesV2InstanceProvider
 
   @Override
   public KubernetesV2Instance getInstance(String account, String location, String fullName) {
-    Pair<KubernetesKind, String> parsedName;
+    KubernetesCoordinates coords;
     try {
-      parsedName = KubernetesManifest.fromFullResourceName(fullName);
-    } catch (Exception e) {
+      coords =
+          KubernetesCoordinates.builder().namespace(location).fullResourceName(fullName).build();
+    } catch (IllegalArgumentException e) {
       return null;
     }
 
-    KubernetesKind kind = parsedName.getLeft();
-    String name = parsedName.getRight();
-    String key = Keys.InfrastructureCacheKey.createKey(kind, account, location, name);
+    String key = Keys.InfrastructureCacheKey.createKey(account, coords);
 
-    Optional<CacheData> optionalInstanceData = cacheUtils.getSingleEntry(kind.toString(), key);
+    Optional<CacheData> optionalInstanceData =
+        cacheUtils.getSingleEntry(coords.getKind().toString(), key);
     if (!optionalInstanceData.isPresent()) {
       return null;
     }
@@ -93,18 +91,15 @@ public class KubernetesV2InstanceProvider
     }
 
     KubernetesCredentials credentials = optionalCredentials.get();
-    Pair<KubernetesKind, String> parsedName;
-
+    KubernetesCoordinates coords;
     try {
-      parsedName = KubernetesManifest.fromFullResourceName(fullName);
-    } catch (Exception e) {
+      coords =
+          KubernetesCoordinates.builder().namespace(namespace).fullResourceName(fullName).build();
+    } catch (IllegalArgumentException e) {
       return null;
     }
 
-    String podName = parsedName.getRight();
-    V1Pod pod =
-        KubernetesCacheDataConverter.getResource(
-            credentials.get(KubernetesKind.POD, namespace, podName), V1Pod.class);
+    V1Pod pod = KubernetesCacheDataConverter.getResource(credentials.get(coords), V1Pod.class);
 
     // Short-circuit if pod cannot be found
     if (pod == null) {

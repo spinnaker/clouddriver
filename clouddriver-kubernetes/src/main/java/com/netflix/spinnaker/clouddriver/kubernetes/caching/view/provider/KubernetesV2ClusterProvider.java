@@ -41,8 +41,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.Kubernete
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupHandler;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
@@ -55,7 +54,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -129,19 +127,18 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
   @Override
   public KubernetesV2ServerGroup getServerGroup(
       String account, String namespace, String name, boolean includeDetails) {
-    Pair<KubernetesKind, String> parsedName;
+    KubernetesCoordinates coords;
     try {
-      parsedName = KubernetesManifest.fromFullResourceName(name);
+      coords = KubernetesCoordinates.builder().namespace(namespace).fullResourceName(name).build();
     } catch (IllegalArgumentException e) {
       return null;
     }
 
-    KubernetesKind kind = parsedName.getLeft();
-    String shortName = parsedName.getRight();
-    String key = InfrastructureCacheKey.createKey(kind, account, namespace, shortName);
+    String key = InfrastructureCacheKey.createKey(account, coords);
 
     Optional<CacheData> serverGroupData =
-        cacheUtils.getSingleEntryWithRelationships(kind.toString(), key, serverGroupRelationships);
+        cacheUtils.getSingleEntryWithRelationships(
+            coords.getKind().toString(), key, serverGroupRelationships);
 
     return serverGroupData
         .map(cacheData -> loadServerGroups(ImmutableList.of(cacheData)).get(cacheData.getId()))
