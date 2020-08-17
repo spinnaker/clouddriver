@@ -36,12 +36,10 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Cluster;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupHandler;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
@@ -49,7 +47,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -60,14 +57,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2Cluster> {
   private final KubernetesCacheUtils cacheUtils;
-  private final RelationshipCacheFilter serverGroupRelationships;
 
   @Autowired
   KubernetesV2ClusterProvider(KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
-    this.serverGroupRelationships =
-        cacheUtils.getCacheFilter(
-            ImmutableList.of(INSTANCES, LOAD_BALANCERS, SERVER_GROUP_MANAGERS));
   }
 
   @Override
@@ -126,22 +119,12 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
   @Nullable
   @Override
   public KubernetesV2ServerGroup getServerGroup(
-      String account, String namespace, String name, boolean includeDetails) {
-    KubernetesCoordinates coords;
-    try {
-      coords = KubernetesCoordinates.builder().namespace(namespace).fullResourceName(name).build();
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
-
-    String key = InfrastructureCacheKey.createKey(account, coords);
-
-    Optional<CacheData> serverGroupData =
-        cacheUtils.getSingleEntryWithRelationships(
-            coords.getKind().toString(), key, serverGroupRelationships);
-
-    return serverGroupData
-        .map(cacheData -> loadServerGroups(ImmutableList.of(cacheData)).get(cacheData.getId()))
+      String account, String namespace, String fullName, boolean includeDetails) {
+    return cacheUtils
+        .getSingleEntry(account, namespace, fullName)
+        .map(
+            serverGroupData ->
+                loadServerGroups(ImmutableList.of(serverGroupData)).get(serverGroupData.getId()))
         .orElse(null);
   }
 

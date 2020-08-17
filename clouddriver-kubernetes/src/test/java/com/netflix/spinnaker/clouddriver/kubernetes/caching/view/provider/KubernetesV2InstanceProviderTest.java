@@ -88,7 +88,8 @@ final class KubernetesV2InstanceProviderTest {
     KubernetesManifest manifest = getKubernetesManifest();
     attributes.put("manifest", manifest);
     when(cacheData.getAttributes()).thenReturn(attributes);
-    when(cacheUtils.getSingleEntry(KIND.toString(), CACHE_KEY)).thenReturn(Optional.of(cacheData));
+    when(cacheUtils.getSingleEntry(ACCOUNT, NAMESPACE, POD_FULL_NAME))
+        .thenReturn(Optional.of(cacheData));
     when(cacheData.getId()).thenReturn(CACHE_KEY);
 
     KubernetesV2Instance instance = provider.getInstance(ACCOUNT, NAMESPACE, POD_FULL_NAME);

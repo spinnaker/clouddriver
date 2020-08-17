@@ -18,9 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
 import com.google.common.collect.ImmutableList;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Instance;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
@@ -60,26 +58,11 @@ public class KubernetesV2InstanceProvider
   }
 
   @Override
-  public KubernetesV2Instance getInstance(String account, String location, String fullName) {
-    KubernetesCoordinates coords;
-    try {
-      coords =
-          KubernetesCoordinates.builder().namespace(location).fullResourceName(fullName).build();
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
-
-    String key = Keys.InfrastructureCacheKey.createKey(account, coords);
-
-    Optional<CacheData> optionalInstanceData =
-        cacheUtils.getSingleEntry(coords.getKind().toString(), key);
-    if (!optionalInstanceData.isPresent()) {
-      return null;
-    }
-
-    CacheData instanceData = optionalInstanceData.get();
-
-    return KubernetesV2Instance.fromCacheData(instanceData);
+  public KubernetesV2Instance getInstance(String account, String namespace, String fullName) {
+    return cacheUtils
+        .getSingleEntry(account, namespace, fullName)
+        .map(KubernetesV2Instance::fromCacheData)
+        .orElse(null);
   }
 
   @Override

@@ -28,18 +28,15 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ApplicationCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Data;
@@ -77,25 +74,11 @@ public class KubernetesV2LoadBalancerProvider
   @Override
   public List<KubernetesV2LoadBalancer> byAccountAndRegionAndName(
       String account, String namespace, String fullName) {
-    KubernetesCoordinates coords;
-    try {
-      coords =
-          KubernetesCoordinates.builder().namespace(namespace).fullResourceName(fullName).build();
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
-
-    String key = Keys.InfrastructureCacheKey.createKey(account, coords);
-
-    Optional<CacheData> optionalLoadBalancerData =
-        cacheUtils.getSingleEntry(coords.getKind().toString(), key);
-    if (!optionalLoadBalancerData.isPresent()) {
-      return null;
-    }
-
-    CacheData loadBalancerData = optionalLoadBalancerData.get();
-
-    return new ArrayList<>(fromLoadBalancerCacheData(ImmutableList.of(loadBalancerData)));
+    return cacheUtils
+        .getSingleEntry(account, namespace, fullName)
+        .map(loadBalancerData -> fromLoadBalancerCacheData(ImmutableList.of(loadBalancerData)))
+        .map(ImmutableList::copyOf)
+        .orElse(null);
   }
 
   @Override
