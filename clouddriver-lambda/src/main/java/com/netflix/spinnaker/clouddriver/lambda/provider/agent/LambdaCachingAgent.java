@@ -271,10 +271,12 @@ public class LambdaCachingAgent implements CachingAgent, AccountAware, OnDemandA
 
   @Override
   public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-    if (!validKeys(data) || !data.get("account").equals(getAccountName()) || !data.get("region").equals(region)) {
+    if (!validKeys(data) 
+        || !data.get("account").equals(getAccountName()) 
+        || !data.get("region").equals(region)) {
       return null;
     }
- 
+
     String appName = (String) data.get("appName");
     String functionName = combineAppDetail(appName, (String) data.get("functionName"));
 
