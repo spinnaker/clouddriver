@@ -21,7 +21,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import java.util.ArrayList;
+import com.google.common.collect.ImmutableList;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,9 +31,11 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+@Slf4j
 public class KubernetesManifest extends HashMap<String, Object> {
   private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -132,9 +136,10 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @Nonnull
   public String getNamespace() {
     String namespace = (String) getMetadata().get("namespace");
-    return Strings.isNullOrEmpty(namespace) ? "" : namespace;
+    return Strings.nullToEmpty(namespace);
   }
 
   @JsonIgnore
@@ -143,6 +148,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @Nonnull
   public String getCreationTimestamp() {
     return getMetadata().containsKey("creationTimestamp")
         ? getMetadata().get("creationTimestamp").toString()
@@ -150,14 +156,27 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
-  public List<OwnerReference> getOwnerReferences() {
-    Map<String, Object> metadata = getMetadata();
-    Object ownerReferences = metadata.get("ownerReferences");
-    if (ownerReferences == null) {
-      return new ArrayList<>();
+  @Nullable
+  public Long getFormattedCreationTimestamp() {
+    String timestamp = getCreationTimestamp();
+    try {
+      if (!Strings.isNullOrEmpty(timestamp)) {
+        return (new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX").parse(timestamp)).getTime();
+      }
+    } catch (ParseException e) {
+      log.warn("Failed to parse timestamp: ", e);
     }
 
-    return mapper.convertValue(ownerReferences, new TypeReference<List<OwnerReference>>() {});
+    return null;
+  }
+
+  @JsonIgnore
+  @Nonnull
+  public List<OwnerReference> getOwnerReferences() {
+    Map<String, Object> metadata = getMetadata();
+    return Optional.ofNullable(metadata.get("ownerReferences"))
+        .map(r -> mapper.convertValue(r, new TypeReference<List<OwnerReference>>() {}))
+        .orElseGet(ImmutableList::of);
   }
 
   @JsonIgnore

@@ -22,19 +22,12 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.CustomKubernetesCachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroupManager;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.ManifestBasedModel;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2CacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,7 +41,7 @@ public class CustomKubernetesHandlerFactory {
   }
 
   @Slf4j
-  private static class Handler extends KubernetesHandler implements ModelHandler {
+  private static class Handler extends KubernetesHandler {
     private final KubernetesKind kubernetesKind;
     private final SpinnakerKind spinnakerKind;
     private final boolean versioned;
@@ -98,7 +91,7 @@ public class CustomKubernetesHandlerFactory {
     }
 
     private KubernetesV2CachingAgent buildCustomCachingAgent(
-        KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+        KubernetesNamedAccountCredentials namedAccountCredentials,
         ObjectMapper objectMapper,
         Registry registry,
         int agentIndex,
@@ -112,22 +105,6 @@ public class CustomKubernetesHandlerFactory {
           agentIndex,
           agentCount,
           agentInterval);
-    }
-
-    @Override
-    public ManifestBasedModel fromCacheData(KubernetesV2CacheData cacheData) {
-      switch (spinnakerKind()) {
-        case SERVER_GROUPS:
-          return KubernetesV2ServerGroup.fromCacheData(
-              (KubernetesV2ServerGroupCacheData) cacheData);
-        case SERVER_GROUP_MANAGERS:
-          return KubernetesV2ServerGroupManager.fromCacheData(
-              (KubernetesV2ServerGroupManagerCacheData) cacheData);
-        default:
-          // TODO(dpeach): finish implementing for other SpinnakerKinds.
-          log.warn("No default cache data model mapping for Spinnaker kind " + spinnakerKind());
-          return null;
-      }
     }
   }
 }

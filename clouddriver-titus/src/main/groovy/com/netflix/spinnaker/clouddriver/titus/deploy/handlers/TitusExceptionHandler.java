@@ -45,8 +45,29 @@ public class TitusExceptionHandler implements SagaExceptionHandler {
       case UNAVAILABLE:
       case UNKNOWN:
         return true;
+      case INVALID_ARGUMENT:
+        return invalidArgumentConditional(statusRuntimeException.getMessage());
       default:
         return false;
     }
+  }
+
+  private boolean invalidArgumentConditional(String statusRuntimeExceptionMessage) {
+    if (statusRuntimeExceptionMessage == null) {
+      return false;
+    }
+
+    // There is a particular operation in CloudDriver WRT attaching a server group to a load
+    // balancer that does not behave as expected when retrying due to a rate exceeded error.
+    // We will disable retrying on this specific error until that issue has been debugged and
+    // resolved.
+    // boolean rateExceeded = statusRuntimeExceptionMessage.toLowerCase().contains("rate exceeded");
+    boolean assumeRoleError =
+        statusRuntimeExceptionMessage.toLowerCase().contains("jobiamvalidator")
+            && statusRuntimeExceptionMessage
+                .toLowerCase()
+                .contains("titus cannot assume into role");
+
+    return assumeRoleError;
   }
 }

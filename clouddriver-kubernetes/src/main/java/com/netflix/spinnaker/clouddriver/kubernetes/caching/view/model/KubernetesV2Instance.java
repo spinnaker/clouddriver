@@ -17,41 +17,68 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.provider.KubernetesModelUtil;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerInstance;
+import com.netflix.spinnaker.moniker.Moniker;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import javax.validation.constraints.Null;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-@EqualsAndHashCode(callSuper = true)
-@Data
-@NoArgsConstructor
 @Slf4j
-public class KubernetesV2Instance extends ManifestBasedModel implements Instance {
-  private Long launchTime;
-  private List<Map<String, Object>> health = new ArrayList<>();
-  private KubernetesManifest manifest;
-  private Keys.InfrastructureCacheKey key;
+@Value
+public final class KubernetesV2Instance implements Instance, KubernetesResource {
+  private final List<Map<String, Object>> health;
+  private final String account;
+  // An implementor of the Instance interface is implicitly expected to return a globally-unique ID
+  // as its name because InstanceViewModel serializes it as such for API responses and Deck then
+  // relies on it to disambiguate between instances.
+  private final String name;
+  private final String humanReadableName;
+  private final String namespace;
+  private final String displayName;
+  private final KubernetesApiVersion apiVersion;
+  private final KubernetesKind kind;
+  private final Map<String, String> labels;
+  private final Moniker moniker;
+  private final Long createdTime;
 
-  private KubernetesV2Instance(KubernetesManifest manifest, String key) {
-    this.manifest = manifest;
-    this.key = (Keys.InfrastructureCacheKey) Keys.parseKey(key).get();
+  @Null
+  @Override
+  public Long getLaunchTime() {
+    return null;
+  }
 
+  private KubernetesV2Instance(KubernetesManifest manifest, String key, Moniker moniker) {
+    this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
+    this.name = manifest.getUid();
+    this.humanReadableName = manifest.getFullResourceName();
+    this.namespace = manifest.getNamespace();
+    this.displayName = manifest.getName();
+    this.apiVersion = manifest.getApiVersion();
+    this.kind = manifest.getKind();
+    this.labels = ImmutableMap.copyOf(manifest.getLabels());
+    this.moniker = moniker;
+    this.createdTime = manifest.getFormattedCreationTimestamp();
+
+    this.health = new ArrayList<>();
     V1PodStatus status =
-        KubernetesCacheDataConverter.getResource(this.manifest.getStatus(), V1PodStatus.class);
+        KubernetesCacheDataConverter.getResource(manifest.getStatus(), V1PodStatus.class);
     if (status != null) {
       health.add(new KubernetesV2Health(status).toMap());
       if (status.getContainerStatuses() != null) {
@@ -76,7 +103,8 @@ public class KubernetesV2Instance extends ManifestBasedModel implements Instance
       return null;
     }
 
-    return new KubernetesV2Instance(manifest, cd.getId());
+    Moniker moniker = KubernetesCacheDataConverter.getMoniker(cd);
+    return new KubernetesV2Instance(manifest, cd.getId(), moniker);
   }
 
   public LoadBalancerInstance toLoadBalancerInstance() {
@@ -97,18 +125,23 @@ public class KubernetesV2Instance extends ManifestBasedModel implements Instance
         .build();
   }
 
+  @Override
   public HealthState getHealthState() {
     return KubernetesModelUtil.getHealthState(health);
   }
 
-  // An implementor of the Instance interface is implicitly expected to return a globally-unique ID
-  // as its name because InstanceViewModel serializes it as such for API responses and Deck then
-  // relies on it to disambiguate between instances.
-  public String getName() {
-    return super.getUid();
+  @Override
+  public String getZone() {
+    return namespace;
   }
 
-  public String getHumanReadableName() {
-    return super.getName();
+  @Override
+  public String getProviderType() {
+    return KubernetesCloudProvider.ID;
+  }
+
+  @Override
+  public String getCloudProvider() {
+    return KubernetesCloudProvider.ID;
   }
 }

@@ -18,8 +18,10 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.op.artifact;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.artifact.KubernetesCleanupArtifactsDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
@@ -28,24 +30,23 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestStrategy;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
-import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class KubernetesCleanupArtifactsOperation implements AtomicOperation<OperationResult> {
   private final KubernetesCleanupArtifactsDescription description;
-  private final KubernetesV2Credentials credentials;
-  private final String accountName;
+  private final KubernetesCredentials credentials;
+  @Nonnull private final String accountName;
   private final ArtifactProvider artifactProvider;
   private static final String OP_NAME = "CLEANUP_KUBERNETES_ARTIFACTS";
 
@@ -96,30 +97,26 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Oper
     return result;
   }
 
-  private List<Artifact> artifactsToDelete(KubernetesManifest manifest) {
+  private ImmutableList<Artifact> artifactsToDelete(KubernetesManifest manifest) {
     KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
     OptionalInt optionalMaxVersionHistory = strategy.getMaxVersionHistory();
     if (!optionalMaxVersionHistory.isPresent()) {
-      return new ArrayList<>();
+      return ImmutableList.of();
     }
 
     int maxVersionHistory = optionalMaxVersionHistory.getAsInt();
     Optional<Artifact> optional = KubernetesManifestAnnotater.getArtifact(manifest, accountName);
     if (!optional.isPresent()) {
-      return new ArrayList<>();
+      return ImmutableList.of();
     }
 
     Artifact artifact = optional.get();
 
-    List<Artifact> artifacts =
-        artifactProvider
-            .getArtifacts(artifact.getType(), artifact.getName(), artifact.getLocation())
-            .stream()
-            .filter(a -> accountName.equals(a.getMetadata("account")))
-            .collect(Collectors.toList());
-
+    ImmutableList<Artifact> artifacts =
+        artifactProvider.getArtifacts(
+            artifact.getType(), artifact.getName(), artifact.getLocation(), accountName);
     if (maxVersionHistory >= artifacts.size()) {
-      return new ArrayList<>();
+      return ImmutableList.of();
     } else {
       return artifacts.subList(0, artifacts.size() - maxVersionHistory);
     }
