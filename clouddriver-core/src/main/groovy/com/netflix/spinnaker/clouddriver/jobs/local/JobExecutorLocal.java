@@ -36,7 +36,7 @@ public class JobExecutorLocal implements JobExecutor {
   // library, it is not worth the effort at this point.
   // This executor is only used to parsing the output of a job when running in streaming mode; the
   // main thread waits on the job while the output parsing is sent to the executor.
-  private final ExecutorService executor = Executors.newCachedThreadPool();
+  private final ExecutorService executorService = Executors.newCachedThreadPool();
   private final long timeoutMinutes;
 
   public JobExecutorLocal(long timeoutMinutes) {
@@ -98,7 +98,7 @@ public class JobExecutorLocal implements JobExecutor {
 
     // Send a task to the executor to consume the output from the job.
     Future<T> futureResult =
-        this.executor.submit(
+        executorService.submit(
             () ->
                 consumer.consume(
                     new BufferedReader(new InputStreamReader(new PipedInputStream(stdOut)))));
