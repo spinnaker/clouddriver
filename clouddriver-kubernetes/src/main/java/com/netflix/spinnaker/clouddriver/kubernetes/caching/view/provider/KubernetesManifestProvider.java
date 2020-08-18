@@ -22,6 +22,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalK
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Manifest;
@@ -52,7 +53,9 @@ import org.springframework.stereotype.Component;
 public class KubernetesManifestProvider {
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesAccountResolver accountResolver;
-  private final ExecutorService executorService = Executors.newCachedThreadPool();
+  private final ExecutorService executorService =
+      Executors.newCachedThreadPool(
+          new ThreadFactoryBuilder().setNameFormat(getClass().getSimpleName() + "-%d").build());
 
   @Autowired
   public KubernetesManifestProvider(
