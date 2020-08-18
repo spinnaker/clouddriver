@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.controllers;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider.Sort;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest;
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue;
@@ -104,7 +105,7 @@ public class ManifestController {
       value =
           "/{account:.+}/{location:.+}/{kind:.+}/cluster/{app:.+}/{cluster:.+}/dynamic/{criteria:.+}",
       method = RequestMethod.GET)
-  KubernetesManifest getDynamicManifestFromCluster(
+  KubernetesCoordinates getDynamicManifestFromCluster(
       @PathVariable String account,
       @PathVariable String location,
       @PathVariable String kind,
@@ -137,12 +138,12 @@ public class ManifestController {
       switch (criteria) {
         case oldest:
         case smallest:
-          return manifests.get(0);
+          return KubernetesCoordinates.fromManifest(manifests.get(0));
         case newest:
         case largest:
-          return manifests.get(manifests.size() - 1);
+          return KubernetesCoordinates.fromManifest(manifests.get(manifests.size() - 1));
         case second_newest:
-          return manifests.get(manifests.size() - 2);
+          return KubernetesCoordinates.fromManifest(manifests.get(manifests.size() - 2));
         default:
           throw new IllegalArgumentException("Unknown criteria: " + criteria);
       }
