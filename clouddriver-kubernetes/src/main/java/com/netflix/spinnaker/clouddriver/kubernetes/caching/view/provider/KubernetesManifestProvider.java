@@ -117,7 +117,7 @@ public class KubernetesManifestProvider {
   }
 
   @Nullable
-  public List<KubernetesV2Manifest> getClusterAndSortAscending(
+  public List<KubernetesManifest> getClusterAndSortAscending(
       String account, String location, String kind, String cluster, Sort sort) {
     Optional<KubernetesCredentials> optionalCredentials = accountResolver.getCredentials(account);
     if (!optionalCredentials.isPresent()) {
@@ -133,11 +133,7 @@ public class KubernetesManifestProvider {
 
     return credentials.list(kubernetesKind, location).stream()
         .filter(m -> cluster.equals(KubernetesManifestAnnotater.getManifestCluster(m)))
-        .map(
-            m ->
-                KubernetesV2ManifestBuilder.buildManifest(
-                    credentials, m, ImmutableList.of(), ImmutableList.of()))
-        .sorted((m1, m2) -> handler.comparatorFor(sort).compare(m1.getManifest(), m2.getManifest()))
+        .sorted((m1, m2) -> handler.comparatorFor(sort).compare(m1, m2))
         .collect(Collectors.toList());
   }
 
