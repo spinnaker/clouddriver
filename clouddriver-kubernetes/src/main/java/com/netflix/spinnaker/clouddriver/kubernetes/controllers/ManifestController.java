@@ -123,7 +123,7 @@ public class ManifestController {
               account,
               () ->
                   manifestProvider.getClusterAndSortAscending(
-                      account, location, kind, app, cluster, criteria.getSort()));
+                      account, location, kind, cluster, criteria.getSort()));
     } catch (Throwable t) {
       log.warn("Failed to read {}", request, t);
       return null;

@@ -299,4 +299,8 @@ public class KubernetesManifestAnnotater {
         new TypeReference<KubernetesManifest>() {},
         null);
   }
+
+  public static String getManifestCluster(KubernetesManifest manifest) {
+    return manifest.getAnnotations().get(CLUSTER);
+  }
 }
