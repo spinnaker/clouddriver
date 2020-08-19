@@ -32,12 +32,13 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class KubernetesManifest extends HashMap<String, Object> {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesManifest.class);
   private static final ObjectMapper mapper = new ObjectMapper();
 
   @Nullable private KubernetesKind computedKind;
@@ -105,11 +106,6 @@ public class KubernetesManifest extends HashMap<String, Object> {
   @JsonIgnore
   private Map<String, Object> getMetadata() {
     return getRequiredField(this, "metadata");
-  }
-
-  @JsonIgnore
-  public Map<String, String> getInvolvedObject() {
-    return getRequiredField(this, "involvedObject");
   }
 
   @JsonIgnore
@@ -321,43 +317,6 @@ public class KubernetesManifest extends HashMap<String, Object> {
     return get("status");
   }
 
-  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
-  // of calling this function.
-  @Deprecated
-  @JsonIgnore
-  public int getObservedGeneration() {
-    Object statusObj = getStatus();
-    if (!(statusObj instanceof Map)) {
-      throw new IllegalStateException(
-          "Expected status to be a Map but was actually a " + statusObj.getClass());
-    }
-
-    Map<String, Object> status = (Map<String, Object>) statusObj;
-
-    Object observedGenObj = status.get("observedGeneration");
-
-    if (!(observedGenObj instanceof Number)) {
-      throw new IllegalStateException(
-          "Expected status.observedGeneration to be a Number but was actually a "
-              + observedGenObj.getClass());
-    }
-    return ((Number) observedGenObj).intValue();
-  }
-
-  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
-  // of calling this function.
-  @Deprecated
-  @JsonIgnore
-  public int getGeneration() {
-    Object generationObj = getMetadata().get("generation");
-    if (!(generationObj instanceof Number)) {
-      throw new IllegalStateException(
-          "Expected metadata.generation to be a Number but was actually a "
-              + generationObj.getClass());
-    }
-    return ((Number) generationObj).intValue();
-  }
-
   @JsonIgnore
   public String getFullResourceName() {
     return getFullResourceName(getKind(), getName());
@@ -365,17 +324,6 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   public static String getFullResourceName(KubernetesKind kind, String name) {
     return String.join(" ", kind.toString(), name);
-  }
-
-  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
-  // of calling this function.
-  @Deprecated
-  @JsonIgnore
-  public boolean isNewerThanObservedGeneration() {
-    int generation = getGeneration();
-    int observedGeneration = getObservedGeneration();
-
-    return generation > observedGeneration;
   }
 
   /*

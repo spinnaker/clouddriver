@@ -30,7 +30,6 @@ import com.netflix.spinnaker.clouddriver.jobs.local.ReaderConsumer;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
@@ -44,15 +43,16 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.WillClose;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
 public class KubectlJobExecutor {
+  private static final Logger log = LoggerFactory.getLogger(KubectlJobExecutor.class);
   private static final String NOT_FOUND_STRING = "(NotFound)";
   private final JobExecutor jobExecutor;
   private final String executable;
@@ -374,7 +374,7 @@ public class KubectlJobExecutor {
     command.add(
         String.format(
             "involvedObject.name=%s,involvedObject.kind=%s",
-            name, StringUtils.capitalize(kind.getName())));
+            name, StringUtils.capitalize(kind.toString())));
 
     JobResult<ImmutableList<KubernetesManifest>> status =
         jobExecutor.runJob(new JobRequest(command), parseManifestList());
@@ -388,13 +388,7 @@ public class KubectlJobExecutor {
       return ImmutableList.of();
     }
 
-    return status.getOutput().stream()
-        .filter(
-            x ->
-                x.getInvolvedObject()
-                    .getOrDefault("apiVersion", KubernetesApiGroup.NONE.toString())
-                    .startsWith(kind.getApiGroup().toString()))
-        .collect(ImmutableList.toImmutableList());
+    return status.getOutput();
   }
 
   @Nonnull

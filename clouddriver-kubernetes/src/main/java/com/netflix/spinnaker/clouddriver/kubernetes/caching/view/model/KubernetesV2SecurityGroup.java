@@ -55,11 +55,12 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.Value;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 @Value
 public final class KubernetesV2SecurityGroup implements KubernetesResource, SecurityGroup {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesV2SecurityGroup.class);
   private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =
       ImmutableSet.of(EXTENSIONS_V1BETA1, NETWORKING_K8S_IO_V1BETA1, NETWORKING_K8S_IO_V1);
 
@@ -79,11 +80,6 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
   @Override
   public String getAccountName() {
     return account;
-  }
-
-  @Override
-  public String getApplication() {
-    return getMoniker().getApp();
   }
 
   @Override
@@ -180,11 +176,6 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
             port == null
                 ? null
                 : new TreeSet<>(ImmutableList.of(new StringPortRange(port.toString()))));
-  }
-
-  @Override
-  public String getType() {
-    return KubernetesCloudProvider.ID;
   }
 
   @Override

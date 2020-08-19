@@ -40,10 +40,12 @@ import com.netflix.spinnaker.moniker.Moniker;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class KubernetesDeployManifestOperation implements AtomicOperation<OperationResult> {
+  private static final Logger log =
+      LoggerFactory.getLogger(KubernetesDeployManifestOperation.class);
   private final KubernetesDeployManifestDescription description;
   private final KubernetesCredentials credentials;
   private final ArtifactProvider provider;
@@ -97,15 +99,6 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
         manifest.setNamespace(description.getNamespaceOverride());
       }
 
-      KubernetesResourceProperties properties = findResourceProperties(manifest);
-      KubernetesHandler deployer = properties.getHandler();
-      if (deployer == null) {
-        throw new IllegalArgumentException(
-            "No deployer available for Kubernetes object kind '"
-                + manifest.getKind().toString()
-                + "', unable to continue.");
-      }
-
       KubernetesManifestAnnotater.validateAnnotationsForRolloutStrategies(
           manifest, description.getStrategy());
 
@@ -114,7 +107,9 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
               OP_NAME,
               "Swapping out artifacts in " + manifest.getFullResourceName() + " from context...");
       ReplaceResult replaceResult =
-          deployer.replaceArtifacts(manifest, artifacts, description.getAccount());
+          findResourceProperties(manifest)
+              .getHandler()
+              .replaceArtifacts(manifest, artifacts, description.getAccount());
       deployManifests.add(replaceResult.getManifest());
       boundArtifacts.addAll(replaceResult.getBoundArtifacts());
     }

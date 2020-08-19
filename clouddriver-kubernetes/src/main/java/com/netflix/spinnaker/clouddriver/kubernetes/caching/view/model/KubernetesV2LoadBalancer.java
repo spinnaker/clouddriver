@@ -34,12 +34,13 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Value;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 @Value
 public final class KubernetesV2LoadBalancer
     implements KubernetesResource, LoadBalancer, LoadBalancerProvider.Details {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesV2LoadBalancer.class);
   private final Set<LoadBalancerServerGroup> serverGroups;
   private final String account;
   private final String name;
@@ -79,11 +80,6 @@ public final class KubernetesV2LoadBalancer
     }
     Moniker moniker = KubernetesCacheDataConverter.getMoniker(cd);
     return new KubernetesV2LoadBalancer(manifest, cd.getId(), moniker, loadBalancerServerGroups);
-  }
-
-  @Override
-  public String getType() {
-    return KubernetesCloudProvider.ID;
   }
 
   public String getRegion() {

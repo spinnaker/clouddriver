@@ -38,11 +38,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.validation.constraints.Null;
 import lombok.Value;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 @Value
 public final class KubernetesV2Instance implements Instance, KubernetesResource {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesV2Instance.class);
   private final List<Map<String, Object>> health;
   private final String account;
   // An implementor of the Instance interface is implicitly expected to return a globally-unique ID
@@ -133,11 +134,6 @@ public final class KubernetesV2Instance implements Instance, KubernetesResource 
   @Override
   public String getZone() {
     return namespace;
-  }
-
-  @Override
-  public String getProviderType() {
-    return KubernetesCloudProvider.ID;
   }
 
   @Override
