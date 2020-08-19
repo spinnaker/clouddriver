@@ -26,6 +26,8 @@ tasks.withType(JavaCompile) {
     '-Xlint:-unchecked',
   ]
 
+  // Temporarily disable error-prone checks that are generating warnings. These
+  // are only here while we fix or suppress the warnings in these categories.
   options.errorprone.disable(
     "DefaultCharset",
     "EmptyCatch",
