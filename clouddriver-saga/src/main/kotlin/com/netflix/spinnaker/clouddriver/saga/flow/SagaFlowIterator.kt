@@ -42,8 +42,10 @@ import org.springframework.context.ApplicationContext
 class SagaFlowIterator(
   private val sagaRepository: SagaRepository,
   private val applicationContext: ApplicationContext,
-  saga: Saga,
-  flow: SagaFlow
+  private var saga: Saga,
+  private val flow: SagaFlow,
+  private val seekingEnabled: Boolean = true,
+  private val stateRefreshingEnabled: Boolean = true
 ) : Iterator<SagaFlowIterator.IteratorState> {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -66,12 +68,16 @@ class SagaFlowIterator(
     // The iterator needs the latest state of a saga to correctly determine in the next step to take.
     // This is kind of handy, since we can pass this newly refreshed state straight to the iterator consumer so they
     // don't need to concern themselves with that.
-    latestSaga = sagaRepository.get(context.sagaName, context.sagaId)
-      ?: throw SagaNotFoundException("Could not find Saga (${context.sagaName}/${context.sagaId} for flow traversal")
+    if (stateRefreshingEnabled) {
+      latestSaga = sagaRepository.get(context.sagaName, context.sagaId)
+        ?: throw SagaNotFoundException("Could not find Saga (${context.sagaName}/${context.sagaId} for flow traversal")
+    }
 
     // To support resuming sagas, we want to seek to the next step that has not been processed,
     // which may not be the first step.
-    seekToNextStep(latestSaga)
+    if (seekingEnabled) {
+      seekToNextStep(latestSaga)
+    }
 
     val nextStep = steps[index]
 
@@ -144,6 +150,14 @@ class SagaFlowIterator(
       iterator = this
     )
   }
+
+  /**
+   * Copies the iterator for use in seekers without impacting state of the main iterator.
+   */
+  private fun copyForSeeker(): SagaFlowIterator =
+    SagaFlowIterator(
+      sagaRepository, applicationContext, saga, flow, seekingEnabled = false, stateRefreshingEnabled = false
+    )
 
   /**
    * Encapsulates multiple values for the current iterator item.
