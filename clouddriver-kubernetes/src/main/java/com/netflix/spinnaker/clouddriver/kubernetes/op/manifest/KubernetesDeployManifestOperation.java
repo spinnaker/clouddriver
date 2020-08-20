@@ -65,7 +65,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
   }
 
   @Override
-  public OperationResult operate(List _unused) {
+  public OperationResult operate(List<OperationResult> _unused) {
     getTask().updateStatus(OP_NAME, "Beginning deployment of manifest...");
 
     List<KubernetesManifest> inputManifests = description.getManifests();
