@@ -37,24 +37,22 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Because this class maps the received Kubernetes manifest to an untyped map, it has no choice but
+ * to perform many unchecked casts when retrieving information. New logic should convert the
+ * manifest to an appropriate strongly-typed model object instead of adding more unchecked casts
+ * here. Methods that already perform unchecked casts are annotated to suppress them; please avoid
+ * adding more such methods if at all possible.
+ */
 public class KubernetesManifest extends HashMap<String, Object> {
   private static final Logger log = LoggerFactory.getLogger(KubernetesManifest.class);
   private static final ObjectMapper mapper = new ObjectMapper();
 
-  @Nullable private KubernetesKind computedKind;
+  @Nullable private transient KubernetesKind computedKind;
 
   @Override
   public KubernetesManifest clone() {
     return (KubernetesManifest) super.clone();
-  }
-
-  private static <T> T getRequiredField(KubernetesManifest manifest, String field) {
-    T res = (T) manifest.get(field);
-    if (res == null) {
-      throw MalformedManifestException.missingField(manifest, field);
-    }
-
-    return res;
   }
 
   @JsonIgnore
@@ -83,7 +81,8 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   @JsonIgnore
   public String getKindName() {
-    return getRequiredField(this, "kind");
+    return Optional.ofNullable((String) get("kind"))
+        .orElseThrow(() -> MalformedManifestException.missingField(this, "kind"));
   }
 
   @JsonIgnore
@@ -94,7 +93,9 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   @JsonIgnore
   public KubernetesApiVersion getApiVersion() {
-    return KubernetesApiVersion.fromString(getRequiredField(this, "apiVersion"));
+    return Optional.ofNullable((String) get("apiVersion"))
+        .map(KubernetesApiVersion::fromString)
+        .orElseThrow(() -> MalformedManifestException.missingField(this, "apiVersion"));
   }
 
   @JsonIgnore
@@ -104,8 +105,10 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   private Map<String, Object> getMetadata() {
-    return getRequiredField(this, "metadata");
+    return Optional.ofNullable((Map<String, Object>) get("metadata"))
+        .orElseThrow(() -> MalformedManifestException.missingField(this, "metadata"));
   }
 
   @JsonIgnore
@@ -177,6 +180,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public KubernetesManifestSelector getManifestSelector() {
     if (!containsKey("spec")) {
       return null;
@@ -197,6 +201,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Map<String, String> getLabels() {
     Map<String, String> result = (Map<String, String>) getMetadata().get("labels");
     if (result == null) {
@@ -208,6 +213,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Map<String, String> getAnnotations() {
     Map<String, String> result = (Map<String, String>) getMetadata().get("annotations");
     if (result == null) {
@@ -219,6 +225,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Double getReplicas() {
     if (!containsKey("spec")) {
       return null;
@@ -232,6 +239,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public void setReplicas(Double replicas) {
     if (!containsKey("spec")) {
       return;
@@ -245,6 +253,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Optional<Map<String, String>> getSpecTemplateLabels() {
     if (!containsKey("spec")) {
       return Optional.empty();
@@ -279,6 +288,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Optional<Map<String, String>> getSpecTemplateAnnotations() {
     if (!containsKey("spec")) {
       return Optional.empty();
