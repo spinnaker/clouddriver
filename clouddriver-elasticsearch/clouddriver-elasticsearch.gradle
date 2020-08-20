@@ -12,7 +12,7 @@ dependencies {
   implementation("io.searchbox:jest")
   implementation "org.springframework.boot:spring-boot-starter-web"
 
-  testCompileOnly "org.testcontainers:elasticsearch:1.12.5"
+  testImplementation "org.testcontainers:elasticsearch:1.12.5"
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
