@@ -526,7 +526,7 @@ final class KubernetesDataProviderIntegrationTest {
     List<KubernetesManifest> manifests =
         manifestProvider.getClusterAndSortAscending(
             ACCOUNT_NAME, "backend-ns", "replicaSet", "replicaSet backend", Sort.AGE);
-    softly.assertThat(manifests).isNotNull();
+    assertThat(manifests).isNotNull();
     softly
         .assertThat(
             manifests.stream()

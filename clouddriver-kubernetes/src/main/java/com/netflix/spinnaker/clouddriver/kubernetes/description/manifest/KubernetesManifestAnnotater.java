@@ -301,6 +301,6 @@ public class KubernetesManifestAnnotater {
   }
 
   public static String getManifestCluster(KubernetesManifest manifest) {
-    return manifest.getAnnotations().get(CLUSTER);
+    return Strings.nullToEmpty(manifest.getAnnotations().get(CLUSTER));
   }
 }
