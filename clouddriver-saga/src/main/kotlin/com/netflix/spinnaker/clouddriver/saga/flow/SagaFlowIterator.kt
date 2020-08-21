@@ -17,6 +17,7 @@ package com.netflix.spinnaker.clouddriver.saga.flow
 
 import com.netflix.spinnaker.clouddriver.saga.SagaCommand
 import com.netflix.spinnaker.clouddriver.saga.SagaCommandCompleted
+import com.netflix.spinnaker.clouddriver.saga.SagaConditionEvaluated
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaNotFoundException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import com.netflix.spinnaker.clouddriver.saga.flow.seekers.SagaCommandCompletedEventSeeker
@@ -42,8 +43,10 @@ import org.springframework.context.ApplicationContext
 class SagaFlowIterator(
   private val sagaRepository: SagaRepository,
   private val applicationContext: ApplicationContext,
-  saga: Saga,
-  flow: SagaFlow
+  private var saga: Saga,
+  private val flow: SagaFlow,
+  private val seekingEnabled: Boolean = true,
+  private val stateRefreshingEnabled: Boolean = true
 ) : Iterator<SagaFlowIterator.IteratorState> {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -66,35 +69,61 @@ class SagaFlowIterator(
     // The iterator needs the latest state of a saga to correctly determine in the next step to take.
     // This is kind of handy, since we can pass this newly refreshed state straight to the iterator consumer so they
     // don't need to concern themselves with that.
-    latestSaga = sagaRepository.get(context.sagaName, context.sagaId)
-      ?: throw SagaNotFoundException("Could not find Saga (${context.sagaName}/${context.sagaId} for flow traversal")
+    if (stateRefreshingEnabled) {
+      latestSaga = sagaRepository.get(context.sagaName, context.sagaId)
+        ?: throw SagaNotFoundException("Could not find Saga (${context.sagaName}/${context.sagaId} for flow traversal")
+    }
 
     // To support resuming sagas, we want to seek to the next step that has not been processed,
     // which may not be the first step.
-    seekToNextStep(latestSaga)
+    if (seekingEnabled) {
+      seekToNextStep(latestSaga)
+    }
 
     val nextStep = steps[index]
-
-    // If the next step is a condition, try to wire it up from the [ApplicationContext] and run it against the latest
-    // state. If the predicate is true, its nested [SagaFlow] will be injected into the current steps list, replacing
-    // the condition step's location. If the condition is false, then we just remove the step from the list.
     if (nextStep is SagaFlow.ConditionStep) {
-      val predicate = try {
-        applicationContext.getBean(nextStep.predicate)
-      } catch (e: BeansException) {
-        throw SagaSystemException("Failed to create SagaFlow Predicate: ${nextStep.predicate.simpleName}", e)
-      }
-
-      // TODO(rz): Add a ConditionEvaluated event. We shouldn't be re-evaluating conditions when resuming a Saga
-      val result = predicate.test(latestSaga)
-      log.trace("Predicate '${predicate.javaClass.simpleName}' result: $result")
-      if (result) {
-        steps.addAll(index, nextStep.nestedBuilder.steps)
-      }
-      steps.remove(nextStep)
+      evaluateConditionStep(nextStep)
     }
 
     return index < steps.size
+  }
+
+  /**
+   * Evaluates a [SagaFlow.ConditionStep].
+   *
+   * If the condition has not been previously evaluated, the condition will be run against the latest state. If
+   * the condition's predicate returns true, its nested [SagaFlow] will be injected into the current steps list,
+   * replacing the condition steps' location. If the condition is false, then the step will just be removed.
+   *
+   * Condition results are saved into the event log, so they will only be processed once, all other times the
+   * [SagaFlow] is replayed, the cached [SagaConditionEvaluated] event will be used instead of invoking the
+   * predicate another time.
+   */
+  private fun evaluateConditionStep(nextStep: SagaFlow.ConditionStep) {
+    val predicate = try {
+      applicationContext.getBean(nextStep.predicate)
+    } catch (e: BeansException) {
+      throw SagaSystemException("Failed to create SagaFlow Predicate: ${nextStep.predicate.simpleName}", e)
+    }
+
+    val previousEvaluationResult = latestSaga.maybeGetEvent(SagaConditionEvaluated::class.java) { events ->
+      events.firstOrNull { it.conditionName == predicate.name }
+    }?.result
+
+    val result = previousEvaluationResult
+      ?.also {
+        log.debug("Condition '${predicate.name}' previously evaluated: $previousEvaluationResult")
+      }
+      ?: predicate.test(latestSaga)
+        .also {
+          log.debug("Condition '${predicate.name}' result: $it")
+          latestSaga.addEvent(SagaConditionEvaluated(nextStep.predicate.name, it))
+        }
+
+    if (result) {
+      steps.addAll(index, nextStep.nestedBuilder.steps)
+    }
+    steps.remove(nextStep)
   }
 
   /**
@@ -144,6 +173,14 @@ class SagaFlowIterator(
       iterator = this
     )
   }
+
+  /**
+   * Copies the iterator for use in seekers without impacting state of the main iterator.
+   */
+  private fun copyForSeeker(): SagaFlowIterator =
+    SagaFlowIterator(
+      sagaRepository, applicationContext, saga, flow, seekingEnabled = false, stateRefreshingEnabled = false
+    )
 
   /**
    * Encapsulates multiple values for the current iterator item.
