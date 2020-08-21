@@ -67,7 +67,8 @@ include 'cats:cats-core',
   'clouddriver-security',
   'clouddriver-sql',
   'clouddriver-sql-mysql',
-  'clouddriver-web'
+  'clouddriver-web',
+  'integration-tests'
 include(*gradle.ext.includedCloudProviderProjects)
 
 def setBuildFile(project) {

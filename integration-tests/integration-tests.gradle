@@ -1,0 +1,29 @@
+
+test {
+  environment "PROJECT_ROOT", project.rootDir.toString()
+  // Only run integration tests if specifically requested in the command line (./gradlew -PintegrationTests ...)
+  onlyIf {
+    project.hasProperty("integrationTests")
+  }
+}
+
+dependencies {
+  implementation "org.codehaus.groovy:groovy-all"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+
+  testAnnotationProcessor "org.projectlombok:lombok"
+
+  testImplementation project(":clouddriver-web")
+
+  testImplementation "org.springframework.boot:spring-boot-starter-test"
+  testImplementation "org.springframework.boot:spring-boot-starter-test"
+  testImplementation "org.testcontainers:mysql"
+  testImplementation "mysql:mysql-connector-java"
+  testImplementation ("io.rest-assured:rest-assured:4.0.0") {
+    // Exclude groovy pulled in by rest-assured, so we use kork's version
+    exclude group: "org.codehaus.groovy", module: "groovy"
+  }
+  testImplementation "org.spockframework:spock-core"
+  testImplementation "org.spockframework:spock-spring"
+  testImplementation "io.fabric8:kubernetes-server-mock:4.10.3"
+}

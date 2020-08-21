@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: clouddriver
+
+kubernetes:
+  kubectl:
+    executable: ${PROJECT_ROOT}/integration-tests/src/test/resources/kubernetes/kubectl-mock
+  enabled: true
+  primaryAccount: account1
+  accounts:
+    - name: account1
+      requiredGroupMembership: []
+      providerVersion: V2
+      permissions: {}
+      dockerRegistries: []
+      configureImagePullSecrets: true
+      cacheThreads: 1
+      namespaces: []
+      omitNamespaces:
+      kinds: []
+      omitKinds: []
+      customResources: []
+      cachingPolicies: []
+      liveManifestCalls: false
+      oauthScopes: []
+      oAuthScopes: []
+      onlySpinnakerManaged: true
+      metrics: false
+      kubeconfigFile: ${PROJECT_ROOT}/integration-tests/src/test/resources/kubernetes/account1/kubeconfig
+
+sql:
+  enabled: true
+  taskRepository:
+    enabled: true
+  cache:
+    enabled: true
+    readBatchSize: 500
+    writeBatchSize: 300
+  scheduler:
+    enabled: true
+  connectionPools:
+    default:
+      default: true
+      jdbcUrl: jdbc:tc:mysql:5.7.22://somehostname:someport/clouddriver?user=root?password=&
+    tasks:
+      jdbcUrl: jdbc:tc:mysql:5.7.22://somehostname:someport/clouddriver?user=root?password=&
+  migration:
+    jdbcUrl: jdbc:tc:mysql:5.7.22://somehostname:someport/clouddriver?user=root?password=&
+
+redis:
+  enabled: false
+  cache:
+    enabled: false
+  scheduler:
+    enabled: false
+  taskRepository:
+    enabled: false
+
+services:
+  fiat:
+    baseUrl: http://fiat.net
+  front50:
+    baseUrl: http://front50.net
