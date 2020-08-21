@@ -56,6 +56,8 @@ public class KubernetesConfigurationProperties {
     private boolean onlySpinnakerManaged = false;
     private boolean liveManifestCalls = false;
     private Long cacheIntervalSeconds;
+    private Integer runJobPodCollectionLimit = 5;
+    private Integer runJobPodStatusCollectionLimit = 10;
 
     public void validate() {
       if (Strings.isNullOrEmpty(name)) {

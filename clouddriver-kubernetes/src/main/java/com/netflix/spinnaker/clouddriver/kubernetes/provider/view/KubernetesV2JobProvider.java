@@ -72,14 +72,17 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
             jobStatus.getLocation(),
             KubernetesSelectorList.fromMatchLabels(selector));
 
-    jobStatus.setPods(
-        pods.stream()
-            .map(
-                p -> {
-                  V1Pod pod = KubernetesCacheDataConverter.getResource(p, V1Pod.class);
-                  return new KubernetesV2JobStatus.PodStatus(pod);
-                })
-            .collect(Collectors.toList()));
+    if (pods.size() <= credentials.getRunJobPodCollectionLimit()) {
+      jobStatus.setPods(
+          pods.stream()
+              .map(
+                  p -> {
+                    V1Pod pod = KubernetesCacheDataConverter.getResource(p, V1Pod.class);
+                    return new KubernetesV2JobStatus.PodStatus(
+                        pod, pods.size() > credentials.getRunJobPodStatusCollectionLimit());
+                  })
+              .collect(Collectors.toList()));
+    }
 
     return jobStatus;
   }

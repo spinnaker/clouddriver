@@ -96,9 +96,12 @@ public class KubernetesV2JobStatus implements JobStatus {
     private String name;
     private V1PodStatus status;
 
-    public PodStatus(V1Pod pod) {
+    public PodStatus(V1Pod pod, boolean excludeStatus) {
       this.name = pod.getMetadata().getName();
-      this.status = pod.getStatus();
+
+      if (!excludeStatus) {
+        this.status = pod.getStatus();
+      }
     }
   }
 }

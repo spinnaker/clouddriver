@@ -111,6 +111,10 @@ public class KubernetesCredentials {
 
   @Include @Getter private final boolean liveManifestCalls;
 
+  @Include @Getter private final Integer runJobPodCollectionLimit;
+
+  @Include @Getter private final Integer runJobPodStatusCollectionLimit;
+
   @Include private final boolean checkPermissionsOnStartup;
 
   @Include @Getter private final List<KubernetesCachingPolicy> cachingPolicies;
@@ -188,6 +192,9 @@ public class KubernetesCredentials {
     this.liveManifestCalls = managedAccount.isLiveManifestCalls();
     this.checkPermissionsOnStartup = managedAccount.isCheckPermissionsOnStartup();
     this.cachingPolicies = managedAccount.getCachingPolicies();
+
+    this.runJobPodCollectionLimit = managedAccount.getRunJobPodCollectionLimit();
+    this.runJobPodStatusCollectionLimit = managedAccount.getRunJobPodStatusCollectionLimit();
 
     this.oAuthServiceAccount = managedAccount.getOAuthServiceAccount();
     this.oAuthScopes = managedAccount.getOAuthScopes();
