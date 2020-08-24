@@ -22,7 +22,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.Comparator;
 import javax.annotation.Nonnull;
@@ -42,7 +44,8 @@ public class KubernetesV2ArtifactProvider implements ArtifactProvider {
 
   @Override
   public ImmutableList<Artifact> getArtifacts(
-      String type, String name, String location, @Nonnull String account) {
+      KubernetesKind kind, String name, String location, @Nonnull String account) {
+    String type = String.join("/", KubernetesCloudProvider.ID, kind.toString());
     String key = Keys.ArtifactCacheKey.createKey(type, name, location, "*");
     return cacheUtils.getAllDataMatchingPattern(Keys.Kind.ARTIFACT.toString(), key).stream()
         .sorted(
