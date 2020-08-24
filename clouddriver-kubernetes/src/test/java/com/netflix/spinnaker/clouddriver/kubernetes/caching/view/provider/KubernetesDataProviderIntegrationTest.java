@@ -160,7 +160,7 @@ final class KubernetesDataProviderIntegrationTest {
   private static KubernetesV2ServerGroupManagerProvider serverGroupManagerProvider =
       new KubernetesV2ServerGroupManagerProvider(cacheUtils);
   private static KubernetesV2ArtifactProvider artifactProvider =
-      new KubernetesV2ArtifactProvider(cacheUtils, objectMapper);
+      new KubernetesV2ArtifactProvider(accountResolver);
   private static KubernetesManifestProvider manifestProvider =
       new KubernetesManifestProvider(accountResolver);
 
