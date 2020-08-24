@@ -31,7 +31,6 @@ final class KeysTest {
   @ParameterizedTest
   @ValueSource(
       strings = {
-        "kubernetes.v2:artifact:kubernetes/replicaSet:spinnaker-io:docs-site:v046",
         "kubernetes.v2:infrastructure:secret:k8s:spin:spinnaker",
         "kubernetes.v2:logical:applications:spinnaker",
         "kubernetes.v2:logical:clusters:k8s:docs:docs-site"
