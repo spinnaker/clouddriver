@@ -1,14 +1,29 @@
 package com.netflix.spinnaker.clouddriver.exceptions;
 
-public class OperationTimedOutException extends RuntimeException {
-  public OperationTimedOutException() {}
+import com.netflix.spinnaker.kork.exceptions.SystemException;
 
-  public OperationTimedOutException(String message) {}
+public class OperationTimedOutException extends SystemException {
+  public OperationTimedOutException(String message) {
+    super(message);
+  }
 
-  public OperationTimedOutException(String message, Throwable cause) {}
+  public OperationTimedOutException(String message, Throwable cause) {
+    super(message, cause);
+  }
 
-  public OperationTimedOutException(Throwable cause) {}
+  public OperationTimedOutException(Throwable cause) {
+    super(cause);
+  }
 
-  protected OperationTimedOutException(
-      String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {}
+  public OperationTimedOutException(String message, String userMessage) {
+    super(message, userMessage);
+  }
+
+  public OperationTimedOutException(String message, Throwable cause, String userMessage) {
+    super(message, cause, userMessage);
+  }
+
+  public OperationTimedOutException(Throwable cause, String userMessage) {
+    super(cause, userMessage);
+  }
 }
