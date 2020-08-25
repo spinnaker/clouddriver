@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.data.task;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.netflix.spinnaker.kork.annotations.VisibleForTesting;
 
 public class DefaultTaskStatus implements Status {
 
@@ -32,6 +33,17 @@ public class DefaultTaskStatus implements Status {
   public DefaultTaskStatus(String phase, String status, TaskState state) {
     this.phase = phase;
     this.status = status;
+    this.state = state;
+  }
+
+  /**
+   * This constructor is just for backwards-compatibility of tests from when the class was in Groovy
+   * and could use hash-map constructors. This constructor must not be used in application code.
+   */
+  @VisibleForTesting
+  public DefaultTaskStatus(TaskState state) {
+    this.phase = null;
+    this.status = null;
     this.state = state;
   }
 
