@@ -41,9 +41,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/manifests")
 public class ManifestController {
   private static final Logger log = LoggerFactory.getLogger(ManifestController.class);
-  final KubernetesManifestProvider manifestProvider;
-
-  final RequestQueue requestQueue;
+  private final KubernetesManifestProvider manifestProvider;
+  private final RequestQueue requestQueue;
 
   @Autowired
   public ManifestController(
