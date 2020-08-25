@@ -137,6 +137,25 @@ public class KubernetesManifestProvider {
         .collect(Collectors.toList());
   }
 
+  @Nullable
+  public List<KubernetesCoordinates> getClusterManifestCoordinates(
+      String account, String location, String kind, String app, String cluster) {
+    KubernetesKind kubernetesKind = KubernetesKind.fromString(kind);
+    Optional<KubernetesCredentials> optionalCredentials = accountResolver.getCredentials(account);
+    if (!optionalCredentials.isPresent()) {
+      return null;
+    }
+    KubernetesCredentials credentials = optionalCredentials.get();
+
+    return credentials.list(kubernetesKind, location).stream()
+        .filter(
+            m ->
+                cluster.equals(KubernetesManifestAnnotater.getManifestCluster(m))
+                    && app.equals(KubernetesManifestAnnotater.getManifestApplication(m)))
+        .map(KubernetesCoordinates::fromManifest)
+        .collect(Collectors.toList());
+  }
+
   public enum Sort {
     AGE,
     SIZE

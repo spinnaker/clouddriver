@@ -152,6 +152,40 @@ public class ManifestController {
     }
   }
 
+  @RequestMapping(
+      value = "/{account:.+}/{location:.+}/{kind:.+}/cluster/{app:.+}/{cluster:.+}",
+      method = RequestMethod.GET)
+  List<KubernetesCoordinates> getClusterManifestCoordinates(
+      @PathVariable String account,
+      @PathVariable String location,
+      @PathVariable String kind,
+      @PathVariable String app,
+      @PathVariable String cluster) {
+    final String request =
+        String.format(
+            "(account: %s, location: %s, kind: %s, app %s, cluster: %s)",
+            account, location, kind, app, cluster);
+
+    List<KubernetesCoordinates> coordinates;
+    try {
+      coordinates =
+          requestQueue.execute(
+              account,
+              () ->
+                  manifestProvider.getClusterManifestCoordinates(
+                      account, location, kind, app, cluster));
+    } catch (Throwable t) {
+      log.warn("Failed to read {}", request, t);
+      return null;
+    }
+
+    if (coordinates == null) {
+      throw new NotFoundException("No manifests matching " + request + " found");
+    }
+
+    return coordinates;
+  }
+
   enum Criteria {
     oldest(Sort.AGE),
     newest(Sort.AGE),

@@ -48,6 +48,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.Kubern
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.AccountResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -533,6 +534,52 @@ final class KubernetesDataProviderIntegrationTest {
                 .map(KubernetesManifest::getFullResourceName)
                 .collect(toImmutableList()))
         .containsExactly("replicaSet backend-v014", "replicaSet backend-v015");
+  }
+
+  @Test
+  void getClusterManifestCoordinates(SoftAssertions softly) {
+    List<KubernetesCoordinates> coordinates =
+        manifestProvider.getClusterManifestCoordinates(
+            ACCOUNT_NAME, "backend-ns", "replicaSet", "backendapp", "replicaSet backend");
+    assertThat(coordinates).isNotNull();
+    softly
+        .assertThat(coordinates.stream().collect(toImmutableList()))
+        .containsExactlyInAnyOrder(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.REPLICA_SET)
+                .name("backend-v014")
+                .namespace("backend-ns")
+                .build(),
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.REPLICA_SET)
+                .name("backend-v015")
+                .namespace("backend-ns")
+                .build());
+  }
+
+  @Test
+  void getClusterManifestCoordinatesBadAccount(SoftAssertions softly) {
+    List<KubernetesCoordinates> coordinates =
+        manifestProvider.getClusterManifestCoordinates(
+            "not-an-account", "backend-ns", "replicaSet", "backendapp", "replicaSet backend");
+    // todo(mneterval): throw an exception instead
+    softly.assertThat(coordinates).isNull();
+  }
+
+  @Test
+  void getClusterManifestCoordinatesEmptyNamespace(SoftAssertions softly) {
+    List<KubernetesCoordinates> coordinates =
+        manifestProvider.getClusterManifestCoordinates(
+            ACCOUNT_NAME, "empty", "replicaSet", "backendapp", "replicaSet backend");
+    softly.assertThat(coordinates).isEmpty();
+  }
+
+  @Test
+  void getClusterManifestCoordinatesEmptyCluster(SoftAssertions softly) {
+    List<KubernetesCoordinates> coordinates =
+        manifestProvider.getClusterManifestCoordinates(
+            ACCOUNT_NAME, "empty-namespace", "replicaSet", "backendapp", "replicaSet empty");
+    softly.assertThat(coordinates).isEmpty();
   }
 
   private static KubectlJobExecutor getJobExecutor() {
