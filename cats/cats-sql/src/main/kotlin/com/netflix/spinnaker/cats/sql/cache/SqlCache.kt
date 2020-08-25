@@ -1023,7 +1023,7 @@ class SqlCache(
     if (body.isNullOrBlank()) {
       return null
     }
-    return getSha256Hash(body)
+    return getMurmur3Hash(body)
   }
 
   /**
@@ -1033,7 +1033,7 @@ class SqlCache(
    * @return hash of the id.
    */
   private fun getIdHash(id: String): String {
-    return getSha256Hash(id)
+    return getMurmur3Hash(id)
   }
 
   /**
@@ -1043,17 +1043,17 @@ class SqlCache(
    * @return hash of the agent.
    */
   private fun getAgentHash(agent: String): String {
-    return getSha256Hash(agent)
+    return getMurmur3Hash(agent)
   }
 
   /**
-   * Gets a SHA-256 hash value for a given String.
+   * Gets a Murmur3 hash value for a given String.
    *
    * @param str the String to hash.
    * @return the hashed value.
    */
-  private fun getSha256Hash(str: String): String {
-    return Hashing.sha256().hashUnencodedChars(str).toString()
+  private fun getMurmur3Hash(str: String): String {
+    return Hashing.murmur3_128().hashUnencodedChars(str).toString()
   }
 
   /**
