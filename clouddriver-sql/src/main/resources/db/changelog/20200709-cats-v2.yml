@@ -166,11 +166,13 @@ databaseChangeLog:
         - column:
             name: id_hash
     - createIndex:
-        indexName: rel_agent_hash_idx
+        indexName: rel_agent_hash_rel_type_idx
         tableName: cats_v2_rel_template
         columns:
         - column:
             name: rel_agent_hash
+        - column:
+            name: rel_type
     - createIndex:
         indexName: rel_type_idx
         tableName: cats_v2_rel_template
@@ -192,7 +194,7 @@ databaseChangeLog:
         indexName: id_hash_idx
         tableName: cats_v2_rel_template
     - dropIndex:
-        indexName: rel_agent_hash_idx
+        indexName: rel_agent_hash_rel_type_idx
         tableName: cats_v2_rel_template
     - dropIndex:
         indexName: rel_type_idx
