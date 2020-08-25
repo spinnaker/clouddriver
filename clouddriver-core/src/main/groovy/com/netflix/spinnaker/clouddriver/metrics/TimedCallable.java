@@ -2,7 +2,7 @@ package com.netflix.spinnaker.clouddriver.metrics;
 
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
-import groovy.lang.Closure;
+import com.netflix.spinnaker.kork.annotations.DeprecationInfo;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -17,9 +17,14 @@ public class TimedCallable<T> implements Callable<T> {
     return new TimedCallable<T>(registry, metricId, callable);
   }
 
+  @Deprecated
+  @DeprecationInfo(
+      reason = "Groovy removal, no difference between this and forCallable",
+      since = "1.22.0",
+      eol = "1.23.0")
   public static <T> TimedCallable<T> forClosure(
-      Registry registry, Id metricId, Closure<T> closure) {
-    return new TimedCallable<T>(registry, metricId, new ClosureWrapper<T>(closure));
+      Registry registry, Id metricId, Callable<T> closure) {
+    return new TimedCallable<T>(registry, metricId, new CallableWrapper<>(closure));
   }
 
   private final Registry registry;
@@ -49,6 +54,9 @@ public class TimedCallable<T> implements Callable<T> {
   }
 
   private static class RunnableWrapper implements Callable<Void> {
+
+    private final Runnable runnable;
+
     public RunnableWrapper(Runnable runnable) {
       this.runnable = runnable;
     }
@@ -58,12 +66,13 @@ public class TimedCallable<T> implements Callable<T> {
       runnable.run();
       return null;
     }
-
-    private final Runnable runnable;
   }
 
-  private static class ClosureWrapper<T> implements Callable<T> {
-    public ClosureWrapper(Closure<T> closure) {
+  private static class CallableWrapper<T> implements Callable<T> {
+
+    private final Callable<T> closure;
+
+    public CallableWrapper(Callable<T> closure) {
       this.closure = closure;
     }
 
@@ -71,7 +80,5 @@ public class TimedCallable<T> implements Callable<T> {
     public T call() throws Exception {
       return closure.call();
     }
-
-    private final Closure<T> closure;
   }
 }
