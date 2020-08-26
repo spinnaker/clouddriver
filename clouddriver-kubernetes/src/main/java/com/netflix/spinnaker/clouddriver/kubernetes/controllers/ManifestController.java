@@ -129,10 +129,6 @@ public class ManifestController {
       return null;
     }
 
-    if (manifests == null) {
-      throw new NotFoundException("No manifests matching " + request + " found");
-    }
-
     try {
       switch (criteria) {
         case oldest:

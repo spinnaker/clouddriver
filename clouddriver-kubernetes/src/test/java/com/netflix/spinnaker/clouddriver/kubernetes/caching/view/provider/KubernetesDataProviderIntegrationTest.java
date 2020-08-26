@@ -538,6 +538,15 @@ final class KubernetesDataProviderIntegrationTest {
   }
 
   @Test
+  void getClusterAndSortAscendingBadAccount(SoftAssertions softly) {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            manifestProvider.getClusterAndSortAscending(
+                "not-an-account", "backend-ns", "replicaSet", "replicaSet backend", Sort.AGE));
+  }
+
+  @Test
   void getClusterManifestCoordinates(SoftAssertions softly) {
     List<KubernetesCoordinates> coordinates =
         manifestProvider.getClusterManifestCoordinates(
