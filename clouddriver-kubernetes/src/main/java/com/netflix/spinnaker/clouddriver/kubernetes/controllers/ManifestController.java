@@ -178,10 +178,6 @@ public class ManifestController {
       return null;
     }
 
-    if (coordinates == null) {
-      throw new NotFoundException("No manifests matching " + request + " found");
-    }
-
     return coordinates;
   }
 

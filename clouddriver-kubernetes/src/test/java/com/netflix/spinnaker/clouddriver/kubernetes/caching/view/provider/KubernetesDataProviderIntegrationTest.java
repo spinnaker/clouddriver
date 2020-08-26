@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
@@ -559,11 +560,11 @@ final class KubernetesDataProviderIntegrationTest {
 
   @Test
   void getClusterManifestCoordinatesBadAccount(SoftAssertions softly) {
-    List<KubernetesCoordinates> coordinates =
-        manifestProvider.getClusterManifestCoordinates(
-            "not-an-account", "backend-ns", "replicaSet", "backendapp", "replicaSet backend");
-    // todo(mneterval): throw an exception instead
-    softly.assertThat(coordinates).isNull();
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            manifestProvider.getClusterManifestCoordinates(
+                "not-an-account", "backend-ns", "replicaSet", "backendapp", "replicaSet backend"));
   }
 
   @Test
