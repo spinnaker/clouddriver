@@ -48,8 +48,6 @@ public class KubernetesProviderSpec {
   public void accountsAreRegistered() {
     Response response = get(baseUrl() + "/credentials");
     response.prettyPrint();
-    response.then().assertThat()
-      .statusCode(200)
-      .body("size()", is(2));
+    response.then().assertThat().statusCode(200).body("size()", is(2));
   }
 }
