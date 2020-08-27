@@ -15,13 +15,16 @@
  */
 package com.netflix.spinnaker.clouddriver.saga.flow
 
+import com.fasterxml.jackson.annotation.JsonTypeName
 import com.netflix.spinnaker.clouddriver.saga.SagaCommand
 import com.netflix.spinnaker.clouddriver.saga.SagaCommandCompleted
+import com.netflix.spinnaker.clouddriver.saga.SagaCommandSkipped
 import com.netflix.spinnaker.clouddriver.saga.SagaConditionEvaluated
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaNotFoundException
 import com.netflix.spinnaker.clouddriver.saga.exceptions.SagaSystemException
 import com.netflix.spinnaker.clouddriver.saga.flow.seekers.SagaCommandCompletedEventSeeker
 import com.netflix.spinnaker.clouddriver.saga.flow.seekers.SagaCommandEventSeeker
+import com.netflix.spinnaker.clouddriver.saga.getCommandTypeFromAction
 import com.netflix.spinnaker.clouddriver.saga.models.Saga
 import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import com.netflix.spinnaker.kork.exceptions.SystemException
@@ -43,8 +46,10 @@ import org.springframework.context.ApplicationContext
 class SagaFlowIterator(
   private val sagaRepository: SagaRepository,
   private val applicationContext: ApplicationContext,
-  saga: Saga,
-  flow: SagaFlow
+  private var saga: Saga,
+  private val flow: SagaFlow,
+  private val seekingEnabled: Boolean = true,
+  private val stateRefreshingEnabled: Boolean = true
 ) : Iterator<SagaFlowIterator.IteratorState> {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -67,12 +72,16 @@ class SagaFlowIterator(
     // The iterator needs the latest state of a saga to correctly determine in the next step to take.
     // This is kind of handy, since we can pass this newly refreshed state straight to the iterator consumer so they
     // don't need to concern themselves with that.
-    latestSaga = sagaRepository.get(context.sagaName, context.sagaId)
-      ?: throw SagaNotFoundException("Could not find Saga (${context.sagaName}/${context.sagaId} for flow traversal")
+    if (stateRefreshingEnabled) {
+      latestSaga = sagaRepository.get(context.sagaName, context.sagaId)
+        ?: throw SagaNotFoundException("Could not find Saga (${context.sagaName}/${context.sagaId} for flow traversal")
+    }
 
     // To support resuming sagas, we want to seek to the next step that has not been processed,
     // which may not be the first step.
-    seekToNextStep(latestSaga)
+    if (seekingEnabled) {
+      seekToNextStep(latestSaga)
+    }
 
     val nextStep = steps[index]
     if (nextStep is SagaFlow.ConditionStep) {
@@ -109,15 +118,50 @@ class SagaFlowIterator(
         log.debug("Condition '${predicate.name}' previously evaluated: $previousEvaluationResult")
       }
       ?: predicate.test(latestSaga)
-        .also {
-          log.debug("Condition '${predicate.name}' result: $it")
-          latestSaga.addEvent(SagaConditionEvaluated(nextStep.predicate.name, it))
+        .also { conditionResult ->
+          log.debug("Condition '${predicate.name}' result: $conditionResult")
+          latestSaga.addEvent(SagaConditionEvaluated(nextStep.predicate.name, conditionResult))
+
+          if (!conditionResult) {
+            skipConditionalCommands(nextStep.nestedBuilder.steps)
+          }
         }
 
     if (result) {
       steps.addAll(index, nextStep.nestedBuilder.steps)
     }
     steps.remove(nextStep)
+  }
+
+  /**
+   * When a conditional branch is not taken, we'll have one or more commands in the event log that were
+   * meant to start that branch. This method will find all of these commands and finalize them with a
+   * [SagaCommandSkipped] event.
+   */
+  private fun skipConditionalCommands(conditionalSteps: List<SagaFlow.Step>) {
+    // Read the unused SagaFlow steps for all commands to skip.
+    val skippedCommandTypes = conditionalSteps
+      .filterIsInstance<SagaFlow.ActionStep>()
+      .mapNotNull {
+        getCommandTypeFromAction(it.action).getAnnotation(JsonTypeName::class.java)?.value
+      }
+
+    // Search the existing event log for commands that have not been completed. For each incomplete
+    // command, check against [skippedCommandTypes] for any matches, adding [SagaCommandSkipped] for
+    // each match.
+    latestSaga.getEvents()
+      .filterIsInstance<SagaCommand>()
+      .filter {
+        latestSaga.getEvents()
+          .filterIsInstance<SagaCommandCompleted>()
+          .none { completed -> completed.matches(it.javaClass) }
+      }
+      .forEach {
+        val commandName = it.javaClass.getAnnotation(JsonTypeName::class.java)?.value
+        if (commandName != null && skippedCommandTypes.contains(commandName)) {
+          latestSaga.addEvent(SagaCommandSkipped(commandName, "Condition evaluated against running branch"))
+        }
+      }
   }
 
   /**
@@ -167,6 +211,14 @@ class SagaFlowIterator(
       iterator = this
     )
   }
+
+  /**
+   * Copies the iterator for use in seekers without impacting state of the main iterator.
+   */
+  private fun copyForSeeker(): SagaFlowIterator =
+    SagaFlowIterator(
+      sagaRepository, applicationContext, saga, flow, seekingEnabled = false, stateRefreshingEnabled = false
+    )
 
   /**
    * Encapsulates multiple values for the current iterator item.
