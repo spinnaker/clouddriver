@@ -115,14 +115,17 @@ public class KubernetesManifestProvider {
   }
 
   public List<KubernetesManifest> getClusterAndSortAscending(
-      String account, String location, String kind, String cluster, Sort sort) {
+      String account, String location, String kind, String cluster, String app, Sort sort) {
     KubernetesKind kubernetesKind = KubernetesKind.fromString(kind);
     return accountResolver
         .getCredentials(account)
         .map(
             credentials ->
                 credentials.list(kubernetesKind, location).stream()
-                    .filter(m -> cluster.equals(KubernetesManifestAnnotater.getManifestCluster(m)))
+                    .filter(
+                        m ->
+                            cluster.equals(KubernetesManifestAnnotater.getManifestCluster(m))
+                                & app.equals(KubernetesManifestAnnotater.getManifestApplication(m)))
                     .sorted(
                         (m1, m2) ->
                             credentials

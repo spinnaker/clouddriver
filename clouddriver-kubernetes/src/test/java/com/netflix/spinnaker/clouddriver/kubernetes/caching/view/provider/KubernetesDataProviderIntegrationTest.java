@@ -527,7 +527,7 @@ final class KubernetesDataProviderIntegrationTest {
   void getClusterAndSortAscending(SoftAssertions softly) {
     List<KubernetesManifest> manifests =
         manifestProvider.getClusterAndSortAscending(
-            ACCOUNT_NAME, "backend-ns", "replicaSet", "replicaSet backend", Sort.AGE);
+            ACCOUNT_NAME, "backend-ns", "replicaSet", "replicaSet backend", "backendapp", Sort.AGE);
     assertThat(manifests).isNotNull();
     softly
         .assertThat(
@@ -543,7 +543,12 @@ final class KubernetesDataProviderIntegrationTest {
         IllegalArgumentException.class,
         () ->
             manifestProvider.getClusterAndSortAscending(
-                "not-an-account", "backend-ns", "replicaSet", "replicaSet backend", Sort.AGE));
+                "not-an-account",
+                "backend-ns",
+                "replicaSet",
+                "replicaSet backend",
+                "backendapp",
+                Sort.AGE));
   }
 
   @Test
