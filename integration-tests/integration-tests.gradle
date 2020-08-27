@@ -16,14 +16,13 @@ dependencies {
   testImplementation project(":clouddriver-web")
 
   testImplementation "org.springframework.boot:spring-boot-starter-test"
-  testImplementation "org.springframework.boot:spring-boot-starter-test"
+  testImplementation "org.testcontainers:testcontainers"
   testImplementation "org.testcontainers:mysql"
+  testImplementation "org.testcontainers:junit-jupiter"
   testImplementation "mysql:mysql-connector-java"
   testImplementation ("io.rest-assured:rest-assured:4.0.0") {
     // Exclude groovy pulled in by rest-assured, so we use kork's version
     exclude group: "org.codehaus.groovy", module: "groovy"
   }
-  testImplementation "org.spockframework:spock-core"
-  testImplementation "org.spockframework:spock-spring"
-  testImplementation "io.fabric8:kubernetes-server-mock:4.10.3"
+  testImplementation "org.yaml:snakeyaml"
 }
