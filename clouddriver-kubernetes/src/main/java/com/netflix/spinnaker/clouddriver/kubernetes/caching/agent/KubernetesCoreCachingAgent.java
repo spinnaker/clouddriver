@@ -41,7 +41,7 @@ public class KubernetesCoreCachingAgent extends KubernetesV2OnDemandCachingAgent
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount, agentInterval);
   }
 
-  public Collection<AgentDataType> getProvidedDataTypes() {
+  @Override public Collection<AgentDataType> getProvidedDataTypes() {
     // The ARTIFACT kind is deprecated; no new entries of this type will be created. We are leaving
     // it in the authoritative types for now so that existing entries get evicted.
     @SuppressWarnings("deprecation")
@@ -72,7 +72,7 @@ public class KubernetesCoreCachingAgent extends KubernetesV2OnDemandCachingAgent
    * these requests, and have it return all pending on-demand refresh requests (not just ones
    * related to its slice of namespaces).
    */
-  protected boolean handlePendingOnDemandRequests() {
+  @Override protected boolean handlePendingOnDemandRequests() {
     return agentIndex == 0;
   }
 }

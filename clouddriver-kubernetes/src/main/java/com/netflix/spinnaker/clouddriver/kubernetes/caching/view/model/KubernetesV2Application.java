@@ -28,7 +28,7 @@ public final class KubernetesV2Application implements Application {
   private final String name;
   private final Map<String, Set<String>> clusterNames;
 
-  public Map<String, String> getAttributes() {
+  @Override public Map<String, String> getAttributes() {
     return new ImmutableMap.Builder<String, String>().put("name", name).build();
   }
 }
