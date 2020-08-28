@@ -30,11 +30,7 @@ tasks.withType(JavaCompile) {
   options.errorprone.disable(
     "EmptyCatch",
     "ImmutableEnumChecker",
-    "JdkObsolete",
     "MissingOverride",
-    "StringSplitter",
-    "UnnecessaryParentheses",
-    "UnusedVariable"
   )
 }
 
