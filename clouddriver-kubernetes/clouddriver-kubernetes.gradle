@@ -32,9 +32,7 @@ tasks.withType(JavaCompile) {
     "EmptyCatch",
     "ImmutableEnumChecker",
     "JdkObsolete",
-    "MissingOverride",
-    "UnnecessaryParentheses",
-    "UnusedVariable"
+    "MissingOverride"
   )
 }
 
