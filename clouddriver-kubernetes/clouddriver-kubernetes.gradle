@@ -30,7 +30,6 @@ tasks.withType(JavaCompile) {
   options.errorprone.disable(
     "DefaultCharset",
     "EmptyCatch",
-    "ImmutableEnumChecker",
     "MissingOverride",
   )
 }
