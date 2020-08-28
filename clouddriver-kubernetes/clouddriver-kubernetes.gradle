@@ -32,7 +32,6 @@ tasks.withType(JavaCompile) {
     "EmptyCatch",
     "ImmutableEnumChecker",
     "MissingOverride",
-    "StringSplitter"
   )
 }
 
