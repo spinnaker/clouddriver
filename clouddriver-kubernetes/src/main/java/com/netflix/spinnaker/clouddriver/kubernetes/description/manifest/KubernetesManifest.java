@@ -150,17 +150,19 @@ public class KubernetesManifest extends HashMap<String, Object> {
   @JsonIgnore
   @Nonnull
   public String getCreationTimestamp() {
-    return getMetadata().containsKey("creationTimestamp")
-        ? getMetadata().get("creationTimestamp").toString()
-        : "";
+    Object timestamp = getMetadata().get("creationTimestamp");
+    if (timestamp == null) {
+      return "";
+    }
+    return timestamp.toString();
   }
 
   @JsonIgnore
   @Nullable
-  public Long getFormattedCreationTimestamp() {
+  public Long getCreationTimestampEpochMillis() {
     String timestamp = getCreationTimestamp();
     try {
-      if (!Strings.isNullOrEmpty(timestamp)) {
+      if (!timestamp.isEmpty()) {
         return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX").parse(timestamp).getTime();
       }
     } catch (ParseException e) {
