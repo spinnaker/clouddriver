@@ -23,8 +23,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -160,15 +160,11 @@ public class KubernetesManifest extends HashMap<String, Object> {
   @JsonIgnore
   @Nullable
   public Long getCreationTimestampEpochMillis() {
-    String timestamp = getCreationTimestamp();
     try {
-      if (!timestamp.isEmpty()) {
-        return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX").parse(timestamp).getTime();
-      }
-    } catch (ParseException e) {
+      return Instant.parse(getCreationTimestamp()).toEpochMilli();
+    } catch (DateTimeParseException e) {
       log.warn("Failed to parse timestamp: ", e);
     }
-
     return null;
   }
 
