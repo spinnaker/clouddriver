@@ -55,7 +55,8 @@ public class KubernetesRunJobOperation
     return TaskRepository.threadLocalTask.get();
   }
 
-  @Override public KubernetesRunJobDeploymentResult operate(List<KubernetesRunJobDeploymentResult> _unused) {
+  @Override
+  public KubernetesRunJobDeploymentResult operate(List<KubernetesRunJobDeploymentResult> _unused) {
     getTask().updateStatus(OP_NAME, "Running Kubernetes job...");
     KubernetesManifest jobSpec = this.description.getManifest();
     KubernetesKind kind = jobSpec.getKind();

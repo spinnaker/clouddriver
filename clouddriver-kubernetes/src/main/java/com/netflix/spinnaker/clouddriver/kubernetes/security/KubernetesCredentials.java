@@ -212,7 +212,8 @@ public class KubernetesCredentials {
               .build(key -> supplier.get());
     }
 
-    @Override public T get() {
+    @Override
+    public T get() {
       return cache.get(CACHE_KEY);
     }
 

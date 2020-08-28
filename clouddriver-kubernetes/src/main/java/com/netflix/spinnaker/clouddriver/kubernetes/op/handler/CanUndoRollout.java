@@ -21,7 +21,8 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 
 public interface CanUndoRollout extends CanRollout {
-  @Override KubernetesKind kind();
+  @Override
+  KubernetesKind kind();
 
   default void undoRollout(
       KubernetesCredentials credentials, String namespace, String name, int revision) {
