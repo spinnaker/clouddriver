@@ -17,4 +17,4 @@ kubectl_args=""
   done
 } > /dev/null 2>&1
 
-docker exec $container kubectl $kubectl_args
+docker exec -i $container kubectl $kubectl_args

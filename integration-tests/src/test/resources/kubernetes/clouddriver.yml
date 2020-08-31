@@ -46,7 +46,7 @@ kubernetes:
       oAuthScopes: []
       onlySpinnakerManaged: true
       metrics: false
-      kubeconfigFile: ${PROJECT_ROOT}/integration-tests/build/kubeconfigs/kubecfg-${account2_containername}.yml  # File is automatically created during initialization
+      kubeconfigFile: ${PROJECT_ROOT}/integration-tests/build/kubeconfigs/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
 
 sql:
   enabled: true

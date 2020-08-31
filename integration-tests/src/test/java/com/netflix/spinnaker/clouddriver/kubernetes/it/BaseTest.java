@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Netflix, Inc.
+ * Copyright 2020 Armory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,40 +14,51 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes;
+package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.get;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.hasItems;
 
 import com.netflix.spinnaker.clouddriver.Main;
+import com.netflix.spinnaker.clouddriver.kubernetes.it.containers.KubernetesCluster;
 import io.restassured.response.Response;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(
     classes = {Main.class},
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {"spring.config.location = classpath:/kubernetes/clouddriver.yml"})
-@Testcontainers
-public class KubernetesProviderSpec {
+public abstract class BaseTest {
+
+  public static final String APP1_NAME = "testApp1";
+  public static final String ACCOUNT1_NAME = "account1";
 
   @LocalServerPort int port;
 
-  @Container public static KubernetesCluster cluster1 = KubernetesCluster.getInstance("account1");
-  @Container public static KubernetesCluster cluster2 = KubernetesCluster.getInstance("account2");
+  public static final KubernetesCluster kubeCluster;
 
-  private String baseUrl() {
+  static {
+    kubeCluster = KubernetesCluster.getInstance(ACCOUNT1_NAME);
+    kubeCluster.start();
+  }
+
+  public String baseUrl() {
     return "http://localhost:" + port;
   }
 
-  @Test
-  public void accountsAreRegistered() {
+  @BeforeEach
+  void givenAccountsReady() {
     Response response = get(baseUrl() + "/credentials");
-    response.prettyPrint();
-    response.then().assertThat().statusCode(200).body("size()", is(2));
+    response
+        .then()
+        .log()
+        .ifValidationFails()
+        .assertThat()
+        .statusCode(200)
+        .and()
+        .body("name", hasItems(ACCOUNT1_NAME));
   }
 }

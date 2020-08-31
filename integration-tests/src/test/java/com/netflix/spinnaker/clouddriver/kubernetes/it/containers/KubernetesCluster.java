@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Netflix, Inc.
+ * Copyright Armory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,32 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes;
+package com.netflix.spinnaker.clouddriver.kubernetes.it.containers;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import org.springframework.util.FileCopyUtils;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.yaml.snakeyaml.Yaml;
 
 public class KubernetesCluster extends GenericContainer {
 
-  private static final String DOCKER_IMAGE = "rancher/k3s:v1.18.8-k3s1";
+  private static final String DOCKER_IMAGE = "rancher/k3s:v1.17.11-k3s1";
   private static final String KUBECFG_IN_CONTAINER = "/etc/rancher/k3s/k3s.yaml";
 
   private static final Map<String, KubernetesCluster> instances = new HashMap<>();
@@ -58,11 +70,36 @@ public class KubernetesCluster extends GenericContainer {
             "--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%",
             "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%",
             "--tls-san",
-            "0.0.0.0");
+            "0.0.0.0")
+        .waitingFor(Wait.forLogMessage(".*Wrote kubeconfig .*", 1));
   }
 
   public Path getKubecfgPath() {
     return kubecfgPath;
+  }
+
+  public String execKubectl(String args) throws IOException, InterruptedException {
+    ProcessBuilder builder = new ProcessBuilder();
+    List<String> cmd = new ArrayList<>();
+    cmd.add("sh");
+    cmd.add("-c");
+    cmd.add(
+        "${PROJECT_ROOT}/integration-tests/src/test/resources/kubernetes/kubectl-wrapper.sh --kubeconfig="
+            + kubecfgPath
+            + " "
+            + args);
+    builder.command(cmd);
+    builder.redirectErrorStream(true);
+    Process process = builder.start();
+    Reader reader = new InputStreamReader(process.getInputStream(), UTF_8);
+    String output = FileCopyUtils.copyToString(reader);
+    if (!process.waitFor(1, TimeUnit.MINUTES)) {
+      fail("Command %s did not return after one minute", cmd);
+    }
+    assertThat(process.exitValue())
+        .as("Running %s returned non-zero exit code. Output:\n%s", cmd, output)
+        .isEqualTo(0);
+    return output.trim();
   }
 
   @Override
@@ -73,7 +110,7 @@ public class KubernetesCluster extends GenericContainer {
     try {
       this.kubecfgPath = copyKubecfgFromCluster(containerName);
       fixKubeEndpoint(this.kubecfgPath);
-    } catch (IOException | InterruptedException e) {
+    } catch (IOException e) {
       throw new RuntimeException("Unable to initialize kubectl or kubeconfig.yml files", e);
     }
   }
@@ -84,12 +121,11 @@ public class KubernetesCluster extends GenericContainer {
     try {
       Files.deleteIfExists(this.kubecfgPath);
     } catch (IOException e) {
-      e.printStackTrace();
+      /* ignored */
     }
   }
 
-  private Path copyKubecfgFromCluster(String containerName)
-      throws IOException, InterruptedException {
+  private Path copyKubecfgFromCluster(String containerName) throws IOException {
     Path myKubeconfig =
         Paths.get(
             System.getenv("PROJECT_ROOT"),
@@ -98,16 +134,6 @@ public class KubernetesCluster extends GenericContainer {
             "kubeconfigs",
             "kubecfg-" + containerName + ".yml");
     Files.createDirectories(myKubeconfig.getParent());
-    // wait until the kubeconfig file is generated... but don't wait forever
-    int loops = 0;
-    while (execInContainer("ls", KUBECFG_IN_CONTAINER).getExitCode() != 0) {
-      Thread.sleep(1000);
-      loops++;
-      if (loops > 30) {
-        throw new RuntimeException(
-            "Waited too much for auto generated kubeconfig file to be ready");
-      }
-    }
     copyFileFromContainer(KUBECFG_IN_CONTAINER, myKubeconfig.toAbsolutePath().toString());
     return myKubeconfig;
   }
