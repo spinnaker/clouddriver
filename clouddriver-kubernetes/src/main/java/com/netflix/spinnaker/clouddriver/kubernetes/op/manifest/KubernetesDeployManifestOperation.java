@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.ReplaceResult;
-import com.netflix.spinnaker.clouddriver.kubernetes.artifact.KubernetesArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
@@ -164,8 +164,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
         moniker.setCluster(manifest.getFullResourceName());
       }
 
-      Artifact artifact =
-          KubernetesArtifactConverter.toArtifact(manifest, description.getAccount(), version);
+      Artifact artifact = ArtifactConverter.toArtifact(manifest, description.getAccount(), version);
 
       getTask()
           .updateStatus(

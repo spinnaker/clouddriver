@@ -107,6 +107,10 @@ final class ResourceVersionerTest {
         new VersionTestCase(ImmutableList.of("v000"), 1),
         new VersionTestCase(ImmutableList.of(), 0),
         new VersionTestCase(ImmutableList.of("v001"), 2),
+        // Unparseable version should be ignored
+        new VersionTestCase(ImmutableList.of("v0abcde", "v000"), 1),
+        // Version that somehow ended up negative should be ignored
+        new VersionTestCase(ImmutableList.of("v-20", "v000"), 1),
         new VersionTestCase(ImmutableList.of("abc", "", "v001"), 2),
         new VersionTestCase(ImmutableList.of("v001", "v002", "v003"), 4),
         new VersionTestCase(ImmutableList.of("v000", "v002", "v003"), 4),

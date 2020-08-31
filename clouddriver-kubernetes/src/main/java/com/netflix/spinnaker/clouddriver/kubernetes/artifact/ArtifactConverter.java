@@ -23,7 +23,10 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.OptionalInt;
 
 @NonnullByDefault
-public final class KubernetesArtifactConverter {
+public final class ArtifactConverter {
+  // Static methods only; prevent instantiation.
+  private ArtifactConverter() {}
+
   public static Artifact toArtifact(
       KubernetesManifest manifest, String account, OptionalInt version) {
     String name = manifest.getName();
