@@ -22,31 +22,35 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConverter {
-  private static final Logger log =
-      LoggerFactory.getLogger(KubernetesVersionedArtifactConverter.class);
-  static final KubernetesVersionedArtifactConverter INSTANCE =
-      new KubernetesVersionedArtifactConverter();
+@Component
+@NonnullByDefault
+public final class ResourceVersioner {
+  private static final Logger log = LoggerFactory.getLogger(ResourceVersioner.class);
 
+  private final ArtifactProvider artifactProvider;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  private KubernetesVersionedArtifactConverter() {}
+  @Autowired
+  public ResourceVersioner(ArtifactProvider artifactProvider) {
+    this.artifactProvider = Objects.requireNonNull(artifactProvider);
+  }
 
-  @Nonnull
-  protected OptionalInt getVersion(
-      ArtifactProvider provider, @Nonnull String account, KubernetesManifest manifest) {
+  public OptionalInt getVersion(KubernetesManifest manifest, String account) {
     ImmutableList<Artifact> priorVersions =
-        provider.getArtifacts(
+        artifactProvider.getArtifacts(
             manifest.getKind(), manifest.getName(), manifest.getNamespace(), account);
 
     OptionalInt maybeVersion = findMatchingVersion(priorVersions, manifest);
@@ -61,7 +65,7 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
     }
   }
 
-  private static OptionalInt parseVersion(@Nonnull String versionString) {
+  private static OptionalInt parseVersion(String versionString) {
     if (!versionString.startsWith("v")) {
       return OptionalInt.empty();
     }
@@ -94,7 +98,7 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
     return artifacts
         .map(Artifact::getVersion)
         .map(Strings::nullToEmpty)
-        .map(KubernetesVersionedArtifactConverter::parseVersion)
+        .map(ResourceVersioner::parseVersion)
         .filter(OptionalInt::isPresent)
         .mapToInt(OptionalInt::getAsInt)
         .filter(i -> i >= 0);

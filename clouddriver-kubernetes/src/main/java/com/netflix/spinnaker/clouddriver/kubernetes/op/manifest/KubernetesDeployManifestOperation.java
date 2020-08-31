@@ -24,7 +24,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.ReplaceResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.KubernetesArtifactConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.*;
@@ -48,15 +48,15 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       LoggerFactory.getLogger(KubernetesDeployManifestOperation.class);
   private final KubernetesDeployManifestDescription description;
   private final KubernetesCredentials credentials;
-  private final ArtifactProvider provider;
+  private final ResourceVersioner resourceVersioner;
   @Nonnull private final String accountName;
   private static final String OP_NAME = "DEPLOY_KUBERNETES_MANIFEST";
 
   public KubernetesDeployManifestOperation(
-      KubernetesDeployManifestDescription description, ArtifactProvider provider) {
+      KubernetesDeployManifestDescription description, ResourceVersioner resourceVersioner) {
     this.description = description;
     this.credentials = description.getCredentials().getCredentials();
-    this.provider = provider;
+    this.resourceVersioner = resourceVersioner;
     this.accountName = description.getCredentials().getName();
   }
 
@@ -153,23 +153,19 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       KubernetesResourceProperties properties = findResourceProperties(manifest);
       KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
 
+      OptionalInt version =
+          isVersioned(properties, strategy)
+              ? resourceVersioner.getVersion(manifest, accountName)
+              : OptionalInt.empty();
+
       Moniker moniker = cloneMoniker(description.getMoniker());
+      version.ifPresent(moniker::setSequence);
       if (Strings.isNullOrEmpty(moniker.getCluster())) {
         moniker.setCluster(manifest.getFullResourceName());
       }
 
       Artifact artifact =
-          KubernetesArtifactConverter.getInstance(isVersioned(properties, strategy))
-              .toArtifact(provider, manifest, description.getAccount());
-
-      String version = artifact.getVersion();
-      if (Strings.nullToEmpty(version).startsWith("v")) {
-        try {
-          moniker.setSequence(Integer.valueOf(version.substring(1)));
-        } catch (NumberFormatException e) {
-          log.warn("Malformed moniker version {}", version, e);
-        }
-      }
+          KubernetesArtifactConverter.toArtifact(manifest, description.getAccount(), version);
 
       getTask()
           .updateStatus(

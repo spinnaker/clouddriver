@@ -17,26 +17,16 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.OptionalInt;
-import javax.annotation.Nonnull;
 
-public abstract class KubernetesArtifactConverter {
-  // Prevent subclassing from outside the package
-  KubernetesArtifactConverter() {}
-
-  public static KubernetesArtifactConverter getInstance(boolean versioned) {
-    return versioned
-        ? KubernetesVersionedArtifactConverter.INSTANCE
-        : KubernetesUnversionedArtifactConverter.INSTANCE;
-  }
-
-  public final Artifact toArtifact(
-      ArtifactProvider provider, KubernetesManifest manifest, @Nonnull String account) {
+@NonnullByDefault
+public final class KubernetesArtifactConverter {
+  public static Artifact toArtifact(
+      KubernetesManifest manifest, String account, OptionalInt version) {
     String name = manifest.getName();
-    OptionalInt version = getVersion(provider, account, manifest);
     String versionString = version.isPresent() ? String.format("v%03d", version.getAsInt()) : "";
     String versionedName = versionString.isEmpty() ? name : String.join("-", name, versionString);
     return Artifact.builder()
@@ -48,8 +38,4 @@ public abstract class KubernetesArtifactConverter {
         .putMetadata("account", account)
         .build();
   }
-
-  @Nonnull
-  protected abstract OptionalInt getVersion(
-      ArtifactProvider provider, String account, KubernetesManifest manifest);
 }
