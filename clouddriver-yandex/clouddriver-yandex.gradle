@@ -24,7 +24,7 @@ dependencies {
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
 
-  implementation 'com.yandex.cloud:sdk:1.2.0'
+  implementation 'com.yandex.cloud:java-sdk-services:2.1.1'
   compile("io.opencensus:opencensus-api:0.21.0") {
     force = true
   }
@@ -37,11 +37,12 @@ dependencies {
   implementation "com.netflix.spectator:spectator-api"
   implementation "com.netflix.spinnaker.kork:kork-artifacts"
   implementation "com.netflix.spinnaker.kork:kork-config"
-  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.netflix.spinnaker.kork:kork-moniker"
   implementation "com.squareup.retrofit:retrofit"
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
 
+  testImplementation project(":clouddriver-web")
   testImplementation "cglib:cglib-nodep"
   testImplementation "commons-fileupload:commons-fileupload:1.4"
   testImplementation "org.apache.httpcomponents:httpmime"
@@ -54,4 +55,6 @@ dependencies {
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+  testImplementation "org.springframework.boot:spring-boot-test"
+  testImplementation "org.springframework.boot:spring-boot-starter-test"
 }

@@ -16,15 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServiceAccount;
-import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
+import com.netflix.spinnaker.clouddriver.yandex.provider.view.YandexServiceAccountProvider;
 import groovy.util.logging.Slf4j;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,33 +33,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/yandex/serviceAcounts")
 public class YandexServiceAccountController {
-  private final Cache cacheView;
-  private final ObjectMapper objectMapper;
+  private final YandexServiceAccountProvider yandexServiceAccountProvider;
 
   @Autowired
-  private YandexServiceAccountController(Cache cacheView, ObjectMapper objectMapper) {
-    this.cacheView = cacheView;
-    this.objectMapper = objectMapper;
+  private YandexServiceAccountController(
+      YandexServiceAccountProvider yandexServiceAccountProvider) {
+    this.yandexServiceAccountProvider = yandexServiceAccountProvider;
   }
 
   @RequestMapping(value = "/{account}", method = RequestMethod.GET)
   public List<YandexCloudServiceAccount> list(@PathVariable String account) {
-    return getCacheData(account).stream()
-        .map(this::convertToModel)
-        .sorted(Comparator.comparing(YandexCloudServiceAccount::getName))
-        .collect(Collectors.toList());
-  }
-
-  private Collection<CacheData> getCacheData(String account) {
-    String key =
-        Keys.getServiceAccount(Strings.isNullOrEmpty(account) ? "*" : account, "*", "*", "*");
-    Collection<String> identifiers =
-        cacheView.filterIdentifiers(Keys.Namespace.SERVICE_ACCOUNT.getNs(), key);
-    return cacheView.getAll(
-        Keys.Namespace.SERVICE_ACCOUNT.getNs(), identifiers, RelationshipCacheFilter.none());
-  }
-
-  private YandexCloudServiceAccount convertToModel(CacheData cacheData) {
-    return objectMapper.convertValue(cacheData.getAttributes(), YandexCloudServiceAccount.class);
+    return (Strings.isNullOrEmpty(account)
+            ? yandexServiceAccountProvider.getAll()
+            : yandexServiceAccountProvider.findByAccount(account))
+        .stream()
+            .sorted(Comparator.comparing(YandexCloudServiceAccount::getName))
+            .collect(Collectors.toList());
   }
 }

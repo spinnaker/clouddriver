@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.yandex.model;
 
 import com.netflix.spinnaker.clouddriver.model.Image;
+import com.netflix.spinnaker.clouddriver.yandex.YandexCloudProvider;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -41,7 +42,7 @@ public class YandexCloudImage implements Image {
         .id(image.getId())
         .name(image.getName())
         .description(image.getDescription())
-        .region("ru-central1")
+        .region(YandexCloudProvider.REGION)
         .createdAt(image.getCreatedAt().getSeconds() * 1000)
         .labels(image.getLabelsMap())
         .build();

@@ -16,11 +16,9 @@
 package com.netflix.spinnaker.clouddriver.yandex.security;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
 import com.netflix.spinnaker.clouddriver.yandex.security.config.YandexConfigurationProperties;
-import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
@@ -32,9 +30,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
+import yandex.cloud.sdk.ChannelFactory;
 import yandex.cloud.sdk.ServiceFactory;
-import yandex.cloud.sdk.ServiceFactoryConfig;
-import yandex.cloud.sdk.auth.ApiKey;
 import yandex.cloud.sdk.auth.Auth;
 
 @Configuration
@@ -49,7 +46,7 @@ public class YandexCloudCredentialsInitializer implements CredentialsInitializer
   }
 
   @Bean
-  public List yandexCloudCredentials(
+  public List<YandexCloudCredentials> yandexCloudCredentials(
       YandexConfigurationProperties properties, AccountCredentialsRepository repository) {
     return properties.getAccounts().stream()
         .map(YandexCloudCredentialsInitializer::convertToCredentials)
@@ -67,25 +64,16 @@ public class YandexCloudCredentialsInitializer implements CredentialsInitializer
         MoreObjects.firstNonNull(account.getEnvironment(), account.getName()));
     credentials.setAccountType(
         MoreObjects.firstNonNull(account.getAccountType(), account.getName()));
-    credentials.setServiceFactory(new ServiceFactory(makeJDKConfig(account)));
+    credentials.setServiceFactory(makeJDKConfig(account));
     return credentials;
   }
 
-  private static ServiceFactoryConfig makeJDKConfig(YandexConfigurationProperties.Account account) {
-    ServiceFactoryConfig.ServiceFactoryConfigBuilder configBuilder = ServiceFactoryConfig.builder();
-    if (!Strings.isNullOrEmpty(account.getEndpoint())) {
-      String endpoint = account.getEndpoint();
-      configBuilder.endpoint(endpoint);
-      configBuilder.port(endpoint.contains(":") ? Integer.parseInt(endpoint.split(":")[1]) : 443);
-    }
-
-    try {
-      return configBuilder
-          .credentials(Auth.fromFile(ApiKey::new, Paths.get(account.getJsonPath())))
-          .requestTimeout(Duration.ofMinutes(1))
-          .build();
-    } catch (IOException e) {
-      throw new RuntimeException("Can't read json path with credentials", e);
-    }
+  private static ServiceFactory makeJDKConfig(YandexConfigurationProperties.Account account) {
+    return ServiceFactory.builder()
+        .endpoint(
+            account.getEndpoint() != null ? account.getEndpoint() : ChannelFactory.DEFAULT_ENDPOINT)
+        .credentialProvider(Auth.apiKeyBuilder().fromFile(Paths.get(account.getJsonPath())))
+        .requestTimeout(Duration.ofMinutes(1))
+        .build();
   }
 }

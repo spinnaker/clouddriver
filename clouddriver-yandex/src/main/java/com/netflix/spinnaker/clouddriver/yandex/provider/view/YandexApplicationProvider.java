@@ -16,90 +16,76 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.provider.view;
 
-import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace;
-import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.getApplicationKey;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexApplication;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-final class YandexApplicationProvider implements ApplicationProvider {
-  private final Cache cacheView;
-  private final ObjectMapper objectMapper;
+class YandexApplicationProvider implements ApplicationProvider {
+  private final CacheClient<YandexApplication> cacheClient;
 
   @Autowired
   YandexApplicationProvider(Cache cacheView, ObjectMapper objectMapper) {
-    this.cacheView = cacheView;
-    this.objectMapper = objectMapper;
+    this.cacheClient =
+        new CacheClient<>(
+            cacheView, objectMapper, Keys.Namespace.APPLICATIONS, YandexApplication.class);
   }
 
   @Override
   public Set<YandexApplication> getApplications(boolean expand) {
-    String applicationsNs = Namespace.APPLICATIONS.getNs();
-    Collection<String> identifiers =
-        cacheView.filterIdentifiers(applicationsNs, getApplicationKey("*"));
-    RelationshipCacheFilter cacheFilter =
-        expand
-            ? RelationshipCacheFilter.include(
-                Namespace.CLUSTERS.getNs(), Namespace.INSTANCES.getNs())
-            : RelationshipCacheFilter.none();
-    return cacheView.getAll(applicationsNs, identifiers, cacheFilter).stream()
-        .map(this::applicationFromCacheData)
-        .collect(toSet());
+    Set<YandexApplication> result = cacheClient.getAll(Keys.APPLICATION_WILDCARD);
+    if (expand) {
+      result.forEach(this::updateRelations);
+    }
+    return result;
   }
 
   @Override
   public YandexApplication getApplication(String name) {
-    CacheData cacheData =
-        cacheView.get(
-            Namespace.APPLICATIONS.getNs(),
-            getApplicationKey(name),
-            RelationshipCacheFilter.include(
-                Namespace.CLUSTERS.getNs(), Namespace.INSTANCES.getNs()));
-    return applicationFromCacheData(cacheData);
+    return cacheClient
+        .findOne(Keys.getApplicationKey(name))
+        .map(this::updateRelations)
+        .orElse(null);
   }
 
-  private YandexApplication applicationFromCacheData(CacheData cacheData) {
-    if (cacheData == null) {
-      return null;
-    }
-    Map<String, Object> attributes = cacheData.getAttributes();
-    YandexApplication application = objectMapper.convertValue(attributes, YandexApplication.class);
-    if (application == null) {
-      return null;
-    }
+  public Collection<String> getRelationship(String key, Keys.Namespace namespace) {
+    return cacheClient.getRelationKeys(key, namespace);
+  }
 
-    getRelationships(cacheData, Namespace.CLUSTERS).stream()
-        .map(Keys::parse)
-        .filter(Objects::nonNull)
-        .forEach(
-            parts ->
-                application
-                    .getClusterNames()
-                    .computeIfAbsent(parts.get("account"), s -> new HashSet<>())
-                    .add(parts.get("name")));
-
-    List<Map<String, String>> instances =
-        getRelationships(cacheData, Namespace.INSTANCES).stream()
-            .map(Keys::parse)
-            .collect(toList());
-    application.setInstances(instances);
-
+  private YandexApplication updateRelations(YandexApplication application) {
+    String applicationKey = Keys.getApplicationKey(application.getName());
+    application.getClusterNames().putAll(getClusters(applicationKey));
+    application.getInstances().addAll(getInstances(applicationKey));
     return application;
   }
 
-  private Set<String> getRelationships(CacheData cacheData, Namespace namespace) {
-    Collection<String> relationships = cacheData.getRelationships().get(namespace.getNs());
-    return relationships == null ? Collections.emptySet() : new HashSet<>(relationships);
+  @NotNull
+  private List<Map<String, String>> getInstances(String key) {
+    return cacheClient.getRelationKeys(key, Keys.Namespace.INSTANCES).stream()
+        .map(Keys::parse)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
+  }
+
+  @NotNull
+  private Map<String, Set<String>> getClusters(String key) {
+    return cacheClient.getRelationKeys(key, Keys.Namespace.CLUSTERS).stream()
+        .map(Keys::parse)
+        .filter(Objects::nonNull)
+        .collect(
+            Collectors.groupingBy(
+                parts -> parts.get("account"),
+                Collectors.mapping(parts -> parts.get("name"), Collectors.toSet())));
   }
 }

@@ -18,45 +18,31 @@ package com.netflix.spinnaker.clouddriver.yandex.provider.view;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.model.SubnetProvider;
 import com.netflix.spinnaker.clouddriver.yandex.YandexCloudProvider;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudSubnet;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
-import java.util.Collection;
 import java.util.Set;
-import java.util.stream.Collectors;
-import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class YandexSubnetProvider implements SubnetProvider<YandexCloudSubnet> {
-  private final Cache cacheView;
-  private final ObjectMapper objectMapper;
+  private final CacheClient<YandexCloudSubnet> cacheClient;
 
-  @Getter private final String cloudProvider = YandexCloudProvider.ID;
+  @Override
+  public String getCloudProvider() {
+    return YandexCloudProvider.ID;
+  }
 
   @Autowired
   public YandexSubnetProvider(Cache cacheView, ObjectMapper objectMapper) {
-    this.cacheView = cacheView;
-    this.objectMapper = objectMapper;
+    this.cacheClient =
+        new CacheClient<>(cacheView, objectMapper, Keys.Namespace.SUBNETS, YandexCloudSubnet.class);
   }
 
   @Override
   public Set<YandexCloudSubnet> getAll() {
-    return loadResults(
-        cacheView.filterIdentifiers(
-            Keys.Namespace.SUBNETS.getNs(), Keys.getSubnetKey("*", "*", "*", "*")));
-  }
-
-  private Set<YandexCloudSubnet> loadResults(Collection<String> identifiers) {
-    return cacheView.getAll(Keys.Namespace.SUBNETS.getNs(), identifiers).stream()
-        .map(this::fromCacheData)
-        .collect(Collectors.toSet());
-  }
-
-  private YandexCloudSubnet fromCacheData(CacheData cacheData) {
-    return objectMapper.convertValue(cacheData.getAttributes(), YandexCloudSubnet.class);
+    return cacheClient.getAll(Keys.SUBNET_WILDCARD);
   }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.yandex.deploy;
+package com.netflix.spinnaker.clouddriver.yandex.service;
 
 import static yandex.cloud.api.operation.OperationOuterClass.Operation;
 import static yandex.cloud.api.operation.OperationServiceOuterClass.GetOperationRequest;
@@ -24,6 +24,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
 import java.time.Duration;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 import yandex.cloud.api.operation.OperationServiceGrpc;
 
@@ -52,5 +53,10 @@ public class YandexOperationPoller {
         task,
         resourceString,
         phase);
+  }
+
+  public void doSync(
+      Supplier<Operation> request, YandexCloudCredentials credentials, String phase) {
+    waitDone(credentials, request.get(), phase);
   }
 }

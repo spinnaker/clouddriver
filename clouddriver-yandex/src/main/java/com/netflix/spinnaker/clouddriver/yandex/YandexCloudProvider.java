@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class YandexCloudProvider implements CloudProvider {
   public static final String ID = "yandex";
+  public static final String REGION = "ru-central1";
   private final String displayName = "Yandex.Cloud";
 
   private final Class<? extends Annotation> operationAnnotationType = YandexOperation.class;

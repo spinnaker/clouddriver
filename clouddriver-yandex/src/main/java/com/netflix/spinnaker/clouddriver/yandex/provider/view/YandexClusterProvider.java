@@ -16,60 +16,58 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.provider.view;
 
-import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace.*;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
-import static java.util.stream.Collectors.*;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Strings;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
-import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.yandex.YandexCloudProvider;
-import com.netflix.spinnaker.clouddriver.yandex.model.*;
+import com.netflix.spinnaker.clouddriver.yandex.model.YandexApplication;
+import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudCluster;
+import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
-import java.util.*;
-import lombok.Value;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-@Value
 public class YandexClusterProvider implements ClusterProvider<YandexCloudCluster> {
-  private final Cache cacheView;
-  private final ObjectMapper objectMapper;
-  private final YandexInstanceProvider instanceProvider;
+  private final CacheClient<YandexCloudCluster> cacheClient;
   private final YandexApplicationProvider applicationProvider;
-  private final String cloudProviderId = YandexCloudProvider.ID;
+  private final YandexServerGroupProvider serverGroupProvider;
   private AccountCredentialsProvider accountCredentialsProvider;
 
   @Autowired
   public YandexClusterProvider(
       Cache cacheView,
       ObjectMapper objectMapper,
-      YandexInstanceProvider instanceProvider,
       YandexApplicationProvider applicationProvider,
+      YandexServerGroupProvider serverGroupProvider,
       AccountCredentialsProvider accountCredentialsProvider) {
-    this.cacheView = cacheView;
-    this.objectMapper = objectMapper;
-    this.instanceProvider = instanceProvider;
     this.applicationProvider = applicationProvider;
+    this.serverGroupProvider = serverGroupProvider;
     this.accountCredentialsProvider = accountCredentialsProvider;
+    this.cacheClient =
+        new CacheClient<>(
+            cacheView, objectMapper, Keys.Namespace.CLUSTERS, YandexCloudCluster.class);
+  }
+
+  @Override
+  public String getCloudProviderId() {
+    return YandexCloudProvider.ID;
   }
 
   @Override
   public Map<String, Set<YandexCloudCluster>> getClusters() {
-    Collection<String> identifiers =
-        cacheView.filterIdentifiers(CLUSTERS.getNs(), Keys.getClusterKey("*", "*", "*"));
-    return cacheView.getAll(CLUSTERS.getNs(), identifiers).stream()
-        .map(data -> objectMapper.convertValue(data.getAttributes(), YandexCloudCluster.class))
-        .collect(groupingBy(YandexCloudCluster::getAccountName, toSet()));
+    return cacheClient.getAll(Keys.CLUSTER_WILDCARD).stream()
+        .collect(Collectors.groupingBy(YandexCloudCluster::getAccountName, Collectors.toSet()));
   }
 
   @Override
@@ -89,24 +87,12 @@ public class YandexClusterProvider implements ClusterProvider<YandexCloudCluster
 
   @Override
   public YandexCloudCluster getCluster(
-      String application, String account, String name, boolean includeDetails) {
-    CacheData clusterData =
-        cacheView.get(
-            CLUSTERS.getNs(),
-            Keys.getClusterKey(account, application, name),
-            RelationshipCacheFilter.include(SERVER_GROUPS.getNs(), INSTANCES.getNs()));
-
-    if (clusterData == null) {
-      return null;
-    }
-
-    Collection<CacheData> instances =
-        !includeDetails || clusterData.getRelationships() == null
-            ? emptyList()
-            : instanceProvider.getInstanceCacheData(
-                clusterData.getRelationships().get(INSTANCES.getNs()));
-
-    return clusterFromCacheData(clusterData, instances);
+      String application, String account, String name, boolean isDetailed) {
+    String clusterKey = Keys.getClusterKey(account, application, name);
+    return cacheClient
+        .findOne(clusterKey)
+        .map(cluster -> buildCluster(clusterKey, cluster, isDetailed))
+        .orElse(null);
   }
 
   @Override
@@ -118,27 +104,14 @@ public class YandexClusterProvider implements ClusterProvider<YandexCloudCluster
   @Override
   public YandexCloudServerGroup getServerGroup(
       String account, String region, String name, boolean includeDetails) {
-    AccountCredentials credentials = accountCredentialsProvider.getCredentials(account);
+    AccountCredentials<?> credentials = accountCredentialsProvider.getCredentials(account);
     if (!(credentials instanceof YandexCloudCredentials)) {
       return null;
     }
-
     String pattern =
         Keys.getServerGroupKey(
             account, "*", ((YandexCloudCredentials) credentials).getFolder(), name);
-    Collection<CacheData> cacheDataResults =
-        cacheView.getAll(
-            SERVER_GROUPS.getNs(),
-            cacheView.filterIdentifiers(SERVER_GROUPS.getNs(), pattern),
-            RelationshipCacheFilter.include(LOAD_BALANCERS.getNs(), INSTANCES.getNs()));
-    if (cacheDataResults.isEmpty()) {
-      return null;
-    }
-    CacheData cacheData = cacheDataResults.stream().findFirst().orElse(null);
-    return serverGroupFromCacheData(
-        cacheData,
-        instanceProvider.getInstances(cacheData.getRelationships().get(INSTANCES.getNs())),
-        loadBalancersFromKeys(cacheData.getRelationships().get(LOAD_BALANCERS.getNs())));
+    return serverGroupProvider.findOne(pattern).orElse(null);
   }
 
   @Override
@@ -152,140 +125,44 @@ public class YandexClusterProvider implements ClusterProvider<YandexCloudCluster
   }
 
   private Map<String, Set<YandexCloudCluster>> getClusters(
-      String applicationName, boolean includeInstanceDetails) {
+      String applicationName, boolean isDetailed) {
     YandexApplication application = applicationProvider.getApplication(applicationName);
+    String applicationKey = Keys.getApplicationKey(applicationName);
 
     if (application == null) {
       return new HashMap<>();
     }
 
-    Set<String> clusterIdentifiers =
-        application.getClusterNames().values().stream()
-            .flatMap(Collection::stream)
-            .map(cluster -> Keys.getClusterKey("*", applicationName, cluster))
-            .map(key -> cacheView.filterIdentifiers(CLUSTERS.getNs(), key))
-            .flatMap(Collection::stream)
-            .collect(toSet());
+    Collection<String> clusterKeys =
+        applicationProvider.getRelationship(applicationKey, Keys.Namespace.CLUSTERS);
+    List<YandexCloudCluster> clusters = cacheClient.getAll(clusterKeys);
 
-    Set<String> instanceIdentifiers =
-        application.getInstances().stream()
-            .map(
-                o ->
-                    Keys.getInstanceKey(
-                        o.get("account"), o.get("id"), o.get("folder"), o.get("name")))
-            .collect(toSet());
-
-    Collection<CacheData> instanceCacheData =
-        includeInstanceDetails
-            ? instanceProvider.getInstanceCacheData(instanceIdentifiers)
-            : emptySet();
-
-    Collection<CacheData> clusterCacheData =
-        cacheView.getAll(
-            CLUSTERS.getNs(),
-            clusterIdentifiers,
-            RelationshipCacheFilter.include(SERVER_GROUPS.getNs()));
-
-    return clusterCacheData.stream()
-        .map(cacheData -> clusterFromCacheData(cacheData, instanceCacheData))
-        .collect(groupingBy(YandexCloudCluster::getAccountName, toSet()));
+    return clusters.stream()
+        .map(
+            cluster ->
+                buildCluster(
+                    Keys.getClusterKey(
+                        cluster.getAccountName(), applicationName, cluster.getName()),
+                    cluster,
+                    isDetailed))
+        .collect(Collectors.groupingBy(YandexCloudCluster::getAccountName, Collectors.toSet()));
   }
 
-  private YandexCloudCluster clusterFromCacheData(
-      CacheData clusterCacheData, Collection<CacheData> instanceCacheDataSuperSet) {
-    YandexCloudCluster cluster =
-        objectMapper.convertValue(clusterCacheData.getAttributes(), YandexCloudCluster.class);
-
+  private YandexCloudCluster buildCluster(
+      String key, YandexCloudCluster cluster, boolean isDetailed) {
     Collection<String> serverGroupKeys =
-        clusterCacheData.getRelationships().get(SERVER_GROUPS.getNs());
+        cacheClient.getRelationKeys(key, Keys.Namespace.SERVER_GROUPS);
     if (serverGroupKeys.isEmpty()) {
       return cluster;
     }
-
-    Collection<CacheData> serverGroupData =
-        cacheView.getAll(
-            SERVER_GROUPS.getNs(),
-            serverGroupKeys,
-            RelationshipCacheFilter.include(LOAD_BALANCERS.getNs()));
-
-    List<YandexCloudInstance> instances =
-        instanceCacheDataSuperSet.stream()
-            .filter(
-                cacheData ->
-                    cacheData.getRelationships().get(CLUSTERS.getNs()).stream()
-                        .map(Keys::parse)
-                        .filter(Objects::nonNull)
-                        .map(m -> m.get("cluster"))
-                        .filter(Objects::nonNull)
-                        .anyMatch(cluster.getName()::equals))
-            .map(instanceProvider::instanceFromCacheData)
-            .collect(toList());
-
-    List<String> loadBalancerKeys =
-        serverGroupData.stream()
-            .map(sg -> sg.getRelationships().get(LOAD_BALANCERS.getNs()))
-            .flatMap(Collection::stream)
-            .collect(toList());
-
-    Set<YandexCloudLoadBalancer> loadBalancers = loadBalancersFromKeys(loadBalancerKeys);
-
-    serverGroupData.forEach(
-        serverGroupCacheData -> {
-          YandexCloudServerGroup serverGroup =
-              serverGroupFromCacheData(serverGroupCacheData, instances, loadBalancers);
-          cluster.getServerGroups().add(serverGroup);
-          if (serverGroup.getLoadBalancerIntegration() != null) {
-            cluster
-                .getLoadBalancers()
-                .addAll(serverGroup.getLoadBalancerIntegration().getBalancers());
-          }
+    List<YandexCloudServerGroup> groups = serverGroupProvider.getAll(serverGroupKeys, isDetailed);
+    groups.forEach(
+        group -> {
+          cluster.getServerGroups().add(group);
+          Optional.ofNullable(group.getLoadBalancerIntegration())
+              .map(YandexCloudServerGroup.LoadBalancerIntegration::getBalancers)
+              .ifPresent(lbs -> cluster.getLoadBalancers().addAll(lbs));
         });
-
     return cluster;
-  }
-
-  private Set<YandexCloudLoadBalancer> loadBalancersFromKeys(Collection<String> loadBalancerKeys) {
-    return cacheView.getAll(LOAD_BALANCERS.getNs(), loadBalancerKeys).stream()
-        .map(cd -> objectMapper.convertValue(cd.getAttributes(), YandexCloudLoadBalancer.class))
-        .collect(toSet());
-  }
-
-  private YandexCloudServerGroup serverGroupFromCacheData(
-      CacheData cacheData,
-      List<YandexCloudInstance> instances,
-      Set<YandexCloudLoadBalancer> loadBalancers) {
-
-    YandexCloudServerGroup serverGroup =
-        objectMapper.convertValue(cacheData.getAttributes(), YandexCloudServerGroup.class);
-
-    if (!instances.isEmpty()) {
-      Set<String> instanceIds =
-          cacheData.getRelationships().get(INSTANCES.getNs()).stream()
-              .map(Keys::parse)
-              .filter(Objects::nonNull)
-              .map(key -> key.get("id"))
-              .collect(toSet());
-      serverGroup.setInstances(
-          instances.stream()
-              .filter(instance -> instanceIds.contains(instance.getId()))
-              .collect(toSet()));
-    }
-    if (serverGroup.getLoadBalancerIntegration() != null
-        && !Strings.isNullOrEmpty(serverGroup.getLoadBalancerIntegration().getTargetGroupId())) {
-      Set<String> loadBalancerIds = serverGroup.getLoadBalancersWithHealthChecks().keySet();
-      Set<YandexCloudLoadBalancer> attachedBalancers =
-          loadBalancers.stream()
-              .filter(loadBalancer -> loadBalancerIds.contains(loadBalancer.getId()))
-              .collect(toSet());
-      serverGroup.getLoadBalancerIntegration().setBalancers(attachedBalancers);
-
-      boolean sgEnable =
-          loadBalancerIds.isEmpty()
-              || serverGroup.getInstances().stream()
-                  .anyMatch(instance -> instance.getHealthState() == HealthState.Up);
-      serverGroup.setDisabled(!sgEnable);
-    }
-
-    return serverGroup;
   }
 }

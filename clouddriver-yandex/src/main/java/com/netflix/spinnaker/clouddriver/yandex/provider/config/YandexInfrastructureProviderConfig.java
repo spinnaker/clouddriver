@@ -25,26 +25,21 @@ import com.netflix.spinnaker.clouddriver.security.ProviderUtils;
 import com.netflix.spinnaker.clouddriver.yandex.provider.YandexInfrastructureProvider;
 import com.netflix.spinnaker.clouddriver.yandex.provider.agent.*;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
-import com.netflix.spinnaker.config.YandexCloudConfiguration;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
-import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import(YandexCloudConfiguration.class)
-@EnableConfigurationProperties
 public class YandexInfrastructureProviderConfig {
   @Bean
   @DependsOn("yandexCloudCredentials")
   public YandexInfrastructureProvider yandexInfrastructureProvider(
       AccountCredentialsRepository accountCredentialsRepository,
+      YandexCloudFacade yandexCloudFacade,
       ObjectMapper objectMapper,
       Registry registry) {
     objectMapper.enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -52,25 +47,21 @@ public class YandexInfrastructureProviderConfig {
     Set<YandexCloudCredentials> allAccounts =
         ProviderUtils.buildThreadSafeSetOfAccounts(
             accountCredentialsRepository, YandexCloudCredentials.class);
-    List<Agent> agents =
-        allAccounts.stream()
-            .map(
-                credentials -> {
-                  List<Agent> agentList = new ArrayList<>();
-                  agentList.add(new YandexNetworkCachingAgent(credentials, objectMapper));
-                  agentList.add(new YandexSubnetCachingAgent(credentials, objectMapper));
-                  agentList.add(new YandexInstanceCachingAgent(credentials, objectMapper));
-                  agentList.add(
-                      new YandexServerGroupCachingAgent(credentials, registry, objectMapper));
-                  agentList.add(
-                      new YandexNetworkLoadBalancerCachingAgent(
-                          credentials, objectMapper, registry));
-                  agentList.add(new YandexImageCachingAgent(credentials, objectMapper));
-                  agentList.add(new YandexServiceAccountCachingAgent(credentials, objectMapper));
-                  return agentList;
-                })
-            .flatMap(Collection::stream)
-            .collect(Collectors.toList());
+    List<Agent> agents = new ArrayList<>(7 * allAccounts.size());
+    for (YandexCloudCredentials credentials : allAccounts) {
+      agents.add(new YandexNetworkCachingAgent(credentials, objectMapper, yandexCloudFacade));
+      agents.add(new YandexSubnetCachingAgent(credentials, objectMapper, yandexCloudFacade));
+      agents.add(new YandexInstanceCachingAgent(credentials, objectMapper, yandexCloudFacade));
+      agents.add(
+          new YandexServerGroupCachingAgent(
+              credentials, registry, objectMapper, yandexCloudFacade));
+      agents.add(
+          new YandexNetworkLoadBalancerCachingAgent(
+              credentials, objectMapper, registry, yandexCloudFacade));
+      agents.add(new YandexImageCachingAgent(credentials, objectMapper, yandexCloudFacade));
+      agents.add(
+          new YandexServiceAccountCachingAgent(credentials, objectMapper, yandexCloudFacade));
+    }
     return new YandexInfrastructureProvider(agents);
   }
 }

@@ -17,13 +17,36 @@
 package com.netflix.spinnaker.clouddriver.yandex.deploy.converter;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
 import com.netflix.spinnaker.clouddriver.yandex.deploy.description.CredentialsChangeable;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
 import java.util.Map;
+import java.util.function.Function;
+import javax.annotation.Nullable;
 
-public class ConverterHelper {
-  public static <T extends CredentialsChangeable> T convertDescription(
+public class OperationConverter<T extends CredentialsChangeable, E extends AtomicOperation<?>>
+    extends AbstractAtomicOperationsCredentialsSupport {
+  private Function<T, E> constructor;
+  private Class<T> clazz;
+
+  public OperationConverter(Function<T, E> constructor, Class<T> clazz) {
+    this.constructor = constructor;
+    this.clazz = clazz;
+  }
+
+  @Nullable
+  @Override
+  public E convertOperation(Map<String, Object> input) {
+    return constructor.apply(convertDescription(input));
+  }
+
+  @Override
+  public T convertDescription(Map<String, Object> input) {
+    return convertDescription(input, this, clazz);
+  }
+
+  public T convertDescription(
       Map<String, Object> input,
       AbstractAtomicOperationsCredentialsSupport credentialsSupport,
       Class<T> targetDescriptionType) {

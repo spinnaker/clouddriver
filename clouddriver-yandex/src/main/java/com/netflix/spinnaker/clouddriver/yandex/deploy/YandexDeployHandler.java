@@ -16,22 +16,17 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.deploy;
 
+import static com.netflix.spinnaker.clouddriver.yandex.deploy.ops.AbstractYandexAtomicOperation.status;
 import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.InstanceGroup;
 import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.ScalePolicy;
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupServiceOuterClass.CreateInstanceGroupRequest;
-import static yandex.cloud.api.operation.OperationOuterClass.Operation;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.netflix.spinnaker.clouddriver.data.task.Task;
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.yandex.YandexCloudProvider;
-import com.netflix.spinnaker.clouddriver.yandex.deploy.description.YandexInstanceGroupConverter;
 import com.netflix.spinnaker.clouddriver.yandex.deploy.description.YandexInstanceGroupDescription;
-import com.netflix.spinnaker.clouddriver.yandex.deploy.ops.OpsHelper;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
 import java.util.Collections;
 import java.util.List;
 import lombok.Data;
@@ -46,11 +41,7 @@ import org.springframework.stereotype.Component;
 public class YandexDeployHandler implements DeployHandler<YandexInstanceGroupDescription> {
   private static final String BASE_PHASE = "DEPLOY";
 
-  @Autowired private final YandexOperationPoller operationPoller;
-
-  private static Task getTask() {
-    return TaskRepository.threadLocalTask.get();
-  }
+  @Autowired private final YandexCloudFacade yandexCloudFacade;
 
   @Override
   public boolean handles(DeployDescription description) {
@@ -58,80 +49,58 @@ public class YandexDeployHandler implements DeployHandler<YandexInstanceGroupDes
   }
 
   @Override
+  @SuppressWarnings("rawtypes")
   public DeploymentResult handle(YandexInstanceGroupDescription description, List priorOutputs) {
     YandexCloudCredentials credentials = description.getCredentials();
-
-    getTask()
-        .updateStatus(
-            BASE_PHASE,
-            "Initializing creation of server group for application '"
-                + description.getApplication()
-                + "' stack '"
-                + description.getStack()
-                + "'...");
-    getTask().updateStatus(BASE_PHASE, "Looking up next sequence...");
+    status(
+        BASE_PHASE,
+        "Initializing creation of server group for application '%s' stack '%s'...",
+        description.getApplication(),
+        description.getStack());
+    status(BASE_PHASE, "Looking up next sequence...");
     description.produceServerGroupName();
-    getTask().updateStatus(BASE_PHASE, "Produced server group name: " + description.getName());
-
+    status(BASE_PHASE, "Produced server group name '%s'.", description.getName());
     description.saturateLabels();
-
-    getTask().updateStatus(BASE_PHASE, "Composing server group " + description.getName() + "...");
-    CreateInstanceGroupRequest request =
-        YandexInstanceGroupConverter.mapToCreateRequest(description);
-
-    Operation operation = credentials.instanceGroupService().create(request);
-    operation = operationPoller.waitDone(description.getCredentials(), operation, BASE_PHASE);
-    InstanceGroup createdInstanceGroup;
-    try {
-      createdInstanceGroup = operation.getResponse().unpack(InstanceGroup.class);
-    } catch (InvalidProtocolBufferException e) {
-      throw new IllegalStateException("Invalid protocol of creating instances group", e);
+    status(BASE_PHASE, "Composing server group '%s'...", description.getName());
+    InstanceGroup createdInstanceGroup =
+        yandexCloudFacade.createInstanceGroup(BASE_PHASE, credentials, description);
+    if (Boolean.TRUE.equals(description.getEnableTraffic()) && description.getBalancers() != null) {
+      String targetGroupId = createdInstanceGroup.getLoadBalancerState().getTargetGroupId();
+      yandexCloudFacade.enableInstanceGroup(
+          BASE_PHASE, credentials, targetGroupId, description.getBalancers());
     }
-
-    if (description.getEnableTraffic() != null
-        && description.getEnableTraffic()
-        && description.getBalancers() != null) {
-      OpsHelper.enableInstanceGroup(
-          operationPoller,
-          BASE_PHASE,
-          description.getCredentials(),
-          createdInstanceGroup.getLoadBalancerState().getTargetGroupId(),
-          description.getBalancers());
-    }
-
-    getTask().updateStatus(BASE_PHASE, "Done creating server group " + description.getName() + ".");
-    return makeDeploymentResult(request, credentials);
+    status(BASE_PHASE, "Done creating server group '%s'.", description.getName());
+    return makeDeploymentResult(createdInstanceGroup, credentials);
   }
 
-  @NotNull
+  @NotNull // todo: don't use InstanceGroup... will be fixed with cache agent refactoring
   private DeploymentResult makeDeploymentResult(
-      CreateInstanceGroupRequest request, YandexCloudCredentials credentials) {
+      InstanceGroup result, YandexCloudCredentials credentials) {
     DeploymentResult.Deployment deployment = new DeploymentResult.Deployment();
     deployment.setAccount(credentials.getName());
     DeploymentResult.Deployment.Capacity capacity = new DeploymentResult.Deployment.Capacity();
-    if (request.getScalePolicy().hasAutoScale()) {
-      ScalePolicy.AutoScale autoScale = request.getScalePolicy().getAutoScale();
+    if (result.getScalePolicy().hasAutoScale()) {
+      ScalePolicy.AutoScale autoScale = result.getScalePolicy().getAutoScale();
       capacity.setMin(
-          (int) (autoScale.getMinZoneSize() * request.getAllocationPolicy().getZonesCount()));
+          (int) (autoScale.getMinZoneSize() * result.getAllocationPolicy().getZonesCount()));
       capacity.setMax((int) autoScale.getMaxSize());
       capacity.setDesired((int) autoScale.getInitialSize());
     } else {
-      int size = (int) request.getScalePolicy().getFixedScale().getSize();
+      int size = (int) result.getScalePolicy().getFixedScale().getSize();
       capacity.setMin(size);
       capacity.setMax(size);
       capacity.setDesired(size);
     }
     deployment.setCapacity(capacity);
     deployment.setCloudProvider(YandexCloudProvider.ID);
-    String instanceGroupName = request.getName();
+    String instanceGroupName = result.getName();
     deployment.setServerGroupName(instanceGroupName);
 
     DeploymentResult deploymentResult = new DeploymentResult();
-    String region = "ru-central1";
     deploymentResult.setServerGroupNames(
-        Collections.singletonList(region + ":" + instanceGroupName));
+        Collections.singletonList(YandexCloudProvider.REGION + ":" + instanceGroupName));
     deploymentResult.setServerGroupNameByRegion(
-        Collections.singletonMap(region, instanceGroupName));
+        Collections.singletonMap(YandexCloudProvider.REGION, instanceGroupName));
     deploymentResult.setDeployments(Collections.singleton(deployment));
     return deploymentResult;
   }

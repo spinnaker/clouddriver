@@ -16,47 +16,98 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.provider.agent;
 
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AccountAware;
+import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
+import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.yandex.CacheResultBuilder;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
 import com.netflix.spinnaker.clouddriver.yandex.provider.YandexInfrastructureProvider;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Stream;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.Getter;
 
 @Getter
-public abstract class AbstractYandexCachingAgent implements CachingAgent, AccountAware {
+public abstract class AbstractYandexCachingAgent<T> implements CachingAgent, AccountAware {
   static final TypeReference<Map<String, Object>> MAP_TYPE_REFERENCE =
       new TypeReference<Map<String, Object>>() {};
 
   private final String providerName = YandexInfrastructureProvider.class.getName();
-  private YandexCloudCredentials credentials;
+  protected YandexCloudCredentials credentials;
   private ObjectMapper objectMapper;
+  protected final YandexCloudFacade yandexCloudFacade;
 
-  AbstractYandexCachingAgent(YandexCloudCredentials credentials, ObjectMapper objectMapper) {
+  AbstractYandexCachingAgent(
+      YandexCloudCredentials credentials,
+      ObjectMapper objectMapper,
+      YandexCloudFacade yandexCloudFacade) {
     this.credentials = credentials;
     this.objectMapper = objectMapper;
+    this.yandexCloudFacade = yandexCloudFacade;
+  }
+
+  @Override
+  public String getAgentType() {
+    return getAccountName() + "/" + getClass().getSimpleName();
+  }
+
+  @Override
+  public Set<AgentDataType> getProvidedDataTypes() {
+    return Collections.singleton(AgentDataType.Authority.AUTHORITATIVE.forType(getType()));
   }
 
   String getFolder() {
     return credentials == null ? null : credentials.getFolder();
   }
 
+  @Override
   public String getAccountName() {
     return credentials == null ? null : credentials.getName();
+  }
+
+  public Map<String, Object> convert(T object) {
+    return getObjectMapper().convertValue(object, MAP_TYPE_REFERENCE);
+  }
+
+  protected Map<String, Collection<String>> getRelationships(T entity) {
+    return Collections.emptyMap();
+  }
+
+  protected CacheData build(String key, T entity) {
+    return new DefaultCacheData(key, convert(entity), getRelationships(entity));
+  }
+
+  protected <V> V convert(CacheData cacheData, Class<V> clazz) {
+    return getObjectMapper().convertValue(cacheData.getAttributes(), clazz);
+  }
+
+  protected abstract List<T> loadEntities(ProviderCache providerCache);
+
+  protected abstract String getKey(T entity);
+
+  protected abstract String getType();
+
+  @Override
+  public CacheResult loadData(ProviderCache providerCache) {
+    List<CacheData> cacheData =
+        loadEntities(providerCache).stream()
+            .map(entity -> build(getKey(entity), entity))
+            .collect(Collectors.toList());
+    return new DefaultCacheResult(Collections.singletonMap(getType(), cacheData));
   }
 
   void moveOnDemandDataToNamespace(CacheResultBuilder cacheResultBuilder, String key)
@@ -83,28 +134,16 @@ public abstract class AbstractYandexCachingAgent implements CachingAgent, Accoun
                 CacheResultBuilder.CacheDataBuilder keep =
                     cacheResultBuilder.namespace(namespace).keep(cacheData.getId());
                 keep.setAttributes(cacheData.getAttributes());
-                keep.setRelationships(
-                    mergeOnDemandCacheRelationships(
-                        cacheData.getRelationships(), keep.getRelationships()));
+                keep.setRelationships(merge(keep.getRelationships(), cacheData.getRelationships()));
                 cacheResultBuilder.getOnDemand().getToKeep().remove(cacheData.getId());
               });
         });
   }
 
-  private static Map<String, Collection<String>> mergeOnDemandCacheRelationships(
-      Map<String, Collection<String>> onDemandRelationships,
-      Map<String, Collection<String>> existingRelationships) {
-    return Stream.concat(
-            existingRelationships.keySet().stream(), onDemandRelationships.keySet().stream())
-        .distinct()
-        .collect(
-            toMap(
-                Function.identity(),
-                key ->
-                    Stream.of(existingRelationships.get(key), onDemandRelationships.get(key))
-                        .filter(Objects::nonNull)
-                        .flatMap(Collection::stream)
-                        .filter(Objects::nonNull)
-                        .collect(toList())));
+  private static <K, V> Map<K, Collection<V>> merge(
+      Map<K, Collection<V>> keep, Map<K, Collection<V>> onDemand) {
+    Map<K, Collection<V>> result = new HashMap<>(keep);
+    onDemand.forEach((k, v) -> result.merge(k, v, (o, n) -> o.addAll(n) ? o : n));
+    return result;
   }
 }

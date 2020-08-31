@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.model;
 
-import static java.util.Collections.emptyList;
 import static yandex.cloud.api.compute.v1.InstanceOuterClass.NetworkInterface;
 
 import com.netflix.spinnaker.clouddriver.model.HealthState;
@@ -24,7 +23,13 @@ import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.yandex.YandexCloudProvider;
 import com.netflix.spinnaker.clouddriver.yandex.model.health.YandexInstanceHealth;
 import com.netflix.spinnaker.clouddriver.yandex.model.health.YandexLoadBalancerHealth;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
@@ -128,12 +133,14 @@ public class YandexCloudInstance implements Instance {
   private List<YandexLoadBalancerHealth> findHealthInBalancer(YandexCloudLoadBalancer balancer) {
     return balancer.getHealths().values().stream()
         .flatMap(Collection::stream)
-        .filter(
-            health ->
-                addressesInSubnets
-                    .getOrDefault(health.getSubnetId(), emptyList())
-                    .contains(health.getAddress()))
+        .filter(this::containsAddress)
         .collect(Collectors.toList());
+  }
+
+  public boolean containsAddress(YandexLoadBalancerHealth health) {
+    return addressesInSubnets
+        .getOrDefault(health.getSubnetId(), Collections.emptyList())
+        .contains(health.getAddress());
   }
 
   private static Long calculateInstanceTimestamp(InstanceOuterClass.Instance instance) {

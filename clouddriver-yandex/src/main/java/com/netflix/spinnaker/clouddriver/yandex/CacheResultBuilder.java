@@ -16,12 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.yandex;
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.AgentDataType.Authority;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -51,7 +51,7 @@ public class CacheResultBuilder {
   public CacheResultBuilder(Collection<AgentDataType> dataTypes) {
     authoritativeTypes =
         dataTypes.stream()
-            .filter(dataType -> dataType.getAuthority().equals(AUTHORITATIVE))
+            .filter(dataType -> dataType.getAuthority().equals(Authority.AUTHORITATIVE))
             .map(AgentDataType::getTypeName)
             .collect(toSet());
   }

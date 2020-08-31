@@ -23,35 +23,39 @@ import com.netflix.spinnaker.clouddriver.model.ImageProvider;
 import com.netflix.spinnaker.clouddriver.yandex.YandexCloudProvider;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudImage;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
-import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
-import lombok.Getter;
+import java.util.Set;
+import java.util.function.Function;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class YandexImageProvider implements ImageProvider {
-  private final Cache cacheView;
-  private final ObjectMapper objectMapper;
+  private final CacheClient<YandexCloudImage> cacheClient;
 
-  @Getter private final String cloudProvider = YandexCloudProvider.ID;
+  @Override
+  public String getCloudProvider() {
+    return YandexCloudProvider.ID;
+  }
 
   @Autowired
   public YandexImageProvider(Cache cacheView, ObjectMapper objectMapper) {
-    this.cacheView = cacheView;
-    this.objectMapper = objectMapper;
+    this.cacheClient =
+        new CacheClient<>(cacheView, objectMapper, Keys.Namespace.IMAGES, YandexCloudImage.class);
   }
 
   @Override
   public Optional<Image> getImageById(String imageId) {
-    Collection<String> identifiers =
-        cacheView.filterIdentifiers(
-            Keys.Namespace.IMAGES.getNs(), Keys.getImageKey("*", imageId, "*", "*"));
-    return cacheView.getAll(Keys.Namespace.IMAGES.getNs(), identifiers).stream()
-        .map(
-            cacheData ->
-                objectMapper.convertValue(cacheData.getAttributes(), YandexCloudImage.class))
-        .map(image -> (Image) image)
-        .findFirst();
+    return cacheClient.findOne(Keys.getImageKey("*", imageId, "*", "*")).map(Function.identity());
+  }
+
+  public Set<YandexCloudImage> getAll() {
+    return cacheClient.getAll(Keys.IMAGE_WILDCARD);
+  }
+
+  public List<YandexCloudImage> findByAccount(String account) {
+    String imagePattern = Keys.getImageKey(account, "*", "*", "*");
+    return cacheClient.findAll(imagePattern);
   }
 }

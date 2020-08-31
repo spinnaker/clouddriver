@@ -76,11 +76,10 @@ public class YandexCloudServerGroup implements ServerGroup {
   @Override
   @JsonIgnore
   public Set<String> getLoadBalancers() {
-    return loadBalancerIntegration.getBalancers() == null
-        ? Collections.emptySet()
-        : loadBalancerIntegration.getBalancers().stream()
-            .map(YandexCloudLoadBalancer::getName)
-            .collect(Collectors.toSet());
+    return Optional.ofNullable(loadBalancerIntegration)
+        .map(LoadBalancerIntegration::getBalancers)
+        .map(b -> b.stream().map(YandexCloudLoadBalancer::getName).collect(Collectors.toSet()))
+        .orElse(Collections.emptySet());
   }
 
   public Map<String, List<HealthCheckSpec>> getLoadBalancersWithHealthChecks() {

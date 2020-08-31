@@ -85,22 +85,15 @@ public class YandexInfrastructureProvider extends AgentSchedulerAware
     @Override
     public Map<String, String> hydrateResult(
         Cache cacheView, Map<String, String> result, String id) {
-      CacheData item = cacheView.get(namespace.getNs(), id);
-      if (item == null
-          || item.getRelationships() == null
-          || !item.getRelationships().containsKey(Keys.Namespace.CLUSTERS.getNs())) {
-        return result;
-      }
-
-      Map<String, String> cluster =
-          Keys.parse(
-              item.getRelationships().get(Keys.Namespace.CLUSTERS.getNs()).iterator().next());
-      if (cluster == null) {
-        return result;
-      }
       Map<String, String> hydrated = new HashMap<>(result);
-      hydrated.put("application", cluster.get("application"));
-      hydrated.put("cluster", cluster.get("cluster"));
+      Optional.ofNullable(cacheView.get(namespace.getNs(), id))
+          .map(CacheData::getRelationships)
+          .map(r -> Keys.parse(r.get(Keys.Namespace.CLUSTERS.getNs()).iterator().next()))
+          .ifPresent(
+              cluster -> {
+                hydrated.put("application", cluster.get("application"));
+                hydrated.put("cluster", cluster.get("cluster"));
+              });
       return hydrated;
     }
   }

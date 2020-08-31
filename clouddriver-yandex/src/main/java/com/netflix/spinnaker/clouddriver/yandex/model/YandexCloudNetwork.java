@@ -42,7 +42,7 @@ public class YandexCloudNetwork implements Network {
         .cloudProvider(YandexCloudProvider.ID)
         .name(network.getName())
         .account(accountName)
-        .region("ru-central1")
+        .region(YandexCloudProvider.REGION)
         .build();
   }
 }

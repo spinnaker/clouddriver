@@ -16,62 +16,30 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.deploy.ops;
 
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.ScalePolicy;
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupServiceOuterClass.UpdateInstanceGroupRequest;
-import static yandex.cloud.api.operation.OperationOuterClass.Operation;
-
-import com.google.protobuf.FieldMask;
-import com.netflix.spinnaker.clouddriver.data.task.Task;
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.yandex.deploy.YandexOperationPoller;
 import com.netflix.spinnaker.clouddriver.yandex.deploy.description.ResizeYandexServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup;
-import com.netflix.spinnaker.clouddriver.yandex.provider.view.YandexClusterProvider;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
 
-public class ResizeYandexServerGroupAtomicOperation implements AtomicOperation<Void> {
-  private static final String BASE_PHASE = "RESIZE_SERVER_GROUP";
-  private final ResizeYandexServerGroupDescription description;
+public class ResizeYandexServerGroupAtomicOperation
+    extends AbstractYandexAtomicOperation<ResizeYandexServerGroupDescription>
+    implements AtomicOperation<Void> {
 
-  @Autowired private YandexClusterProvider yandexClusterProvider;
-  @Autowired private YandexOperationPoller operationPoller;
+  public static final String BASE_PHASE = YandexCloudFacade.RESIZE_SERVER_GROUP;
 
   public ResizeYandexServerGroupAtomicOperation(ResizeYandexServerGroupDescription description) {
-    this.description = description;
+    super(description);
   }
 
   @Override
-  public Void operate(List priorOutputs) {
-    Task task = TaskRepository.threadLocalTask.get();
-    task.updateStatus(
-        BASE_PHASE,
-        "Initializing resize of server group " + description.getServerGroupName() + "...");
-
+  public Void operate(List<Void> priorOutputs) {
     String serverGroupName = description.getServerGroupName();
-    YandexCloudServerGroup serverGroup =
-        yandexClusterProvider.getServerGroup(
-            description.getAccount(), "ru-central1", serverGroupName);
-    if (serverGroup == null) {
-      String message = "Not found server group '" + serverGroupName + "'.";
-      task.updateStatus(BASE_PHASE, message);
-      throw new IllegalStateException(message);
-    }
-
-    UpdateInstanceGroupRequest request =
-        UpdateInstanceGroupRequest.newBuilder()
-            .setInstanceGroupId(serverGroup.getId())
-            .setUpdateMask(FieldMask.newBuilder().addPaths("scale_policy"))
-            .setScalePolicy(
-                ScalePolicy.newBuilder()
-                    .setFixedScale(
-                        ScalePolicy.FixedScale.newBuilder()
-                            .setSize(description.getCapacity().getDesired())))
-            .build();
-    Operation operation = description.getCredentials().instanceGroupService().update(request);
-    operationPoller.waitDone(description.getCredentials(), operation, BASE_PHASE);
-    task.updateStatus(BASE_PHASE, "Done resizing server group " + serverGroupName);
+    status(BASE_PHASE, "Initializing resize of server group '%s'...", serverGroupName);
+    YandexCloudServerGroup serverGroup = getServerGroup(BASE_PHASE, serverGroupName);
+    yandexCloudFacade.resizeServerGroup(
+        credentials, serverGroup.getId(), description.getCapacity().getDesired());
+    status(BASE_PHASE, "Done resizing server group '%s'.", serverGroupName);
     return null;
   }
 }

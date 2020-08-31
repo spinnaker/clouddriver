@@ -16,20 +16,18 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.controller;
 
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.LogRecord;
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupServiceOuterClass.ListInstanceGroupLogRecordsRequest;
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupServiceOuterClass.ListInstanceGroupLogRecordsResponse;
-
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup;
+import com.netflix.spinnaker.clouddriver.yandex.model.YandexLogRecord;
 import com.netflix.spinnaker.clouddriver.yandex.provider.view.YandexClusterProvider;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
-import lombok.Data;
+import java.util.stream.Collectors;
 import lombok.Value;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -37,26 +35,27 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping(
     "/applications/{application}/clusters/{account}/{clusterName}/yandex/serverGroups/{serverGroupName}")
-@Data
-// todo!
 public class YandexClusterController {
   private final AccountCredentialsProvider accountCredentialsProvider;
   private final YandexClusterProvider yandexClusterProvider;
+  private final YandexCloudFacade yandexCloudFacade;
 
   @Autowired
   public YandexClusterController(
       AccountCredentialsProvider accountCredentialsProvider,
-      YandexClusterProvider yandexClusterProvider) {
+      YandexClusterProvider yandexClusterProvider,
+      YandexCloudFacade yandexCloudFacade) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.yandexClusterProvider = yandexClusterProvider;
+    this.yandexCloudFacade = yandexCloudFacade;
   }
 
   @RequestMapping(value = "/scalingActivities", method = RequestMethod.GET)
   public ResponseEntity<List<Activity>> getScalingActivities(
       @PathVariable String account,
       @PathVariable String serverGroupName,
-      @RequestParam(value = "region", required = true) String region) {
-    AccountCredentials credentials = accountCredentialsProvider.getCredentials(account);
+      @RequestParam(value = "region") String region) {
+    AccountCredentials<?> credentials = accountCredentialsProvider.getCredentials(account);
     if (!(credentials instanceof YandexCloudCredentials)) {
       return ResponseEntity.badRequest().build();
     }
@@ -67,60 +66,28 @@ public class YandexClusterController {
       return ResponseEntity.notFound().build();
     }
 
-    ListInstanceGroupLogRecordsResponse response =
-        ((YandexCloudCredentials) credentials)
-            .instanceGroupService()
-            .listLogRecords(
-                ListInstanceGroupLogRecordsRequest.newBuilder()
-                    .setInstanceGroupId(serverGroup.getId())
-                    .build());
-    List<Activity> activities = new ArrayList<>();
-    for (int i = 0; i < response.getLogRecordsCount(); i++) {
-      LogRecord logRecord = response.getLogRecords(i);
-      activities.add(
-          new Activity(
-              "details",
-              logRecord.getMessage(),
-              "cause: " + logRecord.getMessage(),
-              "Successful",
-              Instant.ofEpochSecond(logRecord.getTimestamp().getSeconds())));
+    List<YandexLogRecord> yandexLogRecordList =
+        yandexCloudFacade.getLogRecords((YandexCloudCredentials) credentials, serverGroup.getId());
+    return ResponseEntity.ok(
+        yandexLogRecordList.stream().map(this::getActivity).collect(Collectors.toList()));
+  }
 
-      /*
-            private groupActivities(activities: IRawScalingActivity[]): void {
-        const grouped: any = _.groupBy(activities, 'cause'),
-          results: IScalingEventSummary[] = [];
-
-        _.forOwn(grouped, (group: IRawScalingActivity[]) => {
-          if (group.length) {
-            const events: IScalingEvent[] = [];
-            group.forEach((entry: any) => {
-              let availabilityZone = JSON.parse(entry.details)['Availability Zone'] || 'unknown';
-              events.push({ description: entry.description, availabilityZone });
-            });
-            results.push({
-              cause: group[0].cause,
-              events,
-              startTime: group[0].startTime,
-              statusCode: group[0].statusCode,
-              isSuccessful: group[0].statusCode === 'Successful',
-            });
-          }
-        });
-        this.activities = _.sortBy(results, 'startTime').reverse();
-      }
-
-           */
-    }
-
-    return ResponseEntity.ok(activities);
+  @NotNull
+  private YandexClusterController.Activity getActivity(YandexLogRecord record) {
+    return new Activity(
+        "details",
+        record.getMessage(),
+        "cause: " + record.getMessage(),
+        "Successful",
+        record.getTimstamp());
   }
 
   @Value
-  public class Activity {
-    private String details;
-    private String description;
-    private String cause;
-    private String statusCode;
-    private Instant startTime;
+  public static class Activity {
+    String details;
+    String description;
+    String cause;
+    String statusCode;
+    Instant startTime;
   }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.yandex.deploy.description;
+package com.netflix.spinnaker.clouddriver.yandex.service.converter;
 
 import static java.util.stream.Collectors.toList;
 import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.*;
@@ -22,6 +22,8 @@ import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupServiceOute
 import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupServiceOuterClass.UpdateInstanceGroupRequest;
 
 import com.google.common.base.Strings;
+import com.google.protobuf.FieldMask;
+import com.netflix.spinnaker.clouddriver.yandex.deploy.description.YandexInstanceGroupDescription;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup;
 import java.time.Duration;
 import java.util.List;
@@ -319,6 +321,17 @@ public class YandexInstanceGroupConverter {
               .setSize(targetSize == null || targetSize < 0 ? 0 : targetSize));
     }
     return builder.build();
+  }
+
+  public static UpdateInstanceGroupRequest buildResizeRequest(
+      String serverGroupId, Integer capacity) {
+    return UpdateInstanceGroupRequest.newBuilder()
+        .setInstanceGroupId(serverGroupId)
+        .setUpdateMask(FieldMask.newBuilder().addPaths("scale_policy"))
+        .setScalePolicy(
+            ScalePolicy.newBuilder()
+                .setFixedScale(ScalePolicy.FixedScale.newBuilder().setSize(capacity)))
+        .build();
   }
 
   @NotNull

@@ -16,64 +16,39 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.deploy.ops;
 
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.InstanceGroup;
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupServiceOuterClass.*;
-import static yandex.cloud.api.operation.OperationOuterClass.Operation;
-
-import com.netflix.spinnaker.clouddriver.data.task.Task;
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.yandex.deploy.YandexOperationPoller;
-import com.netflix.spinnaker.clouddriver.yandex.deploy.description.YandexInstanceGroupConverter;
 import com.netflix.spinnaker.clouddriver.yandex.deploy.description.YandexInstanceGroupDescription;
-import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
 
-public class ModifyYandexInstanceGroupOperation implements AtomicOperation<Void> {
-  private static final String BASE_PHASE = "MODIFY_INSTANCE_GROUP";
-  private final YandexInstanceGroupDescription description;
+public class ModifyYandexInstanceGroupOperation
+    extends AbstractYandexAtomicOperation<YandexInstanceGroupDescription>
+    implements AtomicOperation<Void> {
 
-  @Autowired private YandexOperationPoller operationPoller;
+  private static final String BASE_PHASE = YandexCloudFacade.MODIFY_INSTANCE_GROUP;
 
   public ModifyYandexInstanceGroupOperation(YandexInstanceGroupDescription description) {
-    this.description = description;
+    super(description);
   }
 
   @Override
-  public Void operate(List priorOutputs) {
-    Task task = TaskRepository.threadLocalTask.get();
-    task.updateStatus(BASE_PHASE, "Initializing operation...");
-    YandexCloudCredentials credentials = description.getCredentials();
-
+  public Void operate(List<Void> priorOutputs) {
+    String serverGroupName = description.getName();
+    status(BASE_PHASE, "Initializing operation...");
     description.saturateLabels();
-    task.updateStatus(
-        BASE_PHASE, "Resolving server group identifier  " + description.getName() + "...");
-
-    ListInstanceGroupsRequest listRequest =
-        ListInstanceGroupsRequest.newBuilder()
-            .setFolderId(credentials.getFolder())
-            .setFilter("name='" + description.getName() + "'")
-            .setView(InstanceGroupView.FULL)
-            .build();
-
-    List<InstanceGroup> instanceGroups =
-        credentials.instanceGroupService().list(listRequest).getInstanceGroupsList();
-    if (instanceGroups.size() != 1) {
-      String message =
-          "Found nothing or more than one server group '" + description.getName() + "'.";
-      task.updateStatus(BASE_PHASE, message);
-      throw new IllegalStateException(message);
-    }
-
-    String instanceGroupId = instanceGroups.get(0).getId();
-    task.updateStatus(BASE_PHASE, "Composing server group " + description.getName() + "...");
-    UpdateInstanceGroupRequest request =
-        YandexInstanceGroupConverter.mapToUpdateRequest(description, instanceGroupId);
-
-    Operation operation = credentials.instanceGroupService().update(request);
-    operationPoller.waitDone(description.getCredentials(), operation, BASE_PHASE);
-    task.updateStatus(BASE_PHASE, "Done updating server group " + description.getName() + ".");
+    status(BASE_PHASE, "Resolving server group identifier '%s'...", serverGroupName);
+    String instanceGroupId =
+        single(yandexCloudFacade.getServerGroupIds(credentials, serverGroupName))
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        status(
+                            BASE_PHASE,
+                            "Found nothing or more than one server group '%s'.",
+                            serverGroupName)));
+    status(BASE_PHASE, "Composing server group '%s'...", serverGroupName);
+    yandexCloudFacade.updateInstanceGroup(credentials, instanceGroupId, description);
+    status(BASE_PHASE, "Done updating server group '%s'.", serverGroupName);
     return null;
   }
 }

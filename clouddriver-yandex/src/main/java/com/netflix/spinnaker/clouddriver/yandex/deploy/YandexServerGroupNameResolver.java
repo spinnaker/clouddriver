@@ -55,7 +55,7 @@ public class YandexServerGroupNameResolver extends AbstractServerGroupNameResolv
 
   @Override
   public String getRegion() {
-    return "ru-central1";
+    return YandexCloudProvider.REGION;
   }
 
   @Override

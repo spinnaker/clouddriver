@@ -16,29 +16,39 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.provider.agent;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
-import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.*;
+import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.AutoScalePolicy;
+import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.CpuUtilizationRule;
+import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.CustomRule;
 import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.HealthCheckSpec;
-import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace.*;
-import static java.util.Collections.*;
-import static java.util.stream.Collectors.*;
-import static yandex.cloud.api.compute.v1.InstanceServiceOuterClass.ListInstancesRequest;
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.*;
-import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupServiceOuterClass.*;
+import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.LoadBalancerIntegration;
+import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.Status;
+import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace.APPLICATIONS;
+import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace.CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace.IMAGES;
+import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace.INSTANCES;
+import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace.LOAD_BALANCERS;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
+import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.AllocationPolicy;
+import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.InstanceGroup;
+import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.LoadBalancerSpec;
+import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.LoadBalancerState;
+import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.ManagedInstancesState;
+import static yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass.ScalePolicy;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.netflix.frigga.ami.AppVersion;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.AgentDataType.Authority;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -58,13 +68,21 @@ import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudLoadBalancer;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
-import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -74,28 +92,34 @@ import lombok.Value;
 import yandex.cloud.api.compute.v1.instancegroup.InstanceGroupOuterClass;
 
 @Getter
-public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAgent
-    implements OnDemandAgent {
+public final class YandexServerGroupCachingAgent
+    extends AbstractYandexCachingAgent<YandexCloudServerGroup> implements OnDemandAgent {
   private static final long GB = 1024 * 1024 * 1024;
   private static final String ON_DEMAND_TYPE =
       String.join(":", YandexCloudProvider.ID, OnDemandType.ServerGroup.getValue());
   private static final Splitter COMMA = Splitter.on(',').omitEmptyStrings().trimResults();
-  private static final Splitter.MapSplitter IMAGE_DESCRIPTION_SPLITTER =
-      Splitter.on(',').withKeyValueSeparator(": ");
-
-  private Collection<AgentDataType> providedDataTypes =
+  private static final String TYPE = Keys.Namespace.SERVER_GROUPS.getNs();
+  private static final String ON_DEMAND_NS = Keys.Namespace.ON_DEMAND.getNs();
+  private static final ImmutableSet<AgentDataType> PROVIDER_DATA_TYPES =
       ImmutableSet.of(
-          AUTHORITATIVE.forType(SERVER_GROUPS.getNs()),
-          INFORMATIVE.forType(CLUSTERS.getNs()),
-          INFORMATIVE.forType(LOAD_BALANCERS.getNs()));
-  private String agentType = getAccountName() + "/" + getClass().getSimpleName();
+          Authority.AUTHORITATIVE.forType(TYPE),
+          Authority.INFORMATIVE.forType(CLUSTERS.getNs()),
+          Authority.INFORMATIVE.forType(LOAD_BALANCERS.getNs()));
+
   private String onDemandAgentType = getAgentType() + "-OnDemand";
   private OnDemandMetricsSupport metricsSupport;
   private final Namer<YandexCloudServerGroup> naming;
 
+  public Set<AgentDataType> getProvidedDataTypes() {
+    return PROVIDER_DATA_TYPES;
+  }
+
   public YandexServerGroupCachingAgent(
-      YandexCloudCredentials credentials, Registry registry, ObjectMapper objectMapper) {
-    super(credentials, objectMapper);
+      YandexCloudCredentials credentials,
+      Registry registry,
+      ObjectMapper objectMapper,
+      YandexCloudFacade yandexCloudFacade) {
+    super(credentials, objectMapper, yandexCloudFacade);
     this.metricsSupport = new OnDemandMetricsSupport(registry, this, ON_DEMAND_TYPE);
     this.naming =
         NamerRegistry.lookup()
@@ -105,11 +129,22 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
   }
 
   @Override
+  protected String getKey(YandexCloudServerGroup serverGroup) {
+    return Keys.getServerGroupKey(
+        getAccountName(), serverGroup.getId(), getFolder(), serverGroup.getName());
+  }
+
+  @Override
+  protected String getType() {
+    return TYPE;
+  }
+
+  @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    CacheResultBuilder cacheResultBuilder = new CacheResultBuilder(providedDataTypes);
+    CacheResultBuilder cacheResultBuilder = new CacheResultBuilder(getProvidedDataTypes());
     cacheResultBuilder.setStartTime(System.currentTimeMillis());
 
-    List<YandexCloudServerGroup> serverGroups = getServerGroups(providerCache);
+    List<YandexCloudServerGroup> serverGroups = loadEntities(providerCache);
 
     // If an entry in ON_DEMAND was generated _after_ we started our caching run, add it to the
     // cacheResultBuilder, since we may use it in buildCacheResult.
@@ -119,15 +154,9 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
     // pendingOnDemandRequests and sees a processedCount of 1. In a saner world, Orca would
     // probably just trust that if the key wasn't returned by pendingOnDemandRequests, it must
     // have been processed. But we don't live in that world.
-    Set<String> serverGroupKeys =
-        serverGroups.stream()
-            .map(
-                serverGroup ->
-                    Keys.getServerGroupKey(
-                        getAccountName(), serverGroup.getId(), getFolder(), serverGroup.getName()))
-            .collect(toSet());
+    Set<String> serverGroupKeys = serverGroups.stream().map(this::getKey).collect(toSet());
     providerCache
-        .getAll(Keys.Namespace.ON_DEMAND.getNs(), serverGroupKeys)
+        .getAll(ON_DEMAND_NS, serverGroupKeys)
         .forEach(
             cacheData -> {
               long cacheTime = (long) cacheData.getAttributes().get("cacheTime");
@@ -146,7 +175,7 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
     // them as evicted here, though? Why wait for another run?
     cacheResult
         .getCacheResults()
-        .getOrDefault(Keys.Namespace.ON_DEMAND.getNs(), emptyList())
+        .getOrDefault(ON_DEMAND_NS, emptyList())
         .forEach(
             cacheData -> {
               cacheData.getAttributes().put("processedTime", System.currentTimeMillis());
@@ -175,12 +204,7 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
           getMetricsSupport().readData(() -> getServerGroup(serverGroupName, providerCache));
       if (serverGroup.isPresent()) {
         CacheResultBuilder cacheResultBuilder = new CacheResultBuilder();
-        String serverGroupKey =
-            Keys.getServerGroupKey(
-                getAccountName(),
-                serverGroup.get().getId(),
-                getFolder(),
-                serverGroup.get().getName());
+        String serverGroupKey = getKey(serverGroup.get());
         CacheResult result =
             getMetricsSupport()
                 .transformData(
@@ -202,18 +226,18 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
                                 "processedCount",
                                 0),
                             /* relationships= */ ImmutableMap.of()));
-        providerCache.putCacheData(Keys.Namespace.ON_DEMAND.getNs(), cacheData);
+        providerCache.putCacheData(ON_DEMAND_NS, cacheData);
         return new OnDemandResult(
             getOnDemandAgentType(), result, /* evictions= */ ImmutableMap.of());
       } else {
         Collection<String> existingIdentifiers =
             ImmutableSet.of(
                 Keys.getServerGroupKey(getAccountName(), "*", getFolder(), serverGroupName));
-        providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.getNs(), existingIdentifiers);
+        providerCache.evictDeletedItems(ON_DEMAND_NS, existingIdentifiers);
         return new OnDemandResult(
             getOnDemandAgentType(),
             new DefaultCacheResult(ImmutableMap.of()),
-            ImmutableMap.of(SERVER_GROUPS.getNs(), ImmutableList.copyOf(existingIdentifiers)));
+            ImmutableMap.of(TYPE, ImmutableList.copyOf(existingIdentifiers)));
       }
     } catch (IOException e) {
       // CatsOnDemandCacheUpdater handles this
@@ -224,11 +248,12 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
   @Override
   public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     List<String> ownedKeys =
-        providerCache.getIdentifiers(Keys.Namespace.ON_DEMAND.getNs()).stream()
+        providerCache.getIdentifiers(ON_DEMAND_NS).stream()
             .filter(this::keyOwnedByThisAgent)
-            .collect(toImmutableList());
+            .collect(
+                Collectors.collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
 
-    return providerCache.getAll(Keys.Namespace.ON_DEMAND.getNs(), ownedKeys).stream()
+    return providerCache.getAll(ON_DEMAND_NS, ownedKeys).stream()
         .map(
             cacheData -> {
               Map<String, Object> map = new HashMap<>();
@@ -239,34 +264,31 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
               map.put("processedTime", cacheData.getAttributes().get("processedTime"));
               return map;
             })
-        .collect(toImmutableList());
+        .collect(Collectors.toList());
   }
 
   private boolean keyOwnedByThisAgent(String key) {
     Map<String, String> parsedKey = Keys.parse(key);
-    return parsedKey != null && parsedKey.get("type").equals(SERVER_GROUPS.getNs());
+    return parsedKey != null && parsedKey.get("type").equals(TYPE);
   }
 
   private CacheResult buildCacheResult(
       CacheResultBuilder cacheResultBuilder, List<YandexCloudServerGroup> serverGroups) {
     try {
       for (YandexCloudServerGroup serverGroup : serverGroups) {
-
         Moniker moniker = naming.deriveMoniker(serverGroup);
-
         String applicationKey = Keys.getApplicationKey(moniker.getApp());
         String clusterKey =
             Keys.getClusterKey(getAccountName(), moniker.getApp(), moniker.getCluster());
-        String serverGroupKey =
-            Keys.getServerGroupKey(
-                getAccountName(), serverGroup.getId(), getFolder(), serverGroup.getName());
+        String serverGroupKey = getKey(serverGroup);
         Set<String> instanceKeys =
             serverGroup.getInstances().stream()
                 .map(
                     instance ->
                         Keys.getInstanceKey(
                             getAccountName(), instance.getId(), getFolder(), instance.getName()))
-                .collect(toImmutableSet());
+                .collect(
+                    Collectors.collectingAndThen(Collectors.toSet(), Collections::unmodifiableSet));
 
         CacheResultBuilder.CacheDataBuilder application =
             cacheResultBuilder.namespace(APPLICATIONS.getNs()).keep(applicationKey);
@@ -291,7 +313,7 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
             .add(applicationKey);
         cluster
             .getRelationships()
-            .computeIfAbsent(SERVER_GROUPS.getNs(), s -> new ArrayList<>())
+            .computeIfAbsent(TYPE, s -> new ArrayList<>())
             .add(serverGroupKey);
         cluster
             .getRelationships()
@@ -299,29 +321,29 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
             .addAll(instanceKeys);
 
         Set<String> loadBalancerKeys =
-            serverGroup.getLoadBalancerIntegration().getBalancers().stream()
-                .map(
-                    lb ->
-                        Keys.getLoadBalancerKey(
-                            getAccountName(), lb.getId(), getFolder(), lb.getName()))
-                .collect(toSet());
+            serverGroup.getLoadBalancerIntegration() == null
+                ? Collections.emptySet()
+                : serverGroup.getLoadBalancerIntegration().getBalancers().stream()
+                    .map(
+                        lb ->
+                            Keys.getLoadBalancerKey(
+                                getAccountName(), lb.getId(), getFolder(), lb.getName()))
+                    .collect(toSet());
         loadBalancerKeys.forEach(
             key ->
                 cacheResultBuilder
                     .namespace(LOAD_BALANCERS.getNs())
                     .keep(key)
                     .getRelationships()
-                    .computeIfAbsent(SERVER_GROUPS.getNs(), s -> new ArrayList<>())
+                    .computeIfAbsent(TYPE, s -> new ArrayList<>())
                     .add(serverGroupKey));
 
         if (shouldUseOnDemandData(cacheResultBuilder, serverGroupKey)) {
           moveOnDemandDataToNamespace(cacheResultBuilder, serverGroupKey);
         } else {
           CacheResultBuilder.CacheDataBuilder serverGroupCacheData =
-              cacheResultBuilder.namespace(SERVER_GROUPS.getNs()).keep(serverGroupKey);
-          serverGroupCacheData.setAttributes(
-              getObjectMapper()
-                  .convertValue(serverGroup, new TypeReference<Map<String, Object>>() {}));
+              cacheResultBuilder.namespace(TYPE).keep(serverGroupKey);
+          serverGroupCacheData.setAttributes(convert(serverGroup));
           serverGroupCacheData
               .getRelationships()
               .computeIfAbsent(APPLICATIONS.getNs(), s -> new ArrayList<>())
@@ -355,85 +377,36 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
         && (long) cacheData.getAttributes().get("cacheTime") > cacheResultBuilder.getStartTime();
   }
 
-  private List<YandexCloudServerGroup> getServerGroups(ProviderCache providerCache) {
-    ListInstanceGroupsRequest request =
-        ListInstanceGroupsRequest.newBuilder()
-            .setFolderId(getFolder())
-            .setView(InstanceGroupView.FULL)
-            .build();
-    List<InstanceGroup> instanceGroups =
-        getCredentials().instanceGroupService().list(request).getInstanceGroupsList();
-    return constructServerGroups(instanceGroups, providerCache);
+  @Override
+  protected List<YandexCloudServerGroup> loadEntities(ProviderCache providerCache) {
+    return constructServerGroups(yandexCloudFacade.getServerGroups(credentials), providerCache);
   }
 
   private Optional<YandexCloudServerGroup> getServerGroup(
       String name, ProviderCache providerCache) {
-    try {
-      ListInstanceGroupsResponse response =
-          getCredentials()
-              .instanceGroupService()
-              .list(
-                  ListInstanceGroupsRequest.newBuilder()
-                      .setFolderId(getFolder())
-                      .setFilter("name='" + name + "'")
-                      .setView(InstanceGroupView.FULL)
-                      .build());
-      List<InstanceGroup> instanceGroupsList = response.getInstanceGroupsList();
-      if (instanceGroupsList.size() != 1) {
-        return Optional.empty();
-      }
-      return constructServerGroups(response.getInstanceGroupsList(), providerCache).stream()
-          .findAny();
-    } catch (StatusRuntimeException ignored) {
-      return Optional.empty();
-    }
+    return yandexCloudFacade
+        .getServerGroup(credentials, name)
+        .flatMap(
+            sg ->
+                constructServerGroups(Collections.singletonList(sg), providerCache).stream()
+                    .findAny());
   }
 
   private List<YandexCloudServerGroup> constructServerGroups(
       List<InstanceGroup> instanceGroups, ProviderCache providerCache) {
-    ListInstancesRequest listInstancesRequest =
-        ListInstancesRequest.newBuilder().setFolderId(getFolder()).build();
 
     Map<String, YandexCloudInstance> instances =
         providerCache.getAll(INSTANCES.getNs()).stream()
-            .map(
-                data ->
-                    getObjectMapper().convertValue(data.getAttributes(), YandexCloudInstance.class))
+            .map(data -> convert(data, YandexCloudInstance.class))
             .collect(toMap(YandexCloudInstance::getId, Function.identity()));
-    //    Map<String, YandexCloudInstance> instances =
-    //
-    // getCredentials().instanceService().list(listInstancesRequest).getInstancesList().stream()
-    //            .map(YandexCloudInstance::createFromProto)
-    //            .collect(toMap(YandexCloudInstance::getId, Function.identity()));
-
     return instanceGroups.stream()
         .map(
             group -> {
-              ListInstanceGroupInstancesRequest request =
-                  ListInstanceGroupInstancesRequest.newBuilder()
-                      .setInstanceGroupId(group.getId())
-                      .build();
-
-              Set<YandexCloudInstance> ownedInstances;
-              try {
-                ownedInstances =
-                    getCredentials()
-                        .instanceGroupService()
-                        .listInstances(request)
-                        .getInstancesList()
-                        .stream()
-                        .map(ManagedInstance::getInstanceId)
-                        .map(instances::get)
-                        .filter(Objects::nonNull)
-                        .collect(toSet());
-              } catch (StatusRuntimeException ex) {
-                if (ex.getStatus() == io.grpc.Status.NOT_FOUND) {
-                  ownedInstances = emptySet();
-                } else {
-                  throw ex;
-                }
-              }
-
+              Set<YandexCloudInstance> ownedInstances =
+                  yandexCloudFacade.getServerGroupInstanceIds(credentials, group.getId()).stream()
+                      .map(instances::get)
+                      .filter(Objects::nonNull)
+                      .collect(Collectors.toSet());
               return createServerGroup(group, ownedInstances, providerCache);
             })
         .collect(toList());
@@ -448,7 +421,7 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
     serverGroup.setServiceAccountId(group.getServiceAccountId());
     serverGroup.setType(YandexCloudProvider.ID);
     serverGroup.setCloudProvider(YandexCloudProvider.ID);
-    serverGroup.setRegion("ru-central1");
+    serverGroup.setRegion(YandexCloudProvider.REGION);
     serverGroup.setCreatedTime(group.getCreatedAt().getSeconds() * 1000);
     Set<String> zones =
         group.getAllocationPolicy().getZonesList().stream()
@@ -456,7 +429,6 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
             .collect(toSet());
     serverGroup.setZones(zones);
     serverGroup.setInstances(instances);
-    serverGroup.setLaunchConfig(makeLaunchConfig(group));
     ManagedInstancesState instancesState = group.getManagedInstancesState();
     int downCount = countInstanceInState(instances, HealthState.Down);
     int upCount = countInstanceInState(instances, HealthState.Up);
@@ -503,6 +475,7 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
     serverGroup.setLabels(group.getLabelsMap());
     serverGroup.setDescription(group.getDescription());
     serverGroup.setInstanceTemplate(convertInstanceTemplate(group.getInstanceTemplate()));
+    serverGroup.setLaunchConfig(makeLaunchConfig(serverGroup));
 
     InstanceGroupOuterClass.DeployPolicy deployPolicy = group.getDeployPolicy();
     serverGroup.setDeployPolicy(
@@ -513,7 +486,7 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
             deployPolicy.getMaxCreating(),
             Duration.ofSeconds(deployPolicy.getStartupDuration().getSeconds())));
     serverGroup.setStatus(Status.valueOf(group.getStatusValue()));
-    if (group.hasLoadBalancerState()) {
+    if (group.hasLoadBalancerSpec()) {
       serverGroup.setLoadBalancerIntegration(
           convertLoadBalancerIntegration(
               group.getLoadBalancerState(), group.getLoadBalancerSpec(), providerCache));
@@ -546,39 +519,37 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
     return serverGroup;
   }
 
-  private static YandexCloudServerGroup.InstanceTemplate convertInstanceTemplate(
+  // public for test purposes should be refactored to be closer to inverse operation
+  public static YandexCloudServerGroup.InstanceTemplate convertInstanceTemplate(
       InstanceGroupOuterClass.InstanceTemplate template) {
-    YandexCloudServerGroup.InstanceTemplate instanceTemplate =
-        new YandexCloudServerGroup.InstanceTemplate();
-    instanceTemplate.setDescription(template.getDescription());
-    instanceTemplate.setLabels(template.getLabelsMap());
-    instanceTemplate.setPlatformId(template.getPlatformId());
-    instanceTemplate.setResourcesSpec(
-        new YandexCloudServerGroup.ResourcesSpec(
-            template.getResourcesSpec().getMemory() / GB,
-            template.getResourcesSpec().getCores(),
-            template.getResourcesSpec().getCoreFraction() == 0
-                ? 100
-                : template.getResourcesSpec().getCoreFraction(),
-            template.getResourcesSpec().getGpus()));
-    instanceTemplate.setMetadata(template.getMetadataMap());
-    instanceTemplate.setBootDiskSpec(convertAttachedDiskSpec(template.getBootDiskSpec()));
-    instanceTemplate.setSecondaryDiskSpecs(
-        template.getSecondaryDiskSpecsList().stream()
-            .map(YandexServerGroupCachingAgent::convertAttachedDiskSpec)
-            .collect(toList()));
-    instanceTemplate.setNetworkInterfaceSpecs(
-        template.getNetworkInterfaceSpecsList().stream()
-            .map(YandexServerGroupCachingAgent::convertNetworkInterfaceSpec)
-            .collect(toList()));
     YandexCloudServerGroup.InstanceTemplate.SchedulingPolicy schedulingPolicy =
-        new YandexCloudServerGroup.InstanceTemplate.SchedulingPolicy();
-    if (template.hasSchedulingPolicy()) {
-      schedulingPolicy.setPreemptible(template.getSchedulingPolicy().getPreemptible());
-    }
-    instanceTemplate.setSchedulingPolicy(schedulingPolicy);
-    instanceTemplate.setServiceAccountId(template.getServiceAccountId());
-    return instanceTemplate;
+        new YandexCloudServerGroup.InstanceTemplate.SchedulingPolicy(
+            template.hasSchedulingPolicy() && template.getSchedulingPolicy().getPreemptible());
+    return YandexCloudServerGroup.InstanceTemplate.builder()
+        .description(template.getDescription())
+        .labels(template.getLabelsMap())
+        .platformId(template.getPlatformId())
+        .resourcesSpec(
+            new YandexCloudServerGroup.ResourcesSpec(
+                template.getResourcesSpec().getMemory() / GB,
+                template.getResourcesSpec().getCores(),
+                template.getResourcesSpec().getCoreFraction() == 0
+                    ? 100
+                    : template.getResourcesSpec().getCoreFraction(),
+                template.getResourcesSpec().getGpus()))
+        .metadata(template.getMetadataMap())
+        .bootDiskSpec(convertAttachedDiskSpec(template.getBootDiskSpec()))
+        .secondaryDiskSpecs(
+            template.getSecondaryDiskSpecsList().stream()
+                .map(YandexServerGroupCachingAgent::convertAttachedDiskSpec)
+                .collect(Collectors.toList()))
+        .networkInterfaceSpecs(
+            template.getNetworkInterfaceSpecsList().stream()
+                .map(YandexServerGroupCachingAgent::convertNetworkInterfaceSpec)
+                .collect(Collectors.toList()))
+        .schedulingPolicy(schedulingPolicy)
+        .serviceAccountId(template.getServiceAccountId())
+        .build();
   }
 
   private static YandexCloudServerGroup.NetworkInterfaceSpec convertNetworkInterfaceSpec(
@@ -632,15 +603,12 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
     Collection<String> identifiers = providerCache.filterIdentifiers(balancersNs, pattern);
 
     return providerCache.getAll(balancersNs, identifiers).stream()
-        .map(
-            cacheData ->
-                getObjectMapper()
-                    .convertValue(cacheData.getAttributes(), YandexCloudLoadBalancer.class))
+        .map(data -> convert(data, YandexCloudLoadBalancer.class))
         .filter(loadBalancer -> loadBalancer.getHealths().containsKey(targetGroupId))
         .collect(Collectors.toSet());
   }
 
-  private AutoScalePolicy convertAutoScalePolicy(ScalePolicy.AutoScale scalePolicy) {
+  private static AutoScalePolicy convertAutoScalePolicy(ScalePolicy.AutoScale scalePolicy) {
     AutoScalePolicy policy = new AutoScalePolicy();
     policy.setMinZoneSize(scalePolicy.getMinZoneSize());
     policy.setMaxSize(scalePolicy.getMaxSize());
@@ -669,7 +637,8 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
     return policy;
   }
 
-  private int countInstanceInState(Set<YandexCloudInstance> instances, HealthState healthState) {
+  private static int countInstanceInState(
+      Set<YandexCloudInstance> instances, HealthState healthState) {
     return (int) instances.stream().filter(i -> i.getHealthState() == healthState).count();
   }
 
@@ -699,14 +668,13 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
           group.getName(), imageId, "not-found-" + imageId, emptyMap(), emptyMap());
     }
 
-    YandexCloudImage image =
-        getObjectMapper().convertValue(cacheData.getAttributes(), YandexCloudImage.class);
+    YandexCloudImage image = convert(cacheData, YandexCloudImage.class);
     return new ImageSummary(
         group.getName(),
         imageId,
         image.getName(),
         cacheData.getAttributes(),
-        createBuildInfo(image.getDescription()));
+        ImageDescriptorParser.createBuildInfo(image.getDescription()));
   }
 
   @Value
@@ -718,51 +686,16 @@ public final class YandexServerGroupCachingAgent extends AbstractYandexCachingAg
     Map<String, Object> buildInfo;
   }
 
-  private HashMap<String, Object> makeLaunchConfig(InstanceGroup group) {
+  private static HashMap<String, Object> makeLaunchConfig(YandexCloudServerGroup serverGroup) {
     HashMap<String, Object> launchConfig = new HashMap<>();
-    launchConfig.put("createdTime", group.getCreatedAt().getSeconds() * 1000);
+    launchConfig.put("createdTime", serverGroup.getCreatedTime());
 
-    String imageId = group.getInstanceTemplate().getBootDiskSpec().getDiskSpec().getImageId();
-    String snapshotId = group.getInstanceTemplate().getBootDiskSpec().getDiskSpec().getSnapshotId();
+    String imageId = serverGroup.getInstanceTemplate().getBootDiskSpec().getDiskSpec().getImageId();
+    String snapshotId =
+        serverGroup.getInstanceTemplate().getBootDiskSpec().getDiskSpec().getSnapshotId();
     launchConfig.put("imageId", imageId != null ? imageId : snapshotId);
 
-    launchConfig.put("launchConfigurationName", group.getName());
+    launchConfig.put("launchConfigurationName", serverGroup.getName());
     return launchConfig;
-  }
-
-  private static Map<String, Object> createBuildInfo(@Nullable String imageDescription) {
-    if (imageDescription == null) {
-      return emptyMap();
-    }
-    Map<String, String> tags;
-    try {
-      tags = IMAGE_DESCRIPTION_SPLITTER.split(imageDescription);
-    } catch (IllegalArgumentException e) {
-      return emptyMap();
-    }
-    if (!tags.containsKey("appversion")) {
-      return emptyMap();
-    }
-    AppVersion appversion = AppVersion.parseName(tags.get("appversion"));
-    if (appversion == null) {
-      return emptyMap();
-    }
-    Map<String, Object> buildInfo = new HashMap<>();
-    buildInfo.put("package_name", appversion.getPackageName());
-    buildInfo.put("version", appversion.getVersion());
-    buildInfo.put("commit", appversion.getCommit());
-    if (appversion.getBuildJobName() != null) {
-      Map<String, String> jenkinsInfo = new HashMap<>();
-      jenkinsInfo.put("name", appversion.getBuildJobName());
-      jenkinsInfo.put("number", appversion.getBuildNumber());
-      if (tags.containsKey("build_host")) {
-        jenkinsInfo.put("host", tags.get("build_host"));
-      }
-      buildInfo.put("jenkins", jenkinsInfo);
-    }
-    if (tags.containsKey("build_info_url")) {
-      buildInfo.put("buildInfoUrl", tags.get("build_info_url"));
-    }
-    return buildInfo;
   }
 }

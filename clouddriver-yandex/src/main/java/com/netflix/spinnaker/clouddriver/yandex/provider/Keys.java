@@ -17,7 +17,6 @@
 package com.netflix.spinnaker.clouddriver.yandex.provider;
 
 import com.google.common.base.CaseFormat;
-import com.google.common.base.Strings;
 import com.netflix.frigga.Names;
 import com.netflix.spinnaker.clouddriver.cache.KeyParser;
 import com.netflix.spinnaker.clouddriver.yandex.YandexCloudProvider;
@@ -32,6 +31,16 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component("YandexKeys")
 public class Keys implements KeyParser {
+  public static final String KEY_DELIMITER = ":";
+  // every wildcard contains cloud provider and namespace filter...
+  public static final String APPLICATION_WILDCARD = Keys.getApplicationKey("*");
+  public static final String CLUSTER_WILDCARD = Keys.getClusterKey("*", "*", "*");
+  public static final String IMAGE_WILDCARD = Keys.getImageKey("*", "*", "*", "*");
+  public static final String LOAD_BALANCER_WILDCARD = Keys.getLoadBalancerKey("*", "*", "*", "*");
+  public static final String NETWORK_WILDCARD = Keys.getNetworkKey("*", "*", "*", "*");
+  public static final String SERVICE_ACCOUNT_WILDCARD = Keys.getServiceAccount("*", "*", "*", "*");
+  public static final String SUBNET_WILDCARD = Keys.getSubnetKey("*", "*", "*", "*");
+
   @Override
   public String getCloudProvider() {
     // This is intentionally 'aws'. Refer to todos in SearchController#search for why.
@@ -55,13 +64,13 @@ public class Keys implements KeyParser {
 
   @Nullable
   public static Map<String, String> parse(String key) {
-    String[] parts = key.split(":");
+    String[] parts = key.split(KEY_DELIMITER);
 
     if (parts.length < 2 || !parts[0].equals(YandexCloudProvider.ID)) {
       return null;
     }
 
-    Map<String, String> result = new HashMap<>(2);
+    Map<String, String> result = new HashMap<>();
     result.put("provider", parts[0]);
     result.put("type", parts[1]);
 
@@ -101,117 +110,50 @@ public class Keys implements KeyParser {
   }
 
   public static String getApplicationKey(String name) {
-    return YandexCloudProvider.ID + ":" + Namespace.APPLICATIONS + ":" + name;
+    return keyFor(Namespace.APPLICATIONS, name);
   }
 
   public static String getClusterKey(String account, String application, String clusterName) {
-    return YandexCloudProvider.ID
-        + ":"
-        + Namespace.CLUSTERS
-        + ":"
-        + account
-        + ":"
-        + application
-        + ":"
-        + clusterName;
+    return keyFor(Namespace.CLUSTERS, account, application, clusterName);
   }
 
   public static String getNetworkKey(String account, String id, String folderId, String name) {
-    return YandexCloudProvider.ID
-        + ":"
-        + Namespace.NETWORKS
-        + ":"
-        + id
-        + ":"
-        + account
-        + ":ru-central1:"
-        + folderId
-        + ":"
-        + name;
+    return keyFor(Namespace.NETWORKS, id, account, folderId, name);
   }
 
   public static String getSubnetKey(String account, String id, String folderId, String name) {
-    return YandexCloudProvider.ID
-        + ":"
-        + Namespace.SUBNETS
-        + ":"
-        + id
-        + ":"
-        + account
-        + ":ru-central1:"
-        + folderId
-        + ":"
-        + name;
+    return keyFor(Namespace.SUBNETS, id, account, YandexCloudProvider.REGION, folderId, name);
   }
 
   public static String getLoadBalancerKey(String account, String id, String folderId, String name) {
-    return YandexCloudProvider.ID
-        + ":"
-        + Namespace.LOAD_BALANCERS
-        + ":"
-        + id
-        + ":"
-        + account
-        + ":ru-central1:"
-        + folderId
-        + ":"
-        + name;
+    return keyFor(
+        Namespace.LOAD_BALANCERS, id, account, YandexCloudProvider.REGION, folderId, name);
   }
 
   public static String getInstanceKey(String account, String id, String folderId, String name) {
-    return YandexCloudProvider.ID
-        + ":"
-        + Namespace.INSTANCES
-        + ":"
-        + id
-        + ":"
-        + account
-        + ":ru-central1:"
-        + folderId
-        + ":"
-        + name;
+    return keyFor(Namespace.INSTANCES, id, account, YandexCloudProvider.REGION, folderId, name);
   }
 
   public static String getServerGroupKey(String account, String id, String folderId, String name) {
-    return YandexCloudProvider.ID
-        + ":"
-        + Namespace.SERVER_GROUPS
-        + ":"
-        + id
-        + ":"
-        + account
-        + ":ru-central1:"
-        + folderId
-        + ":"
-        + name;
+    return keyFor(Namespace.SERVER_GROUPS, id, account, YandexCloudProvider.REGION, folderId, name);
   }
 
   public static String getImageKey(String account, String id, String folderId, String name) {
-    return YandexCloudProvider.ID
-        + ":"
-        + Namespace.IMAGES
-        + ":"
-        + id
-        + ":"
-        + account
-        + ":ru-central1:"
-        + folderId
-        + ":"
-        + name;
+    return keyFor(Namespace.IMAGES, id, account, YandexCloudProvider.REGION, folderId, name);
   }
 
   public static String getServiceAccount(String account, String id, String folderId, String name) {
-    return YandexCloudProvider.ID
-        + ":"
-        + Namespace.SERVICE_ACCOUNT
-        + ":"
-        + id
-        + ":"
-        + account
-        + ":ru-central1:"
-        + folderId
-        + ":"
-        + name;
+    return keyFor(
+        Namespace.SERVICE_ACCOUNT, id, account, YandexCloudProvider.REGION, folderId, name);
+  }
+
+  private static String keyFor(Namespace namespace, String... parts) {
+    StringBuilder builder =
+        new StringBuilder(YandexCloudProvider.ID + KEY_DELIMITER).append(namespace);
+    for (String part : parts) {
+      builder.append(KEY_DELIMITER).append(part);
+    }
+    return builder.toString();
   }
 
   public enum Namespace {
@@ -238,9 +180,8 @@ public class Keys implements KeyParser {
     }
 
     public static Namespace from(String ns) {
-      String cleanNs = Strings.nullToEmpty(ns);
       return Stream.of(values())
-          .filter(namespace -> namespace.ns.equals(cleanNs))
+          .filter(namespace -> namespace.ns.equals(ns))
           .findAny()
           .orElseThrow(IllegalArgumentException::new);
     }

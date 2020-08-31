@@ -16,100 +16,86 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.provider.agent;
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
-import static com.netflix.spinnaker.clouddriver.yandex.provider.Keys.Namespace.*;
-import static java.util.Collections.*;
-import static yandex.cloud.api.compute.v1.InstanceOuterClass.Instance;
-import static yandex.cloud.api.compute.v1.InstanceServiceOuterClass.ListInstancesRequest;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
-import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.DefaultCacheData;
+import com.netflix.spinnaker.cats.agent.AgentDataType.Authority;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudInstance;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudLoadBalancer;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
-import java.util.*;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.Getter;
 
-@Getter
-public class YandexInstanceCachingAgent extends AbstractYandexCachingAgent {
-  private String agentType =
-      getAccountName() + "/" + YandexInstanceCachingAgent.class.getSimpleName();
-  private Set<AgentDataType> providedDataTypes =
-      new HashSet<>(
-          Arrays.asList(
-              AUTHORITATIVE.forType(INSTANCES.getNs()),
-              INFORMATIVE.forType(CLUSTERS.getNs()),
-              INFORMATIVE.forType(LOAD_BALANCERS.getNs())));
+public class YandexInstanceCachingAgent extends AbstractYandexCachingAgent<YandexCloudInstance> {
+  private static final String TYPE = Keys.Namespace.INSTANCES.getNs();
 
-  public YandexInstanceCachingAgent(YandexCloudCredentials credentials, ObjectMapper objectMapper) {
-    super(credentials, objectMapper);
+  public YandexInstanceCachingAgent(
+      YandexCloudCredentials credentials,
+      ObjectMapper objectMapper,
+      YandexCloudFacade yandexCloudFacade) {
+    super(credentials, objectMapper, yandexCloudFacade);
+  }
+
+  public Set<AgentDataType> getProvidedDataTypes() {
+    Set<AgentDataType> authoritative = new HashSet<>(super.getProvidedDataTypes());
+    Collections.addAll(
+        authoritative,
+        Authority.INFORMATIVE.forType(Keys.Namespace.CLUSTERS.getNs()),
+        Authority.INFORMATIVE.forType(Keys.Namespace.LOAD_BALANCERS.getNs()));
+    return authoritative;
   }
 
   @Override
-  public CacheResult loadData(ProviderCache providerCache) {
-    ListInstancesRequest request =
-        ListInstancesRequest.newBuilder().setFolderId(getFolder()).build();
-    List<Instance> instancesList =
-        getCredentials().instanceService().list(request).getInstancesList();
+  protected List<YandexCloudInstance> loadEntities(ProviderCache providerCache) {
+    return yandexCloudFacade.getInstances(credentials).stream()
+        .peek(instance -> linkWithLoadBalancers(instance, providerCache))
+        .collect(Collectors.toList());
+  }
 
-    Collection<CacheData> cacheData =
-        instancesList.stream()
-            .map(YandexCloudInstance::createFromProto)
-            .peek(instance -> linkWithLoadBalancers(instance, providerCache))
-            .map(this::buildCacheResults)
-            .collect(Collectors.toList());
+  @Override
+  protected String getKey(YandexCloudInstance instance) {
+    return Keys.getInstanceKey(getAccountName(), instance.getId(), getFolder(), instance.getName());
+  }
 
-    return new DefaultCacheResult(singletonMap(INSTANCES.getNs(), cacheData));
+  @Override
+  protected String getType() {
+    return TYPE;
   }
 
   private void linkWithLoadBalancers(YandexCloudInstance instance, ProviderCache providerCache) {
-    Collection<String> identifiers =
-        providerCache.filterIdentifiers(
-            LOAD_BALANCERS.getNs(), Keys.getLoadBalancerKey("*", "*", "*", "*"));
-
-    providerCache.getAll(LOAD_BALANCERS.getNs(), identifiers).stream()
-        .map(
-            cacheData ->
-                getObjectMapper()
-                    .convertValue(cacheData.getAttributes(), YandexCloudLoadBalancer.class))
+    providerCache.getAll(Keys.Namespace.LOAD_BALANCERS.getNs()).stream()
+        .map(cacheData -> convert(cacheData, YandexCloudLoadBalancer.class))
         .filter(
             balancer ->
                 balancer.getHealths().values().stream()
                     .flatMap(Collection::stream)
-                    .anyMatch(
-                        health ->
-                            instance
-                                .getAddressesInSubnets()
-                                .getOrDefault(health.getSubnetId(), emptyList())
-                                .contains(health.getAddress())))
+                    .anyMatch(instance::containsAddress))
         .forEach(instance::linkWithLoadBalancer);
   }
 
-  private CacheData buildCacheResults(YandexCloudInstance instance) {
+  @Override
+  protected Map<String, Collection<String>> getRelationships(YandexCloudInstance instance) {
+    Map<String, Collection<String>> relationships = new HashMap<>();
     String defaultName =
         Strings.isNullOrEmpty(instance.getName()) ? instance.getId() : instance.getName();
     String applicationName =
         instance.getLabels().getOrDefault("spinnaker-application", defaultName);
-    String clusterKey =
-        Keys.getClusterKey(
-            getAccountName(),
-            applicationName,
-            instance.getLabels().getOrDefault("spinnaker-cluster", defaultName));
-    String instanceKey =
-        Keys.getInstanceKey(getAccountName(), instance.getId(), getFolder(), instance.getName());
-    Map<String, Object> attributes = getObjectMapper().convertValue(instance, MAP_TYPE_REFERENCE);
-    Map<String, Collection<String>> relationships = new HashMap<>();
-    relationships.put(CLUSTERS.getNs(), singletonList(clusterKey));
-    relationships.put(APPLICATIONS.getNs(), singletonList(Keys.getApplicationKey(applicationName)));
-    return new DefaultCacheData(instanceKey, attributes, relationships);
+    String applicationKey = Keys.getApplicationKey(applicationName);
+    relationships.put(
+        Keys.Namespace.APPLICATIONS.getNs(), Collections.singletonList(applicationKey));
+
+    String clusterName = instance.getLabels().getOrDefault("spinnaker-cluster", defaultName);
+    String clusterKey = Keys.getClusterKey(getAccountName(), applicationName, clusterName);
+    relationships.put(Keys.Namespace.CLUSTERS.getNs(), Collections.singletonList(clusterKey));
+    return relationships;
   }
 }

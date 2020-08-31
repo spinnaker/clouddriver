@@ -18,45 +18,32 @@ package com.netflix.spinnaker.clouddriver.yandex.provider.view;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.model.NetworkProvider;
 import com.netflix.spinnaker.clouddriver.yandex.YandexCloudProvider;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudNetwork;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
-import java.util.Collection;
 import java.util.Set;
-import java.util.stream.Collectors;
-import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class YandexNetworkProvider implements NetworkProvider<YandexCloudNetwork> {
-  private final Cache cacheView;
-  private final ObjectMapper objectMapper;
+  private final CacheClient<YandexCloudNetwork> cacheClient;
 
-  @Getter private final String cloudProvider = YandexCloudProvider.ID;
+  @Override
+  public String getCloudProvider() {
+    return YandexCloudProvider.ID;
+  }
 
   @Autowired
   public YandexNetworkProvider(Cache cacheView, ObjectMapper objectMapper) {
-    this.cacheView = cacheView;
-    this.objectMapper = objectMapper;
+    this.cacheClient =
+        new CacheClient<>(
+            cacheView, objectMapper, Keys.Namespace.NETWORKS, YandexCloudNetwork.class);
   }
 
   @Override
   public Set<YandexCloudNetwork> getAll() {
-    return loadResults(
-        cacheView.filterIdentifiers(
-            Keys.Namespace.NETWORKS.getNs(), Keys.getNetworkKey("*", "*", "*", "*")));
-  }
-
-  private Set<YandexCloudNetwork> loadResults(Collection<String> identifiers) {
-    return cacheView.getAll(Keys.Namespace.NETWORKS.getNs(), identifiers).stream()
-        .map(this::fromCacheData)
-        .collect(Collectors.toSet());
-  }
-
-  private YandexCloudNetwork fromCacheData(CacheData cacheData) {
-    return objectMapper.convertValue(cacheData.getAttributes(), YandexCloudNetwork.class);
+    return cacheClient.getAll(Keys.NETWORK_WILDCARD);
   }
 }

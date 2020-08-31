@@ -16,8 +16,9 @@
 
 package com.netflix.spinnaker.config;
 
-import com.netflix.spinnaker.clouddriver.yandex.deploy.YandexOperationPoller;
+import com.netflix.spinnaker.clouddriver.yandex.deploy.converter.YandexOperationConvertersFactory;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentialsInitializer;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexOperationPoller;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -31,7 +32,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @ConditionalOnProperty("yandex.enabled")
 @ComponentScan("com.netflix.spinnaker.clouddriver.yandex")
-@Import(value = {YandexCloudCredentialsInitializer.class})
+@Import(value = {YandexCloudCredentialsInitializer.class, YandexOperationConvertersFactory.class})
 public class YandexCloudConfiguration {
   @Bean
   YandexOperationPoller yandexOperationPoller() {

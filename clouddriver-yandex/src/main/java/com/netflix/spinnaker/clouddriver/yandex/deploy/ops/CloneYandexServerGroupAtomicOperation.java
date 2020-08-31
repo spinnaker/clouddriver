@@ -16,41 +16,33 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.deploy.ops;
 
-import com.google.common.base.Strings;
 import com.netflix.frigga.Names;
-import com.netflix.spinnaker.clouddriver.data.task.Task;
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.yandex.deploy.YandexDeployHandler;
 import com.netflix.spinnaker.clouddriver.yandex.deploy.YandexServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.yandex.deploy.description.YandexInstanceGroupDescription;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup;
-import com.netflix.spinnaker.clouddriver.yandex.provider.view.YandexClusterProvider;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@SuppressWarnings("rawtypes")
-public class CloneYandexServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
+public class CloneYandexServerGroupAtomicOperation
+    extends AbstractYandexAtomicOperation<YandexInstanceGroupDescription>
+    implements AtomicOperation<DeploymentResult> {
+
   private static final String BASE_PHASE = "COPY_LAST_SERVER_GROUP";
 
-  private final YandexInstanceGroupDescription description;
-
   @Autowired private YandexDeployHandler deployHandler;
-  @Autowired private YandexClusterProvider yandexClusterProvider;
-
-  private static Task getTask() {
-    return TaskRepository.threadLocalTask.get();
-  }
 
   public CloneYandexServerGroupAtomicOperation(YandexInstanceGroupDescription description) {
-    this.description = description;
+    super(description);
   }
 
   @Override
-  public DeploymentResult operate(List priorOutputs) {
+  public DeploymentResult operate(List<DeploymentResult> priorOutputs) {
     YandexInstanceGroupDescription newDescription = cloneAndOverrideDescription();
 
     YandexServerGroupNameResolver serverGroupNameResolver =
@@ -61,43 +53,30 @@ public class CloneYandexServerGroupAtomicOperation implements AtomicOperation<De
             newDescription.getStack(),
             newDescription.getFreeFormDetails());
 
-    getTask()
-        .updateStatus(
-            BASE_PHASE, "Initializing copy of server group for cluster " + clusterName + "...");
-
+    status(BASE_PHASE, "Initializing copy of server group for cluster '%s'...", clusterName);
     DeploymentResult result = deployHandler.handle(newDescription, priorOutputs);
-
-    String newServerGroupName = result.getDeployments().iterator().next().getServerGroupName();
-    getTask()
-        .updateStatus(
-            BASE_PHASE,
-            "Finished copying server group for cluster "
-                + clusterName
-                + ". "
-                + "New server group = "
-                + newServerGroupName
-                + ".");
-
+    String newServerGroupName =
+        single(result.getDeployments())
+            .map(DeploymentResult.Deployment::getServerGroupName)
+            .orElse(null);
+    status(
+        BASE_PHASE,
+        "Finished copying server group for cluster '%s'. New server group '%s'.",
+        clusterName,
+        newServerGroupName);
     return result;
   }
 
   private YandexInstanceGroupDescription cloneAndOverrideDescription() {
-    String serverGroupName = description.getSource().getServerGroupName();
-    if (Strings.isNullOrEmpty(serverGroupName)) {
-      return description;
-    }
+    return Optional.ofNullable(description.getSource().getServerGroupName())
+        .filter(name -> !name.isEmpty())
+        .map(name -> getServerGroup(BASE_PHASE, name))
+        .map(this::merge)
+        .orElse(description);
+  }
 
-    getTask()
-        .updateStatus(BASE_PHASE, "Initializing copy of server group " + serverGroupName + "...");
-
-    // Locate the ancestor server group.
-    YandexCloudServerGroup ancestorServerGroup =
-        yandexClusterProvider.getServerGroup(
-            description.getAccount(), "ru-central1", serverGroupName);
-    if (ancestorServerGroup == null) {
-      return description;
-    }
-
+  // probably its easier to merge maps...
+  private YandexInstanceGroupDescription merge(YandexCloudServerGroup ancestorServerGroup) {
     YandexInstanceGroupDescription.YandexInstanceGroupDescriptionBuilder newDescription =
         description.toBuilder();
 
@@ -138,28 +117,29 @@ public class CloneYandexServerGroupAtomicOperation implements AtomicOperation<De
       YandexCloudServerGroup.InstanceTemplate ancestorTemplate =
           ancestorServerGroup.getInstanceTemplate();
       YandexCloudServerGroup.InstanceTemplate.InstanceTemplateBuilder builder =
-          template.toBuilder();
-
-      builder.description(
-          firstNonEmpty(template.getDescription(), ancestorTemplate.getDescription()));
-      builder.labels(firstNonEmpty(template.getLabels(), ancestorTemplate.getLabels()));
-      builder.platformId(firstNonEmpty(template.getPlatformId(), ancestorTemplate.getPlatformId()));
-      builder.resourcesSpec(
-          firstNotNull(template.getResourcesSpec(), ancestorTemplate.getResourcesSpec()));
-      builder.metadata(firstNonEmpty(template.getMetadata(), ancestorTemplate.getMetadata()));
-      builder.bootDiskSpec(
-          firstNotNull(template.getBootDiskSpec(), ancestorTemplate.getBootDiskSpec()));
-      builder.secondaryDiskSpecs(
-          firstNonEmpty(
-              template.getSecondaryDiskSpecs(), ancestorTemplate.getSecondaryDiskSpecs()));
-      builder.networkInterfaceSpecs(
-          firstNonEmpty(
-              template.getNetworkInterfaceSpecs(), ancestorTemplate.getNetworkInterfaceSpecs()));
-      builder.schedulingPolicy(
-          firstNotNull(template.getSchedulingPolicy(), ancestorTemplate.getSchedulingPolicy()));
-      builder.serviceAccountId(
-          firstNonEmpty(template.getServiceAccountId(), ancestorTemplate.getServiceAccountId()));
-
+          template.toBuilder()
+              .description(
+                  firstNonEmpty(template.getDescription(), ancestorTemplate.getDescription()))
+              .labels(firstNonEmpty(template.getLabels(), ancestorTemplate.getLabels()))
+              .platformId(firstNonEmpty(template.getPlatformId(), ancestorTemplate.getPlatformId()))
+              .resourcesSpec(
+                  firstNotNull(template.getResourcesSpec(), ancestorTemplate.getResourcesSpec()))
+              .metadata(firstNonEmpty(template.getMetadata(), ancestorTemplate.getMetadata()))
+              .bootDiskSpec(
+                  firstNotNull(template.getBootDiskSpec(), ancestorTemplate.getBootDiskSpec()))
+              .secondaryDiskSpecs(
+                  firstNonEmpty(
+                      template.getSecondaryDiskSpecs(), ancestorTemplate.getSecondaryDiskSpecs()))
+              .networkInterfaceSpecs(
+                  firstNonEmpty(
+                      template.getNetworkInterfaceSpecs(),
+                      ancestorTemplate.getNetworkInterfaceSpecs()))
+              .schedulingPolicy(
+                  firstNotNull(
+                      template.getSchedulingPolicy(), ancestorTemplate.getSchedulingPolicy()))
+              .serviceAccountId(
+                  firstNonEmpty(
+                      template.getServiceAccountId(), ancestorTemplate.getServiceAccountId()));
       newDescription.instanceTemplate(builder.build());
     } else {
       newDescription.instanceTemplate(ancestorServerGroup.getInstanceTemplate());
@@ -177,7 +157,7 @@ public class CloneYandexServerGroupAtomicOperation implements AtomicOperation<De
   }
 
   private static String firstNonEmpty(String first, String second) {
-    return Strings.isNullOrEmpty(first) ? second : first;
+    return first == null || first.isEmpty() ? second : first;
   }
 
   private static <T, COLLECTION extends Collection<T>> COLLECTION firstNonEmpty(

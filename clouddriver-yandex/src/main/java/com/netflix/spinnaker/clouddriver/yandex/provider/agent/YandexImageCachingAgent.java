@@ -16,67 +16,38 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.provider.agent;
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.singletonMap;
-import static yandex.cloud.api.compute.v1.ImageOuterClass.Image;
-import static yandex.cloud.api.compute.v1.ImageServiceOuterClass.ListImagesRequest;
-import static yandex.cloud.api.compute.v1.ImageServiceOuterClass.ListImagesResponse;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Strings;
-import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
-import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudImage;
 import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
 import com.netflix.spinnaker.clouddriver.yandex.security.YandexCloudCredentials;
+import com.netflix.spinnaker.clouddriver.yandex.service.YandexCloudFacade;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import lombok.Getter;
 
-@Getter
-public class YandexImageCachingAgent extends AbstractYandexCachingAgent {
-  private String agentType = getAccountName() + "/" + YandexImageCachingAgent.class.getSimpleName();
-  private Set<AgentDataType> providedDataTypes =
-      Collections.singleton(AUTHORITATIVE.forType(Keys.Namespace.IMAGES.getNs()));
+public class YandexImageCachingAgent extends AbstractYandexCachingAgent<YandexCloudImage> {
+  private static final String TYPE = Keys.Namespace.IMAGES.getNs();
 
-  public YandexImageCachingAgent(YandexCloudCredentials credentials, ObjectMapper objectMapper) {
-    super(credentials, objectMapper);
+  public YandexImageCachingAgent(
+      YandexCloudCredentials credentials,
+      ObjectMapper objectMapper,
+      YandexCloudFacade yandexCloudFacade) {
+    super(credentials, objectMapper, yandexCloudFacade);
   }
 
   @Override
-  public CacheResult loadData(ProviderCache providerCache) {
-    Collection<CacheData> cacheData =
-        Stream.concat(loadImages(getFolder()).stream(), loadImages("standard-images").stream())
-            .map(
-                image ->
-                    new DefaultCacheData(
-                        Keys.getImageKey(
-                            getAccountName(), image.getId(), image.getFolderId(), image.getName()),
-                        getObjectMapper()
-                            .convertValue(
-                                YandexCloudImage.createFromProto(image), MAP_TYPE_REFERENCE),
-                        emptyMap()))
-            .collect(Collectors.toList());
-
-    return new DefaultCacheResult(singletonMap(Keys.Namespace.IMAGES.getNs(), cacheData));
+  protected String getType() {
+    return TYPE;
   }
 
-  private List<Image> loadImages(String folder) {
-    List<Image> images = new ArrayList<>();
-    String nextPageToken = "";
-    do {
-      ListImagesRequest request =
-          ListImagesRequest.newBuilder().setFolderId(folder).setPageToken(nextPageToken).build();
-      ListImagesResponse response = getCredentials().imageService().list(request);
-      images.addAll(response.getImagesList());
-      nextPageToken = response.getNextPageToken();
-    } while (!Strings.isNullOrEmpty(nextPageToken));
+  @Override
+  protected List<YandexCloudImage> loadEntities(ProviderCache providerCache) {
+    List<YandexCloudImage> images = yandexCloudFacade.getImages(credentials, getFolder());
+    images.addAll(yandexCloudFacade.getImages(credentials, "standard-images"));
     return images;
+  }
+
+  @Override
+  protected String getKey(YandexCloudImage image) {
+    return Keys.getImageKey(getAccountName(), image.getId(), getFolder(), image.getName());
   }
 }

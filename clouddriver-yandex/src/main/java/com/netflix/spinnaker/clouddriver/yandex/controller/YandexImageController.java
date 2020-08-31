@@ -16,21 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.controller;
 
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.cats.mem.InMemoryCache;
 import com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudImage;
-import com.netflix.spinnaker.clouddriver.yandex.provider.Keys;
+import com.netflix.spinnaker.clouddriver.yandex.provider.view.YandexImageProvider;
 import groovy.util.logging.Slf4j;
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -44,13 +42,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/yandex/images")
 public class YandexImageController {
-  private final Cache cacheView;
-  private final ObjectMapper objectMapper;
+  private final YandexImageProvider yandexImageProvider;
 
   @Autowired
-  private YandexImageController(Cache cacheView, ObjectMapper objectMapper) {
-    this.cacheView = cacheView;
-    this.objectMapper = objectMapper;
+  private YandexImageController(YandexImageProvider yandexImageProvider) {
+    this.yandexImageProvider = yandexImageProvider;
   }
 
   @RequestMapping(value = "/find", method = RequestMethod.GET)
@@ -58,34 +54,20 @@ public class YandexImageController {
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String account,
       HttpServletRequest request) {
-    return getImageCacheData(account).stream()
-        .map(this::convertToYandexImage)
-        .filter(getQueryFilter(q))
-        .filter(getTagFilter(request))
-        .sorted(Comparator.comparing(YandexImage::getImageName))
-        .collect(toList());
+    return (Strings.isNullOrEmpty(account)
+            ? yandexImageProvider.getAll()
+            : yandexImageProvider.findByAccount(account))
+        .stream()
+            .map(YandexImageController::convertToYandexImage)
+            .filter(getQueryFilter(q))
+            .filter(getTagFilter(request))
+            .sorted(Comparator.comparing(YandexImage::getImageName))
+            .collect(Collectors.toList());
   }
 
-  private Collection<CacheData> getImageCacheData(String account) {
-    String imageKey =
-        Keys.getImageKey(Strings.isNullOrEmpty(account) ? "*" : account, "*", "*", "*");
-    Collection<String> identifiers =
-        cacheView.filterIdentifiers(Keys.Namespace.IMAGES.getNs(), imageKey);
-    return cacheView.getAll(
-        Keys.Namespace.IMAGES.getNs(), identifiers, RelationshipCacheFilter.none());
-  }
-
-  private YandexImage convertToYandexImage(CacheData cacheData) {
-    YandexCloudImage image =
-        objectMapper.convertValue(cacheData.getAttributes(), YandexCloudImage.class);
-    String imageAccount = Keys.parse(cacheData.getId()).get("account");
+  private static YandexImage convertToYandexImage(YandexCloudImage image) {
     return new YandexImage(
-        imageAccount,
-        image.getId(),
-        image.getName(),
-        image.getRegion(),
-        image.getCreatedAt(),
-        image.getLabels());
+        image.getId(), image.getName(), image.getRegion(), image.getCreatedAt(), image.getLabels());
   }
 
   private Predicate<YandexImage> getQueryFilter(String q) {
@@ -121,18 +103,21 @@ public class YandexImageController {
   private static Map<String, String> extractTagFilters(HttpServletRequest httpServletRequest) {
     return Collections.list(httpServletRequest.getParameterNames()).stream()
         .filter(Objects::nonNull)
-        .filter(parameter -> parameter.toLowerCase().startsWith("tag:"))
+        .filter(name -> name.toLowerCase().startsWith("tag:"))
         .collect(
-            toMap(
+            Collectors.toMap(
                 tagParameter -> tagParameter.replaceAll("tag:", "").toLowerCase(),
                 httpServletRequest::getParameter,
                 (a, b) -> b));
   }
 
+  /**
+   * in deck we use only <code>imageId</code> and <code>imageName</code> todo: rename properties in
+   * deck and remove class
+   */
   @Data
   @AllArgsConstructor
   public static class YandexImage {
-    String account;
     String imageId;
     String imageName;
     String region;

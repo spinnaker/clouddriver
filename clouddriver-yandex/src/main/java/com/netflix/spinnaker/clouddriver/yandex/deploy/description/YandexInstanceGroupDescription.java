@@ -54,7 +54,7 @@ public class YandexInstanceGroupDescription
   private Map<String, List<YandexCloudServerGroup.HealthCheckSpec>> balancers;
   private Boolean enableTraffic;
 
-  private Source source = new Source();
+  private Source source;
 
   @Override
   public Collection<String> getApplications() {
