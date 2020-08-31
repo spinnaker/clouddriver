@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.aws.security.config
 
 import com.amazonaws.auth.AWSCredentialsProvider
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.aws.security.AWSAccountInfoLookup
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.security.AssumeRoleAmazonCredentials
@@ -27,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig.R
 import spock.lang.Specification
 
 class CredentialsLoaderSpec extends Specification {
+    def objectMapper = new ObjectMapper();
 
     def 'basic test with defaults'() {
         setup:
@@ -47,7 +49,7 @@ class CredentialsLoaderSpec extends Specification {
         )
         AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
         AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
-        CredentialsLoader<AmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AmazonCredentials)
+        CredentialsLoader<AmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AmazonCredentials, objectMapper)
 
         when:
         List<AmazonCredentials> creds = ci.load(config)
@@ -80,7 +82,7 @@ class CredentialsLoaderSpec extends Specification {
         def config = new CredentialsConfig(accounts: [new Account(name: 'default')])
         AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
         AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
-        def ci = new CredentialsLoader<AmazonCredentials>(provider, lookup, AmazonCredentials)
+        def ci = new CredentialsLoader<AmazonCredentials>(provider, lookup, AmazonCredentials, objectMapper)
 
         when:
         List<AmazonCredentials> creds = ci.load(config)
@@ -106,7 +108,7 @@ class CredentialsLoaderSpec extends Specification {
         def config = new CredentialsConfig(defaultRegions: [new Region(name: 'us-east-1'), new Region(name: 'us-west-2')], accounts: [new Account(name: 'default', accountId: 1), new Account(name: 'other', accountId: 2)])
         AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
         AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
-        CredentialsLoader<AmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AmazonCredentials)
+        CredentialsLoader<AmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AmazonCredentials, objectMapper)
 
         when:
         List<AmazonCredentials> creds = ci.load(config)
@@ -131,7 +133,7 @@ class CredentialsLoaderSpec extends Specification {
                                 regions: [ new Region(name: 'us-west-2')])])
         AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
         AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
-        CredentialsLoader<AmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AmazonCredentials)
+        CredentialsLoader<AmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AmazonCredentials, objectMapper)
 
         when:
         List<AmazonCredentials> creds = ci.load(config)
@@ -178,7 +180,7 @@ class CredentialsLoaderSpec extends Specification {
         )
         AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
         AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
-        CredentialsLoader<NetflixAmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, NetflixAmazonCredentials)
+        CredentialsLoader<NetflixAmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, NetflixAmazonCredentials, objectMapper)
 
         when:
         List<NetflixAmazonCredentials> creds = ci.load(config)
@@ -213,7 +215,7 @@ class CredentialsLoaderSpec extends Specification {
         setup:
         AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
         AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
-        CredentialsLoader<NetflixAmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, NetflixAmazonCredentials)
+        CredentialsLoader<NetflixAmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, NetflixAmazonCredentials, objectMapper)
 
         when:
         NetflixAmazonCredentials cred = ci.load('default')
@@ -238,7 +240,7 @@ class CredentialsLoaderSpec extends Specification {
                 accounts: [new Account(name: 'gonnaFail')])
         AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
         AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
-        CredentialsLoader<AssumeRoleAmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AssumeRoleAmazonCredentials)
+        CredentialsLoader<AssumeRoleAmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AssumeRoleAmazonCredentials, objectMapper)
 
         when:
         ci.load(config)

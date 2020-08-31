@@ -46,10 +46,12 @@ public class CredentialsLoader<T extends AmazonCredentials> {
   public CredentialsLoader(
       AWSCredentialsProvider credentialsProvider,
       AmazonClientProvider amazonClientProvider,
+      ObjectMapper objectMapper,
       Class<T> credentialsType) {
     this(
         credentialsProvider,
         amazonClientProvider,
+        objectMapper,
         credentialsType,
         Collections.<String, String>emptyMap());
   }
@@ -57,11 +59,13 @@ public class CredentialsLoader<T extends AmazonCredentials> {
   public CredentialsLoader(
       AWSCredentialsProvider credentialsProvider,
       AmazonClientProvider amazonClientProvider,
+      ObjectMapper objectMapper,
       Class<T> credentialsType,
       Map<String, String> templateValues) {
     this(
         credentialsProvider,
         new DefaultAWSAccountInfoLookup(credentialsProvider, amazonClientProvider),
+        objectMapper,
         credentialsType,
         templateValues);
   }
@@ -69,10 +73,12 @@ public class CredentialsLoader<T extends AmazonCredentials> {
   public CredentialsLoader(
       AWSCredentialsProvider credentialsProvider,
       AWSAccountInfoLookup awsAccountInfoLookup,
-      Class<T> credentialsType) {
+      Class<T> credentialsType,
+      ObjectMapper objectMapper) {
     this(
         credentialsProvider,
         awsAccountInfoLookup,
+        objectMapper,
         credentialsType,
         Collections.<String, String>emptyMap());
   }
@@ -80,12 +86,13 @@ public class CredentialsLoader<T extends AmazonCredentials> {
   public CredentialsLoader(
       AWSCredentialsProvider credentialsProvider,
       AWSAccountInfoLookup awsAccountInfoLookup,
+      ObjectMapper objectMapper,
       Class<T> credentialsType,
       Map<String, String> templateValues) {
     this.credentialsProvider = Objects.requireNonNull(credentialsProvider, "credentialsProvider");
     this.awsAccountInfoLookup = awsAccountInfoLookup;
     this.templateValues = templateValues;
-    this.objectMapper = new ObjectMapper();
+    this.objectMapper = objectMapper;
     this.credentialTranslator = findTranslator(credentialsType, this.objectMapper);
   }
 
