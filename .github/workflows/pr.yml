@@ -25,4 +25,4 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
     - name: Build
-      run: ./gradlew -PenableCrossCompilerPlugin=true build
+      run: ./gradlew -PenableCrossCompilerPlugin=true -PintegrationTests --info build
