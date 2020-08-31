@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.aws.security
 
 import com.amazonaws.auth.AWSCredentialsProvider
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsLoader
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
@@ -50,8 +51,9 @@ class AmazonCredentialsInitializer {
   @ConditionalOnMissingBean(CredentialsLoader.class)
   CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader(AWSCredentialsProvider awsCredentialsProvider,
                                                                           AmazonClientProvider amazonClientProvider,
+                                                                          ObjectMapper objectMapper,
                                                                           Class<? extends NetflixAmazonCredentials> credentialsType) {
-    new CredentialsLoader<? extends NetflixAmazonCredentials>(awsCredentialsProvider, amazonClientProvider, credentialsType)
+    new CredentialsLoader<? extends NetflixAmazonCredentials>(awsCredentialsProvider, amazonClientProvider, objectMapper, credentialsType)
   }
 
   @Bean
