@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
-import com.netflix.spinnaker.clouddriver.kubernetes.provider.KubernetesModelUtil;
 import com.netflix.spinnaker.clouddriver.model.JobState;
 import com.netflix.spinnaker.clouddriver.model.JobStatus;
 import io.kubernetes.client.openapi.models.V1Job;
@@ -55,11 +54,10 @@ public class KubernetesV2JobStatus implements JobStatus {
     this.account = account;
     this.name = job.getMetadata().getName();
     this.location = job.getMetadata().getNamespace();
-    this.createdTime =
-        KubernetesModelUtil.translateTime(
-            job.getMetadata().getCreationTimestamp().toString(), "yyyy-MM-dd'T'HH:mm:ss");
+    this.createdTime = job.getMetadata().getCreationTimestamp().getMillis();
   }
 
+  @Override
   public Map<String, String> getCompletionDetails() {
     Map<String, String> details = new HashMap<>();
     details.put("exitCode", this.exitCode != null ? this.exitCode.toString() : "");
@@ -69,6 +67,7 @@ public class KubernetesV2JobStatus implements JobStatus {
     return details;
   }
 
+  @Override
   public JobState getJobState() {
     V1JobStatus status = job.getStatus();
     if (status == null) {
