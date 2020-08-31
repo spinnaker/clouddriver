@@ -153,16 +153,14 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       KubernetesResourceProperties properties = findResourceProperties(manifest);
       KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
 
-      KubernetesArtifactConverter converter =
-          KubernetesArtifactConverter.getInstance(isVersioned(properties, strategy));
-      KubernetesHandler deployer = properties.getHandler();
-
       Moniker moniker = cloneMoniker(description.getMoniker());
       if (Strings.isNullOrEmpty(moniker.getCluster())) {
         moniker.setCluster(manifest.getFullResourceName());
       }
 
-      Artifact artifact = converter.toArtifact(provider, manifest, description.getAccount());
+      Artifact artifact =
+          KubernetesArtifactConverter.getInstance(isVersioned(properties, strategy))
+              .toArtifact(provider, manifest, description.getAccount());
 
       String version = artifact.getVersion();
       if (Strings.nullToEmpty(version).startsWith("v")) {
@@ -181,6 +179,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
                   + " with artifact, relationships & moniker...");
       KubernetesManifestAnnotater.annotateManifest(manifest, artifact);
 
+      KubernetesHandler deployer = properties.getHandler();
       if (strategy.isUseSourceCapacity() && deployer instanceof CanScale) {
         Double replicas = KubernetesSourceCapacity.getSourceCapacity(manifest, credentials);
         if (replicas != null) {

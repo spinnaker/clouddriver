@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import java.util.OptionalInt;
 import javax.annotation.Nonnull;
 
 final class KubernetesUnversionedArtifactConverter extends KubernetesArtifactConverter {
@@ -28,8 +29,8 @@ final class KubernetesUnversionedArtifactConverter extends KubernetesArtifactCon
   private KubernetesUnversionedArtifactConverter() {}
 
   @Nonnull
-  protected String getVersion(
+  protected OptionalInt getVersion(
       ArtifactProvider provider, @Nonnull String account, KubernetesManifest manifest) {
-    return "";
+    return OptionalInt.empty();
   }
 }

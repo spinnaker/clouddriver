@@ -26,6 +26,8 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,19 +43,21 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
   private KubernetesVersionedArtifactConverter() {}
 
   @Nonnull
-  protected String getVersion(
+  protected OptionalInt getVersion(
       ArtifactProvider provider, @Nonnull String account, KubernetesManifest manifest) {
     ImmutableList<Artifact> priorVersions =
         provider.getArtifacts(
             manifest.getKind(), manifest.getName(), manifest.getNamespace(), account);
 
-    Optional<String> maybeVersion = findMatchingVersion(priorVersions, manifest);
+    OptionalInt maybeVersion = findMatchingVersion(priorVersions, manifest);
     if (maybeVersion.isPresent()) {
-      String version = maybeVersion.get();
-      log.info("Manifest {} was already deployed at version {} - reusing.", manifest, version);
-      return version;
+      log.info(
+          "Manifest {} was already deployed at version {} - reusing.",
+          manifest,
+          maybeVersion.getAsInt());
+      return maybeVersion;
     } else {
-      return findGreatestUnusedVersion(priorVersions);
+      return OptionalInt.of(findGreatestUnusedVersion(priorVersions));
     }
   }
 
@@ -68,30 +72,32 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
     }
   }
 
-  private String findGreatestUnusedVersion(List<Artifact> priorVersions) {
-    int maxTaken =
-        priorVersions.stream()
-            .map(Artifact::getVersion)
-            .map(Strings::nullToEmpty)
-            .map(KubernetesVersionedArtifactConverter::parseVersion)
-            .filter(OptionalInt::isPresent)
-            .mapToInt(OptionalInt::getAsInt)
-            .filter(i -> i >= 0)
-            .max()
-            .orElse(-1);
-    return String.format("v%03d", maxTaken + 1);
+  private int findGreatestUnusedVersion(List<Artifact> priorVersions) {
+    int maxTaken = extractVersions(priorVersions.stream()).max().orElse(-1);
+    return maxTaken + 1;
   }
 
-  private Optional<String> findMatchingVersion(
+  private OptionalInt findMatchingVersion(
       List<Artifact> priorVersions, KubernetesManifest manifest) {
-    return priorVersions.stream()
-        .filter(
-            a ->
-                getLastAppliedConfiguration(a)
-                    .map(c -> c.nonMetadataEquals(manifest))
-                    .orElse(false))
-        .findFirst()
-        .map(Artifact::getVersion);
+    Stream<Artifact> matchingArtifacts =
+        priorVersions.stream()
+            .filter(
+                a ->
+                    getLastAppliedConfiguration(a)
+                        .map(c -> c.nonMetadataEquals(manifest))
+                        .orElse(false));
+
+    return extractVersions(matchingArtifacts).findFirst();
+  }
+
+  private IntStream extractVersions(Stream<Artifact> artifacts) {
+    return artifacts
+        .map(Artifact::getVersion)
+        .map(Strings::nullToEmpty)
+        .map(KubernetesVersionedArtifactConverter::parseVersion)
+        .filter(OptionalInt::isPresent)
+        .mapToInt(OptionalInt::getAsInt)
+        .filter(i -> i >= 0);
   }
 
   private Optional<KubernetesManifest> getLastAppliedConfiguration(Artifact artifact) {

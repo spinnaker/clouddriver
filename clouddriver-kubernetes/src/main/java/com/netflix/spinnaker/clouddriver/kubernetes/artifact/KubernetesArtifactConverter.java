@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import java.util.OptionalInt;
 import javax.annotation.Nonnull;
 
 public abstract class KubernetesArtifactConverter {
@@ -35,19 +36,20 @@ public abstract class KubernetesArtifactConverter {
   public final Artifact toArtifact(
       ArtifactProvider provider, KubernetesManifest manifest, @Nonnull String account) {
     String name = manifest.getName();
-    String version = getVersion(provider, account, manifest);
-    String versionedName = version.isEmpty() ? name : String.join("-", name, version);
+    OptionalInt version = getVersion(provider, account, manifest);
+    String versionString = version.isPresent() ? String.format("v%03d", version.getAsInt()) : "";
+    String versionedName = versionString.isEmpty() ? name : String.join("-", name, versionString);
     return Artifact.builder()
         .type("kubernetes/" + manifest.getKind().toString())
         .name(name)
         .location(manifest.getNamespace())
-        .version(version)
+        .version(versionString)
         .reference(versionedName)
         .putMetadata("account", account)
         .build();
   }
 
   @Nonnull
-  protected abstract String getVersion(
+  protected abstract OptionalInt getVersion(
       ArtifactProvider provider, String account, KubernetesManifest manifest);
 }
