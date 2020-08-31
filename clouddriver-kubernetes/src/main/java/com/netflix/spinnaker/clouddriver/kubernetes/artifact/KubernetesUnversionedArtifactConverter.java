@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import javax.annotation.Nonnull;
 
 final class KubernetesUnversionedArtifactConverter extends KubernetesArtifactConverter {
   static final KubernetesUnversionedArtifactConverter INSTANCE =
@@ -27,20 +27,9 @@ final class KubernetesUnversionedArtifactConverter extends KubernetesArtifactCon
 
   private KubernetesUnversionedArtifactConverter() {}
 
-  @Override
-  public Artifact toArtifact(
-      ArtifactProvider provider, KubernetesManifest manifest, String account) {
-    return Artifact.builder()
-        .type(artifactType(manifest.getKind()))
-        .name(manifest.getName())
-        .location(manifest.getNamespace())
-        .reference(manifest.getName())
-        .putMetadata("account", account)
-        .build();
-  }
-
-  @Override
-  public String getDeployedName(Artifact artifact) {
-    return artifact.getName();
+  @Nonnull
+  protected String getVersion(
+      ArtifactProvider provider, @Nonnull String account, KubernetesManifest manifest) {
+    return "";
   }
 }

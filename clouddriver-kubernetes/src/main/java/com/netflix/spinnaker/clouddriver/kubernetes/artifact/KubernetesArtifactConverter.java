@@ -17,11 +17,10 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.artifact;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import javax.annotation.Nonnull;
 
 public abstract class KubernetesArtifactConverter {
   // Prevent subclassing from outside the package
@@ -33,12 +32,22 @@ public abstract class KubernetesArtifactConverter {
         : KubernetesUnversionedArtifactConverter.INSTANCE;
   }
 
-  public abstract Artifact toArtifact(
-      ArtifactProvider artifactProvider, KubernetesManifest manifest, String account);
-
-  public abstract String getDeployedName(Artifact artifact);
-
-  protected final String artifactType(KubernetesKind kind) {
-    return String.join("/", KubernetesCloudProvider.ID, kind.toString());
+  public final Artifact toArtifact(
+      ArtifactProvider provider, KubernetesManifest manifest, @Nonnull String account) {
+    String name = manifest.getName();
+    String version = getVersion(provider, account, manifest);
+    String versionedName = version.isEmpty() ? name : String.join("-", name, version);
+    return Artifact.builder()
+        .type("kubernetes/" + manifest.getKind().toString())
+        .name(name)
+        .location(manifest.getNamespace())
+        .version(version)
+        .reference(versionedName)
+        .putMetadata("account", account)
+        .build();
   }
+
+  @Nonnull
+  protected abstract String getVersion(
+      ArtifactProvider provider, String account, KubernetesManifest manifest);
 }

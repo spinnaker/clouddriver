@@ -25,26 +25,28 @@ import org.junit.runner.RunWith;
 
 @RunWith(JUnitPlatform.class)
 final class KubernetesUnversionedArtifactConverterTest {
-  private static final KubernetesUnversionedArtifactConverter converter =
-      KubernetesUnversionedArtifactConverter.INSTANCE;
-
   @Test
   void infersUnversionedArtifactProperties() {
     String name =
-        converter.getDeployedName(
-            Artifact.builder().type("kubernetes/deployment").name("my-deploy").build());
+        Artifact.builder()
+            .type("kubernetes/deployment")
+            .name("my-deploy")
+            .reference("my-deploy")
+            .build()
+            .getReference();
     assertThat(name).isEqualTo("my-deploy");
   }
 
   @Test
   void handlesDashesInName() {
     String name =
-        converter.getDeployedName(
-            Artifact.builder()
-                .type("kubernetes/service")
-                .name("my-other-rs-_-")
-                .version("v010")
-                .build());
+        Artifact.builder()
+            .type("kubernetes/service")
+            .name("my-other-rs-_-")
+            .version("v010")
+            .reference("my-other-rs-_-")
+            .build()
+            .getReference();
     assertThat(name).isEqualTo("my-other-rs-_-");
   }
 }

@@ -40,30 +40,8 @@ final class KubernetesVersionedArtifactConverter extends KubernetesArtifactConve
 
   private KubernetesVersionedArtifactConverter() {}
 
-  @Override
-  public Artifact toArtifact(
-      ArtifactProvider provider, KubernetesManifest manifest, @Nonnull String account) {
-    String version = getVersion(provider, account, manifest);
-    return Artifact.builder()
-        .type(artifactType(manifest.getKind()))
-        .name(manifest.getName())
-        .location(manifest.getNamespace())
-        .version(version)
-        .reference(getDeployedName(manifest.getName(), version))
-        .putMetadata("account", account)
-        .build();
-  }
-
-  @Override
-  public String getDeployedName(Artifact artifact) {
-    return getDeployedName(artifact.getName(), artifact.getVersion());
-  }
-
-  private String getDeployedName(String name, String version) {
-    return String.join("-", name, version);
-  }
-
-  private String getVersion(
+  @Nonnull
+  protected String getVersion(
       ArtifactProvider provider, @Nonnull String account, KubernetesManifest manifest) {
     ImmutableList<Artifact> priorVersions =
         provider.getArtifacts(

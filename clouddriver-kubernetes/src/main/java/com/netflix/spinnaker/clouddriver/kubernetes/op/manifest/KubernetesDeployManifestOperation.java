@@ -195,7 +195,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       }
 
       credentials.getNamer().applyMoniker(manifest, moniker);
-      manifest.setName(converter.getDeployedName(artifact));
+      manifest.setName(artifact.getReference());
 
       getTask()
           .updateStatus(

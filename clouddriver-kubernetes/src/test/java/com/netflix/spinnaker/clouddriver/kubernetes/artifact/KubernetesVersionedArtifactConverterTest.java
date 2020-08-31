@@ -52,20 +52,26 @@ final class KubernetesVersionedArtifactConverterTest {
   @Test
   void inferVersionedArtifactProperties() {
     String name =
-        converter.getDeployedName(
-            Artifact.builder().type("kubernetes/replicaSet").name("my-rs").version("v000").build());
+        Artifact.builder()
+            .type("kubernetes/replicaSet")
+            .name("my-rs")
+            .version("v000")
+            .reference("my-rs-v000")
+            .build()
+            .getReference();
     assertThat(name).isEqualTo("my-rs-v000");
   }
 
   @Test
   void handlesDashesInName() {
     String name =
-        converter.getDeployedName(
-            Artifact.builder()
-                .type("kubernetes/replicaSet")
-                .name("my-other-rs-_-")
-                .version("v010")
-                .build());
+        Artifact.builder()
+            .type("kubernetes/replicaSet")
+            .name("my-other-rs-_-")
+            .version("v010")
+            .reference("my-other-rs-_--v010")
+            .build()
+            .getReference();
     assertThat(name).isEqualTo("my-other-rs-_--v010");
   }
 
