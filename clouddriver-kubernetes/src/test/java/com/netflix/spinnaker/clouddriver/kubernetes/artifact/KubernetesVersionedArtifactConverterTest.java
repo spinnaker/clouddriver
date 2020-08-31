@@ -50,32 +50,6 @@ final class KubernetesVersionedArtifactConverterTest {
   private static final String KIND = "Pod";
 
   @Test
-  void inferVersionedArtifactProperties() {
-    String name =
-        Artifact.builder()
-            .type("kubernetes/replicaSet")
-            .name("my-rs")
-            .version("v000")
-            .reference("my-rs-v000")
-            .build()
-            .getReference();
-    assertThat(name).isEqualTo("my-rs-v000");
-  }
-
-  @Test
-  void handlesDashesInName() {
-    String name =
-        Artifact.builder()
-            .type("kubernetes/replicaSet")
-            .name("my-other-rs-_-")
-            .version("v010")
-            .reference("my-other-rs-_--v010")
-            .build()
-            .getReference();
-    assertThat(name).isEqualTo("my-other-rs-_--v010");
-  }
-
-  @Test
   void findsMatchingVersionByEquality() {
     KubernetesManifest manifest1 = getStubManifest();
     KubernetesManifest manifest2 = getStubManifest();
