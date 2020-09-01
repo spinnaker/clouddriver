@@ -18,12 +18,19 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.DAEMON_SET;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.DEPLOYMENT;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.INGRESS;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.NETWORK_POLICY;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.POD;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.REPLICA_SET;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.SERVICE;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.STATEFUL_SET;
 import static java.lang.Math.toIntExact;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -58,6 +65,11 @@ public class KubernetesCacheDataConverter {
   // todo(lwander) investigate if this can cause flapping in UI for on demand updates -- no
   // consensus on this yet.
   @Getter private static final List<KubernetesKind> stickyKinds = Arrays.asList(SERVICE, POD);
+
+  @Getter
+  private static final ImmutableList<KubernetesKind> clusterRelationshipKinds =
+      ImmutableList.of(
+          DAEMON_SET, DEPLOYMENT, INGRESS, NETWORK_POLICY, REPLICA_SET, SERVICE, STATEFUL_SET);
 
   @NonnullByDefault
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
@@ -117,7 +129,7 @@ public class KubernetesCacheDataConverter {
     Keys.CacheKey key = new Keys.InfrastructureCacheKey(kind, account, namespace, name);
     kubernetesCacheData.addItem(key, attributes);
 
-    if (kindProperties.hasClusterRelationship() && !Strings.isNullOrEmpty(moniker.getApp())) {
+    if (hasClusterRelationship(kind) && !Strings.isNullOrEmpty(moniker.getApp())) {
       addLogicalRelationships(kubernetesCacheData, key, account, moniker);
     }
     kubernetesCacheData.addRelationships(
@@ -200,5 +212,9 @@ public class KubernetesCacheDataConverter {
 
   private static int relationshipCount(CacheData data) {
     return data.getRelationships().values().stream().mapToInt(Collection::size).sum();
+  }
+
+  private static boolean hasClusterRelationship(KubernetesKind kind) {
+    return clusterRelationshipKinds.contains(kind);
   }
 }
