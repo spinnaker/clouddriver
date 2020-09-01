@@ -161,13 +161,14 @@ final class KubernetesDataProviderIntegrationTest {
       new KubernetesV2SearchProvider(cacheUtils, kindMap, objectMapper, accountResolver);
   private static KubernetesV2ServerGroupManagerProvider serverGroupManagerProvider =
       new KubernetesV2ServerGroupManagerProvider(cacheUtils);
-  private static ArtifactProvider artifactProvider = new ArtifactProvider(accountResolver);
+  private static ArtifactProvider artifactProvider = new ArtifactProvider();
   private static KubernetesManifestProvider manifestProvider =
       new KubernetesManifestProvider(accountResolver);
 
+  private static KubernetesNamedAccountCredentials credentials = getNamedAccountCredentials();
+
   @BeforeAll
   static void prepareCache() {
-    KubernetesNamedAccountCredentials credentials = getNamedAccountCredentials();
     credentialsRepository.save(credentials.getName(), credentials);
     dispatcher
         .buildAllCachingAgents(credentials)
@@ -480,7 +481,7 @@ final class KubernetesDataProviderIntegrationTest {
   void getArtifacts(SoftAssertions softly) {
     List<Artifact> artifacts =
         artifactProvider.getArtifacts(
-            KubernetesKind.REPLICA_SET, "backend", "backend-ns", ACCOUNT_NAME);
+            KubernetesKind.REPLICA_SET, "backend", "backend-ns", credentials.getCredentials());
     softly.assertThat(artifacts).hasSize(2);
     softly
         .assertThat(artifacts)
@@ -502,7 +503,7 @@ final class KubernetesDataProviderIntegrationTest {
   void getArtifactsWrongType(SoftAssertions softly) {
     List<Artifact> artifacts =
         artifactProvider.getArtifacts(
-            KubernetesKind.DEPLOYMENT, "backend", "backend-ns", ACCOUNT_NAME);
+            KubernetesKind.DEPLOYMENT, "backend", "backend-ns", credentials.getCredentials());
     softly.assertThat(artifacts).isEmpty();
   }
 
@@ -510,15 +511,7 @@ final class KubernetesDataProviderIntegrationTest {
   void getArtifactsWrongNamespace(SoftAssertions softly) {
     List<Artifact> artifacts =
         artifactProvider.getArtifacts(
-            KubernetesKind.REPLICA_SET, "backend", "frontend-ns", ACCOUNT_NAME);
-    softly.assertThat(artifacts).isEmpty();
-  }
-
-  @Test
-  void getArtifactsWrongAccount(SoftAssertions softly) {
-    List<Artifact> artifacts =
-        artifactProvider.getArtifacts(
-            KubernetesKind.REPLICA_SET, "backend", "backend-ns", "wrong-account");
+            KubernetesKind.REPLICA_SET, "backend", "frontend-ns", credentials.getCredentials());
     softly.assertThat(artifacts).isEmpty();
   }
 
