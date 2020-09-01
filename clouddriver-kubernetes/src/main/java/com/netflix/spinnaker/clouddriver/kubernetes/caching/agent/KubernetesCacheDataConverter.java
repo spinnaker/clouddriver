@@ -18,14 +18,12 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.DAEMON_SET;
-import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.DEPLOYMENT;
-import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.INGRESS;
-import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.NETWORK_POLICY;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.LOAD_BALANCERS;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SECURITY_GROUPS;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUPS;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUP_MANAGERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.POD;
-import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.REPLICA_SET;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.SERVICE;
-import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.STATEFUL_SET;
 import static java.lang.Math.toIntExact;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,8 +36,9 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.CacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ClusterCacheKey;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest.OwnerReference;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
@@ -67,13 +66,12 @@ public class KubernetesCacheDataConverter {
   @Getter private static final List<KubernetesKind> stickyKinds = Arrays.asList(SERVICE, POD);
 
   @Getter
-  private static final ImmutableList<KubernetesKind> logicalRelationshipKinds =
-      ImmutableList.of(
-          DAEMON_SET, DEPLOYMENT, INGRESS, NETWORK_POLICY, REPLICA_SET, SERVICE, STATEFUL_SET);
+  private static final ImmutableList<SpinnakerKind> logicalRelationshipKinds =
+      ImmutableList.of(LOAD_BALANCERS, SECURITY_GROUPS, SERVER_GROUPS, SERVER_GROUP_MANAGERS);
 
   @Getter
-  private static final ImmutableList<KubernetesKind> clusterRelationshipKinds =
-      ImmutableList.of(DAEMON_SET, DEPLOYMENT, REPLICA_SET, STATEFUL_SET);
+  private static final ImmutableList<SpinnakerKind> clusterRelationshipKinds =
+      ImmutableList.of(SERVER_GROUPS, SERVER_GROUP_MANAGERS);
 
   @NonnullByDefault
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
@@ -110,7 +108,7 @@ public class KubernetesCacheDataConverter {
   public static void convertAsResource(
       KubernetesCacheData kubernetesCacheData,
       String account,
-      KubernetesKindProperties kindProperties,
+      KubernetesSpinnakerKindMap kindMap,
       Namer<KubernetesManifest> namer,
       KubernetesManifest manifest,
       List<KubernetesManifest> resourceRelationships) {
@@ -133,9 +131,10 @@ public class KubernetesCacheDataConverter {
     Keys.CacheKey key = new Keys.InfrastructureCacheKey(kind, account, namespace, name);
     kubernetesCacheData.addItem(key, attributes);
 
-    if (hasLogicalRelationship(kind) && !Strings.isNullOrEmpty(moniker.getApp())) {
+    SpinnakerKind spinnakerKind = kindMap.translateKubernetesKind(kind);
+    if (hasLogicalRelationship(spinnakerKind) && !Strings.isNullOrEmpty(moniker.getApp())) {
       addLogicalRelationships(
-          kubernetesCacheData, key, account, moniker, hasClusterRelationship(kind));
+          kubernetesCacheData, key, account, moniker, hasClusterRelationship(spinnakerKind));
     }
     kubernetesCacheData.addRelationships(
         key, ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
@@ -220,11 +219,11 @@ public class KubernetesCacheDataConverter {
     return data.getRelationships().values().stream().mapToInt(Collection::size).sum();
   }
 
-  private static boolean hasLogicalRelationship(KubernetesKind kind) {
+  private static boolean hasLogicalRelationship(SpinnakerKind kind) {
     return logicalRelationshipKinds.contains(kind);
   }
 
-  private static boolean hasClusterRelationship(KubernetesKind kind) {
+  private static boolean hasClusterRelationship(SpinnakerKind kind) {
     return clusterRelationshipKinds.contains(kind);
   }
 }
