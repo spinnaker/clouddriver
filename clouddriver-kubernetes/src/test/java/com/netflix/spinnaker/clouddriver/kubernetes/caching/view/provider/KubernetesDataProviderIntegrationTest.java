@@ -161,8 +161,7 @@ final class KubernetesDataProviderIntegrationTest {
       new KubernetesV2SearchProvider(cacheUtils, kindMap, objectMapper, accountResolver);
   private static KubernetesV2ServerGroupManagerProvider serverGroupManagerProvider =
       new KubernetesV2ServerGroupManagerProvider(cacheUtils);
-  private static KubernetesV2ArtifactProvider artifactProvider =
-      new KubernetesV2ArtifactProvider(accountResolver);
+  private static ArtifactProvider artifactProvider = new ArtifactProvider(accountResolver);
   private static KubernetesManifestProvider manifestProvider =
       new KubernetesManifestProvider(accountResolver);
 
