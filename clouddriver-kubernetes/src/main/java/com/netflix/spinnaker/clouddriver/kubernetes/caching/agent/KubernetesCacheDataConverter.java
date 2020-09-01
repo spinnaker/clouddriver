@@ -67,9 +67,13 @@ public class KubernetesCacheDataConverter {
   @Getter private static final List<KubernetesKind> stickyKinds = Arrays.asList(SERVICE, POD);
 
   @Getter
-  private static final ImmutableList<KubernetesKind> clusterRelationshipKinds =
+  private static final ImmutableList<KubernetesKind> logicalRelationshipKinds =
       ImmutableList.of(
           DAEMON_SET, DEPLOYMENT, INGRESS, NETWORK_POLICY, REPLICA_SET, SERVICE, STATEFUL_SET);
+
+  @Getter
+  private static final ImmutableList<KubernetesKind> clusterRelationshipKinds =
+      ImmutableList.of(DAEMON_SET, DEPLOYMENT, REPLICA_SET, STATEFUL_SET);
 
   @NonnullByDefault
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
@@ -129,8 +133,9 @@ public class KubernetesCacheDataConverter {
     Keys.CacheKey key = new Keys.InfrastructureCacheKey(kind, account, namespace, name);
     kubernetesCacheData.addItem(key, attributes);
 
-    if (hasClusterRelationship(kind) && !Strings.isNullOrEmpty(moniker.getApp())) {
-      addLogicalRelationships(kubernetesCacheData, key, account, moniker);
+    if (hasLogicalRelationship(kind) && !Strings.isNullOrEmpty(moniker.getApp())) {
+      addLogicalRelationships(
+          kubernetesCacheData, key, account, moniker, hasClusterRelationship(kind));
     }
     kubernetesCacheData.addRelationships(
         key, ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
@@ -159,13 +164,14 @@ public class KubernetesCacheDataConverter {
       KubernetesCacheData kubernetesCacheData,
       Keys.CacheKey infrastructureKey,
       String account,
-      Moniker moniker) {
+      Moniker moniker,
+      boolean hasClusterRelationship) {
     String application = moniker.getApp();
     Keys.CacheKey applicationKey = new Keys.ApplicationCacheKey(application);
     kubernetesCacheData.addRelationship(infrastructureKey, applicationKey);
 
     String cluster = moniker.getCluster();
-    if (!Strings.isNullOrEmpty(cluster)) {
+    if (hasClusterRelationship && !Strings.isNullOrEmpty(cluster)) {
       CacheKey clusterKey = new ClusterCacheKey(account, application, cluster);
       kubernetesCacheData.addRelationship(infrastructureKey, clusterKey);
       kubernetesCacheData.addRelationship(applicationKey, clusterKey);
@@ -212,6 +218,10 @@ public class KubernetesCacheDataConverter {
 
   private static int relationshipCount(CacheData data) {
     return data.getRelationships().values().stream().mapToInt(Collection::size).sum();
+  }
+
+  private static boolean hasLogicalRelationship(KubernetesKind kind) {
+    return logicalRelationshipKinds.contains(kind);
   }
 
   private static boolean hasClusterRelationship(KubernetesKind kind) {
