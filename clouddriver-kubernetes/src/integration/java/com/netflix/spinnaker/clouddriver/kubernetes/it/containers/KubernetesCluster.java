@@ -84,7 +84,7 @@ public class KubernetesCluster extends GenericContainer {
     cmd.add("sh");
     cmd.add("-c");
     cmd.add(
-        "${PROJECT_ROOT}/integration-tests/src/test/resources/kubernetes/kubectl-wrapper.sh --kubeconfig="
+        "${PROJECT_ROOT}/clouddriver-kubernetes/src/integration/resources/kubectl-wrapper.sh --kubeconfig="
             + kubecfgPath
             + " "
             + args);
@@ -129,7 +129,7 @@ public class KubernetesCluster extends GenericContainer {
     Path myKubeconfig =
         Paths.get(
             System.getenv("PROJECT_ROOT"),
-            "integration-tests",
+            "clouddriver-kubernetes",
             "build",
             "kubeconfigs",
             "kubecfg-" + containerName + ".yml");

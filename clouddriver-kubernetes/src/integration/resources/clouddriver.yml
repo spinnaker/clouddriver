@@ -4,7 +4,7 @@ spring:
 
 kubernetes:
   kubectl:
-    executable: ${PROJECT_ROOT}/integration-tests/src/test/resources/kubernetes/kubectl-wrapper.sh  # Using a wrapper around the kubectl binary provided by the k3s docker container
+    executable: ${PROJECT_ROOT}/clouddriver-kubernetes/src/integration/resources/kubectl-wrapper.sh  # Using a wrapper around the kubectl binary provided by the k3s docker container
   enabled: true
   primaryAccount: account1
   accounts:
@@ -26,7 +26,7 @@ kubernetes:
       oAuthScopes: []
       onlySpinnakerManaged: true
       metrics: false
-      kubeconfigFile: ${PROJECT_ROOT}/integration-tests/build/kubeconfigs/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
+      kubeconfigFile: ${PROJECT_ROOT}/clouddriver-kubernetes/build/kubeconfigs/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
     - name: account2
       requiredGroupMembership: []
       providerVersion: V2
@@ -46,7 +46,7 @@ kubernetes:
       oAuthScopes: []
       onlySpinnakerManaged: true
       metrics: false
-      kubeconfigFile: ${PROJECT_ROOT}/integration-tests/build/kubeconfigs/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
+      kubeconfigFile: ${PROJECT_ROOT}/clouddriver-kubernetes/build/kubeconfigs/kubecfg-${account1_containername}.yml  # File is automatically created during initialization
 
 sql:
   enabled: true

@@ -37,9 +37,9 @@ public class DeployManifestIT extends BaseTest {
           + "  And waiting on manifest stable\n"
           + "Then nginx pod is up and running in the overridden namespace")
   @Test
-  void shouldDeployManifestFromText() throws IOException, InterruptedException {
+  public void shouldDeployManifestFromText() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
-    TestManifest manifest = new TestManifest("classpath:kubernetes/manifests/deployment_nginx.yml");
+    TestManifest manifest = new TestManifest("classpath:manifests/deployment_nginx.yml");
     String overrideNamespace = "overridenns";
     kubeCluster.execKubectl("create ns " + overrideNamespace);
 
@@ -88,9 +88,9 @@ public class DeployManifestIT extends BaseTest {
           + "  And waiting on manifest stable\n"
           + "Then nginx pod is up and running in the default namespace")
   @Test
-  void shouldDeployManifestToDefaultNs() throws IOException, InterruptedException {
+  public void shouldDeployManifestToDefaultNs() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
-    TestManifest manifest = new TestManifest("classpath:kubernetes/manifests/deployment_nginx.yml");
+    TestManifest manifest = new TestManifest("classpath:manifests/deployment_nginx.yml");
 
     // ------------------------- when --------------------------
     String taskId =
@@ -134,11 +134,11 @@ public class DeployManifestIT extends BaseTest {
           + "  And waiting on manifest stable\n"
           + "Then nginx service and pod exist in the target cluster")
   @Test
-  void shouldDeployMultidocManifest() throws IOException, InterruptedException {
+  public void shouldDeployMultidocManifest() throws IOException, InterruptedException {
     // ------------------------- given --------------------------
     String ns = "multimanifest";
     TestManifest manifest =
-        new TestManifest("classpath:kubernetes/manifests/multi_nginx.yml").withNamespace(ns);
+        new TestManifest("classpath:manifests/multi_nginx.yml").withNamespace(ns);
     kubeCluster.execKubectl("create ns " + ns);
 
     // ------------------------- when --------------------------

@@ -30,7 +30,7 @@ import org.springframework.test.context.TestPropertySource;
 @SpringBootTest(
     classes = {Main.class},
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestPropertySource(properties = {"spring.config.location = classpath:/kubernetes/clouddriver.yml"})
+@TestPropertySource(properties = {"spring.config.location = classpath:clouddriver.yml"})
 public abstract class BaseTest {
 
   public static final String APP1_NAME = "testApp1";
