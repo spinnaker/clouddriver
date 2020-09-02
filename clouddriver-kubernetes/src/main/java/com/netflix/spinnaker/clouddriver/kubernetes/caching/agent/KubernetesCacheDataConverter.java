@@ -28,7 +28,6 @@ import static java.lang.Math.toIntExact;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -64,14 +63,10 @@ public class KubernetesCacheDataConverter {
   // todo(lwander) investigate if this can cause flapping in UI for on demand updates -- no
   // consensus on this yet.
   @Getter private static final List<KubernetesKind> stickyKinds = Arrays.asList(SERVICE, POD);
-
-  @Getter
-  private static final ImmutableList<SpinnakerKind> logicalRelationshipKinds =
-      ImmutableList.of(LOAD_BALANCERS, SECURITY_GROUPS, SERVER_GROUPS, SERVER_GROUP_MANAGERS);
-
-  @Getter
-  private static final ImmutableList<SpinnakerKind> clusterRelationshipKinds =
-      ImmutableList.of(SERVER_GROUPS, SERVER_GROUP_MANAGERS);
+  private static final ImmutableSet<SpinnakerKind> logicalRelationshipKinds =
+      ImmutableSet.of(LOAD_BALANCERS, SECURITY_GROUPS, SERVER_GROUPS, SERVER_GROUP_MANAGERS);
+  private static final ImmutableSet<SpinnakerKind> clusterRelationshipKinds =
+      ImmutableSet.of(SERVER_GROUPS, SERVER_GROUP_MANAGERS);
 
   @NonnullByDefault
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
@@ -132,9 +127,14 @@ public class KubernetesCacheDataConverter {
     kubernetesCacheData.addItem(key, attributes);
 
     SpinnakerKind spinnakerKind = kindMap.translateKubernetesKind(kind);
-    if (hasLogicalRelationship(spinnakerKind) && !Strings.isNullOrEmpty(moniker.getApp())) {
+    if (logicalRelationshipKinds.contains(spinnakerKind)
+        && !Strings.isNullOrEmpty(moniker.getApp())) {
       addLogicalRelationships(
-          kubernetesCacheData, key, account, moniker, hasClusterRelationship(spinnakerKind));
+          kubernetesCacheData,
+          key,
+          account,
+          moniker,
+          clusterRelationshipKinds.contains(spinnakerKind));
     }
     kubernetesCacheData.addRelationships(
         key, ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
@@ -217,13 +217,5 @@ public class KubernetesCacheDataConverter {
 
   private static int relationshipCount(CacheData data) {
     return data.getRelationships().values().stream().mapToInt(Collection::size).sum();
-  }
-
-  private static boolean hasLogicalRelationship(SpinnakerKind kind) {
-    return logicalRelationshipKinds.contains(kind);
-  }
-
-  private static boolean hasClusterRelationship(SpinnakerKind kind) {
-    return clusterRelationshipKinds.contains(kind);
   }
 }
