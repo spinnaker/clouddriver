@@ -44,7 +44,7 @@ import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRep
 import com.netflix.spinnaker.kork.configserver.ConfigFileService
 import spock.lang.Specification
 
-class KubernetesV2ProviderSynchronizableSpec extends Specification {
+class KubernetesProviderSynchronizableSpec extends Specification {
 
   CatsModule catsModule = Mock(CatsModule)
   AccountCredentialsRepository accountCredentialsRepository
@@ -82,7 +82,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
       }
     }
 
-    KubernetesV2ProviderSynchronizable synchronizable = new KubernetesV2ProviderSynchronizable(
+    KubernetesProviderSynchronizable synchronizable = new KubernetesProviderSynchronizable(
       kubernetesProvider,
       accountCredentialsRepository,
       agentDispatcher,

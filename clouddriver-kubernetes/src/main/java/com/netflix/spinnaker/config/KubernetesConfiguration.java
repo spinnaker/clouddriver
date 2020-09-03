@@ -18,7 +18,7 @@ package com.netflix.spinnaker.config;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.module.CatsModule;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesV2ProviderSynchronizable;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesProviderSynchronizable;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndicator;
@@ -59,14 +59,14 @@ public class KubernetesConfiguration {
   }
 
   @Bean
-  public KubernetesV2ProviderSynchronizable kubernetesV2ProviderSynchronizable(
+  public KubernetesProviderSynchronizable kubernetesProviderSynchronizable(
       KubernetesProvider kubernetesProvider,
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       KubernetesCredentials.Factory credentialFactory,
       CatsModule catsModule) {
-    return new KubernetesV2ProviderSynchronizable(
+    return new KubernetesProviderSynchronizable(
         kubernetesProvider,
         accountCredentialsRepository,
         kubernetesV2CachingAgentDispatcher,

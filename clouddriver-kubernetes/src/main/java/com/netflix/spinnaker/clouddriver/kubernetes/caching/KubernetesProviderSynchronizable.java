@@ -31,9 +31,8 @@ import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class KubernetesV2ProviderSynchronizable implements CredentialsInitializerSynchronizable {
-  private static final Logger log =
-      LoggerFactory.getLogger(KubernetesV2ProviderSynchronizable.class);
+public class KubernetesProviderSynchronizable implements CredentialsInitializerSynchronizable {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesProviderSynchronizable.class);
 
   private final KubernetesProvider kubernetesProvider;
   private final AccountCredentialsRepository accountCredentialsRepository;
@@ -42,7 +41,7 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
   private final KubernetesCredentials.Factory credentialFactory;
   private final CatsModule catsModule;
 
-  public KubernetesV2ProviderSynchronizable(
+  public KubernetesProviderSynchronizable(
       KubernetesProvider kubernetesProvider,
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
