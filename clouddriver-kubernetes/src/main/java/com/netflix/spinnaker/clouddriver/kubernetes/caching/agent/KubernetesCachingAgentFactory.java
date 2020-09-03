@@ -22,7 +22,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 
 @FunctionalInterface
-public interface KubernetesV2CachingAgentFactory {
+public interface KubernetesCachingAgentFactory {
   KubernetesCachingAgent buildCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
