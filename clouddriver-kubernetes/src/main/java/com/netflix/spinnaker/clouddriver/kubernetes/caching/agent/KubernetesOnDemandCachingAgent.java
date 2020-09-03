@@ -46,9 +46,9 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesCachingAgent
+public abstract class KubernetesOnDemandCachingAgent extends KubernetesCachingAgent
     implements OnDemandAgent {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2OnDemandCachingAgent.class);
+  private static final Logger log = LoggerFactory.getLogger(KubernetesOnDemandCachingAgent.class);
   @Getter protected final OnDemandMetricsSupport metricsSupport;
 
   protected static final String ON_DEMAND_TYPE = "onDemand";
@@ -59,7 +59,7 @@ public abstract class KubernetesV2OnDemandCachingAgent extends KubernetesCaching
   private static final String MONIKER_KEY = "moniker";
   private static final String DETAILS_KEY = "details";
 
-  protected KubernetesV2OnDemandCachingAgent(
+  protected KubernetesOnDemandCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,
