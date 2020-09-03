@@ -44,12 +44,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2LoadBalancerProvider
+public class KubernetesLoadBalancerProvider
     implements LoadBalancerProvider<KubernetesLoadBalancer> {
   private final KubernetesCacheUtils cacheUtils;
 
   @Autowired
-  KubernetesV2LoadBalancerProvider(KubernetesCacheUtils cacheUtils) {
+  KubernetesLoadBalancerProvider(KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
   }
 

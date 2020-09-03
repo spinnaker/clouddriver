@@ -51,8 +51,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2SearchProvider implements SearchProvider {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2SearchProvider.class);
+public class KubernetesSearchProvider implements SearchProvider {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesSearchProvider.class);
   private final KubernetesCacheUtils cacheUtils;
   private final ObjectMapper mapper;
   private final KubernetesSpinnakerKindMap kindMap;
@@ -62,7 +62,7 @@ public class KubernetesV2SearchProvider implements SearchProvider {
   private final Set<String> allCaches;
 
   @Autowired
-  public KubernetesV2SearchProvider(
+  public KubernetesSearchProvider(
       KubernetesCacheUtils cacheUtils,
       KubernetesSpinnakerKindMap kindMap,
       ObjectMapper objectMapper,

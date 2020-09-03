@@ -33,11 +33,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2ApplicationProvider implements ApplicationProvider {
+public class KubernetesApplicationProvider implements ApplicationProvider {
   private final KubernetesCacheUtils cacheUtils;
 
   @Autowired
-  KubernetesV2ApplicationProvider(KubernetesCacheUtils cacheUtils) {
+  KubernetesApplicationProvider(KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
   }
 

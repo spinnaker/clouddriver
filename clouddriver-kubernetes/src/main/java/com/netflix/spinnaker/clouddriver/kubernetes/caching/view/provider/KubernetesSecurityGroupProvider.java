@@ -33,13 +33,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2SecurityGroupProvider
+public class KubernetesSecurityGroupProvider
     implements SecurityGroupProvider<KubernetesSecurityGroup> {
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesSpinnakerKindMap kindMap;
 
   @Autowired
-  KubernetesV2SecurityGroupProvider(
+  KubernetesSecurityGroupProvider(
       KubernetesCacheUtils cacheUtils, KubernetesSpinnakerKindMap kindMap) {
     this.cacheUtils = cacheUtils;
     this.kindMap = kindMap;

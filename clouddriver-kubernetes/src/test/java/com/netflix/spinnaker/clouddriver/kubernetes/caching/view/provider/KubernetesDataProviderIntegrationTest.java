@@ -149,18 +149,18 @@ final class KubernetesDataProviderIntegrationTest {
                   "frontend-pod-2.yml"))
           .build();
 
-  private static KubernetesV2ApplicationProvider applicationProvider =
-      new KubernetesV2ApplicationProvider(cacheUtils);
-  private static KubernetesV2ClusterProvider clusterProvider =
-      new KubernetesV2ClusterProvider(cacheUtils);
-  private static KubernetesV2InstanceProvider instanceProvider =
-      new KubernetesV2InstanceProvider(cacheUtils, accountResolver);
-  private static KubernetesV2LoadBalancerProvider loadBalancerProvider =
-      new KubernetesV2LoadBalancerProvider(cacheUtils);
-  private static KubernetesV2SearchProvider searchProvider =
-      new KubernetesV2SearchProvider(cacheUtils, kindMap, objectMapper, accountResolver);
-  private static KubernetesV2ServerGroupManagerProvider serverGroupManagerProvider =
-      new KubernetesV2ServerGroupManagerProvider(cacheUtils);
+  private static KubernetesApplicationProvider applicationProvider =
+      new KubernetesApplicationProvider(cacheUtils);
+  private static KubernetesClusterProvider clusterProvider =
+      new KubernetesClusterProvider(cacheUtils);
+  private static KubernetesInstanceProvider instanceProvider =
+      new KubernetesInstanceProvider(cacheUtils, accountResolver);
+  private static KubernetesLoadBalancerProvider loadBalancerProvider =
+      new KubernetesLoadBalancerProvider(cacheUtils);
+  private static KubernetesSearchProvider searchProvider =
+      new KubernetesSearchProvider(cacheUtils, kindMap, objectMapper, accountResolver);
+  private static KubernetesServerGroupManagerProvider serverGroupManagerProvider =
+      new KubernetesServerGroupManagerProvider(cacheUtils);
   private static ArtifactProvider artifactProvider = new ArtifactProvider();
   private static KubernetesManifestProvider manifestProvider =
       new KubernetesManifestProvider(accountResolver);

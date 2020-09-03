@@ -48,9 +48,9 @@ import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 
 @RunWith(JUnitPlatform.class)
-final class KubernetesV2InstanceProviderTest {
+final class KubernetesInstanceProviderTest {
 
-  private KubernetesV2InstanceProvider provider;
+  private KubernetesInstanceProvider provider;
   private KubernetesCredentials credentials;
   private KubernetesAccountResolver accountResolver;
   private KubernetesCacheUtils cacheUtils;
@@ -72,7 +72,7 @@ final class KubernetesV2InstanceProviderTest {
     accountResolver = mock(KubernetesAccountResolver.class);
     cacheUtils = mock(KubernetesCacheUtils.class);
     credentials = mock(KubernetesCredentials.class);
-    provider = new KubernetesV2InstanceProvider(cacheUtils, accountResolver);
+    provider = new KubernetesInstanceProvider(cacheUtils, accountResolver);
     when(accountResolver.getCredentials(ACCOUNT)).thenReturn(Optional.of(credentials));
   }
 

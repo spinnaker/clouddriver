@@ -55,11 +55,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesCluster> {
+public class KubernetesClusterProvider implements ClusterProvider<KubernetesCluster> {
   private final KubernetesCacheUtils cacheUtils;
 
   @Autowired
-  KubernetesV2ClusterProvider(KubernetesCacheUtils cacheUtils) {
+  KubernetesClusterProvider(KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
   }
 

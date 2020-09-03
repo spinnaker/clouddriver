@@ -40,14 +40,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2InstanceProvider
+public class KubernetesInstanceProvider
     implements InstanceProvider<KubernetesInstance, List<ContainerLog>> {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2InstanceProvider.class);
+  private static final Logger log = LoggerFactory.getLogger(KubernetesInstanceProvider.class);
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesAccountResolver accountResolver;
 
   @Autowired
-  KubernetesV2InstanceProvider(
+  KubernetesInstanceProvider(
       KubernetesCacheUtils cacheUtils, KubernetesAccountResolver accountResolver) {
     this.cacheUtils = cacheUtils;
     this.accountResolver = accountResolver;

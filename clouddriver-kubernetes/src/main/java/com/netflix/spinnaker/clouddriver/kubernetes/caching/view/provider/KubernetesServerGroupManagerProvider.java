@@ -37,12 +37,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2ServerGroupManagerProvider
+public class KubernetesServerGroupManagerProvider
     implements ServerGroupManagerProvider<KubernetesServerGroupManager> {
   private final KubernetesCacheUtils cacheUtils;
 
   @Autowired
-  public KubernetesV2ServerGroupManagerProvider(KubernetesCacheUtils cacheUtils) {
+  public KubernetesServerGroupManagerProvider(KubernetesCacheUtils cacheUtils) {
     this.cacheUtils = cacheUtils;
   }
 
