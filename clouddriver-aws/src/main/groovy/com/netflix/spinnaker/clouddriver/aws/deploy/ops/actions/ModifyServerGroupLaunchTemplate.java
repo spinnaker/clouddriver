@@ -68,8 +68,6 @@ public class ModifyServerGroupLaunchTemplate
         regionScopedProviderFactory.forRegion(credentials, description.getRegion());
 
     LaunchTemplateService launchTemplateService = regionScopedProvider.getLaunchTemplateService();
-    saga.log(
-        "Modifying launch template for server group %: %s", description.getAsgName(), description);
     LaunchTemplateSpecification spec;
     try {
       LaunchTemplateVersion newVersion =
