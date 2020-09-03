@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroupManager;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesServerGroupManagerCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupManagerHandler;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManagerProvider;
@@ -67,7 +67,7 @@ public class KubernetesServerGroupManagerProvider
         .map(
             cd ->
                 serverGroupManagerFromCacheData(
-                    KubernetesV2ServerGroupManagerCacheData.builder()
+                    KubernetesServerGroupManagerCacheData.builder()
                         .serverGroupManagerData(cd)
                         .serverGroupData(managerToServerGroupMap.get(cd.getId()))
                         .build()))
@@ -79,7 +79,7 @@ public class KubernetesServerGroupManagerProvider
 
   @Nonnull
   private KubernetesServerGroupManager serverGroupManagerFromCacheData(
-      @Nonnull KubernetesV2ServerGroupManagerCacheData cacheData) {
+      @Nonnull KubernetesServerGroupManagerCacheData cacheData) {
     KubernetesHandler handler = cacheUtils.getHandler(cacheData);
     ServerGroupManagerHandler serverGroupManagerHandler =
         handler instanceof ServerGroupManagerHandler

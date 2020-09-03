@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesServerGroupCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesServerGroupManagerCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -69,7 +69,7 @@ public final class KubernetesServerGroupManager implements KubernetesResource, S
   }
 
   public static KubernetesServerGroupManager fromCacheData(
-      KubernetesV2ServerGroupManagerCacheData data) {
+      KubernetesServerGroupManagerCacheData data) {
     KubernetesManifest manifest =
         KubernetesCacheDataConverter.getManifest(data.getServerGroupManagerData());
     if (manifest == null) {
@@ -83,7 +83,7 @@ public final class KubernetesServerGroupManager implements KubernetesResource, S
             .map(
                 sg ->
                     KubernetesServerGroup.fromCacheData(
-                        KubernetesV2ServerGroupCacheData.builder().serverGroupData(sg).build()))
+                        KubernetesServerGroupCacheData.builder().serverGroupData(sg).build()))
             .filter(Objects::nonNull)
             .map(KubernetesServerGroup::toServerGroupSummary)
             .collect(Collectors.toSet());

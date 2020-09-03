@@ -31,7 +31,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ApplicationCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesLoadBalancer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroup;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -105,7 +105,7 @@ public class KubernetesLoadBalancerProvider
                         .map(
                             sg ->
                                 KubernetesServerGroup.fromCacheData(
-                                    KubernetesV2ServerGroupCacheData.builder()
+                                    KubernetesServerGroupCacheData.builder()
                                         .serverGroupData(sg)
                                         .instanceData(serverGroupToInstances.get(sg.getId()))
                                         .loadBalancerKeys(ImmutableList.of(lb.getId()))

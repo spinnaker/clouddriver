@@ -18,11 +18,11 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.op.handler;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroupManager;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesServerGroupManagerCacheData;
 
 public interface ServerGroupManagerHandler {
   default KubernetesServerGroupManager fromCacheData(
-      KubernetesV2ServerGroupManagerCacheData cacheData) {
+      KubernetesServerGroupManagerCacheData cacheData) {
     return KubernetesServerGroupManager.fromCacheData(cacheData);
   }
 }

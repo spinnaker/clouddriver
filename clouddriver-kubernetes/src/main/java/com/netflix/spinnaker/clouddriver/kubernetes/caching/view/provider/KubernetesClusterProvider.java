@@ -39,7 +39,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesCluster;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesLoadBalancer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroup;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupHandler;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
@@ -196,7 +196,7 @@ public class KubernetesClusterProvider implements ClusterProvider<KubernetesClus
                 CacheData::getId,
                 cd ->
                     serverGroupFromCacheData(
-                        KubernetesV2ServerGroupCacheData.builder()
+                        KubernetesServerGroupCacheData.builder()
                             .serverGroupData(cd)
                             .instanceData(serverGroupToInstances.get(cd.getId()))
                             .loadBalancerKeys(cacheUtils.getRelationshipKeys(cd, LOAD_BALANCERS))
@@ -210,7 +210,7 @@ public class KubernetesClusterProvider implements ClusterProvider<KubernetesClus
 
   @Nonnull
   private KubernetesServerGroup serverGroupFromCacheData(
-      @Nonnull KubernetesV2ServerGroupCacheData cacheData) {
+      @Nonnull KubernetesServerGroupCacheData cacheData) {
     KubernetesHandler handler = cacheUtils.getHandler(cacheData);
     ServerGroupHandler serverGroupHandler =
         handler instanceof ServerGroupHandler

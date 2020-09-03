@@ -30,20 +30,28 @@ import lombok.Value;
 
 @NonnullByDefault
 @Value
-public class KubernetesV2ServerGroupManagerCacheData implements KubernetesV2CacheData {
-  private final CacheData serverGroupManagerData;
-  private final Collection<CacheData> serverGroupData;
+public class KubernetesServerGroupCacheData implements KubernetesCacheData {
+  private final CacheData serverGroupData;
+  private final Collection<CacheData> instanceData;
+  private final Collection<String> loadBalancerKeys;
+  private final Collection<String> serverGroupManagerKeys;
 
   @Builder
   @ParametersAreNullableByDefault
-  private KubernetesV2ServerGroupManagerCacheData(
-      @Nonnull CacheData serverGroupManagerData, Collection<CacheData> serverGroupData) {
-    this.serverGroupManagerData = Objects.requireNonNull(serverGroupManagerData);
-    this.serverGroupData = Optional.ofNullable(serverGroupData).orElseGet(ImmutableList::of);
+  private KubernetesServerGroupCacheData(
+      @Nonnull CacheData serverGroupData,
+      Collection<CacheData> instanceData,
+      Collection<String> loadBalancerKeys,
+      Collection<String> serverGroupManagerKeys) {
+    this.serverGroupData = Objects.requireNonNull(serverGroupData);
+    this.instanceData = Optional.ofNullable(instanceData).orElseGet(ImmutableList::of);
+    this.loadBalancerKeys = Optional.ofNullable(loadBalancerKeys).orElseGet(ImmutableList::of);
+    this.serverGroupManagerKeys =
+        Optional.ofNullable(serverGroupManagerKeys).orElseGet(ImmutableList::of);
   }
 
   @Override
   public CacheData primaryData() {
-    return serverGroupManagerData;
+    return serverGroupData;
   }
 }

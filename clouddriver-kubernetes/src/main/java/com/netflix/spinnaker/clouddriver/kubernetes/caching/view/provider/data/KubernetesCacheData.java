@@ -19,6 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data;
 
 import com.netflix.spinnaker.cats.cache.CacheData;
 
-public interface KubernetesV2CacheData {
+public interface KubernetesCacheData {
   CacheData primaryData();
 }

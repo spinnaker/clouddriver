@@ -30,7 +30,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
@@ -161,7 +161,7 @@ public final class KubernetesServerGroup implements KubernetesResource, ServerGr
     this.capacity = Capacity.builder().desired(desired).build();
   }
 
-  public static KubernetesServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
+  public static KubernetesServerGroup fromCacheData(KubernetesServerGroupCacheData cacheData) {
     List<ServerGroupManagerSummary> serverGroupManagers =
         cacheData.getServerGroupManagerKeys().stream()
             .map(Keys::parseKey)
