@@ -32,7 +32,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesUnre
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesNamerRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentDispatcher
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentDispatcher
 import com.netflix.spinnaker.clouddriver.kubernetes.description.AccountResourcePropertyRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesKindRegistry
@@ -51,7 +51,7 @@ class KubernetesProviderSynchronizableSpec extends Specification {
   KubernetesNamerRegistry namerRegistry = new KubernetesNamerRegistry([new KubernetesManifestNamer()])
   ConfigFileService configFileService = Mock(ConfigFileService)
   KubernetesProvider kubernetesProvider = new KubernetesProvider()
-  KubernetesV2CachingAgentDispatcher agentDispatcher = Mock(KubernetesV2CachingAgentDispatcher)
+  KubernetesCachingAgentDispatcher agentDispatcher = Mock(KubernetesCachingAgentDispatcher)
   AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory = Mock(AccountResourcePropertyRegistry.Factory)
   KubernetesKindRegistry.Factory kindRegistryFactory = Mock(KubernetesKindRegistry.Factory)
   KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap = new KubernetesSpinnakerKindMap(ImmutableList.of())

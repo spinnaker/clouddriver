@@ -35,12 +35,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2CachingAgentDispatcher {
+public class KubernetesCachingAgentDispatcher {
   private final ObjectMapper objectMapper;
   private final Registry registry;
 
   @Autowired
-  public KubernetesV2CachingAgentDispatcher(ObjectMapper objectMapper, Registry registry) {
+  public KubernetesCachingAgentDispatcher(ObjectMapper objectMapper, Registry registry) {
     this.objectMapper = objectMapper;
     this.registry = registry;
   }

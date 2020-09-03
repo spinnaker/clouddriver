@@ -20,7 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching;
 import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.module.CatsModule;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentDispatcher;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
@@ -36,7 +36,7 @@ public class KubernetesProviderSynchronizable implements CredentialsInitializerS
 
   private final KubernetesProvider kubernetesProvider;
   private final AccountCredentialsRepository accountCredentialsRepository;
-  private final KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher;
+  private final KubernetesCachingAgentDispatcher kubernetesCachingAgentDispatcher;
   private final KubernetesConfigurationProperties kubernetesConfigurationProperties;
   private final KubernetesCredentials.Factory credentialFactory;
   private final CatsModule catsModule;
@@ -44,13 +44,13 @@ public class KubernetesProviderSynchronizable implements CredentialsInitializerS
   public KubernetesProviderSynchronizable(
       KubernetesProvider kubernetesProvider,
       AccountCredentialsRepository accountCredentialsRepository,
-      KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
+      KubernetesCachingAgentDispatcher kubernetesCachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       KubernetesCredentials.Factory credentialFactory,
       CatsModule catsModule) {
     this.kubernetesProvider = kubernetesProvider;
     this.accountCredentialsRepository = accountCredentialsRepository;
-    this.kubernetesV2CachingAgentDispatcher = kubernetesV2CachingAgentDispatcher;
+    this.kubernetesCachingAgentDispatcher = kubernetesCachingAgentDispatcher;
     this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
     this.credentialFactory = credentialFactory;
     this.catsModule = catsModule;
@@ -174,7 +174,7 @@ public class KubernetesProviderSynchronizable implements CredentialsInitializerS
     for (KubernetesNamedAccountCredentials credentials : newAndChangedAccounts) {
       try {
         List<Agent> newlyAddedAgents =
-            kubernetesV2CachingAgentDispatcher.buildAllCachingAgents(credentials).stream()
+            kubernetesCachingAgentDispatcher.buildAllCachingAgents(credentials).stream()
                 .map(c -> (Agent) c)
                 .collect(Collectors.toList());
 

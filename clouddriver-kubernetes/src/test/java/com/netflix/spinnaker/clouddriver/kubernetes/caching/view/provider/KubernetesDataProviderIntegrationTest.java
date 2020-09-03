@@ -37,7 +37,7 @@ import com.netflix.spinnaker.cats.mem.InMemoryNamedCacheFactory;
 import com.netflix.spinnaker.cats.provider.DefaultProviderRegistry;
 import com.netflix.spinnaker.cats.provider.ProviderRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentDispatcher;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Application;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Cluster;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Instance;
@@ -103,8 +103,8 @@ final class KubernetesDataProviderIntegrationTest {
   private static final Registry registry = new NoopRegistry();
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private static final KubernetesProvider kubernetesProvider = new KubernetesProvider();
-  private static final KubernetesV2CachingAgentDispatcher dispatcher =
-      new KubernetesV2CachingAgentDispatcher(objectMapper, registry);
+  private static final KubernetesCachingAgentDispatcher dispatcher =
+      new KubernetesCachingAgentDispatcher(objectMapper, registry);
   private static final ImmutableList<KubernetesHandler> handlers =
       ImmutableList.of(
           new KubernetesDeploymentHandler(),
