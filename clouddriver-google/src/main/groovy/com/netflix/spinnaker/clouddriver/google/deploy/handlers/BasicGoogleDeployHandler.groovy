@@ -47,6 +47,7 @@ import com.netflix.spinnaker.clouddriver.google.deploy.SafeRetry
 import com.netflix.spinnaker.clouddriver.google.deploy.description.BasicGoogleDeployDescription
 import com.netflix.spinnaker.clouddriver.google.deploy.ops.GoogleUserDataProvider
 import com.netflix.spinnaker.clouddriver.google.model.GoogleLabeledResource
+import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancingPolicy
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancingPolicy
@@ -316,8 +317,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     List<BackendService> regionBackendServicesToUpdate = []
     if (internalLoadBalancers || internalHttpLoadBalancers) {
       List<String> existingRegionalLbs = instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES]?.split(",") ?: []
-      def ilbServices = internalLoadBalancers.collect { it.backendService.name } + (instanceMetadata[REGION_BACKEND_SERVICE_NAMES]?.split(",") as List) ?: []
-      def ilbNames = internalLoadBalancers.collect { it.name } + internalHttpLoadBalancers.collect { it.name }
+      def ilbNames = internalLoadBalancers.collect { it.name }
 
       ilbNames.each { String ilbName ->
         if (!(ilbName in existingRegionalLbs))  {
@@ -326,7 +326,7 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       }
       instanceMetadata[REGIONAL_LOAD_BALANCER_NAMES] = existingRegionalLbs.join(",")
 
-      ilbServices.each { String backendServiceName ->
+      internalLoadBalancers.collect { it.backendService.name }.each { String backendServiceName ->
         BackendService backendService = timeExecute(
             compute.regionBackendServices().get(project, region, backendServiceName),
             "compute.regionBackendServices.get",
@@ -344,6 +344,26 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
         backendService.backends << backendToAdd
         regionBackendServicesToUpdate << backendService
       }
+
+      internalHttpLoadBalancers
+        .collect { Utils.getBackendServicesFromInternalHttpLoadBalancerView(it) }
+        .flatten()
+        .collect { it.name }
+        .each { String backendServiceName ->
+          log.warn("internalHttpLoadBalancers backendservicename:"+backendServiceName)
+          BackendService backendService = timeExecute(
+            compute.regionBackendServices().get(project, region, backendServiceName),
+            "compute.regionBackendServices.get",
+            TAG_SCOPE, SCOPE_REGIONAL, TAG_REGION, region)
+          GCEUtil.updateMetadataWithLoadBalancingPolicy(policy, instanceMetadata, objectMapper)
+          Backend backendToAdd = GCEUtil.backendFromLoadBalancingPolicy(policy)
+          backendToAdd.setGroup(GCEUtil.buildRegionalServerGroupUrl(project, region, serverGroupName))
+          if (backendService.backends == null) {
+            backendService.backends = new ArrayList<Backend>()
+          }
+          backendService.backends << backendToAdd
+          regionBackendServicesToUpdate << backendService
+        }
     }
 
     String now = System.currentTimeMillis()
