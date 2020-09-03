@@ -42,8 +42,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Value
-public final class KubernetesV2Instance implements Instance, KubernetesResource {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2Instance.class);
+public final class KubernetesInstance implements Instance, KubernetesResource {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesInstance.class);
   private final List<Map<String, Object>> health;
   private final String account;
   // An implementor of the Instance interface is implicitly expected to return a globally-unique ID
@@ -65,7 +65,7 @@ public final class KubernetesV2Instance implements Instance, KubernetesResource 
     return null;
   }
 
-  private KubernetesV2Instance(KubernetesManifest manifest, String key, Moniker moniker) {
+  private KubernetesInstance(KubernetesManifest manifest, String key, Moniker moniker) {
     this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
     this.name = manifest.getUid();
     this.humanReadableName = manifest.getFullResourceName();
@@ -81,18 +81,18 @@ public final class KubernetesV2Instance implements Instance, KubernetesResource 
     V1PodStatus status =
         KubernetesCacheDataConverter.getResource(manifest.getStatus(), V1PodStatus.class);
     if (status != null) {
-      health.add(new KubernetesV2Health(status).toMap());
+      health.add(new KubernetesHealth(status).toMap());
       if (status.getContainerStatuses() != null) {
         health.addAll(
             status.getContainerStatuses().stream()
-                .map(KubernetesV2Health::new)
-                .map(KubernetesV2Health::toMap)
+                .map(KubernetesHealth::new)
+                .map(KubernetesHealth::toMap)
                 .collect(Collectors.toList()));
       }
     }
   }
 
-  public static KubernetesV2Instance fromCacheData(CacheData cd) {
+  public static KubernetesInstance fromCacheData(CacheData cd) {
     if (cd == null) {
       return null;
     }
@@ -105,7 +105,7 @@ public final class KubernetesV2Instance implements Instance, KubernetesResource 
     }
 
     Moniker moniker = KubernetesCacheDataConverter.getMoniker(cd);
-    return new KubernetesV2Instance(manifest, cd.getId(), moniker);
+    return new KubernetesInstance(manifest, cd.getId(), moniker);
   }
 
   public LoadBalancerInstance toLoadBalancerInstance() {

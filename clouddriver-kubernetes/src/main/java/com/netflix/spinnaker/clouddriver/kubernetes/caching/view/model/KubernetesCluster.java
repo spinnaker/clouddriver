@@ -28,23 +28,23 @@ import java.util.Set;
 import lombok.Value;
 
 @Value
-public final class KubernetesV2Cluster implements Cluster {
+public final class KubernetesCluster implements Cluster {
   private final String name;
   private final Moniker moniker;
   private final String type = KubernetesCloudProvider.ID;
   private final String accountName;
-  private final Set<KubernetesV2ServerGroup> serverGroups;
-  private final Set<KubernetesV2LoadBalancer> loadBalancers;
+  private final Set<KubernetesServerGroup> serverGroups;
+  private final Set<KubernetesLoadBalancer> loadBalancers;
   private final String application;
 
-  public KubernetesV2Cluster(String rawKey) {
+  public KubernetesCluster(String rawKey) {
     this(rawKey, ImmutableList.of(), ImmutableList.of());
   }
 
-  public KubernetesV2Cluster(
+  public KubernetesCluster(
       String rawKey,
-      Collection<KubernetesV2ServerGroup> serverGroups,
-      Collection<KubernetesV2LoadBalancer> loadBalancers) {
+      Collection<KubernetesServerGroup> serverGroups,
+      Collection<KubernetesLoadBalancer> loadBalancers) {
     Keys.ClusterCacheKey key = (Keys.ClusterCacheKey) Keys.parseKey(rawKey).get();
     this.name = key.getName();
     this.accountName = key.getAccount();

@@ -24,7 +24,7 @@ import lombok.Value;
 
 @Builder
 @Value
-public final class KubernetesV2ServerGroupSummary implements ServerGroupSummary {
+public final class KubernetesServerGroupSummary implements ServerGroupSummary {
   private final String name;
   private final String account;
   private final String namespace;

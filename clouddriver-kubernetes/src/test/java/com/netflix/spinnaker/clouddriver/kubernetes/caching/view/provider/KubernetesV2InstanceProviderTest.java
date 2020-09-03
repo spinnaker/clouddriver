@@ -26,7 +26,7 @@ import com.google.common.collect.Lists;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Instance;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesInstance;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -92,7 +92,7 @@ final class KubernetesV2InstanceProviderTest {
         .thenReturn(Optional.of(cacheData));
     when(cacheData.getId()).thenReturn(CACHE_KEY);
 
-    KubernetesV2Instance instance = provider.getInstance(ACCOUNT, NAMESPACE, POD_FULL_NAME);
+    KubernetesInstance instance = provider.getInstance(ACCOUNT, NAMESPACE, POD_FULL_NAME);
 
     assertThat(instance.getName()).isEqualTo(manifest.getUid());
     assertThat(instance.getDisplayName()).isEqualTo(manifest.getName());
@@ -103,7 +103,7 @@ final class KubernetesV2InstanceProviderTest {
 
   @Test
   void getInstanceBadPodNameShouldReturnNull() {
-    KubernetesV2Instance instance = provider.getInstance(ACCOUNT, NAMESPACE, "badname");
+    KubernetesInstance instance = provider.getInstance(ACCOUNT, NAMESPACE, "badname");
 
     assertThat(instance).isNull();
   }
@@ -112,7 +112,7 @@ final class KubernetesV2InstanceProviderTest {
   void getInstancePodNotFoundShouldReturnNull() {
     when(cacheUtils.getSingleEntry(KIND.toString(), CACHE_KEY)).thenReturn(Optional.empty());
 
-    KubernetesV2Instance instance = provider.getInstance(ACCOUNT, NAMESPACE, POD_FULL_NAME);
+    KubernetesInstance instance = provider.getInstance(ACCOUNT, NAMESPACE, POD_FULL_NAME);
 
     assertThat(instance).isNull();
   }

@@ -20,7 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Instance;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesInstance;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.ContainerLog;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.job.KubectlJobExecutor;
@@ -41,7 +41,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class KubernetesV2InstanceProvider
-    implements InstanceProvider<KubernetesV2Instance, List<ContainerLog>> {
+    implements InstanceProvider<KubernetesInstance, List<ContainerLog>> {
   private static final Logger log = LoggerFactory.getLogger(KubernetesV2InstanceProvider.class);
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesAccountResolver accountResolver;
@@ -59,10 +59,10 @@ public class KubernetesV2InstanceProvider
   }
 
   @Override
-  public KubernetesV2Instance getInstance(String account, String namespace, String fullName) {
+  public KubernetesInstance getInstance(String account, String namespace, String fullName) {
     return cacheUtils
         .getSingleEntry(account, namespace, fullName)
-        .map(KubernetesV2Instance::fromCacheData)
+        .map(KubernetesInstance::fromCacheData)
         .orElse(null);
   }
 

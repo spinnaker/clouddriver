@@ -37,12 +37,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Value
-public final class KubernetesV2ServerGroupManager
-    implements KubernetesResource, ServerGroupManager {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2ServerGroupManager.class);
+public final class KubernetesServerGroupManager implements KubernetesResource, ServerGroupManager {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesServerGroupManager.class);
   // private final KubernetesManifest manifest;
   private final String account;
-  private final Set<KubernetesV2ServerGroupSummary> serverGroups;
+  private final Set<KubernetesServerGroupSummary> serverGroups;
   private final String name;
   private final String namespace;
   private final String displayName;
@@ -52,11 +51,11 @@ public final class KubernetesV2ServerGroupManager
   private final Moniker moniker;
   private final Long createdTime;
 
-  private KubernetesV2ServerGroupManager(
+  private KubernetesServerGroupManager(
       KubernetesManifest manifest,
       String key,
       Moniker moniker,
-      Set<KubernetesV2ServerGroupSummary> serverGroups) {
+      Set<KubernetesServerGroupSummary> serverGroups) {
     this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
     this.kind = manifest.getKind();
     this.apiVersion = manifest.getApiVersion();
@@ -69,7 +68,7 @@ public final class KubernetesV2ServerGroupManager
     this.createdTime = manifest.getCreationTimestampEpochMillis();
   }
 
-  public static KubernetesV2ServerGroupManager fromCacheData(
+  public static KubernetesServerGroupManager fromCacheData(
       KubernetesV2ServerGroupManagerCacheData data) {
     KubernetesManifest manifest =
         KubernetesCacheDataConverter.getManifest(data.getServerGroupManagerData());
@@ -79,18 +78,18 @@ public final class KubernetesV2ServerGroupManager
       return null;
     }
 
-    Set<KubernetesV2ServerGroupSummary> serverGroups =
+    Set<KubernetesServerGroupSummary> serverGroups =
         data.getServerGroupData().stream()
             .map(
                 sg ->
-                    KubernetesV2ServerGroup.fromCacheData(
+                    KubernetesServerGroup.fromCacheData(
                         KubernetesV2ServerGroupCacheData.builder().serverGroupData(sg).build()))
             .filter(Objects::nonNull)
-            .map(KubernetesV2ServerGroup::toServerGroupSummary)
+            .map(KubernetesServerGroup::toServerGroupSummary)
             .collect(Collectors.toSet());
 
     Moniker moniker = KubernetesCacheDataConverter.getMoniker(data.getServerGroupManagerData());
-    return new KubernetesV2ServerGroupManager(
+    return new KubernetesServerGroupManager(
         manifest, data.getServerGroupManagerData().getId(), moniker, serverGroups);
   }
 

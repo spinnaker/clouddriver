@@ -21,7 +21,7 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalK
 
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ClusterCacheKey;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Application;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesApplication;
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider;
 import java.util.Collection;
 import java.util.List;
@@ -42,7 +42,7 @@ public class KubernetesV2ApplicationProvider implements ApplicationProvider {
   }
 
   @Override
-  public Set<KubernetesV2Application> getApplications(boolean expand) {
+  public Set<KubernetesApplication> getApplications(boolean expand) {
     // TODO(lwander) performance optimization: rely on expand parameter to make a more
     // cache-efficient call
     String clusterGlobKey = ClusterCacheKey.createKey("*", "*", "*");
@@ -56,12 +56,12 @@ public class KubernetesV2ApplicationProvider implements ApplicationProvider {
             .collect(Collectors.groupingBy(ClusterCacheKey::getApplication, Collectors.toSet()));
 
     return keysByApplication.entrySet().stream()
-        .map(e -> new KubernetesV2Application(e.getKey(), groupClustersByAccount(e.getValue())))
+        .map(e -> new KubernetesApplication(e.getKey(), groupClustersByAccount(e.getValue())))
         .collect(Collectors.toSet());
   }
 
   @Override
-  public KubernetesV2Application getApplication(String name) {
+  public KubernetesApplication getApplication(String name) {
     String clusterGlobKey = ClusterCacheKey.createKey("*", name, "*");
     List<ClusterCacheKey> keys =
         cacheUtils.getAllKeysMatchingPattern(CLUSTERS.toString(), clusterGlobKey).stream()
@@ -76,7 +76,7 @@ public class KubernetesV2ApplicationProvider implements ApplicationProvider {
       return null;
     }
 
-    return new KubernetesV2Application(name, groupClustersByAccount(keys));
+    return new KubernetesApplication(name, groupClustersByAccount(keys));
   }
 
   private Map<String, Set<String>> groupClustersByAccount(Collection<ClusterCacheKey> keys) {

@@ -29,8 +29,8 @@ import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ApplicationCacheKey;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesLoadBalancer;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import java.util.ArrayList;
@@ -45,7 +45,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class KubernetesV2LoadBalancerProvider
-    implements LoadBalancerProvider<KubernetesV2LoadBalancer> {
+    implements LoadBalancerProvider<KubernetesLoadBalancer> {
   private final KubernetesCacheUtils cacheUtils;
 
   @Autowired
@@ -69,7 +69,7 @@ public class KubernetesV2LoadBalancerProvider
   }
 
   @Override
-  public List<KubernetesV2LoadBalancer> byAccountAndRegionAndName(
+  public List<KubernetesLoadBalancer> byAccountAndRegionAndName(
       String account, String namespace, String fullName) {
     return cacheUtils
         .getSingleEntry(account, namespace, fullName)
@@ -79,7 +79,7 @@ public class KubernetesV2LoadBalancerProvider
   }
 
   @Override
-  public Set<KubernetesV2LoadBalancer> getApplicationLoadBalancers(String application) {
+  public Set<KubernetesLoadBalancer> getApplicationLoadBalancers(String application) {
     return cacheUtils
         .getSingleEntry(APPLICATIONS.toString(), ApplicationCacheKey.createKey(application))
         .map(
@@ -89,7 +89,7 @@ public class KubernetesV2LoadBalancerProvider
         .orElseGet(ImmutableSet::of);
   }
 
-  private Set<KubernetesV2LoadBalancer> fromLoadBalancerCacheData(
+  private Set<KubernetesLoadBalancer> fromLoadBalancerCacheData(
       Collection<CacheData> loadBalancerData) {
     ImmutableMultimap<String, CacheData> loadBalancerToServerGroups =
         cacheUtils.getRelationships(loadBalancerData, SERVER_GROUPS);
@@ -99,19 +99,19 @@ public class KubernetesV2LoadBalancerProvider
     return loadBalancerData.stream()
         .map(
             lb ->
-                KubernetesV2LoadBalancer.fromCacheData(
+                KubernetesLoadBalancer.fromCacheData(
                     lb,
                     loadBalancerToServerGroups.get(lb.getId()).stream()
                         .map(
                             sg ->
-                                KubernetesV2ServerGroup.fromCacheData(
+                                KubernetesServerGroup.fromCacheData(
                                     KubernetesV2ServerGroupCacheData.builder()
                                         .serverGroupData(sg)
                                         .instanceData(serverGroupToInstances.get(sg.getId()))
                                         .loadBalancerKeys(ImmutableList.of(lb.getId()))
                                         .build()))
                         .filter(Objects::nonNull)
-                        .map(KubernetesV2ServerGroup::toLoadBalancerServerGroup)
+                        .map(KubernetesServerGroup::toLoadBalancerServerGroup)
                         .collect(toImmutableSet())))
         .filter(Objects::nonNull)
         .collect(Collectors.toSet());

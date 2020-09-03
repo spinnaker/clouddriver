@@ -38,9 +38,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Value
-public final class KubernetesV2LoadBalancer
+public final class KubernetesLoadBalancer
     implements KubernetesResource, LoadBalancer, LoadBalancerProvider.Details {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2LoadBalancer.class);
+  private static final Logger log = LoggerFactory.getLogger(KubernetesLoadBalancer.class);
   private final Set<LoadBalancerServerGroup> serverGroups;
   private final String account;
   private final String name;
@@ -52,7 +52,7 @@ public final class KubernetesV2LoadBalancer
   private final Moniker moniker;
   private final Long createdTime;
 
-  private KubernetesV2LoadBalancer(
+  private KubernetesLoadBalancer(
       KubernetesManifest manifest,
       String key,
       Moniker moniker,
@@ -71,7 +71,7 @@ public final class KubernetesV2LoadBalancer
 
   @Nullable
   @ParametersAreNonnullByDefault
-  public static KubernetesV2LoadBalancer fromCacheData(
+  public static KubernetesLoadBalancer fromCacheData(
       CacheData cd, Set<LoadBalancerServerGroup> loadBalancerServerGroups) {
     KubernetesManifest manifest = KubernetesCacheDataConverter.getManifest(cd);
     if (manifest == null) {
@@ -79,7 +79,7 @@ public final class KubernetesV2LoadBalancer
       return null;
     }
     Moniker moniker = KubernetesCacheDataConverter.getMoniker(cd);
-    return new KubernetesV2LoadBalancer(manifest, cd.getId(), moniker, loadBalancerServerGroups);
+    return new KubernetesLoadBalancer(manifest, cd.getId(), moniker, loadBalancerServerGroups);
   }
 
   public String getRegion() {

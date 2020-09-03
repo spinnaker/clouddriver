@@ -36,9 +36,9 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Cluster;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2LoadBalancer;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroup;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesCluster;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesLoadBalancer;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupHandler;
@@ -55,7 +55,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2Cluster> {
+public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesCluster> {
   private final KubernetesCacheUtils cacheUtils;
 
   @Autowired
@@ -64,12 +64,12 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
   }
 
   @Override
-  public Map<String, Set<KubernetesV2Cluster>> getClusters() {
+  public Map<String, Set<KubernetesCluster>> getClusters() {
     return groupByAccountName(loadClusters(cacheUtils.getAllKeys(CLUSTERS.toString())));
   }
 
   @Override
-  public Map<String, Set<KubernetesV2Cluster>> getClusterSummaries(String application) {
+  public Map<String, Set<KubernetesCluster>> getClusterSummaries(String application) {
     String applicationKey = Keys.ApplicationCacheKey.createKey(application);
     return groupByAccountName(
         loadClusterSummaries(
@@ -83,25 +83,25 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
   }
 
   @Override
-  public Map<String, Set<KubernetesV2Cluster>> getClusterDetails(String application) {
+  public Map<String, Set<KubernetesCluster>> getClusterDetails(String application) {
     String clusterGlobKey = Keys.ClusterCacheKey.createKey("*", application, "*");
     return groupByAccountName(
         loadClusters(cacheUtils.getAllDataMatchingPattern(CLUSTERS.toString(), clusterGlobKey)));
   }
 
   @Override
-  public Set<KubernetesV2Cluster> getClusters(String application, String account) {
+  public Set<KubernetesCluster> getClusters(String application, String account) {
     String globKey = Keys.ClusterCacheKey.createKey(account, application, "*");
     return loadClusters(cacheUtils.getAllDataMatchingPattern(CLUSTERS.toString(), globKey));
   }
 
   @Override
-  public KubernetesV2Cluster getCluster(String application, String account, String name) {
+  public KubernetesCluster getCluster(String application, String account, String name) {
     return getCluster(application, account, name, true);
   }
 
   @Override
-  public KubernetesV2Cluster getCluster(
+  public KubernetesCluster getCluster(
       String application, String account, String name, boolean includeDetails) {
     return cacheUtils
         .getSingleEntry(
@@ -109,7 +109,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
         .map(
             entry -> {
               Collection<CacheData> clusterData = ImmutableList.of(entry);
-              Set<KubernetesV2Cluster> result =
+              Set<KubernetesCluster> result =
                   includeDetails ? loadClusters(clusterData) : loadClusterSummaries(clusterData);
               return result.iterator().next();
             })
@@ -118,7 +118,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
 
   @Nullable
   @Override
-  public KubernetesV2ServerGroup getServerGroup(
+  public KubernetesServerGroup getServerGroup(
       String account, String namespace, String fullName, boolean includeDetails) {
     return cacheUtils
         .getSingleEntry(account, namespace, fullName)
@@ -129,7 +129,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
   }
 
   @Override
-  public KubernetesV2ServerGroup getServerGroup(String account, String namespace, String name) {
+  public KubernetesServerGroup getServerGroup(String account, String namespace, String name) {
     return getServerGroup(account, namespace, name, true);
   }
 
@@ -143,18 +143,18 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
     return true;
   }
 
-  private Map<String, Set<KubernetesV2Cluster>> groupByAccountName(
-      Collection<KubernetesV2Cluster> clusters) {
-    return clusters.stream().collect(groupingBy(KubernetesV2Cluster::getAccountName, toSet()));
+  private Map<String, Set<KubernetesCluster>> groupByAccountName(
+      Collection<KubernetesCluster> clusters) {
+    return clusters.stream().collect(groupingBy(KubernetesCluster::getAccountName, toSet()));
   }
 
-  private Set<KubernetesV2Cluster> loadClusterSummaries(Collection<CacheData> clusterData) {
+  private Set<KubernetesCluster> loadClusterSummaries(Collection<CacheData> clusterData) {
     return clusterData.stream()
-        .map(clusterDatum -> new KubernetesV2Cluster(clusterDatum.getId()))
+        .map(clusterDatum -> new KubernetesCluster(clusterDatum.getId()))
         .collect(toSet());
   }
 
-  private Set<KubernetesV2Cluster> loadClusters(Collection<CacheData> clusterData) {
+  private Set<KubernetesCluster> loadClusters(Collection<CacheData> clusterData) {
     ImmutableMultimap<String, CacheData> clusterToServerGroups =
         cacheUtils.getRelationships(clusterData, SERVER_GROUPS);
 
@@ -163,30 +163,30 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
             clusterDatum -> {
               ImmutableCollection<CacheData> clusterServerGroups =
                   clusterToServerGroups.get(clusterDatum.getId());
-              ImmutableMap<String, KubernetesV2ServerGroup> serverGroups =
+              ImmutableMap<String, KubernetesServerGroup> serverGroups =
                   loadServerGroups(clusterServerGroups);
-              List<KubernetesV2LoadBalancer> loadBalancers =
+              List<KubernetesLoadBalancer> loadBalancers =
                   cacheUtils.getRelationships(clusterServerGroups, LOAD_BALANCERS).values().stream()
                       .filter(cacheUtils.distinctById())
                       .map(
                           cd ->
-                              KubernetesV2LoadBalancer.fromCacheData(
+                              KubernetesLoadBalancer.fromCacheData(
                                   cd,
                                   cacheUtils.getRelationshipKeys(cd, SERVER_GROUPS).stream()
                                       .map(serverGroups::get)
                                       .filter(Objects::nonNull)
-                                      .map(KubernetesV2ServerGroup::toLoadBalancerServerGroup)
+                                      .map(KubernetesServerGroup::toLoadBalancerServerGroup)
                                       .collect(toImmutableSet())))
                       .filter(Objects::nonNull)
                       .collect(Collectors.toList());
 
-              return new KubernetesV2Cluster(
+              return new KubernetesCluster(
                   clusterDatum.getId(), serverGroups.values(), loadBalancers);
             })
         .collect(toSet());
   }
 
-  private ImmutableMap<String, KubernetesV2ServerGroup> loadServerGroups(
+  private ImmutableMap<String, KubernetesServerGroup> loadServerGroups(
       ImmutableCollection<CacheData> serverGroupData) {
     ImmutableMultimap<String, CacheData> serverGroupToInstances =
         cacheUtils.getRelationships(serverGroupData, INSTANCES);
@@ -209,7 +209,7 @@ public class KubernetesV2ClusterProvider implements ClusterProvider<KubernetesV2
   private final ServerGroupHandler DEFAULT_SERVER_GROUP_HANDLER = new ServerGroupHandler() {};
 
   @Nonnull
-  private KubernetesV2ServerGroup serverGroupFromCacheData(
+  private KubernetesServerGroup serverGroupFromCacheData(
       @Nonnull KubernetesV2ServerGroupCacheData cacheData) {
     KubernetesHandler handler = cacheUtils.getHandler(cacheData);
     ServerGroupHandler serverGroupHandler =

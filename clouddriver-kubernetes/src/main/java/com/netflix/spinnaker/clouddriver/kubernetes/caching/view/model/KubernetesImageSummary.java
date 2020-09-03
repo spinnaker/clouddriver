@@ -27,12 +27,12 @@ import lombok.Builder;
 import lombok.Getter;
 
 @NonnullByDefault
-final class KubernetesV2ImageSummary implements ImageSummary {
+final class KubernetesImageSummary implements ImageSummary {
   @Getter private final String serverGroupName;
   @Getter private final ImmutableMap<String, Object> buildInfo;
 
   @Builder
-  KubernetesV2ImageSummary(
+  KubernetesImageSummary(
       String serverGroupName, Map<String, ? extends ImmutableCollection<String>> buildInfo) {
     this.serverGroupName = serverGroupName;
     this.buildInfo = ImmutableMap.copyOf(buildInfo);

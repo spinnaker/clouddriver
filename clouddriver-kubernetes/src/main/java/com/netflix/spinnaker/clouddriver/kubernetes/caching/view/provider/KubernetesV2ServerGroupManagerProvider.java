@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMultimap;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2ServerGroupManager;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesServerGroupManager;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.data.KubernetesV2ServerGroupManagerCacheData;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ServerGroupManagerHandler;
@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class KubernetesV2ServerGroupManagerProvider
-    implements ServerGroupManagerProvider<KubernetesV2ServerGroupManager> {
+    implements ServerGroupManagerProvider<KubernetesServerGroupManager> {
   private final KubernetesCacheUtils cacheUtils;
 
   @Autowired
@@ -47,8 +47,7 @@ public class KubernetesV2ServerGroupManagerProvider
   }
 
   @Override
-  public Set<KubernetesV2ServerGroupManager> getServerGroupManagersByApplication(
-      String application) {
+  public Set<KubernetesServerGroupManager> getServerGroupManagersByApplication(String application) {
     CacheData applicationDatum =
         cacheUtils
             .getSingleEntry(
@@ -79,7 +78,7 @@ public class KubernetesV2ServerGroupManagerProvider
       new ServerGroupManagerHandler() {};
 
   @Nonnull
-  private KubernetesV2ServerGroupManager serverGroupManagerFromCacheData(
+  private KubernetesServerGroupManager serverGroupManagerFromCacheData(
       @Nonnull KubernetesV2ServerGroupManagerCacheData cacheData) {
     KubernetesHandler handler = cacheUtils.getHandler(cacheData);
     ServerGroupManagerHandler serverGroupManagerHandler =

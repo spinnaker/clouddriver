@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2SecurityGroup;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesSecurityGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
@@ -34,7 +34,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class KubernetesV2SecurityGroupProvider
-    implements SecurityGroupProvider<KubernetesV2SecurityGroup> {
+    implements SecurityGroupProvider<KubernetesSecurityGroup> {
   private final KubernetesCacheUtils cacheUtils;
   private final KubernetesSpinnakerKindMap kindMap;
 
@@ -51,17 +51,17 @@ public class KubernetesV2SecurityGroupProvider
   }
 
   @Override
-  public Set<KubernetesV2SecurityGroup> getAll(boolean includeRules) {
+  public Set<KubernetesSecurityGroup> getAll(boolean includeRules) {
     return kindMap.translateSpinnakerKind(SpinnakerKind.SECURITY_GROUPS).stream()
         .map(KubernetesKind::toString)
         .map(cacheUtils::getAllKeys)
         .flatMap(Collection::stream)
-        .map(KubernetesV2SecurityGroup::fromCacheData)
+        .map(KubernetesSecurityGroup::fromCacheData)
         .collect(Collectors.toSet());
   }
 
   @Override
-  public Set<KubernetesV2SecurityGroup> getAllByRegion(boolean includeRules, String namespace) {
+  public Set<KubernetesSecurityGroup> getAllByRegion(boolean includeRules, String namespace) {
     return kindMap.translateSpinnakerKind(SpinnakerKind.SECURITY_GROUPS).stream()
         .map(
             k -> {
@@ -69,12 +69,12 @@ public class KubernetesV2SecurityGroupProvider
               return cacheUtils.getAllDataMatchingPattern(k.toString(), key);
             })
         .flatMap(Collection::stream)
-        .map(KubernetesV2SecurityGroup::fromCacheData)
+        .map(KubernetesSecurityGroup::fromCacheData)
         .collect(Collectors.toSet());
   }
 
   @Override
-  public Set<KubernetesV2SecurityGroup> getAllByAccount(boolean includeRules, String account) {
+  public Set<KubernetesSecurityGroup> getAllByAccount(boolean includeRules, String account) {
     return kindMap.translateSpinnakerKind(SpinnakerKind.SECURITY_GROUPS).stream()
         .map(
             k -> {
@@ -82,12 +82,12 @@ public class KubernetesV2SecurityGroupProvider
               return cacheUtils.getAllDataMatchingPattern(k.toString(), key);
             })
         .flatMap(Collection::stream)
-        .map(KubernetesV2SecurityGroup::fromCacheData)
+        .map(KubernetesSecurityGroup::fromCacheData)
         .collect(Collectors.toSet());
   }
 
   @Override
-  public Set<KubernetesV2SecurityGroup> getAllByAccountAndName(
+  public Set<KubernetesSecurityGroup> getAllByAccountAndName(
       boolean includeRules, String account, String fullName) {
     String name;
     try {
@@ -103,12 +103,12 @@ public class KubernetesV2SecurityGroupProvider
               return cacheUtils.getAllDataMatchingPattern(k.toString(), key);
             })
         .flatMap(Collection::stream)
-        .map(KubernetesV2SecurityGroup::fromCacheData)
+        .map(KubernetesSecurityGroup::fromCacheData)
         .collect(Collectors.toSet());
   }
 
   @Override
-  public Set<KubernetesV2SecurityGroup> getAllByAccountAndRegion(
+  public Set<KubernetesSecurityGroup> getAllByAccountAndRegion(
       boolean includeRule, String account, String namespace) {
     return kindMap.translateSpinnakerKind(SpinnakerKind.SECURITY_GROUPS).stream()
         .map(
@@ -117,12 +117,12 @@ public class KubernetesV2SecurityGroupProvider
               return cacheUtils.getAllDataMatchingPattern(k.toString(), key);
             })
         .flatMap(Collection::stream)
-        .map(KubernetesV2SecurityGroup::fromCacheData)
+        .map(KubernetesSecurityGroup::fromCacheData)
         .collect(Collectors.toSet());
   }
 
   @Override
-  public KubernetesV2SecurityGroup get(
+  public KubernetesSecurityGroup get(
       String account, String namespace, String fullName, String _unused) {
     String name;
     try {
@@ -138,13 +138,13 @@ public class KubernetesV2SecurityGroupProvider
               return cacheUtils.getSingleEntry(k.toString(), key).orElse(null);
             })
         .filter(Objects::nonNull)
-        .map(KubernetesV2SecurityGroup::fromCacheData)
+        .map(KubernetesSecurityGroup::fromCacheData)
         .findFirst()
         .orElse(null);
   }
 
   @Override
-  public KubernetesV2SecurityGroup getById(String account, String region, String id, String vpcId) {
+  public KubernetesSecurityGroup getById(String account, String region, String id, String vpcId) {
     throw new UnsupportedOperationException("Not currently implemented.");
   }
 }

@@ -28,13 +28,13 @@ import lombok.Value;
 @Value
 // TODO(lwander): match spec described here
 // https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
-public final class KubernetesV2Health implements Health {
+public final class KubernetesHealth implements Health {
   private final HealthState state;
   private final String source;
   private final String type;
   private final String healthClass = "platform";
 
-  public KubernetesV2Health(V1PodStatus status) {
+  public KubernetesHealth(V1PodStatus status) {
     String phase = status.getPhase();
     this.source = "Pod";
     this.type = "kubernetes/pod";
@@ -48,7 +48,7 @@ public final class KubernetesV2Health implements Health {
     }
   }
 
-  public KubernetesV2Health(V1ContainerStatus status) {
+  public KubernetesHealth(V1ContainerStatus status) {
     this.source = "Container " + status.getName();
     this.type = "kubernetes/container";
 

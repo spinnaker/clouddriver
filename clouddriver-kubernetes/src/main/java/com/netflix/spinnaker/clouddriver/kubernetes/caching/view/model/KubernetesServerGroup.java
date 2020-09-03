@@ -57,10 +57,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Value
-public final class KubernetesV2ServerGroup implements KubernetesResource, ServerGroup {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2ServerGroup.class);
+public final class KubernetesServerGroup implements KubernetesResource, ServerGroup {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesServerGroup.class);
   private final boolean disabled;
-  private final Set<KubernetesV2Instance> instances;
+  private final Set<KubernetesInstance> instances;
   private final Set<String> loadBalancers;
   private final List<ServerGroupManagerSummary> serverGroupManagers;
   private final Capacity capacity;
@@ -118,11 +118,11 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
     return disabled;
   }
 
-  private KubernetesV2ServerGroup(
+  private KubernetesServerGroup(
       KubernetesManifest manifest,
       String key,
       Moniker moniker,
-      List<KubernetesV2Instance> instances,
+      List<KubernetesInstance> instances,
       Set<String> loadBalancers,
       List<ServerGroupManagerSummary> serverGroupManagers,
       Boolean disabled) {
@@ -161,7 +161,7 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
     this.capacity = Capacity.builder().desired(desired).build();
   }
 
-  public static KubernetesV2ServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
+  public static KubernetesServerGroup fromCacheData(KubernetesV2ServerGroupCacheData cacheData) {
     List<ServerGroupManagerSummary> serverGroupManagers =
         cacheData.getServerGroupManagerKeys().stream()
             .map(Keys::parseKey)
@@ -186,9 +186,9 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
       return null;
     }
 
-    List<KubernetesV2Instance> instances =
+    List<KubernetesInstance> instances =
         cacheData.getInstanceData().stream()
-            .map(KubernetesV2Instance::fromCacheData)
+            .map(KubernetesInstance::fromCacheData)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
@@ -215,7 +215,7 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
     loadBalancers.addAll(explicitLoadBalancers);
 
     Moniker moniker = KubernetesCacheDataConverter.getMoniker(cacheData.getServerGroupData());
-    return new KubernetesV2ServerGroup(
+    return new KubernetesServerGroup(
         manifest,
         cacheData.getServerGroupData().getId(),
         moniker,
@@ -225,8 +225,8 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
         disabled);
   }
 
-  public KubernetesV2ServerGroupSummary toServerGroupSummary() {
-    return KubernetesV2ServerGroupSummary.builder()
+  public KubernetesServerGroupSummary toServerGroupSummary() {
+    return KubernetesServerGroupSummary.builder()
         .name(getName())
         .account(getAccount())
         .namespace(getRegion())
@@ -240,7 +240,7 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
         .detachedInstances(new HashSet<>())
         .instances(
             instances.stream()
-                .map(KubernetesV2Instance::toLoadBalancerInstance)
+                .map(KubernetesInstance::toLoadBalancerInstance)
                 .collect(Collectors.toSet()))
         .name(getName())
         .region(getRegion())
@@ -260,7 +260,7 @@ public final class KubernetesV2ServerGroup implements KubernetesResource, Server
   public ImagesSummary getImagesSummary() {
     return () ->
         ImmutableList.of(
-            KubernetesV2ImageSummary.builder()
+            KubernetesImageSummary.builder()
                 .serverGroupName(displayName)
                 .buildInfo(buildInfo)
                 .build());

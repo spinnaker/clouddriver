@@ -59,8 +59,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Value
-public final class KubernetesV2SecurityGroup implements KubernetesResource, SecurityGroup {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2SecurityGroup.class);
+public final class KubernetesSecurityGroup implements KubernetesResource, SecurityGroup {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesSecurityGroup.class);
   private static final ImmutableSet<KubernetesApiVersion> SUPPORTED_API_VERSIONS =
       ImmutableSet.of(EXTENSIONS_V1BETA1, NETWORKING_K8S_IO_V1BETA1, NETWORKING_K8S_IO_V1);
 
@@ -87,7 +87,7 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
     return KubernetesV2SecurityGroupSummary.builder().id(id).name(id).build();
   }
 
-  private KubernetesV2SecurityGroup(
+  private KubernetesSecurityGroup(
       KubernetesManifest manifest,
       String key,
       Moniker moniker,
@@ -107,7 +107,7 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
     this.outboundRules = outboundRules;
   }
 
-  public static KubernetesV2SecurityGroup fromCacheData(CacheData cd) {
+  public static KubernetesSecurityGroup fromCacheData(CacheData cd) {
     if (cd == null) {
       return null;
     }
@@ -140,8 +140,7 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
     }
 
     Moniker moniker = KubernetesCacheDataConverter.getMoniker(cd);
-    return new KubernetesV2SecurityGroup(
-        manifest, cd.getId(), moniker, inboundRules, outboundRules);
+    return new KubernetesSecurityGroup(manifest, cd.getId(), moniker, inboundRules, outboundRules);
   }
 
   private static Set<Rule> inboundRules(V1NetworkPolicy policy) {
@@ -152,7 +151,7 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
         .map(V1NetworkPolicyIngressRule::getPorts)
         .filter(Objects::nonNull)
         .flatMap(Collection::stream)
-        .map(KubernetesV2SecurityGroup::fromPolicyPort)
+        .map(KubernetesSecurityGroup::fromPolicyPort)
         .collect(Collectors.toSet());
   }
 
@@ -164,7 +163,7 @@ public final class KubernetesV2SecurityGroup implements KubernetesResource, Secu
         .map(V1NetworkPolicyEgressRule::getPorts)
         .filter(Objects::nonNull)
         .flatMap(Collection::stream)
-        .map(KubernetesV2SecurityGroup::fromPolicyPort)
+        .map(KubernetesSecurityGroup::fromPolicyPort)
         .collect(Collectors.toSet());
   }
 
