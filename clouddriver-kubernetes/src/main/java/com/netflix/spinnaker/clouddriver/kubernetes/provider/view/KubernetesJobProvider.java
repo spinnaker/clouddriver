@@ -22,7 +22,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.Kubernete
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesV2JobStatus;
+import com.netflix.spinnaker.clouddriver.kubernetes.model.KubernetesJobStatus;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesSelectorList;
 import com.netflix.spinnaker.clouddriver.model.JobProvider;
@@ -41,13 +41,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatus> {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2JobProvider.class);
+public class KubernetesJobProvider implements JobProvider<KubernetesJobStatus> {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesJobProvider.class);
   @Getter private final String platform = "kubernetes";
   private final AccountCredentialsProvider accountCredentialsProvider;
   private final KubernetesManifestProvider manifestProvider;
 
-  KubernetesV2JobProvider(
+  KubernetesJobProvider(
       AccountCredentialsProvider accountCredentialsProvider,
       KubernetesManifestProvider manifestProvider) {
     this.accountCredentialsProvider = accountCredentialsProvider;
@@ -56,13 +56,13 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
 
   @Override
   @Nullable
-  public KubernetesV2JobStatus collectJob(String account, String location, String id) {
+  public KubernetesJobStatus collectJob(String account, String location, String id) {
     Optional<V1Job> optionalJob = getKubernetesJob(account, location, id);
     if (!optionalJob.isPresent()) {
       return null;
     }
     V1Job job = optionalJob.get();
-    KubernetesV2JobStatus jobStatus = new KubernetesV2JobStatus(job, account);
+    KubernetesJobStatus jobStatus = new KubernetesJobStatus(job, account);
     KubernetesCredentials credentials =
         (KubernetesCredentials) accountCredentialsProvider.getCredentials(account).getCredentials();
 
@@ -78,7 +78,7 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
             .map(
                 p -> {
                   V1Pod pod = KubernetesCacheDataConverter.getResource(p, V1Pod.class);
-                  return new KubernetesV2JobStatus.PodStatus(pod);
+                  return new KubernetesJobStatus.PodStatus(pod);
                 })
             .collect(Collectors.toList()));
 

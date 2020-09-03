@@ -25,7 +25,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 
-class KubernetesV2JobProviderSpec extends Specification {
+class KubernetesJobProviderSpec extends Specification {
 
   def "getFileContents return a map with properties"() {
     given:
@@ -58,7 +58,7 @@ class KubernetesV2JobProviderSpec extends Specification {
     }
 
     when:
-    def provider = new KubernetesV2JobProvider(mockAccountCredentialsProvider, mockManifestProvider)
+    def provider = new KubernetesJobProvider(mockAccountCredentialsProvider, mockManifestProvider)
     def logResult = provider.getFileContents("a", "b", "c", "d")
 
     then:

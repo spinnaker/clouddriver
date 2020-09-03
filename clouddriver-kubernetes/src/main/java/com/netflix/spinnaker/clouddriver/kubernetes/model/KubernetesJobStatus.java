@@ -31,7 +31,7 @@ import java.util.*;
 import lombok.Data;
 
 @Data
-public class KubernetesV2JobStatus implements JobStatus {
+public class KubernetesJobStatus implements JobStatus {
 
   String name;
   String cluster;
@@ -49,7 +49,7 @@ public class KubernetesV2JobStatus implements JobStatus {
   @JsonIgnore V1Job job;
   List<PodStatus> pods;
 
-  public KubernetesV2JobStatus(V1Job job, String account) {
+  public KubernetesJobStatus(V1Job job, String account) {
     this.job = job;
     this.account = account;
     this.name = job.getMetadata().getName();
