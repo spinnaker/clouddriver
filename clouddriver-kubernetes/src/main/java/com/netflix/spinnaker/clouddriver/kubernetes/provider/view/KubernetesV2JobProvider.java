@@ -18,7 +18,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.provider.view;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Manifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesManifestContainer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -114,7 +114,7 @@ public class KubernetesV2JobProvider implements JobProvider<KubernetesV2JobStatu
 
   private Optional<V1Job> getKubernetesJob(String account, String location, String id) {
     return Optional.ofNullable(manifestProvider.getManifest(account, location, id, false))
-        .map(KubernetesV2Manifest::getManifest)
+        .map(KubernetesManifestContainer::getManifest)
         .map(m -> KubernetesCacheDataConverter.getResource(m, V1Job.class));
   }
 }

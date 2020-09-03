@@ -17,7 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.provider.view
 
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Manifest
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesManifestContainer
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
@@ -50,7 +50,7 @@ class KubernetesV2JobProviderSpec extends Specification {
     ])
 
     def mockManifestProvider = Mock(KubernetesManifestProvider) {
-      getManifest(*_) >> KubernetesV2Manifest.builder()
+      getManifest(*_) >> KubernetesManifestContainer.builder()
         .account("a")
         .name("a")
         .manifest(testManifest)

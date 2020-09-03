@@ -31,7 +31,7 @@ import lombok.Value;
 
 @Value
 @Builder
-public class KubernetesV2Manifest implements Manifest {
+public class KubernetesManifestContainer implements Manifest {
   private final String account;
   private final String name;
   private final String location;

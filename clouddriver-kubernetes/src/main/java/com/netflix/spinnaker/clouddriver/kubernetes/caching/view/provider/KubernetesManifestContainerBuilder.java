@@ -17,7 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Manifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesManifestContainer;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
@@ -33,8 +33,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @NonnullByDefault
-final class KubernetesV2ManifestBuilder {
-  static KubernetesV2Manifest buildManifest(
+final class KubernetesManifestContainerBuilder {
+  static KubernetesManifestContainer buildManifest(
       KubernetesCredentials credentials,
       KubernetesManifest manifest,
       List<KubernetesManifest> events,
@@ -56,7 +56,7 @@ final class KubernetesV2ManifestBuilder {
 
     KubernetesHandler handler = properties.getHandler();
 
-    return KubernetesV2Manifest.builder()
+    return KubernetesManifestContainer.builder()
         .account(credentials.getAccountName())
         .name(manifest.getFullResourceName())
         .location(namespace)
