@@ -99,6 +99,7 @@ public class KubernetesCluster extends GenericContainer {
     assertThat(process.exitValue())
         .as("Running %s returned non-zero exit code. Output:\n%s", cmd, output)
         .isEqualTo(0);
+    System.out.println("kubectl " + args + ":\n" + output);
     return output.trim();
   }
 
