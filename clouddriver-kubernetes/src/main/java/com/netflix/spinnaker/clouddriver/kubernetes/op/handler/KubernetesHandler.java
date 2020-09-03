@@ -26,7 +26,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.ReplaceResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgent;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
@@ -94,7 +94,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
     return artifactReplacer.findAll(manifest);
   }
 
-  public KubernetesV2CachingAgent buildCachingAgent(
+  public KubernetesCachingAgent buildCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,

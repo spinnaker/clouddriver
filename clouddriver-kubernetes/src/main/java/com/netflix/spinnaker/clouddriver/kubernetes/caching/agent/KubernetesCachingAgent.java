@@ -55,9 +55,9 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class KubernetesV2CachingAgent
+public abstract class KubernetesCachingAgent
     implements AgentIntervalAware, CachingAgent, AccountAware {
-  private static final Logger log = LoggerFactory.getLogger(KubernetesV2CachingAgent.class);
+  private static final Logger log = LoggerFactory.getLogger(KubernetesCachingAgent.class);
 
   @Getter @Nonnull protected final String accountName;
   protected final Registry registry;
@@ -72,7 +72,7 @@ public abstract class KubernetesV2CachingAgent
 
   @Getter protected final Long agentInterval;
 
-  protected KubernetesV2CachingAgent(
+  protected KubernetesCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,
@@ -168,8 +168,7 @@ public abstract class KubernetesV2CachingAgent
   }
 
   /**
-   * Deprecated in favor {@link
-   * KubernetesV2CachingAgent#loadPrimaryResource(KubernetesCoordinates)}.
+   * Deprecated in favor {@link KubernetesCachingAgent#loadPrimaryResource(KubernetesCoordinates)}.
    */
   @Deprecated
   protected KubernetesManifest loadPrimaryResource(

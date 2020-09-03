@@ -23,7 +23,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 
 @FunctionalInterface
 public interface KubernetesV2CachingAgentFactory {
-  KubernetesV2CachingAgent buildCachingAgent(
+  KubernetesCachingAgent buildCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,

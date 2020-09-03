@@ -45,10 +45,10 @@ public class KubernetesV2CachingAgentDispatcher {
     this.registry = registry;
   }
 
-  public Collection<KubernetesV2CachingAgent> buildAllCachingAgents(
+  public Collection<KubernetesCachingAgent> buildAllCachingAgents(
       KubernetesNamedAccountCredentials credentials) {
     KubernetesCredentials kubernetesCredentials = credentials.getCredentials();
-    List<KubernetesV2CachingAgent> result = new ArrayList<>();
+    List<KubernetesCachingAgent> result = new ArrayList<>();
     Long agentInterval =
         Optional.ofNullable(credentials.getCacheIntervalSeconds())
             .map(TimeUnit.SECONDS::toMillis)
@@ -74,7 +74,7 @@ public class KubernetesV2CachingAgentDispatcher {
                     .forEach(result::add));
 
     return result.stream()
-        .collect(Collectors.toMap(KubernetesV2CachingAgent::getAgentType, c -> c, (a, b) -> b))
+        .collect(Collectors.toMap(KubernetesCachingAgent::getAgentType, c -> c, (a, b) -> b))
         .values();
   }
 }
