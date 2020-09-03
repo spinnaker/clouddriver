@@ -84,7 +84,7 @@ public final class KubernetesSecurityGroup implements KubernetesResource, Securi
 
   @Override
   public SecurityGroupSummary getSummary() {
-    return KubernetesV2SecurityGroupSummary.builder().id(id).name(id).build();
+    return KubernetesSecurityGroupSummary.builder().id(id).name(id).build();
   }
 
   private KubernetesSecurityGroup(
@@ -196,7 +196,7 @@ public final class KubernetesSecurityGroup implements KubernetesResource, Securi
   @NoArgsConstructor
   @AllArgsConstructor
   @Builder
-  private static class KubernetesV2SecurityGroupSummary implements SecurityGroupSummary {
+  private static class KubernetesSecurityGroupSummary implements SecurityGroupSummary {
     private String name;
     private String id;
   }
