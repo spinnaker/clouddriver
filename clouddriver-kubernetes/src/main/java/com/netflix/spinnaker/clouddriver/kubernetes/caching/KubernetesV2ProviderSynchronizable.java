@@ -35,7 +35,7 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
   private static final Logger log =
       LoggerFactory.getLogger(KubernetesV2ProviderSynchronizable.class);
 
-  private final KubernetesV2Provider kubernetesV2Provider;
+  private final KubernetesProvider kubernetesProvider;
   private final AccountCredentialsRepository accountCredentialsRepository;
   private final KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher;
   private final KubernetesConfigurationProperties kubernetesConfigurationProperties;
@@ -43,13 +43,13 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
   private final CatsModule catsModule;
 
   public KubernetesV2ProviderSynchronizable(
-      KubernetesV2Provider kubernetesV2Provider,
+      KubernetesProvider kubernetesProvider,
       AccountCredentialsRepository accountCredentialsRepository,
       KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
       KubernetesCredentials.Factory credentialFactory,
       CatsModule catsModule) {
-    this.kubernetesV2Provider = kubernetesV2Provider;
+    this.kubernetesProvider = kubernetesProvider;
     this.accountCredentialsRepository = accountCredentialsRepository;
     this.kubernetesV2CachingAgentDispatcher = kubernetesV2CachingAgentDispatcher;
     this.kubernetesConfigurationProperties = kubernetesConfigurationProperties;
@@ -181,7 +181,7 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
 
         log.info("Adding {} agents for account {}", newlyAddedAgents.size(), credentials.getName());
 
-        kubernetesV2Provider.stageAgents(newlyAddedAgents);
+        kubernetesProvider.stageAgents(newlyAddedAgents);
         stagedAccountNames.add(credentials.getName());
       } catch (Exception e) {
         log.warn(
@@ -198,11 +198,11 @@ public class KubernetesV2ProviderSynchronizable implements CredentialsInitialize
     // the past.
     // In that case, we need to do the scheduling here (because accounts have been added to a
     // running system).
-    if (kubernetesV2Provider.getAgentScheduler() != null) {
+    if (kubernetesProvider.getAgentScheduler() != null) {
       ProviderUtils.rescheduleAgents(
-          kubernetesV2Provider, new ArrayList<>(kubernetesV2Provider.getStagedAgents()));
+          kubernetesProvider, new ArrayList<>(kubernetesProvider.getStagedAgents()));
     }
 
-    kubernetesV2Provider.promoteStagedAgents();
+    kubernetesProvider.promoteStagedAgents();
   }
 }

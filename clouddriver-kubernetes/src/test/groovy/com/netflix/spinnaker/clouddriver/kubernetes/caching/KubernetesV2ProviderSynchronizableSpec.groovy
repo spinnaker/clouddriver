@@ -50,7 +50,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
   AccountCredentialsRepository accountCredentialsRepository
   KubernetesNamerRegistry namerRegistry = new KubernetesNamerRegistry([new KubernetesManifestNamer()])
   ConfigFileService configFileService = Mock(ConfigFileService)
-  KubernetesV2Provider kubernetesV2Provider = new KubernetesV2Provider()
+  KubernetesProvider kubernetesProvider = new KubernetesProvider()
   KubernetesV2CachingAgentDispatcher agentDispatcher = Mock(KubernetesV2CachingAgentDispatcher)
   AccountResourcePropertyRegistry.Factory resourcePropertyRegistryFactory = Mock(AccountResourcePropertyRegistry.Factory)
   KubernetesKindRegistry.Factory kindRegistryFactory = Mock(KubernetesKindRegistry.Factory)
@@ -71,8 +71,8 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
 
   def synchronizeAccounts(KubernetesConfigurationProperties configurationProperties, failedAgentAccounts = []) {
     catsModule.providerRegistry >> providerRegistry
-    providerRegistry.providers >> [kubernetesV2Provider]
-    kubernetesV2Provider.setAgentScheduler(scheduler)
+    providerRegistry.providers >> [kubernetesProvider]
+    kubernetesProvider.setAgentScheduler(scheduler)
     for (KubernetesConfigurationProperties.ManagedAccount account in configurationProperties.accounts) {
       def credentials = new KubernetesNamedAccountCredentials(account, credentialFactory)
       if (account.name in failedAgentAccounts) {
@@ -83,7 +83,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     }
 
     KubernetesV2ProviderSynchronizable synchronizable = new KubernetesV2ProviderSynchronizable(
-      kubernetesV2Provider,
+      kubernetesProvider,
       accountCredentialsRepository,
       agentDispatcher,
       configurationProperties,
@@ -113,7 +113,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
 
     then:
     accountCredentialsRepository.all.size() == 0
-    kubernetesV2Provider.agents.size() == 0
+    kubernetesProvider.agents.size() == 0
     scheduler.agents.size() == 0
   }
 
@@ -148,9 +148,9 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     accountCredentials.isMetricsEnabled() == true
     accountCredentials.isLiveManifestCalls() == false
 
-    kubernetesV2Provider.agents.size() == 2
-    kubernetesV2Provider.agents.find { it.agentType == "test-account/KubernetesCoreCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "test-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.size() == 2
+    kubernetesProvider.agents.find { it.agentType == "test-account/KubernetesCoreCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "test-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
 
     scheduler.agents.size() == 2
     scheduler.agents.find { it.agentType == "test-account/KubernetesCoreCachingAgent[1/1]" } != null
@@ -173,7 +173,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     )
     accountCredentialsRepository = new MapBackedAccountCredentialsRepository()
     accountCredentialsRepository.save("existing-account", existingAccountCredentials)
-    kubernetesV2Provider.agents = agentsForCredentials(existingAccountCredentials)
+    kubernetesProvider.agents = agentsForCredentials(existingAccountCredentials)
     scheduler = new TestAgentScheduler(catsModule)
     scheduler.agents = agentsForCredentials(existingAccountCredentials)
     synchronizeAccounts(configurationProperties)
@@ -183,11 +183,11 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     accountCredentialsRepository.getOne("existing-account") != null
     accountCredentialsRepository.getOne("new-account") != null
 
-    kubernetesV2Provider.agents.size() == 4
-    kubernetesV2Provider.agents.find { it.agentType == "existing-account/KubernetesCoreCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "existing-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "new-account/KubernetesCoreCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "new-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.size() == 4
+    kubernetesProvider.agents.find { it.agentType == "existing-account/KubernetesCoreCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "existing-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "new-account/KubernetesCoreCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "new-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
 
     scheduler.agents.size() == 4
     scheduler.agents.find { it.agentType == "existing-account/KubernetesCoreCachingAgent[1/1]" } != null
@@ -217,7 +217,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     accountCredentialsRepository = new MapBackedAccountCredentialsRepository()
     accountCredentialsRepository.save("account-1", account1Creds)
     accountCredentialsRepository.save("account-2", account2Creds)
-    kubernetesV2Provider.agents = agentsForCredentials(account1Creds, account2Creds)
+    kubernetesProvider.agents = agentsForCredentials(account1Creds, account2Creds)
     scheduler = new TestAgentScheduler(catsModule)
     scheduler.agents = agentsForCredentials(account1Creds, account2Creds)
     synchronizeAccounts(configurationProperties)
@@ -226,9 +226,9 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     accountCredentialsRepository.all.size() == 1
     accountCredentialsRepository.getOne("account-1") != null
 
-    kubernetesV2Provider.agents.size() == 2
-    kubernetesV2Provider.agents.find { it.agentType == "account-1/KubernetesCoreCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "account-1/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.size() == 2
+    kubernetesProvider.agents.find { it.agentType == "account-1/KubernetesCoreCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "account-1/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
 
     scheduler.agents.size() == 2
     scheduler.agents.find { it.agentType == "account-1/KubernetesCoreCachingAgent[1/1]" } != null
@@ -259,7 +259,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     accountCredentialsRepository = new MapBackedAccountCredentialsRepository()
     accountCredentialsRepository.save("updated-account", updatedAccount)
     accountCredentialsRepository.save("unmodified-account", unmodifiedAccount)
-    kubernetesV2Provider.agents = agentsForCredentials(updatedAccount, unmodifiedAccount)
+    kubernetesProvider.agents = agentsForCredentials(updatedAccount, unmodifiedAccount)
     scheduler = new TestAgentScheduler(catsModule)
     scheduler.agents = agentsForCredentials(updatedAccount, unmodifiedAccount)
     synchronizeAccounts(configurationProperties)
@@ -270,12 +270,12 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     (accountCredentialsRepository.getOne("updated-account") as KubernetesNamedAccountCredentials).namespaces == ["default", "new-namespace"]
     accountCredentialsRepository.getOne("unmodified-account") != null
 
-    kubernetesV2Provider.agents.size() == 4
-    kubernetesV2Provider.agents.find { it.agentType == "updated-account/KubernetesCoreCachingAgent[1/1]" } != null
-    ((kubernetesV2Provider.agents.find { it.agentType == "updated-account/KubernetesCoreCachingAgent[1/1]" } as KubernetesCoreCachingAgent).credentials as KubernetesCredentials).namespaces == ["default", "new-namespace"]
-    kubernetesV2Provider.agents.find { it.agentType == "updated-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "unmodified-account/KubernetesCoreCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "unmodified-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.size() == 4
+    kubernetesProvider.agents.find { it.agentType == "updated-account/KubernetesCoreCachingAgent[1/1]" } != null
+    ((kubernetesProvider.agents.find { it.agentType == "updated-account/KubernetesCoreCachingAgent[1/1]" } as KubernetesCoreCachingAgent).credentials as KubernetesCredentials).namespaces == ["default", "new-namespace"]
+    kubernetesProvider.agents.find { it.agentType == "updated-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "unmodified-account/KubernetesCoreCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "unmodified-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
 
     scheduler.agents.size() == 4
     scheduler.agents.find { it.agentType == "updated-account/KubernetesCoreCachingAgent[1/1]" } != null
@@ -320,7 +320,7 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     accountCredentialsRepository.save("updated-account-good", updatedAccountGood)
     accountCredentialsRepository.save("updated-account-error", updatedAccountError)
     accountCredentialsRepository.save("unmodified-account", unmodifiedAccount)
-    kubernetesV2Provider.agents = agentsForCredentials(updatedAccountGood, updatedAccountError, unmodifiedAccount)
+    kubernetesProvider.agents = agentsForCredentials(updatedAccountGood, updatedAccountError, unmodifiedAccount)
     scheduler = new TestAgentScheduler(catsModule)
     scheduler.agents = agentsForCredentials(updatedAccountGood, updatedAccountError, unmodifiedAccount)
     synchronizeAccounts(configurationProperties, ["updated-account-error"])
@@ -333,15 +333,15 @@ class KubernetesV2ProviderSynchronizableSpec extends Specification {
     (accountCredentialsRepository.getOne("updated-account-error") as KubernetesNamedAccountCredentials).namespaces == ["default", "new-namespace"]
     accountCredentialsRepository.getOne("unmodified-account") != null
 
-    kubernetesV2Provider.agents.size() == 6
-    kubernetesV2Provider.agents.find { it.agentType == "updated-account-good/KubernetesCoreCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "updated-account-good/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
-    ((kubernetesV2Provider.agents.find { it.agentType == "updated-account-good/KubernetesCoreCachingAgent[1/1]" } as KubernetesCoreCachingAgent).credentials as KubernetesCredentials).namespaces == ["default", "new-namespace"]
-    kubernetesV2Provider.agents.find { it.agentType == "updated-account-error/KubernetesCoreCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "updated-account-error/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
-    ((kubernetesV2Provider.agents.find { it.agentType == "updated-account-error/KubernetesCoreCachingAgent[1/1]" } as KubernetesCoreCachingAgent).credentials as KubernetesCredentials).namespaces == ["default"]
-    kubernetesV2Provider.agents.find { it.agentType == "unmodified-account/KubernetesCoreCachingAgent[1/1]" } != null
-    kubernetesV2Provider.agents.find { it.agentType == "unmodified-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.size() == 6
+    kubernetesProvider.agents.find { it.agentType == "updated-account-good/KubernetesCoreCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "updated-account-good/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    ((kubernetesProvider.agents.find { it.agentType == "updated-account-good/KubernetesCoreCachingAgent[1/1]" } as KubernetesCoreCachingAgent).credentials as KubernetesCredentials).namespaces == ["default", "new-namespace"]
+    kubernetesProvider.agents.find { it.agentType == "updated-account-error/KubernetesCoreCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "updated-account-error/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
+    ((kubernetesProvider.agents.find { it.agentType == "updated-account-error/KubernetesCoreCachingAgent[1/1]" } as KubernetesCoreCachingAgent).credentials as KubernetesCredentials).namespaces == ["default"]
+    kubernetesProvider.agents.find { it.agentType == "unmodified-account/KubernetesCoreCachingAgent[1/1]" } != null
+    kubernetesProvider.agents.find { it.agentType == "unmodified-account/KubernetesUnregisteredCustomResourceCachingAgent[1/1]" } != null
 
     scheduler.agents.size() == 6
     scheduler.agents.find { it.agentType == "updated-account-good/KubernetesCoreCachingAgent[1/1]" } != null

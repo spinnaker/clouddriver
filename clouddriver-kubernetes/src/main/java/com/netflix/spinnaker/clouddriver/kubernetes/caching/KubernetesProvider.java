@@ -29,7 +29,7 @@ import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class KubernetesV2Provider extends AgentSchedulerAware implements Provider {
+public class KubernetesProvider extends AgentSchedulerAware implements Provider {
   public static final String PROVIDER_NAME = KubernetesCloudProvider.ID;
 
   private Collection<Agent> agents = emptyAgentCollection();
