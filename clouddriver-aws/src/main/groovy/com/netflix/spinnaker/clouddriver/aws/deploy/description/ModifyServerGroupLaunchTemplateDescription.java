@@ -48,7 +48,7 @@ public class ModifyServerGroupLaunchTemplateDescription
     this.imageId = imageId;
   }
 
-  public Boolean getAssociateIPv6Address() {
+  public boolean getAssociateIPv6Address() {
     return associateIPv6Address;
   }
 
