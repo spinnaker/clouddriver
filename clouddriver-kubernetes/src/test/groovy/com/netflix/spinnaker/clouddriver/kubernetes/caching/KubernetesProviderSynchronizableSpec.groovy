@@ -117,7 +117,7 @@ class KubernetesProviderSynchronizableSpec extends Specification {
     scheduler.agents.size() == 0
   }
 
-  void "correctly creates a v2 account and defaults properties"() {
+  void "correctly creates an account and defaults properties"() {
     when:
     KubernetesConfigurationProperties configurationProperties = new KubernetesConfigurationProperties()
     configurationProperties.setAccounts([

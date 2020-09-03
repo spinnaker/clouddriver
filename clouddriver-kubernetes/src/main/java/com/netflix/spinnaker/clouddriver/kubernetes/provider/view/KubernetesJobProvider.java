@@ -108,8 +108,7 @@ public class KubernetesJobProvider implements JobProvider<KubernetesJobStatus> {
 
   @Override
   public void cancelJob(String account, String location, String id) {
-    throw new NotImplementedException(
-        "cancelJob is not implemented for the V2 Kubernetes provider");
+    throw new NotImplementedException("cancelJob is not implemented for the Kubernetes provider");
   }
 
   private Optional<V1Job> getKubernetesJob(String account, String location, String id) {

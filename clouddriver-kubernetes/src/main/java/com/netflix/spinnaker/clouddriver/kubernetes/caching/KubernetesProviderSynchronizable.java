@@ -66,7 +66,7 @@ public class KubernetesProviderSynchronizable implements CredentialsInitializerS
             .peek(a -> accountCredentialsRepository.save(a.getName(), a))
             .collect(Collectors.toSet());
 
-    synchronizeKubernetesV2Provider(allAccounts);
+    synchronizeKubernetesProvider(allAccounts);
   }
 
   @Override
@@ -82,11 +82,11 @@ public class KubernetesProviderSynchronizable implements CredentialsInitializerS
             .collect(Collectors.toSet());
 
     if (newAndChangedAccounts.size() < 1) {
-      log.info("No new or changed V2 Kubernetes accounts. Skipping caching agent synchronization.");
+      log.info("No new or changed Kubernetes accounts. Skipping caching agent synchronization.");
       return;
     }
 
-    synchronizeKubernetesV2Provider(newAndChangedAccounts);
+    synchronizeKubernetesProvider(newAndChangedAccounts);
   }
 
   private Set<String> synchronizeAccountCredentials() {
@@ -162,11 +162,11 @@ public class KubernetesProviderSynchronizable implements CredentialsInitializerS
         .collect(Collectors.toList());
   }
 
-  private void synchronizeKubernetesV2Provider(
+  private void synchronizeKubernetesProvider(
       Set<KubernetesNamedAccountCredentials> newAndChangedAccounts) {
 
     log.info(
-        "Synchronizing caching agents for {} new or changed V2 Kubernetes accounts.",
+        "Synchronizing caching agents for {} new or changed Kubernetes accounts.",
         newAndChangedAccounts.size());
 
     Set<String> stagedAccountNames = new HashSet<>();
