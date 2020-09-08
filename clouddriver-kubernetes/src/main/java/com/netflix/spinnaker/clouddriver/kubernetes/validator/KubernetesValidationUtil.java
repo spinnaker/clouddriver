@@ -27,13 +27,13 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentia
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class KubernetesValidationUtil {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesValidationUtil.class);
   private final String context;
   private final ValidationErrors errors;
 
@@ -64,24 +64,6 @@ public class KubernetesValidationUtil {
     return true;
   }
 
-  public boolean validateSizeEquals(String attribute, Collection items, int size) {
-    if (items.size() != size) {
-      reject("size!=" + size, attribute);
-      return false;
-    }
-
-    return true;
-  }
-
-  private boolean validateNotEmpty(String attribute, String value) {
-    if (Strings.isNullOrEmpty(value)) {
-      reject("empty", attribute);
-      return false;
-    }
-
-    return true;
-  }
-
   public boolean validateCredentials(
       AccountCredentialsProvider provider, String accountName, KubernetesManifest manifest) {
     KubernetesKind kind = manifest.getKind();
@@ -95,7 +77,8 @@ public class KubernetesValidationUtil {
       KubernetesKind kind,
       String namespace) {
     log.info("Validating credentials for {} {} {}", accountName, kind, namespace);
-    if (!validateNotEmpty("account", accountName)) {
+    if (Strings.isNullOrEmpty(accountName)) {
+      reject("empty", "account");
       return false;
     }
 
@@ -103,7 +86,7 @@ public class KubernetesValidationUtil {
       return true;
     }
 
-    AccountCredentials credentials = provider.getCredentials(accountName);
+    AccountCredentials<?> credentials = provider.getCredentials(accountName);
     if (credentials == null) {
       reject("notFound", "account");
       return false;
