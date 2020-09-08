@@ -36,6 +36,7 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
@@ -136,7 +137,7 @@ public final class Replacer {
   private static final Replacer DOCKER_IMAGE =
       builder()
           .path("$..spec.template.spec['containers', 'initContainers'].[?].image")
-          .replaceFilter(a -> filter(where("image").is(a.getName())))
+          .replaceFilter(a -> filter(where("image").regex(Pattern.compile(a.getName() + "(:.*)?"))))
           .nameFromReference(
               ref -> {
                 // @ can only show up in image references denoting a digest
@@ -162,7 +163,7 @@ public final class Replacer {
   private static final Replacer POD_DOCKER_IMAGE =
       builder()
           .path("$.spec.containers.[?].image")
-          .replaceFilter(a -> filter(where("image").is(a.getName())))
+          .replaceFilter(a -> filter(where("image").regex(Pattern.compile(a.getName() + "(:.*)?"))))
           .type(KubernetesArtifactType.DockerImage)
           .build();
   private static final Replacer CONFIG_MAP_VOLUME =
