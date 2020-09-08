@@ -19,7 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.op.job;
 
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.job.KubernetesRunJobOperationDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesDeployManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
@@ -31,22 +31,23 @@ import com.netflix.spinnaker.clouddriver.kubernetes.op.manifest.KubernetesDeploy
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.*;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class KubernetesRunJobOperation
     implements AtomicOperation<KubernetesRunJobDeploymentResult> {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesRunJobOperation.class);
   private static final String OP_NAME = "RUN_KUBERNETES_JOB";
   private final KubernetesRunJobOperationDescription description;
-  private final ArtifactProvider provider;
+  private final ResourceVersioner resourceVersioner;
   private final boolean appendSuffix;
 
   public KubernetesRunJobOperation(
       KubernetesRunJobOperationDescription description,
-      ArtifactProvider provider,
+      ResourceVersioner resourceVersioner,
       boolean appendSuffix) {
     this.description = description;
-    this.provider = provider;
+    this.resourceVersioner = resourceVersioner;
     this.appendSuffix = appendSuffix;
   }
 
@@ -54,13 +55,13 @@ public class KubernetesRunJobOperation
     return TaskRepository.threadLocalTask.get();
   }
 
-  public KubernetesRunJobDeploymentResult operate(List _unused) {
+  @Override
+  public KubernetesRunJobDeploymentResult operate(List<KubernetesRunJobDeploymentResult> _unused) {
     getTask().updateStatus(OP_NAME, "Running Kubernetes job...");
     KubernetesManifest jobSpec = this.description.getManifest();
     KubernetesKind kind = jobSpec.getKind();
     if (!kind.equals(KubernetesKind.JOB)) {
-      throw new IllegalArgumentException(
-          "Only kind of Job is accepted for the V2 Run Job operation.");
+      throw new IllegalArgumentException("Only kind of Job is accepted for the Run Job operation.");
     }
 
     jobSpec.computeIfAbsent("metadata", k -> new HashMap<>());
@@ -107,8 +108,8 @@ public class KubernetesRunJobOperation
     deployManifestDescription.setMoniker(moniker);
 
     KubernetesDeployManifestOperation deployManifestOperation =
-        new KubernetesDeployManifestOperation(deployManifestDescription, provider);
-    OperationResult operationResult = deployManifestOperation.operate(new ArrayList());
+        new KubernetesDeployManifestOperation(deployManifestDescription, resourceVersioner);
+    OperationResult operationResult = deployManifestOperation.operate(new ArrayList<>());
     KubernetesRunJobDeploymentResult deploymentResult =
         new KubernetesRunJobDeploymentResult(operationResult);
     Map<String, List<String>> deployedNames = deploymentResult.getDeployedNamesByLocation();

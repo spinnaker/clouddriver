@@ -17,15 +17,17 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.controllers;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesV2Manifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider.Sort;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest;
 import com.netflix.spinnaker.clouddriver.requestqueue.RequestQueue;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import java.util.List;
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,13 +37,12 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Slf4j
 @RestController
 @RequestMapping("/manifests")
 public class ManifestController {
-  final KubernetesManifestProvider manifestProvider;
-
-  final RequestQueue requestQueue;
+  private static final Logger log = LoggerFactory.getLogger(ManifestController.class);
+  private final KubernetesManifestProvider manifestProvider;
+  private final RequestQueue requestQueue;
 
   @Autowired
   public ManifestController(
@@ -103,7 +104,7 @@ public class ManifestController {
       value =
           "/{account:.+}/{location:.+}/{kind:.+}/cluster/{app:.+}/{cluster:.+}/dynamic/{criteria:.+}",
       method = RequestMethod.GET)
-  Manifest getDynamicManifestFromCluster(
+  KubernetesCoordinates getDynamicManifestFromCluster(
       @PathVariable String account,
       @PathVariable String location,
       @PathVariable String kind,
@@ -115,39 +116,65 @@ public class ManifestController {
             "(account: %s, location: %s, kind: %s, app %s, cluster: %s, criteria: %s)",
             account, location, kind, app, cluster, criteria);
 
-    List<KubernetesV2Manifest> manifests;
+    List<KubernetesManifest> manifests;
     try {
       manifests =
           requestQueue.execute(
               account,
               () ->
                   manifestProvider.getClusterAndSortAscending(
-                      account, location, kind, app, cluster, criteria.getSort()));
+                      account, location, kind, cluster, app, criteria.getSort()));
     } catch (Throwable t) {
       log.warn("Failed to read {}", request, t);
       return null;
-    }
-
-    if (manifests == null) {
-      throw new NotFoundException("No manifests matching " + request + " found");
     }
 
     try {
       switch (criteria) {
         case oldest:
         case smallest:
-          return manifests.get(0);
+          return KubernetesCoordinates.fromManifest(manifests.get(0));
         case newest:
         case largest:
-          return manifests.get(manifests.size() - 1);
+          return KubernetesCoordinates.fromManifest(manifests.get(manifests.size() - 1));
         case second_newest:
-          return manifests.get(manifests.size() - 2);
+          return KubernetesCoordinates.fromManifest(manifests.get(manifests.size() - 2));
         default:
           throw new IllegalArgumentException("Unknown criteria: " + criteria);
       }
     } catch (IndexOutOfBoundsException e) {
       throw new NotFoundException("No manifests matching " + request + " found");
     }
+  }
+
+  @RequestMapping(
+      value = "/{account:.+}/{location:.+}/{kind:.+}/cluster/{app:.+}/{cluster:.+}",
+      method = RequestMethod.GET)
+  List<KubernetesCoordinates> getClusterManifestCoordinates(
+      @PathVariable String account,
+      @PathVariable String location,
+      @PathVariable String kind,
+      @PathVariable String app,
+      @PathVariable String cluster) {
+    final String request =
+        String.format(
+            "(account: %s, location: %s, kind: %s, app %s, cluster: %s)",
+            account, location, kind, app, cluster);
+
+    List<KubernetesCoordinates> coordinates;
+    try {
+      coordinates =
+          requestQueue.execute(
+              account,
+              () ->
+                  manifestProvider.getClusterManifestCoordinates(
+                      account, location, kind, app, cluster));
+    } catch (Throwable t) {
+      log.warn("Failed to read {}", request, t);
+      return null;
+    }
+
+    return coordinates;
   }
 
   enum Criteria {

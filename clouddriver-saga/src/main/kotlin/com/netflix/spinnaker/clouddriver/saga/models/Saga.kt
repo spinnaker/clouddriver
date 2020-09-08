@@ -18,8 +18,8 @@ package com.netflix.spinnaker.clouddriver.saga.models
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.google.common.annotations.VisibleForTesting
+import com.netflix.spinnaker.clouddriver.saga.CommandFinalizer
 import com.netflix.spinnaker.clouddriver.saga.SagaCommand
-import com.netflix.spinnaker.clouddriver.saga.SagaCommandCompleted
 import com.netflix.spinnaker.clouddriver.saga.SagaCompleted
 import com.netflix.spinnaker.clouddriver.saga.SagaEvent
 import com.netflix.spinnaker.clouddriver.saga.SagaLogAppended
@@ -92,21 +92,47 @@ class Saga(
       }
   }
 
-  internal fun completed(command: Class<SagaCommand>): Boolean {
-    return getEvents().filterIsInstance<SagaCommandCompleted>().any { it.matches(command) }
+  @Suppress("UNCHECKED_CAST")
+  fun <T : SagaEvent> maybeGetEvent(clazz: Class<T>): T? =
+    events.reversed()
+      .filter { clazz.isAssignableFrom(it.javaClass) }
+      .let {
+        when (it.size) {
+          0 -> null
+          1 -> it.first() as T?
+          else -> throw SagaStateIntegrationException.tooManyResults(clazz, this)
+        }
+      }
+
+  @Suppress("UNCHECKED_CAST")
+  fun <T : SagaEvent> maybeGetEvent(clazz: Class<T>, reducer: (List<T>) -> T?): T? =
+    events.reversed()
+      .filter { clazz.isAssignableFrom(it.javaClass) }
+      .let {
+        when (it.size) {
+          0 -> null
+          1 -> it.first() as T?
+          else -> throw SagaStateIntegrationException.tooManyResults(clazz, this)
+        }
+      }
+
+  internal fun finalizedCommand(command: Class<SagaCommand>): Boolean {
+    return getEvents()
+      .filterIsInstance<CommandFinalizer>()
+      .any { it.matches(command) }
   }
 
   internal fun getNextCommand(requiredCommand: Class<SagaCommand>): SagaCommand? {
     return getEvents()
       .filterIsInstance<SagaCommand>()
-      .filterNot { completed(it.javaClass) }
+      .filterNot { finalizedCommand(it.javaClass) }
       .firstOrNull { requiredCommand.isAssignableFrom(it.javaClass) }
   }
 
   internal fun hasUnappliedCommands(): Boolean {
     return getEvents().plus(pendingEvents)
       .filterIsInstance<SagaCommand>()
-      .filterNot { completed(it.javaClass) }
+      .filterNot { finalizedCommand(it.javaClass) }
       .any()
   }
 
