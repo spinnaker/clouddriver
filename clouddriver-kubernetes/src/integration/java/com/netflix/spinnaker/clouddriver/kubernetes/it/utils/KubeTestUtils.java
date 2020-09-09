@@ -21,8 +21,10 @@ import static org.junit.jupiter.api.Assertions.fail;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Splitter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -51,7 +53,7 @@ public abstract class KubeTestUtils {
               .collect(Collectors.toList());
       return new TestResourceFile(content);
     } catch (IOException e) {
-      throw new RuntimeException("Unable to load manifest from file " + file, e);
+      throw new UncheckedIOException("Unable to load manifest from file " + file, e);
     }
   }
 
@@ -62,7 +64,7 @@ public abstract class KubeTestUtils {
     }
     Map<String, Object> singleManifest =
         objectMapper.convertValue(manifest, new TypeReference<Map<String, Object>>() {});
-    return Arrays.asList(singleManifest);
+    return Collections.singletonList(singleManifest);
   }
 
   public static TestResourceFile loadJson(String file) {
@@ -77,7 +79,7 @@ public abstract class KubeTestUtils {
             objectMapper.convertValue(jsonNode, new TypeReference<List<Map<String, Object>>>() {});
       } else {
         content =
-            Arrays.asList(
+            Collections.singletonList(
                 objectMapper.convertValue(jsonNode, new TypeReference<Map<String, Object>>() {}));
       }
       return new TestResourceFile(content);
@@ -102,7 +104,7 @@ public abstract class KubeTestUtils {
 
   public static class TestResourceFile {
 
-    private List<Map<String, Object>> content;
+    private final List<Map<String, Object>> content;
 
     public TestResourceFile(List<Map<String, Object>> content) {
       this.content = content;
@@ -116,27 +118,30 @@ public abstract class KubeTestUtils {
       return content.get(0);
     }
 
+    @SuppressWarnings("unchecked")
     public TestResourceFile withValue(String path, Object value) {
-      String[] parts = path.split("\\.");
+      List<String> parts = Splitter.on('.').splitToList(path);
 
       for (Map<String, Object> entry : content) {
-        for (int i = 0; i < parts.length; i++) {
-          if (i == parts.length - 1) {
-            entry.put(parts[i], value);
+        for (int i = 0; i < parts.size(); i++) {
+          if (i == parts.size() - 1) {
+            entry.put(parts.get(i), value);
             break;
           }
-          if (parts[i].matches("^.*\\[[0-9]*]$")) {
-            String key = parts[i].substring(0, parts[i].indexOf('['));
+          if (parts.get(i).matches("^.*\\[[0-9]*]$")) {
+            String key = parts.get(i).substring(0, parts.get(i).indexOf('['));
             int index =
                 Integer.parseInt(
-                    parts[i].substring(parts[i].indexOf('[') + 1, parts[i].indexOf(']')));
+                    parts
+                        .get(i)
+                        .substring(parts.get(i).indexOf('[') + 1, parts.get(i).indexOf(']')));
             List<Map<String, Object>> list = (List<Map<String, Object>>) entry.get(key);
             entry = list.get(index);
-          } else if (!entry.containsKey(parts[i])) {
-            entry.put(parts[i], new HashMap<>());
-            entry = (Map<String, Object>) entry.get(parts[i]);
+          } else if (!entry.containsKey(parts.get(i))) {
+            entry.put(parts.get(i), new HashMap<>());
+            entry = (Map<String, Object>) entry.get(parts.get(i));
           } else {
-            entry = (Map<String, Object>) entry.get(parts[i]);
+            entry = (Map<String, Object>) entry.get(parts.get(i));
           }
         }
       }

@@ -37,7 +37,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.yaml.snakeyaml.Yaml;
 
-public class KubernetesCluster extends GenericContainer {
+public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
 
   private static final String DOCKER_IMAGE = "rancher/k3s:v1.17.11-k3s1";
   private static final String KUBECFG_IN_CONTAINER = "/etc/rancher/k3s/k3s.yaml";
@@ -48,10 +48,7 @@ public class KubernetesCluster extends GenericContainer {
   private final String accountName;
 
   public static KubernetesCluster getInstance(String accountName) {
-    if (instances.get(accountName) == null) {
-      instances.put(accountName, new KubernetesCluster(accountName));
-    }
-    return instances.get(accountName);
+    return instances.computeIfAbsent(accountName, KubernetesCluster::new);
   }
 
   private KubernetesCluster(String accountName) {
@@ -139,6 +136,7 @@ public class KubernetesCluster extends GenericContainer {
     return myKubeconfig;
   }
 
+  @SuppressWarnings("unchecked")
   private void fixKubeEndpoint(Path kubecfgPath) throws IOException {
     String kubeEndpoint = "https://" + getHost() + ":" + getMappedPort(6443);
     Yaml yaml = new Yaml();
