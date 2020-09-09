@@ -608,8 +608,9 @@ public class GoogleInternalHttpLoadBalancerCachingAgent
       service.setConnectionDrainingTimeoutSec(
           draining == null ? 0 : draining.getDrainingTimeoutSec());
       // Note: It's possible for a backend service to have backends that point to a null group.
+      List<GoogleLoadBalancedBackend> backends;
       if (backendService.getBackends() != null) {
-        List<GoogleLoadBalancedBackend> backends =
+        backends =
             backendService.getBackends().stream()
                 .filter(backend -> backend.getGroup() != null)
                 .map(
@@ -620,8 +621,10 @@ public class GoogleInternalHttpLoadBalancerCachingAgent
                       return googleBackend;
                     })
                 .collect(toList());
-        service.setBackends(backends);
+      } else {
+        backends = new ArrayList<>();
       }
+      service.setBackends(backends);
     }
 
     // Note: It's possible for a backend service to have backends that point to a null group.
