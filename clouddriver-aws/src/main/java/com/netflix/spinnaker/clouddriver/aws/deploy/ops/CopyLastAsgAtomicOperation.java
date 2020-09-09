@@ -19,8 +19,10 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.ops;
 import com.amazonaws.services.autoscaling.AmazonAutoScaling;
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest;
+import com.amazonaws.services.autoscaling.model.EnabledMetric;
 import com.amazonaws.services.autoscaling.model.LaunchConfiguration;
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
+import com.amazonaws.services.autoscaling.model.SuspendedProcess;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.*;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
@@ -44,6 +46,7 @@ import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidationErrors;
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidationException;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.kork.exceptions.IntegrationException;
 import java.util.*;
 import java.util.stream.Collectors;
 import jdk.internal.joptsimple.internal.Strings;
@@ -83,23 +86,21 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
 
     final BasicAmazonDeployDescription.Source source = description.getSource();
     Set<String> targetRegions =
-        Optional.ofNullable(description.getAvailabilityZones()).orElse(new HashMap<>()).keySet();
+        Optional.ofNullable(description.getAvailabilityZones()).orElseGet(HashMap::new).keySet();
     if (targetRegions.isEmpty()) {
       targetRegions = new HashSet<>(Collections.singletonList(source.getRegion()));
     }
 
-    if (!Strings.isNullOrEmpty(source.getRegion())
-        && !Strings.isNullOrEmpty(source.getAccount())
-        && !Strings.isNullOrEmpty(source.getAsgName())) {
+    if (hasAccountRegionAndAsg(source.getAccount(), source.getRegion(), source.getAsgName())) {
       Names sourceName = Names.parseName(source.getAsgName());
       description.setApplication(
-          Optional.ofNullable(description.getApplication()).orElse(sourceName.getApp()));
+          Optional.ofNullable(description.getApplication()).orElseGet(sourceName::getApp));
 
       description.setStack(
-          Optional.ofNullable(description.getStack()).orElse(sourceName.getStack()));
+          Optional.ofNullable(description.getStack()).orElseGet(sourceName::getStack));
 
       description.setFreeFormDetails(
-          Optional.ofNullable(description.getFreeFormDetails()).orElse(sourceName.getDetail()));
+          Optional.ofNullable(description.getFreeFormDetails()).orElseGet(sourceName::getDetail));
     }
 
     DeploymentResult result = new DeploymentResult();
@@ -118,9 +119,8 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
                   AutoScalingGroup ancestorAsg = null;
                   String sourceRegion;
                   NetflixAmazonCredentials sourceAsgCredentials;
-                  if (!Strings.isNullOrEmpty(source.getRegion())
-                      && !Strings.isNullOrEmpty(source.getAccount())
-                      && !Strings.isNullOrEmpty(source.getAsgName())) {
+                  if (hasAccountRegionAndAsg(
+                      source.getAccount(), source.getRegion(), source.getAsgName())) {
                     sourceRegion = source.getRegion();
                     sourceAsgCredentials =
                         (NetflixAmazonCredentials)
@@ -147,12 +147,11 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
                   RegionScopedProvider sourceRegionScopedProvider =
                       regionScopedProviderFactory.forRegion(sourceAsgCredentials, sourceRegion);
 
-                  BasicAmazonDeployDescription newDescription = null;
+                  BasicAmazonDeployDescription newDescription;
                   try {
                     newDescription = description.clone();
                   } catch (CloneNotSupportedException e) {
-
-                    e.printStackTrace();
+                    throw new IntegrationException(e);
                   }
 
                   if (ancestorAsg == null) {
@@ -249,15 +248,13 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
 
                       if (launchTemplateData.getMetadataOptions() != null) {
                         newDescription.setRequireIMDSv2(
-                            launchTemplateData
-                                .getMetadataOptions()
-                                .getHttpTokens()
-                                .equals("required"));
+                            "required"
+                                .equals(launchTemplateData.getMetadataOptions().getHttpTokens()));
                       }
 
                       List<LaunchTemplateInstanceNetworkInterfaceSpecification> networkInterfaces =
                           Optional.ofNullable(launchTemplateData.getNetworkInterfaces())
-                              .orElse(Collections.emptyList());
+                              .orElseGet(Collections::emptyList);
                       if (!networkInterfaces.isEmpty()
                           && networkInterfaces.stream()
                               .anyMatch(
@@ -297,12 +294,10 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
                     if (ancestorAsg.getVPCZoneIdentifier() != null) {
                       getTask().updateStatus(BASE_PHASE, "Looking up subnet type...");
 
+                      String vpcIdentifiers = ancestorAsg.getVPCZoneIdentifier().split(",")[0];
                       newDescription.setSubnetType(
                           Optional.ofNullable(description.getSubnetType())
-                              .orElse(
-                                  getPurposeForSubnet(
-                                      sourceRegion,
-                                      ancestorAsg.getVPCZoneIdentifier().split(",")[0])));
+                              .orElseGet(() -> getPurposeForSubnet(sourceRegion, vpcIdentifiers)));
 
                       getTask()
                           .updateStatus(
@@ -319,13 +314,13 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
                             targetRegion,
                             Optional.ofNullable(
                                     description.getAvailabilityZones().get(targetRegion))
-                                .orElse(ancestorAsg.getAvailabilityZones())));
+                                .orElseGet(ancestorAsg::getAvailabilityZones)));
 
                     newDescription.setInstanceType(
                         Optional.ofNullable(description.getInstanceType()).orElse(instanceType));
                     newDescription.setLoadBalancers(
                         Optional.ofNullable(description.getLoadBalancers())
-                            .orElse(ancestorAsg.getLoadBalancerNames()));
+                            .orElseGet(ancestorAsg::getLoadBalancerNames));
                     newDescription.setTargetGroups(description.getTargetGroups());
                     if (newDescription.getTargetGroups() == null
                         && ancestorAsg.getTargetGroupARNs() != null
@@ -345,11 +340,12 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
 
                     newDescription.setSecurityGroups(
                         Optional.ofNullable(description.getSecurityGroups())
-                            .orElse(
-                                translateSecurityGroupIds(
-                                    securityGroups,
-                                    sourceRegionScopedProvider.getSecurityGroupService(),
-                                    sourceIsTarget)));
+                            .orElseGet(
+                                () ->
+                                    translateSecurityGroupIds(
+                                        securityGroups,
+                                        sourceRegionScopedProvider.getSecurityGroupService(),
+                                        sourceIsTarget)));
 
                     Integer min = null;
                     Integer max = null;
@@ -362,23 +358,25 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
 
                     newDescription
                         .getCapacity()
-                        .setMin(Optional.ofNullable(min).orElse(ancestorAsg.getMinSize()));
+                        .setMin(Optional.ofNullable(min).orElseGet(ancestorAsg::getMinSize));
 
                     newDescription
                         .getCapacity()
-                        .setMax(Optional.ofNullable(max).orElse(ancestorAsg.getMaxSize()));
+                        .setMax(Optional.ofNullable(max).orElseGet(ancestorAsg::getMaxSize));
 
                     newDescription
                         .getCapacity()
                         .setDesired(
-                            Optional.ofNullable(desired).orElse(ancestorAsg.getDesiredCapacity()));
+                            Optional.ofNullable(desired)
+                                .orElseGet(ancestorAsg::getDesiredCapacity));
 
                     newDescription.setKeyPair(
                         Optional.ofNullable(description.getKeyPair())
-                            .orElse(
-                                sourceIsTarget
-                                    ? keyName
-                                    : description.getCredentials().getDefaultKeyPair()));
+                            .orElseGet(
+                                () ->
+                                    sourceIsTarget
+                                        ? keyName
+                                        : description.getCredentials().getDefaultKeyPair()));
 
                     newDescription.setAssociatePublicIpAddress(
                         Optional.ofNullable(description.getAssociatePublicIpAddress())
@@ -386,32 +384,37 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
 
                     newDescription.setCooldown(
                         Optional.ofNullable(description.getCooldown())
-                            .orElse(ancestorAsg.getDefaultCooldown()));
+                            .orElseGet(ancestorAsg::getDefaultCooldown));
+
+                    List<EnabledMetric> enabledMetrics = ancestorAsg.getEnabledMetrics();
                     newDescription.setEnabledMetrics(
                         Optional.ofNullable(description.getEnabledMetrics())
-                            .orElse(
-                                ancestorAsg.getEnabledMetrics().stream()
-                                    .map(i -> i.getMetric())
-                                    .collect(Collectors.toList())));
+                            .orElseGet(
+                                () ->
+                                    enabledMetrics.stream()
+                                        .map(EnabledMetric::getMetric)
+                                        .collect(Collectors.toList())));
 
                     newDescription.setHealthCheckGracePeriod(
                         Optional.ofNullable(description.getHealthCheckGracePeriod())
-                            .orElse(ancestorAsg.getHealthCheckGracePeriod()));
+                            .orElseGet(ancestorAsg::getHealthCheckGracePeriod));
 
                     newDescription.setHealthCheckType(
                         Optional.ofNullable(description.getHealthCheckType())
-                            .orElse(ancestorAsg.getHealthCheckType()));
+                            .orElseGet(ancestorAsg::getHealthCheckType));
 
+                    List<SuspendedProcess> suspendedProcesses = ancestorAsg.getSuspendedProcesses();
                     newDescription.setSuspendedProcesses(
                         Optional.ofNullable(description.getSuspendedProcesses())
-                            .orElse(
-                                ancestorAsg.getSuspendedProcesses().stream()
-                                    .map(i -> i.getProcessName())
-                                    .collect(Collectors.toSet())));
+                            .orElseGet(
+                                () ->
+                                    suspendedProcesses.stream()
+                                        .map(SuspendedProcess::getProcessName)
+                                        .collect(Collectors.toSet())));
 
                     newDescription.setTerminationPolicies(
                         Optional.ofNullable(description.getTerminationPolicies())
-                            .orElse(ancestorAsg.getTerminationPolicies()));
+                            .orElseGet(ancestorAsg::getTerminationPolicies));
 
                     newDescription.setKernelId(
                         Optional.ofNullable(description.getKernelId())
@@ -430,13 +433,17 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
                     newDescription.setClassicLinkVpcId(
                         Optional.ofNullable(description.getClassicLinkVpcId())
                             .orElse(classicLinkVPCId));
+
+                    final List<String> classicLinkVPCSecurityGroupsCopy =
+                        classicLinkVPCSecurityGroups;
                     newDescription.setClassicLinkVpcSecurityGroups(
                         Optional.ofNullable(description.getClassicLinkVpcSecurityGroups())
-                            .orElse(
-                                translateSecurityGroupIds(
-                                    classicLinkVPCSecurityGroups,
-                                    sourceRegionScopedProvider.getSecurityGroupService(),
-                                    sourceIsTarget)));
+                            .orElseGet(
+                                () ->
+                                    translateSecurityGroupIds(
+                                        classicLinkVPCSecurityGroupsCopy,
+                                        sourceRegionScopedProvider.getSecurityGroupService(),
+                                        sourceIsTarget)));
 
                     Map<String, String> tags =
                         ancestorAsg.getTags().stream()
@@ -534,7 +541,7 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
     return null;
   }
 
-  List<String> translateSecurityGroupIds(
+  private List<String> translateSecurityGroupIds(
       List<String> securityGroupIds,
       SecurityGroupService securityGroupService,
       boolean sourceIsTarget) {
@@ -548,5 +555,11 @@ public class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentRes
     }
 
     return Collections.emptyList();
+  }
+
+  private static boolean hasAccountRegionAndAsg(String account, String region, String asgName) {
+    return Strings.isNullOrEmpty(region)
+        && !Strings.isNullOrEmpty(account)
+        && !Strings.isNullOrEmpty(asgName);
   }
 }
