@@ -26,6 +26,7 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.kork.core.RetrySupport;
+import com.netflix.spinnaker.kork.exceptions.IntegrationException;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,9 +39,9 @@ public class DeleteAmazonLaunchConfigurationAtomicOperation implements AtomicOpe
   }
 
   @Autowired private AmazonClientProvider amazonClientProvider;
+  @Autowired private RetrySupport retrySupport;
 
   private final DeleteAmazonLaunchConfigurationDescription description;
-  private final RetrySupport retrySupport = new RetrySupport();
 
   public DeleteAmazonLaunchConfigurationAtomicOperation(
       DeleteAmazonLaunchConfigurationDescription description) {
@@ -80,7 +81,7 @@ public class DeleteAmazonLaunchConfigurationAtomicOperation implements AtomicOpe
       return true;
     } catch (AmazonAutoScalingException e) {
       if (!e.getMessage().toLowerCase().contains("launch configuration name not found")) {
-        throw e;
+        throw new IntegrationException(e).setRetryable(true);
       }
     }
 
