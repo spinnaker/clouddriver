@@ -20,17 +20,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import com.google.gson.Gson;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.springframework.util.FileCopyUtils;
 import org.testcontainers.containers.GenericContainer;
@@ -76,6 +71,12 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
   }
 
   public String execKubectl(String args) throws IOException, InterruptedException {
+    return execKubectl(args, null);
+  }
+
+  public String execKubectl(String args, Map<String, Object> manifest)
+      throws IOException, InterruptedException {
+    String json = manifestToJson(manifest);
     ProcessBuilder builder = new ProcessBuilder();
     List<String> cmd = new ArrayList<>();
     cmd.add("sh");
@@ -88,6 +89,13 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
     builder.command(cmd);
     builder.redirectErrorStream(true);
     Process process = builder.start();
+    if (json != null) {
+      OutputStream os = process.getOutputStream();
+      BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, UTF_8));
+      writer.write(json);
+      writer.flush();
+      writer.close();
+    }
     Reader reader = new InputStreamReader(process.getInputStream(), UTF_8);
     String output = FileCopyUtils.copyToString(reader);
     if (!process.waitFor(1, TimeUnit.MINUTES)) {
@@ -98,6 +106,11 @@ public class KubernetesCluster extends GenericContainer<KubernetesCluster> {
         .isEqualTo(0);
     System.out.println("kubectl " + args + ":\n" + output);
     return output.trim();
+  }
+
+  private String manifestToJson(Map<String, Object> contents) {
+    //    return Optional.ofNullable(contents).map(v -> new Yaml().dump(v)).orElse(null);
+    return Optional.ofNullable(contents).map(v -> new Gson().toJson(v)).orElse(null);
   }
 
   @Override

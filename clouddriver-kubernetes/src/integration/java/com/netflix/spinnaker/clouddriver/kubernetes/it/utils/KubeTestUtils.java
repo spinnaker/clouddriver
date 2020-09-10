@@ -124,10 +124,6 @@ public abstract class KubeTestUtils {
 
       for (Map<String, Object> entry : content) {
         for (int i = 0; i < parts.size(); i++) {
-          if (i == parts.size() - 1) {
-            entry.put(parts.get(i), value);
-            break;
-          }
           if (parts.get(i).matches("^.*\\[[0-9]*]$")) {
             String key = parts.get(i).substring(0, parts.get(i).indexOf('['));
             int index =
@@ -136,7 +132,14 @@ public abstract class KubeTestUtils {
                         .get(i)
                         .substring(parts.get(i).indexOf('[') + 1, parts.get(i).indexOf(']')));
             List<Map<String, Object>> list = (List<Map<String, Object>>) entry.get(key);
+            if (i == parts.size() - 1) {
+              list.add(index, (Map<String, Object>) value);
+              break;
+            }
             entry = list.get(index);
+          } else if (i == parts.size() - 1) {
+            entry.put(parts.get(i), value);
+            break;
           } else if (!entry.containsKey(parts.get(i))) {
             entry.put(parts.get(i), new HashMap<>());
             entry = (Map<String, Object>) entry.get(parts.get(i));
