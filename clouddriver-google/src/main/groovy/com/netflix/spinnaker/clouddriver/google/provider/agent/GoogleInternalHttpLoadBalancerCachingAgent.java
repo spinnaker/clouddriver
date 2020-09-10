@@ -10,6 +10,7 @@ import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.compute.ComputeRequest;
 import com.google.api.services.compute.model.*;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.google.batch.GoogleBatchRequest;
 import com.netflix.spinnaker.clouddriver.google.cache.Keys;
@@ -622,7 +623,7 @@ public class GoogleInternalHttpLoadBalancerCachingAgent
                     })
                 .collect(toList());
       } else {
-        backends = new ArrayList<>();
+        backends = ImmutableList.of();
       }
       service.setBackends(backends);
     }
