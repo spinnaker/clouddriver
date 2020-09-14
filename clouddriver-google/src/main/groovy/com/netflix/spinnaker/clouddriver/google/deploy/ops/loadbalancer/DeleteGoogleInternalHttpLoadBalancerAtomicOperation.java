@@ -225,7 +225,7 @@ public class DeleteGoogleInternalHttpLoadBalancerAtomicOperation
 
         if (backendService == null) continue;
 
-        if (backendService.getBackends().size() > 0) {
+        if (backendService.getBackends() != null && backendService.getBackends().size() > 0) {
           getTask()
               .updateStatus(
                   BASE_PHASE,
