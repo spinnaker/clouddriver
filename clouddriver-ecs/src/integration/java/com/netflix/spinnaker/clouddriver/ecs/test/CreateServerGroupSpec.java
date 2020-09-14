@@ -40,7 +40,13 @@ public class CreateServerGroupSpec extends EcsSpec {
           + "successfully submit createServerGroup operation"
           + "\n===")
   @Test
-  public void createServerGroupOperationTest() throws IOException { //
+  public void createServerGroupOperationTest() throws IOException {
+    /**
+     * TODO (allisaurus): Ideally this test would go further and actually assert that the resulting
+     * ecs:create-service call is formed as expected, but for now, it asserts that the given
+     * operation is correctly validated and submitted as a task.
+     */
+
     // given
     String url = getTestUrl("/ecs/ops/createServerGroup");
     String requestBody = generateStringFromTestFile("/createServerGroup-inputs-ec2.json");
@@ -58,8 +64,6 @@ public class CreateServerGroupSpec extends EcsSpec {
         .contentType(ContentType.JSON)
         .body("id", notNullValue())
         .body("resourceUri", containsString("/task/"));
-
-    // TODO: spy on resulting ecs:create-service call to verify well-formed request
   }
 
   private void setEcsAccountCreds() {

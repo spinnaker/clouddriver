@@ -78,14 +78,15 @@ public class EcsControllersSpec extends EcsSpec {
     ProviderCache ecsCache = providerRegistry.getProviderCache(EcsProvider.NAME);
     String testSecretName = "tut/secret";
     String testNamespace = Keys.Namespace.SECRETS.ns;
+    String testSecretArn = "arn:aws:secretsmanager:region:aws_account_id:secret:tut/sevret-jiObOV";
+
     String secretKey = Keys.getClusterKey(ECS_ACCOUNT_NAME, TEST_REGION, testSecretName);
     String url = getTestUrl("/ecs/secrets");
     Map<String, Object> attributes = new HashMap<>();
     attributes.put("account", ECS_ACCOUNT_NAME);
     attributes.put("region", TEST_REGION);
-    attributes.put("secretName", "tut/secret");
-    attributes.put(
-        "secretArn", "arn:aws:secretsmanager:region:aws_account_id:secret:tut/sevret-jiObOV");
+    attributes.put("secretName", testSecretName);
+    attributes.put("secretArn", testSecretArn);
 
     DefaultCacheResult testResult = buildCacheResult(attributes, testNamespace, secretKey);
     ecsCache.addCacheResult("TestAgent", Collections.singletonList(testNamespace), testResult);
@@ -99,10 +100,8 @@ public class EcsControllersSpec extends EcsSpec {
     String responseStr = response.asString();
     assertTrue(responseStr.contains(ECS_ACCOUNT_NAME));
     assertTrue(responseStr.contains(TEST_REGION));
-    assertTrue(responseStr.contains("tut/secret"));
-    assertTrue(
-        responseStr.contains(
-            "arn:aws:secretsmanager:region:aws_account_id:secret:tut/sevret-jiObOV"));
+    assertTrue(responseStr.contains(testSecretName));
+    assertTrue(responseStr.contains(testSecretArn));
   }
 
   @DisplayName(
@@ -115,6 +114,9 @@ public class EcsControllersSpec extends EcsSpec {
     ProviderCache ecsCache = providerRegistry.getProviderCache(EcsProvider.NAME);
     String testRegistryId = "spinnaker-registry";
     String testNamespace = Keys.Namespace.SERVICE_DISCOVERY_REGISTRIES.ns;
+    String testSdServiceArn =
+        "arn:aws:servicediscovery:region:aws_account_id:service/srv-utcrh6wavdkggqtk";
+
     String serviceDiscoveryRegistryKey =
         Keys.getServiceDiscoveryRegistryKey(ECS_ACCOUNT_NAME, TEST_REGION, testRegistryId);
     String url = getTestUrl("/ecs/serviceDiscoveryRegistries");
@@ -123,9 +125,7 @@ public class EcsControllersSpec extends EcsSpec {
     attributes.put("region", TEST_REGION);
     attributes.put("serviceName", "spinnaker-demo");
     attributes.put("serviceId", "srv-v001");
-    attributes.put(
-        "serviceArn",
-        "arn:aws:servicediscovery:region:aws_account_id:service/srv-utcrh6wavdkggqtk");
+    attributes.put("serviceArn", testSdServiceArn);
 
     DefaultCacheResult testResult =
         buildCacheResult(attributes, testNamespace, serviceDiscoveryRegistryKey);
@@ -142,8 +142,6 @@ public class EcsControllersSpec extends EcsSpec {
     assertTrue(responseStr.contains(TEST_REGION));
     assertTrue(responseStr.contains("spinnaker-demo"));
     assertTrue(responseStr.contains("srv-v001"));
-    assertTrue(
-        responseStr.contains(
-            "arn:aws:servicediscovery:region:aws_account_id:service/srv-utcrh6wavdkggqtk"));
+    assertTrue(responseStr.contains(testSdServiceArn));
   }
 }
