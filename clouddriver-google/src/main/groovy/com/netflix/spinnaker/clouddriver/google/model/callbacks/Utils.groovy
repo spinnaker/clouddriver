@@ -311,7 +311,6 @@ class Utils {
         .findAll { it && it.name in backendServicesFromMetadata }
         .collect { it.backends }
     List<String> backendGroupNames = serviceBackends.flatten()
-        .findAll { it != null}
         .findAll { serverGroup.region == Utils.getRegionFromGroupUrl(it.serverGroupUrl) }
         .collect { GCEUtil.getLocalName(it.serverGroupUrl) }
 
@@ -326,7 +325,6 @@ class Utils {
         .findAll { it && it.name in backendServicesFromMetadata }
         .collect { it.backends }
     List<String> backendGroupNames = serviceBackends.flatten()
-        .findAll { it != null}
         .findAll { serverGroup.region == Utils.getRegionFromGroupUrl(it.serverGroupUrl) }
         .collect { GCEUtil.getLocalName(it.serverGroupUrl) }
 

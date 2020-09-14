@@ -10,7 +10,6 @@ import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.compute.ComputeRequest;
 import com.google.api.services.compute.model.*;
-import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.google.batch.GoogleBatchRequest;
 import com.netflix.spinnaker.clouddriver.google.cache.Keys;
@@ -609,9 +608,8 @@ public class GoogleInternalHttpLoadBalancerCachingAgent
       service.setConnectionDrainingTimeoutSec(
           draining == null ? 0 : draining.getDrainingTimeoutSec());
       // Note: It's possible for a backend service to have backends that point to a null group.
-      List<GoogleLoadBalancedBackend> backends;
       if (backendService.getBackends() != null) {
-        backends =
+        List<GoogleLoadBalancedBackend> backends =
             backendService.getBackends().stream()
                 .filter(backend -> backend.getGroup() != null)
                 .map(
@@ -622,10 +620,8 @@ public class GoogleInternalHttpLoadBalancerCachingAgent
                       return googleBackend;
                     })
                 .collect(toList());
-      } else {
-        backends = ImmutableList.of();
+        service.setBackends(backends);
       }
-      service.setBackends(backends);
     }
 
     // Note: It's possible for a backend service to have backends that point to a null group.
