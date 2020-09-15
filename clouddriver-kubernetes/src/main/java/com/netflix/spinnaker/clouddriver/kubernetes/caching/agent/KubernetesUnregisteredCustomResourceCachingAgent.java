@@ -27,11 +27,9 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class KubernetesUnregisteredCustomResourceCachingAgent
-    extends KubernetesV2OnDemandCachingAgent {
+    extends KubernetesOnDemandCachingAgent {
   public KubernetesUnregisteredCustomResourceCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
@@ -42,6 +40,7 @@ public class KubernetesUnregisteredCustomResourceCachingAgent
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount, agentInterval);
   }
 
+  @Override
   public ImmutableSet<AgentDataType> getProvidedDataTypes() {
     return primaryKinds().stream()
         .map(k -> AUTHORITATIVE.forType(k.toString()))

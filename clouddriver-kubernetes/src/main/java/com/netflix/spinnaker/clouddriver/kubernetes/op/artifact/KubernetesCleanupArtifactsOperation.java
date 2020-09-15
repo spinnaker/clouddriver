@@ -29,7 +29,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestStrategy;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
-import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
@@ -40,10 +39,12 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class KubernetesCleanupArtifactsOperation implements AtomicOperation<OperationResult> {
+  private static final Logger log =
+      LoggerFactory.getLogger(KubernetesCleanupArtifactsOperation.class);
   private final KubernetesCleanupArtifactsDescription description;
   private final KubernetesCredentials credentials;
   @Nonnull private final String accountName;
@@ -63,7 +64,7 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Oper
   }
 
   @Override
-  public OperationResult operate(List priorOutputs) {
+  public OperationResult operate(List<OperationResult> priorOutputs) {
     OperationResult result = new OperationResult();
 
     List<Artifact> artifacts =
@@ -84,13 +85,14 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Oper
               credentials.getResourcePropertyRegistry().get(KubernetesKind.fromString(kind));
 
           getTask().updateStatus(OP_NAME, "Deleting artifact '" + a + '"');
-          KubernetesHandler handler = properties.getHandler();
           String name = a.getName();
           if (!Strings.isNullOrEmpty(a.getVersion())) {
             name = String.join("-", name, a.getVersion());
           }
           result.merge(
-              handler.delete(credentials, a.getLocation(), name, null, new V1DeleteOptions()));
+              properties
+                  .getHandler()
+                  .delete(credentials, a.getLocation(), name, null, new V1DeleteOptions()));
         });
 
     result.setManifests(null);
@@ -114,7 +116,7 @@ public class KubernetesCleanupArtifactsOperation implements AtomicOperation<Oper
 
     ImmutableList<Artifact> artifacts =
         artifactProvider.getArtifacts(
-            artifact.getType(), artifact.getName(), artifact.getLocation(), accountName);
+            manifest.getKind(), artifact.getName(), artifact.getLocation(), credentials);
     if (maxVersionHistory >= artifacts.size()) {
       return ImmutableList.of();
     } else {
