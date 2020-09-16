@@ -23,7 +23,6 @@ import static com.jayway.jsonpath.Filter.filter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.jayway.jsonpath.DocumentContext;
@@ -31,12 +30,11 @@ import com.jayway.jsonpath.Filter;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.PathNotFoundException;
 import com.jayway.jsonpath.Predicate;
+import com.jayway.jsonpath.internal.filter.ValueNode;
 import com.netflix.spinnaker.clouddriver.artifacts.kubernetes.KubernetesArtifactType;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -62,7 +60,7 @@ public final class Replacer {
    *     representing a filter
    * @param findFilter a filter that should be applied to the path when finding any artifacts in a
    *     manifest; defaults to a filter matching all nodes
-   * @param replacePathFromPlaceholder a list that represents the path from the [?] placeholder to
+   * @param replacePathFromPlaceholder a string that represents the path from the [?] placeholder to
    *     the replaced field.
    * @param nameFromReference a function to extract an artifact name from its reference; defaults to
    *     returning the reference
@@ -72,7 +70,7 @@ public final class Replacer {
       KubernetesArtifactType type,
       String path,
       @Nullable Filter findFilter,
-      List<String> replacePathFromPlaceholder,
+      String replacePathFromPlaceholder,
       @Nullable Function<String, String> nameFromReference) {
     this.type = Objects.requireNonNull(type);
     Objects.requireNonNull(path);
@@ -114,22 +112,11 @@ public final class Replacer {
     return replacedArtifacts.build();
   }
 
-  private Predicate createReplaceFilterPredicate(List<String> replacePath, String name) {
+  private Predicate createReplaceFilterPredicate(String replacePath, String name) {
     return ctx -> {
-      Map<String, Object> ctxMap = ctx.item(Map.class);
-      String replace = "";
-      for (String field : replacePath) {
-        if (!ctxMap.containsKey(field)) {
-          return false;
-        }
-
-        if (ctxMap.get(field) instanceof String) {
-          replace = (String) ctxMap.get(field);
-        } else {
-          ctxMap = (Map<String, Object>) ctxMap.get(field);
-        }
-      }
-      return nameFromReference.apply(replace).equals(name);
+      ValueNode node = ValueNode.toValueNode("@." + replacePath).asPathNode().evaluate(ctx);
+      String value = node.asStringNode().getString();
+      return nameFromReference.apply(value).equals(name);
     };
   }
 
@@ -160,7 +147,7 @@ public final class Replacer {
   private static final Replacer DOCKER_IMAGE =
       builder()
           .path("$..spec.template.spec['containers', 'initContainers'].[?].image")
-          .replacePathFromPlaceholder(ImmutableList.of("image"))
+          .replacePathFromPlaceholder("image")
           .nameFromReference(
               ref -> {
                 // @ can only show up in image references denoting a digest
@@ -186,47 +173,47 @@ public final class Replacer {
   private static final Replacer POD_DOCKER_IMAGE =
       builder()
           .path("$.spec.containers.[?].image")
-          .replacePathFromPlaceholder(ImmutableList.of("image"))
+          .replacePathFromPlaceholder("image")
           .type(KubernetesArtifactType.DockerImage)
           .build();
   private static final Replacer CONFIG_MAP_VOLUME =
       builder()
           .path("$..spec.template.spec.volumes.[?].configMap.name")
-          .replacePathFromPlaceholder(ImmutableList.of("configMap", "name"))
+          .replacePathFromPlaceholder("configMap.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
   private static final Replacer SECRET_VOLUME =
       builder()
           .path("$..spec.template.spec.volumes.[?].secret.secretName")
-          .replacePathFromPlaceholder(ImmutableList.of("secret", "secretName"))
+          .replacePathFromPlaceholder("secret.secretName")
           .type(KubernetesArtifactType.Secret)
           .build();
   private static final Replacer CONFIG_MAP_KEY_VALUE =
       builder()
           .path(
               "$..spec.template.spec['containers', 'initContainers'].*.env.[?].valueFrom.configMapKeyRef.name")
-          .replacePathFromPlaceholder(ImmutableList.of("valueFrom", "configMapKeyRef", "name"))
+          .replacePathFromPlaceholder("valueFrom.configMapKeyRef.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
   private static final Replacer SECRET_KEY_VALUE =
       builder()
           .path(
               "$..spec.template.spec['containers', 'initContainers'].*.env.[?].valueFrom.secretKeyRef.name")
-          .replacePathFromPlaceholder(ImmutableList.of("valueFrom", "secretKeyRef", "name"))
+          .replacePathFromPlaceholder("valueFrom.secretKeyRef.name")
           .type(KubernetesArtifactType.Secret)
           .build();
   private static final Replacer CONFIG_MAP_ENV =
       builder()
           .path(
               "$..spec.template.spec['containers', 'initContainers'].*.envFrom.[?].configMapRef.name")
-          .replacePathFromPlaceholder(ImmutableList.of("configMapRef", "name"))
+          .replacePathFromPlaceholder("configMapRef.name")
           .type(KubernetesArtifactType.ConfigMap)
           .build();
   private static final Replacer SECRET_ENV =
       builder()
           .path(
               "$..spec.template.spec['containers', 'initContainers'].*.envFrom.[?].secretRef.name")
-          .replacePathFromPlaceholder(ImmutableList.of("secretRef", "name"))
+          .replacePathFromPlaceholder("secretRef.name")
           .type(KubernetesArtifactType.Secret)
           .build();
   private static final Replacer HPA_DEPLOYMENT =
@@ -235,7 +222,7 @@ public final class Replacer {
           .findFilter(
               filter(where("spec.scaleTargetRef.kind").is("Deployment"))
                   .or(where("spec.scaleTargetRef.kind").is("deployment")))
-          .replacePathFromPlaceholder(ImmutableList.of("spec", "scaleTargetRef", "name"))
+          .replacePathFromPlaceholder("spec.scaleTargetRef.name")
           .type(KubernetesArtifactType.Deployment)
           .build();
   private static final Replacer HPA_REPLICA_SET =
@@ -244,7 +231,7 @@ public final class Replacer {
           .findFilter(
               filter(where("spec.scaleTargetRef.kind").is("ReplicaSet"))
                   .or(where("spec.scaleTargetRef.kind").is("replicaSet")))
-          .replacePathFromPlaceholder(ImmutableList.of("spec", "scaleTargetRef", "name"))
+          .replacePathFromPlaceholder("spec.scaleTargetRef.name")
           .type(KubernetesArtifactType.ReplicaSet)
           .build();
 
