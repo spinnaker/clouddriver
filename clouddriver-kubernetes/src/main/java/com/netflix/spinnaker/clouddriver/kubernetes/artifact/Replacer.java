@@ -115,10 +115,10 @@ public final class Replacer {
   private Predicate createReplaceFilterPredicate(String replacePath, String name) {
     return ctx -> {
       ValueNode node = ValueNode.toValueNode("@." + replacePath).asPathNode().evaluate(ctx);
-      String value = node.asStringNode().getString();
       if (!node.isStringNode()) {
         return false;
       }
+      String value = node.asStringNode().getString();
       return nameFromReference.apply(value).equals(name);
     };
   }
