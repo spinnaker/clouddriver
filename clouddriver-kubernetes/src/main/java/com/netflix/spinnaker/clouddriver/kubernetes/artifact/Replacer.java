@@ -116,6 +116,9 @@ public final class Replacer {
     return ctx -> {
       ValueNode node = ValueNode.toValueNode("@." + replacePath).asPathNode().evaluate(ctx);
       String value = node.asStringNode().getString();
+      if (!node.isStringNode()) {
+        return false;
+      }
       return nameFromReference.apply(value).equals(name);
     };
   }
