@@ -30,7 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
-public class KubernetesCoreCachingAgent extends KubernetesOnDemandCachingAgent {
+public class KubernetesCoreCachingAgent extends KubernetesCachingAgent {
   public KubernetesCoreCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
