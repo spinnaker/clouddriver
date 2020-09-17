@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -27,10 +26,6 @@ import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultJsonCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -38,14 +33,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAcco
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
-import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class KubernetesOnDemandCachingAgent extends KubernetesCachingAgent
-    implements OnDemandAgent {
+public abstract class KubernetesOnDemandCachingAgent extends KubernetesCachingAgent {
   private static final Logger log = LoggerFactory.getLogger(KubernetesOnDemandCachingAgent.class);
-  @Getter protected final OnDemandMetricsSupport metricsSupport;
 
   protected static final String ON_DEMAND_TYPE = "onDemand";
   private static final String CACHE_TIME_KEY = "cacheTime";
@@ -61,10 +53,6 @@ public abstract class KubernetesOnDemandCachingAgent extends KubernetesCachingAg
       int agentCount,
       Long agentInterval) {
     super(namedAccountCredentials, objectMapper, registry, agentIndex, agentCount, agentInterval);
-
-    metricsSupport =
-        new OnDemandMetricsSupport(
-            registry, this, KubernetesCloudProvider.ID + ":" + OnDemandType.Manifest);
   }
 
   @Override
@@ -206,25 +194,5 @@ public abstract class KubernetesOnDemandCachingAgent extends KubernetesCachingAg
     processedCount = processedCount == null ? 0 : processedCount;
 
     return cacheTime >= lastFullRefresh || processedCount < 2;
-  }
-
-  @Override
-  public OnDemandAgent.OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-    return null;
-  }
-
-  @Override
-  public String getOnDemandAgentType() {
-    return getAgentType() + "-OnDemand";
-  }
-
-  @Override
-  public boolean handles(OnDemandType type, String cloudProvider) {
-    return false;
-  }
-
-  @Override
-  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
-    return ImmutableList.of();
   }
 }
