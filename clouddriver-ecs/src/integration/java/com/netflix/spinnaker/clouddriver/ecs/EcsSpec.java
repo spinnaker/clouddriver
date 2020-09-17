@@ -86,7 +86,6 @@ public class EcsSpec {
   }
 
   protected String generateStringFromTestFile(String path) throws IOException {
-
     return new String(Files.readAllBytes(Paths.get(TEST_OPERATIONS_LOCATION, path)));
   }
 

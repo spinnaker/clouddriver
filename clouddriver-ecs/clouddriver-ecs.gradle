@@ -3,7 +3,6 @@ sourceSets {
     java.srcDirs = ["src/integration/java"]
     resources.srcDirs = ["src/integration/resources"]
     compileClasspath += main.output + test.output
-    runtimeClasspath += main.output + test.output
   }
 }
 
