@@ -225,10 +225,6 @@ final class KubernetesCoreCachingAgentTest {
   @ParameterizedTest
   @ValueSource(ints = {1, 2, 10})
   public void deploymentUpdate(int numAgents) {
-    String expectedKey =
-        Keys.InfrastructureCacheKey.createKey(
-            KubernetesKind.DEPLOYMENT, ACCOUNT, NAMESPACE1, DEPLOYMENT_NAME);
-
     ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
         createCachingAgents(getNamedAccountCredentials(), numAgents);
     ProcessOnDemandResult onDemandResult =
@@ -240,18 +236,8 @@ final class KubernetesCoreCachingAgentTest {
                 "name", KubernetesKind.DEPLOYMENT + " " + DEPLOYMENT_NAME),
             ImmutableMap.of());
 
-    assertThat(onDemandResult.getOnDemandEntries()).containsKey(DEPLOYMENT_KIND);
-    assertThat(onDemandResult.getOnDemandEntries().get(DEPLOYMENT_KIND))
-        .extracting(data -> data.getAttributes().get("name"))
-        .containsExactly(DEPLOYMENT_NAME);
-
-    assertThat(onDemandResult.getOnDemandResults()).containsKey(DEPLOYMENT_KIND);
-    Collection<CacheData> deployments = onDemandResult.getOnDemandResults().get(DEPLOYMENT_KIND);
-    assertThat(deployments).extracting(CacheData::getId).containsExactly(expectedKey);
-    assertThat(deployments)
-        .extracting(deployment -> deployment.getAttributes().get("name"))
-        .containsExactly(DEPLOYMENT_NAME);
-
+    assertThat(onDemandResult.getOnDemandEntries()).isEmpty();
+    assertThat(onDemandResult.getOnDemandResults()).isEmpty();
     assertThat(onDemandResult.getOnDemandEvictions()).isEmpty();
   }
 
@@ -289,18 +275,13 @@ final class KubernetesCoreCachingAgentTest {
                         ImmutableMap.of()))));
 
     assertThat(onDemandResult.getOnDemandResults()).isEmpty();
-
-    assertThat(onDemandResult.getOnDemandEvictions()).containsOnlyKeys(DEPLOYMENT_KIND);
-    Collection<String> deploymentEvictions =
-        onDemandResult.getOnDemandEvictions().get(DEPLOYMENT_KIND);
-    assertThat(deploymentEvictions).containsExactly(expectedKey);
+    assertThat(onDemandResult.getOnDemandEvictions()).isEmpty();
 
     Collection<DefaultJsonCacheData> remainingItems =
         Optional.ofNullable(onDemandResult.getOnDemandEntries().get(DEPLOYMENT_KIND))
             .orElse(ImmutableList.of());
-    // We expect that exactly one caching agent processed the request, so the entry should have been
-    // evicted once
-    assertThat(remainingItems).hasSize(numCachingAgents - 1);
+    // The entry should not have been evicted from any of the caching agents.
+    assertThat(remainingItems).hasSize(numCachingAgents);
     assertThat(remainingItems)
         .extracting(data -> data.getAttributes().get("name"))
         .isSubsetOf(NON_EXISTENT);
@@ -309,10 +290,6 @@ final class KubernetesCoreCachingAgentTest {
   @ParameterizedTest
   @ValueSource(ints = {1, 2, 10})
   public void storageClassUpdate(int numCachingAgents) {
-    String expectedKey =
-        Keys.InfrastructureCacheKey.createKey(
-            KubernetesKind.STORAGE_CLASS, ACCOUNT, "", STORAGE_CLASS_NAME);
-
     ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
         createCachingAgents(getNamedAccountCredentials(), numCachingAgents);
     ProcessOnDemandResult onDemandResult =
@@ -324,19 +301,8 @@ final class KubernetesCoreCachingAgentTest {
                 "name", KubernetesKind.STORAGE_CLASS + " " + STORAGE_CLASS_NAME),
             ImmutableMap.of());
 
-    assertThat(onDemandResult.getOnDemandEntries()).containsKey(STORAGE_CLASS_KIND);
-    assertThat(onDemandResult.getOnDemandEntries().get(STORAGE_CLASS_KIND))
-        .extracting(data -> data.getAttributes().get("name"))
-        .containsExactly(STORAGE_CLASS_NAME);
-
-    assertThat(onDemandResult.getOnDemandResults()).containsKey(STORAGE_CLASS_KIND);
-    Collection<CacheData> storageClasses =
-        onDemandResult.getOnDemandResults().get(STORAGE_CLASS_KIND);
-    assertThat(storageClasses).extracting(CacheData::getId).containsExactly(expectedKey);
-    assertThat(storageClasses)
-        .extracting(storageClass -> storageClass.getAttributes().get("name"))
-        .containsExactly(STORAGE_CLASS_NAME);
-
+    assertThat(onDemandResult.getOnDemandEntries()).isEmpty();
+    assertThat(onDemandResult.getOnDemandResults()).isEmpty();
     assertThat(onDemandResult.getOnDemandEvictions()).isEmpty();
   }
 
@@ -374,17 +340,13 @@ final class KubernetesCoreCachingAgentTest {
                         ImmutableMap.of()))));
 
     assertThat(onDemandResult.getOnDemandResults()).isEmpty();
+    assertThat(onDemandResult.getOnDemandEvictions()).isEmpty();
 
-    Collection<String> deploymentEvictions =
-        onDemandResult.getOnDemandEvictions().get(STORAGE_CLASS_KIND);
-    assertThat(deploymentEvictions).containsExactly(expectedKey);
-
-    // We expect that exactly one caching agent processed the request, so the entry should have been
-    // evicted once
     Collection<DefaultJsonCacheData> remainingItems =
         Optional.ofNullable(onDemandResult.getOnDemandEntries().get(STORAGE_CLASS_KIND))
             .orElse(ImmutableList.of());
-    assertThat(remainingItems).hasSize(numCachingAgents - 1);
+    // The entry should not have been evicted from any of the caching agents.
+    assertThat(remainingItems).hasSize(numCachingAgents);
     assertThat(remainingItems)
         .extracting(data -> data.getAttributes().get("name"))
         .isSubsetOf(NON_EXISTENT);

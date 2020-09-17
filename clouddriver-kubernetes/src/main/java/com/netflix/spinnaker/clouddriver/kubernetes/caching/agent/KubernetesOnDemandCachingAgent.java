@@ -17,17 +17,14 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.cache.DefaultJsonCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
@@ -35,7 +32,6 @@ import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandType;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
@@ -56,8 +52,6 @@ public abstract class KubernetesOnDemandCachingAgent extends KubernetesCachingAg
   private static final String PROCESSED_COUNT_KEY = "processedCount";
   private static final String PROCESSED_TIME_KEY = "processedTime";
   private static final String CACHE_RESULTS_KEY = "cacheResults";
-  private static final String MONIKER_KEY = "moniker";
-  private static final String DETAILS_KEY = "details";
 
   protected KubernetesOnDemandCachingAgent(
       KubernetesNamedAccountCredentials namedAccountCredentials,
@@ -214,107 +208,9 @@ public abstract class KubernetesOnDemandCachingAgent extends KubernetesCachingAg
     return cacheTime >= lastFullRefresh || processedCount < 2;
   }
 
-  private OnDemandAgent.OnDemandResult evictEntry(
-      ProviderCache providerCache, KubernetesKind kind, String key) {
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    CacheResult cacheResult = new DefaultCacheResult(new HashMap<>());
-
-    log.info("{}: Evicting on demand '{}'", getAgentType(), key);
-    providerCache.evictDeletedItems(ON_DEMAND_TYPE, ImmutableList.of(key));
-    evictions.put(kind.toString(), ImmutableList.of(key));
-
-    return new OnDemandAgent.OnDemandResult(getOnDemandAgentType(), cacheResult, evictions);
-  }
-
-  private OnDemandAgent.OnDemandResult addEntry(
-      ProviderCache providerCache, String key, KubernetesManifest manifest)
-      throws JsonProcessingException {
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    CacheResult cacheResult;
-
-    log.info("{}: Storing on demand '{}'", getAgentType(), key);
-    cacheResult = buildCacheResult(manifest);
-    String jsonResult = objectMapper.writeValueAsString(cacheResult.getCacheResults());
-    log.debug("{}: On demand entry being written: {}", getAgentType(), jsonResult);
-
-    Map<String, Object> attributes =
-        new ImmutableMap.Builder<String, Object>()
-            .put(CACHE_TIME_KEY, System.currentTimeMillis())
-            .put(CACHE_RESULTS_KEY, jsonResult)
-            .put(PROCESSED_COUNT_KEY, 0)
-            .put(PROCESSED_TIME_KEY, -1)
-            .put(MONIKER_KEY, credentials.getNamer().deriveMoniker(manifest))
-            .build();
-
-    Map<String, Collection<String>> relationships = new HashMap<>();
-    CacheData onDemandData = new DefaultCacheData(key, attributes, relationships);
-    providerCache.putCacheData(ON_DEMAND_TYPE, onDemandData);
-
-    return new OnDemandAgent.OnDemandResult(getOnDemandAgentType(), cacheResult, evictions);
-  }
-
   @Override
   public OnDemandAgent.OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-    String account = (String) data.get("account");
-    String namespace = (String) data.get("location");
-    String fullName = (String) data.get("name");
-
-    if (Strings.isNullOrEmpty(account) || !getAccountName().equals(account)) {
-      return null;
-    }
-
-    // No on-demand updates needed when live calls are used to check for status during orchestration
-    if (credentials.isLiveManifestCalls()) {
-      return null;
-    }
-
-    KubernetesCoordinates coords;
-    try {
-      coords =
-          KubernetesCoordinates.builder().namespace(namespace).fullResourceName(fullName).build();
-      if (!primaryKinds().contains(coords.getKind())) {
-        return null;
-      }
-
-      if (coords.getName().isEmpty()) {
-        return null;
-      }
-    } catch (IllegalArgumentException e) {
-      // This is OK - the cache controller tries (w/o much info) to get every cache agent to handle
-      // each request
-      return null;
-    }
-
-    if (!coords.getNamespace().isEmpty()
-        && !credentials.getKindProperties(coords.getKind()).isNamespaced()) {
-      log.warn(
-          "{}: Kind {} is not namespace but namespace {} was provided, ignoring",
-          getAgentType(),
-          coords.getKind(),
-          coords.getNamespace());
-      coords = coords.toBuilder().namespace("").build();
-    }
-
-    if (!handleNamespace(coords.getNamespace())) {
-      return null;
-    }
-
-    log.info("{}: Accepted on demand refresh of '{}'", getAgentType(), data);
-    OnDemandAgent.OnDemandResult result;
-    KubernetesManifest manifest = loadPrimaryResource(coords);
-    String resourceKey = Keys.InfrastructureCacheKey.createKey(account, coords);
-    try {
-      result =
-          manifest == null
-              ? evictEntry(providerCache, coords.getKind(), resourceKey)
-              : addEntry(providerCache, resourceKey, manifest);
-    } catch (Exception e) {
-      log.error("Failed to process update of '{}'", resourceKey, e);
-      return null;
-    }
-
-    log.info("{}: On demand cache refresh of (data: {}) succeeded", getAgentType(), data);
-    return result;
+    return null;
   }
 
   @Override
@@ -324,78 +220,11 @@ public abstract class KubernetesOnDemandCachingAgent extends KubernetesCachingAg
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
-    return type.equals(OnDemandType.Manifest) && cloudProvider.equals(KubernetesCloudProvider.ID);
+    return false;
   }
 
   @Override
   public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
-    if (!handlePendingOnDemandRequests()) {
-      return ImmutableList.of();
-    }
-
-    List<String> matchingKeys =
-        providerCache.getIdentifiers(ON_DEMAND_TYPE).stream()
-            .map(Keys::parseKey)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .filter(k -> k instanceof Keys.InfrastructureCacheKey)
-            .map(i -> (Keys.InfrastructureCacheKey) i)
-            .filter(i -> i.getAccount().equals(getAccountName()))
-            .map(Keys.InfrastructureCacheKey::toString)
-            .collect(Collectors.toList());
-
-    return providerCache.getAll(ON_DEMAND_TYPE, matchingKeys).stream()
-        .map(
-            cd -> {
-              Keys.InfrastructureCacheKey parsedKey =
-                  (Keys.InfrastructureCacheKey) Keys.parseKey(cd.getId()).get();
-              Map<String, String> details = mapKeyToOnDemandResult(parsedKey);
-              Map<String, Object> attributes = cd.getAttributes();
-              return new ImmutableMap.Builder<String, Object>()
-                  .put(DETAILS_KEY, details)
-                  .put(MONIKER_KEY, attributes.get(MONIKER_KEY))
-                  .put(CACHE_TIME_KEY, attributes.get(CACHE_TIME_KEY))
-                  .put(PROCESSED_COUNT_KEY, attributes.get(PROCESSED_COUNT_KEY))
-                  .put(PROCESSED_TIME_KEY, attributes.get(PROCESSED_TIME_KEY))
-                  .build();
-            })
-        .collect(Collectors.toList());
-  }
-
-  private Map<String, String> mapKeyToOnDemandResult(Keys.InfrastructureCacheKey key) {
-    return new ImmutableMap.Builder<String, String>()
-        .put("name", KubernetesManifest.getFullResourceName(key.getKubernetesKind(), key.getName()))
-        .put("account", key.getAccount())
-        .put("location", key.getNamespace())
-        .build();
-  }
-
-  /**
-   * When fetching on-demand requests, we delegate to single caching agent per account to avoid
-   * duplicate work. During caching cycles, when we make calls to kubernetes to fetch data about the
-   * cluster and write this data to the cache, there is often a performance benefit to sharding work
-   * among multiple agents so that it can happen in parallel.
-   *
-   * <p>When fetching on-demand requests, however, the current API is to return all on-demand
-   * requests without any filtering. As the cache is not designed for a caching agent to be able to
-   * query only its own on-demand requests, our options are: (1) Fan out to all the caching agents.
-   * Each agent fetches all on-demand requests, then filters down to the ones that it owns. Then
-   * combine these results to get the full set of on-demand requests. (2) Just pick a single caching
-   * agent and have it get all the on-demand requests and return them.
-   *
-   * <p>For performance reasons, we'll go with option (2) and delegate a single caching agent to
-   * return all on-demand cache requests for the account. As every account will have a
-   * KubernetesCoreCachingAgent, we'll have that agent handle on-demand requests (by overriding this
-   * function) while every other agent will ignore these.
-   */
-  protected boolean handlePendingOnDemandRequests() {
-    return false;
-  }
-
-  private boolean handleNamespace(String namespace) {
-    if (Strings.isNullOrEmpty(namespace)) {
-      return handleClusterScopedResources();
-    }
-    return getNamespaces().contains(namespace);
+    return ImmutableList.of();
   }
 }

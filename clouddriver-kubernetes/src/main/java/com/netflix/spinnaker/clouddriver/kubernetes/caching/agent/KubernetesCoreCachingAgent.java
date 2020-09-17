@@ -60,21 +60,4 @@ public class KubernetesCoreCachingAgent extends KubernetesOnDemandCachingAgent {
   protected List<KubernetesKind> primaryKinds() {
     return credentials.getGlobalKinds();
   }
-
-  /**
-   * See the comment on the super method for more details about why this function exists.
-   *
-   * <p>As noted there, we want the KubernetesCoreCachingAgent to handle all requests for pending
-   * on-demand cache refreshes to avoid duplicate work. But as users can have multiple cache threads
-   * for a given account, there may be multiple KubernetesCoreCachingAgent's for a single account,
-   * all of which would duplicate work if we sent the work to all of them.
-   *
-   * <p>In order to minimize duplicate work, we'll elect the agent with index 0 to handle all of
-   * these requests, and have it return all pending on-demand refresh requests (not just ones
-   * related to its slice of namespaces).
-   */
-  @Override
-  protected boolean handlePendingOnDemandRequests() {
-    return agentIndex == 0;
-  }
 }
