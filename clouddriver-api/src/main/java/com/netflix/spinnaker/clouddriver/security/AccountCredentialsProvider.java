@@ -32,7 +32,7 @@ public interface AccountCredentialsProvider {
    *
    * @return a set of account names
    */
-  Set<? extends AccountCredentials> getAll();
+  Set<? extends AccountCredentials<?>> getAll();
 
   /**
    * Returns a specific {@link AccountCredentials} object a specified name
@@ -40,5 +40,5 @@ public interface AccountCredentialsProvider {
    * @param name the name of the account
    * @return account credentials object
    */
-  AccountCredentials getCredentials(String name);
+  AccountCredentials<?> getCredentials(String name);
 }
