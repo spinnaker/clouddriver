@@ -21,7 +21,9 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.eureka.deploy.ops.AbstractEurekaSupport
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider
+import com.netflix.spinnaker.clouddriver.titus.client.TitusClient
 import com.netflix.spinnaker.clouddriver.titus.client.model.ActivateJobRequest
+import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.EnableDisableInstanceDiscoveryDescription
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.EnableDisableServerGroupDescription
@@ -76,14 +78,26 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
         return true
       }
 
+      //IF LB and TG is present and desiredPercentage is present -> throw error
+      //De-registering specific tasks from an ALB is currently not supported for Titu
+      if (disable && description.desiredPercentage && loadBalancingClient && job.labels.containsKey("spinnaker.targetGroups")) {
+        log.error("Could not ${verb} ServerGroup '$serverGroupName' in region $region! disabling by percentage for Server Groups with Target Groups is not supported for Titus")
+        return false
+      }
+
       task.updateStatus phaseName, "${presentParticipling} ServerGroup '$serverGroupName' in $region..."
 
-      provider.activateJob(
-        new ActivateJobRequest()
-          .withUser('spinnaker')
-          .withJobId(job.id)
-          .withInService(!disable)
-      )
+      // If desired percentage is part of the description ( Monitored deploy ), Disable the job only when it's set to 100
+      if (disable && description.desiredPercentage) {
+        if (description.desiredPercentage == 100) {
+          log.info("Calling disable job for desiredPercentage ${description.desiredPercentage}")
+          activateJob(provider, job, !disable)
+        } else {
+          log.info("Not disabling the job for desiredPrecentage ${description.desiredPercentage}")
+        }
+      } else {
+        activateJob(provider, job, !disable)
+      }
 
       if (loadBalancingClient && job.labels.containsKey("spinnaker.targetGroups")) {
         if (disable) {
@@ -107,15 +121,19 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
       if (job.tasks) {
         def status = disable ? AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE : AbstractEurekaSupport.DiscoveryStatus.UP
         task.updateStatus phaseName, "Marking ServerGroup $serverGroupName as $status with Discovery"
-
+        List<String> tasks = job.tasks*.instanceId
         def enableDisableInstanceDiscoveryDescription = new EnableDisableInstanceDiscoveryDescription(
           credentials: credentials,
           region: region,
           asgName: serverGroupName,
           instanceIds: job.tasks*.instanceId
         )
+        if (description.desiredPercentage && disable) {
+          tasks = discoverySupport.getInstanceToModify(credentials.name, region, serverGroupName, job.tasks*.instanceId, description.desiredPercentage)
+          task.updateStatus phaseName, "Disabling instances $tasks on ASG $serverGroupName with percentage ${description.desiredPercentage}"
+        }
         discoverySupport.updateDiscoveryStatusForInstances(
-          enableDisableInstanceDiscoveryDescription, task, phaseName, status, job.tasks*.instanceId
+          enableDisableInstanceDiscoveryDescription, task, phaseName, status, tasks
         )
       }
 
@@ -136,6 +154,15 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
       }
       return false
     }
+  }
+
+  private activateJob(TitusClient provider, Job job, boolean disable) {
+    provider.activateJob(
+      new ActivateJobRequest()
+        .withUser('spinnaker')
+        .withJobId(job.id)
+        .withInService(disable)
+    )
   }
 
   Task getTask() {

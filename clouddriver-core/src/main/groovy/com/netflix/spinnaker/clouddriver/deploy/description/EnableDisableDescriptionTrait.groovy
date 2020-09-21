@@ -21,14 +21,6 @@ import com.netflix.spinnaker.clouddriver.security.resources.ServerGroupsNameable
 trait EnableDisableDescriptionTrait implements ServerGroupsNameable {
   String serverGroupName
 
-  Integer getDesiredPercentage() {
-    throw new IllegalArgumentException("The selected provider hasn't implemented enabling/disabling by percentage yet")
-  }
-
-  void setDesiredPercentage(Integer _) {
-    throw new IllegalArgumentException("The selected provider hasn't implemented enabling/disabling by percentage yet")
-  }
-
   @Override
   Collection<String> getServerGroupNames() {
     return [serverGroupName]
