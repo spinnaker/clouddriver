@@ -78,10 +78,13 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
         return true
       }
 
-      //IF LB and TG is present and desiredPercentage is present -> throw error
-      //De-registering specific tasks from an ALB is currently not supported for Titu
+      //If LB and TG is present and desiredPercentage is present -> throw error
+      //Deregistering specific tasks from an ALB is currently not supported for Titus
       if (disable && description.desiredPercentage && loadBalancingClient && job.labels.containsKey("spinnaker.targetGroups")) {
-        log.error("Could not ${verb} ServerGroup '$serverGroupName' in region $region! disabling by percentage for Server Groups with Target Groups is not supported for Titus")
+        log.error(
+          "Could not {} server group '{}' in region {}! Disabling by percentage for server groups with target groups not supported",
+          verb, serverGroupName, region
+        )
         return false
       }
 
@@ -121,19 +124,19 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
       if (job.tasks) {
         def status = disable ? AbstractEurekaSupport.DiscoveryStatus.OUT_OF_SERVICE : AbstractEurekaSupport.DiscoveryStatus.UP
         task.updateStatus phaseName, "Marking ServerGroup $serverGroupName as $status with Discovery"
-        List<String> tasks = job.tasks*.instanceId
+        List<String> instanceIds = job.tasks*.instanceId
         def enableDisableInstanceDiscoveryDescription = new EnableDisableInstanceDiscoveryDescription(
           credentials: credentials,
           region: region,
           asgName: serverGroupName,
-          instanceIds: job.tasks*.instanceId
+          instanceIds: instanceIds
         )
         if (description.desiredPercentage && disable) {
-          tasks = discoverySupport.getInstanceToModify(credentials.name, region, serverGroupName, job.tasks*.instanceId, description.desiredPercentage)
-          task.updateStatus phaseName, "Disabling instances $tasks on ASG $serverGroupName with percentage ${description.desiredPercentage}"
+          instanceIds = discoverySupport.getInstanceToModify(credentials.name, region, serverGroupName, instanceIds, description.desiredPercentage)
+          task.updateStatus phaseName, "Disabling instances $instanceIds on ASG $serverGroupName with percentage ${description.desiredPercentage}"
         }
         discoverySupport.updateDiscoveryStatusForInstances(
-          enableDisableInstanceDiscoveryDescription, task, phaseName, status, tasks
+          enableDisableInstanceDiscoveryDescription, task, phaseName, status, instanceIds
         )
       }
 
@@ -156,12 +159,12 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
     }
   }
 
-  private activateJob(TitusClient provider, Job job, boolean disable) {
-    provider.activateJob(
+  private activateJob(TitusClient provider, Job job, boolean inService) {
+    return provider.activateJob(
       new ActivateJobRequest()
         .withUser('spinnaker')
         .withJobId(job.id)
-        .withInService(disable)
+        .withInService(inService)
     )
   }
 
