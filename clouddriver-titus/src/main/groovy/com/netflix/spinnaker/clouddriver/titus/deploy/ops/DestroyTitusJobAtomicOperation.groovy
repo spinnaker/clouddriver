@@ -54,7 +54,6 @@ class DestroyTitusJobAtomicOperation extends AbstractSagaAtomicOperation<Destroy
 
   @Override
   protected Void parseSagaResult(@NotNull @Nonnull DeleteServerGroupEvent result) {
-    // parse it and then add to events
     events << result
     return null
   }

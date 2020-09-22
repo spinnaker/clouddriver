@@ -33,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * Removes some of the boilerplate for AtomicOperations to use Sagas.
  *
  * @param <T> The AtomicOperation description
+ * @param <SR> The saga result type
  * @param <R> The operation result type
  */
 public abstract class AbstractSagaAtomicOperation<T, SR, R>
