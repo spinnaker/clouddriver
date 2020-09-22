@@ -78,11 +78,9 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
         return true
       }
 
-      //If LB and TG is present and desiredPercentage is present -> throw error
-      //Deregistering specific tasks from an ALB is currently not supported for Titus
       if (disable && description.desiredPercentage && loadBalancingClient && job.labels.containsKey("spinnaker.targetGroups")) {
         log.error(
-          "Could not {} server group '{}' in region {}! Disabling by percentage for server groups with target groups not supported",
+          "Could not {} server group '{}' in region {}! Disabling by percentage for server groups with target groups not supported by Titus",
           verb, serverGroupName, region
         )
         return false
@@ -159,8 +157,8 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
     }
   }
 
-  private activateJob(TitusClient provider, Job job, boolean inService) {
-    return provider.activateJob(
+  private void activateJob(TitusClient provider, Job job, boolean inService) {
+     provider.activateJob(
       new ActivateJobRequest()
         .withUser('spinnaker')
         .withJobId(job.id)
