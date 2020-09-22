@@ -21,5 +21,3 @@ jobs:
           ${{ runner.os }}-gradle-
     - name: Build
       run: ./gradlew build
-    - name: Integration Tests
-      run: ./gradlew --info integrationTest
