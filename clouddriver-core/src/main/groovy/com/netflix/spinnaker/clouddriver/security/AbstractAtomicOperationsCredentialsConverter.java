@@ -34,17 +34,11 @@ public abstract class AbstractAtomicOperationsCredentialsConverter<T extends Acc
 
   @Autowired @Getter @Setter private CredentialsRepository<T> credentialsRepository;
 
-  @Getter private ObjectMapper objectMapper;
-
-  @Autowired
-  public void setObjectMapper(ObjectMapper objectMapper) {
-    // TODO(rz): This is a bad pattern, we should be using the object mapper customizer bean, rather
-    //  than modifying a singleton, global object mapper after injecting it somewhere.
-    this.objectMapper =
-        objectMapper
-            .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-  }
+  @Getter
+  private final ObjectMapper objectMapper =
+      new ObjectMapper()
+          .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+          .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   @NotNull
   public T getCredentialsObject(@NotNull final String name) {
