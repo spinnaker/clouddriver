@@ -21,7 +21,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
-import java.util.ArrayList;
+import com.google.common.collect.ImmutableList;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,24 +34,25 @@ import javax.annotation.Nullable;
 import lombok.Data;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+/**
+ * Because this class maps the received Kubernetes manifest to an untyped map, it has no choice but
+ * to perform many unchecked casts when retrieving information. New logic should convert the
+ * manifest to an appropriate strongly-typed model object instead of adding more unchecked casts
+ * here. Methods that already perform unchecked casts are annotated to suppress them; please avoid
+ * adding more such methods if at all possible.
+ */
 public class KubernetesManifest extends HashMap<String, Object> {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesManifest.class);
   private static final ObjectMapper mapper = new ObjectMapper();
 
-  @Nullable private KubernetesKind computedKind;
+  @Nullable private transient KubernetesKind computedKind;
 
   @Override
   public KubernetesManifest clone() {
     return (KubernetesManifest) super.clone();
-  }
-
-  private static <T> T getRequiredField(KubernetesManifest manifest, String field) {
-    T res = (T) manifest.get(field);
-    if (res == null) {
-      throw MalformedManifestException.missingField(manifest, field);
-    }
-
-    return res;
   }
 
   @JsonIgnore
@@ -77,7 +81,8 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   @JsonIgnore
   public String getKindName() {
-    return getRequiredField(this, "kind");
+    return Optional.ofNullable((String) get("kind"))
+        .orElseThrow(() -> MalformedManifestException.missingField(this, "kind"));
   }
 
   @JsonIgnore
@@ -88,7 +93,9 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   @JsonIgnore
   public KubernetesApiVersion getApiVersion() {
-    return KubernetesApiVersion.fromString(getRequiredField(this, "apiVersion"));
+    return Optional.ofNullable((String) get("apiVersion"))
+        .map(KubernetesApiVersion::fromString)
+        .orElseThrow(() -> MalformedManifestException.missingField(this, "apiVersion"));
   }
 
   @JsonIgnore
@@ -98,13 +105,10 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   private Map<String, Object> getMetadata() {
-    return getRequiredField(this, "metadata");
-  }
-
-  @JsonIgnore
-  public Map<String, String> getInvolvedObject() {
-    return getRequiredField(this, "involvedObject");
+    return Optional.ofNullable((Map<String, Object>) get("metadata"))
+        .orElseThrow(() -> MalformedManifestException.missingField(this, "metadata"));
   }
 
   @JsonIgnore
@@ -132,9 +136,10 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @Nonnull
   public String getNamespace() {
     String namespace = (String) getMetadata().get("namespace");
-    return Strings.isNullOrEmpty(namespace) ? "" : namespace;
+    return Strings.nullToEmpty(namespace);
   }
 
   @JsonIgnore
@@ -143,24 +148,37 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @Nonnull
   public String getCreationTimestamp() {
-    return getMetadata().containsKey("creationTimestamp")
-        ? getMetadata().get("creationTimestamp").toString()
-        : "";
+    Object timestamp = getMetadata().get("creationTimestamp");
+    if (timestamp == null) {
+      return "";
+    }
+    return timestamp.toString();
   }
 
   @JsonIgnore
+  @Nullable
+  public Long getCreationTimestampEpochMillis() {
+    try {
+      return Instant.parse(getCreationTimestamp()).toEpochMilli();
+    } catch (DateTimeParseException e) {
+      log.warn("Failed to parse timestamp: ", e);
+    }
+    return null;
+  }
+
+  @JsonIgnore
+  @Nonnull
   public List<OwnerReference> getOwnerReferences() {
     Map<String, Object> metadata = getMetadata();
-    Object ownerReferences = metadata.get("ownerReferences");
-    if (ownerReferences == null) {
-      return new ArrayList<>();
-    }
-
-    return mapper.convertValue(ownerReferences, new TypeReference<List<OwnerReference>>() {});
+    return Optional.ofNullable(metadata.get("ownerReferences"))
+        .map(r -> mapper.convertValue(r, new TypeReference<List<OwnerReference>>() {}))
+        .orElseGet(ImmutableList::of);
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public KubernetesManifestSelector getManifestSelector() {
     if (!containsKey("spec")) {
       return null;
@@ -181,6 +199,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Map<String, String> getLabels() {
     Map<String, String> result = (Map<String, String>) getMetadata().get("labels");
     if (result == null) {
@@ -192,6 +211,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Map<String, String> getAnnotations() {
     Map<String, String> result = (Map<String, String>) getMetadata().get("annotations");
     if (result == null) {
@@ -203,6 +223,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Double getReplicas() {
     if (!containsKey("spec")) {
       return null;
@@ -216,6 +237,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public void setReplicas(Double replicas) {
     if (!containsKey("spec")) {
       return;
@@ -229,6 +251,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Optional<Map<String, String>> getSpecTemplateLabels() {
     if (!containsKey("spec")) {
       return Optional.empty();
@@ -263,6 +286,7 @@ public class KubernetesManifest extends HashMap<String, Object> {
   }
 
   @JsonIgnore
+  @SuppressWarnings("unchecked")
   public Optional<Map<String, String>> getSpecTemplateAnnotations() {
     if (!containsKey("spec")) {
       return Optional.empty();
@@ -301,43 +325,6 @@ public class KubernetesManifest extends HashMap<String, Object> {
     return get("status");
   }
 
-  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
-  // of calling this function.
-  @Deprecated
-  @JsonIgnore
-  public int getObservedGeneration() {
-    Object statusObj = getStatus();
-    if (!(statusObj instanceof Map)) {
-      throw new IllegalStateException(
-          "Expected status to be a Map but was actually a " + statusObj.getClass());
-    }
-
-    Map<String, Object> status = (Map<String, Object>) statusObj;
-
-    Object observedGenObj = status.get("observedGeneration");
-
-    if (!(observedGenObj instanceof Number)) {
-      throw new IllegalStateException(
-          "Expected status.observedGeneration to be a Number but was actually a "
-              + observedGenObj.getClass());
-    }
-    return ((Number) observedGenObj).intValue();
-  }
-
-  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
-  // of calling this function.
-  @Deprecated
-  @JsonIgnore
-  public int getGeneration() {
-    Object generationObj = getMetadata().get("generation");
-    if (!(generationObj instanceof Number)) {
-      throw new IllegalStateException(
-          "Expected metadata.generation to be a Number but was actually a "
-              + generationObj.getClass());
-    }
-    return ((Number) generationObj).intValue();
-  }
-
   @JsonIgnore
   public String getFullResourceName() {
     return getFullResourceName(getKind(), getName());
@@ -345,17 +332,6 @@ public class KubernetesManifest extends HashMap<String, Object> {
 
   public static String getFullResourceName(KubernetesKind kind, String name) {
     return String.join(" ", kind.toString(), name);
-  }
-
-  // Consumers should convert to a strongly-typed object and implement type-specific logic instead
-  // of calling this function.
-  @Deprecated
-  @JsonIgnore
-  public boolean isNewerThanObservedGeneration() {
-    int generation = getGeneration();
-    int observedGeneration = getObservedGeneration();
-
-    return generation > observedGeneration;
   }
 
   /*
@@ -376,25 +352,35 @@ public class KubernetesManifest extends HashMap<String, Object> {
     return cloneThis.equals(cloneOther);
   }
 
+  /**
+   * This method is deprecated in favor of creating a {@link KubernetesCoordinates} object using
+   * {@link KubernetesCoordinates.KubernetesCoordinatesBuilder#fullResourceName}, which has more
+   * clearly identified named than {@link Pair#getLeft()}) and {@link Pair#getRight()}).
+   */
+  @Deprecated
   public static Pair<KubernetesKind, String> fromFullResourceName(String fullResourceName) {
-    String[] split = fullResourceName.split(" ");
-    if (split.length != 2) {
-      throw new IllegalArgumentException("Expected a full resource name of the form <kind> <name>");
-    }
-
-    KubernetesKind kind = KubernetesKind.fromString(split[0]);
-    String name = split[1];
-
-    return new ImmutablePair<>(kind, name);
+    KubernetesCoordinates coords =
+        KubernetesCoordinates.builder().fullResourceName(fullResourceName).build();
+    return new ImmutablePair<>(coords.getKind(), coords.getName());
   }
 
   @Data
   public static class OwnerReference {
     KubernetesApiVersion apiVersion;
-    KubernetesKind kind;
+    String kind;
     String name;
     String uid;
     boolean blockOwnerDeletion;
     boolean controller;
+
+    public KubernetesKind computedKind() {
+      KubernetesApiGroup kubernetesApiGroup;
+      if (apiVersion != null) {
+        kubernetesApiGroup = getApiVersion().getApiGroup();
+      } else {
+        kubernetesApiGroup = null;
+      }
+      return KubernetesKind.from(kind, kubernetesApiGroup);
+    }
   }
 }

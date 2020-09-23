@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.op.manifest;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
@@ -26,23 +27,20 @@ import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.Re
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions.MergeStrategy;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesPatchManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class KubernetesPatchManifestOperation implements AtomicOperation<OperationResult> {
   private final KubernetesPatchManifestDescription description;
-  private final KubernetesV2Credentials credentials;
+  private final KubernetesCredentials credentials;
   private static final String OP_NAME = "PATCH_KUBERNETES_MANIFEST";
 
   private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -57,7 +55,7 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
   }
 
   @Override
-  public OperationResult operate(List _unused) {
+  public OperationResult operate(List<OperationResult> _unused) {
     updateStatus("Beginning patching of manifest");
     KubernetesCoordinates objToPatch = description.getPointCoordinates();
 
@@ -115,7 +113,10 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
         objectMapper.convertValue(description.getPatchBody(), KubernetesManifest.class);
     ReplaceResult replaceResult =
         patchHandler.replaceArtifacts(
-            manifest, allArtifacts, objToPatch.getNamespace(), description.getAccount());
+            manifest,
+            allArtifacts,
+            Strings.nullToEmpty(objToPatch.getNamespace()),
+            description.getAccount());
 
     if (description.getRequiredArtifacts() != null) {
       Set<ArtifactKey> unboundArtifacts =
@@ -135,15 +136,6 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
   }
 
   private KubernetesHandler findPatchHandler(KubernetesCoordinates objToPatch) {
-    KubernetesResourceProperties properties =
-        credentials.getResourcePropertyRegistry().get(objToPatch.getKind());
-    KubernetesHandler patchHandler = properties.getHandler();
-    if (patchHandler == null) {
-      throw new IllegalArgumentException(
-          "No patch handler available for Kubernetes object kind ' "
-              + objToPatch.getKind()
-              + "', unable to continue");
-    }
-    return patchHandler;
+    return credentials.getResourcePropertyRegistry().get(objToPatch.getKind()).getHandler();
   }
 }

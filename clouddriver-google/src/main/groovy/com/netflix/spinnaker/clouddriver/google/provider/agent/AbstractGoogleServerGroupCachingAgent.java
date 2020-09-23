@@ -32,6 +32,7 @@ import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SE
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES;
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.LOAD_BALANCING_POLICY;
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES;
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGION_BACKEND_SERVICE_NAMES;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -82,6 +83,7 @@ import com.netflix.spinnaker.clouddriver.google.compute.Instances;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.AutoscalingMode;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CpuUtilization;
+import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CpuUtilization.PredictiveMethod;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CustomMetricUtilization;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.CustomMetricUtilization.UtilizationTargetType;
 import com.netflix.spinnaker.clouddriver.google.model.GoogleAutoscalingPolicy.FixedOrPercent;
@@ -286,7 +288,7 @@ abstract class AbstractGoogleServerGroupCachingAgent
       ProviderCache providerCache, String serverGroupName);
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     List<String> ownedKeys =
         providerCache.getIdentifiers(ON_DEMAND.getNs()).stream()
             .filter(this::keyOwnedByThisAgent)
@@ -869,6 +871,12 @@ abstract class AbstractGoogleServerGroupCachingAgent
             BACKEND_SERVICE_NAMES, COMMA.splitToList(metadata.get(BACKEND_SERVICE_NAMES)));
       }
 
+      if (metadata.containsKey(REGION_BACKEND_SERVICE_NAMES)) {
+        autoscalerGroup.put(
+            REGION_BACKEND_SERVICE_NAMES,
+            COMMA.splitToList(metadata.get(REGION_BACKEND_SERVICE_NAMES)));
+      }
+
       if (metadata.containsKey(LOAD_BALANCING_POLICY)) {
         try {
           autoscalerGroup.put(
@@ -935,6 +943,7 @@ abstract class AbstractGoogleServerGroupCachingAgent
     }
     CpuUtilization output = new CpuUtilization();
     output.setUtilizationTarget(input.getUtilizationTarget());
+    output.setPredictiveMethod(valueOf(PredictiveMethod.class, input.getPredictiveMethod()));
     return output;
   }
 

@@ -39,7 +39,7 @@ public class KubernetesDeleteManifestValidator
 
   @Override
   public void validate(
-      List priorDescriptions,
+      List<KubernetesDeleteManifestDescription> priorDescriptions,
       KubernetesDeleteManifestDescription description,
       ValidationErrors errors) {
     KubernetesValidationUtil util =
@@ -52,7 +52,7 @@ public class KubernetesDeleteManifestValidator
     }
 
     for (KubernetesCoordinates coordinate : coordinates) {
-      if (!util.validateV2Credentials(
+      if (!util.validateCredentials(
           provider, description.getAccount(), coordinate.getKind(), coordinate.getNamespace())) {
         return;
       }

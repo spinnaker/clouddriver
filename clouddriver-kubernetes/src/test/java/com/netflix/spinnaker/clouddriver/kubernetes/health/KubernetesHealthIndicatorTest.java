@@ -19,6 +19,8 @@ package com.netflix.spinnaker.clouddriver.kubernetes.health;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,32 +28,55 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentialFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.Status;
 
 @RunWith(JUnitPlatform.class)
+@ExtendWith(MockitoExtension.class)
 final class KubernetesHealthIndicatorTest {
-  private static final ImmutableList<String> NAMESPACES = ImmutableList.of();
   private static final String ERROR_MESSAGE = "Failed to get namespaces";
   private static final Registry REGISTRY = new NoopRegistry();
+  private static final String HEALTHY_ACCOUNT_NAME = "healthy";
+  private static final String UNHEALTHY_ACCOUNT_NAME_FIRST = "unhealthy1";
+  private static final String UNHEALTHY_ACCOUNT_NAME_SECOND = "unhealthy2";
 
-  private static final KubernetesCredentialFactory<KubernetesCredentials>
-      HEALTHY_CREDENTIAL_FACTORY =
-          StubKubernetesCredentialsFactory.getInstance(
-              StubKubernetesCredentials.withNamespaces(NAMESPACES));
+  private KubernetesNamedAccountCredentials healthyNamedCredentials;
+  private KubernetesNamedAccountCredentials unhealthyNamedCredentialsFirst;
+  private KubernetesNamedAccountCredentials unhealthyNamedCredentialsSecond;
 
-  private static final KubernetesCredentialFactory<KubernetesCredentials>
-      UNHEALTHY_CREDENTIAL_FACTORY =
-          StubKubernetesCredentialsFactory.getInstance(
-              StubKubernetesCredentials.withNamespaceException(
-                  new RuntimeException(ERROR_MESSAGE)));
+  @Mock private KubernetesCredentials.Factory healthyCredentialsFactory;
+  @Mock private KubernetesCredentials.Factory unhealthyCredentialsFactory;
+  @Mock private KubernetesCredentials healthyCredentials;
+  @Mock private KubernetesCredentials unhealthyCredentials;
+
+  @BeforeEach
+  void setup() {
+    when(healthyCredentialsFactory.build(any())).thenReturn(healthyCredentials);
+    when(unhealthyCredentialsFactory.build(any())).thenReturn(unhealthyCredentials);
+    lenient()
+        .when(unhealthyCredentials.getDeclaredNamespaces())
+        .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    healthyNamedCredentials =
+        new KubernetesNamedAccountCredentials(
+            getManagedAccount(HEALTHY_ACCOUNT_NAME), healthyCredentialsFactory);
+    unhealthyNamedCredentialsFirst =
+        new KubernetesNamedAccountCredentials(
+            getManagedAccount(UNHEALTHY_ACCOUNT_NAME_FIRST), unhealthyCredentialsFactory);
+    unhealthyNamedCredentialsSecond =
+        new KubernetesNamedAccountCredentials(
+            getManagedAccount(UNHEALTHY_ACCOUNT_NAME_SECOND), unhealthyCredentialsFactory);
+  }
 
   @Test
   void healthyWithNoAccounts() {
@@ -84,7 +109,7 @@ final class KubernetesHealthIndicatorTest {
   @Test
   void healthyWithOnlyHealthyAccounts() {
     AccountCredentialsProvider provider =
-        stubAccountCredentialsProvider(ImmutableList.of(healthyAccount("test")));
+        stubAccountCredentialsProvider(ImmutableList.of(healthyNamedCredentials));
 
     KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, provider);
 
@@ -97,9 +122,8 @@ final class KubernetesHealthIndicatorTest {
 
   @Test
   void reportsErrorForUnhealthyAccount() {
-    String unhealthy = "unhealthy";
     AccountCredentialsProvider provider =
-        stubAccountCredentialsProvider(ImmutableList.of(unhealthyAccount(unhealthy)));
+        stubAccountCredentialsProvider(ImmutableList.of(unhealthyNamedCredentialsFirst));
 
     KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, provider);
 
@@ -107,20 +131,18 @@ final class KubernetesHealthIndicatorTest {
     Health result = healthIndicator.getHealth(true);
 
     assertThat(result.getStatus()).isEqualTo(Status.UP);
-    assertThat(result.getDetails()).containsOnly(entry(unhealthy, ERROR_MESSAGE));
+    assertThat(result.getDetails())
+        .containsOnly(entry(UNHEALTHY_ACCOUNT_NAME_FIRST, ERROR_MESSAGE));
   }
 
   @Test
   void reportsMultipleErrors() {
-    String healthy = "healthy";
-    String unhealthy1 = "unhealthy1";
-    String unhealthy2 = "unhealthy2";
     AccountCredentialsProvider provider =
         stubAccountCredentialsProvider(
             ImmutableList.of(
-                healthyAccount(healthy),
-                unhealthyAccount(unhealthy1),
-                unhealthyAccount(unhealthy2)));
+                healthyNamedCredentials,
+                unhealthyNamedCredentialsFirst,
+                unhealthyNamedCredentialsSecond));
 
     KubernetesHealthIndicator healthIndicator = new KubernetesHealthIndicator(REGISTRY, provider);
 
@@ -129,9 +151,13 @@ final class KubernetesHealthIndicatorTest {
 
     assertThat(result.getStatus()).isEqualTo(Status.UP);
     assertThat(result.getDetails())
-        .containsOnly(entry(unhealthy1, ERROR_MESSAGE), entry(unhealthy2, ERROR_MESSAGE));
+        .containsOnly(
+            entry(UNHEALTHY_ACCOUNT_NAME_FIRST, ERROR_MESSAGE),
+            entry(UNHEALTHY_ACCOUNT_NAME_SECOND, ERROR_MESSAGE));
     assertThat(result.getDetails())
-        .containsOnly(entry(unhealthy1, ERROR_MESSAGE), entry(unhealthy2, ERROR_MESSAGE));
+        .containsOnly(
+            entry(UNHEALTHY_ACCOUNT_NAME_FIRST, ERROR_MESSAGE),
+            entry(UNHEALTHY_ACCOUNT_NAME_SECOND, ERROR_MESSAGE));
   }
 
   private static KubernetesConfigurationProperties.ManagedAccount getManagedAccount(String name) {
@@ -141,28 +167,16 @@ final class KubernetesHealthIndicatorTest {
     return managedAccount;
   }
 
-  private static KubernetesNamedAccountCredentials<KubernetesCredentials> healthyAccount(
-      String name) {
-    return new KubernetesNamedAccountCredentials<>(
-        getManagedAccount(name), HEALTHY_CREDENTIAL_FACTORY);
-  }
-
-  private static KubernetesNamedAccountCredentials<KubernetesCredentials> unhealthyAccount(
-      String name) {
-    return new KubernetesNamedAccountCredentials<>(
-        getManagedAccount(name), UNHEALTHY_CREDENTIAL_FACTORY);
-  }
-
-  private static AccountCredentials nonKubernetesAccount(String name) {
-    AccountCredentials credentials = mock(AccountCredentials.class);
+  private static AccountCredentials<?> nonKubernetesAccount(String name) {
+    AccountCredentials<?> credentials = mock(AccountCredentials.class);
     when(credentials.getName()).thenReturn(name);
     return credentials;
   }
 
   private static AccountCredentialsProvider stubAccountCredentialsProvider(
-      Iterable<AccountCredentials> accounts) {
+      Iterable<AccountCredentials<?>> accounts) {
     AccountCredentialsRepository accountRepository = new MapBackedAccountCredentialsRepository();
-    for (AccountCredentials account : accounts) {
+    for (AccountCredentials<?> account : accounts) {
       accountRepository.save(account.getName(), account);
     }
     return new DefaultAccountCredentialsProvider(accountRepository);

@@ -38,7 +38,7 @@ public class KubernetesDeployManifestValidator
 
   @Override
   public void validate(
-      List priorDescriptions,
+      List<KubernetesDeployManifestDescription> priorDescriptions,
       KubernetesDeployManifestDescription description,
       ValidationErrors errors) {
     KubernetesValidationUtil util =
@@ -53,7 +53,7 @@ public class KubernetesDeployManifestValidator
         continue;
       }
 
-      if (!util.validateV2Credentials(provider, description.getAccount(), manifest)) {
+      if (!util.validateCredentials(provider, description.getAccount(), manifest)) {
         return;
       }
     }

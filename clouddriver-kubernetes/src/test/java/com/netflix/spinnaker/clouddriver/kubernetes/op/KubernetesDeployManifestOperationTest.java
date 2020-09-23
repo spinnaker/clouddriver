@@ -30,8 +30,11 @@ import com.google.common.collect.Iterables;
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesDeployManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
@@ -45,11 +48,11 @@ import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesService
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.ManifestFetcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.manifest.KubernetesDeployManifestOperation;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
-import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
+import com.netflix.spinnaker.moniker.Namer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -62,6 +65,8 @@ final class KubernetesDeployManifestOperationTest {
       new GlobalResourcePropertyRegistry(
           ImmutableList.of(new KubernetesReplicaSetHandler(), new KubernetesServiceHandler()),
           new KubernetesUnregisteredCustomResourceHandler());
+  private static final Namer<KubernetesManifest> NAMER = new KubernetesManifestNamer();
+  private static final String ACCOUNT = "my-account";
 
   @BeforeEach
   void setTask() {
@@ -161,12 +166,12 @@ final class KubernetesDeployManifestOperationTest {
                         KubernetesDeployManifestOperationTest.class, manifest)))
             .setMoniker(new Moniker())
             .setSource(KubernetesDeployManifestDescription.Source.text);
+    deployManifestDescription.setAccount(ACCOUNT);
     deployManifestDescription.setCredentials(getNamedAccountCredentials());
     return deployManifestDescription;
   }
 
-  private static KubernetesNamedAccountCredentials<KubernetesV2Credentials>
-      getNamedAccountCredentials() {
+  private static KubernetesNamedAccountCredentials getNamedAccountCredentials() {
     KubernetesConfigurationProperties.ManagedAccount managedAccount =
         new KubernetesConfigurationProperties.ManagedAccount();
     managedAccount.setName("my-account");
@@ -176,25 +181,35 @@ final class KubernetesDeployManifestOperationTest {
         .withAccount(managedAccount.getName())
         .setNamer(KubernetesManifest.class, new KubernetesManifestNamer());
 
-    KubernetesV2Credentials mockV2Credentials = getMockKubernetesV2Credentials();
-    KubernetesV2Credentials.Factory credentialFactory = mock(KubernetesV2Credentials.Factory.class);
-    when(credentialFactory.build(managedAccount)).thenReturn(mockV2Credentials);
-    return new KubernetesNamedAccountCredentials<>(managedAccount, credentialFactory);
+    KubernetesCredentials mockCredentials = getMockKubernetesCredentials();
+    KubernetesCredentials.Factory credentialFactory = mock(KubernetesCredentials.Factory.class);
+    when(credentialFactory.build(managedAccount)).thenReturn(mockCredentials);
+    return new KubernetesNamedAccountCredentials(managedAccount, credentialFactory);
   }
 
-  private static KubernetesV2Credentials getMockKubernetesV2Credentials() {
-    KubernetesV2Credentials credentialsMock = mock(KubernetesV2Credentials.class);
+  private static KubernetesCredentials getMockKubernetesCredentials() {
+    KubernetesCredentials credentialsMock = mock(KubernetesCredentials.class);
     when(credentialsMock.getKindProperties(any(KubernetesKind.class)))
         .thenAnswer(
             invocation ->
                 KubernetesKindProperties.withDefaultProperties(
                     invocation.getArgument(0, KubernetesKind.class)));
     when(credentialsMock.getResourcePropertyRegistry()).thenReturn(resourcePropertyRegistry);
-    when(credentialsMock.get(KubernetesKind.SERVICE, "my-namespace", "my-service"))
+    when(credentialsMock.get(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.SERVICE)
+                .namespace("my-namespace")
+                .name("my-service")
+                .build()))
         .thenReturn(
             ManifestFetcher.getManifest(
                 KubernetesDeployManifestOperationTest.class, "deploy/service.yml"));
-    when(credentialsMock.get(KubernetesKind.SERVICE, "my-namespace", "my-service-no-selector"))
+    when(credentialsMock.get(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.SERVICE)
+                .namespace("my-namespace")
+                .name("my-service-no-selector")
+                .build()))
         .thenReturn(
             ManifestFetcher.getManifest(
                 KubernetesDeployManifestOperationTest.class, "deploy/service-no-selector.yml"));
@@ -210,13 +225,20 @@ final class KubernetesDeployManifestOperationTest {
               }
               return result;
             });
+    when(credentialsMock.getNamer()).thenReturn(NAMER);
     return credentialsMock;
   }
 
   private static OperationResult deploy(KubernetesDeployManifestDescription description) {
-    ArtifactProvider provider = mock(ArtifactProvider.class);
-    when(provider.getArtifacts(any(String.class), any(String.class), any(String.class)))
+    ArtifactProvider artifactProvider = mock(ArtifactProvider.class);
+    when(artifactProvider.getArtifacts(
+            any(KubernetesKind.class),
+            any(String.class),
+            any(String.class),
+            any(KubernetesCredentials.class)))
         .thenReturn(ImmutableList.of());
-    return new KubernetesDeployManifestOperation(description, provider).operate(ImmutableList.of());
+    ResourceVersioner resourceVersioner = new ResourceVersioner(artifactProvider);
+    return new KubernetesDeployManifestOperation(description, resourceVersioner)
+        .operate(ImmutableList.of());
   }
 }

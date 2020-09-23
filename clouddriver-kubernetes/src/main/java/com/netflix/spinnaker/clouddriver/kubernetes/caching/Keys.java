@@ -17,10 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching;
 
-import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.Kind.KUBERNETES_METRIC;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import java.util.Arrays;
@@ -30,10 +29,11 @@ import java.util.stream.Collectors;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class Keys {
+  private static final Logger log = LoggerFactory.getLogger(Keys.class);
   /**
    * Keys are split into "logical" and "infrastructure" kinds. "logical" keys are for spinnaker
    * groupings that exist by naming/moniker convention, whereas "infrastructure" keys correspond to
@@ -41,9 +41,9 @@ public class Keys {
    */
   public enum Kind {
     LOGICAL,
+    @Deprecated
     ARTIFACT,
-    INFRASTRUCTURE,
-    KUBERNETES_METRIC;
+    INFRASTRUCTURE;
 
     private final String lcName;
 
@@ -131,11 +131,9 @@ public class Keys {
         case LOGICAL:
           return Optional.of(parseLogicalKey(parts));
         case ARTIFACT:
-          return Optional.of(new ArtifactCacheKey(parts));
+          return Optional.empty();
         case INFRASTRUCTURE:
           return Optional.of(new InfrastructureCacheKey(parts));
-        case KUBERNETES_METRIC:
-          return Optional.of(new MetricCacheKey(parts));
         default:
           throw new IllegalArgumentException("Unknown kind " + kind);
       }
@@ -183,42 +181,6 @@ public class Keys {
     @Override
     public final String getGroup() {
       return getLogicalKind().toString();
-    }
-  }
-
-  @EqualsAndHashCode(callSuper = true)
-  @Getter
-  @RequiredArgsConstructor
-  public static class ArtifactCacheKey extends CacheKey {
-    @Getter private static final Kind kind = Kind.ARTIFACT;
-    private final String type;
-    private final String name;
-    private final String location;
-    private final String version;
-
-    protected ArtifactCacheKey(String[] parts) {
-      if (parts.length != 6) {
-        throw new IllegalArgumentException("Malformed artifact key" + Arrays.toString(parts));
-      }
-
-      type = parts[2];
-      name = parts[3];
-      location = parts[4];
-      version = parts[5];
-    }
-
-    public static String createKey(String type, String name, String location, String version) {
-      return createKeyFromParts(kind, type, name, location, version);
-    }
-
-    @Override
-    public String toString() {
-      return createKeyFromParts(kind, type, name, location, version);
-    }
-
-    @Override
-    public String getGroup() {
-      return kind.toString();
     }
   }
 
@@ -317,6 +279,11 @@ public class Keys {
       return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
     }
 
+    public static String createKey(String account, KubernetesCoordinates coords) {
+      return createKeyFromParts(
+          kind, coords.getKind(), account, coords.getNamespace(), coords.getName());
+    }
+
     public static String createKey(KubernetesManifest manifest, String account) {
       return createKey(manifest.getKind(), account, manifest.getNamespace(), manifest.getName());
     }
@@ -329,43 +296,6 @@ public class Keys {
     @Override
     public String getGroup() {
       return kubernetesKind.toString();
-    }
-  }
-
-  @EqualsAndHashCode(callSuper = true)
-  @Getter
-  @RequiredArgsConstructor
-  public static class MetricCacheKey extends CacheKey {
-    @Getter private static final Kind kind = KUBERNETES_METRIC;
-    private final KubernetesKind kubernetesKind;
-    private final String account;
-    private final String namespace;
-    private final String name;
-
-    protected MetricCacheKey(String[] parts) {
-      if (parts.length != 6) {
-        throw new IllegalArgumentException("Malformed metric key " + Arrays.toString(parts));
-      }
-
-      kubernetesKind = KubernetesKind.fromString(parts[2]);
-      account = parts[3];
-      namespace = parts[4];
-      name = parts[5];
-    }
-
-    public static String createKey(
-        KubernetesKind kubernetesKind, String account, String namespace, String name) {
-      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
-    }
-
-    @Override
-    public String toString() {
-      return createKeyFromParts(kind, kubernetesKind, account, namespace, name);
-    }
-
-    @Override
-    public String getGroup() {
-      return KUBERNETES_METRIC.toString();
     }
   }
 }

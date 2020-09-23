@@ -30,29 +30,30 @@ import com.netflix.spinnaker.clouddriver.jobs.local.ReaderConsumer;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiGroup;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesSelectorList;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import io.kubernetes.client.openapi.models.V1DeleteOptions;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.EOFException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.WillClose;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
 public class KubectlJobExecutor {
+  private static final Logger log = LoggerFactory.getLogger(KubectlJobExecutor.class);
   private static final String NOT_FOUND_STRING = "(NotFound)";
   private final JobExecutor jobExecutor;
   private final String executable;
@@ -71,7 +72,7 @@ public class KubectlJobExecutor {
   }
 
   public String logs(
-      KubernetesV2Credentials credentials, String namespace, String podName, String containerName) {
+      KubernetesCredentials credentials, String namespace, String podName, String containerName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
     command.add("logs");
     command.add(podName);
@@ -95,7 +96,7 @@ public class KubectlJobExecutor {
   }
 
   public String jobLogs(
-      KubernetesV2Credentials credentials, String namespace, String jobName, String containerName) {
+      KubernetesCredentials credentials, String namespace, String jobName, String containerName) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
     command.add("logs");
     command.add("job/" + jobName);
@@ -112,7 +113,7 @@ public class KubectlJobExecutor {
   }
 
   public List<String> delete(
-      KubernetesV2Credentials credentials,
+      KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
@@ -166,7 +167,7 @@ public class KubectlJobExecutor {
   }
 
   public Void scale(
-      KubernetesV2Credentials credentials,
+      KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
@@ -188,7 +189,7 @@ public class KubectlJobExecutor {
   }
 
   public List<Integer> historyRollout(
-      KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("rollout");
@@ -237,7 +238,7 @@ public class KubectlJobExecutor {
   }
 
   public Void undoRollout(
-      KubernetesV2Credentials credentials,
+      KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
@@ -267,7 +268,7 @@ public class KubectlJobExecutor {
   }
 
   public Void pauseRollout(
-      KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("rollout");
@@ -292,7 +293,7 @@ public class KubectlJobExecutor {
   }
 
   public Void resumeRollout(
-      KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("rollout");
@@ -317,7 +318,7 @@ public class KubectlJobExecutor {
   }
 
   public Void rollingRestart(
-      KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
 
     command.add("rollout");
@@ -343,7 +344,7 @@ public class KubectlJobExecutor {
 
   @Nullable
   public KubernetesManifest get(
-      KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command = kubectlNamespacedGet(credentials, ImmutableList.of(kind), namespace);
     command.add(name);
 
@@ -367,14 +368,14 @@ public class KubectlJobExecutor {
 
   @Nonnull
   public ImmutableList<KubernetesManifest> eventsFor(
-      KubernetesV2Credentials credentials, KubernetesKind kind, String namespace, String name) {
+      KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
     List<String> command =
         kubectlNamespacedGet(credentials, ImmutableList.of(KubernetesKind.EVENT), namespace);
     command.add("--field-selector");
     command.add(
         String.format(
             "involvedObject.name=%s,involvedObject.kind=%s",
-            name, StringUtils.capitalize(kind.getName())));
+            name, StringUtils.capitalize(kind.toString())));
 
     JobResult<ImmutableList<KubernetesManifest>> status =
         jobExecutor.runJob(new JobRequest(command), parseManifestList());
@@ -388,18 +389,12 @@ public class KubectlJobExecutor {
       return ImmutableList.of();
     }
 
-    return status.getOutput().stream()
-        .filter(
-            x ->
-                x.getInvolvedObject()
-                    .getOrDefault("apiVersion", KubernetesApiGroup.NONE.toString())
-                    .startsWith(kind.getApiGroup().toString()))
-        .collect(ImmutableList.toImmutableList());
+    return status.getOutput();
   }
 
   @Nonnull
   public ImmutableList<KubernetesManifest> list(
-      KubernetesV2Credentials credentials,
+      KubernetesCredentials credentials,
       List<KubernetesKind> kinds,
       String namespace,
       KubernetesSelectorList selectors) {
@@ -423,8 +418,7 @@ public class KubectlJobExecutor {
     return status.getOutput();
   }
 
-  public KubernetesManifest deploy(
-      KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+  public KubernetesManifest deploy(KubernetesCredentials credentials, KubernetesManifest manifest) {
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -438,7 +432,9 @@ public class KubectlJobExecutor {
 
     JobResult<String> status =
         jobExecutor.runJob(
-            new JobRequest(command, new ByteArrayInputStream(manifestAsJson.getBytes())));
+            new JobRequest(
+                command,
+                new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException("Deploy failed: " + status.getError());
@@ -452,7 +448,7 @@ public class KubectlJobExecutor {
   }
 
   public KubernetesManifest replace(
-      KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+      KubernetesCredentials credentials, KubernetesManifest manifest) {
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -466,7 +462,9 @@ public class KubectlJobExecutor {
 
     JobResult<String> status =
         jobExecutor.runJob(
-            new JobRequest(command, new ByteArrayInputStream(manifestAsJson.getBytes())));
+            new JobRequest(
+                command,
+                new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       if (status.getError().contains(NOT_FOUND_STRING)) {
@@ -482,8 +480,7 @@ public class KubectlJobExecutor {
     }
   }
 
-  public KubernetesManifest create(
-      KubernetesV2Credentials credentials, KubernetesManifest manifest) {
+  public KubernetesManifest create(KubernetesCredentials credentials, KubernetesManifest manifest) {
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -497,7 +494,9 @@ public class KubectlJobExecutor {
 
     JobResult<String> status =
         jobExecutor.runJob(
-            new JobRequest(command, new ByteArrayInputStream(manifestAsJson.getBytes())));
+            new JobRequest(
+                command,
+                new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException("Create failed: " + status.getError());
@@ -510,7 +509,7 @@ public class KubectlJobExecutor {
     }
   }
 
-  private List<String> kubectlAuthPrefix(KubernetesV2Credentials credentials) {
+  private List<String> kubectlAuthPrefix(KubernetesCredentials credentials) {
     List<String> command = new ArrayList<>();
     if (!Strings.isNullOrEmpty(credentials.getKubectlExecutable())) {
       command.add(credentials.getKubectlExecutable());
@@ -566,7 +565,7 @@ public class KubectlJobExecutor {
   }
 
   private List<String> kubectlNamespacedAuthPrefix(
-      KubernetesV2Credentials credentials, String namespace) {
+      KubernetesCredentials credentials, String namespace) {
     List<String> command = kubectlAuthPrefix(credentials);
 
     if (!Strings.isNullOrEmpty(namespace)) {
@@ -577,7 +576,7 @@ public class KubectlJobExecutor {
   }
 
   private List<String> kubectlNamespacedGet(
-      KubernetesV2Credentials credentials, List<KubernetesKind> kind, String namespace) {
+      KubernetesCredentials credentials, List<KubernetesKind> kind, String namespace) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
     command.add("-o");
     command.add("json");
@@ -588,7 +587,7 @@ public class KubectlJobExecutor {
     return command;
   }
 
-  private String getOAuthToken(KubernetesV2Credentials credentials) {
+  private String getOAuthToken(KubernetesCredentials credentials) {
     List<String> command = new ArrayList<>();
     command.add(oAuthExecutable);
     command.add("fetch");
@@ -605,11 +604,11 @@ public class KubectlJobExecutor {
   }
 
   public ImmutableList<KubernetesPodMetric> topPod(
-      KubernetesV2Credentials credentials, String namespace, String pod) {
+      KubernetesCredentials credentials, String namespace, @Nonnull String pod) {
     List<String> command = kubectlNamespacedAuthPrefix(credentials, namespace);
     command.add("top");
     command.add("po");
-    if (pod != null) {
+    if (!pod.isEmpty()) {
       command.add(pod);
     }
     command.add("--containers");
@@ -641,7 +640,7 @@ public class KubectlJobExecutor {
   }
 
   public Void patch(
-      KubernetesV2Credentials credentials,
+      KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
@@ -651,7 +650,7 @@ public class KubectlJobExecutor {
   }
 
   public Void patch(
-      KubernetesV2Credentials credentials,
+      KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,
@@ -661,7 +660,7 @@ public class KubectlJobExecutor {
   }
 
   private Void patch(
-      KubernetesV2Credentials credentials,
+      KubernetesCredentials credentials,
       KubernetesKind kind,
       String namespace,
       String name,

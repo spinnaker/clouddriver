@@ -17,24 +17,17 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.op.handler;
 
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import java.util.List;
 
 public interface HasPods {
-  List<KubernetesManifest> pods(KubernetesV2Credentials credentials, KubernetesManifest object);
+  List<KubernetesManifest> pods(KubernetesCredentials credentials, KubernetesManifest object);
 
   static HasPods lookupProperties(ResourcePropertyRegistry registry, KubernetesKind kind) {
-    KubernetesResourceProperties hasPodsProperties = registry.get(kind);
-    KubernetesHandler hasPodsHandler = hasPodsProperties.getHandler();
-    if (hasPodsHandler == null) {
-      throw new IllegalArgumentException(
-          "No handler registered for " + kind + ", are you sure it's a valid pod manager type?");
-    }
-
+    KubernetesHandler hasPodsHandler = registry.get(kind).getHandler();
     if (!(hasPodsHandler instanceof HasPods)) {
       throw new IllegalArgumentException(
           "No support for pods via " + kind + " exists in Spinnaker");

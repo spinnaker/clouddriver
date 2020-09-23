@@ -29,13 +29,13 @@ def cloudProviderProjects = [
 //  'alicloud' : [':clouddriver-alicloud'],
   'appengine':  [':clouddriver-appengine', ':clouddriver-google-common'],
   'aws': [':clouddriver-aws', ':clouddriver-ecs', ':clouddriver-eureka', ':clouddriver-elasticsearch-aws', ':clouddriver-lambda'], // Pull cd-eureka separate "Discover" platform, along with cd-consul?
-  'azure': [':clouddriver-azure'],
+//  'azure': [':clouddriver-azure'],
   'cloudfoundry': [':clouddriver-cloudfoundry'],
 //  'dcos': [':clouddriver-dcos'],
   'gce': [':clouddriver-consul', ':clouddriver-google', ':clouddriver-google-common'],
   'huaweicloud': [':clouddriver-huaweicloud'],
   'kubernetes': [':clouddriver-kubernetes'],
-//  'oracle': [':clouddriver-oracle'],
+  'oracle': [':clouddriver-oracle'],
   'tencentcloud': [':clouddriver-tencentcloud']
 ]
 cloudProviderProjects.put('gcp', cloudProviderProjects['appengine'] + cloudProviderProjects['gce'] + cloudProviderProjects['kubernetes'])
@@ -55,6 +55,7 @@ include 'cats:cats-core',
   'cats:cats-test',
   'cats:cats-sql',
   'clouddriver-api',
+  'clouddriver-api-tck',
   'clouddriver-artifacts',
   'clouddriver-bom',
   'clouddriver-core',

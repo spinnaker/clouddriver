@@ -17,17 +17,14 @@ package com.netflix.spinnaker.config;
 
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.module.CatsModule;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesV2Provider;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesV2ProviderSynchronizable;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentDispatcher;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesProviderSynchronizable;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentDispatcher;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.health.KubernetesHealthIndicator;
-import com.netflix.spinnaker.clouddriver.kubernetes.model.ManifestProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.model.NoopManifestProvider;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -57,30 +54,24 @@ public class KubernetesConfiguration {
   }
 
   @Bean
-  public KubernetesV2Provider kubernetesV2Provider() {
-    return new KubernetesV2Provider();
+  public KubernetesProvider kubernetesProvider() {
+    return new KubernetesProvider();
   }
 
   @Bean
-  public KubernetesV2ProviderSynchronizable kubernetesV2ProviderSynchronizable(
-      KubernetesV2Provider kubernetesV2Provider,
+  public KubernetesProviderSynchronizable kubernetesProviderSynchronizable(
+      KubernetesProvider kubernetesProvider,
       AccountCredentialsRepository accountCredentialsRepository,
-      KubernetesV2CachingAgentDispatcher kubernetesV2CachingAgentDispatcher,
+      KubernetesCachingAgentDispatcher kubernetesCachingAgentDispatcher,
       KubernetesConfigurationProperties kubernetesConfigurationProperties,
-      KubernetesV2Credentials.Factory credentialFactory,
+      KubernetesCredentials.Factory credentialFactory,
       CatsModule catsModule) {
-    return new KubernetesV2ProviderSynchronizable(
-        kubernetesV2Provider,
+    return new KubernetesProviderSynchronizable(
+        kubernetesProvider,
         accountCredentialsRepository,
-        kubernetesV2CachingAgentDispatcher,
+        kubernetesCachingAgentDispatcher,
         kubernetesConfigurationProperties,
         credentialFactory,
         catsModule);
-  }
-
-  @Bean
-  @ConditionalOnMissingBean(ManifestProvider.class)
-  public ManifestProvider noopManifestProvider() {
-    return new NoopManifestProvider();
   }
 }

@@ -42,12 +42,12 @@ public class KubernetesRollingRestartManifestValidator
 
   @Override
   public void validate(
-      List priorDescriptions,
+      List<KubernetesRollingRestartManifestDescription> priorDescriptions,
       KubernetesRollingRestartManifestDescription description,
       ValidationErrors errors) {
     KubernetesValidationUtil util =
         new KubernetesValidationUtil("rollingRestartKubernetesManifest", errors);
-    if (!util.validateV2Credentials(
+    if (!util.validateCredentials(
         provider,
         description.getAccount(),
         description.getPointCoordinates().getKind(),

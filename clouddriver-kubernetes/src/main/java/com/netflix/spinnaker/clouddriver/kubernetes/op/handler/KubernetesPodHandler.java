@@ -23,13 +23,12 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCoreCachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
-import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -69,8 +68,8 @@ public class KubernetesPodHandler extends KubernetesHandler {
 
   @Override
   public Status status(KubernetesManifest manifest) {
-    V1Pod pod = KubernetesCacheDataConverter.getResource(manifest, V1Pod.class);
-    V1PodStatus status = pod.getStatus();
+    V1PodStatus status =
+        KubernetesCacheDataConverter.getResource(manifest.getStatus(), V1PodStatus.class);
 
     if (status == null) {
       return Status.noneReported();
@@ -92,8 +91,8 @@ public class KubernetesPodHandler extends KubernetesHandler {
     Failed(true, "Pod has failed"),
     Unknown(true, "Pod phase is unknown");
 
-    @Getter private String message;
-    @Getter private boolean unstable;
+    @Getter private final String message;
+    @Getter private final boolean unstable;
 
     PodPhase(boolean unstable, String message) {
       this.message = message;
@@ -121,7 +120,7 @@ public class KubernetesPodHandler extends KubernetesHandler {
   }
 
   @Override
-  protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
+  protected KubernetesCachingAgentFactory cachingAgentFactory() {
     return KubernetesCoreCachingAgent::new;
   }
 }

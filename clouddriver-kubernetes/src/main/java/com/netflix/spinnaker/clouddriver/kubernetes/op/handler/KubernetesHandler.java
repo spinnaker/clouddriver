@@ -26,34 +26,32 @@ import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.ReplaceResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentFactory;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentFactory;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Warning;
-import com.netflix.spinnaker.clouddriver.kubernetes.model.ManifestProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.*;
 import javax.annotation.Nonnull;
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatch {
   protected static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final ArtifactReplacer artifactReplacer;
 
-  public KubernetesHandler() {
+  protected KubernetesHandler() {
     this.artifactReplacer = new ArtifactReplacer(artifactReplacers());
   }
 
   public abstract int deployPriority();
 
+  @Override
   @Nonnull
   public abstract KubernetesKind kind();
 
@@ -78,23 +76,26 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
   }
 
   public ReplaceResult replaceArtifacts(
-      KubernetesManifest manifest, List<Artifact> artifacts, String account) {
+      KubernetesManifest manifest, List<Artifact> artifacts, @Nonnull String account) {
     return artifactReplacer.replaceAll(manifest, artifacts, manifest.getNamespace(), account);
   }
 
   public ReplaceResult replaceArtifacts(
-      KubernetesManifest manifest, List<Artifact> artifacts, String namespace, String account) {
+      KubernetesManifest manifest,
+      List<Artifact> artifacts,
+      @Nonnull String namespace,
+      @Nonnull String account) {
     return artifactReplacer.replaceAll(manifest, artifacts, namespace, account);
   }
 
-  protected abstract KubernetesV2CachingAgentFactory cachingAgentFactory();
+  protected abstract KubernetesCachingAgentFactory cachingAgentFactory();
 
   public ImmutableSet<Artifact> listArtifacts(KubernetesManifest manifest) {
     return artifactReplacer.findAll(manifest);
   }
 
-  public KubernetesV2CachingAgent buildCachingAgent(
-      KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+  public KubernetesCachingAgent buildCachingAgent(
+      KubernetesNamedAccountCredentials namedAccountCredentials,
       ObjectMapper objectMapper,
       Registry registry,
       int agentIndex,
@@ -162,7 +163,7 @@ public abstract class KubernetesHandler implements CanDeploy, CanDelete, CanPatc
     }
   }
 
-  public Comparator<KubernetesManifest> comparatorFor(ManifestProvider.Sort sort) {
+  public Comparator<KubernetesManifest> comparatorFor(KubernetesManifestProvider.Sort sort) {
     switch (sort) {
       case AGE:
         return ageComparator();

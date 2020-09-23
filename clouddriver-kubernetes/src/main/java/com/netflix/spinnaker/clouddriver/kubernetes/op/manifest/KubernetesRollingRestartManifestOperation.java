@@ -20,17 +20,16 @@ package com.netflix.spinnaker.clouddriver.kubernetes.op.manifest;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesRollingRestartManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.CanRollingRestart;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.List;
 
 public class KubernetesRollingRestartManifestOperation implements AtomicOperation<Void> {
   private final KubernetesRollingRestartManifestDescription description;
-  private final KubernetesV2Credentials credentials;
+  private final KubernetesCredentials credentials;
   private static final String OP_NAME = "ROLLING_RESTART_KUBERNETES_MANIFEST";
 
   public KubernetesRollingRestartManifestOperation(
@@ -44,14 +43,13 @@ public class KubernetesRollingRestartManifestOperation implements AtomicOperatio
   }
 
   @Override
-  public Void operate(List priorOutputs) {
+  public Void operate(List<Void> priorOutputs) {
     getTask().updateStatus(OP_NAME, "Starting rolling restart operation...");
     KubernetesCoordinates coordinates = description.getPointCoordinates();
 
     getTask().updateStatus(OP_NAME, "Looking up resource properties...");
-    KubernetesResourceProperties properties =
-        credentials.getResourcePropertyRegistry().get(coordinates.getKind());
-    KubernetesHandler deployer = properties.getHandler();
+    KubernetesHandler deployer =
+        credentials.getResourcePropertyRegistry().get(coordinates.getKind()).getHandler();
 
     if (!(deployer instanceof CanRollingRestart)) {
       throw new IllegalArgumentException(

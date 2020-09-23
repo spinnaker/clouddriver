@@ -148,9 +148,6 @@ class KeysSpec extends Specification {
     "lOgiCAl"           | Keys.Kind.LOGICAL
     "artifacT"          | Keys.Kind.ARTIFACT
     "InfraStructurE"    | Keys.Kind.INFRASTRUCTURE
-    "KUBERNETES_METRIC" | Keys.Kind.KUBERNETES_METRIC
-    "kubernetes_metric" | Keys.Kind.KUBERNETES_METRIC
-    "kUbernetEs_meTriC" | Keys.Kind.KUBERNETES_METRIC
   }
 
   @Unroll
@@ -163,7 +160,6 @@ class KeysSpec extends Specification {
     Keys.Kind.LOGICAL           | "logical"
     Keys.Kind.ARTIFACT          | "artifact"
     Keys.Kind.INFRASTRUCTURE    | "infrastructure"
-    Keys.Kind.KUBERNETES_METRIC | "kubernetes_metric"
   }
 
   @Unroll
@@ -190,21 +186,5 @@ class KeysSpec extends Specification {
     input                         | result
     Keys.LogicalKind.APPLICATIONS | "applications"
     Keys.LogicalKind.CLUSTERS     | "clusters"
-  }
-
-  def "serialization and deserialization are inverses"() {
-    when:
-    def parsed = Keys.parseKey(key).get()
-
-    then:
-    parsed.toString() == key
-
-    where:
-    key << [
-      "kubernetes.v2:artifact:kubernetes/replicaSet:spinnaker-io:docs-site:v046",
-      "kubernetes.v2:infrastructure:secret:k8s:spin:spinnaker",
-      "kubernetes.v2:logical:applications:spinnaker",
-      "kubernetes.v2:logical:clusters:k8s:docs:docs-site"
-    ]
   }
 }

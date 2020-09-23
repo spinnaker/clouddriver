@@ -20,10 +20,11 @@ package com.netflix.spinnaker.clouddriver.kubernetes.converter.artifact;
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.CLEANUP_ARTIFACTS;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.artifact.KubernetesCleanupArtifactsDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.artifact.KubernetesCleanupArtifactsOperation;
-import com.netflix.spinnaker.clouddriver.model.ArtifactProvider;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
 import java.util.Map;
@@ -37,12 +38,12 @@ public class KubernetesCleanupArtifactsConverter
   @Autowired ArtifactProvider artifactProvider;
 
   @Override
-  public AtomicOperation convertOperation(Map input) {
+  public AtomicOperation<OperationResult> convertOperation(Map<String, Object> input) {
     return new KubernetesCleanupArtifactsOperation(convertDescription(input), artifactProvider);
   }
 
   @Override
-  public KubernetesCleanupArtifactsDescription convertDescription(Map input) {
+  public KubernetesCleanupArtifactsDescription convertDescription(Map<String, Object> input) {
     return KubernetesAtomicOperationConverterHelper.convertDescription(
         input, this, KubernetesCleanupArtifactsDescription.class);
   }

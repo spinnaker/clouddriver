@@ -21,17 +21,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.apache.commons.lang3.tuple.Pair;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class KubernetesPatchManifestDescription
-    extends KubernetesAtomicOperationDescription<KubernetesV2Credentials> {
+public class KubernetesPatchManifestDescription extends KubernetesAtomicOperationDescription {
   private String manifestName;
   private String location;
 
@@ -46,12 +43,9 @@ public class KubernetesPatchManifestDescription
 
   @JsonIgnore
   public KubernetesCoordinates getPointCoordinates() {
-    Pair<KubernetesKind, String> parsedName = KubernetesManifest.fromFullResourceName(manifestName);
-
     return KubernetesCoordinates.builder()
         .namespace(location)
-        .kind(parsedName.getLeft())
-        .name(parsedName.getRight())
+        .fullResourceName(manifestName)
         .build();
   }
 }

@@ -17,11 +17,11 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider
 
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
+
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import spock.lang.Specification
@@ -31,30 +31,21 @@ class KubernetesAccountResolverSpec extends Specification {
   AccountCredentialsRepository credentialsRepository = Mock(AccountCredentialsRepository)
   ResourcePropertyRegistry globalResourcePropertyRegistry = Mock(GlobalResourcePropertyRegistry)
 
-  void "returns an account in the repository if and only if it is a kubernetes v2 account"() {
+  void "returns an account in the repository if and only if it is a kubernetes account"() {
     given:
     KubernetesAccountResolver accountResolver = new KubernetesAccountResolver(credentialsRepository, globalResourcePropertyRegistry)
-    KubernetesV2Credentials v2Credentials = Mock(KubernetesV2Credentials)
-    Optional<KubernetesV2Credentials> credentials
+    KubernetesCredentials kubernetesCredentials = Mock(KubernetesCredentials)
+    Optional<KubernetesCredentials> credentials
 
     when:
     credentials = accountResolver.getCredentials(ACCOUNT_NAME)
 
     then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> v2Credentials
+      getCredentials() >> kubernetesCredentials
     }
     credentials.isPresent()
-    credentials.get() == v2Credentials
-
-    when:
-    credentials = accountResolver.getCredentials(ACCOUNT_NAME)
-
-    then:
-    1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> Mock(KubernetesCredentials)
-    }
-    !credentials.isPresent()
+    credentials.get() == kubernetesCredentials
 
     when:
     credentials = accountResolver.getCredentials(ACCOUNT_NAME)
@@ -74,7 +65,7 @@ class KubernetesAccountResolverSpec extends Specification {
   void "returns the account's property registry, falling back to the global registry"() {
     given:
     KubernetesAccountResolver accountResolver = new KubernetesAccountResolver(credentialsRepository, globalResourcePropertyRegistry)
-    ResourcePropertyRegistry v2ResourcePropertyRegistry = Mock(ResourcePropertyRegistry)
+    ResourcePropertyRegistry resourcePropertyRegistry = Mock(ResourcePropertyRegistry)
     ResourcePropertyRegistry registry
 
     when:
@@ -82,20 +73,11 @@ class KubernetesAccountResolverSpec extends Specification {
 
     then:
     1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> Mock(KubernetesV2Credentials) {
-        getResourcePropertyRegistry() >> v2ResourcePropertyRegistry
+      getCredentials() >> Mock(KubernetesCredentials) {
+        getResourcePropertyRegistry() >> resourcePropertyRegistry
       }
     }
-    registry == v2ResourcePropertyRegistry
-
-    when:
-    registry = accountResolver.getResourcePropertyRegistry(ACCOUNT_NAME)
-
-    then:
-    1 * credentialsRepository.getOne(ACCOUNT_NAME) >> Mock(KubernetesNamedAccountCredentials) {
-      getCredentials() >> Mock(KubernetesCredentials)
-    }
-    registry == globalResourcePropertyRegistry
+    registry == resourcePropertyRegistry
 
     when:
     registry = accountResolver.getResourcePropertyRegistry(ACCOUNT_NAME)

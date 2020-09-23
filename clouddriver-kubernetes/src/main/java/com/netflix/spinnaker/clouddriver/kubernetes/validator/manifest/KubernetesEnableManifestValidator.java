@@ -37,12 +37,12 @@ public class KubernetesEnableManifestValidator
 
   @Override
   public void validate(
-      List priorDescriptions,
+      List<KubernetesEnableDisableManifestDescription> priorDescriptions,
       KubernetesEnableDisableManifestDescription description,
       ValidationErrors errors) {
     KubernetesValidationUtil util =
         new KubernetesValidationUtil("enableKubernetesManifest", errors);
-    if (!util.validateV2Credentials(
+    if (!util.validateCredentials(
         provider,
         description.getAccount(),
         description.getPointCoordinates().getKind(),

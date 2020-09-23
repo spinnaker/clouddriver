@@ -17,43 +17,42 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.LOAD_BALANCERS;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SECURITY_GROUPS;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUPS;
+import static com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind.SERVER_GROUP_MANAGERS;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.POD;
 import static com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind.SERVICE;
 import static java.lang.Math.toIntExact;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.CacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ClusterCacheKey;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesCachingProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
-import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesManifestNamer;
-import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
-import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest.OwnerReference;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.moniker.Moniker;
 import com.netflix.spinnaker.moniker.Namer;
 import io.kubernetes.client.openapi.JSON;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class KubernetesCacheDataConverter {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesCacheDataConverter.class);
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final JSON json = new JSON();
   // TODO(lwander): make configurable
@@ -64,42 +63,12 @@ public class KubernetesCacheDataConverter {
   // todo(lwander) investigate if this can cause flapping in UI for on demand updates -- no
   // consensus on this yet.
   @Getter private static final List<KubernetesKind> stickyKinds = Arrays.asList(SERVICE, POD);
+  private static final ImmutableSet<SpinnakerKind> logicalRelationshipKinds =
+      ImmutableSet.of(LOAD_BALANCERS, SECURITY_GROUPS, SERVER_GROUPS, SERVER_GROUP_MANAGERS);
+  private static final ImmutableSet<SpinnakerKind> clusterRelationshipKinds =
+      ImmutableSet.of(SERVER_GROUPS, SERVER_GROUP_MANAGERS);
 
-  private static Optional<Keys.CacheKey> convertAsArtifact(
-      KubernetesCacheData kubernetesCacheData, String account, KubernetesManifest manifest) {
-    String namespace = manifest.getNamespace();
-    Optional<Artifact> optional = KubernetesManifestAnnotater.getArtifact(manifest, account);
-    if (!optional.isPresent()) {
-      return Optional.empty();
-    }
-
-    Artifact artifact = optional.get();
-
-    if (artifact.getType() == null) {
-      log.debug(
-          "No assigned artifact type for resource "
-              + namespace
-              + ":"
-              + manifest.getFullResourceName());
-      return Optional.empty();
-    }
-
-    Map<String, Object> attributes =
-        new ImmutableMap.Builder<String, Object>()
-            .put("artifact", artifact)
-            .put(
-                "creationTimestamp",
-                Optional.ofNullable(manifest.getCreationTimestamp()).orElse(""))
-            .build();
-
-    Keys.CacheKey key =
-        new Keys.ArtifactCacheKey(
-            artifact.getType(), artifact.getName(), artifact.getLocation(), artifact.getVersion());
-
-    kubernetesCacheData.addItem(key, attributes);
-    return Optional.of(key);
-  }
-
+  @NonnullByDefault
   public static CacheData mergeCacheData(CacheData current, CacheData added) {
     String id = current.getId();
     Map<String, Object> attributes = new HashMap<>(current.getAttributes());
@@ -122,105 +91,63 @@ public class KubernetesCacheDataConverter {
                       return res;
                     }));
 
-    return defaultCacheData(id, ttl, attributes, relationships);
+    // when no relationship exists, and `null` is written in place of a value, the old value of the
+    // relationship (whatever was picked up the prior cache cycle) is persisted, leaving sticky
+    // relationship data in the cache. we don't zero out all non existing relationships because it
+    // winds up causing far more writes to redis.
+    stickyKinds.forEach(k -> relationships.computeIfAbsent(k.toString(), s -> new ArrayList<>()));
+    return new DefaultCacheData(id, ttl, attributes, relationships);
   }
 
-  public static void convertPodMetric(
-      KubernetesCacheData kubernetesCacheData, String account, KubernetesPodMetric podMetric) {
-    String podName = podMetric.getPodName();
-    String namespace = podMetric.getNamespace();
-    Map<String, Object> attributes =
-        new ImmutableMap.Builder<String, Object>()
-            .put("name", podName)
-            .put("namespace", namespace)
-            .put("metrics", podMetric.getContainerMetrics())
-            .build();
-
-    Keys.CacheKey key = new Keys.MetricCacheKey(POD, account, namespace, podName);
-    kubernetesCacheData.addItem(key, attributes);
-    kubernetesCacheData.addRelationship(
-        key, new Keys.InfrastructureCacheKey(POD, account, namespace, podName));
-  }
-
+  @ParametersAreNonnullByDefault
   public static void convertAsResource(
       KubernetesCacheData kubernetesCacheData,
       String account,
-      @Nonnull KubernetesKindProperties kindProperties,
+      KubernetesSpinnakerKindMap kindMap,
+      Namer<KubernetesManifest> namer,
       KubernetesManifest manifest,
-      List<KubernetesManifest> resourceRelationships,
-      boolean onlySpinnakerManaged) {
-    KubernetesCachingProperties cachingProperties =
-        KubernetesManifestAnnotater.getCachingProperties(manifest);
-    if (cachingProperties.isIgnore()) {
-      return;
-    }
-
-    if (onlySpinnakerManaged && Strings.isNullOrEmpty(cachingProperties.getApplication())) {
-      return;
-    }
-
-    logMalformedManifest(
-        () -> "Converting " + manifest + " to a cached resource", manifest, kindProperties);
-
+      List<KubernetesManifest> resourceRelationships) {
     KubernetesKind kind = manifest.getKind();
-
-    KubernetesApiVersion apiVersion = manifest.getApiVersion();
     String name = manifest.getName();
     String namespace = manifest.getNamespace();
-    Namer<KubernetesManifest> namer =
-        account == null
-            ? new KubernetesManifestNamer()
-            : NamerRegistry.lookup()
-                .withProvider(KubernetesCloudProvider.ID)
-                .withAccount(account)
-                .withResource(KubernetesManifest.class);
     Moniker moniker = namer.deriveMoniker(manifest);
 
     Map<String, Object> attributes =
         new ImmutableMap.Builder<String, Object>()
             .put("kind", kind)
-            .put("apiVersion", apiVersion)
+            .put("apiVersion", manifest.getApiVersion())
             .put("name", name)
             .put("namespace", namespace)
             .put("fullResourceName", manifest.getFullResourceName())
             .put("manifest", manifest)
             .put("moniker", moniker)
-            .put("application", cachingProperties.getApplication())
             .build();
 
     Keys.CacheKey key = new Keys.InfrastructureCacheKey(kind, account, namespace, name);
     kubernetesCacheData.addItem(key, attributes);
 
-    String application = moniker.getApp();
-    if (Strings.isNullOrEmpty(application)) {
-      log.debug(
-          "Encountered not-spinnaker-owned resource "
-              + namespace
-              + ":"
-              + manifest.getFullResourceName());
-    } else {
-      if (kindProperties.hasClusterRelationship()) {
-        addLogicalRelationships(kubernetesCacheData, key, account, moniker);
-      }
+    SpinnakerKind spinnakerKind = kindMap.translateKubernetesKind(kind);
+    if (logicalRelationshipKinds.contains(spinnakerKind)
+        && !Strings.isNullOrEmpty(moniker.getApp())) {
+      addLogicalRelationships(
+          kubernetesCacheData,
+          key,
+          account,
+          moniker,
+          clusterRelationshipKinds.contains(spinnakerKind));
     }
-
     kubernetesCacheData.addRelationships(
         key, ownerReferenceRelationships(account, namespace, manifest.getOwnerReferences()));
     kubernetesCacheData.addRelationships(
         key, implicitRelationships(manifest, account, resourceRelationships));
-
-    KubernetesCacheDataConverter.convertAsArtifact(kubernetesCacheData, account, manifest)
-        .ifPresent(artifactKey -> kubernetesCacheData.addRelationship(key, artifactKey));
-  }
-
-  public static List<KubernetesPodMetric.ContainerMetric> getMetrics(CacheData cacheData) {
-    return mapper.convertValue(
-        cacheData.getAttributes().get("metrics"),
-        new TypeReference<List<KubernetesPodMetric.ContainerMetric>>() {});
   }
 
   public static KubernetesManifest getManifest(CacheData cacheData) {
     return mapper.convertValue(cacheData.getAttributes().get("manifest"), KubernetesManifest.class);
+  }
+
+  public static Moniker getMoniker(CacheData cacheData) {
+    return mapper.convertValue(cacheData.getAttributes().get("moniker"), Moniker.class);
   }
 
   public static KubernetesManifest convertToManifest(Object o) {
@@ -232,54 +159,42 @@ public class KubernetesCacheDataConverter {
     return json.deserialize(json.serialize(manifest), clazz);
   }
 
-  private static CacheData defaultCacheData(
-      String id,
-      int ttlSeconds,
-      Map<String, Object> attributes,
-      Map<String, Collection<String>> relationships) {
-    // when no relationship exists, and `null` is written in place of a value, the old value of the
-    // relationship
-    // (whatever was picked up the prior cache cycle) is persisted, leaving sticky relationship data
-    // in the cache.
-    // we don't zero out all non existing relationships because it winds up causing far more writes
-    // to redis.
-    stickyKinds.forEach(k -> relationships.computeIfAbsent(k.toString(), (s) -> new ArrayList<>()));
-    return new DefaultCacheData(id, ttlSeconds, attributes, relationships);
-  }
-
   private static void addLogicalRelationships(
       KubernetesCacheData kubernetesCacheData,
       Keys.CacheKey infrastructureKey,
       String account,
-      Moniker moniker) {
+      Moniker moniker,
+      boolean hasClusterRelationship) {
     String application = moniker.getApp();
     Keys.CacheKey applicationKey = new Keys.ApplicationCacheKey(application);
     kubernetesCacheData.addRelationship(infrastructureKey, applicationKey);
 
     String cluster = moniker.getCluster();
-    if (!Strings.isNullOrEmpty(cluster)) {
+    if (hasClusterRelationship && !Strings.isNullOrEmpty(cluster)) {
       CacheKey clusterKey = new ClusterCacheKey(account, application, cluster);
       kubernetesCacheData.addRelationship(infrastructureKey, clusterKey);
       kubernetesCacheData.addRelationship(applicationKey, clusterKey);
     }
   }
 
-  private static Set<Keys.CacheKey> implicitRelationships(
+  @NonnullByDefault
+  private static ImmutableSet<CacheKey> implicitRelationships(
       KubernetesManifest source, String account, List<KubernetesManifest> manifests) {
-    String namespace = source.getNamespace();
-    manifests = manifests == null ? new ArrayList<>() : manifests;
     return manifests.stream()
-        .map(m -> new Keys.InfrastructureCacheKey(m.getKind(), account, namespace, m.getName()))
-        .collect(Collectors.toSet());
+        .map(
+            m ->
+                new Keys.InfrastructureCacheKey(
+                    m.getKind(), account, source.getNamespace(), m.getName()))
+        .collect(toImmutableSet());
   }
 
-  static Set<Keys.CacheKey> ownerReferenceRelationships(
-      String account, String namespace, List<KubernetesManifest.OwnerReference> references) {
-    references = references == null ? new ArrayList<>() : references;
-
+  @NonnullByDefault
+  static ImmutableSet<CacheKey> ownerReferenceRelationships(
+      String account, String namespace, List<OwnerReference> references) {
     return references.stream()
-        .map(r -> new Keys.InfrastructureCacheKey(r.getKind(), account, namespace, r.getName()))
-        .collect(Collectors.toSet());
+        .map(
+            r -> new Keys.InfrastructureCacheKey(r.computedKind(), account, namespace, r.getName()))
+        .collect(toImmutableSet());
   }
 
   static void logStratifiedCacheData(
@@ -294,24 +209,6 @@ public class KubernetesCacheDataConverter {
               + " entries and "
               + relationshipCount(entry.getValue())
               + " relationships");
-    }
-  }
-
-  private static void logMalformedManifest(
-      Supplier<String> contextMessage,
-      KubernetesManifest manifest,
-      @Nonnull KubernetesKindProperties kindProperties) {
-    if (manifest == null) {
-      log.warn("{}: manifest may not be null", contextMessage.get());
-      return;
-    }
-
-    if (Strings.isNullOrEmpty(manifest.getName())) {
-      log.warn("{}: manifest name may not be null, {}", contextMessage.get(), manifest);
-    }
-
-    if (Strings.isNullOrEmpty(manifest.getNamespace()) && kindProperties.isNamespaced()) {
-      log.warn("{}: manifest namespace may not be null, {}", contextMessage.get(), manifest);
     }
   }
 

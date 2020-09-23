@@ -20,11 +20,16 @@ import com.google.api.services.compute.model.Metadata
 import com.google.api.services.compute.model.PathMatcher
 import com.google.api.services.compute.model.PathRule
 import com.google.api.services.compute.model.UrlMap
+import com.google.common.base.Splitter
+import com.google.common.base.Strings
+import com.google.common.collect.Lists
 import com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil
 import com.netflix.spinnaker.clouddriver.google.model.GoogleServerGroup
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleBackendService
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHostRule
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalHttpLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalHttpLoadBalancer.InternalHttpLbView;
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancedBackend
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GooglePathMatcher
@@ -32,12 +37,16 @@ import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GooglePathRu
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleSslLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleTargetProxyType
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleTcpLoadBalancer
+import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import org.springframework.util.ClassUtils
 
+import javax.annotation.Nonnull
+import javax.annotation.Nullable
 import java.text.SimpleDateFormat
 
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.BACKEND_SERVICE_NAMES
+import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGION_BACKEND_SERVICE_NAMES
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.GLOBAL_LOAD_BALANCER_NAMES
 import static com.netflix.spinnaker.clouddriver.google.deploy.GCEUtil.REGIONAL_LOAD_BALANCER_NAMES
 
@@ -82,33 +91,40 @@ class Utils {
     return lastIndex != -1 ? fullUrl.substring(lastIndex + 1) : fullUrl
   }
 
-  static GoogleTargetProxyType getTargetProxyType(String fullUrl) {
-    if (!fullUrl) {
-      throw new IllegalArgumentException("Target proxy url ${fullUrl} malformed.")
-    }
+  /**
+   * Given a URI representing a GCP target proxy, returns the corresponding
+   * {@link GoogleTargetProxyType}, or {@link GoogleTargetProxyType#UNKNOWN}
+   * if no {@link GoogleTargetProxyType} could be derived from the URI.
+   * @param fullUrl the URI to parse
+   * @return the corresponding {@link GoogleTargetProxyType}
+   */
+  @CompileStatic
+  @Nonnull
+  static GoogleTargetProxyType getTargetProxyType(@Nullable String fullUrl) {
+    String resourceType = getResourceType(Strings.nullToEmpty(fullUrl))
+    return GoogleTargetProxyType.fromResourceType(resourceType)
+  }
 
-    int lastIndex = fullUrl.lastIndexOf('/')
-    if (lastIndex == -1) {
-      throw new IllegalArgumentException("Target proxy url ${fullUrl} malformed.")
-    }
-    String withoutName = fullUrl.substring(0, lastIndex)
-    switch (getLocalName(withoutName)) {
-      case 'targetHttpProxies':
-        return GoogleTargetProxyType.HTTP
-        break
-      case 'targetHttpsProxies':
-        return GoogleTargetProxyType.HTTPS
-        break
-      case 'targetSslProxies':
-        return GoogleTargetProxyType.SSL
-        break
-      case 'targetTcpProxies':
-        return GoogleTargetProxyType.TCP
-        break
-      default:
-        throw new IllegalArgumentException("Target proxy url ${fullUrl} has unknown type.")
-        break
-    }
+  private static final Splitter onSlash = Splitter.on('/').omitEmptyStrings()
+
+  /**
+   * Given a URI representing a GCP resource, returns the type of the resource.
+   *
+   * This function splits the input URI on slashes, and returns the second-to-last
+   * part, which will generally be the type of the resource. Callers must ensure
+   * that their URI follows this pattern for the results to be meaningful.
+   * @param uri URI to split
+   * @return The resource type of the URI, or the empty string if a resource type
+   * could not be parsed from the URI.
+   */
+  @CompileStatic
+  @Nonnull
+  private static String getResourceType(@Nonnull String uri) {
+    return Lists.reverse(onSlash.splitToList(uri))
+      .stream()
+      .skip(1)
+      .findFirst()
+      .orElse("")
   }
 
   static String getZoneFromInstanceUrl(String fullUrl) {
@@ -256,14 +272,24 @@ class Utils {
 
   static List<GoogleBackendService> getBackendServicesFromHttpLoadBalancerView(GoogleHttpLoadBalancer.View googleLoadBalancer) {
     List<GoogleBackendService> backendServices = [googleLoadBalancer.defaultService]
-    List<GooglePathMatcher> pathMatchers = googleLoadBalancer?.hostRules?.collect { GoogleHostRule hostRule -> hostRule.pathMatcher }
+    collectBackendServicesFromHostRules(googleLoadBalancer?.hostRules, backendServices)
+    return backendServices;
+  }
+
+  static List<GoogleBackendService> getBackendServicesFromInternalHttpLoadBalancerView(InternalHttpLbView googleLoadBalancer) {
+    List<GoogleBackendService> backendServices = [googleLoadBalancer.defaultService]
+    collectBackendServicesFromHostRules(googleLoadBalancer?.hostRules, backendServices)
+    return backendServices
+  }
+
+  static void collectBackendServicesFromHostRules(List<GoogleHostRule> hostRules, List<GoogleBackendService> backendServices) {
+    List<GooglePathMatcher> pathMatchers = hostRules.collect { GoogleHostRule hostRule -> hostRule.pathMatcher }
     pathMatchers?.each { GooglePathMatcher pathMatcher ->
       backendServices << pathMatcher.defaultService
       pathMatcher?.pathRules?.each { GooglePathRule googlePathRule ->
         backendServices << googlePathRule.backendService
       }
-    }
-    return backendServices
+    }?.findAll { it != null }
   }
 
   static List<String> getBackendServicesFromUrlMap(UrlMap urlMap) {
@@ -289,6 +315,20 @@ class Utils {
         .collect { GCEUtil.getLocalName(it.serverGroupUrl) }
 
     return loadBalancer.name in httpLoadBalancersFromMetadata && !(serverGroup.name in backendGroupNames)
+  }
+
+  static boolean determineInternalHttpLoadBalancerDisabledState(GoogleInternalHttpLoadBalancer loadBalancer,
+                                                                GoogleServerGroup serverGroup) {
+    def loadBalancersFromMetadata = serverGroup.asg.get(REGIONAL_LOAD_BALANCER_NAMES)
+    def backendServicesFromMetadata = serverGroup.asg.get(REGION_BACKEND_SERVICE_NAMES)
+    List<List<GoogleLoadBalancedBackend>> serviceBackends = getBackendServicesFromInternalHttpLoadBalancerView(loadBalancer.view)
+        .findAll { it && it.name in backendServicesFromMetadata }
+        .collect { it.backends }
+    List<String> backendGroupNames = serviceBackends.flatten()
+        .findAll { serverGroup.region == Utils.getRegionFromGroupUrl(it.serverGroupUrl) }
+        .collect { GCEUtil.getLocalName(it.serverGroupUrl) }
+
+    return loadBalancer.name in loadBalancersFromMetadata && !(serverGroup.name in backendGroupNames)
   }
 
   static String decorateXpnResourceIdIfNeeded(String managedProjectId, String xpnResource) {

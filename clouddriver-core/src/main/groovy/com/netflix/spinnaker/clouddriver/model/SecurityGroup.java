@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.netflix.spinnaker.clouddriver.model.securitygroups.Rule;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
@@ -25,7 +24,6 @@ import java.util.Map;
 import java.util.Set;
 
 /** A representation of a security group */
-@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "class")
 public interface SecurityGroup {
 
   /**
@@ -34,7 +32,9 @@ public interface SecurityGroup {
    * @deprecated use #getCloudProvider
    * @return
    */
-  String getType();
+  default String getType() {
+    return getCloudProvider();
+  }
 
   /** Provider-specific identifier */
   String getCloudProvider();
@@ -70,7 +70,9 @@ public interface SecurityGroup {
    * @return
    */
   @Deprecated
-  String getApplication();
+  default String getApplication() {
+    return getMoniker().getApp();
+  }
 
   /**
    * The account associated with this security group

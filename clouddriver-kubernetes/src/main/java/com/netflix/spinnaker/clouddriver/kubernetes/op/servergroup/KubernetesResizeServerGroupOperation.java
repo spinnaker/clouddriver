@@ -20,17 +20,16 @@ package com.netflix.spinnaker.clouddriver.kubernetes.op.servergroup;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.servergroup.KubernetesResizeServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.CanResize;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesHandler;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.List;
 
 public class KubernetesResizeServerGroupOperation implements AtomicOperation<Void> {
   private final KubernetesResizeServerGroupDescription description;
-  private final KubernetesV2Credentials credentials;
+  private final KubernetesCredentials credentials;
   private static final String OP_NAME = "RESIZE_KUBERNETES_SERVER_GROUP";
 
   public KubernetesResizeServerGroupOperation(KubernetesResizeServerGroupDescription description) {
@@ -43,14 +42,13 @@ public class KubernetesResizeServerGroupOperation implements AtomicOperation<Voi
   }
 
   @Override
-  public Void operate(List priorOutputs) {
+  public Void operate(List<Void> priorOutputs) {
     getTask().updateStatus(OP_NAME, "Starting resize operation...");
     KubernetesCoordinates coordinates = description.getCoordinates();
 
     getTask().updateStatus(OP_NAME, "Looking up resource properties...");
-    KubernetesResourceProperties properties =
-        credentials.getResourcePropertyRegistry().get(coordinates.getKind());
-    KubernetesHandler deployer = properties.getHandler();
+    KubernetesHandler deployer =
+        credentials.getResourcePropertyRegistry().get(coordinates.getKind()).getHandler();
 
     if (!(deployer instanceof CanResize)) {
       throw new IllegalArgumentException(

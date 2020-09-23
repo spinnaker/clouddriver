@@ -37,12 +37,12 @@ public class KubernetesPauseRolloutManifestValidator
 
   @Override
   public void validate(
-      List priorDescriptions,
+      List<KubernetesPauseRolloutManifestDescription> priorDescriptions,
       KubernetesPauseRolloutManifestDescription description,
       ValidationErrors errors) {
     KubernetesValidationUtil util =
         new KubernetesValidationUtil("pauseRolloutKubernetesManifest", errors);
-    if (!util.validateV2Credentials(
+    if (!util.validateCredentials(
         provider,
         description.getAccount(),
         description.getPointCoordinates().getKind(),

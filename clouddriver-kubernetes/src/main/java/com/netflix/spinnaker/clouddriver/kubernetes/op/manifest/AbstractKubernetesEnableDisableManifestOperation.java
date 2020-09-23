@@ -24,27 +24,25 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesEnableDisableManifestDescription;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestTraffic;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.CanLoadBalance;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.HasPods;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.apache.commons.lang.WordUtils;
-import org.apache.commons.lang3.tuple.Pair;
 
 @ParametersAreNonnullByDefault
 public abstract class AbstractKubernetesEnableDisableManifestOperation
     implements AtomicOperation<OperationResult> {
   private final KubernetesEnableDisableManifestDescription description;
-  private final KubernetesV2Credentials credentials;
+  private final KubernetesCredentials credentials;
   private final String OP_NAME = getVerbName().toUpperCase() + "_MANIFEST";
 
   protected abstract String getVerbName();
@@ -80,9 +78,13 @@ public abstract class AbstractKubernetesEnableDisableManifestOperation
   }
 
   private void op(String loadBalancerName, KubernetesManifest target) {
-    Pair<KubernetesKind, String> name;
+    KubernetesCoordinates coords;
     try {
-      name = KubernetesManifest.fromFullResourceName(loadBalancerName);
+      coords =
+          KubernetesCoordinates.builder()
+              .namespace(target.getNamespace())
+              .fullResourceName(loadBalancerName)
+              .build();
     } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException(
           String.format(
@@ -92,15 +94,13 @@ public abstract class AbstractKubernetesEnableDisableManifestOperation
     }
 
     CanLoadBalance loadBalancerHandler =
-        CanLoadBalance.lookupProperties(credentials.getResourcePropertyRegistry(), name);
+        CanLoadBalance.lookupProperties(credentials.getResourcePropertyRegistry(), coords);
     KubernetesManifest loadBalancer =
-        Optional.ofNullable(credentials.get(name.getLeft(), target.getNamespace(), name.getRight()))
+        Optional.ofNullable(credentials.get(coords))
             .orElseThrow(
                 () ->
                     new IllegalStateException(
-                        String.format(
-                            "Could not find load balancer. (kind: %s, name: %s, namespace: %s)",
-                            name.getLeft(), name.getRight(), target.getNamespace())));
+                        String.format("Could not find load balancer: %s.", coords)));
 
     List<JsonPatch> patch = patchResource(loadBalancerHandler, loadBalancer, target);
 
@@ -133,13 +133,11 @@ public abstract class AbstractKubernetesEnableDisableManifestOperation
   }
 
   @Override
-  public OperationResult operate(List priorOutputs) {
+  public OperationResult operate(List<OperationResult> priorOutputs) {
     getTask().updateStatus(OP_NAME, "Starting " + getVerbName() + " operation...");
     KubernetesCoordinates coordinates = description.getPointCoordinates();
     KubernetesManifest target =
-        Optional.ofNullable(
-                credentials.get(
-                    coordinates.getKind(), coordinates.getNamespace(), coordinates.getName()))
+        Optional.ofNullable(credentials.get(coordinates))
             .orElseThrow(
                 () ->
                     new IllegalStateException(

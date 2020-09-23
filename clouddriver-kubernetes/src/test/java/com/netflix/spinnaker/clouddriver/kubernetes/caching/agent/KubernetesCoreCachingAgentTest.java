@@ -35,21 +35,21 @@ import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.cache.DefaultJsonCacheData;
 import com.netflix.spinnaker.cats.mem.InMemoryCache;
 import com.netflix.spinnaker.cats.provider.DefaultProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent.OnDemandResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.GlobalResourcePropertyRegistry;
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.ResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.*;
+import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesManifestNamer;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesUnregisteredCustomResourceHandler;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.moniker.Namer;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.IntStream;
@@ -67,7 +67,6 @@ final class KubernetesCoreCachingAgentTest {
   private static final String NAMESPACE2 = "test-namespace2";
   private static final String DEPLOYMENT_NAME = "my-deployment";
   private static final String STORAGE_CLASS_NAME = "my-storage-class";
-  private static final String NON_EXISTENT = "non-existent";
 
   private static final String DEPLOYMENT_KIND = KubernetesKind.DEPLOYMENT.toString();
   private static final String STORAGE_CLASS_KIND = KubernetesKind.STORAGE_CLASS.toString();
@@ -93,6 +92,7 @@ final class KubernetesCoreCachingAgentTest {
   private static final ResourcePropertyRegistry resourcePropertyRegistry =
       new GlobalResourcePropertyRegistry(
           ImmutableList.of(), new KubernetesUnregisteredCustomResourceHandler());
+  private static final Namer<KubernetesManifest> NAMER = new KubernetesManifestNamer();
 
   /** A test Deployment manifest */
   private static KubernetesManifest deploymentManifest() {
@@ -115,21 +115,28 @@ final class KubernetesCoreCachingAgentTest {
     return storageClass;
   }
 
-  /** Returns a mock KubernetesV2Credentials object */
-  private static KubernetesV2Credentials mockKubernetesV2Credentials() {
-    KubernetesV2Credentials v2Credentials = mock(KubernetesV2Credentials.class);
-    when(v2Credentials.isLiveManifestCalls()).thenReturn(false);
-    when(v2Credentials.getGlobalKinds()).thenReturn(kindProperties.keySet().asList());
-    when(v2Credentials.getKindProperties(any(KubernetesKind.class)))
+  /** Returns a mock KubernetesCredentials object */
+  private static KubernetesCredentials mockKubernetesCredentials() {
+    KubernetesCredentials credentials = mock(KubernetesCredentials.class);
+    when(credentials.getGlobalKinds()).thenReturn(kindProperties.keySet().asList());
+    when(credentials.getKindProperties(any(KubernetesKind.class)))
         .thenAnswer(invocation -> kindProperties.get(invocation.getArgument(0)));
-    when(v2Credentials.getDeclaredNamespaces())
-        .thenReturn(ImmutableList.of(NAMESPACE1, NAMESPACE2));
-    when(v2Credentials.getResourcePropertyRegistry()).thenReturn(resourcePropertyRegistry);
-    when(v2Credentials.get(KubernetesKind.DEPLOYMENT, NAMESPACE1, DEPLOYMENT_NAME))
+    when(credentials.getDeclaredNamespaces()).thenReturn(ImmutableList.of(NAMESPACE1, NAMESPACE2));
+    when(credentials.getResourcePropertyRegistry()).thenReturn(resourcePropertyRegistry);
+    when(credentials.get(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.DEPLOYMENT)
+                .namespace(NAMESPACE1)
+                .name(DEPLOYMENT_NAME)
+                .build()))
         .thenReturn(deploymentManifest());
-    when(v2Credentials.get(KubernetesKind.STORAGE_CLASS, "", STORAGE_CLASS_NAME))
+    when(credentials.get(
+            KubernetesCoordinates.builder()
+                .kind(KubernetesKind.STORAGE_CLASS)
+                .name(STORAGE_CLASS_NAME)
+                .build()))
         .thenReturn(storageClassManifest());
-    when(v2Credentials.list(any(List.class), any()))
+    when(credentials.list(any(List.class), any()))
         .thenAnswer(
             (Answer<ImmutableList<KubernetesManifest>>)
                 invocation -> {
@@ -146,22 +153,22 @@ final class KubernetesCoreCachingAgentTest {
                   }
                   return result.build();
                 });
-    return v2Credentials;
+    when(credentials.getNamer()).thenReturn(NAMER);
+    return credentials;
   }
 
   /**
-   * Returns a KubernetesNamedAccountCredentials that contains a mock KubernetesV2Credentials object
+   * Returns a KubernetesNamedAccountCredentials that contains a mock KubernetesCredentials object
    */
-  private static KubernetesNamedAccountCredentials<KubernetesV2Credentials>
-      getNamedAccountCredentials() {
+  private static KubernetesNamedAccountCredentials getNamedAccountCredentials() {
     KubernetesConfigurationProperties.ManagedAccount managedAccount =
         new KubernetesConfigurationProperties.ManagedAccount();
     managedAccount.setName(ACCOUNT);
 
-    KubernetesV2Credentials mockV2Credentials = mockKubernetesV2Credentials();
-    KubernetesV2Credentials.Factory credentialFactory = mock(KubernetesV2Credentials.Factory.class);
-    when(credentialFactory.build(managedAccount)).thenReturn(mockV2Credentials);
-    return new KubernetesNamedAccountCredentials<>(managedAccount, credentialFactory);
+    KubernetesCredentials mockCredentials = mockKubernetesCredentials();
+    KubernetesCredentials.Factory credentialFactory = mock(KubernetesCredentials.Factory.class);
+    when(credentialFactory.build(managedAccount)).thenReturn(mockCredentials);
+    return new KubernetesNamedAccountCredentials(managedAccount, credentialFactory);
   }
 
   /**
@@ -170,288 +177,13 @@ final class KubernetesCoreCachingAgentTest {
    * collection of those agents.
    */
   private static ImmutableCollection<KubernetesCoreCachingAgent> createCachingAgents(
-      KubernetesNamedAccountCredentials<KubernetesV2Credentials> credentials, int agentCount) {
+      KubernetesNamedAccountCredentials credentials, int agentCount) {
     return IntStream.range(0, agentCount)
         .mapToObj(
             i ->
                 new KubernetesCoreCachingAgent(
                     credentials, objectMapper, new NoopRegistry(), i, agentCount, 10L))
         .collect(toImmutableList());
-  }
-
-  /**
-   * Given an on-demand cache request, constructs a set of caching agents and sends the on-demand
-   * request to those agents, returning a collection of all non-null results of handing those
-   * requests. Any cache entries in primeCacheData will be added to each agent's backing cache
-   * before processing the request.
-   */
-  private static ProcessOnDemandResult processOnDemandRequest(
-      Collection<KubernetesCoreCachingAgent> cachingAgents,
-      Map<String, String> data,
-      Map<String, Collection<CacheData>> primeCacheData) {
-    ImmutableList.Builder<OnDemandAgent.OnDemandResult> resultBuilder =
-        new ImmutableList.Builder<>();
-    ImmutableList.Builder<ProviderCache> providerCacheBuilder = new ImmutableList.Builder<>();
-    cachingAgents.forEach(
-        cachingAgent -> {
-          ProviderCache providerCache = new DefaultProviderCache(new InMemoryCache());
-          providerCacheBuilder.add(providerCache);
-          for (String type : primeCacheData.keySet()) {
-            for (CacheData cacheData : primeCacheData.get(type)) {
-              providerCache.putCacheData(type, cacheData);
-            }
-          }
-          OnDemandAgent.OnDemandResult result = cachingAgent.handle(providerCache, data);
-          if (result != null) {
-            resultBuilder.add(result);
-          }
-        });
-    Collection<OnDemandAgent.OnDemandResult> onDemandResults = resultBuilder.build();
-    return new ProcessOnDemandResult(onDemandResults, providerCacheBuilder.build());
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {1, 2, 10})
-  public void deploymentUpdate(int numAgents) {
-    String expectedKey =
-        Keys.InfrastructureCacheKey.createKey(
-            KubernetesKind.DEPLOYMENT, ACCOUNT, NAMESPACE1, DEPLOYMENT_NAME);
-
-    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numAgents);
-    ProcessOnDemandResult onDemandResult =
-        processOnDemandRequest(
-            cachingAgents,
-            ImmutableMap.of(
-                "account", ACCOUNT,
-                "location", NAMESPACE1,
-                "name", KubernetesKind.DEPLOYMENT + " " + DEPLOYMENT_NAME),
-            ImmutableMap.of());
-
-    assertThat(onDemandResult.getOnDemandEntries()).containsKey(DEPLOYMENT_KIND);
-    assertThat(onDemandResult.getOnDemandEntries().get(DEPLOYMENT_KIND))
-        .extracting(data -> data.getAttributes().get("name"))
-        .containsExactly(DEPLOYMENT_NAME);
-
-    assertThat(onDemandResult.getOnDemandResults()).containsKey(DEPLOYMENT_KIND);
-    Collection<CacheData> deployments = onDemandResult.getOnDemandResults().get(DEPLOYMENT_KIND);
-    assertThat(deployments).extracting(CacheData::getId).containsExactly(expectedKey);
-    assertThat(deployments)
-        .extracting(deployment -> deployment.getAttributes().get("name"))
-        .containsExactly(DEPLOYMENT_NAME);
-
-    assertThat(onDemandResult.getOnDemandEvictions()).isEmpty();
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {1, 2, 10})
-  public void deploymentEviction(int numCachingAgents) throws IOException {
-    String expectedKey =
-        Keys.InfrastructureCacheKey.createKey(
-            KubernetesKind.DEPLOYMENT, ACCOUNT, NAMESPACE1, NON_EXISTENT);
-
-    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numCachingAgents);
-    ProcessOnDemandResult onDemandResult =
-        processOnDemandRequest(
-            cachingAgents,
-            ImmutableMap.of(
-                "account", ACCOUNT,
-                "location", NAMESPACE1,
-                "name", DEPLOYMENT_KIND + " " + NON_EXISTENT),
-            ImmutableMap.of(
-                "onDemand",
-                ImmutableList.of(
-                    new DefaultCacheData(
-                        expectedKey,
-                        ImmutableMap.of(
-                            "cacheResults",
-                            objectMapper.writeValueAsString(
-                                ImmutableMap.of(
-                                    DEPLOYMENT_KIND,
-                                    ImmutableList.of(
-                                        new DefaultCacheData(
-                                            expectedKey,
-                                            ImmutableMap.of("name", NON_EXISTENT),
-                                            ImmutableMap.of()))))),
-                        ImmutableMap.of()))));
-
-    assertThat(onDemandResult.getOnDemandResults()).isEmpty();
-
-    assertThat(onDemandResult.getOnDemandEvictions()).containsOnlyKeys(DEPLOYMENT_KIND);
-    Collection<String> deploymentEvictions =
-        onDemandResult.getOnDemandEvictions().get(DEPLOYMENT_KIND);
-    assertThat(deploymentEvictions).containsExactly(expectedKey);
-
-    Collection<DefaultJsonCacheData> remainingItems =
-        Optional.ofNullable(onDemandResult.getOnDemandEntries().get(DEPLOYMENT_KIND))
-            .orElse(ImmutableList.of());
-    // We expect that exactly one caching agent processed the request, so the entry should have been
-    // evicted once
-    assertThat(remainingItems).hasSize(numCachingAgents - 1);
-    assertThat(remainingItems)
-        .extracting(data -> data.getAttributes().get("name"))
-        .isSubsetOf(NON_EXISTENT);
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {1, 2, 10})
-  public void storageClassUpdate(int numCachingAgents) {
-    String expectedKey =
-        Keys.InfrastructureCacheKey.createKey(
-            KubernetesKind.STORAGE_CLASS, ACCOUNT, "", STORAGE_CLASS_NAME);
-
-    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numCachingAgents);
-    ProcessOnDemandResult onDemandResult =
-        processOnDemandRequest(
-            cachingAgents,
-            ImmutableMap.of(
-                "account", ACCOUNT,
-                "location", NAMESPACE1,
-                "name", KubernetesKind.STORAGE_CLASS + " " + STORAGE_CLASS_NAME),
-            ImmutableMap.of());
-
-    assertThat(onDemandResult.getOnDemandEntries()).containsKey(STORAGE_CLASS_KIND);
-    assertThat(onDemandResult.getOnDemandEntries().get(STORAGE_CLASS_KIND))
-        .extracting(data -> data.getAttributes().get("name"))
-        .containsExactly(STORAGE_CLASS_NAME);
-
-    assertThat(onDemandResult.getOnDemandResults()).containsKey(STORAGE_CLASS_KIND);
-    Collection<CacheData> storageClasses =
-        onDemandResult.getOnDemandResults().get(STORAGE_CLASS_KIND);
-    assertThat(storageClasses).extracting(CacheData::getId).containsExactly(expectedKey);
-    assertThat(storageClasses)
-        .extracting(storageClass -> storageClass.getAttributes().get("name"))
-        .containsExactly(STORAGE_CLASS_NAME);
-
-    assertThat(onDemandResult.getOnDemandEvictions()).isEmpty();
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {1, 2, 10})
-  public void storageClassEviction(int numCachingAgents) throws IOException {
-    String expectedKey =
-        Keys.InfrastructureCacheKey.createKey(
-            KubernetesKind.STORAGE_CLASS, ACCOUNT, "", NON_EXISTENT);
-
-    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numCachingAgents);
-    ProcessOnDemandResult onDemandResult =
-        processOnDemandRequest(
-            cachingAgents,
-            ImmutableMap.of(
-                "account", ACCOUNT,
-                "location", NAMESPACE1,
-                "name", STORAGE_CLASS_KIND + " " + NON_EXISTENT),
-            ImmutableMap.of(
-                "onDemand",
-                ImmutableList.of(
-                    new DefaultCacheData(
-                        expectedKey,
-                        ImmutableMap.of(
-                            "cacheResults",
-                            objectMapper.writeValueAsString(
-                                ImmutableMap.of(
-                                    STORAGE_CLASS_KIND,
-                                    ImmutableList.of(
-                                        new DefaultCacheData(
-                                            expectedKey,
-                                            ImmutableMap.of("name", NON_EXISTENT),
-                                            ImmutableMap.of()))))),
-                        ImmutableMap.of()))));
-
-    assertThat(onDemandResult.getOnDemandResults()).isEmpty();
-
-    Collection<String> deploymentEvictions =
-        onDemandResult.getOnDemandEvictions().get(STORAGE_CLASS_KIND);
-    assertThat(deploymentEvictions).containsExactly(expectedKey);
-
-    // We expect that exactly one caching agent processed the request, so the entry should have been
-    // evicted once
-    Collection<DefaultJsonCacheData> remainingItems =
-        Optional.ofNullable(onDemandResult.getOnDemandEntries().get(STORAGE_CLASS_KIND))
-            .orElse(ImmutableList.of());
-    assertThat(remainingItems).hasSize(numCachingAgents - 1);
-    assertThat(remainingItems)
-        .extracting(data -> data.getAttributes().get("name"))
-        .isSubsetOf(NON_EXISTENT);
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {1, 2, 10})
-  public void wrongAccount(int numCachingAgents) {
-    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numCachingAgents);
-    ProcessOnDemandResult results =
-        processOnDemandRequest(
-            cachingAgents,
-            ImmutableMap.of(
-                "account", NON_EXISTENT,
-                "location", NAMESPACE1,
-                "name", DEPLOYMENT_KIND + " " + DEPLOYMENT_NAME),
-            ImmutableMap.of());
-    assertThat(results.getOnDemandResults()).isEmpty();
-    assertThat(results.getOnDemandEvictions()).isEmpty();
-    assertThat(results.getOnDemandEntries()).isEmpty();
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {1, 2, 10})
-  public void wrongNamespace(int numCachingAgents) {
-    ImmutableCollection<KubernetesCoreCachingAgent> cachingAgents =
-        createCachingAgents(getNamedAccountCredentials(), numCachingAgents);
-    ProcessOnDemandResult results =
-        processOnDemandRequest(
-            cachingAgents,
-            ImmutableMap.of(
-                "account", ACCOUNT,
-                "location", NON_EXISTENT,
-                "name", DEPLOYMENT_KIND + " " + DEPLOYMENT_NAME),
-            ImmutableMap.of());
-    assertThat(results.getOnDemandResults()).isEmpty();
-    assertThat(results.getOnDemandEvictions()).isEmpty();
-    assertThat(results.getOnDemandEntries()).isEmpty();
-  }
-
-  @Value
-  private static class ProcessOnDemandResult {
-    Map<String, Collection<CacheData>> onDemandResults;
-    Map<String, Collection<String>> onDemandEvictions;
-    Map<String, Collection<DefaultJsonCacheData>> onDemandEntries;
-
-    ProcessOnDemandResult(
-        Collection<OnDemandAgent.OnDemandResult> onDemandResults,
-        Collection<ProviderCache> providerCaches) {
-      this.onDemandResults = extractOnDemandResults(onDemandResults);
-      this.onDemandEvictions = extractOnDemandEvictions(onDemandResults);
-      this.onDemandEntries = extractCacheEntries(providerCaches);
-    }
-
-    /**
-     * Given a collection of OnDemandAgent.OnDemandResult, return all cache results in these
-     * on-demand results.
-     */
-    private static ImmutableMap<String, Collection<CacheData>> extractOnDemandResults(
-        Collection<OnDemandAgent.OnDemandResult> onDemandResults) {
-      return extractCacheResults(
-          onDemandResults.stream().map(OnDemandResult::getCacheResult).collect(toImmutableList()));
-    }
-
-    /**
-     * Given a collection of OnDemandAgent.OnDemandResult, return all evictions in these on-demand
-     * results.
-     */
-    private static ImmutableMap<String, Collection<String>> extractOnDemandEvictions(
-        Collection<OnDemandAgent.OnDemandResult> onDemandResults) {
-      return onDemandResults.stream()
-          .map(result -> result.getEvictions().entrySet())
-          .flatMap(Collection::stream)
-          .collect(
-              ImmutableSetMultimap.flatteningToImmutableSetMultimap(
-                  Map.Entry::getKey, e -> e.getValue().stream()))
-          .asMap();
-    }
   }
 
   /**
@@ -564,6 +296,11 @@ final class KubernetesCoreCachingAgentTest {
     }
   }
 
+  /**
+   * See comment in {@link KubernetesCoreCachingAgent#getProvidedDataTypes()} for why we are
+   * continuing to use the deprecated Keys.Kind.ARTIFACT.
+   */
+  @SuppressWarnings("deprecation")
   @ParameterizedTest
   @ValueSource(ints = {1, 2, 10})
   public void authoritativeForLogicalTypes(int numAgents) {

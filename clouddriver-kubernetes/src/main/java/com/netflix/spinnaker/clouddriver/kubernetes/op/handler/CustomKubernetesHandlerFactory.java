@@ -20,17 +20,15 @@ package com.netflix.spinnaker.clouddriver.kubernetes.op.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.CustomKubernetesCachingAgentFactory;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentFactory;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgent;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.model.Manifest.Status;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesV2Credentials;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
 
 public class CustomKubernetesHandlerFactory {
   public static KubernetesHandler create(
@@ -41,7 +39,6 @@ public class CustomKubernetesHandlerFactory {
     return new Handler(kubernetesKind, spinnakerKind, versioned, deployPriority);
   }
 
-  @Slf4j
   private static class Handler extends KubernetesHandler {
     private final KubernetesKind kubernetesKind;
     private final SpinnakerKind spinnakerKind;
@@ -87,12 +84,12 @@ public class CustomKubernetesHandlerFactory {
     }
 
     @Override
-    protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
+    protected KubernetesCachingAgentFactory cachingAgentFactory() {
       return this::buildCustomCachingAgent;
     }
 
-    private KubernetesV2CachingAgent buildCustomCachingAgent(
-        KubernetesNamedAccountCredentials<KubernetesV2Credentials> namedAccountCredentials,
+    private KubernetesCachingAgent buildCustomCachingAgent(
+        KubernetesNamedAccountCredentials namedAccountCredentials,
         ObjectMapper objectMapper,
         Registry registry,
         int agentIndex,
