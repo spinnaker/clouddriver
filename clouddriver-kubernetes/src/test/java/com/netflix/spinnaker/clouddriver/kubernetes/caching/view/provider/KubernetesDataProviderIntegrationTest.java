@@ -77,8 +77,9 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupManager.ServerGroupManagerSummary;
 import com.netflix.spinnaker.clouddriver.model.ServerGroupSummary;
 import com.netflix.spinnaker.clouddriver.search.SearchResultSet;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository;
+import com.netflix.spinnaker.credentials.CredentialsLifecycleHandler;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.kork.configserver.CloudConfigResourceService;
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
@@ -116,8 +117,20 @@ final class KubernetesDataProviderIntegrationTest {
   private static final GlobalResourcePropertyRegistry resourcePropertyRegistry =
       new GlobalResourcePropertyRegistry(
           handlers, new KubernetesUnregisteredCustomResourceHandler());
-  private static final AccountCredentialsRepository credentialsRepository =
-      new MapBackedAccountCredentialsRepository();
+  private static final CredentialsRepository<KubernetesNamedAccountCredentials>
+      credentialsRepository =
+          new MapBackedCredentialsRepository<>(
+              KubernetesProvider.PROVIDER_NAME,
+              new CredentialsLifecycleHandler<KubernetesNamedAccountCredentials>() {
+                @Override
+                public void credentialsAdded(KubernetesNamedAccountCredentials credentials) {}
+
+                @Override
+                public void credentialsUpdated(KubernetesNamedAccountCredentials credentials) {}
+
+                @Override
+                public void credentialsDeleted(KubernetesNamedAccountCredentials credentials) {}
+              });
   private static final KubernetesAccountResolver accountResolver =
       new KubernetesAccountResolver(credentialsRepository, resourcePropertyRegistry);
   private static final ProviderRegistry providerRegistry =
@@ -169,7 +182,7 @@ final class KubernetesDataProviderIntegrationTest {
 
   @BeforeAll
   static void prepareCache() {
-    credentialsRepository.save(credentials.getName(), credentials);
+    credentialsRepository.save(credentials);
     dispatcher
         .buildAllCachingAgents(credentials)
         .forEach(agent -> agent.getAgentExecution(providerRegistry).executeAgent(agent));
