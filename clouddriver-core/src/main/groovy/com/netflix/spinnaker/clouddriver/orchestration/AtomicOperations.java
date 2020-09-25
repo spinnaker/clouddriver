@@ -116,5 +116,4 @@ public final class AtomicOperations {
 
   // AppEngine Config operations
   public static final String DEPLOY_APPENGINE_CONFIG = "deployAppEngineConfiguration";
-
 }

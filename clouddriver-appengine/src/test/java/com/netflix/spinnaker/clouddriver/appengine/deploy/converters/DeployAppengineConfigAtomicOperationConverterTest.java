@@ -17,55 +17,54 @@
 
 package com.netflix.spinnaker.clouddriver.appengine.deploy.converters;
 
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.DeployAppengineConfigDescription;
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 public class DeployAppengineConfigAtomicOperationConverterTest {
 
-    DeployAppengineConfigAtomicOperationConverter converter;
-    AccountCredentialsProvider accountCredentialsProvider;
-    AppengineNamedAccountCredentials mockCredentials;
-    ObjectMapper mapper;
+  DeployAppengineConfigAtomicOperationConverter converter;
+  AccountCredentialsProvider accountCredentialsProvider;
+  AppengineNamedAccountCredentials mockCredentials;
+  ObjectMapper mapper;
 
-    @Before
-    public void init(){
-        converter = new DeployAppengineConfigAtomicOperationConverter();
-        accountCredentialsProvider = mock(AccountCredentialsProvider.class);
-        mockCredentials = mock(AppengineNamedAccountCredentials.class);
-        mapper = new ObjectMapper();
+  @Before
+  public void init() {
+    converter = new DeployAppengineConfigAtomicOperationConverter();
+    accountCredentialsProvider = mock(AccountCredentialsProvider.class);
+    mockCredentials = mock(AppengineNamedAccountCredentials.class);
+    mapper = new ObjectMapper();
 
-        converter.setAccountCredentialsProvider(accountCredentialsProvider);
-        converter.setObjectMapper(mapper);
-    }
+    converter.setAccountCredentialsProvider(accountCredentialsProvider);
+    converter.setObjectMapper(mapper);
+  }
 
-    @Test
-    public void convertDescriptionShouldSucceed() {
+  @Test
+  public void convertDescriptionShouldSucceed() {
 
-        Map<String, Object> stage = new HashMap<>();
-        stage.put("cronArtifact", ImmutableMap.of(
-                        "type", "http/file",
-                        "reference", "url.com",
-                        "artifactAccount", "httpacc"));
-        stage.put("account", "appengineacc");
+    Map<String, Object> stage = new HashMap<>();
+    stage.put(
+        "cronArtifact",
+        ImmutableMap.of(
+            "type", "http/file",
+            "reference", "url.com",
+            "artifactAccount", "httpacc"));
+    stage.put("account", "appengineacc");
 
-        when(accountCredentialsProvider.getCredentials(any())).thenReturn(mockCredentials);
-        DeployAppengineConfigDescription description = converter.convertDescription(stage);
-        assertTrue(description.getAccountName().equals("appengineacc"));
-        assertTrue(description.getCronArtifact() != null);
-
-    }
+    when(accountCredentialsProvider.getCredentials(any())).thenReturn(mockCredentials);
+    DeployAppengineConfigDescription description = converter.convertDescription(stage);
+    assertTrue(description.getAccountName().equals("appengineacc"));
+    assertTrue(description.getCronArtifact() != null);
+  }
 }

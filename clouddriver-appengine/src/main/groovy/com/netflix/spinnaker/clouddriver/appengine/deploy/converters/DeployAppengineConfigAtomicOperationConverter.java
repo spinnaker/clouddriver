@@ -24,22 +24,26 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
 import groovy.util.logging.Slf4j;
-import org.springframework.stereotype.Component;
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
 @AppengineOperation(AtomicOperations.DEPLOY_APPENGINE_CONFIG)
 @Component
 @Slf4j
-public class DeployAppengineConfigAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
+public class DeployAppengineConfigAtomicOperationConverter
+    extends AbstractAtomicOperationsCredentialsSupport {
 
-    @Override
-    public AtomicOperation convertOperation(Map<String, Object> input) {
-        return new DeployAppengineConfigAtomicOperation(convertDescription(input));
-    }
+  @Override
+  public AtomicOperation convertOperation(Map<String, Object> input) {
+    return new DeployAppengineConfigAtomicOperation(convertDescription(input));
+  }
 
-    @Override
-    public DeployAppengineConfigDescription convertDescription(Map<String, Object> input) {
-        DeployAppengineConfigDescription description = (DeployAppengineConfigDescription) AppengineAtomicOperationConverterHelper.convertDescription(input, this, DeployAppengineConfigDescription.class);
-        return description;
-    }
+  @Override
+  public DeployAppengineConfigDescription convertDescription(Map<String, Object> input) {
+    DeployAppengineConfigDescription description =
+        (DeployAppengineConfigDescription)
+            AppengineAtomicOperationConverterHelper.convertDescription(
+                input, this, DeployAppengineConfigDescription.class);
+    return description;
+  }
 }

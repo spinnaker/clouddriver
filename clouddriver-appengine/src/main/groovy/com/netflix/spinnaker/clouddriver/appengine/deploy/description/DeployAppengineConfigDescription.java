@@ -24,10 +24,10 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class DeployAppengineConfigDescription extends AbstractAppengineCredentialsDescription {
-    private String accountName;
-    private String application;
-    private Artifact cronArtifact;
-    private Artifact dispatchArtifact;
-    private Artifact indexArtifact;
-    private Artifact queueArtifact;
+  private String accountName;
+  private String application;
+  private Artifact cronArtifact;
+  private Artifact dispatchArtifact;
+  private Artifact indexArtifact;
+  private Artifact queueArtifact;
 }

@@ -17,17 +17,15 @@
 
 package com.netflix.spinnaker.clouddriver.appengine.deploy.ops;
 
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.appengine.deploy.description.DeployAppengineConfigDescription;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import org.apache.commons.io.FileUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -36,58 +34,60 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.apache.commons.io.FileUtils;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 public class DeployAppengineConfigAtomicOperationTest {
 
-    DeployAppengineConfigDescription description = new DeployAppengineConfigDescription();
-    DeployAppengineConfigAtomicOperation deployAppengineConfigAtomicOperation;
-    ObjectMapper mapper;
-    ArtifactDownloader artifactDownloader = mock(ArtifactDownloader.class);
+  DeployAppengineConfigDescription description = new DeployAppengineConfigDescription();
+  DeployAppengineConfigAtomicOperation deployAppengineConfigAtomicOperation;
+  ObjectMapper mapper;
+  ArtifactDownloader artifactDownloader = mock(ArtifactDownloader.class);
 
-    @Before
-    public void init(){
-        deployAppengineConfigAtomicOperation = new DeployAppengineConfigAtomicOperation(description);
-        mapper = new ObjectMapper();
-        ReflectionTestUtils.setField(deployAppengineConfigAtomicOperation, "artifactDownloader", artifactDownloader);
+  @Before
+  public void init() {
+    deployAppengineConfigAtomicOperation = new DeployAppengineConfigAtomicOperation(description);
+    mapper = new ObjectMapper();
+    ReflectionTestUtils.setField(
+        deployAppengineConfigAtomicOperation, "artifactDownloader", artifactDownloader);
+  }
+
+  @Test
+  public void shouldCreateEmptyDirectory() throws IOException {
+    Path path = null;
+    try {
+      path = deployAppengineConfigAtomicOperation.createEmptyDirectory();
+      assertTrue(path.isAbsolute());
+    } finally {
+      FileUtils.cleanDirectory(path.toFile());
+      FileUtils.forceDelete(path.toFile());
     }
+  }
 
-    @Test
-    public void shouldCreateEmptyDirectory() throws IOException {
-        Path path = null;
-        try {
-            path = deployAppengineConfigAtomicOperation.createEmptyDirectory();
-            assertTrue(path.isAbsolute());
-        } finally {
-            FileUtils.cleanDirectory(path.toFile());
-            FileUtils.forceDelete(path.toFile());
-        }
+  @Test
+  public void shouldDownloadFiletoDirectory() throws IOException {
+    InputStream is = new ByteArrayInputStream("dosomething".getBytes(StandardCharsets.UTF_8));
+    Map<String, Object> artifactMap = new HashMap<>();
+    artifactMap.put("artifactAccount", "embedded-artifact");
+    artifactMap.put("id", "123abc");
+    artifactMap.put("reference", "ZG9zb21ldGhpbmc=");
+    artifactMap.put("type", "embedded/base64");
+    Artifact artifact = mapper.convertValue(artifactMap, Artifact.class);
+
+    Path path = null;
+    try {
+      path = deployAppengineConfigAtomicOperation.createEmptyDirectory();
+      when(artifactDownloader.download(any())).thenReturn(is);
+      File file =
+          deployAppengineConfigAtomicOperation.downloadFileToDirectory(
+              artifact, path, DeployAppengineConfigAtomicOperation.SupportedConfigTypes.CRON);
+      assertTrue(file.exists());
+      assertTrue(file.canRead());
+    } finally {
+      FileUtils.cleanDirectory(path.toFile());
+      FileUtils.forceDelete(path.toFile());
     }
-
-    @Test
-    public void shouldDownloadFiletoDirectory() throws IOException {
-        InputStream is = new ByteArrayInputStream("dosomething".getBytes(StandardCharsets.UTF_8));
-        Map<String, Object> artifactMap = new HashMap<>();
-        artifactMap.put("artifactAccount", "embedded-artifact");
-        artifactMap.put("id", "123abc");
-        artifactMap.put("reference", "ZG9zb21ldGhpbmc=");
-        artifactMap.put("type", "embedded/base64");
-        Artifact artifact = mapper.convertValue(artifactMap, Artifact.class);
-
-        Path path = null;
-        try {
-            path = deployAppengineConfigAtomicOperation.createEmptyDirectory();
-            when(artifactDownloader.download(any())).thenReturn(is);
-            File file = deployAppengineConfigAtomicOperation.downloadFileToDirectory(artifact, path, DeployAppengineConfigAtomicOperation.SupportedConfigTypes.CRON);
-            assertTrue(file.exists());
-            assertTrue(file.canRead());
-        } finally {
-            FileUtils.cleanDirectory(path.toFile());
-            FileUtils.forceDelete(path.toFile());
-        }
-    }
+  }
 }
