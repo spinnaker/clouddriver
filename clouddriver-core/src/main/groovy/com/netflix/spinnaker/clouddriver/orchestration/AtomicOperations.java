@@ -113,4 +113,8 @@ public final class AtomicOperations {
 
   // Launch Config operations
   public static final String DELETE_LAUNCH_CONFIGURATION = "deleteLaunchConfiguration";
+
+  // AppEngine Config operations
+  public static final String DEPLOY_APPENGINE_CONFIG = "deployAppEngineConfiguration";
+
 }
