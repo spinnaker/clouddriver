@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.clouddriver.security;
 
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.agent.AgentScheduler;
 import com.netflix.spinnaker.cats.agent.AgentSchedulerAware;
@@ -32,11 +33,11 @@ import java.util.stream.Collectors;
 public abstract class BaseProvider extends AgentSchedulerAware implements Provider {
   private final Collection<Agent> agents = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-  public Collection<Agent> getAgents() {
-    return agents;
+  public final Collection<Agent> getAgents() {
+    return ImmutableList.copyOf(agents);
   }
 
-  public void addAgents(Collection<? extends Agent> agentsToSchedule) {
+  public final void addAgents(Collection<? extends Agent> agentsToSchedule) {
     agents.addAll(agentsToSchedule);
 
     AgentScheduler<?> agentScheduler = getAgentScheduler();
@@ -51,7 +52,7 @@ public abstract class BaseProvider extends AgentSchedulerAware implements Provid
     }
   }
 
-  public void removeAgentsForAccounts(Collection<String> namesOfDeletedAccounts) {
+  public final void removeAgentsForAccounts(Collection<String> namesOfDeletedAccounts) {
     namesOfDeletedAccounts.forEach(
         nameOfDeletedAccount -> {
           AgentScheduler<?> scheduler = getAgentScheduler();

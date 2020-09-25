@@ -25,16 +25,18 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
 @RequiredArgsConstructor
 public class KubernetesCredentialsLifecycleHandler
     implements CredentialsLifecycleHandler<KubernetesNamedAccountCredentials> {
-  protected final KubernetesProvider provider;
-  protected final KubernetesCachingAgentDispatcher cachingAgentDispatcher;
+  private static final Logger log =
+      LoggerFactory.getLogger(KubernetesCredentialsLifecycleHandler.class);
+  private final KubernetesProvider provider;
+  private final KubernetesCachingAgentDispatcher cachingAgentDispatcher;
 
   @Override
   public void credentialsAdded(KubernetesNamedAccountCredentials credentials) {

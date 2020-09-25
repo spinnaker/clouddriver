@@ -17,8 +17,6 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.health;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.collect.ImmutableList;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.core.AccountHealthIndicator;
