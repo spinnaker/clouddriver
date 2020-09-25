@@ -42,7 +42,7 @@ public class KubernetesHealthIndicator
 
   @Override
   protected ImmutableList<KubernetesNamedAccountCredentials> getAccounts() {
-    return credentialsRepository.getAll().stream().collect(toImmutableList());
+    return ImmutableList.copyOf(credentialsRepository.getAll());
   }
 
   @Override
