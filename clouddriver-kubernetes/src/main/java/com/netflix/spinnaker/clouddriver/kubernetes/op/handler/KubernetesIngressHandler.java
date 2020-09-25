@@ -26,8 +26,8 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.op.handler.Kubernetes
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.InfrastructureCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCoreCachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
@@ -85,7 +85,7 @@ public class KubernetesIngressHandler extends KubernetesHandler {
   }
 
   @Override
-  protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
+  protected KubernetesCachingAgentFactory cachingAgentFactory() {
     return KubernetesCoreCachingAgent::new;
   }
 
@@ -93,8 +93,6 @@ public class KubernetesIngressHandler extends KubernetesHandler {
   public void addRelationships(
       Map<KubernetesKind, List<KubernetesManifest>> allResources,
       Map<KubernetesManifest, List<KubernetesManifest>> relationshipMap) {
-    Map<KubernetesManifest, List<KubernetesManifest>> result;
-
     BiFunction<String, String, String> manifestName = (namespace, name) -> namespace + ":" + name;
 
     Map<String, KubernetesManifest> services =

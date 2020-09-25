@@ -42,7 +42,6 @@ public class KubernetesManifestAnnotater {
   private static final String ARTIFACT_ANNOTATION_PREFIX = "artifact." + SPINNAKER_ANNOTATION;
   private static final String MONIKER_ANNOTATION_PREFIX = "moniker." + SPINNAKER_ANNOTATION;
   private static final String CACHING_ANNOTATION_PREFIX = "caching." + SPINNAKER_ANNOTATION;
-  private static final String STRATEGY_ANNOTATION_PREFIX = "strategy." + SPINNAKER_ANNOTATION;
   private static final String CLUSTER = MONIKER_ANNOTATION_PREFIX + "/cluster";
   private static final String APPLICATION = MONIKER_ANNOTATION_PREFIX + "/application";
   private static final String STACK = MONIKER_ANNOTATION_PREFIX + "/stack";
@@ -90,7 +89,7 @@ public class KubernetesManifestAnnotater {
     return getAnnotation(annotations, key, typeReference, null);
   }
 
-  private static boolean stringTypeReference(TypeReference typeReference) {
+  private static boolean stringTypeReference(TypeReference<?> typeReference) {
     if (typeReference.getType() == null || typeReference.getType().getTypeName() == null) {
       log.warn("Malformed type reference {}", typeReference);
       return false;
@@ -302,5 +301,9 @@ public class KubernetesManifestAnnotater {
 
   public static String getManifestCluster(KubernetesManifest manifest) {
     return Strings.nullToEmpty(manifest.getAnnotations().get(CLUSTER));
+  }
+
+  public static String getManifestApplication(KubernetesManifest manifest) {
+    return Strings.nullToEmpty(manifest.getAnnotations().get(APPLICATION));
   }
 }

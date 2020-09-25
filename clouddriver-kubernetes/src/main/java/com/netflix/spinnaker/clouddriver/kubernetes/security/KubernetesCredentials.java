@@ -109,8 +109,6 @@ public class KubernetesCredentials {
 
   @Include @Getter private final boolean onlySpinnakerManaged;
 
-  @Include @Getter private final boolean liveManifestCalls;
-
   @Include @Getter private final Integer runJobPodCollectionLimit;
 
   @Include @Getter private final Integer runJobPodStatusCollectionLimit;
@@ -129,7 +127,7 @@ public class KubernetesCredentials {
 
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
   private final KubernetesKindRegistry kindRegistry;
-  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+  @Getter private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final PermissionValidator permissionValidator;
   private final Supplier<ImmutableMap<KubernetesKind, KubernetesKindProperties>> crdSupplier =
       Suppliers.memoizeWithExpiration(this::crdSupplier, CRD_EXPIRY_SECONDS, TimeUnit.SECONDS);
@@ -189,7 +187,6 @@ public class KubernetesCredentials {
     this.context = managedAccount.getContext();
 
     this.onlySpinnakerManaged = managedAccount.isOnlySpinnakerManaged();
-    this.liveManifestCalls = managedAccount.isLiveManifestCalls();
     this.checkPermissionsOnStartup = managedAccount.isCheckPermissionsOnStartup();
     this.cachingPolicies = managedAccount.getCachingPolicies();
 
@@ -219,6 +216,7 @@ public class KubernetesCredentials {
               .build(key -> supplier.get());
     }
 
+    @Override
     public T get() {
       return cache.get(CACHE_KEY);
     }
