@@ -83,7 +83,7 @@ abstract class AbstractEnableDisableAtomicOperation implements AtomicOperation<V
       if (disable && description.desiredPercentage && loadBalancingClient && job.labels.containsKey("spinnaker.targetGroups")) {
         def errorMessage = "Could not ${verb} ServerGroup '$serverGroupName' in region $region! " +
           "Disabling by percentage for server groups with target groups is not supported by Titus"
-        throw new IllegalArgumentException(errorMessage)
+        throw new UnsupportedOperationException(errorMessage)
       }
 
       task.updateStatus phaseName, "${presentParticipling} ServerGroup '$serverGroupName' in $region..."
