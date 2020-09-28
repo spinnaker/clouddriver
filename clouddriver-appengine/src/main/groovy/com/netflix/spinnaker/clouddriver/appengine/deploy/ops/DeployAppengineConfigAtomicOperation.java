@@ -130,14 +130,14 @@ public class DeployAppengineConfigAtomicOperation implements AtomicOperation<Voi
           "Failed to deploy to App Engine with command: " + deployCommand);
     } finally {
       try {
-        FileUtils.cleanDirectory(directory.toFile());
-        FileUtils.forceDelete(directory.toFile());
         long duration = registry.clock().monotonicTime() - startTime;
         registry
             .timer(
                 registry.createId(
                     "appengine.deployConfig", "account", serviceAccount, "success", success))
             .record(duration, TimeUnit.NANOSECONDS);
+        FileUtils.cleanDirectory(directory.toFile());
+        FileUtils.forceDelete(directory.toFile());
       } catch (Exception e) {
         throw new AppengineOperationException(
             "Failed to clean up and delete directory: " + directory);

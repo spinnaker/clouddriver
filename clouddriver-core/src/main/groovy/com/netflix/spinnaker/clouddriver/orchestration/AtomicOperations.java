@@ -118,5 +118,5 @@ public final class AtomicOperations {
   public static final String DELETE_LAUNCH_TEMPLATE = "deleteLaunchTemplate";
 
   // AppEngine Config operations
-  public static final String DEPLOY_APPENGINE_CONFIG = "deployAppEngineConfiguration";
+  public static final String DEPLOY_APPENGINE_CONFIG = "deployAppengineConfiguration";
 }
