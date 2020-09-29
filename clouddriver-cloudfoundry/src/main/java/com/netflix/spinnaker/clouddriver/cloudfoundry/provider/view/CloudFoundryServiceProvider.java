@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.model.ServiceInstance;
 import com.netflix.spinnaker.clouddriver.model.ServiceProvider;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.Collection;
+import java.util.Collections;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -38,18 +39,23 @@ public class CloudFoundryServiceProvider implements ServiceProvider {
 
   @Override
   public Collection<CloudFoundryService> getServices(String account, String region) {
-    return credentialsRepository
-        .getOne(account)
-        .getCredentials()
-        .getServiceInstances()
-        .findAllServicesByRegion(region);
+    CloudFoundryCredentials credentials = credentialsRepository.getOne(account);
+    if (credentials == null) {
+      return Collections.emptyList();
+    }
+
+    return credentials.getCredentials().getServiceInstances().findAllServicesByRegion(region);
   }
 
   @Override
   public ServiceInstance getServiceInstance(
       String account, String region, String serviceInstanceName) {
-    return credentialsRepository
-        .getOne(account)
+    CloudFoundryCredentials credentials = credentialsRepository.getOne(account);
+    if (credentials == null) {
+      return null;
+    }
+
+    return credentials
         .getCredentials()
         .getServiceInstances()
         .getServiceInstance(region, serviceInstanceName);
