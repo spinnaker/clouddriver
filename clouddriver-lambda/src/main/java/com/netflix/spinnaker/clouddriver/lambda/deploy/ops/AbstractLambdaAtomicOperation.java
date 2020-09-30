@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.lambda.deploy.ops;
 
+import com.amazonaws.services.cloudfront.AmazonCloudFront;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
@@ -54,6 +55,12 @@ public abstract class AbstractLambdaAtomicOperation<T extends AbstractLambdaFunc
     NetflixAmazonCredentials credentialAccount = description.getCredentials();
 
     return amazonClientProvider.getAmazonLambda(credentialAccount, region);
+  }
+
+  AmazonCloudFront getCloudfrontClient() {
+    String region = getRegion();
+    NetflixAmazonCredentials credentialAccount = description.getCredentials();
+    return amazonClientProvider.getAmazonCloudFront(credentialAccount, region);
   }
 
   protected String getRegion() {

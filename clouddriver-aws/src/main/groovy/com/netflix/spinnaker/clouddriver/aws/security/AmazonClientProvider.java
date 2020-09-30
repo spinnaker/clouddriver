@@ -26,6 +26,8 @@ import com.amazonaws.services.autoscaling.AmazonAutoScaling;
 import com.amazonaws.services.autoscaling.AmazonAutoScalingClientBuilder;
 import com.amazonaws.services.cloudformation.AmazonCloudFormation;
 import com.amazonaws.services.cloudformation.AmazonCloudFormationClientBuilder;
+import com.amazonaws.services.cloudfront.AmazonCloudFront;
+import com.amazonaws.services.cloudfront.AmazonCloudFrontClientBuilder;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
 import com.amazonaws.services.ec2.AmazonEC2;
@@ -362,6 +364,22 @@ public class AmazonClientProvider {
       String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(
         AWSLambdaClientBuilder.class, AWSLambda.class, accountName, awsCredentialsProvider, region);
+  }
+
+  public AmazonCloudFront getAmazonCloudFront(
+      NetflixAmazonCredentials amazonCredentials, String region) {
+    return proxyHandlerBuilder.getProxyHandler(
+        AmazonCloudFront.class, AmazonCloudFrontClientBuilder.class, amazonCredentials, region);
+  }
+
+  public AmazonCloudFront getAmazonCloudFront(
+      String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
+    return awsSdkClientSupplier.getClient(
+        AmazonCloudFrontClientBuilder.class,
+        AmazonCloudFront.class,
+        accountName,
+        awsCredentialsProvider,
+        region);
   }
 
   public AWSLambdaAsync getAmazonLambdaAsync(
