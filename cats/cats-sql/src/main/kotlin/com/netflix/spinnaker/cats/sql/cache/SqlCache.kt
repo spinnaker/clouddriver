@@ -60,6 +60,7 @@ class SqlCache(
 
   companion object {
     private const val onDemandType = "onDemand"
+    private const val PLACEHOLDER_ID = "invalidId"
 
     private val schemaVersion = SqlSchemaVersion.current()
     private val useRegexp =
@@ -195,7 +196,8 @@ class SqlCache(
     ids: MutableCollection<String?>?,
     cacheFilter: CacheFilter?
   ): MutableCollection<CacheData> {
-    if (ids.isNullOrEmpty()) {
+    val nonnullIds = ids?.filterNotNull()
+    if (nonnullIds.isNullOrEmpty()) {
       cacheMetrics.get(
         prefix = name,
         type = type,
@@ -207,7 +209,7 @@ class SqlCache(
       return mutableListOf()
     }
 
-    val hashedIds = ids.asSequence().filterNotNull().map { getIdHash(it) }.toList()
+    val hashedIds = nonnullIds.asSequence().map { getIdHash(it) }.toList()
     val relationshipPrefixes = getRelationshipFilterPrefixes(cacheFilter)
 
     val result = if (relationshipPrefixes.isEmpty()) {
@@ -468,7 +470,11 @@ class SqlCache(
   }
 
   override fun get(type: String, id: String?, cacheFilter: CacheFilter?): CacheData? {
-    val result = getAll(type, mutableListOf(id), cacheFilter)
+    if (id == null) {
+      return null
+    }
+
+    val result = getAll(type, mutableListOf(id) as MutableCollection<String?>, cacheFilter)
     return if (result.isEmpty()) {
       null
     } else result.iterator().next()
@@ -742,29 +748,33 @@ class SqlCache(
     currentRevRelTypes.filter { !createdTables.contains(it) }
       .forEach { createTables(it) }
 
-    val oldFwdIds: Map<String, String?> = existingFwdRelKeys
+    val oldFwdIds: Map<String, String> = existingFwdRelKeys
       .asSequence()
-      .map { it.key() to it.uuid }
+      .map {
+        it.key() to it.uuid
+      }
       .toMap()
 
-    val oldRevIds = mutableMapOf<String, String?>()
-    val oldRevIdsToType = mutableMapOf<String, String?>()
+    val oldRevIds = mutableMapOf<String, String>()
+    val oldRevIdsToType = mutableMapOf<String, String>()
 
     existingRevRelKeys
       .forEach {
         oldRevIds[it.key()] = it.uuid
-        oldRevIdsToType[it.key()] = it.rel_agent?.substringBefore(
+        oldRevIdsToType[it.key()] = it.rel_agent.substringBefore(
           delimiter = ":",
           missingDelimiterValue = ""
         )
       }
 
     val currentIds = mutableSetOf<String>()
-    // Use map for reverse relationships vs list for forward so that we can do batch inserts for
+    // Use map for reverse relationships vs set for forward so that we can do batch inserts for
     // reverse relationships by the rel type. This isn't necessary for forward because there is only
     // one type and it's provided by the calling caching agent.
-    val newFwdRelEntries = mutableListOf<RelEntry>()
-    val newRevTypeToRelEntries = mutableMapOf<String, MutableList<RelEntry>>()
+    val newFwdRelEntries = mutableSetOf<RelEntry>()
+    val newRevTypeToRelEntries = mutableMapOf<String, MutableSet<RelEntry>>()
+
+    val ulid = ULID()
 
     items
       .filter { it.id != "_ALL_" }
@@ -788,7 +798,7 @@ class SqlCache(
             if (!oldFwdIds.containsKey(fwdKey)) {
               newFwdRelEntries.add(
                 RelEntry(
-                  uuid = null,
+                  uuid = PLACEHOLDER_ID,
                   id_hash = idHash,
                   id = cacheData.id,
                   rel_id_hash = relIdHash,
@@ -802,10 +812,10 @@ class SqlCache(
             }
 
             if (!oldRevIds.containsKey(revKey)) {
-              newRevTypeToRelEntries.getOrPut(relType) { mutableListOf() }
+              newRevTypeToRelEntries.getOrPut(relType) { mutableSetOf() }
                 .add(
                   RelEntry(
-                    uuid = null,
+                    uuid = PLACEHOLDER_ID,
                     id_hash = relIdHash,
                     id = relId,
                     rel_id_hash = idHash,
@@ -821,10 +831,6 @@ class SqlCache(
         }
       }
 
-    val now = clock.millis()
-    val ulid = ULID()
-    var ulidValue = ulid.nextValue()
-
     newFwdRelEntries.chunked(
       dynamicConfigService.getConfig(
         Int::class.java,
@@ -833,41 +839,7 @@ class SqlCache(
       )
     ) { chunk ->
       try {
-        val insert = jooq.insertInto(
-          table(sqlNames.relTableName(type)),
-          field("uuid"),
-          field("id_hash"),
-          field("id"),
-          field("rel_id_hash"),
-          field("rel_id"),
-          field("rel_agent_hash"),
-          field("rel_agent"),
-          field("rel_type"),
-          field("last_updated")
-        )
-
-        insert.apply {
-          chunk.forEach {
-            values(
-              ulidValue.toString(),
-              it.id_hash,
-              it.id,
-              it.rel_id_hash,
-              it.rel_id,
-              it.rel_agent_hash,
-              it.rel_agent,
-              it.rel_type,
-              now
-            )
-            ulidValue = ulid.nextMonotonicValue(ulidValue)
-          }
-        }
-
-        withRetry(RetryCategory.WRITE) {
-          insert.execute()
-        }
-        result.writeQueries.incrementAndGet()
-        result.relationshipsStored.addAndGet(chunk.size)
+        writeRelTable(sqlNames.relTableName(type), chunk, ulid, result)
       } catch (e: Exception) {
         log.error("Error inserting forward relationships for $type", e)
       }
@@ -882,41 +854,7 @@ class SqlCache(
         )
       ) { chunk ->
         try {
-          val insert = jooq.insertInto(
-            table(sqlNames.relTableName(revType)),
-            field("uuid"),
-            field("id_hash"),
-            field("id"),
-            field("rel_id_hash"),
-            field("rel_id"),
-            field("rel_agent_hash"),
-            field("rel_agent"),
-            field("rel_type"),
-            field("last_updated")
-          )
-
-          insert.apply {
-            chunk.forEach {
-              values(
-                ulidValue.toString(),
-                it.id_hash,
-                it.id,
-                it.rel_id_hash,
-                it.rel_id,
-                it.rel_agent_hash,
-                it.rel_agent,
-                it.rel_type,
-                now
-              )
-              ulidValue = ulid.nextMonotonicValue(ulidValue)
-            }
-          }
-
-          withRetry(RetryCategory.WRITE) {
-            insert.execute()
-          }
-          result.writeQueries.incrementAndGet()
-          result.relationshipsStored.addAndGet(chunk.size)
+          writeRelTable(sqlNames.relTableName(revType), chunk, ulid, result)
         } catch (e: Exception) {
           log.error("Error inserting reverse relationships for $revType -> $type", e)
         }
@@ -941,7 +879,7 @@ class SqlCache(
           result.deleteQueries.incrementAndGet()
         }
         revToDelete.forEach {
-          if (!oldRevIdsToType.getOrDefault(it.key, "").isNullOrEmpty()) {
+          if (oldRevIdsToType.getOrDefault(it.key, "").isNotEmpty()) {
             withRetry(RetryCategory.WRITE) {
               jooq.deleteFrom(table(sqlNames.relTableName(oldRevIdsToType[it.key]!!)))
                 .where(field("uuid").eq(it.value))
@@ -958,6 +896,45 @@ class SqlCache(
     }
 
     return result
+  }
+
+  private fun writeRelTable(table: String, rels: List<RelEntry>, ulid: ULID, result: StoreResult) {
+    val insert = jooq.insertInto(
+      table(table),
+      field("uuid"),
+      field("id_hash"),
+      field("id"),
+      field("rel_id_hash"),
+      field("rel_id"),
+      field("rel_agent_hash"),
+      field("rel_agent"),
+      field("rel_type"),
+      field("last_updated")
+    )
+
+    var ulidValue = ulid.nextValue()
+    insert.apply {
+      rels.forEach {
+        values(
+          ulidValue.toString(),
+          it.id_hash,
+          it.id,
+          it.rel_id_hash,
+          it.rel_id,
+          it.rel_agent_hash,
+          it.rel_agent,
+          it.rel_type,
+          clock.millis()
+        )
+        ulidValue = ulid.nextMonotonicValue(ulidValue)
+      }
+    }
+
+    withRetry(RetryCategory.WRITE) {
+      insert.execute()
+    }
+    result.writeQueries.incrementAndGet()
+    result.relationshipsStored.addAndGet(rels.size)
   }
 
   private fun createTables(type: String) {
@@ -1063,7 +1040,7 @@ class SqlCache(
    * @param agentHash the agent hash of the records to retrieve.
    * @return list of resource entries with body hash and id hash populated.
    */
-  private fun getBodyHashesAndIdHashes(type: String, agentHash: String?): List<ResourceEntry> {
+  private fun getBodyHashesAndIdHashes(type: String, agentHash: String?): List<HashedIdAndBody> {
     return withRetry(RetryCategory.READ) {
       jooq
         .select(field("body_hash"), field("id_hash"))
@@ -1072,7 +1049,7 @@ class SqlCache(
           field("agent_hash").eq(agentHash)
         )
         .fetch()
-        .into(ResourceEntry::class.java)
+        .into(HashedIdAndBody::class.java)
     }
   }
 
@@ -1085,14 +1062,14 @@ class SqlCache(
    * @return list of relationship entries with uuid, id hash, rel id hash, and rel agent hash
    * populated.
    */
-  private fun getRelationshipKeys(type: String, relAgentHash: String): MutableList<RelEntry> {
+  private fun getRelationshipKeys(type: String, relAgentHash: String): MutableList<RelEntryHashes> {
     return withRetry(RetryCategory.READ) {
       jooq
         .select(field("uuid"), field("id_hash"), field("rel_id_hash"), field("rel_agent_hash"))
         .from(table(sqlNames.relTableName(type)))
         .where(field("rel_agent_hash").eq(relAgentHash))
         .fetch()
-        .into(RelEntry::class.java)
+        .into(RelEntryHashes::class.java)
     }
   }
 
@@ -1111,7 +1088,7 @@ class SqlCache(
     type: String,
     origType: String,
     relAgentHash: String
-  ): MutableList<RelEntry> {
+  ): MutableList<RelEntryHashesAndAgent> {
     return withRetry(RetryCategory.READ) {
       jooq
         .select(
@@ -1127,7 +1104,7 @@ class SqlCache(
           field("rel_type").eq(origType)
         )
         .fetch()
-        .into(RelEntry::class.java)
+        .into(RelEntryHashesAndAgent::class.java)
     }
   }
 
@@ -1824,38 +1801,59 @@ class SqlCache(
     return Thread.currentThread().name.startsWith(coroutineThreadPrefix)
   }
 
-  // Assists with unit testing
-  fun clearCreatedTables() {
-    val tables = createdTables.toList()
-    createdTables.removeAll(tables)
-  }
-
-  data class ResourceEntry(
-    val id_hash: String?,
-    val id: String?,
-    val agent_hash: String?,
-    val agent: String?,
-    val application: String?,
-    val body_hash: String?,
-    val body: String?,
-    val last_updated: Long?
+  private data class HashedIdAndBody(
+    val id_hash: String,
+    val body_hash: String
   )
 
-  data class RelEntry(
-    val uuid: String?,
-    val id_hash: String?,
-    val id: String?,
-    val rel_id_hash: String?,
-    val rel_id: String?,
-    val rel_agent_hash: String?,
-    val rel_agent: String?,
-    val rel_type: String?,
-    val last_updated: Long?
-  ) {
+  private interface HashedRelEntry {
+    val uuid: String
+    val id_hash: String
+    val rel_id_hash: String
+    val rel_agent_hash: String
+
     fun key(): String {
       return "$id_hash|$rel_id_hash"
     }
   }
+
+  private data class RelEntryHashes(
+    override val uuid: String,
+    override val id_hash: String,
+    override val rel_id_hash: String,
+    override val rel_agent_hash: String
+  ) : HashedRelEntry
+
+  private data class RelEntryHashesAndAgent(
+    override val uuid: String,
+    override val id_hash: String,
+    override val rel_id_hash: String,
+    override val rel_agent_hash: String,
+    val rel_agent: String
+  ) : HashedRelEntry
+
+  data class ResourceEntry(
+    val id_hash: String,
+    val id: String,
+    val agent_hash: String,
+    val agent: String,
+    val application: String?,
+    val body_hash: String,
+    val body: String,
+    val last_updated: Long?
+  )
+
+  data class RelEntry(
+    override val uuid: String,
+    override val id_hash: String,
+    val id: String,
+    override val rel_id_hash: String,
+    val rel_id: String,
+    override val rel_agent_hash: String,
+    val rel_agent: String,
+    val rel_type: String,
+    val last_updated: Long?
+  ) : HashedRelEntry
 
   data class RelPointer(
     val id: String,
