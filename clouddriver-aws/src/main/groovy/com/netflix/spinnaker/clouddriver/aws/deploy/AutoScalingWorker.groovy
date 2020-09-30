@@ -42,6 +42,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.kork.core.RetrySupport
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import groovy.util.logging.Slf4j
 
 import java.time.Instant
@@ -111,6 +112,7 @@ class AutoScalingWorker {
   private int desiredInstances
 
   private DeployDefaults deployDefaults
+  private DynamicConfigService dynamicConfigService
   private RegionScopedProviderFactory.RegionScopedProvider regionScopedProvider
 
   AutoScalingWorker() {
@@ -171,7 +173,7 @@ class AutoScalingWorker {
 
     LaunchTemplateSpecification launchTemplateSpecification = null
     String launchConfigName = null
-    if (setLaunchTemplate != null && setLaunchTemplate) {
+    if (shouldSetLaunchTemplate()) {
       settings = DefaultLaunchConfigurationBuilder.setAppSecurityGroup(
         application,
         subnetType,
@@ -379,5 +381,57 @@ class AutoScalingWorker {
     }
 
     return true
+  }
+
+  /**
+   * This is used to gradually roll out launch template.
+   */
+  private boolean shouldSetLaunchTemplate() {
+    // Request level flag that forces launch configurations.
+    if (!setLaunchTemplate) {
+      return false
+    }
+
+    // Property flag to turn off launch template feature. Caching agent might require bouncing the java process
+    if (!dynamicConfigService.isEnabled("aws.features.launch-templates", false)) {
+      log.debug("Launch Template feature disabled via configuration.")
+      return false
+    }
+
+    // This is a comma separated list of applications to exclude
+    String excludedApps = dynamicConfigService
+      .getConfig(String.class, "aws.features.launch-templates.excluded-applications", "")
+    if (application in excludedApps.split(",")) {
+      return false
+    }
+
+    // Application allow list with the following format:
+    // app1:account:region1,region2,app2:account:region1
+    // This allows more control over what account and region pairs to enable for this deployment.
+    String allowedApps = dynamicConfigService
+      .getConfig(String.class, "aws.features.launch-templates.allowed-applications", "")
+    for (appAccountRegion in allowedApps.split(",")) {
+      if (appAccountRegion && appAccountRegion.contains(":")) {
+        def (app, account, regions) = appAccountRegion.split(":")
+        if (app == application && account == credentials.name && this.region in (regions as String).split(",")) {
+          return true
+        }
+      }
+    }
+
+    // Final check is an allow list for account/region pairs with the following format:
+    // account:region
+    String allowedAccountsAndRegions = dynamicConfigService
+      .getConfig(String.class, "aws.features.launch-templates.allowed-accounts-regions", "")
+    for (accountRegion in allowedAccountsAndRegions.split(",")) {
+      if (accountRegion && accountRegion.contains(":")) {
+        def (account, region) = accountRegion.split(":")
+        if (account.trim() == credentials.name && region.trim() == this.region) {
+          return true
+        }
+      }
+    }
+
+    return false
   }
 }

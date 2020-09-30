@@ -34,6 +34,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import org.springframework.beans.factory.annotation.Autowired
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -55,6 +56,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
   def clusterProvider = Mock(ClusterProvider)
   def amazonEC2 = Mock(AmazonEC2)
   def asgLifecycleHookWorker = Mock(AsgLifecycleHookWorker)
+  def dynamicConfigService = Mock(DynamicConfigService)
   def awsServerGroupNameResolver = new AWSServerGroupNameResolver('test', 'us-east-1', asgService, [clusterProvider])
   def credential = TestCredential.named('foo')
   def regionScopedProvider = Stub(RegionScopedProviderFactory.RegionScopedProvider) {
@@ -82,6 +84,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
     mockAutoScalingWorker.credentials = credential
     mockAutoScalingWorker.regionScopedProvider = regionScopedProvider
     mockAutoScalingWorker.sequence = sequence
+    mockAutoScalingWorker.dynamicConfigService = dynamicConfigService
 
     when:
     mockAutoScalingWorker.deploy()
@@ -107,10 +110,12 @@ class AutoScalingWorkerUnitSpec extends Specification {
     def mockAutoScalingWorker = Spy(AutoScalingWorker)
     mockAutoScalingWorker.application = "myasg"
     mockAutoScalingWorker.stack = "stack"
+    mockAutoScalingWorker.region = "us-east-1"
     mockAutoScalingWorker.freeFormDetails = "details"
     mockAutoScalingWorker.credentials = credential
     mockAutoScalingWorker.regionScopedProvider = regionScopedProvider
     mockAutoScalingWorker.sequence = sequence
+    mockAutoScalingWorker.dynamicConfigService = dynamicConfigService
 
     and:
     mockAutoScalingWorker.setLaunchTemplate = true
@@ -122,6 +127,9 @@ class AutoScalingWorkerUnitSpec extends Specification {
     mockAutoScalingWorker.deploy()
 
     then:
+    1 * dynamicConfigService.isEnabled('aws.features.launch-templates', false) >> true
+    1 * dynamicConfigService.getConfig(String.class, "aws.features.launch-templates.excluded-applications", "") >> ""
+    1 * dynamicConfigService.getConfig(String.class,"aws.features.launch-templates.allowed-applications", "") >> { "myasg:foo:us-east-1" }
     1 * mockAutoScalingWorker.createAutoScalingGroup(expectedAsgName, null, { it.launchTemplateId == "id" }) >> {}
     (sequence == null ? 1 : 0) * clusterProvider.getCluster('myasg', 'test', 'myasg-stack-details') >> { null }
     0 * clusterProvider._
@@ -143,7 +151,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       credentials: credential,
       application: "myasg",
       region: "us-east-1",
-      setLaunchTemplate: true
+      setLaunchTemplate: true,
+      dynamicConfigService: dynamicConfigService
     )
 
     and:
@@ -153,6 +162,9 @@ class AutoScalingWorkerUnitSpec extends Specification {
     String asgName = autoScalingWorker.deploy()
 
     then:
+    1 * dynamicConfigService.isEnabled('aws.features.launch-templates', false) >> true
+    1 * dynamicConfigService.getConfig(String.class, "aws.features.launch-templates.excluded-applications", "") >> ""
+    1 * dynamicConfigService.getConfig(String.class,"aws.features.launch-templates.allowed-applications", "") >> { "myasg:foo:us-east-1" }
     1 * launchTemplateService.createLaunchTemplate(_,_,_,_) >>
       new LaunchTemplate(launchTemplateId: "id", latestVersionNumber: 0, launchTemplateName: "lt")
     1 * clusterProvider.getCluster('myasg', 'test', 'myasg') >> {
@@ -177,7 +189,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       regionScopedProvider: regionScopedProvider,
       credentials: credential,
       application: "myasg",
-      region: "us-east-1"
+      region: "us-east-1",
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -209,7 +222,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       regionScopedProvider: regionScopedProvider,
       credentials: credential,
       application: "myasg",
-      region: "us-east-1"
+      region: "us-east-1",
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -229,7 +243,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       credentials: credential,
       application: "myasg",
       region: "us-east-1",
-      lifecycleHooks: hooks
+      lifecycleHooks: hooks,
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -263,7 +278,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       regionScopedProvider: regionScopedProvider,
       credentials: credential,
       application: "myasg",
-      region: "us-east-1"
+      region: "us-east-1",
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -282,7 +298,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       regionScopedProvider: regionScopedProvider,
       credentials: credential,
       application: "myasg",
-      region: "us-east-1"
+      region: "us-east-1",
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -301,7 +318,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       credentials: credential,
       application: "myasg",
       region: "us-east-1",
-      classicLoadBalancers: ["one", "two"]
+      classicLoadBalancers: ["one", "two"],
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -335,7 +353,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       credentials: credential,
       application: "myasg",
       region: "us-east-1",
-      classicLoadBalancers: ["one", "two"]
+      classicLoadBalancers: ["one", "two"],
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -368,7 +387,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       credentials: credential,
       application: "myasg",
       region: "us-east-1",
-      classicLoadBalancers: ["one", "two"]
+      classicLoadBalancers: ["one", "two"],
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
