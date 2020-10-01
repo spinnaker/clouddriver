@@ -305,4 +305,43 @@ class CredentialsLoaderSpec extends Specification {
     }
     0 * _
   }
+
+  def 'assumeRole account type test with defaults'() {
+    setup:
+    def config = new CredentialsConfig(defaultRegions: [
+      new Region(name: 'us-east-1', availabilityZones: ['us-east-1c', 'us-east-1d', 'us-east-1e']),
+      new Region(name: 'us-west-2', availabilityZones: ['us-west-2a', 'us-west-2b'])],
+      defaultKeyPairTemplate: 'nf-{{name}}-keypair-a',
+      defaultEddaTemplate: 'http://edda-main.%s.{{name}}.netflix.net',
+      defaultFront50Template: 'http://front50.prod.netflix.net/{{name}}',
+      defaultDiscoveryTemplate: 'http://%s.discovery{{name}}.netflix.net',
+      defaultAssumeRole: 'role/asgard',
+      defaultSessionName: 'spinnaker',
+      accounts: [
+        new Account(name: 'prod', accountId: 67890)
+      ]
+    )
+    AWSCredentialsProvider provider = Mock(AWSCredentialsProvider)
+    AWSAccountInfoLookup lookup = Mock(AWSAccountInfoLookup)
+    CredentialsLoader<AssumeRoleAmazonCredentials> ci = new CredentialsLoader<>(provider, lookup, AssumeRoleAmazonCredentials)
+
+    when:
+    List<AssumeRoleAmazonCredentials> creds = ci.load(config)
+
+    then:
+    creds.size() == 1
+    with(creds.find { it.name == 'prod' }) { AssumeRoleAmazonCredentials cred ->
+      cred.accountId == "67890"
+      cred.defaultKeyPair == 'nf-prod-keypair-a'
+      cred.regions.size() == 2
+      cred.regions.find { it.name == 'us-east-1' }.availabilityZones.size() == 3
+      cred.regions.find { it.name == 'us-east-1' }.deprecated == false
+      cred.regions.find { it.name == 'us-west-2' }.availabilityZones.size() == 2
+      cred.regions.find { it.name == 'us-west-2' }.deprecated == false
+      cred.assumeRole == 'role/asgard'
+      cred.externalId == null
+      cred.sessionName == 'spinnaker'
+    }
+    0 * _
+  }
 }
