@@ -46,10 +46,14 @@ import com.netflix.spinnaker.clouddriver.aws.security.EddaTimeoutConfig.Builder
 import com.netflix.spinnaker.clouddriver.aws.services.IdGenerator
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration
+import com.netflix.spinnaker.clouddriver.event.SpinnakerEvent
+import com.netflix.spinnaker.clouddriver.saga.config.SagaAutoConfiguration
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.ProviderUtils
 import com.netflix.spinnaker.kork.aws.AwsComponents
 import com.netflix.spinnaker.kork.aws.bastion.BastionConfig
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
+import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -67,7 +71,8 @@ import java.util.concurrent.ConcurrentHashMap
 @Import([
   BastionConfig,
   AmazonCredentialsInitializer,
-  AwsComponents
+  AwsComponents,
+  SagaAutoConfiguration
 ])
 class AwsConfiguration {
 
@@ -130,6 +135,14 @@ class AwsConfiguration {
     new DeployDefaults()
   }
 
+  @Bean
+  ObjectMapperSubtypeConfigurer.SubtypeLocator awsEventSubtypeLocator() {
+    return new ObjectMapperSubtypeConfigurer.ClassSubtypeLocator(
+      SpinnakerEvent.class,
+      Collections.singletonList("com.netflix.spinnaker.clouddriver.aws")
+    );
+  }
+
   public static class DeployDefaults {
     public static enum ReconcileMode {
       NONE,
@@ -177,6 +190,7 @@ class AwsConfiguration {
                                                     DeployDefaults deployDefaults,
                                                     ScalingPolicyCopier scalingPolicyCopier,
                                                     BlockDeviceConfig blockDeviceConfig,
+                                                    DynamicConfigService dynamicConfigService,
                                                     AmazonServerGroupProvider amazonServerGroupProvider) {
     new BasicAmazonDeployHandler(
       regionScopedProviderFactory,
@@ -184,7 +198,8 @@ class AwsConfiguration {
       amazonServerGroupProvider,
       deployDefaults,
       scalingPolicyCopier,
-      blockDeviceConfig
+      blockDeviceConfig,
+      dynamicConfigService
     )
   }
 

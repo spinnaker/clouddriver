@@ -233,7 +233,7 @@ class CloudFoundryLoadBalancerCachingAgentTest {
                     "processedTime", processedTime)
                 .toJavaMap());
 
-    Collection<Map> result =
+    Collection<Map<String, Object>> result =
         cloudFoundryLoadBalancerCachingAgent.pendingOnDemandRequests(mockProviderCache);
 
     assertThat(result).isEqualTo(expectedResult);
@@ -451,5 +451,20 @@ class CloudFoundryLoadBalancerCachingAgentTest {
     CacheResult result = cloudFoundryLoadBalancerCachingAgent.loadData(mockProviderCache);
 
     assertThat(result).isEqualToComparingFieldByFieldRecursively(expectedCacheResult);
+  }
+
+  @Test
+  void shouldReturnNullWhenAccountNameDiffers() {
+    Map<String, String> data =
+        HashMap.of(
+                "account", "NotAccount",
+                "region", "org1 > space1",
+                "loadBalancerName", "doesntMatter")
+            .toJavaMap();
+
+    OnDemandAgent.OnDemandResult result =
+        cloudFoundryLoadBalancerCachingAgent.handle(mockProviderCache, data);
+
+    assertThat(result).isEqualTo(null);
   }
 }

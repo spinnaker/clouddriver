@@ -165,6 +165,11 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
     if (account == null || region == null || loadBalancerName == null) {
       return null;
     }
+
+    if (!this.getAccountName().equals(account)) {
+      return null;
+    }
+
     CloudFoundrySpace space = getClient().getOrganizations().findSpaceByRegion(region).orElse(null);
     if (space == null) {
       return null;
@@ -218,7 +223,7 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<String> keys =
         providerCache.filterIdentifiers(ON_DEMAND.getNs(), Keys.getAllLoadBalancers());
     return providerCache.getAll(ON_DEMAND.getNs(), keys, RelationshipCacheFilter.none()).stream()

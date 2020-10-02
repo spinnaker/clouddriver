@@ -1,9 +1,24 @@
 plugins {
   id("net.ltgt.errorprone") version "1.2.1"
+  id 'com.adarshr.test-logger' version '2.1.0'
 }
 
 tasks.compileGroovy.enabled = false
-sourceSets.main.java.srcDirs = ['src/main/java']
+
+sourceSets {
+  main {
+    java.srcDirs = ['src/main/java']
+  }
+  integration {
+    java.srcDirs = ["src/integration/java"]
+    resources.srcDirs = ["src/integration/resources"]
+  }
+}
+
+configurations {
+  integrationImplementation.extendsFrom testImplementation
+  integrationRuntime.extendsFrom testRuntime
+}
 
 tasks.withType(JavaCompile) {
   options.compilerArgs += [
@@ -56,7 +71,9 @@ dependencies {
   implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "com.netflix.spinnaker.kork:kork-annotations"
   implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.kork:kork-credentials"
   implementation "com.netflix.spinnaker.kork:kork-config"
+  implementation "com.netflix.spinnaker.kork:kork-cloud-config-server"
   implementation "com.netflix.spinnaker.kork:kork-exceptions"
   implementation "com.netflix.spinnaker.moniker:moniker"
   implementation "io.kubernetes:client-java:7.0.0"
@@ -64,6 +81,8 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-actuator"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "org.springframework.security:spring-security-config"
+  implementation "org.springframework.cloud:spring-cloud-context"
+  implementation "org.springframework.cloud:spring-cloud-config-server"
 
   testImplementation "org.assertj:assertj-core"
   testImplementation "org.junit.jupiter:junit-jupiter-api"
@@ -77,4 +96,37 @@ dependencies {
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+
+
+  integrationImplementation project(":clouddriver-web")
+  integrationImplementation "org.springframework.boot:spring-boot-starter-test"
+  integrationImplementation "org.testcontainers:testcontainers"
+  integrationImplementation "org.testcontainers:mysql"
+  integrationImplementation "org.testcontainers:junit-jupiter"
+  integrationImplementation "mysql:mysql-connector-java"
+  integrationImplementation ("io.rest-assured:rest-assured:4.0.0") {
+    // Exclude groovy pulled in by rest-assured, so we use kork's version
+    exclude group: "org.codehaus.groovy", module: "groovy"
+  }
+  integrationImplementation "org.yaml:snakeyaml"
+}
+
+task integrationTest(type: Test) {
+  description = 'Runs kubernetes provider integration tests.'
+  group = 'verification'
+
+  environment "PROJECT_ROOT", project.rootDir.toString()
+  useJUnitPlatform()
+
+  testClassesDirs = sourceSets.integration.output.classesDirs
+  classpath = sourceSets.integration.runtimeClasspath
+  shouldRunAfter test
+
+  testlogger {
+    theme 'standard'
+    showStandardStreams true
+    showPassedStandardStreams false
+    showFailedStandardStreams true
+    showPassed false
+  }
 }
