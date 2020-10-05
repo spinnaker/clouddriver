@@ -74,11 +74,11 @@ final class OracleArtifactCredentials implements ArtifactCredentials {
     String fullPath = reference.substring(slash + 1);
     String path = fullPath;
     UriBuilder uriBuilder = UriBuilder.fromPath(ARTIFACT_URI);
-    int pound = fullPath.indexOf("#");
-    if (pound > 0) {
-      path = fullPath.substring(0, pound);
+    int versionIndex = fullPath.indexOf("#");
+    if (versionIndex > 0) {
+      path = fullPath.substring(0, versionIndex);
       uriBuilder =
-          uriBuilder.queryParam(ARTIFACT_VERSION_QUERY_PARAM, fullPath.substring(pound + 1));
+          uriBuilder.queryParam(ARTIFACT_VERSION_QUERY_PARAM, fullPath.substring(versionIndex + 1));
     }
 
     URI uri = uriBuilder.build(region, namespace, bucketName, path);
