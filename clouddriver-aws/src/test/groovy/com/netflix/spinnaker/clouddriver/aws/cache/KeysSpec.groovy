@@ -32,4 +32,30 @@ class KeysSpec extends Specification {
     key                                                                                                         | namespace
     "aws:securityGroups:appname:appname-stack-detail:test:us-west-1:appname-stack-detail-v000:stack:detail:000" | Keys.Namespace.SECURITY_GROUPS
   }
+
+  @Unroll
+  def 'decode escaped security group name'() {
+
+    expect:
+    Keys.parse(key)
+
+    where:
+
+    key                                                                              || name
+    "aws:securityGroups:app-stack-detail:sg-12345:us-west-2:0123456789:vpc-1234"     || 'appname-stack-detail'
+    "aws:securityGroups:app%3Astack%25detail:sg-12345:us-west-2:0123456789:vpc-1234" || 'appname:stack%detail'
+  }
+
+  @Unroll
+  def 'encode security group name'() {
+
+    expect:
+    key == Keys.getSecurityGroupKey(securityGroupName, securityGroupId, region, account, vpcId)
+
+    where:
+
+    securityGroupName  | securityGroupId | region      | account      | vpcId      || key
+    "app-stack-detail" | "sg-12345"      | "us-west-2" | "0123456789" | "vpc-1234" || "aws:securityGroups:app-stack-detail:sg-12345:us-west-2:0123456789:vpc-1234"
+    "app:stack%detail" | "sg-12345"      | "us-west-2" | "0123456789" | "vpc-1234" || "aws:securityGroups:app%3Astack%25detail:sg-12345:us-west-2:0123456789:vpc-1234"
+  }
 }

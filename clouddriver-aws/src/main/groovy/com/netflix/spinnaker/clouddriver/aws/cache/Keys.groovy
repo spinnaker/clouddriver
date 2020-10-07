@@ -88,8 +88,9 @@ class Keys implements KeyParser {
 
     switch (result.type) {
       case Namespace.SECURITY_GROUPS.ns:
-        def names = Names.parseName(parts[2])
-        result << [application: names.app, name: parts[2], id: parts[3], region: parts[4], account: parts[5], vpcId: parts[6] == "null" ? null : parts[6]]
+        def name = decode(parts[2])
+        def frigga = Names.parseName(name)
+        result << [application: frigga.app, name: name, id: parts[3], region: parts[4], account: parts[5], vpcId: parts[6] == "null" ? null : parts[6]]
         break
       case Namespace.VPCS.ns:
         result << [id: parts[2], account: parts[3], region: parts[4]]
@@ -120,12 +121,21 @@ class Keys implements KeyParser {
     result
   }
 
+  static String encode(String value) {
+    return value.replace([':' : '%3A', '%' : '%25'])
+  }
+
+  static String decode(String value) {
+    return value.replace(['%3A' : ':', '%25' : '%'])
+  }
+
   static String getSecurityGroupKey(String securityGroupName,
                                     String securityGroupId,
                                     String region,
                                     String account,
                                     String vpcId) {
-    "$ID:${Namespace.SECURITY_GROUPS}:${securityGroupName}:${securityGroupId}:${region}:${account}:${vpcId}"
+    // Security group name can contain `:` so we encode it here
+    "$ID:${Namespace.SECURITY_GROUPS}:${encode(securityGroupName)}:${securityGroupId}:${region}:${account}:${vpcId}"
   }
 
   static String getSubnetKey(String subnetId,
