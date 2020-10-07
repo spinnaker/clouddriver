@@ -29,8 +29,6 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
 
   private final String sessionName;
 
-  private final String externalId;
-
   public NetflixAssumeRoleAmazonCredentials(
       @JsonProperty("name") String name,
       @JsonProperty("environment") String environment,
@@ -55,8 +53,7 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
       @JsonProperty("shieldEnabled") Boolean shieldEnabled,
       @JsonProperty("assumeRole") String assumeRole,
       @JsonProperty("sessionName") String sessionName,
-      @JsonProperty("lambdaEnabled") Boolean lambdaEnabled,
-      @JsonProperty("externalId") String externalId) {
+      @JsonProperty("lambdaEnabled") Boolean lambdaEnabled) {
 
     this(
         name,
@@ -83,8 +80,7 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
         shieldEnabled,
         assumeRole,
         sessionName,
-        lambdaEnabled,
-        externalId);
+        lambdaEnabled);
   }
 
   public NetflixAssumeRoleAmazonCredentials(
@@ -114,8 +110,7 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
         copy.getShieldEnabled(),
         copy.getAssumeRole(),
         copy.getSessionName(),
-        copy.getLambdaEnabled(),
-        copy.getExternalId());
+        copy.getLambdaEnabled());
   }
 
   NetflixAssumeRoleAmazonCredentials(
@@ -143,8 +138,7 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
       Boolean shieldEnabled,
       String assumeRole,
       String sessionName,
-      Boolean lambdaEnabled,
-      String externalId) {
+      Boolean lambdaEnabled) {
     super(
         name,
         environment,
@@ -162,8 +156,7 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
             credentialsProvider,
             accountId,
             assumeRole,
-            sessionName == null ? AssumeRoleAmazonCredentials.DEFAULT_SESSION_NAME : sessionName,
-            externalId),
+            sessionName == null ? AssumeRoleAmazonCredentials.DEFAULT_SESSION_NAME : sessionName),
         edda,
         eddaEnabled,
         discovery,
@@ -177,7 +170,6 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
     this.assumeRole = assumeRole;
     this.sessionName =
         sessionName == null ? AssumeRoleAmazonCredentials.DEFAULT_SESSION_NAME : sessionName;
-    this.externalId = externalId;
   }
 
   public String getAssumeRole() {
@@ -186,9 +178,5 @@ public class NetflixAssumeRoleAmazonCredentials extends NetflixAmazonCredentials
 
   public String getSessionName() {
     return sessionName;
-  }
-
-  public String getExternalId() {
-    return externalId;
   }
 }

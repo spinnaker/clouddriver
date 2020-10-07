@@ -152,7 +152,6 @@ public class CredentialsConfig {
     private Boolean bastionEnabled;
     private String assumeRole;
     private String sessionName;
-    private String externalId;
     private List<LifecycleHook> lifecycleHooks;
     private boolean allowPrivateThirdPartyImages;
 
@@ -314,14 +313,6 @@ public class CredentialsConfig {
 
     public void setSessionName(String sessionName) {
       this.sessionName = sessionName;
-    }
-
-    public String getExternalId() {
-      return externalId;
-    }
-
-    public void setExternalId(String externalId) {
-      this.externalId = externalId;
     }
 
     public List<LifecycleHook> getLifecycleHooks() {

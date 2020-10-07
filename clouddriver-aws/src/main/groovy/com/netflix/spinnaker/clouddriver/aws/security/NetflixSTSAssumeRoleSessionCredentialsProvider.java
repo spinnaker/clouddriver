@@ -17,63 +17,33 @@
 package com.netflix.spinnaker.clouddriver.aws.security;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSSessionCredentials;
-import com.amazonaws.auth.AWSSessionCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClient;
-import java.io.Closeable;
 
 public class NetflixSTSAssumeRoleSessionCredentialsProvider
-    implements AWSSessionCredentialsProvider, Closeable {
-
+    extends STSAssumeRoleSessionCredentialsProvider {
   private final String accountId;
-  private final STSAssumeRoleSessionCredentialsProvider delegate;
 
   public NetflixSTSAssumeRoleSessionCredentialsProvider(
       AWSCredentialsProvider longLivedCredentialsProvider,
       String roleArn,
       String roleSessionName,
-      String accountId,
-      String externalId) {
+      String accountId) {
+    super(longLivedCredentialsProvider, roleArn, roleSessionName);
     this.accountId = accountId;
-
-    delegate =
-        new STSAssumeRoleSessionCredentialsProvider.Builder(roleArn, roleSessionName)
-            .withExternalId(externalId)
-            .withStsClient(
-                AWSSecurityTokenServiceClient.builder()
-                    .withCredentials(longLivedCredentialsProvider)
-                    .build())
-            .build();
 
     /**
      * Need to explicitly set sts region if GovCloud or China as per
      * https://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/STSAssumeRoleSessionCredentialsProvider.html
      */
     if (roleArn.contains("aws-us-gov")) {
-      delegate.setSTSClientEndpoint("sts.us-gov-west-1.amazonaws.com");
+      setSTSClientEndpoint("sts.us-gov-west-1.amazonaws.com");
     }
     if (roleArn.contains("aws-cn")) {
-      delegate.setSTSClientEndpoint("sts.cn-north-1.amazonaws.com.cn");
+      setSTSClientEndpoint("sts.cn-north-1.amazonaws.com.cn");
     }
   }
 
   public String getAccountId() {
     return accountId;
-  }
-
-  @Override
-  public AWSSessionCredentials getCredentials() {
-    return delegate.getCredentials();
-  }
-
-  @Override
-  public void refresh() {
-    delegate.refresh();
-  }
-
-  @Override
-  public void close() {
-    delegate.close();
   }
 }
