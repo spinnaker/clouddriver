@@ -35,27 +35,38 @@ class KeysSpec extends Specification {
 
   @Unroll
   def 'decode escaped security group name'() {
+    given:
+    def parsedKey = Keys.parse(key)
 
     expect:
-    Keys.parse(key)
+    with (parsedKey) {
+      name == expectedName
+      application == expectedApp
+    }
 
     where:
 
-    key                                                                              || name
-    "aws:securityGroups:app-stack-detail:sg-12345:us-west-2:0123456789:vpc-1234"     || 'appname-stack-detail'
-    "aws:securityGroups:app%3Astack%25detail:sg-12345:us-west-2:0123456789:vpc-1234" || 'appname:stack%detail'
+    key                                                                              || expectedName       | expectedApp
+    "aws:securityGroups:app-stack-detail:sg-12345:us-west-2:0123456789:vpc-1234"     || 'app-stack-detail' | 'app'
+    "aws:securityGroups:app%3Astack%25detail:sg-12345:us-west-2:0123456789:vpc-1234" || 'app:stack%detail' | null
+    "aws:securityGroups:app%3Astack%3Adetail:sg-12345:us-west-2:0123456789:vpc-1234" || 'app:stack:detail' | null
+    "aws:securityGroups:app%25stack%25detail:sg-12345:us-west-2:0123456789:vpc-1234" || 'app%stack%detail' | null
+    "aws:securityGroups:app%25stack%3Adetail:sg-12345:us-west-2:0123456789:vpc-1234" || 'app%stack:detail' | null
   }
 
   @Unroll
   def 'encode security group name'() {
 
     expect:
-    key == Keys.getSecurityGroupKey(securityGroupName, securityGroupId, region, account, vpcId)
+    Keys.getSecurityGroupKey(securityGroupName, securityGroupId, region, account, vpcId) == key
 
     where:
 
     securityGroupName  | securityGroupId | region      | account      | vpcId      || key
     "app-stack-detail" | "sg-12345"      | "us-west-2" | "0123456789" | "vpc-1234" || "aws:securityGroups:app-stack-detail:sg-12345:us-west-2:0123456789:vpc-1234"
     "app:stack%detail" | "sg-12345"      | "us-west-2" | "0123456789" | "vpc-1234" || "aws:securityGroups:app%3Astack%25detail:sg-12345:us-west-2:0123456789:vpc-1234"
+    "app:stack:detail" | "sg-12345"      | "us-west-2" | "0123456789" | "vpc-1234" || "aws:securityGroups:app%3Astack%3Adetail:sg-12345:us-west-2:0123456789:vpc-1234"
+    "app%stack%detail" | "sg-12345"      | "us-west-2" | "0123456789" | "vpc-1234" || "aws:securityGroups:app%25stack%25detail:sg-12345:us-west-2:0123456789:vpc-1234"
+    "app%stack:detail" | "sg-12345"      | "us-west-2" | "0123456789" | "vpc-1234" || "aws:securityGroups:app%25stack%3Adetail:sg-12345:us-west-2:0123456789:vpc-1234"
   }
 }
