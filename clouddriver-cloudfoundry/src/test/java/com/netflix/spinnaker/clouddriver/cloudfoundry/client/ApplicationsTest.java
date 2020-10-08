@@ -46,7 +46,8 @@ class ApplicationsTest {
   private ApplicationService applicationService = mock(ApplicationService.class);
   private Spaces spaces = mock(Spaces.class);
   private Applications apps =
-      new Applications("pws", "some-apps-man-uri", "some-metrics-uri", applicationService, spaces);
+      new Applications(
+          "pws", "some-apps-man-uri", "some-metrics-uri", applicationService, spaces, 500, 16);
   private String spaceId = "space-guid";
   private CloudFoundrySpace cloudFoundrySpace =
       CloudFoundrySpace.builder()
@@ -65,7 +66,9 @@ class ApplicationsTest {
             "api.run.pivotal.io",
             "baduser",
             "badpassword",
-            false);
+            false,
+            500,
+            16);
 
     assertThatThrownBy(() -> client.getApplications().all())
         .isInstanceOf(CloudFoundryApiException.class);
@@ -97,6 +100,7 @@ class ApplicationsTest {
     Application application =
         new Application()
             .setCreatedAt(ZonedDateTime.now())
+            .setUpdatedAt(ZonedDateTime.now())
             .setGuid(serverGroupId)
             .setName(serverGroupName)
             .setState("STARTED")
@@ -321,6 +325,7 @@ class ApplicationsTest {
     Application application =
         new Application()
             .setCreatedAt(ZonedDateTime.now())
+            .setUpdatedAt(ZonedDateTime.now())
             .setGuid(expectedServerGroupId)
             .setName("app")
             .setState("STARTED")
@@ -331,7 +336,7 @@ class ApplicationsTest {
         new Pagination<Application>()
             .setPagination(new Pagination.Details().setTotalPages(1))
             .setResources(Collections.singletonList(application));
-    when(applicationService.all(any(), any(), any())).thenReturn(applicationPagination);
+    when(applicationService.all(any(), any(), any(), any())).thenReturn(applicationPagination);
     mockMap(cloudFoundrySpace, "droplet-id");
 
     String serverGroupId = apps.findServerGroupId(serverGroupName, spaceId);
@@ -346,6 +351,7 @@ class ApplicationsTest {
     Application application =
         new Application()
             .setCreatedAt(ZonedDateTime.now())
+            .setUpdatedAt(ZonedDateTime.now())
             .setGuid(serverGroupId)
             .setName(serverGroupName)
             .setState("STARTED")
@@ -364,7 +370,7 @@ class ApplicationsTest {
         .setName("service-instance");
     String dropletId = "droplet-guid";
 
-    when(applicationService.all(any(), any(), any())).thenReturn(applicationPagination);
+    when(applicationService.all(any(), any(), any(), any())).thenReturn(applicationPagination);
     mockMap(cloudFoundrySpace, dropletId);
 
     CloudFoundryDroplet expectedDroplet = CloudFoundryDroplet.builder().id(dropletId).build();
@@ -379,6 +385,7 @@ class ApplicationsTest {
             .instances(Collections.emptySet())
             .serviceInstances(Collections.emptyList())
             .createdTime(application.getCreatedAt().toInstant().toEpochMilli())
+            .updatedTime(application.getUpdatedAt().toInstant().toEpochMilli())
             .memory(0)
             .diskQuota(0)
             .name(serverGroupName)

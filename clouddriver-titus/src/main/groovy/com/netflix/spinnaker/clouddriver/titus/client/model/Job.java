@@ -38,6 +38,7 @@ public class Job {
   private String user;
   private String version;
   private String entryPoint;
+  private String cmd;
   private String iamProfile;
   private String capacityGroup;
   private Boolean inService;
@@ -72,6 +73,8 @@ public class Job {
   private ServiceJobProcesses serviceJobProcesses;
 
   private SubmitJobRequest.Constraints constraints;
+
+  private List<SignedAddressAllocations> signedAddressAllocations = new ArrayList<>();
 
   public Job() {}
 
@@ -131,6 +134,9 @@ public class Job {
     entryPoint =
         grpcJob.getJobDescriptor().getContainer().getEntryPointList().stream()
             .collect(Collectors.joining(" "));
+    cmd =
+        grpcJob.getJobDescriptor().getContainer().getCommandList().stream()
+            .collect(Collectors.joining(" "));
     capacityGroup = grpcJob.getJobDescriptor().getCapacityGroup();
     cpu = (int) grpcJob.getJobDescriptor().getContainer().getResources().getCpu();
     memory = grpcJob.getJobDescriptor().getContainer().getResources().getMemoryMB();
@@ -142,7 +148,11 @@ public class Job {
     jobGroupDetail = grpcJob.getJobDescriptor().getJobGroupInfo().getDetail();
     environment = grpcJob.getJobDescriptor().getContainer().getEnvMap();
     securityGroups =
-        grpcJob.getJobDescriptor().getContainer().getSecurityProfile().getSecurityGroupsList()
+        grpcJob
+            .getJobDescriptor()
+            .getContainer()
+            .getSecurityProfile()
+            .getSecurityGroupsList()
             .stream()
             .collect(Collectors.toList());
     iamProfile = grpcJob.getJobDescriptor().getContainer().getSecurityProfile().getIamRole();
@@ -205,6 +215,19 @@ public class Job {
               .getServiceJobProcesses()
               .getDisableIncreaseDesired());
     }
+    addSignedAllocationList(grpcJob);
+  }
+
+  // Add SignedAddressAllocationsList from grpc to Job.signedAddressAllocations
+  private void addSignedAllocationList(com.netflix.titus.grpc.protogen.Job grpcJob) {
+    grpcJob
+        .getJobDescriptor()
+        .getContainer()
+        .getResources()
+        .getSignedAddressAllocationsList()
+        .stream()
+        .map(this::addSignedAddressAllocations)
+        .forEach(signedAddressAllocation -> signedAddressAllocations.add(signedAddressAllocation));
   }
 
   private void addDisruptionBudget(com.netflix.titus.grpc.protogen.Job grpcJob) {
@@ -269,6 +292,40 @@ public class Job {
     }
   }
 
+  // Construct the titus internal model SignedAddressAllocations
+  private SignedAddressAllocations addSignedAddressAllocations(
+      SignedAddressAllocation signedAddressAllocation) {
+    SignedAddressAllocations grpcSignedAddressAllocations = new SignedAddressAllocations();
+
+    SignedAddressAllocations.AddressLocation grpcAddressLocation =
+        new SignedAddressAllocations.AddressLocation();
+    grpcAddressLocation.setAvailabilityZone(
+        signedAddressAllocation.getAddressAllocation().getAddressLocation().getAvailabilityZone());
+    grpcAddressLocation.setRegion(
+        signedAddressAllocation.getAddressAllocation().getAddressLocation().getRegion());
+    grpcAddressLocation.setSubnetId(
+        signedAddressAllocation.getAddressAllocation().getAddressLocation().getSubnetId());
+
+    SignedAddressAllocations.AddressAllocation grpcAddressAllocation =
+        new SignedAddressAllocations.AddressAllocation();
+    grpcAddressAllocation.setAddress(signedAddressAllocation.getAddressAllocation().getAddress());
+    grpcAddressAllocation.setUuid(signedAddressAllocation.getAddressAllocation().getUuid());
+    grpcAddressAllocation.setAddressLocation(grpcAddressLocation);
+
+    grpcSignedAddressAllocations.setAddressAllocation(grpcAddressAllocation);
+    grpcSignedAddressAllocations.setAuthoritativePublicKey(
+        signedAddressAllocation.getAuthoritativePublicKey().toStringUtf8());
+    grpcSignedAddressAllocations.setHostPublicKey(
+        signedAddressAllocation.getHostPublicKey().toStringUtf8());
+    grpcSignedAddressAllocations.setHostPublicKeySignature(
+        signedAddressAllocation.getHostPublicKeySignature().toStringUtf8());
+    grpcSignedAddressAllocations.setMessage(signedAddressAllocation.getMessage().toStringUtf8());
+    grpcSignedAddressAllocations.setMessageSignature(
+        signedAddressAllocation.getMessageSignature().toStringUtf8());
+
+    return grpcSignedAddressAllocations;
+  }
+
   public String getId() {
     return id;
   }
@@ -315,6 +372,14 @@ public class Job {
 
   public void setEntryPoint(String entryPoint) {
     this.entryPoint = entryPoint;
+  }
+
+  public String getCmd() {
+    return cmd;
+  }
+
+  public void setCmd(String cmd) {
+    this.cmd = cmd;
   }
 
   public int getInstances() {
@@ -551,6 +616,14 @@ public class Job {
 
   public MigrationPolicy getMigrationPolicy() {
     return migrationPolicy;
+  }
+
+  public List<SignedAddressAllocations> getSignedAddressAllocations() {
+    return signedAddressAllocations;
+  }
+
+  public void setSignedAddressAllocations(List<SignedAddressAllocations> signedAddressAllocations) {
+    this.signedAddressAllocations = signedAddressAllocations;
   }
 
   public void setMigrationPolicy(MigrationPolicy migrationPolicy) {

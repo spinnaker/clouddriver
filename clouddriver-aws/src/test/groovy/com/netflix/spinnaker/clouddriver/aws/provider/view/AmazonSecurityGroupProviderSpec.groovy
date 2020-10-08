@@ -47,17 +47,17 @@ class AmazonSecurityGroupProviderSpec extends Specification {
   WriteableCache cache = new InMemoryCache()
   ObjectMapper mapper = new ObjectMapper()
 
-  final credential1 = Stub(NetflixAmazonCredentials) {
+  def credential1 = Stub(NetflixAmazonCredentials) {
     getName() >> "accountName1"
     getAccountId() >> "accountId1"
   }
 
-  final credential2 = Stub(NetflixAmazonCredentials) {
+  def credential2 = Stub(NetflixAmazonCredentials) {
     getName() >> "accountName2"
     getAccountId() >> "accountId2"
   }
 
-  final accountCredentialsProvider = new AccountCredentialsProvider() {
+  def accountCredentialsProvider = new AccountCredentialsProvider() {
 
     @Override
     Set<? extends AccountCredentials> getAll() {
@@ -162,6 +162,23 @@ class AmazonSecurityGroupProviderSpec extends Specification {
 
   }
 
+  void "getById returns match based on account, region, and id"() {
+
+    when:
+    def result = provider.getById(account, region, id, null)
+
+    then:
+    result != null
+    result.accountName == account
+    result.region == region
+    result.id == id
+
+    where:
+    account = 'prod'
+    region = 'us-east-1'
+    id = 'a'
+  }
+
   void "should add both ipRangeRules and securityGroup rules"() {
     given:
     String groupId = 'id-a'
@@ -257,7 +274,8 @@ class AmazonSecurityGroupProviderSpec extends Specification {
           new Rule.PortRange(startPort: 7001, endPort: 7001)
         ] as SortedSet
       )
-    ])
+    ],
+      tags: [])
     0 * _
   }
 

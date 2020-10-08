@@ -25,6 +25,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.Getter;
 import org.springframework.stereotype.Component;
 
@@ -73,7 +75,15 @@ public class Keys implements KeyParser {
   }
 
   public static String getApplicationKey(String app) {
-    return ID + ":" + Namespace.APPLICATIONS + ":" + app;
+    return ID + ":" + Namespace.APPLICATIONS + ":" + app.toLowerCase();
+  }
+
+  public static String getSpaceKey(String account, String region) {
+    return ID + ":" + Namespace.SPACES + ":" + account + ":" + region;
+  }
+
+  public static String getAllSpacesKey(String account) {
+    return ID + ":" + Namespace.SPACES + ":" + account + ":*";
   }
 
   public static String getAllLoadBalancers() {
@@ -100,12 +110,61 @@ public class Keys implements KeyParser {
         + lb.getRegion();
   }
 
+  public static String getLoadBalancerKey(String account, String guid) {
+    return ID + ":" + Namespace.LOAD_BALANCERS + ":" + account + ":" + guid + ":*";
+  }
+
+  public static String getLoadBalancerKey(String account, String uri, String region) {
+    Pattern VALID_ROUTE_REGEX =
+        Pattern.compile("^([a-zA-Z0-9_-]+)\\.([a-zA-Z0-9_.-]+)(:[0-9]+)?([/a-zA-Z0-9_-]+)?$");
+    Matcher matcher = VALID_ROUTE_REGEX.matcher(uri);
+    if (matcher.find()) {
+      String host = Optional.ofNullable(matcher.group(1)).orElse("*");
+      String domain = Optional.ofNullable(matcher.group(2)).orElse("*");
+      String port = Optional.ofNullable(matcher.group(3)).orElse("-1");
+      String path = Optional.ofNullable(matcher.group(4)).orElse("");
+      return ID
+          + ":"
+          + Namespace.LOAD_BALANCERS
+          + ":"
+          + account
+          + ":*:"
+          + host
+          + ":"
+          + domain
+          + ":"
+          + path
+          + ":"
+          + port
+          + ":"
+          + region;
+    } else {
+      return null;
+    }
+  }
+
   public static String getClusterKey(String account, String app, String name) {
-    return ID + ":" + Namespace.CLUSTERS + ":" + account + ":" + app + ":" + name;
+    return ID
+        + ":"
+        + Namespace.CLUSTERS
+        + ":"
+        + account
+        + ":"
+        + app.toLowerCase()
+        + ":"
+        + name.toLowerCase();
   }
 
   public static String getServerGroupKey(String account, String name, String region) {
-    return ID + ":" + Namespace.SERVER_GROUPS + ":" + account + ":" + name + ":" + region;
+    return ID
+        + ":"
+        + Namespace.SERVER_GROUPS
+        + ":"
+        + account
+        + ":"
+        + name.toLowerCase()
+        + ":"
+        + region;
   }
 
   public static String getInstanceKey(String account, String instanceName) {
@@ -140,7 +199,8 @@ public class Keys implements KeyParser {
     INSTANCES("instances"),
     LOAD_BALANCERS("loadBalancers"),
     ON_DEMAND("onDemand"),
-    SERVER_GROUPS("serverGroups");
+    SERVER_GROUPS("serverGroups"),
+    SPACES("spaces");
 
     final String ns;
 

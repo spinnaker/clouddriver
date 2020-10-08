@@ -24,13 +24,13 @@ public class TitusRegion {
   private final String name;
   private final String account;
   private final String endpoint;
-  private final Boolean autoscalingEnabled;
-  private final Boolean loadBalancingEnabled;
   private final List<TitusFaultDomain> faultDomains;
   private final String applicationName;
   private final String url;
   private final int port;
   private final List<String> featureFlags;
+  private final String eurekaName;
+  private final String eurekaRegion;
 
   private <T> T notNull(T val, String name) {
     if (val == null) {
@@ -43,18 +43,16 @@ public class TitusRegion {
       String name,
       String account,
       String endpoint,
-      Boolean autoscalingEnabled,
-      Boolean loadBalancingEnabled,
       List<TitusFaultDomain> faultDomains,
       String applicationName,
       String url,
       Integer port,
-      List<String> featureFlags) {
+      List<String> featureFlags,
+      String eurekaName,
+      String eurekaRegion) {
     this.name = notNull(name, "name");
     this.account = notNull(account, "account");
     this.endpoint = EndpointValidator.validateEndpoint(endpoint);
-    this.autoscalingEnabled = autoscalingEnabled;
-    this.loadBalancingEnabled = loadBalancingEnabled;
     this.faultDomains =
         faultDomains == null ? Collections.emptyList() : Collections.unmodifiableList(faultDomains);
     this.applicationName = applicationName;
@@ -69,29 +67,31 @@ public class TitusRegion {
     } else {
       this.featureFlags = featureFlags;
     }
+    this.eurekaRegion = eurekaRegion;
+    this.eurekaName = eurekaName;
   }
 
   public TitusRegion(
       String name,
       String account,
       String endpoint,
-      Boolean autoscalingEnabled,
-      Boolean loadBalancingEnabled,
       String applicationName,
       String url,
       Integer port,
-      List<String> featureFlags) {
+      List<String> featureFlags,
+      String eurekaName,
+      String eurekaRegion) {
     this(
         name,
         account,
         endpoint,
-        autoscalingEnabled,
-        loadBalancingEnabled,
         Collections.emptyList(),
         applicationName,
         url,
         port,
-        featureFlags);
+        featureFlags,
+        eurekaName,
+        eurekaRegion);
   }
 
   public String getAccount() {
@@ -104,14 +104,6 @@ public class TitusRegion {
 
   public String getEndpoint() {
     return endpoint;
-  }
-
-  public Boolean isAutoscalingEnabled() {
-    return autoscalingEnabled;
-  }
-
-  public Boolean isLoadBalancingEnabled() {
-    return loadBalancingEnabled;
   }
 
   public List<TitusFaultDomain> getFaultDomains() {
@@ -132,6 +124,14 @@ public class TitusRegion {
 
   public List<String> getFeatureFlags() {
     return featureFlags;
+  }
+
+  public String getEurekaName() {
+    return eurekaName;
+  }
+
+  public String getEurekaRegion() {
+    return eurekaRegion;
   }
 
   @Override

@@ -72,9 +72,7 @@ class CredentialsController {
                                'cloudProvider',
                                'requiredGroupMembership',
                                'permissions',
-                               'providerVersion',
-                               'accountId',
-                               'skin'])
+                               'accountId'])
     }
 
     cred.type = accountCredentials.cloudProvider

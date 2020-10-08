@@ -23,11 +23,14 @@ import com.amazonaws.services.autoscaling.model.CreateAutoScalingGroupRequest
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
 import com.amazonaws.services.autoscaling.model.EnableMetricsCollectionRequest
+import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification
 import com.amazonaws.services.autoscaling.model.SuspendProcessesRequest
 import com.amazonaws.services.autoscaling.model.Tag
 import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest
 import com.amazonaws.services.ec2.model.DescribeSubnetsResult
+import com.amazonaws.services.ec2.model.LaunchTemplate
 import com.amazonaws.services.ec2.model.Subnet
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonAsgLifecycleHook
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.clouddriver.aws.model.AutoScalingProcessType
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetData
@@ -37,12 +40,15 @@ import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactor
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.kork.core.RetrySupport
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import groovy.util.logging.Slf4j
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.function.Supplier
+import java.util.regex.Pattern
 
 /**
  * A worker class dedicated to the deployment of "applications", following many of Netflix's common AWS conventions.
@@ -95,11 +101,19 @@ class AutoScalingWorker {
   private List<String> availabilityZones
   private List<AmazonBlockDevice> blockDevices
   private Map<String, String> tags
+  private List<AmazonAsgLifecycleHook> lifecycleHooks
+
+  /** Launch Templates properties **/
+  private Boolean setLaunchTemplate
+  private Boolean requireIMDSv2
+  private Boolean associateIPv6Address
 
   private int minInstances
   private int maxInstances
   private int desiredInstances
 
+  private DeployDefaults deployDefaults
+  private DynamicConfigService dynamicConfigService
   private RegionScopedProviderFactory.RegionScopedProvider regionScopedProvider
 
   AutoScalingWorker() {
@@ -158,11 +172,28 @@ class AutoScalingWorker {
       blockDevices: blockDevices,
       securityGroups: securityGroups)
 
-    String launchConfigName = regionScopedProvider.getLaunchConfigurationBuilder().buildLaunchConfiguration(application, subnetType, settings, legacyUdf)
+    LaunchTemplateSpecification launchTemplateSpecification = null
+    String launchConfigName = null
+    if (shouldSetLaunchTemplate()) {
+      settings = DefaultLaunchConfigurationBuilder.setAppSecurityGroup(
+        application,
+        subnetType,
+        regionScopedProvider.getDeploymentDefaults(),
+        regionScopedProvider.securityGroupService,
+        settings
+      )
+
+      final LaunchTemplate launchTemplate = regionScopedProvider
+        .getLaunchTemplateService()
+        .createLaunchTemplate(settings, DefaultLaunchConfigurationBuilder.createName(settings), requireIMDSv2, associateIPv6Address)
+      launchTemplateSpecification = new LaunchTemplateSpecification(
+        launchTemplateId: launchTemplate.launchTemplateId, version: launchTemplate.latestVersionNumber)
+    } else {
+      launchConfigName = regionScopedProvider.getLaunchConfigurationBuilder().buildLaunchConfiguration(application, subnetType, settings, legacyUdf)
+    }
 
     task.updateStatus AWS_PHASE, "Deploying ASG: $asgName"
-
-    createAutoScalingGroup(asgName, launchConfigName)
+    createAutoScalingGroup(asgName, launchConfigName, launchTemplateSpecification)
   }
 
   /**
@@ -213,12 +244,12 @@ class AutoScalingWorker {
    *
    * @param asgName
    * @param launchConfigurationName
+   * @param launchTemplateSpecification when defined, the server group is created with the provided launch template specification
    * @return
    */
-  String createAutoScalingGroup(String asgName, String launchConfigurationName) {
+  String createAutoScalingGroup(String asgName, String launchConfigurationName, LaunchTemplateSpecification launchTemplateSpecification = null) {
     CreateAutoScalingGroupRequest request = new CreateAutoScalingGroupRequest()
       .withAutoScalingGroupName(asgName)
-      .withLaunchConfigurationName(launchConfigurationName)
       .withMinSize(0)
       .withMaxSize(0)
       .withDesiredCapacity(0)
@@ -228,6 +259,12 @@ class AutoScalingWorker {
       .withHealthCheckGracePeriod(healthCheckGracePeriod)
       .withHealthCheckType(healthCheckType)
       .withTerminationPolicies(terminationPolicies)
+
+    if (launchTemplateSpecification != null) {
+      request.withLaunchTemplate(launchTemplateSpecification)
+    } else {
+      request.withLaunchConfigurationName(launchConfigurationName)
+    }
 
     tags?.each { key, value ->
       request.withTags(new Tag()
@@ -267,11 +304,23 @@ class AutoScalingWorker {
       throw ex
     }
 
+    if (lifecycleHooks != null && !lifecycleHooks.isEmpty()) {
+      Exception e = retrySupport.retry({ ->
+        task.updateStatus AWS_PHASE, "Creating lifecycle hooks for: $asgName"
+        regionScopedProvider.asgLifecycleHookWorker.attach(task, lifecycleHooks, asgName)
+      }, 10, 1000, false)
+
+      if (e != null) {
+        task.updateStatus AWS_PHASE, "Unable to attach lifecycle hooks to ASG ($asgName): ${e.message}"
+      }
+    }
+
     if (suspendedProcesses) {
       retrySupport.retry({ ->
         autoScaling.suspendProcesses(new SuspendProcessesRequest(autoScalingGroupName: asgName, scalingProcesses: suspendedProcesses))
       }, 10, 1000, false)
     }
+
     if (enabledMetrics && instanceMonitoring) {
       task.updateStatus AWS_PHASE, "Enabling metrics collection for: $asgName"
       retrySupport.retry({ ->
@@ -312,6 +361,7 @@ class AutoScalingWorker {
 
     Set<String> failedPredicates = [
       "launch configuration": { return existingAsg.launchConfigurationName == request.launchConfigurationName },
+      "launch template": { return existingAsg.launchTemplate == request.launchTemplate },
       "availability zones": { return existingAsg.availabilityZones.sort() == request.availabilityZones.sort() },
       "subnets": { return existingAsg.getVPCZoneIdentifier()?.split(",")?.sort()?.toList() == request.getVPCZoneIdentifier()?.split(",")?.sort()?.toList() },
       "load balancers": { return existingAsg.loadBalancerNames.sort() == request.loadBalancerNames.sort() },
@@ -332,5 +382,82 @@ class AutoScalingWorker {
     }
 
     return true
+  }
+
+  /**
+   * This is used to gradually roll out launch template.
+   */
+  private boolean shouldSetLaunchTemplate() {
+    // Request level flag that forces launch configurations.
+    if (!setLaunchTemplate) {
+      return false
+    }
+
+    // Property flag to turn off launch template feature. Caching agent might require bouncing the java process
+    if (!dynamicConfigService.isEnabled("aws.features.launch-templates", false)) {
+      log.debug("Launch Template feature disabled via configuration.")
+      return false
+    }
+
+    // This is a comma separated list of applications to exclude
+    String excludedApps = dynamicConfigService
+      .getConfig(String.class, "aws.features.launch-templates.excluded-applications", "")
+    if (matchesAppAccountAndRegion(application, credentials.name, region, excludedApps.split(","))) {
+      return false
+    }
+
+    // Application allow list with the following format:
+    // app1:account:region1,region2,app2:account:region1
+    // This allows more control over what account and region pairs to enable for this deployment.
+    String allowedApps = dynamicConfigService
+      .getConfig(String.class, "aws.features.launch-templates.allowed-applications", "")
+    if (matchesAppAccountAndRegion(application, credentials.name, region, allowedApps.split(","))) {
+      return true
+    }
+
+    // Final check is an allow list for account/region pairs with the following format:
+    // account:region
+    String allowedAccountsAndRegions = dynamicConfigService
+      .getConfig(String.class, "aws.features.launch-templates.allowed-accounts-regions", "")
+    for (accountRegion in allowedAccountsAndRegions.split(",")) {
+      if (accountRegion && accountRegion.contains(":")) {
+        def (account, region) = accountRegion.split(":")
+        if (account.trim() == credentials.name && region.trim() == this.region) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * Helper function to parse and match an array of app:account:region1,...,regex=app:account,region
+   * to the specified application, account and region
+   * Used to flag launch template feature and rollout
+   */
+  static boolean matchesAppAccountAndRegion(
+    String application, String accountName, String region, String... applicationAccountRegions) {
+    if (!applicationAccountRegions) {
+      return false
+    }
+
+    for (appAccountRegion in applicationAccountRegions) {
+      if (appAccountRegion && appAccountRegion.contains(":")) {
+        def (app, account, regions) = appAccountRegion.split(":")
+        // To avoid an ever long list of applications, a regex can be used to specify a group of apps. ex: regex=^cas
+        String regex = null
+        if (app.startsWith("regex=")) {
+          regex = ((String) app).substring(((String) app).indexOf("=") + 1)
+        }
+
+        boolean matchedApp = (regex && Pattern.matches(regex, application) || !regex && app == application)
+        if (matchedApp && account == accountName && region in (regions as String).split(",")) {
+          return true
+        }
+      }
+    }
+
+    return false
   }
 }

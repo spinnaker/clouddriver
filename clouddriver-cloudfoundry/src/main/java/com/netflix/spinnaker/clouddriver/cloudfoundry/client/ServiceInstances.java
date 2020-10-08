@@ -199,7 +199,8 @@ public class ServiceInstances {
   Void checkServiceShareable(
       String serviceInstanceName, CloudFoundryServiceInstance serviceInstance) {
     ConfigFeatureFlag featureFlag =
-        Optional.ofNullable(configApi.getConfigFeatureFlags()).orElse(Collections.emptySet())
+        Optional.ofNullable(configApi.getConfigFeatureFlags())
+            .orElse(Collections.emptySet())
             .stream()
             .filter(it -> it.getName() == SERVICE_INSTANCE_SHARING)
             .findFirst()
@@ -397,9 +398,10 @@ public class ServiceInstances {
 
   public ServiceInstanceResponse destroyServiceInstance(
       CloudFoundrySpace space, String serviceInstanceName) {
-    CloudFoundryServiceInstance serviceInstance = getOsbServiceInstance(space, serviceInstanceName);
-    if (serviceInstance != null) {
-      String serviceInstanceId = serviceInstance.getId();
+    CloudFoundryServiceInstance managedServiceInstance =
+        getOsbServiceInstance(space, serviceInstanceName);
+    if (managedServiceInstance != null) {
+      String serviceInstanceId = managedServiceInstance.getId();
       destroyServiceInstance(
           pg -> api.getBindingsForServiceInstance(serviceInstanceId, pg, null),
           () -> api.destroyServiceInstance(serviceInstanceId));
@@ -407,18 +409,24 @@ public class ServiceInstances {
           .setServiceInstanceName(serviceInstanceName)
           .setType(DELETE)
           .setState(IN_PROGRESS);
-    } else {
-      Optional.ofNullable(getUserProvidedServiceInstance(space, serviceInstanceName))
-          .ifPresent(
-              inst ->
-                  destroyServiceInstance(
-                      pg -> api.getBindingsForUserProvidedServiceInstance(inst.getId(), pg, null),
-                      () -> api.destroyUserProvidedServiceInstance(inst.getId())));
+    }
+
+    CloudFoundryServiceInstance userProvidedServiceInstance =
+        getUserProvidedServiceInstance(space, serviceInstanceName);
+    if (userProvidedServiceInstance != null) {
+      String serviceInstanceId = userProvidedServiceInstance.getId();
+      destroyServiceInstance(
+          pg -> api.getBindingsForUserProvidedServiceInstance(serviceInstanceId, pg, null),
+          () -> api.destroyUserProvidedServiceInstance(serviceInstanceId));
       return new ServiceInstanceResponse()
           .setServiceInstanceName(serviceInstanceName)
           .setType(DELETE)
-          .setState(NOT_FOUND);
+          .setState(IN_PROGRESS);
     }
+    return new ServiceInstanceResponse()
+        .setServiceInstanceName(serviceInstanceName)
+        .setType(DELETE)
+        .setState(NOT_FOUND);
   }
 
   private void destroyServiceInstance(

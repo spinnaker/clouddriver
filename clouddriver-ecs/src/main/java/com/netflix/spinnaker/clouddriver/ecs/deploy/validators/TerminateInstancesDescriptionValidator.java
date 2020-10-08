@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.validators;
 
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors;
 import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.TerminateInstancesDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
@@ -23,20 +24,20 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
-import org.springframework.validation.Errors;
 
 @EcsOperation(AtomicOperations.TERMINATE_INSTANCES)
 @Component("ecsTerminateInstancesDescriptionValidator")
 public class TerminateInstancesDescriptionValidator extends CommonValidator {
-  public static final Pattern TASK_ID_PATTERN =
+  public static final Pattern OLD_TASK_ID_PATTERN =
       Pattern.compile("[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}");
+  public static final Pattern NEW_TASK_ID_PATTERN = Pattern.compile("[\\da-f]{32}");
 
   public TerminateInstancesDescriptionValidator() {
     super("terminateInstancesDescription");
   }
 
   @Override
-  public void validate(List priorDescriptions, Object description, Errors errors) {
+  public void validate(List priorDescriptions, Object description, ValidationErrors errors) {
     TerminateInstancesDescription typedDescription = (TerminateInstancesDescription) description;
     boolean validCredentials = validateCredentials(typedDescription, errors, "credentials");
 
@@ -50,7 +51,8 @@ public class TerminateInstancesDescriptionValidator extends CommonValidator {
           .getEcsTaskIds()
           .forEach(
               taskId -> {
-                if (!TASK_ID_PATTERN.matcher(taskId).find()) {
+                if (!OLD_TASK_ID_PATTERN.matcher(taskId).find()
+                    && !NEW_TASK_ID_PATTERN.matcher(taskId).find()) {
                   rejectValue(errors, "ecsTaskIds." + taskId, "invalid");
                 }
               });

@@ -6,12 +6,14 @@ import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.cache.WriteableCacheSpec
 import com.netflix.spinnaker.cats.sql.cache.SqlCache
 import com.netflix.spinnaker.cats.sql.cache.SqlCacheMetrics
+import com.netflix.spinnaker.config.SqlConstraints
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
 import com.zaxxer.hikari.HikariDataSource
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Unroll
@@ -85,15 +87,15 @@ class SqlCacheSpec extends WriteableCacheSpec {
     def where = ((SqlCache) cache).getRelWhere(relPrefixes, queryPrefix)
 
     then:
-    where == expected
+    where.toString() == expected
 
     where:
-    filter                                                 || queryPrefix      || expected
-    RelationshipCacheFilter.none()                         || "meowdy=partner" || "meowdy=partner"
-    null                                                   || "meowdy=partner" || "meowdy=partner"
-    RelationshipCacheFilter.include("instances", "images") || null             || "(rel_type LIKE 'instances%' OR rel_type LIKE 'images%')"
-    RelationshipCacheFilter.include("images")              || "meowdy=partner" || "meowdy=partner AND (rel_type LIKE 'images%')"
-    null                                                   || null             || "1=1"
+    filter                                                 || queryPrefix                       || expected
+    RelationshipCacheFilter.none()                         || DSL.field("meowdy").eq("partner") || "meowdy = 'partner'"
+    null                                                   || DSL.field("meowdy").eq("partner") || "meowdy = 'partner'"
+    RelationshipCacheFilter.include("instances", "images") || null                              || "(\n  rel_type like 'instances%'\n  or rel_type like 'images%'\n)"
+    RelationshipCacheFilter.include("images")              || DSL.field("meowdy").eq("partner") || "(\n  meowdy = 'partner'\n  and rel_type like 'images%'\n)"
+    null                                                   || null                              || "1 = 1"
   }
 
   @Override
@@ -119,7 +121,8 @@ class SqlCacheSpec extends WriteableCacheSpec {
       sqlRetryProperties,
       "test",
       Mock(SqlCacheMetrics),
-      dynamicConfigService
+      dynamicConfigService,
+      new SqlConstraints()
     )
   }
 

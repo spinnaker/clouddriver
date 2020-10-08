@@ -17,7 +17,8 @@
 package com.netflix.spinnaker.clouddriver.orchestration
 
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
-import com.netflix.spinnaker.clouddriver.security.ProviderVersion
+
+import javax.annotation.Nullable
 
 /**
  * A registry which does a lookup of AtomicOperationConverters and DescriptionValidators based on their names and
@@ -30,17 +31,15 @@ interface AtomicOperationsRegistry {
    *
    * @param description
    * @param cloudProvider
-   * @param providerVersion
    * @return
    */
-  AtomicOperationConverter getAtomicOperationConverter(String description, String cloudProvider, ProviderVersion version)
+  AtomicOperationConverter getAtomicOperationConverter(String description, String cloudProvider)
 
   /**
    *
    * @param validator
    * @param cloudProvider
-   * @param providerVersion
    * @return
    */
-  DescriptionValidator getAtomicOperationDescriptionValidator(String validator, String cloudProvider, ProviderVersion version)
+  @Nullable DescriptionValidator getAtomicOperationDescriptionValidator(String validator, String cloudProvider)
 }

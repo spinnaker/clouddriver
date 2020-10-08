@@ -35,7 +35,6 @@ import com.netflix.spinnaker.clouddriver.google.security.GoogleNamedAccountCrede
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperationsRegistry
 import com.netflix.spinnaker.clouddriver.orchestration.OrchestrationProcessor
-import com.netflix.spinnaker.clouddriver.security.ProviderVersion
 import org.springframework.beans.factory.annotation.Autowired
 
 class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation<Void> {
@@ -99,8 +98,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
 
     def autoscaler = null
     if (description.autoscalingPolicy) {
-      def ancestorAutoscalingPolicyDescription =
-        GCEUtil.buildAutoscalingPolicyDescriptionFromAutoscalingPolicy(serverGroup.autoscalingPolicy)
+      def ancestorAutoscalingPolicyDescription = serverGroup.autoscalingPolicy
       if (ancestorAutoscalingPolicyDescription) {
         task.updateStatus BASE_PHASE, "Updating autoscaler for $serverGroupName..."
 
@@ -227,6 +225,17 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     ["minNumReplicas", "maxNumReplicas", "coolDownPeriodSec", "customMetricUtilizations", "mode"].each {
       if (update[it] != null) {
         newDescription[it] = update[it]
+      }
+    }
+
+    // If scaleInControl is completely absent, we leave the previous value.
+    // To remove it, set it to an empty object.
+    if (update.scaleInControl != null) {
+      def scaleInControl = update.scaleInControl
+      if (scaleInControl.timeWindowSec != null && scaleInControl.maxScaledInReplicas != null) {
+        newDescription.scaleInControl = scaleInControl
+      } else {
+        newDescription.scaleInControl = null
       }
     }
 
@@ -380,7 +389,7 @@ class UpsertGoogleAutoscalingPolicyAtomicOperation extends GoogleAtomicOperation
     }
 
     if (templateOpMap.instanceMetadata) {
-      def converter = atomicOperationsRegistry.getAtomicOperationConverter('modifyGoogleServerGroupInstanceTemplateDescription', 'gce', ProviderVersion.v1)
+      def converter = atomicOperationsRegistry.getAtomicOperationConverter('modifyGoogleServerGroupInstanceTemplateDescription', 'gce')
       AtomicOperation templateOp = converter.convertOperation(templateOpMap)
       orchestrationProcessor.process([templateOp], UUID.randomUUID().toString())
     }

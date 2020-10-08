@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.data.task.jedis
 
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTaskStatus
 import com.netflix.spinnaker.clouddriver.data.task.Status
-import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskState
 import spock.lang.Shared
 import spock.lang.Specification
@@ -37,7 +36,7 @@ class JedisTaskSpec extends Specification {
 
   void setup() {
     repository = Mock(RedisTaskRepository)
-    task = new JedisTask('666', System.currentTimeMillis(), repository, "owner", false)
+    task = new JedisTask('666', System.currentTimeMillis(), repository, "owner", "requestId", [] as Set, false)
   }
 
   void 'updating task status adds a history entry'() {
@@ -46,7 +45,10 @@ class JedisTaskSpec extends Specification {
 
     then:
     1 * repository.currentState(task) >> initialState
-    1 * repository.addToHistory(initialState.update(newPhase, newState), task)
+    1 * repository.addToHistory({
+      assert it.phase == newPhase
+      assert it.status == 'end'
+    }, task)
     0 * _
 
     where:
@@ -78,7 +80,9 @@ class JedisTaskSpec extends Specification {
 
     then:
     1 * repository.currentState(task) >> initialState
-    1 * repository.addToHistory(initialState.update(TaskState.COMPLETED), task)
+    1 * repository.addToHistory({
+      assert it.state == TaskState.COMPLETED
+    }, task)
     0 * _
   }
 
@@ -88,7 +92,9 @@ class JedisTaskSpec extends Specification {
 
     then:
     1 * repository.currentState(task) >> initialState
-    1 * repository.addToHistory(initialState.update(TaskState.FAILED), task)
+    1 * repository.addToHistory({
+      assert it.state == TaskState.FAILED
+    }, task)
     0 * _
   }
 

@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactDownloader;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.CloudFoundryOperation;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.artifacts.CloudFoundryArtifactCredentials;
@@ -50,15 +49,12 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     extends AbstractCloudFoundryServerGroupAtomicOperationConverter {
   private final OperationPoller operationPoller;
   private final ArtifactCredentialsRepository credentialsRepository;
-  private final ArtifactDownloader artifactDownloader;
 
   public DeployCloudFoundryServerGroupAtomicOperationConverter(
       @Qualifier("cloudFoundryOperationPoller") OperationPoller operationPoller,
-      ArtifactCredentialsRepository credentialsRepository,
-      ArtifactDownloader artifactDownloader) {
+      ArtifactCredentialsRepository credentialsRepository) {
     this.operationPoller = operationPoller;
     this.credentialsRepository = credentialsRepository;
-    this.artifactDownloader = artifactDownloader;
   }
 
   @Override
@@ -72,6 +68,7 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     DeployCloudFoundryServerGroupDescription converted =
         getObjectMapper().convertValue(input, DeployCloudFoundryServerGroupDescription.class);
     CloudFoundryCredentials credentials = getCredentialsObject(input.get("credentials").toString());
+    converted.setCredentials(credentials);
     converted.setClient(credentials.getClient());
     converted.setAccountName(credentials.getName());
 
@@ -86,12 +83,9 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     // fail early if we're not going to be able to locate credentials to download the artifact in
     // the deploy operation.
     converted.setArtifactCredentials(getArtifactCredentials(converted));
-
-    downloadAndProcessManifest(
-        artifactDownloader,
-        converted.getManifest(),
-        myMap -> converted.setApplicationAttributes(convertManifest(myMap)));
-
+    converted.setApplicationAttributes(
+        convertManifest(
+            converted.getManifest().stream().findFirst().orElse(Collections.emptyMap())));
     return converted;
   }
 
@@ -101,8 +95,9 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     String artifactAccount = artifact.getArtifactAccount();
     if (CloudFoundryArtifactCredentials.TYPE.equals(artifact.getType())) {
       CloudFoundryCredentials credentials = getCredentialsObject(artifactAccount);
-      artifact.setUuid(
-          getServerGroupId(artifact.getName(), artifact.getLocation(), credentials.getClient()));
+      String uuid =
+          getServerGroupId(artifact.getName(), artifact.getLocation(), credentials.getClient());
+      converted.setApplicationArtifact(artifact.toBuilder().uuid(uuid).build());
       return new CloudFoundryArtifactCredentials(credentials.getClient());
     }
 
@@ -116,7 +111,8 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
   }
 
   // visible for testing
-  DeployCloudFoundryServerGroupDescription.ApplicationAttributes convertManifest(Map manifestMap) {
+  DeployCloudFoundryServerGroupDescription.ApplicationAttributes convertManifest(
+      Map<Object, Object> manifestMap) {
     List<CloudFoundryManifest> manifestApps =
         new ObjectMapper()
             .setPropertyNamingStrategy(PropertyNamingStrategy.KEBAB_CASE)
@@ -154,6 +150,8 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
                           .flatMap(route -> route.values().stream())
                           .collect(toList()));
               attrs.setEnv(app.getEnv());
+              attrs.setStack(app.getStack());
+              attrs.setCommand(app.getCommand());
               return attrs;
             })
         .get();
@@ -182,5 +180,9 @@ public class DeployCloudFoundryServerGroupAtomicOperationConverter
     @Nullable private List<Map<String, String>> routes;
 
     @Nullable private Map<String, String> env;
+
+    @Nullable private String stack;
+
+    @Nullable private String command;
   }
 }

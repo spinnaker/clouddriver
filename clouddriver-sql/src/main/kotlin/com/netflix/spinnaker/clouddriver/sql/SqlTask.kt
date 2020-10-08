@@ -16,12 +16,13 @@
 package com.netflix.spinnaker.clouddriver.sql
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.spinnaker.clouddriver.data.task.SagaId
 import com.netflix.spinnaker.clouddriver.data.task.Status
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskDisplayStatus
 import com.netflix.spinnaker.clouddriver.data.task.TaskState
-import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
+import org.slf4j.LoggerFactory
 
 /**
  * TOOD(rz): Refactor 'river to not use an active record pattern. This sucks.
@@ -31,6 +32,7 @@ class SqlTask(
   @JsonIgnore internal val ownerId: String,
   @JsonIgnore internal val requestId: String,
   @JsonIgnore internal val startTimeMs: Long,
+  private val sagaIds: MutableSet<SagaId>,
   private val repository: SqlTaskRepository
 ) : Task {
 
@@ -46,6 +48,7 @@ class SqlTask(
   override fun getId() = id
   override fun getOwnerId() = ownerId
   override fun getStartTimeMs() = startTimeMs
+  override fun getRequestId() = requestId
 
   override fun getResultObjects(): MutableList<Any> {
     refresh()
@@ -88,6 +91,31 @@ class SqlTask(
   override fun fail() {
     this.dirty.set(true)
     repository.updateState(this, TaskState.FAILED)
+  }
+
+  override fun fail(retryable: Boolean) {
+    this.dirty.set(true)
+    repository.updateState(this, if (retryable) TaskState.FAILED_RETRYABLE else TaskState.FAILED)
+  }
+
+  override fun addSagaId(sagaId: SagaId) {
+    this.dirty.set(true)
+    sagaIds.add(sagaId)
+    repository.updateSagaIds(this)
+    log.debug("Added sagaId with name={} and id={} to task={}", sagaId.name, sagaId.id, id)
+  }
+
+  override fun getSagaIds(): MutableSet<SagaId> {
+    return sagaIds
+  }
+
+  override fun hasSagaIds(): Boolean {
+    return sagaIds.isNotEmpty()
+  }
+
+  override fun retry() {
+    this.dirty.set(true)
+    repository.updateState(this, TaskState.STARTED)
   }
 
   internal fun hydrateResultObjects(resultObjects: MutableList<Any>) {

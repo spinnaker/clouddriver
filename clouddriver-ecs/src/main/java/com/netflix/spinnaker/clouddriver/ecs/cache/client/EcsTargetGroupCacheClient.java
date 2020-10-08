@@ -50,11 +50,19 @@ public class EcsTargetGroupCacheClient {
     Collection<String> targetGroupKeys =
         cacheView.filterIdentifiers(TARGET_GROUPS.getNs(), searchKey);
 
+    return find(targetGroupKeys);
+  }
+
+  public List<EcsTargetGroup> find(Collection<String> targetGroupKeys) {
     Set<Map<String, Object>> targetGroupAttributes = fetchLoadBalancerAttributes(targetGroupKeys);
 
     List<EcsTargetGroup> targetGroups = convertToTargetGroup(targetGroupAttributes);
 
     return targetGroups;
+  }
+
+  public Collection<String> getAllKeys() {
+    return cacheView.getIdentifiers(TARGET_GROUPS.ns);
   }
 
   private EcsTargetGroup convertToTargetGroup(Map<String, Object> targetGroupAttributes) {

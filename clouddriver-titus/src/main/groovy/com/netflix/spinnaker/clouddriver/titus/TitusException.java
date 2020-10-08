@@ -16,16 +16,21 @@
 
 package com.netflix.spinnaker.clouddriver.titus;
 
-public class TitusException extends RuntimeException {
+import com.netflix.spinnaker.kork.exceptions.IntegrationException;
+
+public class TitusException extends IntegrationException {
   public TitusException(String message) {
     super(message);
+    setRetryable(false);
   }
 
-  public TitusException(String message, Throwable cause) {
-    super(message, cause);
+  public TitusException(String message, String userMessage) {
+    super(message, userMessage);
+    setRetryable(false);
   }
 
-  public TitusException(Throwable cause) {
+  public TitusException(Throwable cause, boolean retryable) {
     super(cause);
+    setRetryable(retryable);
   }
 }

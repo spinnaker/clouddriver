@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.search.executor;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.search.SearchProvider;
 import com.netflix.spinnaker.clouddriver.search.SearchQueryCommand;
@@ -37,7 +38,12 @@ public class SearchExecutor {
 
   SearchExecutor(SearchExecutorConfigProperties configProperties) {
     this.timeout = configProperties.getTimeout();
-    this.executor = Executors.newFixedThreadPool(configProperties.getThreadPoolSize());
+    this.executor =
+        Executors.newFixedThreadPool(
+            configProperties.getThreadPoolSize(),
+            new ThreadFactoryBuilder()
+                .setNameFormat(SearchExecutor.class.getSimpleName() + "-%d")
+                .build());
   }
 
   public List<SearchResultSet> searchAllProviders(

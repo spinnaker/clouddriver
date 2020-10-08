@@ -1,4 +1,5 @@
 dependencies {
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-security")
 
@@ -7,18 +8,22 @@ dependencies {
   implementation "com.netflix.spinnaker.kork:kork-security"
   implementation "com.squareup.retrofit:retrofit"
   implementation "org.codehaus.groovy:groovy-all"
-  implementation("org.elasticsearch:elasticsearch:2.4.1") {
-    force = true
-  }
-
-  implementation("io.searchbox:jest:2.0.3") {
-    force = true
-  }
   implementation "org.springframework.boot:spring-boot-starter-web"
 
+  testImplementation "org.testcontainers:elasticsearch:1.12.5"
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+
+  //TODO(jonsie): Determine why this is necessary to extend and build clouddriver so we can
+  // use the version constraints that were introduced in this PR:
+  // https://github.com/spinnaker/clouddriver/pull/4826
+  implementation("org.elasticsearch:elasticsearch:6.8.6") {
+    force = true
+  }
+  implementation("io.searchbox:jest:6.3.1") {
+    force = true
+  }
 }

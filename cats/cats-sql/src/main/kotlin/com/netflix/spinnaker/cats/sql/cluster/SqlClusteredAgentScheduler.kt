@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.cats.sql.cluster
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.netflix.spinnaker.cats.agent.Agent
 import com.netflix.spinnaker.cats.agent.AgentExecution
 import com.netflix.spinnaker.cats.agent.AgentLock
@@ -25,15 +26,9 @@ import com.netflix.spinnaker.cats.cluster.AgentIntervalProvider
 import com.netflix.spinnaker.cats.cluster.NodeIdentity
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
 import com.netflix.spinnaker.cats.module.CatsModuleAware
-import com.netflix.spinnaker.cats.thread.NamedThreadFactory
 import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.routing.withPool
-import org.jooq.DSLContext
-import org.jooq.impl.DSL.field
-import org.jooq.impl.DSL.table
-import org.slf4j.LoggerFactory
-import org.springframework.dao.DataIntegrityViolationException
 import java.sql.SQLException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -42,6 +37,11 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import java.util.regex.Pattern.CASE_INSENSITIVE
+import org.jooq.DSLContext
+import org.jooq.impl.DSL.field
+import org.jooq.impl.DSL.table
+import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 
 /**
  * IMPORTANT: Using SQL for locking isn't a good idea. By enabling this scheduler, you'll be adding a fair amount of
@@ -57,13 +57,14 @@ class SqlClusteredAgentScheduler(
   private val nodeStatusProvider: NodeStatusProvider,
   private val dynamicConfigService: DynamicConfigService,
   enabledAgentPattern: String,
+  private val disabledAgentsConfig: List<String>,
   agentLockAcquisitionIntervalSeconds: Long? = null,
   private val tableNamespace: String? = null,
   private val agentExecutionPool: ExecutorService = Executors.newCachedThreadPool(
-    NamedThreadFactory(AgentExecutionAction::class.java.simpleName)
+    ThreadFactoryBuilder().setNameFormat(AgentExecutionAction::class.java.simpleName + "-%d").build()
   ),
   lockPollingScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-    NamedThreadFactory(SqlClusteredAgentScheduler::class.java.simpleName)
+    ThreadFactoryBuilder().setNameFormat(SqlClusteredAgentScheduler::class.java.simpleName + "-%d").build()
   )
 ) : CatsModuleAware(), AgentScheduler<AgentLock>, Runnable {
 
@@ -161,9 +162,16 @@ class SqlClusteredAgentScheduler(
       return emptyMap()
     }
 
+    val disabledAgents = dynamicConfigService.getConfig(
+      String::class.java,
+      "sql.agent.disabled-agents",
+      disabledAgentsConfig.joinToString(",")
+    ).split(",").map { it.trim() }
+
     val candidateAgentLocks = agents
       .filter { !activeAgents.containsKey(it.key) }
       .filter { enabledAgents.matcher(it.key).matches() }
+      .filterNot { disabledAgents.contains(it.key) }
       .toMutableMap()
 
     withPool(POOL_NAME) {
@@ -177,12 +185,17 @@ class SqlClusteredAgentScheduler(
         if (now > existingLocks.getLong("lock_expiry")) {
           try {
             jooq.deleteFrom(table(lockTable))
-              .where(field("agent_name").eq(existingLocks.getString("agent_name"))
-                .and(field("lock_expiry").eq(existingLocks.getString("lock_expiry"))))
+              .where(
+                field("agent_name").eq(existingLocks.getString("agent_name"))
+                  .and(field("lock_expiry").eq(existingLocks.getString("lock_expiry")))
+              )
               .execute()
           } catch (e: SQLException) {
-            log.error("Failed deleting agent lock ${existingLocks.getString("agent_name")} with expiry " +
-              existingLocks.getString("lock_expiry"), e)
+            log.error(
+              "Failed deleting agent lock ${existingLocks.getString("agent_name")} with expiry " +
+                existingLocks.getString("lock_expiry"),
+              e
+            )
 
             candidateAgentLocks.remove(existingLocks.getString("agent_name"))
           }

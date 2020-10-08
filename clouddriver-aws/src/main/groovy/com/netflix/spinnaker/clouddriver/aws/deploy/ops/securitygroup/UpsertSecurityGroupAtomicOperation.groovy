@@ -31,6 +31,14 @@ import org.springframework.beans.factory.annotation.Autowired
 class UpsertSecurityGroupAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "UPSERT_SG"
 
+  /**
+   * An arbitrary limit on the number of rules we will enumerate in the operation "status" logs.
+   *
+   * If the number of rules is greater than this number, we should just render the number of changes, rather than
+   * each of the differences.
+   */
+  private static final int MAX_RULES_FOR_STATUS = 50
+
   final UpsertSecurityGroupDescription description
 
   UpsertSecurityGroupAtomicOperation(UpsertSecurityGroupDescription description) {
@@ -55,7 +63,7 @@ class UpsertSecurityGroupAtomicOperation implements AtomicOperation<Void> {
     ConvertedIngress ipPermissionsFromDescription = convertDescriptionToIngress(securityGroupLookup, description, true)
 
     def securityGroupUpdater = securityGroupLookup.getSecurityGroupByName(
-      description.credentialAccount,
+      description.account,
       description.name,
       description.vpcId
     )
@@ -74,14 +82,14 @@ class UpsertSecurityGroupAtomicOperation implements AtomicOperation<Void> {
       } catch (AmazonServiceException e) {
         if (e.errorCode == "InvalidGroup.Duplicate") {
           securityGroupUpdater = securityGroupLookup.getSecurityGroupByName(
-            description.credentialAccount,
+            description.account,
             description.name,
             description.vpcId
           ).get()
           existingIpPermissions = SecurityGroupIngressConverter.
             flattenPermissions(securityGroupUpdater.securityGroup)
         } else {
-          task.updateStatus BASE_PHASE, "Failed to create security group '${description.name}' in ${description.credentialAccount}: ${e.errorMessage}"
+          task.updateStatus BASE_PHASE, "Failed to create security group '${description.name}' in ${description.account}: ${e.errorMessage}"
           throw e
         }
       }
@@ -93,23 +101,71 @@ class UpsertSecurityGroupAtomicOperation implements AtomicOperation<Void> {
       ipPermissionsFromDescription = convertDescriptionToIngress(securityGroupLookup, description, false)
     }
 
-    List<IpPermission> ipPermissionsToAdd = ipPermissionsFromDescription.converted - existingIpPermissions
-    List<IpPermission> ipPermissionsToRemove = existingIpPermissions - ipPermissionsFromDescription.converted
+    SecurityGroupIngressConverter.IpRuleDelta ipRuleDelta = SecurityGroupIngressConverter.computeIpRuleDelta(ipPermissionsFromDescription.converted, existingIpPermissions)
+    List<IpPermission> ipPermissionsToAdd = ipRuleDelta.toAdd
+
+    SecurityGroupIngressConverter.UserIdGroupPairsDelta userIdGroupPairsDelta = SecurityGroupIngressConverter.computeUserIdGroupPairsDelta(ipPermissionsFromDescription.converted,existingIpPermissions)
+
+    ipPermissionsToAdd = ipPermissionsToAdd + userIdGroupPairsDelta.toAdd
+
+    List<IpPermission> ipPermissionsToRemove = ipRuleDelta.toRemove
+
+    ipPermissionsToRemove = ipPermissionsToRemove + userIdGroupPairsDelta.toRemove
+
+    List<IpPermission> tobeUpdated = ipRuleDelta.toUpdate + userIdGroupPairsDelta.toUpdate
+
+    //Update rules that are already present on the security group
+    if(tobeUpdated) {
+      String status = "Permissions updated to '${description.name}'"
+      if (tobeUpdated.size() > MAX_RULES_FOR_STATUS) {
+        status = "$status (${tobeUpdated.size()} rules updated)."
+      } else {
+        status = "$status ($tobeUpdated)."
+      }
+      try {
+        securityGroupUpdater.updateIngress(tobeUpdated)
+        //Update tags to ensure they are consistent with rule changes
+        securityGroupUpdater.updateTags(description)
+        task.updateStatus BASE_PHASE, status
+      } catch (AmazonServiceException e) {
+        task.updateStatus BASE_PHASE, "Error updating ingress to '${description.name}' - ${e.errorMessage}"
+        throw e
+      }
+    }
 
     // Converge on the desired final set of security group rules
     if (ipPermissionsToAdd) {
+      String status = "Permissions added to '${description.name}'"
+      if (ipPermissionsToAdd.size() > MAX_RULES_FOR_STATUS) {
+        status = "$status (${ipPermissionsToAdd.size()} rules added)."
+      } else {
+        status = "$status ($ipPermissionsToAdd)."
+      }
+
       try {
         securityGroupUpdater.addIngress(ipPermissionsToAdd)
-        task.updateStatus BASE_PHASE, "Permissions added to '${description.name}' (${ipPermissionsToAdd})."
+        //Update tags to ensure they are consistent with rule changes
+        securityGroupUpdater.updateTags(description)
+        task.updateStatus BASE_PHASE, status
       } catch (AmazonServiceException e) {
         task.updateStatus BASE_PHASE, "Error adding ingress to '${description.name}' - ${e.errorMessage}"
         throw e
       }
     }
+
     if (ipPermissionsToRemove && !description.ingressAppendOnly) {
+      String status = "Permissions removed from '${description.name}'"
+      if (ipPermissionsToRemove.size() > MAX_RULES_FOR_STATUS) {
+        status = "$status (${ipPermissionsToRemove.size()} rules removed)."
+      } else {
+        status = "$status ($ipPermissionsToRemove)."
+      }
+
       try {
         securityGroupUpdater.removeIngress(ipPermissionsToRemove)
-        task.updateStatus BASE_PHASE, "Permissions removed from ${description.name} (${ipPermissionsToRemove})."
+        //Update tags to ensure they are consistent with rule changes
+        securityGroupUpdater.updateTags(description)
+        task.updateStatus BASE_PHASE, status
       } catch (AmazonServiceException e) {
         task.updateStatus BASE_PHASE, "Error removing ingress from ${description.name}: ${e.errorMessage}"
         throw e
@@ -124,7 +180,7 @@ class UpsertSecurityGroupAtomicOperation implements AtomicOperation<Void> {
 
     if (ipPermissionsFromDescription.missingSecurityGroups.anyMissing(ignoreSelfReferencingRules)) {
       def missingSecurityGroupDescriptions = ipPermissionsFromDescription.missingSecurityGroups.all.collect {
-        "'${it.name ?: it.id}' in '${it.accountName ?: description.credentialAccount}' ${it.vpcId ?: description.vpcId ?: 'EC2-classic'}"
+        "'${it.name ?: it.id}' in '${it.accountName ?: description.account}' ${it.vpcId ?: description.vpcId ?: 'EC2-classic'}"
       }
       def securityGroupsDoNotExistErrorMessage = "The following security groups do not exist: ${missingSecurityGroupDescriptions.join(", ")}"
       task.updateStatus BASE_PHASE, securityGroupsDoNotExistErrorMessage

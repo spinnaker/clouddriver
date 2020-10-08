@@ -1,14 +1,13 @@
 package com.netflix.spinnaker.cats.sql.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.cats.cache.Cache.StoreType
-import com.netflix.spinnaker.cats.cache.Cache.StoreType.SQL
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
-import com.netflix.spinnaker.cats.cache.DefaultCacheData
+import com.netflix.spinnaker.cats.cache.DefaultJsonCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.cache.WriteableCache
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
+import com.netflix.spinnaker.config.SqlConstraints
 import com.netflix.spinnaker.config.coroutineThreadPrefix
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
@@ -16,20 +15,6 @@ import de.huxhorn.sulky.ulid.ULID
 import io.github.resilience4j.retry.Retry
 import io.github.resilience4j.retry.RetryConfig
 import io.vavr.control.Try
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
-import org.jooq.DSLContext
-import org.jooq.exception.DataAccessException
-import org.jooq.exception.SQLDialectNotSupportedException
-import org.jooq.impl.DSL.field
-import org.jooq.impl.DSL.sql
-import org.jooq.impl.DSL.table
-import org.jooq.util.mysql.MySQLDSL
-import org.slf4j.LoggerFactory
-import org.springframework.jdbc.BadSqlGrammarException
 import java.security.MessageDigest
 import java.sql.ResultSet
 import java.sql.SQLException
@@ -43,6 +28,22 @@ import javax.annotation.PreDestroy
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
+import org.jooq.Condition
+import org.jooq.DSLContext
+import org.jooq.exception.DataAccessException
+import org.jooq.exception.SQLDialectNotSupportedException
+import org.jooq.impl.DSL.field
+import org.jooq.impl.DSL.noCondition
+import org.jooq.impl.DSL.sql
+import org.jooq.impl.DSL.table
+import org.jooq.util.mysql.MySQLDSL
+import org.slf4j.LoggerFactory
+import org.springframework.jdbc.BadSqlGrammarException
 
 @ExperimentalContracts
 class SqlCache(
@@ -52,31 +53,31 @@ class SqlCache(
   private val coroutineContext: CoroutineContext?,
   private val clock: Clock,
   private val sqlRetryProperties: SqlRetryProperties,
-  private val tableNamespace: String?,
+  tableNamespace: String?,
   private val cacheMetrics: SqlCacheMetrics,
-  private val dynamicConfigService: DynamicConfigService
+  private val dynamicConfigService: DynamicConfigService,
+  private val sqlConstraints: SqlConstraints
 ) : WriteableCache {
 
   companion object {
-    // 352 * 2 + 64 (max rel_type length) == 768; 768 * 4 (utf8mb4) == 3072 == Aurora's max index length
-    private const val MAX_ID_LENGTH = 352
     private const val onDemandType = "onDemand"
 
     private val schemaVersion = SqlSchemaVersion.current()
-    private val useRegexp = """.*[\?\[].*""".toRegex()
-    private val cleanRegexp = """\.+\*""".toRegex()
-    private val typeSanitization = """[^A-Za-z0-9_]""".toRegex()
+    private val useRegexp =
+      """.*[\?\[].*""".toRegex()
+    private val cleanRegexp =
+      """\.+\*""".toRegex()
 
     private val log = LoggerFactory.getLogger(SqlCache::class.java)
   }
+
+  private val sqlNames = SqlNames(tableNamespace, sqlConstraints)
 
   private var createdTables = ConcurrentSkipListSet<String>()
 
   init {
     log.info("Configured for $name")
   }
-
-  override fun storeType(): StoreType = SQL
 
   /**
    * Only evicts cache records but not relationship rows
@@ -93,8 +94,8 @@ class SqlCache(
     try {
       ids.chunked(dynamicConfigService.getConfig(Int::class.java, "sql.cache.read-batch-size", 500)) { chunk ->
         withRetry(RetryCategory.WRITE) {
-          jooq.deleteFrom(table(resourceTableName(type)))
-            .where("id in (${chunk.joinToString(",") { "'$it'" }})")
+          jooq.deleteFrom(table(sqlNames.resourceTableName(type)))
+            .where(field("id").`in`(*chunk.toTypedArray()))
             .execute()
         }
         deletedCount += chunk.size
@@ -120,15 +121,15 @@ class SqlCache(
     authoritative: Boolean,
     cleanup: Boolean
   ) {
-    if (
-      type.isEmpty() ||
-      items.isNullOrEmpty() ||
-      items.none { it.id != "_ALL_" }
-    ) {
+    if (type.isEmpty()) {
       return
     }
 
     createTables(type)
+
+    if (items.isNullOrEmpty() || items.none { it.id != "_ALL_" }) {
+      return
+    }
 
     var agent: String? = agentHint
 
@@ -267,6 +268,10 @@ class SqlCache(
     return getAll(type, ids)
   }
 
+  override fun supportsGetAllByApplication(): Boolean {
+    return true
+  }
+
   override fun getAllByApplication(
     type: String,
     application: String,
@@ -337,7 +342,7 @@ class SqlCache(
     val ids = try {
       withRetry(RetryCategory.READ) {
         jooq.select(field("id"))
-          .from(table(resourceTableName(type)))
+          .from(table(sqlNames.resourceTableName(type)))
           .fetch()
           .intoSet(field("id"), String::class.java)
       }
@@ -422,14 +427,21 @@ class SqlCache(
 
     val sql = if (glob.matches(useRegexp)) {
       val filter = glob.replace("?", ".", true).replace("*", ".*").replace(cleanRegexp, ".*")
-      "SELECT id FROM ${resourceTableName(type)} WHERE id REGEXP '^$filter\$'"
+      jooq
+        .select(field("id"))
+        .from(table(sqlNames.resourceTableName(type)))
+        .where(field("id").likeRegex("^$filter$"))
     } else {
-      "SELECT id FROM ${resourceTableName(type)} WHERE id LIKE '${glob.replace('*', '%')}'"
+      jooq
+        .select(field("id"))
+        .from(table(sqlNames.resourceTableName(type)))
+        .where(field("id").like(glob.replace('*', '%')))
     }
 
     val ids = try {
-      return withRetry(RetryCategory.READ) {
-        jooq.fetch(sql).getValues(0, String::class.java)
+      withRetry(RetryCategory.READ) {
+        sql
+          .fetch(field("id"), String::class.java)
       }
     } catch (e: Exception) {
       suppressedLog("Failed searching for identifiers type: $type glob: $glob reason: ${e.message}", e)
@@ -473,7 +485,7 @@ class SqlCache(
   fun cleanOnDemand(maxAgeMs: Long): Int {
     val toClean = withRetry(RetryCategory.READ) {
       jooq.select(field("id"))
-        .from(table(resourceTableName(onDemandType)))
+        .from(table(sqlNames.resourceTableName(onDemandType)))
         .where(field("last_updated").lt(clock.millis() - maxAgeMs))
         .fetch()
         .into(String::class.java)
@@ -518,13 +530,13 @@ class SqlCache(
     val hashes = mutableMapOf<String, String>() // id to sha256(body)
     val apps = mutableMapOf<String, String>()
 
-    items.filter { it.id.length > MAX_ID_LENGTH }
+    items.filter { it.id.length > sqlConstraints.maxIdLength }
       .forEach {
-        log.error("Dropping ${it.id} - character length exceeds MAX_ID_LENGTH ($MAX_ID_LENGTH)")
+        log.error("Dropping ${it.id} - character length exceeds MAX_ID_LENGTH ($sqlConstraints.maxIdLength)")
       }
 
     items
-      .filter { it.id != "_ALL_" && it.id.length <= MAX_ID_LENGTH }
+      .filter { it.id != "_ALL_" && it.id.length <= sqlConstraints.maxIdLength }
       .forEach {
         currentIds.add(it.id)
         val nullKeys = it.attributes
@@ -558,7 +570,7 @@ class SqlCache(
     toStore.chunked(dynamicConfigService.getConfig(Int::class.java, "sql.cache.write-batch-size", 100)) { chunk ->
       try {
         val insert = jooq.insertInto(
-          table(resourceTableName(type)),
+          table(sqlNames.resourceTableName(type)),
           field("id"),
           field("agent"),
           field("application"),
@@ -569,7 +581,7 @@ class SqlCache(
 
         insert.apply {
           chunk.forEach {
-            values(it, agent, apps[it], hashes[it], bodies[it], now)
+            values(it, sqlNames.checkAgentName(agent), apps[it], hashes[it], bodies[it], now)
           }
 
           onDuplicateKeyUpdate()
@@ -591,20 +603,20 @@ class SqlCache(
           val exists = withRetry(RetryCategory.READ) {
             jooq.fetchExists(
               jooq.select()
-                .from(resourceTableName(type))
-                .where(field("id").eq(it), field("agent").eq(agent))
+                .from(sqlNames.resourceTableName(type))
+                .where(field("id").eq(it), field("agent").eq(sqlNames.checkAgentName(agent)))
                 .forUpdate()
             )
           }
           result.selectQueries.incrementAndGet()
           if (exists) {
             withRetry(RetryCategory.WRITE) {
-              jooq.update(table(resourceTableName(type)))
+              jooq.update(table(sqlNames.resourceTableName(type)))
                 .set(field("application"), apps[it])
                 .set(field("body_hash"), hashes[it])
                 .set(field("body"), bodies[it])
                 .set(field("last_updated"), clock.millis())
-                .where(field("id").eq(it), field("agent").eq(agent))
+                .where(field("id").eq(it), field("agent").eq(sqlNames.checkAgentName(agent)))
                 .execute()
             }
             result.writeQueries.incrementAndGet()
@@ -612,7 +624,7 @@ class SqlCache(
           } else {
             withRetry(RetryCategory.WRITE) {
               jooq.insertInto(
-                table(resourceTableName(type)),
+                table(sqlNames.resourceTableName(type)),
                 field("id"),
                 field("agent"),
                 field("application"),
@@ -621,7 +633,7 @@ class SqlCache(
                 field("last_updated")
               ).values(
                 it,
-                agent,
+                sqlNames.checkAgentName(agent),
                 apps[it],
                 hashes[it],
                 bodies[it],
@@ -712,11 +724,11 @@ class SqlCache(
     val newRevRelIds = mutableSetOf<String>()
 
     items
-      .filter { it.id != "_ALL_" && it.id.length <= MAX_ID_LENGTH }
+      .filter { it.id != "_ALL_" && it.id.length <= sqlConstraints.maxIdLength }
       .forEach { cacheData ->
         cacheData.relationships.entries.forEach { rels ->
           val relType = rels.key.substringBefore(delimiter = ":", missingDelimiterValue = "")
-          rels.value.filter { it.length <= MAX_ID_LENGTH }
+          rels.value.filter { it.length <= sqlConstraints.maxIdLength }
             .forEach { r ->
               val fwdKey = "${cacheData.id}|$r"
               val revKey = "$r|${cacheData.id}"
@@ -744,7 +756,7 @@ class SqlCache(
       pointers.chunked(dynamicConfigService.getConfig(Int::class.java, "sql.cache.write-batch-size", 100)) { chunk ->
         try {
           val insert = jooq.insertInto(
-            table(relTableName(type)),
+            table(sqlNames.relTableName(type)),
             field("uuid"),
             field("id"),
             field("rel_id"),
@@ -755,7 +767,7 @@ class SqlCache(
 
           insert.apply {
             chunk.forEach {
-              values(ulid.toString(), it.id, it.rel_id, it.rel_type, relType, now)
+              values(ulid.toString(), it.id, it.rel_id, sqlNames.checkAgentName(it.rel_type), relType, now)
               ulid = ULID().nextMonotonicValue(ulid)
             }
           }
@@ -774,7 +786,7 @@ class SqlCache(
         .chunked(dynamicConfigService.getConfig(Int::class.java, "sql.cache.write-batch-size", 100)) { chunk ->
           try {
             val insert = jooq.insertInto(
-              table(relTableName(relType)),
+              table(sqlNames.relTableName(relType)),
               field("uuid"),
               field("id"),
               field("rel_id"),
@@ -785,7 +797,7 @@ class SqlCache(
 
             insert.apply {
               chunk.forEach {
-                values(ulid.toString(), it.rel_id, it.id, it.rel_type, type, now)
+                values(ulid.toString(), it.rel_id, it.id, sqlNames.checkAgentName(it.rel_type), type, now)
                 ulid = ULID().nextMonotonicValue(ulid)
               }
             }
@@ -812,7 +824,7 @@ class SqlCache(
       try {
         fwdToDelete.forEach {
           withRetry(RetryCategory.WRITE) {
-            jooq.deleteFrom(table(relTableName(type)))
+            jooq.deleteFrom(table(sqlNames.relTableName(type)))
               .where(field("uuid").eq(it.value))
               .execute()
           }
@@ -821,7 +833,7 @@ class SqlCache(
         revToDelete.forEach {
           if (oldRevIdsToType.getOrDefault(it.key, "").isNotBlank()) {
             withRetry(RetryCategory.WRITE) {
-              jooq.deleteFrom(table(relTableName(oldRevIdsToType[it.key]!!)))
+              jooq.deleteFrom(table(sqlNames.relTableName(oldRevIdsToType[it.key]!!)))
                 .where(field("uuid").eq(it.value))
                 .execute()
             }
@@ -842,10 +854,14 @@ class SqlCache(
     if (!createdTables.contains(type)) {
       try {
         withRetry(RetryCategory.WRITE) {
-          jooq.execute("CREATE TABLE IF NOT EXISTS ${resourceTableName(type)} " +
-            "LIKE cats_v${schemaVersion}_resource_template")
-          jooq.execute("CREATE TABLE IF NOT EXISTS ${relTableName(type)} " +
-            "LIKE cats_v${schemaVersion}_rel_template")
+          jooq.execute(
+            "CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(type)} " +
+              "LIKE cats_v${schemaVersion}_resource_template"
+          )
+          jooq.execute(
+            "CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(type)} " +
+              "LIKE cats_v${schemaVersion}_rel_template"
+          )
         }
 
         createdTables.add(type)
@@ -857,10 +873,14 @@ class SqlCache(
       // TODO not sure if best schema for onDemand
       try {
         withRetry(RetryCategory.WRITE) {
-          jooq.execute("CREATE TABLE IF NOT EXISTS ${resourceTableName(onDemandType)} " +
-            "LIKE cats_v${schemaVersion}_resource_template")
-          jooq.execute("CREATE TABLE IF NOT EXISTS ${relTableName(onDemandType)} " +
-            "LIKE cats_v${schemaVersion}_rel_template")
+          jooq.execute(
+            "CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(onDemandType)} " +
+              "LIKE cats_v${schemaVersion}_resource_template"
+          )
+          jooq.execute(
+            "CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(onDemandType)} " +
+              "LIKE cats_v${schemaVersion}_rel_template"
+          )
         }
 
         createdTables.add(onDemandType)
@@ -883,16 +903,6 @@ class SqlCache(
     }
   }
 
-  private fun resourceTableName(type: String): String =
-    "cats_v${schemaVersion}_${if (tableNamespace != null) "${tableNamespace}_" else ""}${sanitizeType(type)}"
-
-  private fun relTableName(type: String): String =
-    "cats_v${schemaVersion}_${if (tableNamespace != null) "${tableNamespace}_" else ""}${sanitizeType(type)}_rel"
-
-  private fun sanitizeType(type: String): String {
-    return type.replace(typeSanitization, "_")
-  }
-
   private fun getHash(body: String?): String? {
     if (body.isNullOrBlank()) {
       return null
@@ -913,9 +923,9 @@ class SqlCache(
     return withRetry(RetryCategory.READ) {
       jooq
         .select(field("body_hash"), field("id"))
-        .from(table(resourceTableName(type)))
+        .from(table(sqlNames.resourceTableName(type)))
         .where(
-          field("agent").eq(agent)
+          field("agent").eq(sqlNames.checkAgentName(agent))
         )
         .fetch()
         .into(HashId::class.java)
@@ -926,8 +936,8 @@ class SqlCache(
     return withRetry(RetryCategory.READ) {
       jooq
         .select(field("uuid"), field("id"), field("rel_id"), field("rel_agent"))
-        .from(table(relTableName(type)))
-        .where(field("rel_agent").eq(sourceAgent))
+        .from(table(sqlNames.relTableName(type)))
+        .where(field("rel_agent").eq(sqlNames.checkAgentName(sourceAgent)))
         .fetch()
         .into(RelId::class.java)
     }
@@ -937,9 +947,9 @@ class SqlCache(
     return withRetry(RetryCategory.READ) {
       jooq
         .select(field("uuid"), field("id"), field("rel_id"), field("rel_agent"))
-        .from(table(relTableName(type)))
+        .from(table(sqlNames.relTableName(type)))
         .where(
-          field("rel_agent").eq(sourceAgent),
+          field("rel_agent").eq(sqlNames.checkAgentName(sourceAgent)),
           field("rel_type").eq(origType)
         )
         .fetch()
@@ -966,11 +976,11 @@ class SqlCache(
         withRetry(RetryCategory.READ) {
           cacheData.addAll(
             jooq.select(field("body"))
-              .from(table(resourceTableName(type)))
+              .from(table(sqlNames.resourceTableName(type)))
               .fetch()
               .getValues(0)
               .asSequence()
-              .map { mapper.readValue(it as String, DefaultCacheData::class.java) }
+              .map { mapper.readValue(it as String, DefaultJsonCacheData::class.java) }
               .toList()
           )
         }
@@ -1028,12 +1038,12 @@ class SqlCache(
       withRetry(RetryCategory.READ) {
         cacheData.addAll(
           jooq.select(field("body"))
-            .from(table(resourceTableName(type)))
+            .from(table(sqlNames.resourceTableName(type)))
             .where(field("application").eq(application))
             .fetch()
             .getValues(0)
             .asSequence()
-            .map { mapper.readValue(it as String, DefaultCacheData::class.java) }
+            .map { mapper.readValue(it as String, DefaultJsonCacheData::class.java) }
             .toList()
         )
       }
@@ -1076,7 +1086,7 @@ class SqlCache(
     val relPointers = mutableSetOf<RelPointer>()
     var selectQueries = 0
 
-    val relWhere = getRelWhere(relationshipPrefixes, "r.application = \"$application\"")
+    val relWhere = getRelWhere(relationshipPrefixes, field("r.application").eq(application))
 
     try {
       val resultSet = withRetry(RetryCategory.READ) {
@@ -1087,7 +1097,7 @@ class SqlCache(
             field(sql("null")).`as`("rel_id"),
             field(sql("null")).`as`("rel_type")
           )
-          .from(table(resourceTableName(type)))
+          .from(table(sqlNames.resourceTableName(type)))
           .where(field("application").eq(application))
           .unionAll(
             jooq.select(
@@ -1096,8 +1106,8 @@ class SqlCache(
               field("rel.rel_id").`as`("rel_id"),
               field("rel.rel_type").`as`("rel_type")
             )
-              .from(table(resourceTableName(type)).`as`("r"))
-              .innerJoin(table(relTableName(type)).`as`("rel"))
+              .from(table(sqlNames.resourceTableName(type)).`as`("r"))
+              .innerJoin(table(sqlNames.relTableName(type)).`as`("rel"))
               .on(sql("rel.id=r.id"))
               .where(relWhere)
               .groupBy(
@@ -1136,8 +1146,8 @@ class SqlCache(
     relationshipPrefixes: List<String>
   ):
     DataWithRelationshipPointersResult {
-    return getDataWithRelationships(type, emptyList(), relationshipPrefixes)
-  }
+      return getDataWithRelationships(type, emptyList(), relationshipPrefixes)
+    }
 
   private fun getDataWithRelationships(
     type: String,
@@ -1172,7 +1182,7 @@ class SqlCache(
               field(sql("null")).`as`("rel_id"),
               field(sql("null")).`as`("rel_type")
             )
-            .from(table(resourceTableName(type)))
+            .from(table(sqlNames.resourceTableName(type)))
             .unionAll(
               jooq.select(
                 field(sql("null")).`as`("body"),
@@ -1180,7 +1190,7 @@ class SqlCache(
                 field("rel_id").`as`("rel_id"),
                 field("rel_type").`as`("rel_type")
               )
-                .from(table(relTableName(type)))
+                .from(table(sqlNames.relTableName(type)))
                 .where(relWhere)
             )
             .fetch()
@@ -1243,11 +1253,11 @@ class SqlCache(
   private fun selectBodies(type: String, ids: List<String>): Collection<CacheData> {
     return withRetry(RetryCategory.READ) {
       jooq.select(field("body"))
-        .from(table(resourceTableName(type)))
-        .where("ID in (${ids.joinToString(",") { "'$it'" }})")
+        .from(table(sqlNames.resourceTableName(type)))
+        .where(field("ID").`in`(*ids.toTypedArray()))
         .fetch()
         .getValues(0)
-        .map { mapper.readValue(it as String, DefaultCacheData::class.java) }
+        .map { mapper.readValue(it as String, DefaultJsonCacheData::class.java) }
         .toList()
     }
   }
@@ -1257,7 +1267,7 @@ class SqlCache(
     relationshipPrefixes: List<String>,
     ids: List<String>
   ): ResultSet {
-    val where = "ID in (${ids.joinToString(",") { "'$it'" }})"
+    val where = field("ID").`in`(*ids.toTypedArray())
 
     val relWhere = getRelWhere(relationshipPrefixes, where)
 
@@ -1269,7 +1279,7 @@ class SqlCache(
           field(sql("null")).`as`("rel_id"),
           field(sql("null")).`as`("rel_type")
         )
-        .from(table(resourceTableName(type)))
+        .from(table(sqlNames.resourceTableName(type)))
         .where(where)
         .unionAll(
           jooq.select(
@@ -1278,7 +1288,7 @@ class SqlCache(
             field("rel_id").`as`("rel_id"),
             field("rel_type").`as`("rel_type")
           )
-            .from(table(relTableName(type)))
+            .from(table(sqlNames.relTableName(type)))
             .where(relWhere)
         )
         .fetch()
@@ -1289,8 +1299,8 @@ class SqlCache(
   private fun selectIdentifiers(type: String, ids: List<String>): MutableCollection<String> {
     return withRetry(RetryCategory.READ) {
       jooq.select(field("id"))
-        .from(table(resourceTableName(type)))
-        .where("id in (${ids.joinToString(",") { "'$it'" }})")
+        .from(table(sqlNames.resourceTableName(type)))
+        .where(field("id").`in`(*ids.toTypedArray()))
         .fetch()
         .intoSet(field("id"), String::class.java)
     }
@@ -1305,7 +1315,7 @@ class SqlCache(
     while (resultSet.next()) {
       if (!resultSet.getString(1).isNullOrBlank()) {
         try {
-          cacheData.add(mapper.readValue(resultSet.getString(1), DefaultCacheData::class.java))
+          cacheData.add(mapper.readValue(resultSet.getString(1), DefaultJsonCacheData::class.java))
         } catch (e: Exception) {
           log.error("Failed to deserialize cached value: type $type, body ${resultSet.getString(1)}", e)
         }
@@ -1427,24 +1437,22 @@ class SqlCache(
     return relationships
   }
 
-  private fun getRelWhere(relationshipPrefixes: List<String>, prefix: String? = null): String {
-    val relWhere: String = if (relationshipPrefixes.isNotEmpty() && !relationshipPrefixes.contains("ALL")) {
-      "(rel_type LIKE " +
-        relationshipPrefixes.joinToString(" OR rel_type LIKE ") { "'$it%'" } + ")"
-    } else if (prefix.isNullOrBlank()) {
-      "1=1"
-    } else {
-      ""
-    }
+  private fun getRelWhere(relationshipPrefixes: List<String>, prefix: Condition? = null): Condition {
+    var relWhere: Condition = noCondition()
 
-    return if (prefix.isNullOrBlank()) {
-      relWhere
-    } else {
-      when (relWhere) {
-        "" -> prefix
-        else -> "$prefix AND $relWhere"
+    if (relationshipPrefixes.isNotEmpty() && !relationshipPrefixes.contains("ALL")) {
+      relWhere = field("rel_type").like("${relationshipPrefixes[0]}%")
+
+      for (i in 1 until relationshipPrefixes.size) {
+        relWhere = relWhere.or(field("rel_type").like("${relationshipPrefixes[i]}%"))
       }
     }
+
+    if (prefix != null) {
+      return prefix.and(relWhere)
+    }
+
+    return relWhere
   }
 
   private enum class RetryCategory {

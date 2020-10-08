@@ -18,11 +18,13 @@ package com.netflix.spinnaker.clouddriver.google.model
 
 import groovy.transform.AutoClone
 import groovy.transform.Canonical
+import groovy.transform.CompileStatic
 import groovy.transform.ToString
 
 @AutoClone
 @Canonical
 @ToString(includeNames = true)
+@CompileStatic
 class GoogleAutoscalingPolicy {
   Integer minNumReplicas
   Integer maxNumReplicas
@@ -31,11 +33,18 @@ class GoogleAutoscalingPolicy {
   CpuUtilization cpuUtilization
   LoadBalancingUtilization loadBalancingUtilization
   List<CustomMetricUtilization> customMetricUtilizations
+  ScaleInControl scaleInControl
   AutoscalingMode mode
 
   @ToString(includeNames = true)
   static class CpuUtilization {
     Double utilizationTarget
+    PredictiveMethod predictiveMethod
+
+    enum PredictiveMethod {
+      NONE,
+      STANDARD
+    }
   }
 
   @ToString(includeNames = true)
@@ -56,11 +65,19 @@ class GoogleAutoscalingPolicy {
     }
   }
 
+  static class ScaleInControl {
+    FixedOrPercent maxScaledInReplicas
+    Integer timeWindowSec
+  }
+
+  static class FixedOrPercent {
+    Integer fixed
+    Integer percent
+  }
 
   static enum AutoscalingMode {
     ON,
     OFF,
-    ONLY_UP,
-    ONLY_DOWN
+    ONLY_SCALE_OUT
   }
 }

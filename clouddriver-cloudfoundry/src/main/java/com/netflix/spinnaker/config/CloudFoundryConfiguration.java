@@ -16,17 +16,11 @@
 
 package com.netflix.spinnaker.config;
 
-import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.cats.module.CatsModule;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.config.CloudFoundryConfigurationProperties;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentialsSynchronizer;
 import com.netflix.spinnaker.clouddriver.helpers.OperationPoller;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import java.util.Collections;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -40,28 +34,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class CloudFoundryConfiguration {
 
   @Bean
+  @RefreshScope
   CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties() {
     return new CloudFoundryConfigurationProperties();
-  }
-
-  @Bean
-  CloudFoundryCredentialsSynchronizer cloudFoundryCredentialsSynchronizer(
-      CloudFoundryProvider cloudFoundryProvider,
-      CloudFoundryConfigurationProperties cloudFoundryConfigurationProperties,
-      AccountCredentialsRepository accountCredentialsRepository,
-      CatsModule catsModule,
-      Registry registry) {
-    return new CloudFoundryCredentialsSynchronizer(
-        cloudFoundryProvider,
-        cloudFoundryConfigurationProperties,
-        accountCredentialsRepository,
-        catsModule,
-        registry);
-  }
-
-  @Bean
-  CloudFoundryProvider cloudFoundryProvider() {
-    return new CloudFoundryProvider(Collections.newSetFromMap(new ConcurrentHashMap<>()));
   }
 
   @Bean

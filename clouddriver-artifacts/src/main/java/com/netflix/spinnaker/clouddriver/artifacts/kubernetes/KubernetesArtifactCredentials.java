@@ -17,29 +17,31 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.kubernetes;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
-import com.netflix.spinnaker.clouddriver.artifacts.docker.DockerArtifactCredentials;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import lombok.Data;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Data
-public class KubernetesArtifactCredentials implements ArtifactCredentials {
+@Value
+@NonnullByDefault
+final class KubernetesArtifactCredentials implements ArtifactCredentials {
   private final String name;
-  private final List<String> types;
+  private final ImmutableList<String> types;
 
-  public KubernetesArtifactCredentials(KubernetesArtifactAccount account) {
+  KubernetesArtifactCredentials(KubernetesArtifactAccount account) {
     this.name = account.getName();
     this.types =
         Arrays.stream(KubernetesArtifactType.values())
+            .filter(t -> t != KubernetesArtifactType.DockerImage)
             .map(KubernetesArtifactType::getType)
-            .collect(Collectors.toList());
-    types.remove(DockerArtifactCredentials.TYPE);
+            .collect(toImmutableList());
   }
 
   public InputStream download(Artifact artifact) {

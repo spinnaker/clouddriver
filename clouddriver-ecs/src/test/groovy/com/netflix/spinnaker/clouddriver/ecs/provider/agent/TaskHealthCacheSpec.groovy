@@ -19,10 +19,13 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.ecs.AmazonECS
 import com.amazonaws.services.ecs.model.Container
+import com.amazonaws.services.ecs.model.ContainerDefinition
 import com.amazonaws.services.ecs.model.LoadBalancer
 import com.amazonaws.services.ecs.model.NetworkBinding
+import com.amazonaws.services.ecs.model.PortMapping
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetHealth
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetHealthDescription
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetHealthStateEnum
@@ -30,14 +33,15 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskHealthCacheClient
 import spock.lang.Specification
 import spock.lang.Subject
 
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TARGET_HEALTHS
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS
 
 class TaskHealthCacheSpec extends Specification {
   def ecs = Mock(AmazonECS)
@@ -62,10 +66,13 @@ class TaskHealthCacheSpec extends Specification {
     def healthKey = Keys.getTaskHealthKey(CommonCachingAgent.ACCOUNT, CommonCachingAgent.REGION, CommonCachingAgent.TASK_ID_1)
     def serviceKey = Keys.getServiceKey(CommonCachingAgent.ACCOUNT, CommonCachingAgent.REGION, CommonCachingAgent.SERVICE_NAME_1)
     def containerInstanceKey = Keys.getContainerInstanceKey(CommonCachingAgent.ACCOUNT, CommonCachingAgent.REGION, CommonCachingAgent.CONTAINER_INSTANCE_ARN_1)
+    def targetHealthKey = Keys.getTargetHealthKey(CommonCachingAgent.ACCOUNT, CommonCachingAgent.REGION, targetGroupArn)
 
     ObjectMapper mapper = new ObjectMapper()
-    Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(new NetworkBinding().withHostPort(1337)), Map.class)
-    Map<String, Object> loadbalancerMap = mapper.convertValue(new LoadBalancer().withTargetGroupArn(targetGroupArn), Map.class)
+    Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(new NetworkBinding().withContainerPort(1338).withHostPort(1338)), Map.class)
+    Map<String, Object> loadbalancerMap = mapper.convertValue(new LoadBalancer().withTargetGroupArn(targetGroupArn).withContainerPort(1338), Map.class)
+    Map<String, Object> targetHealthMap = mapper.convertValue(
+      new TargetHealthDescription().withTarget(new TargetDescription().withId(CommonCachingAgent.EC2_INSTANCE_ID_1).withPort(1338)).withTargetHealth(new TargetHealth().withState(TargetHealthStateEnum.Healthy)), Map.class)
 
     def taskAttributes = [
       taskId              : CommonCachingAgent.TASK_ID_1,
@@ -96,12 +103,31 @@ class TaskHealthCacheSpec extends Specification {
     def containerInstanceCache = new DefaultCacheData(containerInstanceKey, containerInstanceAttributes, Collections.emptyMap())
     providerCache.get(Keys.Namespace.CONTAINER_INSTANCES.toString(), containerInstanceKey) >> containerInstanceCache
 
+    def targetHealthAttributes = [
+      targetGroupArn : targetGroupArn,
+      targetHealthDescriptions : Collections.singletonList(targetHealthMap)
+    ]
+
+    def targetHealthCache = new DefaultCacheData(targetHealthKey, targetHealthAttributes, Collections.emptyMap())
+    providerCache.get(TARGET_HEALTHS.toString(), targetHealthKey) >> targetHealthCache
+
     DescribeTargetHealthResult describeTargetHealthResult = new DescribeTargetHealthResult().withTargetHealthDescriptions(
       new TargetHealthDescription().withTargetHealth(new TargetHealth().withState(TargetHealthStateEnum.Healthy))
     )
 
     amazonloadBalancing.describeTargetHealth(_) >> describeTargetHealthResult
     providerCache.getAll(HEALTH.toString()) >> []
+
+    Map<String, Object> containerDefinitionMap = mapper.convertValue(new ContainerDefinition().withPortMappings(
+      new PortMapping().withHostPort(1338)
+    ), Map.class)
+    def taskDefAttributes = [
+      taskDefinitionArn    : CommonCachingAgent.TASK_DEFINITION_ARN_1,
+      containerDefinitions : [ containerDefinitionMap ]
+    ]
+    def taskDefKey = Keys.getTaskDefinitionKey(CommonCachingAgent.ACCOUNT, CommonCachingAgent.REGION, CommonCachingAgent.TASK_DEFINITION_ARN_1)
+    def taskDefCacheData = new DefaultCacheData(taskDefKey, taskDefAttributes, Collections.emptyMap())
+    providerCache.get(TASK_DEFINITIONS.toString(), taskDefKey) >> taskDefCacheData
 
     when:
     def cacheResult = agent.loadData(providerCache)

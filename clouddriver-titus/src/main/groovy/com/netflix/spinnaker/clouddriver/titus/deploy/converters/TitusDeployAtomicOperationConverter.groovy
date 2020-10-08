@@ -21,20 +21,46 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.titus.TitusOperation
+import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
 @TitusOperation(AtomicOperations.CREATE_SERVER_GROUP)
 @Component
 class TitusDeployAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
+  @Autowired
+  AwsLookupUtil awsLookupUtil
+
+  @Override
   AtomicOperation convertOperation(Map input) {
     new DeployAtomicOperation(convertDescription(input))
   }
 
+  @Override
   TitusDeployDescription convertDescription(Map input) {
+    // Backwards-compatibility for when the Titus provider blindly accepted any container
+    // attribute value, when in reality this can only be string values. Now that the
+    // description is Java, this can cause Jackson's object mapper to throw exceptions if
+    // left unconverted.
+    if (input.containerAttributes != null) {
+      input.containerAttributes.forEach { k, v ->
+        if (!(v instanceof String)) {
+          input.containerAttributes.put(k, v.toString())
+        }
+      }
+    }
+
     def converted = objectMapper.convertValue(input, TitusDeployDescription)
     converted.credentials = getCredentialsObject(input.credentials as String)
+
+    if (converted.securityGroups != null && !converted.securityGroups.isEmpty()) {
+      converted.setSecurityGroupNames(
+        awsLookupUtil.convertSecurityGroupsToNames(converted.account, converted.region, converted.securityGroups)
+      )
+    }
+
     converted
   }
 }

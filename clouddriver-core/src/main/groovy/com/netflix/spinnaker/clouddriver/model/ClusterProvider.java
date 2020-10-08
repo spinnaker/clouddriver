@@ -17,9 +17,9 @@
 package com.netflix.spinnaker.clouddriver.model;
 
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
-import com.netflix.spinnaker.clouddriver.documentation.Nullable;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * A cluster provider is an interface for the application to retrieve implementations of {@link
@@ -70,6 +70,7 @@ public interface ClusterProvider<T extends Cluster> {
   @Empty
   Set<T> getClusters(String application, String account);
 
+  /** TODO(rz): What does "includeDetails" entail? */
   @Empty
   default Set<T> getClusters(String application, String account, boolean includeDetails) {
     return getClusters(application, account);
@@ -87,6 +88,7 @@ public interface ClusterProvider<T extends Cluster> {
   @Nullable
   T getCluster(String application, String account, String name);
 
+  /** TODO(rz): What does "includeDetails" entail? */
   @Nullable
   T getCluster(String application, String account, String name, boolean includeDetails);
 
@@ -94,6 +96,8 @@ public interface ClusterProvider<T extends Cluster> {
    * Looks up a server group known to this provider, within a specified {@link
    * com.netflix.spinnaker.clouddriver.security.AccountCredentials} and region, and with the
    * specified name.
+   *
+   * <p>TODO(rz): What does "includeDetails" entail?
    *
    * @param account name
    * @param region

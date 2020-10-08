@@ -1,18 +1,8 @@
-apply plugin: 'com.google.protobuf'
-
-buildscript {
-  repositories {
-    jcenter()
-  }
-
-  dependencies {
-    classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.5'
-  }
-}
+apply plugin: "com.google.protobuf"
 
 ext {
   protobufVersion = '3.2.+'
-  grpcVersion = '1.9.+'
+  grpcVersion = '1.10.+'
 }
 
 repositories {
@@ -20,20 +10,24 @@ repositories {
 }
 
 dependencies {
-  protobuf 'com.netflix.titus:titus-api-definitions:0.0.1-rc59'
+  protobuf 'com.netflix.titus:titus-api-definitions:0.0.1-rc71'
 
   implementation project(":cats:cats-core")
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-aws")
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-eureka")
+  implementation project(":clouddriver-saga")
   implementation project(":clouddriver-security")
 
   annotationProcessor "org.projectlombok:lombok"
   compileOnly "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
 
+  implementation "javax.inject:javax.inject:1"
   implementation "com.amazonaws:aws-java-sdk"
   implementation "com.google.protobuf:protobuf-java:$protobufVersion"
+  implementation "com.google.protobuf:protobuf-java-util:$protobufVersion"
   implementation "com.netflix.frigga:frigga"
   implementation "com.netflix.spectator:spectator-api"
   implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
@@ -42,7 +36,7 @@ dependencies {
   implementation "com.netflix.spinnaker.kork:kork-core"
   implementation "com.netflix.spinnaker.kork:kork-exceptions"
   implementation "com.netflix.spinnaker.kork:kork-security"
-  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.netflix.spinnaker.kork:kork-moniker"
   implementation "com.squareup.okhttp3:okhttp:3.1.2"
   implementation "io.grpc:grpc-netty-shaded:$grpcVersion"
   implementation "io.grpc:grpc-protobuf:$grpcVersion"
@@ -61,6 +55,7 @@ dependencies {
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+  testImplementation "com.netflix.spinnaker.kork:kork-test"
 }
 
 sourceSets {

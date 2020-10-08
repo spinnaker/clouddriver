@@ -47,6 +47,36 @@ public class GoogleComputeApiFactory {
     this.batchExecutor = batchExecutor;
   }
 
+  public Images createImages(GoogleNamedAccountCredentials credentials) {
+    return new Images(credentials, operationPoller, registry);
+  }
+
+  public Instances createInstances(GoogleNamedAccountCredentials credentials) {
+    return new Instances(credentials, operationPoller, registry);
+  }
+
+  public InstanceTemplates createInstanceTemplates(GoogleNamedAccountCredentials credentials) {
+    return new InstanceTemplates(credentials, operationPoller, registry);
+  }
+
+  public RegionAutoscalers createRegionAutoscalers(GoogleNamedAccountCredentials credentials) {
+    return new RegionAutoscalers(credentials, operationPoller, registry);
+  }
+
+  public RegionInstanceGroupManagers createRegionInstanceGroupManagers(
+      GoogleNamedAccountCredentials credentials) {
+    return new RegionInstanceGroupManagers(credentials, operationPoller, registry);
+  }
+
+  public ZoneAutoscalers createZoneAutoscalers(GoogleNamedAccountCredentials credentials) {
+    return new ZoneAutoscalers(credentials, operationPoller, registry);
+  }
+
+  public ZoneInstanceGroupManagers createZoneInstanceGroupManagers(
+      GoogleNamedAccountCredentials credentials) {
+    return new ZoneInstanceGroupManagers(credentials, operationPoller, registry);
+  }
+
   public GoogleServerGroupManagers createServerGroupManagers(
       GoogleNamedAccountCredentials credentials, GoogleServerGroup.View serverGroup) {
     return serverGroup.getRegional()
@@ -56,18 +86,17 @@ public class GoogleComputeApiFactory {
             credentials, operationPoller, registry, serverGroup.getName(), serverGroup.getZone());
   }
 
-  public Images createImages(GoogleNamedAccountCredentials credentials) {
-    return new Images(credentials, registry);
-  }
-
-  public InstanceTemplates createInstanceTemplates(GoogleNamedAccountCredentials credentials) {
-    return new InstanceTemplates(credentials, operationPoller, registry);
-  }
-
   public <RequestT extends ComputeRequest<ResponseT>, ResponseT>
-      ComputeBatchRequest<RequestT, ResponseT> createBatchRequest(
+      BatchComputeRequest<RequestT, ResponseT> createBatchRequest(
           GoogleNamedAccountCredentials credentials) {
-    return new ComputeBatchRequestImpl<>(
+    return new BatchComputeRequestImpl<>(
         credentials.getCompute(), registry, clouddriverUserAgentApplicationName, batchExecutor);
+  }
+
+  public <ComputeRequestT extends ComputeRequest<ResponseT>, ResponseT, ItemT>
+      BatchPaginatedComputeRequest<ComputeRequestT, ItemT> createPaginatedBatchRequest(
+          GoogleNamedAccountCredentials credentials) {
+    return new BatchPaginatedComputeRequestImpl<ComputeRequestT, ResponseT, ItemT>(
+        () -> createBatchRequest(credentials));
   }
 }

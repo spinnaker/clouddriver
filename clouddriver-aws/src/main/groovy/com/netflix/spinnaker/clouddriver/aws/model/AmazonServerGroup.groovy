@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.model
 
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
@@ -34,6 +35,7 @@ class AmazonServerGroup implements ServerGroup, Serializable {
   Set health
   Map<String, Object> image
   Map<String, Object> launchConfig
+  Map<String, Object> launchTemplate
   Map<String, Object> asg
   List<Map> scalingPolicies
   List<Map> scheduledActions
@@ -44,16 +46,27 @@ class AmazonServerGroup implements ServerGroup, Serializable {
 
   Set<String> targetGroups
 
-  private Map<String, Object> dynamicProperties = new HashMap<String, Object>()
+  @JsonIgnore
+  private Map<String, Object> extraAttributes = new LinkedHashMap<String, Object>()
 
+  @Override
   @JsonAnyGetter
-  Map<String,Object> any() {
-    return dynamicProperties
+  Map<String,Object> getExtraAttributes() {
+    return extraAttributes
   }
 
+  /**
+   * Setter for non explicitly defined values.
+   *
+   * Used for both Jackson mapping {@code @JsonAnySetter} as well
+   * as Groovy's implicit Map constructor (this is the reason the
+   * method is named {@code set(String name, Object value)}
+   * @param name The property name
+   * @param value The property value
+   */
   @JsonAnySetter
   void set(String name, Object value) {
-    dynamicProperties.put(name, value)
+    extraAttributes.put(name, value)
   }
 
   @Override
@@ -99,7 +112,12 @@ class AmazonServerGroup implements ServerGroup, Serializable {
     if (launchConfig && launchConfig.containsKey("securityGroups")) {
       securityGroups = (Set<String>) launchConfig.securityGroups
     }
-    securityGroups
+
+    if (launchTemplate && launchTemplate.containsKey("securityGroups")) {
+      securityGroups = (Set<String>) launchConfig.securityGroups
+    }
+
+    return securityGroups
   }
 
   @Override

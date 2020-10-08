@@ -207,6 +207,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         containerInformationService.getHealthStatus(taskId, serviceName, account, region);
     String availabilityZone = containerInformationService.getTaskZone(account, region, task);
 
+    Service service = containerInformationService.getService(serviceName, account, region);
+    boolean hasHealthCheck =
+        containerInformationService.taskHasHealthCheck(service, account, region);
+
     NetworkInterface networkInterface =
         !task.getContainers().isEmpty()
                 && !task.getContainers().get(0).getNetworkInterfaces().isEmpty()
@@ -218,10 +222,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         launchTime,
         task.getLastStatus(),
         task.getDesiredStatus(),
+        task.getHealthStatus(),
         availabilityZone,
         healthStatus,
         address,
-        networkInterface);
+        networkInterface,
+        hasHealthCheck);
   }
 
   private TaskDefinition buildTaskDefinition(
@@ -318,13 +324,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     Set<String> securityGroups = new HashSet<>();
 
     if (!instances.isEmpty()) {
-      String taskId = instances.iterator().next().getName();
-      String taskKey = Keys.getTaskKey(account, region, taskId);
-      Task task = taskCacheClient.get(taskKey);
-
-      com.amazonaws.services.ec2.model.Instance ec2Instance =
-          containerInformationService.getEc2Instance(account, region, task);
-
       if (eniSubnets != null
           && !eniSubnets.isEmpty()
           && eniSecurityGroups != null
@@ -340,12 +339,29 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
           vpcId = vpcIds.iterator().next();
         }
-      } else if (ec2Instance != null) {
-        vpcId = ec2Instance.getVpcId();
-        securityGroups =
-            ec2Instance.getSecurityGroups().stream()
-                .map(GroupIdentifier::getGroupId)
-                .collect(Collectors.toSet());
+      } else {
+        for (Instance instance : instances) {
+          String taskId = instance.getName();
+          String taskKey = Keys.getTaskKey(account, region, taskId);
+          Task task = taskCacheClient.get(taskKey);
+
+          if (task != null) {
+            com.amazonaws.services.ec2.model.Instance ec2Instance =
+                containerInformationService.getEc2Instance(account, region, task);
+            if (ec2Instance != null) {
+              if (ec2Instance.getVpcId() != null && !ec2Instance.getVpcId().isEmpty()) {
+                vpcId = ec2Instance.getVpcId();
+              }
+              if (ec2Instance.getSecurityGroups() != null) {
+                securityGroups =
+                    ec2Instance.getSecurityGroups().stream()
+                        .map(GroupIdentifier::getGroupId)
+                        .collect(Collectors.toSet());
+              }
+              break;
+            }
+          }
+        }
       }
     }
 

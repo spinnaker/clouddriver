@@ -16,10 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.model;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.netflix.spinnaker.clouddriver.documentation.Empty;
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.moniker.Moniker;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -66,7 +67,6 @@ public interface Cluster {
    * @return a set of {@link ServerGroup} objects or an empty set if none exist
    */
   @Empty
-  @JsonSerialize(nullsUsing = NullCollectionSerializer.class)
   Set<? extends ServerGroup> getServerGroups();
 
   /**
@@ -75,7 +75,6 @@ public interface Cluster {
    * @return a set of {@link LoadBalancer} objects or an empty set if none exist
    */
   @Empty
-  @JsonSerialize(nullsUsing = NullCollectionSerializer.class)
   // TODO(ttomsu): Why are load balancers associated with Clusters instead of ServerGroups?
   Set<? extends LoadBalancer> getLoadBalancers();
 
@@ -88,5 +87,9 @@ public interface Cluster {
     String accountName;
     Set<ServerGroup> serverGroups;
     Set<LoadBalancer> loadBalancers;
+  }
+
+  default Map<String, Object> getExtraAttributes() {
+    return Collections.EMPTY_MAP;
   }
 }

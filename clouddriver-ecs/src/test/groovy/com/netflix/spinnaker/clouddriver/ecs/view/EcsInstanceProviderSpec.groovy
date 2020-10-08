@@ -26,9 +26,11 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.model.ContainerInstance
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService
+import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 import spock.lang.Subject
+import spock.lang.Unroll
 
 class EcsInstanceProviderSpec extends Specification {
   def accountCredentialsProvider = Mock(AccountCredentialsProvider)
@@ -41,12 +43,10 @@ class EcsInstanceProviderSpec extends Specification {
   def provider = new EcsInstanceProvider(containerInformationService, taskCacheClient,
                                          containerInstanceCacheClient)
 
+  @Unroll
   def 'should return an EcsTask'() {
     given:
-    def region = 'us-west-1'
     def account = 'test-account'
-    def taskId = 'deadbeef-94f3-4994-8e81-339c4d1be1ba'
-    def taskArn = 'arn:aws:ecs:' + region + ':123456789012:task/' + taskId
     def address = '127.0.0.1:1337'
     def startTime = System.currentTimeMillis()
 
@@ -64,8 +64,8 @@ class EcsInstanceProviderSpec extends Specification {
 
     def containerInstance =  new ContainerInstance()
 
-    def ecsTask = new EcsTask(taskId, startTime, 'RUNNING', 'RUNNING',
-      null, null, address, null)
+    def ecsTask = new EcsTask(taskId, startTime, 'RUNNING', 'RUNNING', 'HEALTHY',
+      null, null, address, null, false)
 
     taskCacheClient.get(_) >> task
     accountCredentialsProvider.getCredentials(_) >> netflixAmazonCredentials
@@ -79,5 +79,77 @@ class EcsInstanceProviderSpec extends Specification {
 
     then:
     taskInstance == ecsTask
+
+    where:
+    region      | taskId                                 | taskArn
+    'us-west-1' | 'deadbeef-94f3-4994-8e81-339c4d1be1ba' | 'arn:aws:ecs:us-west-1:123456789012:task/deadbeef-94f3-4994-8e81-339c4d1be1ba'
+    'us-west-1' | 'deadbeef94f349948e81339c4d1be1ba'     | 'arn:aws:ecs:us-west-1:123456789012:task/my-cluster-123/deadbeef94f349948e81339c4d1be1ba'
+    'us-west-1' | 'arn:aws:ecs:us-west-1:123456789012:task/deadbeef-94f3-4994-8e81-339c4d1be1ba' | 'foo'
+    'us-west-1' | 'arn:aws:ecs:us-west-1:123456789012:task/my-cluster-123/deadbeef94f349948e81339c4d1be1ba' | 'foo'
+  }
+
+  @Unroll
+  def 'should return an EcsTask with an health status defined'() {
+    given:
+    def account = 'test-account'
+    def address = '127.0.0.1:1337'
+    def startTime = System.currentTimeMillis()
+
+    def netflixAmazonCredentials = Mock(NetflixAmazonCredentials)
+    def awsCredentialsProvider = Mock(AWSCredentialsProvider)
+    def amazonEC2 = Mock(AmazonEC2)
+
+    def task = new Task(
+      taskId: taskId,
+      taskArn: 'arn:aws:ecs:us-west-1:123456789012:task/deadbeef-94f3-4994-8e81-339c4d1be1ba',
+      lastStatus: 'RUNNING',
+      desiredStatus: 'RUNNING',
+      healthStatus: healthStatus,
+      startedAt: startTime,
+    )
+
+    def containerInstance =  new ContainerInstance()
+
+    def ecsTask = new EcsTask(taskId, startTime, 'RUNNING', 'RUNNING', healthStatus,
+      null, null, address, null, hasHealthCheck)
+
+    taskCacheClient.get(_) >> task
+    accountCredentialsProvider.getCredentials(_) >> netflixAmazonCredentials
+    netflixAmazonCredentials.getCredentialsProvider() >> awsCredentialsProvider
+    amazonClientProvider.getAmazonEC2(_, _, _) >> amazonEC2
+    containerInstanceCacheClient.get(_) >> containerInstance
+    containerInformationService.getTaskPrivateAddress(_, _, _) >> address
+    containerInformationService.taskHasHealthCheck(_, _, _) >> hasHealthCheck
+
+    when:
+    def taskInstance = provider.getInstance(account, region, taskId)
+
+    then:
+    taskInstance == ecsTask
+    taskInstance.getHealthState() == ecsTask.getHealthState()
+    taskInstance.getHealthState() == healthState
+
+    where:
+    healthStatus  | healthState           | region      | taskId                                | hasHealthCheck
+    'UNHEALTHY'   | HealthState.Down      | 'us-west-1' | 'deadbeef-94f3-4994-8e81-339c4d1be1ba'| true
+    'UNHEALTHY'   | HealthState.Down      | 'us-west-1' | 'deadbeef-94f3-4994-8e81-339c4d1be1ba'| false
+    'HEALTHY'     | HealthState.Up        | 'us-west-1' | 'deadbeef94f349948e81339c4d1be1ba'    | true
+    'HEALTHY'     | HealthState.Up        | 'us-west-1' | 'deadbeef94f349948e81339c4d1be1ba'    | false
+    'UNKNOWN'     | HealthState.Starting  | 'us-west-1' | 'deadbeef-94f3-4994-8e81-339c4d1be1ba'| true
+    'UNKNOWN'     | HealthState.Up        | 'us-west-1' | 'deadbeef-94f3-4994-8e81-339c4d1be1ba'| false
+  }
+
+  @Unroll
+  def 'should return null for invalid ECS task ID'() {
+    when:
+    def taskInstance = provider.getInstance(account, region, taskId)
+
+    then:
+    taskInstance == null
+
+    where:
+    account        | region      | taskId
+    'test-account' | 'us-west-1' | 'i-deadbeef'
+    'test-account' | 'us-west-1' | 'arn:aws:ecs:us-west-1:123456789012:cluster/my-cluster-name'
   }
 }

@@ -6,7 +6,7 @@ server:
     enabled: true
 
 redis:
-  connection: redis://localhost:6379
+  connection: ${services.redis.baseUrl:redis://localhost:6379}
   scheduler: default
   parallelism: -1
 
@@ -63,7 +63,7 @@ aws:
   #  proxyWorkstation: foo
   #  protocol: HTTP
   defaults:
-    iamRole: FooRole
+    iamRole: BaseIAMRole
     unknownInstanceTypeBlockDevice:
       deviceName: /dev/sdb
       size: 40
@@ -281,6 +281,19 @@ operations.security:
 # Turn on when confirming Fiat authorization checks
 # logging.level.com.netflix.spinnaker.clouddriver.listeners: DEBUG
 
+resilience4j.retry:
+  instances:
+    sqlTransaction:
+      maxRetryAttempts: 5
+      waitDuration: 100ms
+      enableExponentialBackoff: false
+      ignoreExceptions:
+      - com.netflix.spinnaker.clouddriver.event.exceptions.AggregateChangeRejectedException
+    sqlRead:
+      maxRetryAttempts: 5
+      waitDuration: 100ms
+      enableExponentialBackoff: false
+
 ---
 
 spring:
@@ -315,6 +328,7 @@ spring:
     #   regions: #override default regions
     #     - name: us-east-1
     #     - name: ap-northeast-1
+    #   externalId: a1b2c3d4
 
 ---
 
@@ -329,3 +343,24 @@ spring:
 #  port: 22
 #  proxyRegion: us-west-1
 #  proxyCluster: my-credentials-cluster
+
+---
+# This profile is used in HA deployments for a clouddriver that handles read-only requests from
+# other services
+spring:
+  profiles: ro
+
+redis:
+  connection: ${services.redisRo.baseUrl:${services.redis.baseUrl}}
+
+caching:
+  writeEnabled: false
+
+---
+# This profile is used in HA deployments for a clouddriver that handles mutating requests from
+# other services, but does not run caching agents
+spring:
+  profiles: rw
+
+caching:
+  writeEnabled: false

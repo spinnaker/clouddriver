@@ -52,14 +52,14 @@ public class ProviderUtils {
 
   /**
    * Build a thread-safe set containing each account in the accountCredentialsRepository that is of type
-   * credentialsType, and (if specified) of provdierVersion version.
+   * credentialsType and (if specified) for a cloud provider.
    */
-  public static <T extends AccountCredentials> Set<T> buildThreadSafeSetOfAccounts(AccountCredentialsRepository accountCredentialsRepository, Class<T> credentialsType, ProviderVersion version) {
+  public static <T extends AccountCredentials> Set<T> buildThreadSafeSetOfAccounts(AccountCredentialsRepository accountCredentialsRepository, Class<T> credentialsType, String cloudProvider) {
     def allAccounts = Collections.newSetFromMap(new ConcurrentHashMap<T, Boolean>())
     allAccounts.addAll(accountCredentialsRepository.all.findResults { credentialsType.isInstance(it) ? credentialsType.cast(it) : null })
 
-    if (version != null) {
-      allAccounts = allAccounts.findAll { acc -> acc.providerVersion == version }
+    if (cloudProvider != null) {
+      allAccounts = allAccounts.findAll { acc -> acc.cloudProvider == cloudProvider }
     }
 
     return allAccounts

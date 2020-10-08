@@ -23,10 +23,9 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.data.task.TaskState
 import com.netflix.spinnaker.clouddriver.data.task.TaskState.FAILED
 import com.netflix.spinnaker.clouddriver.data.task.TaskState.STARTED
-import com.netflix.spinnaker.config.ConnectionPools
-import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.routing.withPool
 import de.huxhorn.sulky.ulid.ULID
+import java.time.Clock
 import org.jooq.Condition
 import org.jooq.DSLContext
 import org.jooq.Record
@@ -35,19 +34,18 @@ import org.jooq.impl.DSL
 import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.sql
 import org.slf4j.LoggerFactory
-import java.time.Clock
 
 class SqlTaskRepository(
   private val jooq: DSLContext,
   private val mapper: ObjectMapper,
   private val clock: Clock,
-  private val sqlRetryProperties: SqlRetryProperties
+  private val poolName: String
 ) : TaskRepository {
 
   private val log = LoggerFactory.getLogger(javaClass)
 
   init {
-    log.info("Using ${javaClass.simpleName}")
+    log.info("Using ${javaClass.simpleName} with pool $poolName")
   }
 
   override fun create(phase: String, status: String): Task {
@@ -55,11 +53,11 @@ class SqlTaskRepository(
   }
 
   override fun create(phase: String, status: String, clientRequestId: String): Task {
-    var task = SqlTask(ulid.nextULID(), ClouddriverHostname.ID, clientRequestId, clock.millis(), this)
+    var task = SqlTask(ulid.nextULID(), ClouddriverHostname.ID, clientRequestId, clock.millis(), mutableSetOf(), this)
     val historyId = ulid.nextULID()
 
-    withPool(POOL_NAME) {
-      jooq.transactional(sqlRetryProperties.transactions) { ctx ->
+    withPool(poolName) {
+      jooq.transactional { ctx ->
         val existingTask = getByClientRequestId(clientRequestId)
         if (existingTask != null) {
           task = existingTask as SqlTask
@@ -69,7 +67,8 @@ class SqlTaskRepository(
             field("id") to task.id,
             field("owner_id") to task.ownerId,
             field("request_id") to task.requestId,
-            field("created_at") to task.startTimeMs
+            field("created_at") to task.startTimeMs,
+            field("saga_ids") to mapper.writeValueAsString(task.sagaIds)
           )
 
           ctx.insertInto(tasksTable, *pairs.keys.toTypedArray()).values(*pairs.values.toTypedArray()).execute()
@@ -83,13 +82,24 @@ class SqlTaskRepository(
     return task
   }
 
+  fun updateSagaIds(task: Task) {
+    return withPool(poolName) {
+      jooq.transactional { ctx ->
+        ctx.update(tasksTable)
+          .set(field("saga_ids"), mapper.writeValueAsString(task.sagaIds))
+          .where(field("id").eq(task.id))
+          .execute()
+      }
+    }
+  }
+
   override fun get(id: String): Task? {
     return retrieveInternal(id)
   }
 
   override fun getByClientRequestId(clientRequestId: String): Task? {
-    return withPool(POOL_NAME) {
-      jooq.withRetry(sqlRetryProperties.reads) {
+    return withPool(poolName) {
+      jooq.read {
         it.select(field("id"))
           .from(tasksTable)
           .where(field("request_id").eq(clientRequestId))
@@ -102,8 +112,8 @@ class SqlTaskRepository(
   }
 
   override fun list(): MutableList<Task> {
-    return withPool(POOL_NAME) {
-      jooq.withRetry(sqlRetryProperties.reads) {
+    return withPool(poolName) {
+      jooq.read {
         runningTaskIds(it, false).let { taskIds ->
           retrieveInternal(field("id").`in`(*taskIds), field("task_id").`in`(*taskIds)).toMutableList()
         }
@@ -112,8 +122,8 @@ class SqlTaskRepository(
   }
 
   override fun listByThisInstance(): MutableList<Task> {
-    return withPool(POOL_NAME) {
-      jooq.withRetry(sqlRetryProperties.reads) {
+    return withPool(poolName) {
+      jooq.read {
         runningTaskIds(it, true).let { taskIds ->
           retrieveInternal(field("id").`in`(*taskIds), field("task_id").`in`(*taskIds)).toMutableList()
         }
@@ -124,8 +134,8 @@ class SqlTaskRepository(
   internal fun addResultObjects(results: List<Any>, task: Task) {
     val resultIdPairs = results.map { ulid.nextULID() to it }.toMap()
 
-    withPool(POOL_NAME) {
-      jooq.transactional(sqlRetryProperties.transactions) { ctx ->
+    withPool(poolName) {
+      jooq.transactional { ctx ->
         ctx.select(taskStatesFields)
           .from(taskStatesTable)
           .where(field("task_id").eq(task.id))
@@ -138,11 +148,13 @@ class SqlTaskRepository(
 
         resultIdPairs.forEach { result ->
           ctx.insertInto(taskResultsTable, listOf(field("id"), field("task_id"), field("body")))
-            .values(listOf(
-              result.key,
-              task.id,
-              mapper.writeValueAsString(result.value)
-            ))
+            .values(
+              listOf(
+                result.key,
+                task.id,
+                mapper.writeValueAsString(result.value)
+              )
+            )
             .execute()
         }
       }
@@ -151,10 +163,10 @@ class SqlTaskRepository(
 
   internal fun updateCurrentStatus(task: Task, phase: String, status: String) {
     val historyId = ulid.nextULID()
-    withPool(POOL_NAME) {
-      jooq.transactional(sqlRetryProperties.transactions) { ctx ->
+    withPool(poolName) {
+      jooq.transactional { ctx ->
         val state = selectLatestState(ctx, task.id)
-        addToHistory(ctx, historyId, task.id, state?.state ?: STARTED, phase, status)
+        addToHistory(ctx, historyId, task.id, state?.state ?: STARTED, phase, status.take(MAX_STATUS_LENGTH))
       }
     }
   }
@@ -171,8 +183,8 @@ class SqlTaskRepository(
 
   internal fun updateState(task: Task, state: TaskState) {
     val historyId = ulid.nextULID()
-    withPool(POOL_NAME) {
-      jooq.transactional(sqlRetryProperties.transactions) { ctx ->
+    withPool(poolName) {
+      jooq.transactional { ctx ->
         selectLatestState(ctx, task.id)?.let {
           addToHistory(ctx, historyId, task.id, state, it.phase, it.status)
         }
@@ -190,14 +202,14 @@ class SqlTaskRepository(
     // TODO: AWS Aurora enforces REPEATABLE_READ on replicas. Kork's dataSourceConnectionProvider sets READ_COMMITTED
     //  on every connection acquire - need to change this so running on !aurora will behave consistently.
     //  REPEATABLE_READ is correct here.
-    withPool(POOL_NAME) {
-      jooq.transactional(sqlRetryProperties.transactions) { ctx ->
+    withPool(poolName) {
+      jooq.transactional { ctx ->
         /**
-         *  (select id as task_id, owner_id, request_id, created_at, null as body, null as state, null as phase, null as status from tasks_copy where id = '01D2H4H50VTF7CGBMP0D6HTGTF')
+         *  (select id as task_id, owner_id, request_id, created_at, saga_ids, null as body, null as state, null as phase, null as status from tasks_copy where id = '01D2H4H50VTF7CGBMP0D6HTGTF')
          *  UNION ALL
-         *  (select task_id, null as owner_id, null as request_id, null as created_at, null as body, state, phase, status from task_states_copy where task_id = '01D2H4H50VTF7CGBMP0D6HTGTF')
+         *  (select task_id, null as owner_id, null as request_id, null as created_at, null as saga_ids, null as body, state, phase, status from task_states_copy where task_id = '01D2H4H50VTF7CGBMP0D6HTGTF')
          *  UNION ALL
-         *  (select task_id, null as owner_id, null as request_id, null as created_at, body, null as state, null as phase, null as status from task_results_copy where task_id = '01D2H4H50VTF7CGBMP0D6HTGTF')
+         *  (select task_id, null as owner_id, null as request_id, null as created_at, null as saga_ids, body, null as state, null as phase, null as status from task_results_copy where task_id = '01D2H4H50VTF7CGBMP0D6HTGTF')
          */
         tasks.addAll(
           ctx
@@ -206,6 +218,7 @@ class SqlTaskRepository(
               field("owner_id"),
               field("request_id"),
               field("created_at"),
+              field("saga_ids"),
               field(sql("null")).`as`("body"),
               field(sql("null")).`as`("state"),
               field(sql("null")).`as`("phase"),
@@ -220,6 +233,7 @@ class SqlTaskRepository(
                   field(sql("null")).`as`("owner_id"),
                   field(sql("null")).`as`("request_id"),
                   field(sql("null")).`as`("created_at"),
+                  field(sql("null")).`as`("saga_ids"),
                   field(sql("null")).`as`("body"),
                   field("state"),
                   field("phase"),
@@ -235,6 +249,7 @@ class SqlTaskRepository(
                   field(sql("null")).`as`("owner_id"),
                   field(sql("null")).`as`("request_id"),
                   field(sql("null")).`as`("created_at"),
+                  field(sql("null")).`as`("saga_ids"),
                   field("body"),
                   field(sql("null")).`as`("state"),
                   field(sql("null")).`as`("phase"),
@@ -252,7 +267,7 @@ class SqlTaskRepository(
   }
 
   private fun selectLatestState(ctx: DSLContext, taskId: String): DefaultTaskStatus? {
-    return withPool(POOL_NAME) {
+    return withPool(poolName) {
       ctx.select(taskStatesFields)
         .from(taskStatesTable)
         .where(field("task_id").eq(taskId))
@@ -268,7 +283,7 @@ class SqlTaskRepository(
    * down to the ones that are running.
    */
   private fun runningTaskIds(ctx: DSLContext, thisInstance: Boolean): Array<String> {
-    return withPool(POOL_NAME) {
+    return withPool(poolName) {
       val baseQuery = ctx.select()
         .from(taskStatesTable.`as`("a"))
         .innerJoin(
@@ -282,7 +297,7 @@ class SqlTaskRepository(
         baseQuery
           .innerJoin(tasksTable.`as`("t")).on(field("a.task_id").eq("t.id"))
           .where(
-            field("a.owner_id").eq(ClouddriverHostname.ID)
+            field("t.owner_id").eq(ClouddriverHostname.ID)
               .and(field("a.state").eq(TaskState.STARTED.toString()))
           )
       } else {
@@ -290,7 +305,7 @@ class SqlTaskRepository(
       }
 
       select
-        .fetch("task_id", String::class.java)
+        .fetch("t.task_id", String::class.java)
         .toTypedArray()
     }
   }
@@ -306,6 +321,6 @@ class SqlTaskRepository(
 
   companion object {
     private val ulid = ULID()
-    private val POOL_NAME = ConnectionPools.TASKS.value
+    private val MAX_STATUS_LENGTH = 10_000
   }
 }

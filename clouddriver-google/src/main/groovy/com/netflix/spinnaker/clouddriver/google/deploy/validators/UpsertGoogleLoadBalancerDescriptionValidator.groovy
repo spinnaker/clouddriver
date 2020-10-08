@@ -17,17 +17,18 @@
 package com.netflix.spinnaker.clouddriver.google.deploy.validators
 
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.google.GoogleOperation
 import com.netflix.spinnaker.clouddriver.google.deploy.description.UpsertGoogleLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleBackendService
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalHttpLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import org.springframework.validation.Errors
 
 @GoogleOperation(AtomicOperations.UPSERT_LOAD_BALANCER)
 @Component("upsertGoogleLoadBalancerDescriptionValidator")
@@ -42,7 +43,7 @@ class UpsertGoogleLoadBalancerDescriptionValidator extends
   AccountCredentialsProvider accountCredentialsProvider
 
   @Override
-  void validate(List priorDescriptions, UpsertGoogleLoadBalancerDescription description, Errors errors) {
+  void validate(List priorDescriptions, UpsertGoogleLoadBalancerDescription description, ValidationErrors errors) {
     def helper = new StandardGceAttributeValidator("upsertGoogleLoadBalancerDescription", errors)
 
     helper.validateCredentials(description.accountName, accountCredentialsProvider)
@@ -79,6 +80,34 @@ class UpsertGoogleLoadBalancerDescriptionValidator extends
             portRange: description.portRange
         )
         List<GoogleBackendService> services = Utils.getBackendServicesFromHttpLoadBalancerView(googleHttpLoadBalancer.view)
+        services?.each { GoogleBackendService service ->
+          if (!service.healthCheck) {
+            errors.rejectValue("defaultService OR hostRules.pathMatcher.defaultService OR hostRules.pathMatcher.pathRules.backendService",
+              "upsertGoogleLoadBalancerDescription.backendServices.healthCheckRequired")
+          }
+        }
+        break
+      case GoogleLoadBalancerType.INTERNAL_MANAGED:
+
+        // portRange must be a single port.
+        try {
+          Integer.parseInt(description.portRange)
+        } catch (NumberFormatException _) {
+          errors.rejectValue("portRange",
+            "upsertGoogleLoadBalancerDescription.portRange.requireSinglePort")
+        }
+
+        // Each backend service must have a health check.
+        def googleInternalHttpLoadBalancer = new GoogleInternalHttpLoadBalancer(
+            name: description.loadBalancerName,
+            defaultService: description.defaultService,
+            hostRules: description.hostRules,
+            certificate: description.certificate,
+            ipAddress: description.ipAddress,
+            ipProtocol: description.ipProtocol,
+            portRange: description.portRange
+        )
+        List<GoogleBackendService> services = Utils.getBackendServicesFromInternalHttpLoadBalancerView(googleInternalHttpLoadBalancer.view)
         services?.each { GoogleBackendService service ->
           if (!service.healthCheck) {
             errors.rejectValue("defaultService OR hostRules.pathMatcher.defaultService OR hostRules.pathMatcher.pathRules.backendService",

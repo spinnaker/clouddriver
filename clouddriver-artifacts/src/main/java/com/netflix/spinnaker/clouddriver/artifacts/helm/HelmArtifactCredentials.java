@@ -18,27 +18,34 @@
 package com.netflix.spinnaker.clouddriver.artifacts.helm;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.artifacts.config.BaseHttpArtifactCredentials;
 import com.netflix.spinnaker.clouddriver.artifacts.exceptions.FailedDownloadException;
+import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.ResponseBody;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collections;
 import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+@NonnullByDefault
 @Slf4j
-public class HelmArtifactCredentials extends BaseHttpArtifactCredentials<HelmArtifactAccount>
+final class HelmArtifactCredentials extends BaseHttpArtifactCredentials<HelmArtifactAccount>
     implements ArtifactCredentials {
   @Getter private final String name;
-  @Getter private final List<String> types = Collections.singletonList("helm/chart");
+  @Getter private final ImmutableList<String> types = ImmutableList.of("helm/chart", "helm/index");
 
   @JsonIgnore private final IndexParser indexParser;
+
+  @Override
+  public boolean handlesType(String type) {
+    return types.contains(type);
+  }
 
   HelmArtifactCredentials(HelmArtifactAccount account, OkHttpClient okHttpClient) {
     super(okHttpClient, account);
@@ -49,6 +56,10 @@ public class HelmArtifactCredentials extends BaseHttpArtifactCredentials<HelmArt
   @Override
   public InputStream download(Artifact artifact) throws IOException {
     InputStream index = downloadIndex();
+
+    if ("helm/index".equals(artifact.getType())) {
+      return index;
+    }
 
     List<String> urls = indexParser.findUrls(index, artifact.getName(), artifact.getVersion());
     ResponseBody downloadResponse;

@@ -21,9 +21,12 @@ import com.amazonaws.services.autoscaling.model.AlreadyExistsException
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
 import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.LaunchTemplate
 import com.amazonaws.services.ec2.model.Subnet
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonAsgLifecycleHook
 import com.netflix.spinnaker.clouddriver.aws.services.AsgService
+import com.netflix.spinnaker.clouddriver.aws.services.LaunchTemplateService
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask
 import com.netflix.spinnaker.clouddriver.data.task.Task
@@ -31,12 +34,16 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.model.Cluster
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import org.springframework.beans.factory.annotation.Autowired
 import spock.lang.Specification
 import spock.lang.Unroll
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+
+import static com.netflix.spinnaker.clouddriver.aws.model.AmazonAsgLifecycleHook.DefaultResult.CONTINUE
+import static com.netflix.spinnaker.clouddriver.aws.model.AmazonAsgLifecycleHook.Transition.EC2InstanceLaunching
 
 class AutoScalingWorkerUnitSpec extends Specification {
 
@@ -48,6 +55,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
   def autoScaling = Mock(AmazonAutoScaling)
   def clusterProvider = Mock(ClusterProvider)
   def amazonEC2 = Mock(AmazonEC2)
+  def asgLifecycleHookWorker = Mock(AsgLifecycleHookWorker)
+  def dynamicConfigService = Mock(DynamicConfigService)
   def awsServerGroupNameResolver = new AWSServerGroupNameResolver('test', 'us-east-1', asgService, [clusterProvider])
   def credential = TestCredential.named('foo')
   def regionScopedProvider = Stub(RegionScopedProviderFactory.RegionScopedProvider) {
@@ -56,6 +65,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
     getAsgService() >> asgService
     getAWSServerGroupNameResolver() >> awsServerGroupNameResolver
     getAmazonEC2() >> amazonEC2
+    getAsgLifecycleHookWorker() >> asgLifecycleHookWorker
   }
 
   def setup() {
@@ -74,13 +84,14 @@ class AutoScalingWorkerUnitSpec extends Specification {
     mockAutoScalingWorker.credentials = credential
     mockAutoScalingWorker.regionScopedProvider = regionScopedProvider
     mockAutoScalingWorker.sequence = sequence
+    mockAutoScalingWorker.dynamicConfigService = dynamicConfigService
 
     when:
     mockAutoScalingWorker.deploy()
 
     then:
     1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null) >> launchConfigName
-    1 * mockAutoScalingWorker.createAutoScalingGroup(expectedAsgName, launchConfigName) >> {}
+    1 * mockAutoScalingWorker.createAutoScalingGroup(expectedAsgName, launchConfigName, null) >> {}
     (sequence == null ? 1 : 0) * clusterProvider.getCluster('myasg', 'test', 'myasg-stack-details') >> { null }
     0 * clusterProvider._
 
@@ -93,13 +104,93 @@ class AutoScalingWorkerUnitSpec extends Specification {
     111      || "myasg-stack-details-v111"
   }
 
+  @Unroll
+  void "deploy workflow is create launch template if enabled then create asg"() {
+    setup:
+    def mockAutoScalingWorker = Spy(AutoScalingWorker)
+    mockAutoScalingWorker.application = "myasg"
+    mockAutoScalingWorker.stack = "stack"
+    mockAutoScalingWorker.region = "us-east-1"
+    mockAutoScalingWorker.freeFormDetails = "details"
+    mockAutoScalingWorker.credentials = credential
+    mockAutoScalingWorker.regionScopedProvider = regionScopedProvider
+    mockAutoScalingWorker.sequence = sequence
+    mockAutoScalingWorker.dynamicConfigService = dynamicConfigService
+
+    and:
+    mockAutoScalingWorker.setLaunchTemplate = true
+    regionScopedProvider.getLaunchTemplateService() >> Mock(LaunchTemplateService) {
+      createLaunchTemplate(_,_,_,_) >> new LaunchTemplate(launchTemplateId: "id", latestVersionNumber: 0, launchTemplateName: "lt")
+    }
+
+    when:
+    mockAutoScalingWorker.deploy()
+
+    then:
+    1 * dynamicConfigService.isEnabled('aws.features.launch-templates', false) >> true
+    1 * dynamicConfigService.getConfig(String.class, "aws.features.launch-templates.excluded-applications", "") >> ""
+    1 * dynamicConfigService.getConfig(String.class,"aws.features.launch-templates.allowed-applications", "") >> { "myasg:foo:us-east-1" }
+    1 * mockAutoScalingWorker.createAutoScalingGroup(expectedAsgName, null, { it.launchTemplateId == "id" }) >> {}
+    (sequence == null ? 1 : 0) * clusterProvider.getCluster('myasg', 'test', 'myasg-stack-details') >> { null }
+    0 * clusterProvider._
+
+    where:
+    sequence || expectedAsgName
+    null     || "myasg-stack-details-v000"
+    0        || "myasg-stack-details-v000"
+    1        || "myasg-stack-details-v001"
+    11       || "myasg-stack-details-v011"
+    111      || "myasg-stack-details-v111"
+  }
+
+  void "deploy derives name from ancestor using launch templates and set ancestor name in the task result"() {
+    setup:
+    def launchTemplateService = Mock(LaunchTemplateService)
+    def autoScalingWorker = new AutoScalingWorker(
+      regionScopedProvider: regionScopedProvider,
+      credentials: credential,
+      application: "myasg",
+      region: "us-east-1",
+      setLaunchTemplate: true,
+      dynamicConfigService: dynamicConfigService
+    )
+
+    and:
+    regionScopedProvider.getLaunchTemplateService() >> launchTemplateService
+
+    when:
+    String asgName = autoScalingWorker.deploy()
+
+    then:
+    1 * dynamicConfigService.isEnabled('aws.features.launch-templates', false) >> true
+    1 * dynamicConfigService.getConfig(String.class, "aws.features.launch-templates.excluded-applications", "") >> ""
+    1 * dynamicConfigService.getConfig(String.class,"aws.features.launch-templates.allowed-applications", "") >> { "myasg:foo:us-east-1" }
+    1 * launchTemplateService.createLaunchTemplate(_,_,_,_) >>
+      new LaunchTemplate(launchTemplateId: "id", latestVersionNumber: 0, launchTemplateName: "lt")
+    1 * clusterProvider.getCluster('myasg', 'test', 'myasg') >> {
+      new Cluster.SimpleCluster(type: 'aws', serverGroups: [
+        sG('myasg-v011', 0, 'us-east-1'), sG('myasg-v099', 1, 'us-west-1')
+      ])
+    }
+    1 * asgService.getAutoScalingGroup('myasg-v011') >> { new AutoScalingGroup() }
+    1 * asgService.getAutoScalingGroup('myasg-v012') >> { new AutoScalingGroup() }
+    1 * asgService.getAutoScalingGroup('myasg-v013') >> { null }
+    1 * autoScaling.createAutoScalingGroup(_)
+    1 * autoScaling.updateAutoScalingGroup(_)
+    0 * _
+
+    asgName == 'myasg-v013'
+    awsServerGroupNameResolver.getTask().resultObjects[0].ancestorServerGroupNameByRegion.get("us-east-1") == "myasg-v011"
+  }
+
   void "deploy derives name from ancestor asg and sets the ancestor asg name in the task result"() {
     setup:
     def autoScalingWorker = new AutoScalingWorker(
       regionScopedProvider: regionScopedProvider,
       credentials: credential,
       application: "myasg",
-      region: "us-east-1"
+      region: "us-east-1",
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -131,7 +222,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       regionScopedProvider: regionScopedProvider,
       credentials: credential,
       application: "myasg",
-      region: "us-east-1"
+      region: "us-east-1",
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -139,6 +231,43 @@ class AutoScalingWorkerUnitSpec extends Specification {
 
     then:
     0 * autoScaling.enableMetricsCollection(_)
+  }
+
+  void "creates lifecycle hooks before scaling out asg"() {
+    setup:
+    def hooks = [getHook(), getHook()]
+    def autoScalingWorker = new AutoScalingWorker(
+      enabledMetrics: [],
+      instanceMonitoring: true,
+      regionScopedProvider: regionScopedProvider,
+      credentials: credential,
+      application: "myasg",
+      region: "us-east-1",
+      lifecycleHooks: hooks,
+      dynamicConfigService: dynamicConfigService
+    )
+
+    when:
+    autoScalingWorker.deploy()
+
+    then:
+    1 * autoScaling.createAutoScalingGroup(_)
+    then:
+    1 * regionScopedProvider.getAsgLifecycleHookWorker().attach(_, hooks, "myasg-v000")
+    then: "validate that scale out happens after lifecycle hooks are attached"
+    1 * autoScaling.updateAutoScalingGroup(*_)
+  }
+
+  def getHook() {
+    new AmazonAsgLifecycleHook(
+      name: "hook-name-" + new Random().nextInt(),
+      roleARN: "role-rn",
+      notificationTargetARN: "target-arn",
+      notificationMetadata: null,
+      lifecycleTransition: EC2InstanceLaunching,
+      heartbeatTimeout: 300,
+      defaultResult: CONTINUE
+    )
   }
 
   void "does not enable metrics collection when instanceMonitoring is set to false"() {
@@ -149,7 +278,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       regionScopedProvider: regionScopedProvider,
       credentials: credential,
       application: "myasg",
-      region: "us-east-1"
+      region: "us-east-1",
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -168,7 +298,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       regionScopedProvider: regionScopedProvider,
       credentials: credential,
       application: "myasg",
-      region: "us-east-1"
+      region: "us-east-1",
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -187,7 +318,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       credentials: credential,
       application: "myasg",
       region: "us-east-1",
-      classicLoadBalancers: ["one", "two"]
+      classicLoadBalancers: ["one", "two"],
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -221,7 +353,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       credentials: credential,
       application: "myasg",
       region: "us-east-1",
-      classicLoadBalancers: ["one", "two"]
+      classicLoadBalancers: ["one", "two"],
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -254,7 +387,8 @@ class AutoScalingWorkerUnitSpec extends Specification {
       credentials: credential,
       application: "myasg",
       region: "us-east-1",
-      classicLoadBalancers: ["one", "two"]
+      classicLoadBalancers: ["one", "two"],
+      dynamicConfigService: dynamicConfigService
     )
 
     when:
@@ -305,6 +439,23 @@ class AutoScalingWorkerUnitSpec extends Specification {
     subnetIds    | allSubnets                               || expectedSubnetIds
     ["subnet-1"] | [subnet("subnet-1"), subnet("subnet-2")] || ["subnet-1"]
     null         | [subnet("subnet-1"), subnet("subnet-2")] || ["subnet-1", "subnet-2"]
+  }
+
+  @Unroll
+  void "should check if current app, account and region match launch template flag"() {
+    when:
+    def result = AutoScalingWorker.matchesAppAccountAndRegion(application, accountName, region, applicationAccountRegions)
+
+    then:
+    result == matches
+
+    where:
+    applicationAccountRegions           | application   | accountName | region      || matches
+    "foo:test:us-east-1"                | "foo"         | "test"      | "us-east-1" || true
+    "foo:test:us-east-1,us-west-2"      | "foo"         | "test"      | "eu-west-1" || false
+    "regex=^foo.*:prod:us-east-1"       | "foobar"      | "prod"      | "us-east-1" || true
+    "regex=^foo.*:prod:us-east-1"       | "foobar"      | "test"      | "us-east-1" || false
+    "regex=^cass.*:prod:us-east-1"      | "cass_l"      | "prod"      | "us-east-1" || true
   }
 
   static Subnet subnet(String subnetId) {

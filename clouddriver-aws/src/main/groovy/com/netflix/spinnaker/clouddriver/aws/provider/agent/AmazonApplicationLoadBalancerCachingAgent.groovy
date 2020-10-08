@@ -382,7 +382,7 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, ?>> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<String> keys = providerCache.filterIdentifiers(
       ON_DEMAND.ns,
       Keys.getLoadBalancerKey("*", "*", "*", "*", "*")
@@ -505,6 +505,12 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
           }
           if (deletionProtectionAttribute != null) {
             lbAttributes.deletionProtection = Boolean.parseBoolean(deletionProtectionAttribute.getValue())
+          }
+          LoadBalancerAttribute loadBalancingCrossZoneAttribute = lbAttributes.attributes?.find {
+            it.key == 'load_balancing.cross_zone.enabled'
+          }
+          if (loadBalancingCrossZoneAttribute != null) {
+            lbAttributes.loadBalancingCrossZone = Boolean.parseBoolean(loadBalancingCrossZoneAttribute.getValue())
           }
           LoadBalancerAttribute idleTimeoutAttribute = lbAttributes.attributes?.find {
             it.key == 'idle_timeout.timeout_seconds'

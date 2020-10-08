@@ -37,7 +37,7 @@ public class DeployCloudFoundryServerGroupDescription
   private CloudFoundrySpace space;
   private boolean startApplication;
   private Artifact applicationArtifact;
-  private Artifact manifest;
+  private List<Map<Object, Object>> manifest;
   private String executionId;
   private Map<String, Object> trigger;
 
@@ -62,5 +62,9 @@ public class DeployCloudFoundryServerGroupDescription
     @Nullable private Map<String, String> env;
 
     @Nullable private List<String> services;
+
+    @Nullable private String stack;
+
+    @Nullable private String command;
   }
 }

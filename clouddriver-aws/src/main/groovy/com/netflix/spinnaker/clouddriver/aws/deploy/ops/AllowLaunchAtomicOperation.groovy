@@ -58,7 +58,7 @@ class AllowLaunchAtomicOperation implements AtomicOperation<ResolvedAmiResult> {
     task.updateStatus BASE_PHASE, "Initializing Allow Launch Operation..."
 
     def sourceCredentials = description.credentials
-    def targetCredentials = accountCredentialsProvider.getCredentials(description.account) as NetflixAmazonCredentials
+    def targetCredentials = accountCredentialsProvider.getCredentials(description.targetAccount) as NetflixAmazonCredentials
     def sourceAmazonEC2 = amazonClientProvider.getAmazonEC2(description.credentials, description.region, true)
     def targetAmazonEC2 = amazonClientProvider.getAmazonEC2(targetCredentials, description.region, true)
 
@@ -77,42 +77,54 @@ class AllowLaunchAtomicOperation implements AtomicOperation<ResolvedAmiResult> {
       return resolvedAmi
     }
 
-    // If the AMI was created/owned by a different account, switch to using that for modifying the image
+    def ownerCredentials = sourceCredentials
+    def ownerAmazonEC2 = sourceAmazonEC2
+    // If the AMI was created/owned by a different account that is also managed by
+    // Spinnaker, switch to using that for modifying the image
     if (resolvedAmi.ownerId != sourceCredentials.accountId) {
       if (resolvedAmi.getRegion()) {
-        sourceCredentials = accountCredentialsProvider.all.find { accountCredentials ->
+        ownerCredentials = accountCredentialsProvider.all.find { accountCredentials ->
           accountCredentials instanceof NetflixAmazonCredentials &&
             ((AmazonCredentials) accountCredentials).accountId == resolvedAmi.ownerId
         } as NetflixAmazonCredentials
       }
-      if (!sourceCredentials) {
-        throw new IllegalArgumentException("Unable to find owner of resolved AMI $resolvedAmi")
+      if (ownerCredentials) {
+        ownerAmazonEC2 = amazonClientProvider.getAmazonEC2(ownerCredentials, description.region, true)
       }
-      sourceAmazonEC2 = amazonClientProvider.getAmazonEC2(sourceCredentials, description.region, true)
+    }
+
+    if (amiLocation == ResolvedAmiLocation.TARGET && !ownerCredentials) {
+      task.updateStatus BASE_PHASE, "AMI found in target account, but the AMI owner account is unmanaged: skipping allow launch and tag syncing"
+      return resolvedAmi
+    }
+
+    if (amiLocation == ResolvedAmiLocation.SOURCE && !ownerCredentials) {
+      task.updateStatus BASE_PHASE, "AMI found in source account, but the owner account is unmanaged: unable to share AMI"
+      throw new IllegalArgumentException("Unable to find owner of resolved AMI $resolvedAmi")
     }
 
     if (amiLocation == ResolvedAmiLocation.TARGET) {
       task.updateStatus BASE_PHASE, "AMI found in target account: skipping allow launch"
     } else {
-      task.updateStatus BASE_PHASE, "Allowing launch of $description.amiName from $description.account"
+      task.updateStatus BASE_PHASE, "Allowing launch of $description.amiName from $description.account/$description.region to $description.targetAccount"
 
       OperationPoller.retryWithBackoff({ o ->
-        sourceAmazonEC2.modifyImageAttribute(new ModifyImageAttributeRequest().withImageId(resolvedAmi.amiId).withLaunchPermission(
-          new LaunchPermissionModifications().withAdd(new LaunchPermission().withUserId(targetCredentials.accountId))))
-      }, 500, 3)
+          ownerAmazonEC2.modifyImageAttribute(new ModifyImageAttributeRequest().withImageId(resolvedAmi.amiId).withLaunchPermission(
+            new LaunchPermissionModifications().withAdd(new LaunchPermission().withUserId(targetCredentials.accountId))))
+        }, 500, 3)
     }
 
-    if (sourceCredentials == targetCredentials) {
+    if (ownerCredentials == targetCredentials) {
       task.updateStatus BASE_PHASE, "Tag replication not required"
     } else {
       def request = new DescribeTagsRequest().withFilters(new Filter("resource-id").withValues(resolvedAmi.amiId))
       Closure<Set<Tag>> getTags = { DescribeTagsRequest req, TagsRetriever ret ->
         new HashSet<Tag>(ret.retrieve(req).collect { new Tag(it.key, it.value) })
       }.curry(request)
-      Set<Tag> sourceTags = getTags(new TagsRetriever(sourceAmazonEC2))
+      Set<Tag> sourceTags = getTags(new TagsRetriever(ownerAmazonEC2))
       if (sourceTags.isEmpty()) {
         Thread.sleep(200)
-        sourceTags = getTags(new TagsRetriever(sourceAmazonEC2))
+        sourceTags = getTags(new TagsRetriever(ownerAmazonEC2))
       }
       if (sourceTags.isEmpty()) {
         task.updateStatus BASE_PHASE, "WARNING: empty tag set returned from DescribeTags, skipping tag sync"
@@ -136,7 +148,7 @@ class AllowLaunchAtomicOperation implements AtomicOperation<ResolvedAmiResult> {
       }
     }
 
-    task.updateStatus BASE_PHASE, "Done allowing launch of $description.amiName from $description.account."
+    task.updateStatus BASE_PHASE, "Done allowing launch of $description.amiName from $description.account/$description.region to $description.targetAccount."
     resolvedAmi
   }
 

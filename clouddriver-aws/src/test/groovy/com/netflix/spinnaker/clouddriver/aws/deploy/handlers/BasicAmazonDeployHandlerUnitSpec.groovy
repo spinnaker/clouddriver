@@ -22,11 +22,15 @@ import com.amazonaws.services.autoscaling.model.BlockDeviceMapping
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
 import com.amazonaws.services.autoscaling.model.Ebs
 import com.amazonaws.services.autoscaling.model.LaunchConfiguration
+import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.DescribeImagesRequest
 import com.amazonaws.services.ec2.model.DescribeImagesResult
 import com.amazonaws.services.ec2.model.DescribeVpcClassicLinkResult
 import com.amazonaws.services.ec2.model.Image
+import com.amazonaws.services.ec2.model.LaunchTemplateBlockDeviceMapping
+import com.amazonaws.services.ec2.model.LaunchTemplateVersion
+import com.amazonaws.services.ec2.model.ResponseLaunchTemplateData
 import com.amazonaws.services.ec2.model.VpcClassicLink
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing as AmazonELBV1
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersResult
@@ -36,6 +40,7 @@ import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsResult
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroup
+import com.netflix.spinnaker.clouddriver.aws.services.LaunchTemplateService
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
@@ -58,6 +63,7 @@ import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactor
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
@@ -108,7 +114,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     def credsRepo = new MapBackedAccountCredentialsRepository()
     credsRepo.save('baz', TestCredential.named('baz'))
     this.handler = new BasicAmazonDeployHandler(
-      rspf, credsRepo, amazonServerGroupProvider, defaults, scalingPolicyCopier, blockDeviceConfig
+      rspf, credsRepo, amazonServerGroupProvider, defaults, scalingPolicyCopier, blockDeviceConfig, Mock(DynamicConfigService)
     ) {
       @Override
       LoadBalancerLookupHelper loadBalancerLookupHelper() {
@@ -437,6 +443,58 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
   }
 
   @Unroll
+  void "should copy block devices from source provider using a launch template if not specified explicitly"() {
+    given:
+    def launchTemplateVersion = new LaunchTemplateVersion(
+      launchTemplateName: "lt",
+      launchTemplateId: "id",
+      versionNumber: 0,
+      launchTemplateData: new ResponseLaunchTemplateData(
+        blockDeviceMappings: [new LaunchTemplateBlockDeviceMapping(deviceName: "OLD_DEVICE")]
+      )
+    )
+
+    def launchTemplate = new LaunchTemplateSpecification(
+      launchTemplateName: launchTemplateVersion.launchTemplateName,
+      launchTemplateId: launchTemplateVersion.launchTemplateId,
+      version: launchTemplateVersion.versionNumber.toString(),
+    )
+
+    and:
+    def launchTemplateService = Mock(LaunchTemplateService) {
+      getLaunchTemplateVersion({it.launchTemplateId == launchTemplate.launchTemplateId} as LaunchTemplateSpecification) >> Optional.of(launchTemplateVersion)
+    }
+
+    def autoScaling = Mock(AmazonAutoScaling) {
+      describeAutoScalingGroups(_) >> {
+        return new DescribeAutoScalingGroupsResult().withAutoScalingGroups(
+          new AutoScalingGroup().withLaunchTemplate(
+            launchTemplate
+          ))
+      }
+    }
+
+    def sourceRegionScopedProvider = Mock(RegionScopedProvider) {
+      getLaunchTemplateService() >> launchTemplateService
+      getAutoScaling() >> autoScaling
+    }
+
+    when:
+    def targetDescription = handler.copySourceAttributes(
+      sourceRegionScopedProvider, "sourceAsg", null, description
+    )
+
+    then:
+    targetDescription.blockDevices*.deviceName == expectedBlockDevices
+
+    where:
+    description                                                                                   || expectedBlockDevices
+    new BasicAmazonDeployDescription()                                                            || ["OLD_DEVICE"]
+    new BasicAmazonDeployDescription(blockDevices: [])                                            || []
+    new BasicAmazonDeployDescription(blockDevices: [new AmazonBlockDevice(deviceName: "DEVICE")]) || ["DEVICE"]
+  }
+
+  @Unroll
   void "should copy subnet ids from source when available and not explicitly specified"() {
     given:
     def regionScopedProvider = new RegionScopedProviderFactory().forRegion(testCredentials, "us-west-2")
@@ -741,7 +799,7 @@ class BasicAmazonDeployHandlerUnitSpec extends Specification {
     })
 
     when:
-    def blockDeviceMappings = handler.buildBlockDeviceMappings(description, launchConfiguration)
+    def blockDeviceMappings = handler.buildBlockDeviceMappings(description, new BasicAmazonDeployHandler.LaunchSetting(launchConfiguration: launchConfiguration))
 
     then:
     convertBlockDeviceMappings(blockDeviceMappings) == convertBlockDeviceMappings(expectedTargetBlockDevices)

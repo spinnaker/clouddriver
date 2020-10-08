@@ -19,8 +19,19 @@ package com.netflix.spinnaker.clouddriver.titus.caching.agents;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.TARGET_GROUPS;
-import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*;
-import static java.util.Collections.*;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.APPLICATIONS;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.HEALTH;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.IMAGES;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.INSTANCES;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.SERVER_GROUPS;
+import static java.util.Collections.EMPTY_LIST;
+import static java.util.Collections.EMPTY_SET;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetTypeEnum;
@@ -28,13 +39,19 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.util.JsonFormat;
 import com.netflix.frigga.Names;
 import com.netflix.frigga.autoscaling.AutoScalingGroupNameBuilder;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spectator.api.histogram.PercentileTimer;
-import com.netflix.spinnaker.cats.agent.*;
+import com.netflix.spinnaker.cats.agent.Agent;
+import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.AgentExecution;
+import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderRegistry;
@@ -52,9 +69,30 @@ import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion;
 import com.netflix.spinnaker.clouddriver.titus.client.model.TaskState;
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials;
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
-import com.netflix.titus.grpc.protogen.*;
-import java.util.*;
-import java.util.concurrent.*;
+import com.netflix.titus.grpc.protogen.Job;
+import com.netflix.titus.grpc.protogen.JobChangeNotification;
+import com.netflix.titus.grpc.protogen.JobStatus;
+import com.netflix.titus.grpc.protogen.ObserveJobsQuery;
+import com.netflix.titus.grpc.protogen.ScalingPolicy;
+import com.netflix.titus.grpc.protogen.ScalingPolicyResult;
+import com.netflix.titus.grpc.protogen.ScalingPolicyStatus;
+import com.netflix.titus.grpc.protogen.Task;
+import com.netflix.titus.grpc.protogen.TaskStatus;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -64,7 +102,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
+public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingAgent {
 
   private static final TypeReference<Map<String, Object>> ANY_MAP =
       new TypeReference<Map<String, Object>>() {};
@@ -160,6 +198,17 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
   }
 
   @Override
+  public Collection<AgentDataType> getProvidedDataTypes() {
+    return TYPES;
+  }
+
+  @Override
+  public CacheResult loadData(ProviderCache providerCache) {
+
+    throw new RuntimeException("Not supported for " + this.getClass().getSimpleName());
+  }
+
+  @Override
   public AgentExecution getAgentExecution(ProviderRegistry providerRegistry) {
     return new StreamingCacheExecution(providerRegistry);
   }
@@ -205,16 +254,15 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
 
       StreamingCacheState state = new StreamingCacheState();
 
-      ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+      ScheduledExecutorService executor =
+          Executors.newSingleThreadScheduledExecutor(
+              new ThreadFactoryBuilder()
+                  .setNameFormat(TitusStreamingUpdateAgent.class.getSimpleName() + "-%d")
+                  .build());
       final Future handler =
           executor.submit(
               () -> {
-                Iterator<JobChangeNotification> notificationIt =
-                    titusClient.observeJobs(
-                        ObserveJobsQuery.newBuilder()
-                            .putFilteringCriteria("jobType", "SERVICE")
-                            .putFilteringCriteria("attributes", "source:spinnaker")
-                            .build());
+                Iterator<JobChangeNotification> notificationIt = observeJobs();
 
                 while (continueStreaming(startTime)) {
                   try {
@@ -263,16 +311,25 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
                       }
                     }
                   } catch (io.grpc.StatusRuntimeException e) {
+                    Integer backoff =
+                        dynamicConfigService.getConfig(
+                            Integer.class, "titus.streaming.retry-backoff-ms", 2000);
                     log.warn(
-                        "gRPC exception while streaming {} updates, attempting to reconnect",
+                        "gRPC exception while streaming {} updates, attempting to reconnect in {}ms",
                         getAgentType(),
+                        backoff,
                         e);
-                    notificationIt =
-                        titusClient.observeJobs(
-                            ObserveJobsQuery.newBuilder()
-                                .putFilteringCriteria("jobType", "SERVICE")
-                                .putFilteringCriteria("attributes", "source:spinnaker")
-                                .build());
+
+                    try {
+                      Thread.sleep(backoff);
+                    } catch (InterruptedException ex) {
+                      log.warn(
+                          "Interrupted while attempting to reconnect to observeJobs, bailing on this invocation",
+                          ex);
+                      break;
+                    }
+
+                    notificationIt = observeJobs();
                     state.snapshotComplete = false;
                     state.savedSnapshot = false;
                   } catch (Exception e) {
@@ -288,6 +345,16 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent {
           getTimeoutMillis(),
           TimeUnit.MILLISECONDS);
       CompletableFuture.completedFuture(handler).join();
+      executor.shutdown();
+    }
+
+    private Iterator<JobChangeNotification> observeJobs() {
+      return titusClient.observeJobs(
+          ObserveJobsQuery.newBuilder()
+              .putFilteringCriteria("jobType", "SERVICE")
+              .putFilteringCriteria("attributes", "source:spinnaker")
+              .putFilteringCriteria("attributes", "spinnakerAccount:" + account.getName())
+              .build());
     }
 
     private void updateJob(StreamingCacheState state, Job job) {

@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
@@ -80,16 +81,22 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask, String> {
             ? task.getContainers().get(0).getNetworkInterfaces().get(0)
             : null;
 
+    Service service = containerInformationService.getService(serviceName, account, region);
+    boolean hasHealthCheck =
+        containerInformationService.taskHasHealthCheck(service, account, region);
+
     ecsInstance =
         new EcsTask(
             id,
             launchTime,
             task.getLastStatus(),
             task.getDesiredStatus(),
+            task.getHealthStatus(),
             zone,
             healthStatus,
             address,
-            networkInterface);
+            networkInterface,
+            hasHealthCheck);
 
     return ecsInstance;
   }
@@ -100,9 +107,19 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask, String> {
   }
 
   private boolean isValidId(String id, String region) {
-    String idRegex = "[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}";
-    String idOnly = String.format("^%s$", idRegex);
-    String arn = String.format("arn:aws:ecs:%s:\\d*:task/%s", region, idRegex);
-    return id.matches(idOnly) || id.matches(arn);
+    String oldTaskIdRegex = "[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}";
+    String newTaskIdRegex = "[\\da-f]{32}";
+    String clusterNameRegex = "[a-zA-Z0-9\\-_]{1,255}";
+    String oldTaskIdOnly = String.format("^%s$", oldTaskIdRegex);
+    String newTaskIdOnly = String.format("^%s$", newTaskIdRegex);
+    // arn:aws:ecs:region:account-id:task/task-id
+    String oldTaskArn = String.format("arn:aws:ecs:%s:\\d*:task/%s", region, oldTaskIdRegex);
+    // arn:aws:ecs:region:account-id:task/cluster-name/task-id
+    String newTaskArn =
+        String.format("arn:aws:ecs:%s:\\d*:task/%s/%s", region, clusterNameRegex, newTaskIdRegex);
+    return id.matches(oldTaskIdOnly)
+        || id.matches(newTaskIdOnly)
+        || id.matches(oldTaskArn)
+        || id.matches(newTaskArn);
   }
 }

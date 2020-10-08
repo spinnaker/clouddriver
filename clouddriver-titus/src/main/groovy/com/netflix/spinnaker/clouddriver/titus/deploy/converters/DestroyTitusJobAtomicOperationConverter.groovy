@@ -20,12 +20,14 @@ package com.netflix.spinnaker.clouddriver.titus.deploy.converters
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
-import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusOperation
 import com.netflix.spinnaker.clouddriver.titus.caching.providers.TitusJobProvider
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.DestroyTitusJobDescription
 import com.netflix.spinnaker.clouddriver.titus.deploy.ops.DestroyTitusJobAtomicOperation
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import groovy.util.logging.Slf4j
+import io.grpc.Status
+import io.grpc.StatusRuntimeException
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
@@ -34,21 +36,18 @@ import org.springframework.stereotype.Component
 @TitusOperation(AtomicOperations.DESTROY_JOB)
 class DestroyTitusJobAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
-  private final TitusClientProvider titusClientProvider
   private final TitusJobProvider titusJobProvider
 
   @Autowired
   DestroyTitusJobAtomicOperationConverter(
-    TitusClientProvider titusClientProvider,
     TitusJobProvider titusJobProvider
   ) {
-    this.titusClientProvider = titusClientProvider
     this.titusJobProvider = titusJobProvider
   }
 
   @Override
   AtomicOperation convertOperation(Map input) {
-    new DestroyTitusJobAtomicOperation(titusClientProvider, convertDescription(input))
+    new DestroyTitusJobAtomicOperation(convertDescription(input))
   }
 
   @Override
@@ -60,7 +59,22 @@ class DestroyTitusJobAtomicOperationConverter extends AbstractAtomicOperationsCr
       def job = titusJobProvider.collectJob(converted.credentials.name, converted.region, converted.jobId)
       converted.applications = [job.application] as Set
       converted.requiresApplicationRestriction = !converted.applications.isEmpty()
+      converted.serverGroupName = job.name
     } catch (Exception e) {
+      if (e instanceof StatusRuntimeException) {
+        def statusRuntimeException = (StatusRuntimeException) e
+        if (statusRuntimeException.status.code == Status.NOT_FOUND.code) {
+          throw new NotFoundException(
+            String.format(
+              "Titus job not found (jobId: %s, account: %s, region: %s)",
+              converted.jobId,
+              converted.credentials.name,
+              converted.region
+            )
+          )
+        }
+      }
+
       converted.applications = []
       converted.requiresApplicationRestriction = true
       log.error(

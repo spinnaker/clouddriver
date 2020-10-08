@@ -19,10 +19,13 @@ package com.netflix.spinnaker.clouddriver.deploy
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
+import com.netflix.spinnaker.clouddriver.orchestration.SagaContextAware
 import com.netflix.spinnaker.clouddriver.orchestration.events.OperationEvent
 import org.springframework.beans.factory.annotation.Autowired
 
-class DeployAtomicOperation implements AtomicOperation<DeploymentResult> {
+import javax.annotation.Nonnull
+
+class DeployAtomicOperation implements AtomicOperation<DeploymentResult>, SagaContextAware {
   private static final String TASK_PHASE = "DEPLOY"
 
   @Autowired
@@ -60,5 +63,24 @@ class DeployAtomicOperation implements AtomicOperation<DeploymentResult> {
     task.updateStatus TASK_PHASE, "Server Groups: ${deploymentResult.getDeployments()} created."
 
     return deploymentResult
+  }
+
+  @Override
+  void setSagaContext(@Nonnull SagaContext sagaContext) {
+    // DeployHandlers are singleton objects autowired differently than their one-off AtomicOperations, so we can't
+    // set a SagaContext onto them. Instead, we need to set it onto the description. To pile on, AtomicOperationConverters
+    // throw away the initial converted AtomicOperationDescription, so we can't apply the SagaContext to the description
+    // on behalf of cloud provider integrators... so we have to wire that up for them manually in any AtomicOperation.
+    if (description instanceof SagaContextAware) {
+      ((SagaContextAware) description).sagaContext = sagaContext
+    }
+  }
+
+  @Override
+  SagaContext getSagaContext() {
+    if (description instanceof SagaContextAware) {
+      return description.sagaContext
+    }
+    return null
   }
 }

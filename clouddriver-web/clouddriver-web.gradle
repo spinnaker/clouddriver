@@ -1,12 +1,7 @@
-apply plugin: 'spinnaker.application'
-
-if (gradle.includedCloudProviderProjects.contains(':clouddriver-oracle')) {
-  tasks.startScripts.dependsOn(':clouddriver-oracle:unpackSdk')
-  tasks.startScripts.mustRunAfter(':clouddriver-oracle:unpackSdk')
-}
+apply plugin: 'io.spinnaker.package'
 
 ext {
-  springConfigLocation = System.getProperty('spring.config.additional-location', "${System.getProperty('user.home')}/.spinnaker/")
+  springConfigLocation = System.getProperty('spring.config.additional-location', "${System.getProperty('user.home')}/.spinnaker/".toString())
 }
 
 mainClassName = 'com.netflix.spinnaker.clouddriver.Main'
@@ -25,11 +20,15 @@ repositories {
 
 dependencies {
   implementation project(":cats:cats-core")
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-security")
-  implementation project(":clouddriver-sql-mysql")
+  implementation project(":clouddriver-sql")
 
+  if (!rootProject.hasProperty("excludeSqlDrivers")) {
+    runtimeOnly(project(":clouddriver-sql-mysql"))
+  }
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
@@ -40,19 +39,21 @@ dependencies {
   implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "com.netflix.spinnaker.kork:kork-artifacts"
   implementation "com.netflix.spinnaker.kork:kork-config"
-  implementation "com.netflix.spinnaker.kork:kork-core"
-  implementation "com.netflix.spinnaker.kork:kork-secrets-aws"
-  implementation "com.netflix.spinnaker.kork:kork-stackdriver"
-  implementation "com.netflix.spinnaker.kork:kork-swagger"
   implementation "com.netflix.spinnaker.kork:kork-web"
-  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation("com.netflix.spinnaker.kork:kork-plugins")
+  implementation "com.netflix.spinnaker.kork:kork-moniker"
+  implementation "commons-io:commons-io"
+  implementation "io.reactivex:rxjava"
+  implementation "io.swagger:swagger-annotations"
   implementation "org.codehaus.groovy:groovy-all"
   implementation "org.slf4j:slf4j-api"
   implementation "org.springframework.boot:spring-boot-starter-actuator"
   implementation "org.springframework.boot:spring-boot-starter-json"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "org.springframework.cloud:spring-cloud-context"
-  implementation "org.springframework.cloud:spring-cloud-config-server"
+
+  runtimeOnly "com.netflix.spinnaker.kork:kork-runtime"
+  runtimeOnly project(":clouddriver-configserver")
 
   testImplementation project(":clouddriver-elasticsearch")
 
@@ -63,4 +64,23 @@ dependencies {
   gradle.includedCloudProviderProjects.each {
     implementation project(":${it}")
   }
+
+  // clouddriver-elasticsearch and clouddriver-elasticsearch-aws pin different
+  // versions of elasticsearch. In order to include both of these, we need to
+  // explicitly pick which version we want.
+  // This picks the versions from clouddriver-elasticsearch-aws because that is
+  // what was being picked before Gradle required being explicit here, but we
+  // should investigate whether we can get these to the same version.
+//  constraints {
+//    implementation("io.searchbox:jest") {
+//      version {
+//        strictly "2.0.3"
+//      }
+//    }
+//    implementation("org.elasticsearch:elasticsearch") {
+//      version {
+//        strictly "2.4.1"
+//      }
+//    }
+//  }
 }

@@ -152,6 +152,7 @@ public class CredentialsConfig {
     private Boolean bastionEnabled;
     private String assumeRole;
     private String sessionName;
+    private String externalId;
     private List<LifecycleHook> lifecycleHooks;
     private boolean allowPrivateThirdPartyImages;
 
@@ -315,6 +316,14 @@ public class CredentialsConfig {
       this.sessionName = sessionName;
     }
 
+    public String getExternalId() {
+      return externalId;
+    }
+
+    public void setExternalId(String externalId) {
+      this.externalId = externalId;
+    }
+
     public List<LifecycleHook> getLifecycleHooks() {
       return lifecycleHooks;
     }
@@ -340,6 +349,8 @@ public class CredentialsConfig {
     }
   }
 
+  private String accessKeyId;
+  private String secretAccessKey;
   private String defaultKeyPairTemplate;
   private List<Region> defaultRegions;
   private List<String> defaultSecurityGroups;
@@ -459,5 +470,21 @@ public class CredentialsConfig {
       String defaultLifecycleHookNotificationTargetARNTemplate) {
     this.defaultLifecycleHookNotificationTargetARNTemplate =
         defaultLifecycleHookNotificationTargetARNTemplate;
+  }
+
+  public String getAccessKeyId() {
+    return accessKeyId;
+  }
+
+  public void setAccessKeyId(String accessKeyId) {
+    this.accessKeyId = accessKeyId;
+  }
+
+  public String getSecretAccessKey() {
+    return secretAccessKey;
+  }
+
+  public void setSecretAccessKey(String secretAccessKey) {
+    this.secretAccessKey = secretAccessKey;
   }
 }

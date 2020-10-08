@@ -24,16 +24,46 @@ import com.google.protobuf.Empty;
 import com.netflix.frigga.Names;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.titus.TitusException;
-import com.netflix.spinnaker.clouddriver.titus.client.model.*;
+import com.netflix.spinnaker.clouddriver.titus.client.model.ActivateJobRequest;
+import com.netflix.spinnaker.clouddriver.titus.client.model.DisruptionBudgetHelper;
+import com.netflix.spinnaker.clouddriver.titus.client.model.GrpcChannelFactory;
 import com.netflix.spinnaker.clouddriver.titus.client.model.HealthStatus;
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job;
+import com.netflix.spinnaker.clouddriver.titus.client.model.JobDescription;
+import com.netflix.spinnaker.clouddriver.titus.client.model.JobDisruptionBudgetUpdateRequest;
+import com.netflix.spinnaker.clouddriver.titus.client.model.ResizeJobRequest;
+import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest;
 import com.netflix.spinnaker.clouddriver.titus.client.model.Task;
+import com.netflix.spinnaker.clouddriver.titus.client.model.TerminateJobRequest;
+import com.netflix.spinnaker.clouddriver.titus.client.model.TerminateTasksAndShrinkJobRequest;
+import com.netflix.spinnaker.clouddriver.titus.client.model.TitusHealth;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.ServiceJobProcessesRequest;
 import com.netflix.spinnaker.kork.core.RetrySupport;
-import com.netflix.titus.grpc.protogen.*;
+import com.netflix.titus.grpc.protogen.Capacity;
+import com.netflix.titus.grpc.protogen.JobCapacityUpdate;
+import com.netflix.titus.grpc.protogen.JobChangeNotification;
+import com.netflix.titus.grpc.protogen.JobDisruptionBudget;
+import com.netflix.titus.grpc.protogen.JobDisruptionBudgetUpdate;
+import com.netflix.titus.grpc.protogen.JobId;
+import com.netflix.titus.grpc.protogen.JobManagementServiceGrpc;
+import com.netflix.titus.grpc.protogen.JobProcessesUpdate;
+import com.netflix.titus.grpc.protogen.JobQuery;
+import com.netflix.titus.grpc.protogen.JobQueryResult;
+import com.netflix.titus.grpc.protogen.JobStatusUpdate;
+import com.netflix.titus.grpc.protogen.ObserveJobsQuery;
+import com.netflix.titus.grpc.protogen.Page;
+import com.netflix.titus.grpc.protogen.ServiceJobSpec;
+import com.netflix.titus.grpc.protogen.TaskKillRequest;
+import com.netflix.titus.grpc.protogen.TaskQuery;
+import com.netflix.titus.grpc.protogen.TaskQueryResult;
 import io.grpc.Status;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
@@ -149,6 +179,7 @@ public class RegionScopedTitusClient implements TitusClient {
             .putFilteringCriteria("jobType", "SERVICE")
             .putFilteringCriteria("attributes", "source:spinnaker,name:" + jobName)
             .putFilteringCriteria("attributes.op", "and");
+
     List<Job> results = getJobs(jobQuery, includeTasks);
     return results.isEmpty() ? null : results.get(0);
   }
@@ -179,12 +210,13 @@ public class RegionScopedTitusClient implements TitusClient {
       jobDescription.setUser(jobDescription.getUser() + "@netflix.com");
     }
     if (jobDescription.getJobGroupSequence() == null
-        && jobDescription.getType().equals("service")) {
+        && "service".equals(jobDescription.getType())) {
       try {
         int sequence = Names.parseName(jobDescription.getName()).getSequence();
         jobDescription.setJobGroupSequence(String.format("v%03d", sequence));
       } catch (Exception e) {
-        // fail silently if we can't get a job group sequence
+        // fail silently if we can't get a job group sequence: This is normal if no prior jobs
+        // exist.
       }
     }
     jobDescription.getLabels().put("name", jobDescription.getName());
@@ -200,7 +232,6 @@ public class RegionScopedTitusClient implements TitusClient {
 
   @Override
   public Task getTask(String taskId) {
-    // new Task(grpcBlockingStub.findTask(taskId));
     // return new
     // Task(grpcBlockingStub.findTask(com.netflix.titus.grpc.protogen.TaskId.newBuilder().setId(taskId).build()));
     return null;
@@ -343,15 +374,6 @@ public class RegionScopedTitusClient implements TitusClient {
     return new TitusHealth(HealthStatus.HEALTHY);
   }
 
-  @Override
-  public List<Job> getAllJobsWithTasks() {
-    JobQuery.Builder jobQuery =
-        JobQuery.newBuilder()
-            .putFilteringCriteria("jobType", "SERVICE")
-            .putFilteringCriteria("attributes", "source:spinnaker");
-    return getJobs(jobQuery);
-  }
-
   private List<Job> getJobs(JobQuery.Builder jobQuery) {
     return getJobs(jobQuery, true);
   }
@@ -361,13 +383,10 @@ public class RegionScopedTitusClient implements TitusClient {
     final Map<String, List<com.netflix.titus.grpc.protogen.Task>> tasks;
 
     if (includeTasks) {
-      List<String> jobIds = Collections.emptyList();
-      if (!titusRegion.getFeatureFlags().contains("jobIds")) {
-        jobIds =
-            grpcJobs.stream()
-                .map(com.netflix.titus.grpc.protogen.Job::getId)
-                .collect(Collectors.toList());
-      }
+      List<String> jobIds =
+          grpcJobs.stream()
+              .map(com.netflix.titus.grpc.protogen.Job::getId)
+              .collect(Collectors.toList());
       tasks = getTasks(jobIds, false);
     } else {
       tasks = Collections.emptyMap();
@@ -436,9 +455,7 @@ public class RegionScopedTitusClient implements TitusClient {
       taskQueryBuilder.putFilteringCriteria(
           "jobIds", jobIds.stream().collect(Collectors.joining(",")));
     }
-    if (titusRegion.getFeatureFlags().contains("jobIds")) {
-      taskQueryBuilder.putFilteringCriteria("attributes", "source:spinnaker");
-    }
+    taskQueryBuilder.putFilteringCriteria("attributes", "source:spinnaker");
     String filterByStates = "Launched,StartInitiated,Started";
     if (includeDoneJobs) {
       filterByStates = filterByStates + ",KillInitiated,Finished";

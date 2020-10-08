@@ -65,13 +65,13 @@ class EnableDisableInstancesInDiscoveryAtomicOperationUnitSpec extends Specifica
 
     then:
     1 * operation.discoverySupport.updateDiscoveryStatusForInstances(
-      _, _, _, expectedDiscoveryStatus, description.instanceIds
+      _, _, _, expectedDiscoveryStatus, description.instanceIds, true
     )
 
     where:
     operation                                                   || expectedDiscoveryStatus
-    new EnableInstancesInDiscoveryAtomicOperation(description)  || DiscoveryStatus.Enable
-    new DisableInstancesInDiscoveryAtomicOperation(description) || DiscoveryStatus.Disable
+    new EnableInstancesInDiscoveryAtomicOperation(description)  || DiscoveryStatus.UP
+    new DisableInstancesInDiscoveryAtomicOperation(description) || DiscoveryStatus.OUT_OF_SERVICE
   }
 
   @Unroll

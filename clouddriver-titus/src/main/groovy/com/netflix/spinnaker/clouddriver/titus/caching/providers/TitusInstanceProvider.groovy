@@ -35,6 +35,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
+import javax.inject.Provider
+
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.INSTANCES
 import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.SERVER_GROUPS
@@ -45,7 +47,7 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance, String> {
   private final Cache cacheView
   private final ObjectMapper objectMapper
   private final TitusCloudProvider titusCloudProvider
-  private final CachingSchemaUtil cachingSchemaUtil
+  private final Provider<CachingSchemaUtil> cachingSchemaUtil
   private final AwsLookupUtil awsLookupUtil
 
   private final Logger log = LoggerFactory.getLogger(getClass())
@@ -58,7 +60,7 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance, String> {
     Cache cacheView,
     TitusCloudProvider titusCloudProvider,
     ObjectMapper objectMapper,
-    CachingSchemaUtil cachingSchemaUtil,
+    Provider<CachingSchemaUtil> cachingSchemaUtil,
     AwsLookupUtil awsLookupUtil
   ) {
     this.cacheView = cacheView
@@ -81,16 +83,7 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance, String> {
       return null
     }
 
-    String stack = awsLookupUtil.stack(account)
-    if (!stack) {
-      stack = 'mainvpc'
-    }
-
-    CachingSchema cachingSchema = cachingSchemaUtil.getCachingSchemaForAccount(account)
-
-    String instanceKey = ( cachingSchema == CachingSchema.V1
-      ? Keys.getInstanceKey(id, awsAccount, stack, region)
-      : Keys.getInstanceV2Key(id, account, region))
+    String instanceKey = Keys.getInstanceV2Key(id, account, region)
 
     CacheData instanceEntry = cacheView.get(INSTANCES.ns, instanceKey)
     if (!instanceEntry) {
@@ -122,9 +115,7 @@ class TitusInstanceProvider implements InstanceProvider<TitusInstance, String> {
       instance.health.addAll(instanceEntry.attributes[HEALTH.ns])
     }
     if (instanceEntry.relationships[SERVER_GROUPS.ns] && !instanceEntry.relationships[SERVER_GROUPS.ns].empty) {
-      instance.serverGroup = (cachingSchema == CachingSchema.V1
-        ? instanceEntry.relationships[SERVER_GROUPS.ns].iterator().next()
-        : Keys.parse(instanceEntry.relationships[SERVER_GROUPS.ns].iterator().next()).serverGroup)
+      instance.serverGroup = Keys.parse(instanceEntry.relationships[SERVER_GROUPS.ns].iterator().next()).serverGroup
       instance.cluster =  Names.parseName(instance.serverGroup)?.cluster
     }
     externalHealthProviders.each { externalHealthProvider ->

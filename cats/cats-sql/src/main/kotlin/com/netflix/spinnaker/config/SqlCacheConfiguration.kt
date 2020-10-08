@@ -1,34 +1,40 @@
 package com.netflix.spinnaker.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.discovery.EurekaClient
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AgentScheduler
 import com.netflix.spinnaker.cats.agent.ExecutionInstrumentation
 import com.netflix.spinnaker.cats.cache.NamedCacheFactory
 import com.netflix.spinnaker.cats.cluster.AgentIntervalProvider
-import com.netflix.spinnaker.cats.cluster.DefaultNodeStatusProvider
 import com.netflix.spinnaker.cats.cluster.NodeStatusProvider
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.Provider
+import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import com.netflix.spinnaker.cats.sql.SqlProviderRegistry
 import com.netflix.spinnaker.cats.sql.cache.SpectatorSqlCacheMetrics
 import com.netflix.spinnaker.cats.sql.cache.SqlCacheMetrics
 import com.netflix.spinnaker.cats.sql.cache.SqlCleanupStaleOnDemandCachesAgent
 import com.netflix.spinnaker.cats.sql.cache.SqlNamedCacheFactory
+import com.netflix.spinnaker.cats.sql.cache.SqlNames
 import com.netflix.spinnaker.cats.sql.cache.SqlTableMetricsAgent
+import com.netflix.spinnaker.cats.sql.cache.SqlUnknownAgentCleanupAgent
 import com.netflix.spinnaker.clouddriver.cache.CustomSchedulableAgentIntervalProvider
-import com.netflix.spinnaker.clouddriver.cache.EurekaStatusNodeStatusProvider
-import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider
+import com.netflix.spinnaker.clouddriver.cache.DiscoveryStatusNodeStatusProvider
+import com.netflix.spinnaker.clouddriver.sql.SqlAgent
 import com.netflix.spinnaker.clouddriver.sql.SqlProvider
+import com.netflix.spinnaker.kork.discovery.DiscoveryStatusListener
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.config.DefaultSqlConfiguration
 import com.netflix.spinnaker.kork.sql.config.SqlProperties
+import java.time.Clock
+import java.time.Duration
+import kotlin.contracts.ExperimentalContracts
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.slf4j.MDCContext
 import org.jooq.DSLContext
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -38,11 +44,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
-import java.lang.IllegalArgumentException
-import java.time.Clock
-import java.time.Duration
-import java.util.Optional
-import kotlin.contracts.ExperimentalContracts
 
 const val coroutineThreadPrefix = "catsSql"
 
@@ -50,7 +51,7 @@ const val coroutineThreadPrefix = "catsSql"
 @Configuration
 @ConditionalOnProperty("sql.cache.enabled")
 @Import(DefaultSqlConfiguration::class)
-@EnableConfigurationProperties(SqlAgentProperties::class)
+@EnableConfigurationProperties(SqlAgentProperties::class, SqlConstraints::class)
 @ComponentScan("com.netflix.spinnaker.cats.sql.controllers")
 class SqlCacheConfiguration {
 
@@ -96,6 +97,8 @@ class SqlCacheConfiguration {
     sqlProperties: SqlProperties,
     cacheMetrics: SqlCacheMetrics,
     dynamicConfigService: DynamicConfigService,
+    sqlConstraints: SqlConstraints,
+    mapper: ObjectMapper,
     @Value("\${sql.cache.async-pool-size:0}") poolSize: Int,
     @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?
   ): NamedCacheFactory {
@@ -122,18 +125,16 @@ class SqlCacheConfiguration {
 
     return SqlNamedCacheFactory(
       jooq,
-      ObjectMapper(),
+      mapper,
       dispatcher,
       clock,
       sqlProperties.retries,
       tableNamespace,
       cacheMetrics,
-      dynamicConfigService
+      dynamicConfigService,
+      sqlConstraints
     )
   }
-
-  @Bean
-  fun coreProvider(): CoreProvider = CoreProvider(emptyList())
 
   @Bean
   fun agentIntervalProvider(sqlAgentProperties: SqlAgentProperties): AgentIntervalProvider {
@@ -164,19 +165,23 @@ class SqlCacheConfiguration {
     SqlCleanupStaleOnDemandCachesAgent(applicationContext, registry, clock)
 
   @Bean
-  @ConditionalOnExpression("\${sql.read-only:false} == false")
-  fun sqlAgentProvider(
-    sqlTableMetricsAgent: SqlTableMetricsAgent,
-    sqlCleanupStaleOnDemandCachesAgent: SqlCleanupStaleOnDemandCachesAgent
-  ): SqlProvider =
-    SqlProvider(mutableListOf(sqlTableMetricsAgent, sqlCleanupStaleOnDemandCachesAgent))
+  @ConditionalOnExpression("!\${sql.read-only:false} && \${sql.unknown-agent-cleanup-agent.enabled:false}")
+  fun sqlUnknownAgentCleanupAgent(
+    providerRegistry: ObjectProvider<ProviderRegistry>,
+    jooq: DSLContext,
+    registry: Registry,
+    sqlConstraints: SqlConstraints,
+    @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?
+  ): SqlUnknownAgentCleanupAgent =
+    SqlUnknownAgentCleanupAgent(providerRegistry, jooq, registry, SqlNames(tableNamespace, sqlConstraints))
 
   @Bean
-  fun nodeStatusProvider(eurekaClient: Optional<EurekaClient>): NodeStatusProvider {
-    return if (eurekaClient.isPresent) {
-      EurekaStatusNodeStatusProvider(eurekaClient.get())
-    } else {
-      DefaultNodeStatusProvider()
-    }
+  @ConditionalOnExpression("\${sql.read-only:false} == false")
+  fun sqlAgentProvider(agents: List<SqlAgent>): SqlProvider =
+    SqlProvider(agents.toMutableList())
+
+  @Bean
+  fun nodeStatusProvider(discoveryStatusListener: DiscoveryStatusListener): NodeStatusProvider {
+    return DiscoveryStatusNodeStatusProvider(discoveryStatusListener)
   }
 }

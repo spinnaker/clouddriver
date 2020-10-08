@@ -3,12 +3,13 @@ package com.netflix.spinnaker.cats.sql.cache
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.NamedCacheFactory
 import com.netflix.spinnaker.cats.cache.WriteableCache
+import com.netflix.spinnaker.config.SqlConstraints
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
-import org.jooq.DSLContext
 import java.time.Clock
 import kotlin.contracts.ExperimentalContracts
 import kotlin.coroutines.CoroutineContext
+import org.jooq.DSLContext
 
 class SqlNamedCacheFactory(
   private val jooq: DSLContext,
@@ -18,7 +19,8 @@ class SqlNamedCacheFactory(
   private val sqlRetryProperties: SqlRetryProperties,
   private val prefix: String?,
   private val cacheMetrics: SqlCacheMetrics,
-  private val dynamicConfigService: DynamicConfigService
+  private val dynamicConfigService: DynamicConfigService,
+  private val sqlConstraints: SqlConstraints
 ) : NamedCacheFactory {
 
   @ExperimentalContracts
@@ -32,7 +34,8 @@ class SqlNamedCacheFactory(
       sqlRetryProperties,
       prefix,
       cacheMetrics,
-      dynamicConfigService
+      dynamicConfigService,
+      sqlConstraints
     )
   }
 }

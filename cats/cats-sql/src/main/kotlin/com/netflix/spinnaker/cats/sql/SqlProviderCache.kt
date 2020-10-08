@@ -1,8 +1,6 @@
 package com.netflix.spinnaker.cats.sql
 
 import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.cats.cache.Cache.StoreType
-import com.netflix.spinnaker.cats.cache.Cache.StoreType.SQL
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
@@ -12,16 +10,17 @@ import com.netflix.spinnaker.cats.sql.cache.SqlCache
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.CLUSTERS
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.NAMED_IMAGES
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
+import kotlin.contracts.ExperimentalContracts
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
-import kotlin.contracts.ExperimentalContracts
 
 @ExperimentalContracts
 class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache {
 
+  private val log = LoggerFactory.getLogger(javaClass)
+
   companion object {
     private const val ALL_ID = "_ALL_" // this implementation ignores this entirely
-    private val log = LoggerFactory.getLogger(javaClass)
   }
 
   init {
@@ -29,8 +28,6 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
       throw IllegalStateException("SqlProviderCache must be wired with a SqlCache backingStore")
     }
   }
-
-  override fun storeType(): StoreType = SQL
 
   /**
    * Filters the supplied list of identifiers to only those that exist in the cache.
@@ -80,6 +77,10 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
   ): MutableCollection<CacheData> {
     validateTypes(type)
     return backingStore.getAll(type, identifiers, cacheFilter)
+  }
+
+  override fun supportsGetAllByApplication(): Boolean {
+    return true
   }
 
   override fun getAllByApplication(type: String, application: String): Map<String, MutableCollection<CacheData>> {
@@ -199,22 +200,24 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
       // Update resource table from Authoritative sources only
       when {
         // OnDemand agents should only be treated as authoritative and don't use standard eviction logic
-        source.contains(ON_DEMAND.ns, ignoreCase = true) -> cacheResult.cacheResults
-          // And OnDemand agents shouldn't update other resource type tables
-          .filter {
-            it.key.contains(ON_DEMAND.ns, ignoreCase = true)
-          }
-          .forEach {
-            cacheDataType(it.key, source, it.value, authoritative = true, cleanup = false)
-          }
-        authoritativeTypes.isNotEmpty() -> cacheResult.cacheResults
-          .filter {
-            authoritativeTypes.contains(it.key)
-          }
-          .forEach {
-            cacheDataType(it.key, source, it.value, authoritative = true)
-            cachedTypes.add(it.key)
-          }
+        source.contains(ON_DEMAND.ns, ignoreCase = true) ->
+          cacheResult.cacheResults
+            // And OnDemand agents shouldn't update other resource type tables
+            .filter {
+              it.key.contains(ON_DEMAND.ns, ignoreCase = true)
+            }
+            .forEach {
+              cacheDataType(it.key, source, it.value, authoritative = true, cleanup = false)
+            }
+        authoritativeTypes.isNotEmpty() ->
+          cacheResult.cacheResults
+            .filter {
+              authoritativeTypes.contains(it.key)
+            }
+            .forEach {
+              cacheDataType(it.key, source, it.value, authoritative = true)
+              cachedTypes.add(it.key)
+            }
         else -> // If there are no authoritative types in cacheResult, override all as authoritative without cleanup
           cacheResult.cacheResults
             .forEach {
@@ -240,7 +243,7 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
         }
       }
     } finally {
-        MDC.remove("agentClass")
+      MDC.remove("agentClass")
     }
   }
 
@@ -271,7 +274,7 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
           cacheDataType(it.key, source, it.value, authoritative = false, cleanup = false)
         }
     } finally {
-        MDC.remove("agentClass")
+      MDC.remove("agentClass")
     }
   }
 
@@ -280,7 +283,7 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
       MDC.put("agentClass", "putCacheData")
       backingStore.merge(type, cacheData)
     } finally {
-        MDC.remove("agentClass")
+      MDC.remove("agentClass")
     }
   }
 

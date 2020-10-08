@@ -16,10 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.aws.deploy.validators
 
+import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.AllowLaunchDescription
-import org.springframework.validation.Errors
 import spock.lang.Specification
 
 class AllowLaunchDescriptionValidatorSpec extends Specification {
@@ -28,7 +28,7 @@ class AllowLaunchDescriptionValidatorSpec extends Specification {
     setup:
     AllowLaunchDescriptionValidator validator = new AllowLaunchDescriptionValidator()
     def description = new AllowLaunchDescription()
-    def errors = Mock(Errors)
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
@@ -36,7 +36,7 @@ class AllowLaunchDescriptionValidatorSpec extends Specification {
     then:
     1 * errors.rejectValue("amiName", _)
     1 * errors.rejectValue("region", _)
-    1 * errors.rejectValue("account", _)
+    1 * errors.rejectValue("targetAccount", _)
   }
 
   void "unconfigured account is rejected"() {
@@ -44,14 +44,14 @@ class AllowLaunchDescriptionValidatorSpec extends Specification {
     AllowLaunchDescriptionValidator validator = new AllowLaunchDescriptionValidator()
     def credentialsHolder = Mock(AccountCredentialsProvider)
     validator.accountCredentialsProvider = credentialsHolder
-    def description = new AllowLaunchDescription(account: "foo")
-    def errors = Mock(Errors)
+    def description = new AllowLaunchDescription(targetAccount: "foo")
+    def errors = Mock(ValidationErrors)
 
     when:
     validator.validate([], description, errors)
 
     then:
     1 * credentialsHolder.getAll() >> { [TestCredential.named('prod')] }
-    1 * errors.rejectValue("account", _)
+    1 * errors.rejectValue("targetAccount", _)
   }
 }

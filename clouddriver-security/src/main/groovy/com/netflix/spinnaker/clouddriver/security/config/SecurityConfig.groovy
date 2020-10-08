@@ -41,6 +41,9 @@ class SecurityConfig {
   static class OperationsSecurityConfigurationProperties {
     SecurityAction onMissingSecuredCheck = SecurityAction.WARN
     SecurityAction onMissingValidator = SecurityAction.WARN
+
+    //TODO(jonsie): should be `allowUnauthorizedImageTaggingInAccounts`
+    List<String> allowUnauthenticatedImageTaggingInAccounts = []
   }
 
   static enum SecurityAction {

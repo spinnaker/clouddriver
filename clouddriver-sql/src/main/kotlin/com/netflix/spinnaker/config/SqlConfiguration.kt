@@ -18,24 +18,34 @@ package com.netflix.spinnaker.config
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.event.persistence.EventRepository
 import com.netflix.spinnaker.clouddriver.sql.SqlProvider
 import com.netflix.spinnaker.clouddriver.sql.SqlTaskCleanupAgent
 import com.netflix.spinnaker.clouddriver.sql.SqlTaskRepository
+import com.netflix.spinnaker.clouddriver.sql.event.SqlEventCleanupAgent
+import com.netflix.spinnaker.clouddriver.sql.event.SqlEventRepository
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
+import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer
+import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer.SubtypeLocator
 import com.netflix.spinnaker.kork.sql.config.DefaultSqlConfiguration
 import com.netflix.spinnaker.kork.sql.config.SqlProperties
+import com.netflix.spinnaker.kork.telemetry.InstrumentedProxy
+import com.netflix.spinnaker.kork.version.ServiceVersion
+import java.time.Clock
 import org.jooq.DSLContext
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
-import java.time.Clock
 
 @Configuration
 @ConditionalOnProperty("sql.enabled")
 @Import(DefaultSqlConfiguration::class)
-@EnableConfigurationProperties(SqlTaskCleanupAgentProperties::class)
+@EnableConfigurationProperties(SqlTaskCleanupAgentProperties::class, SqlEventCleanupAgentConfigProperties::class)
 class SqlConfiguration {
 
   @Bean
@@ -43,9 +53,20 @@ class SqlConfiguration {
   fun sqlTaskRepository(
     jooq: DSLContext,
     clock: Clock,
-    sqlProperties: SqlProperties
+    objectMapper: ObjectMapper
   ): TaskRepository =
-    SqlTaskRepository(jooq, ObjectMapper(), clock, sqlProperties.retries)
+    SqlTaskRepository(jooq, objectMapper, clock, ConnectionPools.TASKS.value)
+
+  @Bean
+  @ConditionalOnProperty("sql.task-repository.enabled", "sql.task-repository.secondary.enabled")
+  fun secondarySqlTaskRepository(
+    jooq: DSLContext,
+    clock: Clock,
+    objectMapper: ObjectMapper,
+    @Value("\${sql.task-repository.secondary.pool-name}") poolName: String
+
+  ): TaskRepository =
+    SqlTaskRepository(jooq, objectMapper, clock, poolName)
 
   @Bean
   @ConditionalOnProperty("sql.task-repository.enabled")
@@ -54,14 +75,52 @@ class SqlConfiguration {
     jooq: DSLContext,
     clock: Clock,
     registry: Registry,
-    properties: SqlTaskCleanupAgentProperties,
-    sqlProperties: SqlProperties
+    properties: SqlTaskCleanupAgentProperties
   ): SqlTaskCleanupAgent =
-    SqlTaskCleanupAgent(jooq, clock, registry, properties, sqlProperties.retries)
+    SqlTaskCleanupAgent(jooq, clock, registry, properties)
 
+  /**
+   * TODO(rz): When enabled, clouddriver gets wired up with two SqlProviders (one here, another in cats-sql).
+   *  This should get cleaned up such that only one sqlProvider is ever created (register agents via an interface, say
+   *  `SqlAgent`?)
+   */
   @Bean
   @ConditionalOnProperty("sql.task-repository.enabled")
   @ConditionalOnExpression("\${sql.read-only:false} == false")
   fun sqlProvider(sqlTaskCleanupAgent: SqlTaskCleanupAgent): SqlProvider =
     SqlProvider(mutableListOf(sqlTaskCleanupAgent))
+
+  @Bean
+  fun sqlEventRepository(
+    jooq: DSLContext,
+    sqlProperties: SqlProperties,
+    serviceVersion: ServiceVersion,
+    objectMapper: ObjectMapper,
+    applicationEventPublisher: ApplicationEventPublisher,
+    registry: Registry,
+    subtypeLocators: List<SubtypeLocator>
+  ): EventRepository {
+    // TODO(rz): ObjectMapperSubtypeConfigurer should become a standard kork feature. This is pretty gross.
+    ObjectMapperSubtypeConfigurer(true).registerSubtypes(objectMapper, subtypeLocators)
+    return SqlEventRepository(
+      jooq,
+      serviceVersion,
+      objectMapper,
+      applicationEventPublisher,
+      registry
+    ).let {
+      InstrumentedProxy.proxy(registry, it, "eventRepository", mapOf("backend" to "sql"))
+    }
+  }
+
+  @Bean
+  @ConditionalOnExpression("\${sql.read-only:false} == false")
+  fun sqlEventCleanupAgent(
+    jooq: DSLContext,
+    registry: Registry,
+    properties: SqlEventCleanupAgentConfigProperties,
+    dynamicConfigService: DynamicConfigService
+  ): SqlEventCleanupAgent {
+    return SqlEventCleanupAgent(jooq, registry, properties, dynamicConfigService)
+  }
 }

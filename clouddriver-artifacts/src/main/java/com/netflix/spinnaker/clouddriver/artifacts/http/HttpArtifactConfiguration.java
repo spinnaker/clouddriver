@@ -33,7 +33,7 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(HttpArtifactProviderProperties.class)
 @RequiredArgsConstructor
 @Slf4j
-public class HttpArtifactConfiguration {
+class HttpArtifactConfiguration {
   private final HttpArtifactProviderProperties httpArtifactProviderProperties;
 
   @Bean
@@ -54,7 +54,8 @@ public class HttpArtifactConfiguration {
 
     if (httpArtifactProviderProperties.getAccounts().stream()
         .noneMatch(HttpArtifactAccount::usesAuth)) {
-      HttpArtifactAccount noAuthAccount = new HttpArtifactAccount().setName("no-auth-http-account");
+      HttpArtifactAccount noAuthAccount =
+          HttpArtifactAccount.builder().name("no-auth-http-account").build();
       HttpArtifactCredentials noAuthCredentials =
           new HttpArtifactCredentials(noAuthAccount, okHttpClient);
 

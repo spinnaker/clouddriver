@@ -105,9 +105,9 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<CacheData> allOnDemand = providerCache.getAll(ON_DEMAND.toString());
-    List<Map> returnResults = new LinkedList<>();
+    List<Map<String, Object>> returnResults = new LinkedList<>();
     for (CacheData onDemand : allOnDemand) {
       Map<String, String> parsedKey = Keys.parse(onDemand.getId());
       if (parsedKey != null
@@ -200,6 +200,7 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
     attributes.put("containers", task.getContainers());
     attributes.put("lastStatus", task.getLastStatus());
     attributes.put("desiredStatus", task.getDesiredStatus());
+    attributes.put("healthStatus", task.getHealthStatus());
     if (task.getStartedAt() != null) {
       attributes.put("startedAt", task.getStartedAt().getTime());
     }

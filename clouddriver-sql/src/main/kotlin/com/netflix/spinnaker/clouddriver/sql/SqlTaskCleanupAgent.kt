@@ -23,14 +23,13 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskState.COMPLETED
 import com.netflix.spinnaker.clouddriver.data.task.TaskState.FAILED
 import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.config.SqlTaskCleanupAgentProperties
-import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.routing.withPool
-import org.jooq.DSLContext
-import org.jooq.impl.DSL.field
-import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.util.Arrays
 import java.util.concurrent.TimeUnit
+import org.jooq.DSLContext
+import org.jooq.impl.DSL.field
+import org.slf4j.LoggerFactory
 
 /**
  * Cleans up completed Tasks after a configurable TTL.
@@ -39,8 +38,7 @@ class SqlTaskCleanupAgent(
   private val jooq: DSLContext,
   private val clock: Clock,
   private val registry: Registry,
-  private val properties: SqlTaskCleanupAgentProperties,
-  private val sqlRetryProperties: SqlRetryProperties
+  private val properties: SqlTaskCleanupAgentProperties
 ) : RunnableAgent, CustomScheduledAgent {
 
   private val log = LoggerFactory.getLogger(javaClass)
@@ -50,13 +48,15 @@ class SqlTaskCleanupAgent(
 
   override fun run() {
     withPool(ConnectionPools.TASKS.value) {
-      val candidates = jooq.withRetry(sqlRetryProperties.reads) { j ->
+      val candidates = jooq.read { j ->
         val candidates = j.select(field("id"), field("task_id"))
           .from(taskStatesTable)
           .where(
             field("state").`in`(COMPLETED.toString(), FAILED.toString())
-              .and(field("created_at").lessOrEqual(
-                clock.instant().minusMillis(properties.completedTtlMs).toEpochMilli())
+              .and(
+                field("created_at").lessOrEqual(
+                  clock.instant().minusMillis(properties.completedTtlMs).toEpochMilli()
+                )
               )
           )
           .fetch()
@@ -73,7 +73,7 @@ class SqlTaskCleanupAgent(
             candidateTaskStateIds.addAll(
               j.select(field("id"))
                 .from(taskStatesTable)
-                .where("task_id IN (${chunk.joinToString(",") { id -> "'$id'" }})")
+                .where(field("task_id").`in`(*chunk.toTypedArray()))
                 .fetch("id", String::class.java)
                 .filterNotNull()
             )
@@ -81,7 +81,7 @@ class SqlTaskCleanupAgent(
             candidateResultIds.addAll(
               j.select(field("id"))
                 .from(taskResultsTable)
-                .where("task_id IN (${chunk.joinToString(",") { id -> "'$id'" }})")
+                .where(field("task_id").`in`(*chunk.toTypedArray()))
                 .fetch("id", String::class.java)
                 .filterNotNull()
             )
@@ -105,25 +105,25 @@ class SqlTaskCleanupAgent(
 
         registry.timer(timingId).record {
           candidates.resultIds.chunked(properties.batchSize) { chunk ->
-            jooq.withRetry(sqlRetryProperties.transactions) { ctx ->
+            jooq.transactional { ctx ->
               ctx.deleteFrom(taskResultsTable)
-                .where("id IN (${chunk.joinToString(",") { "'$it'" }})")
+                .where(field("id").`in`(*chunk.toTypedArray()))
                 .execute()
             }
           }
 
           candidates.stateIds.chunked(properties.batchSize) { chunk ->
-            jooq.withRetry(sqlRetryProperties.transactions) { ctx ->
+            jooq.transactional { ctx ->
               ctx.deleteFrom(taskStatesTable)
-                .where("id IN (${chunk.joinToString(",") { "'$it'" }})")
+                .where(field("id").`in`(*chunk.toTypedArray()))
                 .execute()
             }
           }
 
           candidates.taskIds.chunked(properties.batchSize) { chunk ->
-            jooq.withRetry(sqlRetryProperties.transactions) { ctx ->
+            jooq.transactional { ctx ->
               ctx.deleteFrom(tasksTable)
-                .where("id IN (${chunk.joinToString(",") { "'$it'" }})")
+                .where(field("id").`in`(*chunk.toTypedArray()))
                 .execute()
             }
           }

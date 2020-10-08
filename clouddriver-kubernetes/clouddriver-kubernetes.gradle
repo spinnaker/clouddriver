@@ -1,33 +1,132 @@
+plugins {
+  id("net.ltgt.errorprone") version "1.2.1"
+  id 'com.adarshr.test-logger' version '2.1.0'
+}
+
+tasks.compileGroovy.enabled = false
+
+sourceSets {
+  main {
+    java.srcDirs = ['src/main/java']
+  }
+  integration {
+    java.srcDirs = ["src/integration/java"]
+    resources.srcDirs = ["src/integration/resources"]
+  }
+}
+
+configurations {
+  integrationImplementation.extendsFrom testImplementation
+  integrationRuntime.extendsFrom testRuntime
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs += [
+    '-Xlint:all',
+
+    // This check ensures that all annotations are handled at compile time, but
+    // many of the annotations we use are not intended to be handled at compile
+    // time and are instead used at runtime.
+    '-Xlint:-processing',
+    // This check ensures that all classes implementing Serializable set the
+    // serialVersionUID. We don't use Java serialization, but some classes
+    // extend JDK classes implementing Serializable. Rather than add a
+    // meaningless serialVersionUID, just disable the warning.
+    '-Xlint:-serial',
+
+    // Temporarily suppressed warnings. These are here only while we fix or
+    // suppress the warnings in these categories.
+    '-Xlint:-unchecked',
+  ]
+
+  // Temporarily disable error-prone checks that are generating warnings. These
+  // are only here while we fix or suppress the warnings in these categories.
+  options.errorprone.disable(
+    "EmptyCatch",
+    "MissingOverride",
+  )
+}
+
 dependencies {
+  errorprone("com.google.errorprone:error_prone_core:2.4.0")
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-core")
   implementation project(":cats:cats-core")
-  implementation project(":clouddriver-docker")
   implementation project(":clouddriver-security")
 
   compileOnly "org.projectlombok:lombok"
+  testCompileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
 
   implementation "org.codehaus.groovy:groovy-all"
 
-  implementation "com.github.fge:json-patch:1.9"
-  implementation "com.netflix.frigga:frigga"
-  implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
-  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
-  implementation "com.netflix.spinnaker.kork:kork-artifacts"
-  implementation "com.netflix.spinnaker.kork:kork-config"
-  implementation "com.netflix.spinnaker.moniker:moniker"
-  implementation "io.fabric8:kubernetes-client:4.1.1"
-  implementation "io.kubernetes:client-java:5.0.0"
-  implementation "org.springframework.boot:spring-boot-actuator"
-  implementation "org.springframework.boot:spring-boot-starter-web"
+  implementation "com.google.code.findbugs:jsr305"
+  implementation "com.google.guava:guava"
   implementation 'com.jayway.jsonpath:json-path:2.3.0'
   implementation "com.github.ben-manes.caffeine:guava"
+  implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spectator:spectator-api"
+  implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
+  implementation "com.netflix.spinnaker.kork:kork-annotations"
+  implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.kork:kork-credentials"
+  implementation "com.netflix.spinnaker.kork:kork-config"
+  implementation "com.netflix.spinnaker.kork:kork-cloud-config-server"
+  implementation "com.netflix.spinnaker.kork:kork-exceptions"
+  implementation "com.netflix.spinnaker.kork:kork-moniker"
+  implementation "io.kubernetes:client-java:7.0.0"
+  implementation "org.apache.commons:commons-lang3"
+  implementation "org.springframework.boot:spring-boot-actuator"
+  implementation "org.springframework.boot:spring-boot-starter-web"
+  implementation "org.springframework.security:spring-security-config"
+  implementation "org.springframework.cloud:spring-cloud-context"
+  implementation "org.springframework.cloud:spring-cloud-config-server"
 
+  testImplementation "org.assertj:assertj-core"
+  testImplementation "org.junit.jupiter:junit-jupiter-api"
+  testImplementation "org.junit.jupiter:junit-jupiter-params"
+  testImplementation "org.junit.platform:junit-platform-runner"
+  testImplementation "org.mockito:mockito-core"
+  testImplementation "org.mockito:mockito-junit-jupiter"
+  testImplementation "org.mockito:mockito-core"
   testImplementation "cglib:cglib-nodep"
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
   testImplementation "org.springframework:spring-test"
+
+
+  integrationImplementation project(":clouddriver-web")
+  integrationImplementation "org.springframework.boot:spring-boot-starter-test"
+  integrationImplementation "org.testcontainers:testcontainers"
+  integrationImplementation "org.testcontainers:mysql"
+  integrationImplementation "org.testcontainers:junit-jupiter"
+  integrationImplementation "mysql:mysql-connector-java"
+  integrationImplementation ("io.rest-assured:rest-assured:4.0.0") {
+    // Exclude groovy pulled in by rest-assured, so we use kork's version
+    exclude group: "org.codehaus.groovy", module: "groovy"
+  }
+  integrationImplementation "org.yaml:snakeyaml"
+}
+
+task integrationTest(type: Test) {
+  description = 'Runs kubernetes provider integration tests.'
+  group = 'verification'
+
+  environment "PROJECT_ROOT", project.rootDir.toString()
+  useJUnitPlatform()
+
+  testClassesDirs = sourceSets.integration.output.classesDirs
+  classpath = sourceSets.integration.runtimeClasspath
+  shouldRunAfter test
+
+  testlogger {
+    theme 'standard'
+    showStandardStreams true
+    showPassedStandardStreams false
+    showFailedStandardStreams true
+    showPassed false
+  }
 }

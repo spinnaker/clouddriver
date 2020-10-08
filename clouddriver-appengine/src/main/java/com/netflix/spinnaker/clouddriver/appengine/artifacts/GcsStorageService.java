@@ -16,8 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.appengine.artifacts;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
@@ -25,7 +25,9 @@ import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.StorageScopes;
 import com.google.api.services.storage.model.Objects;
 import com.google.api.services.storage.model.StorageObject;
-import com.netflix.spinnaker.clouddriver.artifacts.ArtifactUtils;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -44,7 +46,7 @@ public class GcsStorageService {
 
   public static interface VisitorOperation {
     void visit(StorageObject storageObj) throws IOException;
-  };
+  }
 
   public static class Factory {
     private String applicationName_;
@@ -64,32 +66,33 @@ public class GcsStorageService {
     }
 
     public GcsStorageService newForCredentials(String credentialsPath) throws IOException {
-      GoogleCredential credential = loadCredential(credentialsPath);
+      GoogleCredentials credentials = loadCredentials(credentialsPath);
+      HttpRequestInitializer requestInitializer = new HttpCredentialsAdapter(credentials);
       Storage storage =
-          new Storage.Builder(transport_, jsonFactory_, credential)
+          new Storage.Builder(transport_, jsonFactory_, requestInitializer)
               .setApplicationName(applicationName_)
               .build();
 
       return new GcsStorageService(storage);
     }
 
-    private GoogleCredential loadCredential(String credentialsPath) throws IOException {
-      GoogleCredential credential;
+    private GoogleCredentials loadCredentials(String credentialsPath) throws IOException {
+      GoogleCredentials credentials;
       if (credentialsPath != null && !credentialsPath.isEmpty()) {
         FileInputStream stream = new FileInputStream(credentialsPath);
-        credential =
-            GoogleCredential.fromStream(stream, transport_, jsonFactory_)
+        credentials =
+            GoogleCredentials.fromStream(stream)
                 .createScoped(Collections.singleton(StorageScopes.DEVSTORAGE_READ_ONLY));
         log.info("Loaded credentials from " + credentialsPath);
       } else {
         log.info(
             "spinnaker.gcs.enabled without spinnaker.gcs.jsonPath. "
                 + "Using default application credentials. Using default credentials.");
-        credential = GoogleCredential.getApplicationDefault();
+        credentials = GoogleCredentials.getApplicationDefault();
       }
-      return credential;
+      return credentials;
     }
-  };
+  }
 
   private Storage storage_;
 
@@ -111,7 +114,12 @@ public class GcsStorageService {
     Storage.Objects.List listMethod = storage_.objects().list(bucketName);
     listMethod.setPrefix(pathPrefix);
     Objects objects;
-    ExecutorService executor = Executors.newFixedThreadPool(8);
+    ExecutorService executor =
+        Executors.newFixedThreadPool(
+            8,
+            new ThreadFactoryBuilder()
+                .setNameFormat(GcsStorageService.class.getSimpleName() + "-%d")
+                .build());
 
     do {
       objects = listMethod.execute();
@@ -147,7 +155,6 @@ public class GcsStorageService {
 
   public void downloadStorageObjectRelative(
       StorageObject obj, String ignorePrefix, String baseDirectory) throws IOException {
-    InputStream stream = openObjectStream(obj.getBucket(), obj.getName(), obj.getGeneration());
     String objPath = obj.getName();
     if (!ignorePrefix.isEmpty()) {
       ignorePrefix += File.separator;
@@ -157,10 +164,16 @@ public class GcsStorageService {
       objPath = objPath.substring(ignorePrefix.length());
     }
 
+    // Ignore folder placeholder objects created by Google Console UI
+    if (objPath.endsWith("/")) {
+      return;
+    }
     File target = new File(baseDirectory, objPath);
-    ArtifactUtils.writeStreamToFile(stream, target);
+    try (InputStream stream =
+        openObjectStream(obj.getBucket(), obj.getName(), obj.getGeneration())) {
+      ArtifactUtils.writeStreamToFile(stream, target);
+    }
     target.setLastModified(obj.getUpdated().getValue());
-    stream.close();
   }
 
   public void downloadStorageObject(StorageObject obj, String baseDirectory) throws IOException {

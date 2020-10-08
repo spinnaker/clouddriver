@@ -64,11 +64,23 @@ public class EcsAccountMapper {
     }
   }
 
-  public NetflixECSCredentials fromAwsAccountNameToEcs(String awsAccoutName) {
-    return ecsCredentialsMap.get(awsAccoutName);
+  public NetflixECSCredentials fromAwsAccountNameToEcs(String awsAccountName) {
+    return ecsCredentialsMap.get(awsAccountName);
   }
 
   public NetflixAmazonCredentials fromEcsAccountNameToAws(String ecsAccountName) {
     return awsCredentialsMap.get(ecsAccountName);
+  }
+
+  public String fromAwsAccountNameToEcsAccountName(String awsAccountName) {
+    return ecsCredentialsMap.containsKey(awsAccountName)
+        ? ecsCredentialsMap.get(awsAccountName).getName()
+        : null;
+  }
+
+  public String fromEcsAccountNameToAwsAccountName(String ecsAccountName) {
+    return awsCredentialsMap.containsKey(ecsAccountName)
+        ? awsCredentialsMap.get(ecsAccountName).getName()
+        : null;
   }
 }

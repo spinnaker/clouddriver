@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.titus.client.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.protobuf.ByteString;
 import com.netflix.titus.grpc.protogen.*;
 import java.util.HashMap;
 import java.util.List;
@@ -35,6 +36,7 @@ public class JobDescription {
   private int instancesMin;
   private int cpu;
   private int memory;
+  private int sharedMemory;
   private int disk;
   private int gpu;
   private int retries;
@@ -57,6 +59,7 @@ public class JobDescription {
   private Boolean inService;
 
   private String entryPoint;
+  private String cmd;
   private String iamProfile;
   private String capacityGroup;
   private Efs efs;
@@ -67,6 +70,7 @@ public class JobDescription {
 
   private SubmitJobRequest.Constraints constraints;
   private ServiceJobProcesses serviceJobProcesses;
+  private List<SignedAddressAllocations> signedAddressAllocations;
 
   // Soft/Hard constraints
 
@@ -78,15 +82,16 @@ public class JobDescription {
     applicationName = request.getDockerImageName();
     version = request.getDockerImageVersion();
     digest = request.getDockerDigest();
-    instancesDesired = request.getInstanceDesired();
-    instancesMin = request.getInstanceMin();
-    instancesMax = request.getInstanceMax();
+    instancesDesired = request.getInstancesDesired();
+    instancesMin = request.getInstancesMin();
+    instancesMax = request.getInstancesMax();
     cpu = request.getCpu();
     memory = request.getMemory();
+    sharedMemory = request.getSharedMemory();
     disk = request.getDisk();
     ports = request.getPorts();
     networkMbps = request.getNetworkMbps();
-    allocateIpAddress = request.getAllocateIpAddress();
+    allocateIpAddress = request.isAllocateIpAddress();
     appName = request.getApplication();
     jobGroupStack = request.getStack();
     jobGroupDetail = request.getDetail();
@@ -108,6 +113,7 @@ public class JobDescription {
             ? request.getContainerAttributes()
             : new HashMap<>();
     entryPoint = request.getEntryPoint();
+    cmd = request.getCmd();
     iamProfile = request.getIamProfile();
     capacityGroup = request.getCapacityGroup();
     securityGroups = request.getSecurityGroups();
@@ -122,6 +128,7 @@ public class JobDescription {
     disruptionBudget = request.getDisruptionBudget();
     constraints = request.getContainerConstraints();
     serviceJobProcesses = request.getServiceJobProcesses();
+    signedAddressAllocations = request.getSignedAddressAllocations();
   }
 
   public String getName() {
@@ -351,6 +358,14 @@ public class JobDescription {
     this.entryPoint = entryPoint;
   }
 
+  public String getCmd() {
+    return cmd;
+  }
+
+  public void setCmd(String cmd) {
+    this.cmd = cmd;
+  }
+
   public String getIamProfile() {
     return iamProfile;
   }
@@ -415,6 +430,14 @@ public class JobDescription {
     this.serviceJobProcesses = serviceJobProcesses;
   }
 
+  public List<SignedAddressAllocations> getSignedAddressAllocations() {
+    return signedAddressAllocations;
+  }
+
+  public void setSignedAddressAllocations(List<SignedAddressAllocations> signedAddressAllocations) {
+    this.signedAddressAllocations = signedAddressAllocations;
+  }
+
   @JsonIgnore
   public SubmitJobRequest.Constraints getConstraints() {
     return constraints;
@@ -464,8 +487,21 @@ public class JobDescription {
       containerResources.setMemoryMB(memory);
     }
 
+    if (sharedMemory != 0) {
+      containerResources.setShmSizeMB(sharedMemory);
+    }
+
     if (disk != 0) {
       containerResources.setDiskMB(disk);
+    }
+
+    if (signedAddressAllocations != null && !signedAddressAllocations.isEmpty()) {
+      signedAddressAllocations.forEach(
+          signedAddressAllocation -> {
+            SignedAddressAllocation.Builder builder =
+                convertSignedAddressAllocations(signedAddressAllocation);
+            containerResources.addSignedAddressAllocations(builder);
+          });
     }
 
     if (efs != null && efs.getEfsId() != null) {
@@ -514,6 +550,10 @@ public class JobDescription {
       containerBuilder.addEntryPoint(entryPoint);
     }
 
+    if (cmd != null && !cmd.isEmpty()) {
+      containerBuilder.addCommand(cmd);
+    }
+
     if (!containerAttributes.isEmpty()) {
       containerBuilder.putAllAttributes(containerAttributes);
     }
@@ -544,17 +584,19 @@ public class JobDescription {
     Capacity.Builder jobCapacity = Capacity.newBuilder();
     jobCapacity.setMin(instancesMin).setMax(instancesMax).setDesired(instancesDesired);
 
-    if (type.equals("service")) {
-      JobGroupInfo.Builder jobGroupInfoBuilder = JobGroupInfo.newBuilder();
-      if (jobGroupStack != null) {
-        jobGroupInfoBuilder.setStack(jobGroupStack);
-      }
-      if (jobGroupDetail != null) {
-        jobGroupInfoBuilder.setDetail(jobGroupDetail);
-      }
+    JobGroupInfo.Builder jobGroupInfoBuilder = JobGroupInfo.newBuilder();
+    if (jobGroupStack != null) {
+      jobGroupInfoBuilder.setStack(jobGroupStack);
+    }
+    if (jobGroupDetail != null) {
+      jobGroupInfoBuilder.setDetail(jobGroupDetail);
+    }
+    if (jobGroupSequence != null) {
       jobGroupInfoBuilder.setSequence(jobGroupSequence);
-      jobDescriptorBuilder.setJobGroupInfo(jobGroupInfoBuilder);
+    }
+    jobDescriptorBuilder.setJobGroupInfo(jobGroupInfoBuilder);
 
+    if (type.equals("service")) {
       if (inService == null) {
         inService = true;
       }
@@ -624,6 +666,43 @@ public class JobDescription {
     }
 
     return jobDescriptorBuilder.build();
+  }
+
+  // Returns builder for Protobuf type com.netflix.titus.SignedAddressAllocation
+  private SignedAddressAllocation.Builder convertSignedAddressAllocations(
+      SignedAddressAllocations signedAddressAllocation) {
+
+    SignedAddressAllocations.AddressLocation addressLocation =
+        signedAddressAllocation.getAddressAllocation().getAddressLocation();
+
+    AddressLocation.Builder addressLocationBuilder = AddressLocation.newBuilder();
+    addressLocationBuilder.setAvailabilityZone(addressLocation.getAvailabilityZone());
+    addressLocationBuilder.setRegion(addressLocation.getRegion());
+    addressLocationBuilder.setSubnetId(addressLocation.getSubnetId());
+    addressLocationBuilder.build();
+
+    AddressAllocation.Builder addressAllocationBuilder =
+        AddressAllocation.newBuilder().setAddressLocation(addressLocationBuilder);
+    addressAllocationBuilder.setUuid(signedAddressAllocation.getAddressAllocation().getUuid());
+    addressAllocationBuilder.setAddress(
+        signedAddressAllocation.getAddressAllocation().getAddress());
+    addressAllocationBuilder.build();
+
+    SignedAddressAllocation.Builder signedAddressAllocationBuilder =
+        SignedAddressAllocation.newBuilder().setAddressAllocation(addressAllocationBuilder);
+    signedAddressAllocationBuilder.setAuthoritativePublicKey(
+        ByteString.copyFromUtf8(signedAddressAllocation.getAuthoritativePublicKey()));
+    signedAddressAllocationBuilder.setHostPublicKey(
+        ByteString.copyFromUtf8(signedAddressAllocation.getHostPublicKey()));
+    signedAddressAllocationBuilder.setHostPublicKeySignature(
+        ByteString.copyFromUtf8(signedAddressAllocation.getHostPublicKeySignature()));
+    signedAddressAllocationBuilder.setMessage(
+        ByteString.copyFromUtf8(signedAddressAllocation.getMessage()));
+    signedAddressAllocationBuilder.setMessageSignature(
+        ByteString.copyFromUtf8(signedAddressAllocation.getMessageSignature()));
+    signedAddressAllocationBuilder.build();
+
+    return signedAddressAllocationBuilder;
   }
 
   private JobDisruptionBudget convertJobDisruptionBudget(DisruptionBudget budget) {

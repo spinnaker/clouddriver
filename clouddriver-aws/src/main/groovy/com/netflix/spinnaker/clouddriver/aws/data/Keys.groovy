@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.data
 
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetTypeEnum
 import com.google.common.collect.ImmutableMap
 import com.google.common.collect.ImmutableSet
 import com.netflix.frigga.Names
@@ -130,6 +131,17 @@ class Keys implements KeyParser {
       case Namespace.STACKS.ns:
         result << [stackId: parts[2], account: parts[3], region: parts[4]]
         break
+      case Namespace.LAUNCH_TEMPLATES.ns:
+        def names = Names.parseName(parts[4])
+        result << [
+          account: parts[2],
+          region: parts[ 3],
+          launchTemplateName: parts[4],
+          application: names.app?.toLowerCase(),
+          stack: names.stack
+        ]
+
+        break
       default:
         return null
         break
@@ -175,7 +187,12 @@ class Keys implements KeyParser {
   }
 
   static String getTargetGroupKey(String targetGroupName, String account, String region, String targetGroupType, String vpcId) {
-    "${ID}:${Namespace.TARGET_GROUPS}:${account}:${region}:${targetGroupName}:${targetGroupType}:${vpcId}"
+    //Lambda targetGroup don't have the vpcId
+    if (TargetTypeEnum.Lambda.toString().equalsIgnoreCase(targetGroupType)) {
+      "${ID}:${Namespace.TARGET_GROUPS}:${account}:${region}:${targetGroupName}:${targetGroupType}"
+    } else {
+      "${ID}:${Namespace.TARGET_GROUPS}:${account}:${region}:${targetGroupName}:${targetGroupType}:${vpcId}"
+    }
   }
 
   static String getClusterKey(String clusterName, String application, String account) {
@@ -196,5 +213,10 @@ class Keys implements KeyParser {
 
   static String getCloudFormationKey(String stackId, String accountName, String region) {
     "${ID}:${Namespace.STACKS}:${accountName}:${region}:${stackId}"
+  }
+
+  static String getLaunchTemplateKey(
+    String launchTemplateName, String account, String region) {
+    "${ID}:${Namespace.LAUNCH_TEMPLATES}:${account}:${region}:${launchTemplateName}"
   }
 }

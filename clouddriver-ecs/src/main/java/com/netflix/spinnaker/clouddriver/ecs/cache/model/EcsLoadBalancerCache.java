@@ -54,6 +54,6 @@ public class EcsLoadBalancerCache implements LoadBalancer {
 
   @Override
   public String getType() {
-    return loadBalancerType;
+    return cloudProvider;
   }
 }

@@ -16,9 +16,16 @@
 
 package com.netflix.spinnaker.clouddriver.orchestration
 
-import com.netflix.spectator.api.Spectator
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.clouddriver.config.ExceptionClassifierConfigurationProperties
 import com.netflix.spinnaker.clouddriver.data.task.DefaultTask
+import com.netflix.spinnaker.clouddriver.data.task.SagaId
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
+import com.netflix.spinnaker.kork.web.context.AuthenticatedRequestContextProvider
+import com.netflix.spinnaker.kork.web.exceptions.ExceptionMessageDecorator
+import com.netflix.spinnaker.kork.web.exceptions.ExceptionSummaryService
 import com.netflix.spinnaker.security.AuthenticatedRequest
 import org.slf4j.MDC
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory
@@ -26,6 +33,7 @@ import org.springframework.context.ApplicationContext
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
+import spock.lang.Unroll
 
 import java.util.concurrent.TimeUnit
 
@@ -39,17 +47,35 @@ class DefaultOrchestrationProcessorSpec extends Specification {
 
   TaskRepository taskRepository
 
+  DynamicConfigService dynamicConfigService
+
+  ExceptionSummaryService exceptionSummaryService
+
   String taskKey
+  private AuthenticatedRequestContextProvider contextProvider
 
   def setup() {
     taskKey = UUID.randomUUID().toString()
-    processor = new DefaultOrchestrationProcessor()
+
+    taskRepository = Mock(TaskRepository)
     applicationContext = Mock(ApplicationContext)
     applicationContext.getAutowireCapableBeanFactory() >> Mock(AutowireCapableBeanFactory)
-    taskRepository = Mock(TaskRepository)
-    processor.applicationContext = applicationContext
-    processor.taskRepository = taskRepository
-    processor.registry = Spectator.globalRegistry()
+    dynamicConfigService = Mock(DynamicConfigService)
+    contextProvider = new AuthenticatedRequestContextProvider()
+    exceptionSummaryService = new ExceptionSummaryService(Mock(ExceptionMessageDecorator))
+
+    processor = new DefaultOrchestrationProcessor(
+      taskRepository,
+      applicationContext,
+      new NoopRegistry(),
+      Optional.empty(),
+      new ObjectMapper(),
+      new ExceptionClassifier(new ExceptionClassifierConfigurationProperties(
+        retryableClasses: [RetryableException.class.getName()]
+      ), dynamicConfigService),
+      contextProvider,
+      exceptionSummaryService
+    )
   }
 
   void "complete the task when everything goes as planned"() {
@@ -66,9 +92,18 @@ class DefaultOrchestrationProcessorSpec extends Specification {
     !task.status.isFailed()
   }
 
-  void "fail the task when exception is thrown"() {
+  @Unroll
+  void "fail the task when exception is thrown (#exception.class.simpleName, #sagaId)"() {
     setup:
+    dynamicConfigService.getConfig(
+      String.class,
+      "clouddriver.exception-classifier.retryable-exceptions",
+      'com.netflix.spinnaker.clouddriver.orchestration.DefaultOrchestrationProcessorSpec$RetryableException'
+    ) >> { 'com.netflix.spinnaker.clouddriver.orchestration.DefaultOrchestrationProcessorSpec$SomeDynamicException,com.netflix.spinnaker.clouddriver.orchestration.DefaultOrchestrationProcessorSpec$AnotherDynamicException' }
     def task = new DefaultTask("1")
+    if (sagaId) {
+      task.sagaIdentifiers.add(sagaId)
+    }
     def atomicOperation = Mock(AtomicOperation)
 
     when:
@@ -76,8 +111,20 @@ class DefaultOrchestrationProcessorSpec extends Specification {
 
     then:
     1 * taskRepository.create(_, _, taskKey) >> task
-    1 * atomicOperation.operate(_) >> { throw new RuntimeException() }
+    1 * atomicOperation.operate(_) >> { throw exception }
     task.status.isFailed()
+    task.status.retryable == retryable
+
+    //Tasks without SagaIds (i.e., not a saga) are not retryable
+    where:
+    exception                     | sagaId               || retryable
+    new RuntimeException()        | null                 || false
+    new RetryableException()      | null                 || false
+    new RuntimeException()        | new SagaId("a", "a") || false
+    new NonRetryableException()   | new SagaId("a", "a") || false
+    new RetryableException()      | new SagaId("a", "a") || true
+    new SomeDynamicException()    | new SagaId("a", "a") || true
+    new AnotherDynamicException() | new SagaId("a", "a") || true
   }
 
   void "failure should be logged in the result objects"() {
@@ -114,17 +161,18 @@ class DefaultOrchestrationProcessorSpec extends Specification {
 
   void "should clear MDC thread local"() {
     given:
+    def context = contextProvider.get()
     MDC.put("myKey", "myValue")
-    MDC.put(AuthenticatedRequest.Header.ACCOUNTS.header, "myAccounts")
-    MDC.put(AuthenticatedRequest.Header.USER.header, "myUser")
+    context.setAccounts("myAccounts")
+    context.setUser( "myUser")
 
     when:
-    DefaultOrchestrationProcessor.resetMDC()
+    processor.clearRequestContext()
 
     then:
     MDC.get("myKey") == "myValue"
-    MDC.get(AuthenticatedRequest.Header.ACCOUNTS.header) == null
-    MDC.get(AuthenticatedRequest.Header.USER.header) == null
+    !context.getAccounts().isPresent()
+    !context.getUser().isPresent()
   }
 
   private void submitAndWait(AtomicOperation atomicOp) {
@@ -132,4 +180,9 @@ class DefaultOrchestrationProcessorSpec extends Specification {
     processor.executorService.shutdown()
     processor.executorService.awaitTermination(5, TimeUnit.SECONDS)
   }
+
+  private static class NonRetryableException extends RuntimeException {}
+  private static class RetryableException extends RuntimeException {}
+  private static class SomeDynamicException extends RuntimeException {}
+  private static class AnotherDynamicException extends RuntimeException {}
 }

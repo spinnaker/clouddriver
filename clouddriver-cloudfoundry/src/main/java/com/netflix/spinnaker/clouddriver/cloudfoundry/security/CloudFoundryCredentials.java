@@ -21,19 +21,34 @@ import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.HttpCloudFoundryClient;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials;
+import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Getter
-@JsonIgnoreProperties({"credentials", "client", "password"})
-public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryClient> {
+@JsonIgnoreProperties({
+  "credentials",
+  "client",
+  "password",
+  "spaceSupplier",
+  "cacheRepository",
+  "spacesLive"
+})
+public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFoundryClient> {
+  private static final int SPACE_EXPIRY_SECONDS = 30;
 
   private final String name;
   private final String appsManagerUri;
@@ -51,7 +66,18 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
   @Deprecated private final List<String> requiredGroupMembership = Collections.emptyList();
   private final boolean skipSslValidation;
 
+  @Nullable private final Integer resultsPerPage;
+
+  private final int maxCapiConnectionsForCache;
+
+  private final Supplier<List<CloudFoundrySpace>> spaceSupplier =
+      Memoizer.memoizeWithExpiration(this::spaceSupplier, SPACE_EXPIRY_SECONDS, TimeUnit.SECONDS);
+
   private CloudFoundryClient credentials;
+
+  private CacheRepository cacheRepository;
+
+  private Permissions permissions;
 
   public CloudFoundryCredentials(
       String name,
@@ -61,7 +87,11 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
       String userName,
       String password,
       String environment,
-      boolean skipSslValidation) {
+      boolean skipSslValidation,
+      Integer resultsPerPage,
+      Integer maxCapiConnectionsForCache,
+      CacheRepository cacheRepository,
+      Permissions permissions) {
     this.name = name;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -70,13 +100,25 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
     this.password = password;
     this.environment = Optional.ofNullable(environment).orElse("dev");
     this.skipSslValidation = skipSslValidation;
+    this.resultsPerPage = Optional.ofNullable(resultsPerPage).orElse(100);
+    this.maxCapiConnectionsForCache = Optional.ofNullable(maxCapiConnectionsForCache).orElse(16);
+    this.cacheRepository = cacheRepository;
+    this.permissions = permissions == null ? Permissions.EMPTY : permissions;
   }
 
   public CloudFoundryClient getCredentials() {
     if (this.credentials == null) {
       this.credentials =
           new HttpCloudFoundryClient(
-              name, appsManagerUri, metricsUri, apiHost, userName, password, skipSslValidation);
+              name,
+              appsManagerUri,
+              metricsUri,
+              apiHost,
+              userName,
+              password,
+              skipSslValidation,
+              resultsPerPage,
+              maxCapiConnectionsForCache);
     }
     return credentials;
   }
@@ -86,10 +128,22 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
   }
 
   public Collection<Map<String, String>> getRegions() {
+    return spaceSupplier.get().stream()
+        .map(space -> singletonMap("name", space.getRegion()))
+        .collect(toList());
+  }
+
+  protected List<CloudFoundrySpace> spaceSupplier() {
+    Set<CloudFoundrySpace> spaces = cacheRepository.findSpacesByAccount(name);
+    if (!spaces.isEmpty()) {
+      return new ArrayList<>(spaces);
+    }
+    return getSpacesLive();
+  }
+
+  public List<CloudFoundrySpace> getSpacesLive() {
     try {
-      return getCredentials().getSpaces().all().stream()
-          .map(space -> singletonMap("name", space.getRegion()))
-          .collect(toList());
+      return getClient().getSpaces().all();
     } catch (CloudFoundryApiException e) {
       log.warn("Unable to determine regions for Cloud Foundry account " + name, e);
       return emptyList();
@@ -109,12 +163,44 @@ public class CloudFoundryCredentials implements AccountCredentials<CloudFoundryC
         && Objects.equals(userName, that.userName)
         && Objects.equals(password, that.password)
         && Objects.equals(environment, that.environment)
-        && Objects.equals(skipSslValidation, that.skipSslValidation);
+        && Objects.equals(skipSslValidation, that.skipSslValidation)
+        && Objects.equals(resultsPerPage, that.resultsPerPage);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        name, appsManagerUri, metricsUri, userName, password, environment, skipSslValidation);
+        name,
+        appsManagerUri,
+        metricsUri,
+        userName,
+        password,
+        environment,
+        skipSslValidation,
+        resultsPerPage);
+  }
+
+  /**
+   * Thin wrapper around a Caffeine cache that handles memoizing a supplier function with expiration
+   */
+  private static class Memoizer<T> implements Supplier<T> {
+    private static final String CACHE_KEY = "key";
+    private final LoadingCache<String, T> cache;
+
+    private Memoizer(Supplier<T> supplier, long expirySeconds, TimeUnit timeUnit) {
+      this.cache =
+          Caffeine.newBuilder()
+              .refreshAfterWrite(expirySeconds, timeUnit)
+              .build(key -> supplier.get());
+    }
+
+    public T get() {
+      return cache.get(CACHE_KEY);
+    }
+
+    public static <U> Memoizer<U> memoizeWithExpiration(
+        Supplier<U> supplier, long expirySeconds, TimeUnit timeUnit) {
+      return new Memoizer<>(supplier, expirySeconds, timeUnit);
+    }
   }
 }

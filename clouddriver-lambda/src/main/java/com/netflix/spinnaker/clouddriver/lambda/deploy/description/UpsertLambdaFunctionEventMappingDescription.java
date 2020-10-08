@@ -23,9 +23,10 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = false)
 public class UpsertLambdaFunctionEventMappingDescription extends AbstractLambdaFunctionDescription {
   String functionName;
-
+  String qualifier;
   Integer batchsize = 1;
   Boolean enabled = false;
   String eventSourceArn = null;
   String uuid = null;
+  String startingPosition = null;
 }

@@ -1,5 +1,19 @@
+sourceSets {
+  integration {
+    java.srcDirs = ["src/integration/java"]
+    resources.srcDirs = ["src/integration/resources"]
+    compileClasspath += main.output + test.output
+  }
+}
+
+configurations {
+  integrationImplementation.extendsFrom testImplementation
+  integrationRuntime.extendsFrom testRuntime
+}
+
 dependencies {
   implementation project(":cats:cats-core")
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-artifacts")
   implementation project(":clouddriver-aws")
   implementation project(":clouddriver-core")
@@ -23,6 +37,7 @@ dependencies {
   implementation "com.squareup.okhttp:okhttp-urlconnection"
   implementation "com.squareup.retrofit:converter-jackson"
   implementation "com.squareup.retrofit:retrofit"
+  implementation "commons-io:commons-io"
   implementation "org.apache.commons:commons-lang3"
   implementation "org.apache.httpcomponents:httpclient"
   implementation "org.apache.httpcomponents:httpcore"
@@ -35,4 +50,24 @@ dependencies {
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
+
+  integrationImplementation project(":clouddriver-web")
+  integrationImplementation "org.springframework:spring-test"
+  integrationImplementation "org.testcontainers:mysql"
+  integrationImplementation "mysql:mysql-connector-java"
+  integrationImplementation ("io.rest-assured:rest-assured:4.0.0") {
+    exclude group: "org.codehaus.groovy", module: "groovy" // use kork's version
+  }
+}
+
+task integrationTest(type: Test) {
+  description = "Runs Amazon ECS provider integration tests."
+  group = 'verification'
+
+  environment "PROJECT_ROOT", project.rootDir.toString()
+  useJUnitPlatform()
+
+  testClassesDirs = sourceSets.integration.output.classesDirs
+  classpath = sourceSets.integration.runtimeClasspath
+  shouldRunAfter test
 }

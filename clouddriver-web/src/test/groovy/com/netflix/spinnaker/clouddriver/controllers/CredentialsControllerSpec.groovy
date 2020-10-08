@@ -19,7 +19,8 @@ package com.netflix.spinnaker.clouddriver.controllers
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.configuration.CredentialsConfiguration
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials
+import com.netflix.spinnaker.clouddriver.security.AbstractAccountCredentials
+
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
 import groovy.json.JsonSlurper
@@ -53,10 +54,10 @@ class CredentialsControllerSpec extends Specification {
 
     List<Map> parsedResponse = new JsonSlurper().parseText(result.response.contentAsString) as List
 
-    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: ["test"], permissions: [READ:["test"], WRITE:["test"]], challengeDestructiveActions: false, primaryAccount: false, providerVersion: "v1", skin: "v1"]]
+    parsedResponse == [[name: "test", environment: "env", accountType: "acctType", cloudProvider: "testProvider", type: "testProvider", requiredGroupMembership: ["test"], permissions: [READ:["test"], WRITE:["test"]], challengeDestructiveActions: false, primaryAccount: false]]
   }
 
-  static class TestNamedAccountCredentials implements AccountCredentials<Map> {
+  static class TestNamedAccountCredentials extends AbstractAccountCredentials<Map> {
 
     String name = "test"
     String environment = "env"

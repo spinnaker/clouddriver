@@ -40,6 +40,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
+import javax.inject.Provider
+
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
 import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*
 
@@ -52,21 +54,22 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
   private final ObjectMapper objectMapper
   private final Logger log = LoggerFactory.getLogger(getClass())
 
-  @Autowired
-  private final AwsLookupUtil awsLookupUtil
-
-  @Autowired
-  private final CachingSchemaUtil cachingSchemaUtil
+  private final Provider<AwsLookupUtil> awsLookupUtil
+  private final Provider<CachingSchemaUtil> cachingSchemaUtil
 
   @Autowired
   TitusClusterProvider(TitusCloudProvider titusCloudProvider,
                        TitusCachingProvider titusCachingProvider,
                        Cache cacheView,
-                       ObjectMapper objectMapper) {
+                       ObjectMapper objectMapper,
+                       Provider<AwsLookupUtil> awsLookupUtil,
+                       Provider<CachingSchemaUtil> cachingSchemaUtil) {
     this.titusCloudProvider = titusCloudProvider
     this.cacheView = cacheView
     this.titusCachingProvider = titusCachingProvider
     this.objectMapper = objectMapper
+    this.awsLookupUtil = awsLookupUtil
+    this.cachingSchemaUtil = cachingSchemaUtil
   }
 
   @Autowired(required = false)
@@ -148,9 +151,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
    */
   @Override
   TitusCluster getCluster(String application, String account, String name, boolean includeDetails) {
-    String clusterKey = (cachingSchemaUtil.getCachingSchemaForAccount(account) == CachingSchema.V1
-      ? Keys.getClusterKey(name, application, account)
-      : Keys.getClusterV2Key(name, application, account))
+    String clusterKey = Keys.getClusterV2Key(name, application, account)
     CacheData cluster = cacheView.get(CLUSTERS.ns, clusterKey)
     TitusCluster titusCluster = cluster ? translateClusters([cluster], includeDetails)[0] : null
     titusCluster
@@ -170,9 +171,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
    */
   @Override
   TitusServerGroup getServerGroup(String account, String region, String name, boolean includeDetails) {
-    String serverGroupKey = (cachingSchemaUtil.getCachingSchemaForAccount(account) == CachingSchema.V1
-      ? Keys.getServerGroupKey(name, account, region)
-      : Keys.getServerGroupV2Key(name, account, region))
+    String serverGroupKey = Keys.getServerGroupV2Key(name, account, region)
     CacheData serverGroupData = cacheView.get(SERVER_GROUPS.ns, serverGroupKey)
     if (serverGroupData == null) {
       return null
@@ -188,11 +187,11 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     if (includeDetails) {
       serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns), Collections.singletonList(serverGroupData)).values()
       if (serverGroup.targetGroups) {
-        awsLookupUtil.lookupTargetGroupHealth(job, serverGroup.instances)
+        awsLookupUtil.get().lookupTargetGroupHealth(job, serverGroup.instances)
       }
     }
-    serverGroup.accountId = awsLookupUtil.awsAccountId(account, region)
-    serverGroup.awsAccount = awsLookupUtil.lookupAccount(account, region)?.awsAccount
+    serverGroup.accountId = awsLookupUtil.get().awsAccountId(account, region)
+    serverGroup.awsAccount = awsLookupUtil.get().lookupAccount(account, region)?.awsAccount
     serverGroup
   }
 
@@ -216,7 +215,11 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     account = Optional.ofNullable(account).orElse("*")
     region = Optional.ofNullable(region).orElse("*")
 
-    return cacheView.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey("*", "*", account, region))
+    Collection<String> ids = cacheView.filterIdentifiers(SERVER_GROUPS.ns, Keys.getServerGroupKey("*", "*", account, region))
+
+    return ids.collect({ id ->
+      Keys.removeSchemaVersion(id)
+    }).toList()
   }
 
   @Override
@@ -275,9 +278,9 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
       serverGroup.instances = serverGroup.instances ?: []
       serverGroup.targetGroups = serverGroupEntry.attributes.targetGroups
       if (serverGroup.targetGroups) {
-        awsLookupUtil.lookupTargetGroupHealth(job, serverGroup.instances)
+        awsLookupUtil.get().lookupTargetGroupHealth(job, serverGroup.instances)
       }
-      serverGroup.awsAccount = awsLookupUtil.lookupAccount(serverGroupEntry.attributes.account, serverGroupEntry.attributes.region)?.awsAccount
+      serverGroup.awsAccount = awsLookupUtil.get().lookupAccount(serverGroupEntry.attributes.account, serverGroupEntry.attributes.region)?.awsAccount
       [(serverGroupEntry.id): serverGroup]
     }
     return serverGroups

@@ -26,7 +26,8 @@ import groovy.transform.Canonical
 
 @AutoClone
 @Canonical
-class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription implements DeployDescription, ApplicationNameable {
+class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription implements
+  DeployDescription, ApplicationNameable {
   String application
   String amiName
   String stack
@@ -50,6 +51,24 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   Boolean ebsOptimized
   String base64UserData
   Boolean legacyUdf
+
+  /**
+   * When set to true, the created server group will use a launch template instead of a launch configuration.
+   */
+  Boolean setLaunchTemplate = true
+
+  /**
+   * When set to true, the created server group will be configured with IMDSv2.
+   * This is a Launch Template only feature
+   * * https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+   */
+  Boolean requireIMDSv2 = false
+
+  /**
+   * Associate an IPv6 address
+   * This is a Launch Template only feature
+   */
+  Boolean associateIPv6Address = false
 
   Collection<OperationEvent> events = []
 
@@ -91,6 +110,7 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   List<String> loadBalancers
   List<String> targetGroups
   List<String> securityGroups
+  List<String> securityGroupNames = []
   List<AmazonAsgLifecycleHook> lifecycleHooks = []
   Map<String, List<String>> availabilityZones = [:]
   Capacity capacity = new Capacity()

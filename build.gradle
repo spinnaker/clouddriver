@@ -17,44 +17,42 @@
 
 buildscript {
   ext {
-    kotlinVersion = "1.3.10"
+    kotlinVersion = "1.4.0"
     junitPlatformVersion = "1.0.2"
   }
 
   repositories {
-    jcenter()
-    maven { url "https://spinnaker.bintray.com/gradle" }
-    maven { url "https://plugins.gradle.org/m2/" }
-    if (spinnakerGradleVersion.endsWith("-SNAPSHOT")) {
-      mavenLocal()
-    }
+    gradlePluginPortal()
   }
 
   dependencies {
-    classpath "com.netflix.spinnaker.gradle:spinnaker-dev-plugin:$spinnakerGradleVersion"
-    if (Boolean.valueOf(enablePublishing)) {
-      classpath "com.netflix.spinnaker.gradle:spinnaker-gradle-project:$spinnakerGradleVersion"
-// TODO: nebula-publishing-plugin version override should be removed as soon as spinnaker-gradle-project is updated
-// this override is needed to omit compileOnly dependencies from generated pom.xml
-      classpath "com.netflix.nebula:nebula-publishing-plugin:12.0.1"
-    }
-    classpath "com.netflix.nebula:nebula-kotlin-plugin:$kotlinVersion"
     classpath "org.junit.platform:junit-platform-gradle-plugin:${junitPlatformVersion}"
-
   }
 }
 
-allprojects {
-  group = "com.netflix.spinnaker.clouddriver"
-  apply plugin: 'spinnaker.base-project'
-  if (Boolean.valueOf(enablePublishing)) {
-    apply plugin: 'spinnaker.project'
-  }
+plugins {
+  id 'io.spinnaker.project' version "$spinnakerGradleVersion" apply false
+  id 'org.jetbrains.kotlin.jvm' version "$kotlinVersion"
+  id 'org.jetbrains.kotlin.plugin.allopen' version "$kotlinVersion" apply false
+  id "com.google.protobuf" version "0.8.12" apply false
+}
 
-  if (name != "clouddriver-bom") {
+allprojects {
+  repositories {
+    jcenter()
+  }
+}
+
+subprojects {
+  group = "com.netflix.spinnaker.clouddriver"
+  apply plugin: 'io.spinnaker.project'
+
+  if (name != "clouddriver-bom" && name != "clouddriver-api") {
     apply plugin: 'java-library'
     apply plugin: 'groovy'
-    apply plugin: 'nebula.kotlin'
+    apply plugin: 'kotlin'
+    apply plugin: "kotlin-allopen"
+    apply plugin: "jacoco"
 
     sourceSets.main.java.srcDirs = []
     sourceSets.main.groovy.srcDirs += ["src/main/java"]
@@ -64,11 +62,14 @@ allprojects {
 
       annotationProcessor platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
       annotationProcessor "org.projectlombok:lombok"
+      annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
       testAnnotationProcessor platform("com.netflix.spinnaker.kork:kork-bom:$korkVersion")
       testAnnotationProcessor "org.projectlombok:lombok"
+      testRuntimeOnly "org.junit.vintage:junit-vintage-engine" // Required for Spock tests to execute along with Junit5 tests.
     }
 
     test {
+      useJUnitPlatform()
       testLogging {
         exceptionFormat = 'full'
         if (project.hasProperty('slowTest')) {
@@ -87,11 +88,17 @@ allprojects {
         minHeapSize = "512m"
         maxHeapSize = "512m"
       }
+      jacoco {
+        enabled = project.hasProperty('testCoverage')
+      }
+    }
+
+    // The test report requires tests to have run first
+    jacocoTestReport {
+      dependsOn test
     }
   }
-}
 
-subprojects { project ->
   if ([korkVersion, fiatVersion].any { it.endsWith("-SNAPSHOT") }) {
     logger.info("Enabling mavenLocal")
     repositories {

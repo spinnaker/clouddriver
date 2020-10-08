@@ -122,14 +122,13 @@ class IvyArtifactCredentialsTest {
 
   private void assertDownloadArtifact(@TempDirectory.TempDir Path tempDir, String ivySettingsXml)
       throws IOException {
-    IvyArtifactAccount account = new IvyArtifactAccount();
-    account.setSettings(IvySettings.parse(ivySettingsXml));
+    IvyArtifactAccount account =
+        IvyArtifactAccount.builder().settings(IvySettings.parse(ivySettingsXml)).build();
 
     Path cache = tempDir.resolve("cache");
     Files.createDirectories(cache);
 
-    Artifact artifact = new Artifact();
-    artifact.setReference("com.test:app:1.0");
+    Artifact artifact = Artifact.builder().reference("com.test:app:1.0").build();
 
     assertThat(new IvyArtifactCredentials(account, () -> cache).download(artifact))
         .hasSameContentAs(new ByteArrayInputStream("contents".getBytes(Charsets.UTF_8)));

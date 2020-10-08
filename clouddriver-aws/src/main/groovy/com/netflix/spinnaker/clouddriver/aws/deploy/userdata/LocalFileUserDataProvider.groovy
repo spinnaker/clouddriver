@@ -18,6 +18,10 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.userdata
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerHttpException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerNetworkException
+import com.netflix.spinnaker.clouddriver.exceptions.SpinnakerServerException
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import org.springframework.beans.factory.annotation.Autowired
 import retrofit.RetrofitError
 
@@ -38,25 +42,27 @@ class LocalFileUserDataProvider implements UserDataProvider {
           return localFileUserDataProperties.defaultLegacyUdf
         }
         return Boolean.valueOf(application.legacyUdf)
-      } catch (RetrofitError re) {
-        if (re.kind == RetrofitError.Kind.HTTP && re.response.status == 404) {
-          return localFileUserDataProperties.defaultLegacyUdf
-        }
-        throw re
+      } catch (NotFoundException e) {
+        return localFileUserDataProperties.defaultLegacyUdf
+      } catch (SpinnakerServerException e) {
+        throw e
       }
     }
 
+    // TODO(rz) standardize retry logic
     final int maxRetry = 5
     final int retryBackoff = 500
     final Set<Integer> retryStatus = [429, 500]
     for (int i = 0; i < maxRetry; i++) {
       try {
         return result.call()
-      } catch (RetrofitError re) {
-        if (re.kind == RetrofitError.Kind.NETWORK || (re.kind == RetrofitError.Kind.HTTP && retryStatus.contains(re.response.status))) {
+      } catch (SpinnakerHttpException e) {
+        if (retryStatus.contains(e.getResponse().getStatus())) {
           Thread.sleep(retryBackoff)
         }
-      }
+      } catch (SpinnakerNetworkException e) {
+        Thread.sleep(retryBackoff)
+      } catch (SpinnakerServerException e) {}
     }
     throw new IllegalStateException("Failed to read legacyUdf preference from front50 for $account/$applicationName")
   }
@@ -66,7 +72,26 @@ class LocalFileUserDataProvider implements UserDataProvider {
     def names = Names.parseName(settings.baseName)
     boolean useLegacyUdf = legacyUdf != null ? legacyUdf : isLegacyUdf(settings.account, names.app)
     def rawUserData = assembleUserData(useLegacyUdf, names, settings.region, settings.account)
-    replaceUserDataTokens useLegacyUdf, names, launchConfigName, settings.region, settings.account, settings.environment, settings.accountType, rawUserData
+    def userDataRequest = UserDataRequest
+      .builder()
+      .asgName(settings.baseName)
+      .launchSettingName(launchConfigName)
+      .environment(settings.environment)
+      .region(settings.region)
+      .account(settings.account)
+      .accountType(settings.accountType)
+      .legacyUdf(useLegacyUdf)
+      .build()
+
+    replaceUserDataTokens(names, userDataRequest, rawUserData)
+  }
+
+  @Override
+  String getUserData(UserDataRequest userDataRequest) {
+    def names = Names.parseName(userDataRequest.asgName)
+    boolean useLegacyUdf = userDataRequest.legacyUdf != null ? userDataRequest.legacyUdf : isLegacyUdf(userDataRequest.account, names.app)
+    def rawUserData = assembleUserData(useLegacyUdf, names, userDataRequest.region, userDataRequest.account)
+    return replaceUserDataTokens(names, userDataRequest, rawUserData)
   }
 
   String assembleUserData(boolean legacyUdf, Names names, String region, String account) {
@@ -99,7 +124,7 @@ class LocalFileUserDataProvider implements UserDataProvider {
     udfPaths.collect { String path -> getContents(path) }.join('')
   }
 
-  static String replaceUserDataTokens(boolean useAccountNameAsEnvironment, Names names, String launchConfigName, String region, String account, String environment, String accountType, String rawUserData) {
+  static String replaceUserDataTokens(Names names, UserDataRequest userDataRequest, String rawUserData) {
     String stack = names.stack ?: ''
     String cluster = names.cluster ?: ''
     String revision = names.revision ?: ''
@@ -111,11 +136,11 @@ class LocalFileUserDataProvider implements UserDataProvider {
 
     // Replace the tokens & return the result
     String result = rawUserData
-      .replace('%%account%%', account)
-      .replace('%%accounttype%%', accountType)
-      .replace('%%env%%', useAccountNameAsEnvironment ? account : environment)
+      .replace('%%account%%', userDataRequest.account)
+      .replace('%%accounttype%%', userDataRequest.accountType)
+      .replace('%%env%%', userDataRequest.legacyUdf ? userDataRequest.account : userDataRequest.environment)
       .replace('%%app%%', names.app)
-      .replace('%%region%%', region)
+      .replace('%%region%%', userDataRequest.region)
       .replace('%%group%%', names.group)
       .replace('%%autogrp%%', names.group)
       .replace('%%revision%%', revision)
@@ -126,8 +151,17 @@ class LocalFileUserDataProvider implements UserDataProvider {
       .replace('%%cluster%%', cluster)
       .replace('%%stack%%', stack)
       .replace('%%detail%%', detail)
-      .replace('%%launchconfig%%', launchConfigName)
       .replace('%%tier%%', '')
+
+    if (userDataRequest.launchTemplate) {
+      result = result
+        .replace('%%launchtemplate%%' : userDataRequest.launchSettingName)
+        .replace('%%launchconfig%%' : '')
+    } else {
+      result = result
+        .replace('%%launchconfig%%' : userDataRequest.launchSettingName)
+        .replace('%%launchtemplate%%' : '')
+    }
 
     List<String> additionalEnvVars = []
     additionalEnvVars << names.countries ? "NETFLIX_COUNTRIES=${names.countries}" : null

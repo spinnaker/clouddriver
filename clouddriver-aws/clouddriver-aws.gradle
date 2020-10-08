@@ -1,13 +1,16 @@
 dependencies {
   implementation project(":cats:cats-core")
+  implementation project(":clouddriver-api")
   implementation project(":clouddriver-core")
   implementation project(":clouddriver-eureka")
   implementation project(":clouddriver-security")
+  implementation project(":clouddriver-saga")
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
 
+  implementation "javax.inject:javax.inject:1"
   implementation "com.amazonaws:aws-java-sdk"
   implementation "com.github.ben-manes.caffeine:guava"
   implementation "com.netflix.awsobjectmapper:awsobjectmapper"
@@ -18,7 +21,7 @@ dependencies {
   implementation "com.netflix.spinnaker.kork:kork-aws"
   implementation "com.netflix.spinnaker.kork:kork-exceptions"
   implementation "com.netflix.spinnaker.kork:kork-security"
-  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.netflix.spinnaker.kork:kork-moniker"
   implementation "com.squareup.okhttp:okhttp"
   implementation "com.squareup.okhttp:okhttp-apache"
   implementation "com.squareup.okhttp:okhttp-urlconnection"

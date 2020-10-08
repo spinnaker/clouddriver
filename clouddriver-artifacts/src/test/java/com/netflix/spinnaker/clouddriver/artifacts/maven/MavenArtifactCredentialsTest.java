@@ -173,11 +173,10 @@ class MavenArtifactCredentialsTest {
 
     server.stubFor(any(urlEqualTo(jarUrl)).willReturn(aResponse().withBody(expectedVersion)));
 
-    MavenArtifactAccount account = new MavenArtifactAccount();
-    account.setRepositoryUrl(server.baseUrl());
+    MavenArtifactAccount account =
+        MavenArtifactAccount.builder().repositoryUrl(server.baseUrl()).build();
 
-    Artifact artifact = new Artifact();
-    artifact.setReference("com.test:app:" + version);
+    Artifact artifact = Artifact.builder().reference("com.test:app:" + version).build();
 
     assertThat(new MavenArtifactCredentials(account, new OkHttpClient()).download(artifact))
         .hasSameContentAs(

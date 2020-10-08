@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.google.provider.view
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.common.collect.ImmutableSet
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
@@ -27,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.google.model.*
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.google.model.health.GoogleLoadBalancerHealth
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleHttpLoadBalancer
+import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalHttpLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleInternalLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancer
 import com.netflix.spinnaker.clouddriver.google.model.loadbalancing.GoogleLoadBalancerType
@@ -77,26 +79,41 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
   }
 
   Map<String, Set<GoogleCluster.View>> getClusters(String applicationName, boolean includeInstanceDetails) {
-    GoogleApplication.View application = applicationProvider.getApplication(applicationName)
+    GoogleApplicationProvider.ApplicationCacheData applicationCacheData = applicationProvider.getApplicationCacheData(applicationName)
 
-    def clusterKeys = []
-    application?.clusterNames?.each { String accountName, Set<String> clusterNames ->
-      clusterNames.each { String clusterName ->
-        clusterKeys << Keys.getClusterKey(accountName, applicationName, clusterName)
-      }
+    if (applicationCacheData == null) {
+      return new HashMap<>()
     }
 
-    // TODO(jacobkiefer): Avoid parsing instance keys into map just to re-serialize?
-    Set<String> allApplicationInstanceKeys = includeInstanceDetails ? application?.instances?.collect { Keys.getInstanceKey(it.account, it.region, it.name) } : [] as Set
+    Set<String> clusterIdentifiers = applicationCacheData.getClusterIdentifiers();
+    Collection<CacheData> clusterCacheData = cacheView.getAll(
+      CLUSTERS.ns,
+      clusterIdentifiers,
+      RelationshipCacheFilter.include(SERVER_GROUPS.ns)
+    )
 
-    List<GoogleCluster.View> clusters = cacheView.getAll(
-        CLUSTERS.ns,
-        clusterKeys,
-        RelationshipCacheFilter.include(SERVER_GROUPS.ns)).collect { CacheData cacheData ->
-      clusterFromCacheData(cacheData, allApplicationInstanceKeys)
+    Set<String> instanceIdentifiers = includeInstanceDetails ?
+      applicationCacheData.getInstanceIdentifiers() :
+      Collections.<String>emptySet()
+    Collection<CacheData> instanceCacheData = instanceProvider.getInstanceCacheData(instanceIdentifiers)
+
+    Map<String, Set<GoogleCluster.View>> clustersByAccount = new HashMap<>()
+    Map<String, Set<GoogleSecurityGroup>> securityGroupsByAccount = new HashMap<>()
+
+    clusterCacheData.each { cacheData ->
+      String accountName = cacheData.getAttributes().get("accountName")
+      Set<GoogleSecurityGroup> accountSecurityGroups = securityGroupsByAccount.computeIfAbsent(
+        accountName,
+        { a -> securityGroupProvider.getAllByAccount(false, accountName) }
+      )
+      Set<GoogleCluster.View> accountClusters = clustersByAccount.computeIfAbsent(
+        accountName,
+        { a -> new HashSet<GoogleCluster.View>() }
+      )
+      accountClusters.add(clusterFromCacheData(cacheData, instanceCacheData, accountSecurityGroups))
     }
 
-    clusters?.groupBy { it.accountName } as Map<String, Set<GoogleCluster.View>>
+    return clustersByAccount
   }
 
   @Override
@@ -167,10 +184,22 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
     return false
   }
 
-  GoogleCluster.View clusterFromCacheData(CacheData cacheData, Set<String> instanceKeySuperSet) {
-    GoogleCluster.View clusterView = objectMapper.convertValue(cacheData.attributes, GoogleCluster)?.view
+  GoogleCluster.View clusterFromCacheData(CacheData clusterCacheData, Set<String> instanceKeySuperSet) {
+    return clusterFromCacheData(
+      clusterCacheData,
+      instanceProvider.getInstanceCacheData(instanceKeySuperSet),
+      securityGroupProvider.getAllByAccount(false, (String) clusterCacheData.getAttributes().get("accountName"))
+    )
+  }
 
-    def serverGroupKeys = cacheData.relationships[SERVER_GROUPS.ns]
+  GoogleCluster.View clusterFromCacheData(
+    CacheData clusterCacheData,
+    Collection<CacheData> instanceCacheDataSuperSet,
+    Set<GoogleSecurityGroup> securityGroups)
+  {
+    GoogleCluster.View clusterView = objectMapper.convertValue(clusterCacheData.attributes, GoogleCluster)?.view
+
+    def serverGroupKeys = clusterCacheData.relationships[SERVER_GROUPS.ns]
     if (serverGroupKeys) {
       log.debug("Server group keys from cluster relationships: ${serverGroupKeys}")
       def filter = RelationshipCacheFilter.include(LOAD_BALANCERS.ns)
@@ -178,9 +207,7 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
       def serverGroupData = cacheView.getAll(SERVER_GROUPS.ns, serverGroupKeys, filter)
       log.debug("Retrieved cache data for server groups: ${serverGroupData?.collect { it?.attributes?.name }}")
 
-      def securityGroups = securityGroupProvider.getAllByAccount(false, clusterView.accountName)
-
-      def instanceCacheData = instanceProvider.getInstanceCacheData(instanceKeySuperSet as List).findAll { instance ->
+      def instanceCacheData = instanceCacheDataSuperSet.findAll { instance ->
         instance.relationships.get(CLUSTERS.ns)?.collect { Keys.parse(it).cluster }?.any { it.contains(clusterView.name) }
       }
 
@@ -194,7 +221,7 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
       serverGroupData.each { CacheData serverGroupCacheData ->
         GoogleServerGroup serverGroup = serverGroupFromCacheData(serverGroupCacheData, clusterView.accountName, instances, securityGroups, loadBalancers)
         clusterView.serverGroups << serverGroup.view
-        clusterView.loadBalancers.addAll(serverGroup.loadBalancers*.view)
+        clusterView.loadBalancers.addAll(serverGroup.loadBalancers)
       }
       log.debug("Server groups added to cluster: ${clusterView?.serverGroups?.collect { it?.name }}")
     }
@@ -211,6 +238,9 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
           break
         case GoogleLoadBalancerType.HTTP:
           loadBalancer = objectMapper.convertValue(it.attributes, GoogleHttpLoadBalancer)
+          break
+        case GoogleLoadBalancerType.INTERNAL_MANAGED:
+          loadBalancer = objectMapper.convertValue(it.attributes, GoogleInternalHttpLoadBalancer)
           break
         case GoogleLoadBalancerType.NETWORK:
           loadBalancer = objectMapper.convertValue(it.attributes, GoogleNetworkLoadBalancer)
@@ -275,6 +305,11 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
         Utils.determineHttpLoadBalancerDisabledState(loadBalancer, serverGroup)
     }
 
+    def internalHttpLoadBalancers = loadBalancers.findAll { it.type == GoogleLoadBalancerType.INTERNAL_MANAGED }
+    def internalHttpDisabledStates = internalHttpLoadBalancers.collect { loadBalancer ->
+        Utils.determineInternalHttpLoadBalancerDisabledState(loadBalancer, serverGroup)
+    }
+
     def sslLoadBalancers = loadBalancers.findAll { it.type == GoogleLoadBalancerType.SSL }
     def sslDisabledStates = sslLoadBalancers.collect { loadBalancer ->
       Utils.determineSslLoadBalancerDisabledState(loadBalancer, serverGroup)
@@ -304,6 +339,9 @@ class GoogleClusterProvider implements ClusterProvider<GoogleCluster.View> {
     }
     if (internalDisabledStates) {
       isDisabled &= internalDisabledStates.every { it }
+    }
+    if (internalHttpDisabledStates) {
+      isDisabled &= internalHttpDisabledStates.every { it }
     }
     if (sslDisabledStates) {
       isDisabled &= sslDisabledStates.every { it }
