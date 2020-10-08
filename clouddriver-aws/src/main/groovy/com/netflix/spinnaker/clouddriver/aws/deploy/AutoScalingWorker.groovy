@@ -48,6 +48,7 @@ import groovy.util.logging.Slf4j
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.function.Supplier
+import java.util.regex.Pattern
 
 /**
  * A worker class dedicated to the deployment of "applications", following many of Netflix's common AWS conventions.
@@ -387,29 +388,71 @@ class AutoScalingWorker {
    * This is used to gradually roll out launch template.
    */
   private boolean shouldSetLaunchTemplate() {
+    // Request level flag that forces launch configurations.
     if (!setLaunchTemplate) {
       return false
     }
 
+    // Property flag to turn off launch template feature. Caching agent might require bouncing the java process
     if (!dynamicConfigService.isEnabled("aws.features.launch-templates", false)) {
       log.debug("Launch Template feature disabled via configuration.")
       return false
     }
 
-    // application allow list: app1,app2
+    // This is a comma separated list of applications to exclude
+    String excludedApps = dynamicConfigService
+      .getConfig(String.class, "aws.features.launch-templates.excluded-applications", "")
+    if (matchesAppAccountAndRegion(application, credentials.name, region, excludedApps.split(","))) {
+      return false
+    }
+
+    // Application allow list with the following format:
+    // app1:account:region1,region2,app2:account:region1
+    // This allows more control over what account and region pairs to enable for this deployment.
     String allowedApps = dynamicConfigService
       .getConfig(String.class, "aws.features.launch-templates.allowed-applications", "")
-    if (application in allowedApps.split(",")) {
+    if (matchesAppAccountAndRegion(application, credentials.name, region, allowedApps.split(","))) {
       return true
     }
 
-    // account:region allow list
+    // Final check is an allow list for account/region pairs with the following format:
+    // account:region
     String allowedAccountsAndRegions = dynamicConfigService
       .getConfig(String.class, "aws.features.launch-templates.allowed-accounts-regions", "")
     for (accountRegion in allowedAccountsAndRegions.split(",")) {
       if (accountRegion && accountRegion.contains(":")) {
         def (account, region) = accountRegion.split(":")
         if (account.trim() == credentials.name && region.trim() == this.region) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * Helper function to parse and match an array of app:account:region1,...,regex=app:account,region
+   * to the specified application, account and region
+   * Used to flag launch template feature and rollout
+   */
+  static boolean matchesAppAccountAndRegion(
+    String application, String accountName, String region, String... applicationAccountRegions) {
+    if (!applicationAccountRegions) {
+      return false
+    }
+
+    for (appAccountRegion in applicationAccountRegions) {
+      if (appAccountRegion && appAccountRegion.contains(":")) {
+        def (app, account, regions) = appAccountRegion.split(":")
+        // To avoid an ever long list of applications, a regex can be used to specify a group of apps. ex: regex=^cas
+        String regex = null
+        if (app.startsWith("regex=")) {
+          regex = ((String) app).substring(((String) app).indexOf("=") + 1)
+        }
+
+        boolean matchedApp = (regex && Pattern.matches(regex, application) || !regex && app == application)
+        if (matchedApp && account == accountName && region in (regions as String).split(",")) {
           return true
         }
       }
