@@ -28,14 +28,11 @@ import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsResult;
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetGroup;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAssumeRoleAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsSpec;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import io.restassured.http.ContentType;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -378,39 +375,5 @@ public class CreateServerGroupSpec extends EcsSpec {
         },
         String.format("Failed to observe task failure after %s seconds", TASK_RETRY_SECONDS),
         TASK_RETRY_SECONDS);
-  }
-
-  private void setEcsAccountCreds() {
-    AmazonCredentials.AWSRegion testRegion = new AmazonCredentials.AWSRegion(TEST_REGION, null);
-
-    NetflixAssumeRoleAmazonCredentials ecsCreds =
-        new NetflixAssumeRoleAmazonCredentials(
-            ECS_ACCOUNT_NAME,
-            "test",
-            "test",
-            "123456789012",
-            null,
-            true,
-            Collections.singletonList(testRegion),
-            null,
-            null,
-            null,
-            null,
-            false,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            false,
-            false,
-            "SpinnakerManaged",
-            "SpinnakerSession",
-            false,
-            "");
-
-    accountCredentialsRepository.save(ECS_ACCOUNT_NAME, ecsCreds);
   }
 }
