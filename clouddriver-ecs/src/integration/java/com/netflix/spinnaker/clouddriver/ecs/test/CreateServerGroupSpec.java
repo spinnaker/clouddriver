@@ -44,13 +44,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class CreateServerGroupSpec extends EcsSpec {
-
-  private final Logger log = LoggerFactory.getLogger(getClass());
 
   @Autowired AccountCredentialsRepository accountCredentialsRepository;
 
