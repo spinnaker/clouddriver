@@ -81,26 +81,29 @@ import com.netflix.spinnaker.clouddriver.search.NoopSearchProvider
 import com.netflix.spinnaker.clouddriver.search.ProjectSearchProvider
 import com.netflix.spinnaker.clouddriver.search.SearchProvider
 import com.netflix.spinnaker.clouddriver.search.executor.SearchExecutorConfig
+import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.config.SecurityConfig
-import com.netflix.spinnaker.config.PluginsAutoConfiguration;
+import com.netflix.spinnaker.config.PluginsAutoConfiguration
+import com.netflix.spinnaker.credentials.CompositeCredentialsRepository
+import com.netflix.spinnaker.credentials.CredentialsRepository
+import com.netflix.spinnaker.credentials.definition.AbstractCredentialsLoader
+import com.netflix.spinnaker.credentials.poller.PollerConfiguration
+import com.netflix.spinnaker.credentials.poller.PollerConfigurationProperties;
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import com.netflix.spinnaker.kork.core.RetrySupport
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.cloud.context.scope.refresh.RefreshScope
 import org.springframework.context.ApplicationContext
-import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
@@ -120,7 +123,7 @@ import java.time.Clock
   PluginsAutoConfiguration
 ])
 @PropertySource(value = "classpath:META-INF/clouddriver-core.properties", ignoreResourceNotFound = true)
-@EnableConfigurationProperties([ProjectClustersCachingAgentProperties, ExceptionClassifierConfigurationProperties])
+@EnableConfigurationProperties([ProjectClustersCachingAgentProperties, ExceptionClassifierConfigurationProperties, PollerConfigurationProperties])
 class CloudDriverConfig {
 
   @Bean
@@ -174,9 +177,25 @@ class CloudDriverConfig {
 
   @Bean
   @ConditionalOnMissingBean(AccountCredentialsProvider)
-  AccountCredentialsProvider accountCredentialsProvider(AccountCredentialsRepository accountCredentialsRepository) {
-    new DefaultAccountCredentialsProvider(accountCredentialsRepository)
+  AccountCredentialsProvider accountCredentialsProvider(
+    AccountCredentialsRepository accountCredentialsRepository,
+    CompositeCredentialsRepository<AccountCredentials> compositeRepository) {
+    new DefaultAccountCredentialsProvider(accountCredentialsRepository, compositeRepository)
   }
+
+  @Bean
+  @ConditionalOnMissingBean(value = AccountCredentials, parameterizedContainer = CompositeCredentialsRepository)
+  CompositeCredentialsRepository<AccountCredentials> compositeCredentialsRepository(List<CredentialsRepository<? extends AccountCredentials>> repositories) {
+    new CompositeCredentialsRepository<AccountCredentials>(repositories)
+  }
+
+  @Bean
+  PollerConfiguration pollerConfiguration(
+    List<AbstractCredentialsLoader<?>> pollers,
+    PollerConfigurationProperties  pollerConfigurationProperties) {
+    new PollerConfiguration(pollerConfigurationProperties, pollers)
+  }
+
 
   @Bean
   RestTemplate restTemplate() {
@@ -363,12 +382,5 @@ class CloudDriverConfig {
     return new ExceptionClassifier(properties, dynamicConfigService)
   }
 
-  @Bean
-  @ConditionalOnExpression("\${dynamic-config.enabled:false}")
-  ModifiableFilePropertySources modifiableFilePropertySources(
-      ConfigurableApplicationContext applicationContext,
-      RefreshScope refreshScope,
-      @Value("\${dynamic-config.files}") List<String> dynamicFiles) {
-      return new ModifiableFilePropertySources(applicationContext, refreshScope, dynamicFiles)
-  }
+
 }
