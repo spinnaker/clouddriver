@@ -17,12 +17,11 @@
   "containerPort": 80,
   "credentials": "ecs-account",
   "dockerImageAddress": "nginx",
-  "ecsClusterName": "spinnaker-deployment-cluster",
+  "ecsClusterName": "integInputsFargateLegacyTargetGroup-cluster",
   "launchType": "FARGATE",
   "networkMode": "aws-vpc",
   "placementStrategySequence": [],
   "reservedMemory": 512,
-  "stack": "integTestStack",
-  "freeFormDetails" : "detailTest",
-  "targetGroup": "spin-fargate-instanceTG"
+  "stack": "integInputsFargateLegacyTargetGroup",
+  "targetGroup": "integInputsFargateLegacyTargetGroup-targetGroup"
 }
