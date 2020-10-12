@@ -17,41 +17,15 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching;
 
-import com.netflix.spinnaker.cats.agent.Agent;
-import com.netflix.spinnaker.cats.agent.AgentSchedulerAware;
-import com.netflix.spinnaker.cats.provider.Provider;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.concurrent.ConcurrentHashMap;
+import com.netflix.spinnaker.clouddriver.security.BaseProvider;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class KubernetesProvider extends AgentSchedulerAware implements Provider {
+public class KubernetesProvider extends BaseProvider {
   public static final String PROVIDER_NAME = KubernetesCloudProvider.ID;
-
-  private Collection<Agent> agents = emptyAgentCollection();
-
-  private Collection<Agent> stagedAgents = emptyAgentCollection();
-
-  private static Collection<Agent> emptyAgentCollection() {
-    return Collections.newSetFromMap(new ConcurrentHashMap<>());
-  }
-
-  public void stageAgents(Collection<Agent> agents) {
-    stagedAgents.addAll(agents);
-  }
-
-  public void clearStagedAgents() {
-    stagedAgents.clear();
-  }
-
-  public void promoteStagedAgents() {
-    agents.addAll(stagedAgents);
-    clearStagedAgents();
-  }
 
   @Override
   public String getProviderName() {

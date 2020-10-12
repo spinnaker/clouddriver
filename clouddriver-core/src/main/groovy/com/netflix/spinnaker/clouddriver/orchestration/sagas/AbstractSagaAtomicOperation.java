@@ -27,15 +27,17 @@ import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Removes some of the boilerplate for AtomicOperations to use Sagas.
  *
  * @param <T> The AtomicOperation description
+ * @param <SR> The saga result type
  * @param <R> The operation result type
  */
-public abstract class AbstractSagaAtomicOperation<T, R>
+public abstract class AbstractSagaAtomicOperation<T, SR, R>
     implements AtomicOperation<R>, SagaContextAware {
 
   /**
@@ -62,7 +64,7 @@ public abstract class AbstractSagaAtomicOperation<T, R>
    * Provides the opportunity to convert a {@link SagaAction.Result} into the expected result type
    * of the AtomicOperation.
    */
-  protected abstract R parseSagaResult(@Nonnull SagaAction.Result result);
+  protected abstract R parseSagaResult(@Nonnull SR result);
 
   @Override
   public R operate(List priorOutputs) {
@@ -82,7 +84,8 @@ public abstract class AbstractSagaAtomicOperation<T, R>
     configureSagaBridge(builder);
 
     // TODO(rz): Should make SagaAtomicOperationBridge a bean and inject that instead
-    SagaAction.Result result = new SagaAtomicOperationBridge(sagaService).apply(builder.build());
+    SR result =
+        new SagaAtomicOperationBridge(sagaService, sagaContext.getSagaId()).apply(builder.build());
 
     return parseSagaResult(result);
   }
@@ -90,5 +93,11 @@ public abstract class AbstractSagaAtomicOperation<T, R>
   @Override
   public void setSagaContext(@Nonnull SagaContext sagaContext) {
     this.sagaContext = sagaContext;
+  }
+
+  @Nullable
+  @Override
+  public SagaContext getSagaContext() {
+    return sagaContext;
   }
 }
