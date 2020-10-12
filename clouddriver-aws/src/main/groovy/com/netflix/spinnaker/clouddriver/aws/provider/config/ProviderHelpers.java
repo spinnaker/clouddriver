@@ -55,6 +55,7 @@ import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -256,7 +257,12 @@ public class ProviderHelpers {
               .filter(it -> !oldAccountNames.contains(it))
               .collect(Collectors.toList());
       for (String name : accountNamesToDelete) {
-        reservationReportAccounts.removeIf(it -> it.getName().equals(name));
+        reservationReportCachingAgent.getAccounts().removeIf(it -> it.getName().equals(name));
+      }
+      for (String name : accountNamesToAdd) {
+        Optional<NetflixAmazonCredentials> accountToAdd =
+            allAccounts.stream().filter(it -> it.getName().equals(name)).findFirst();
+        accountToAdd.ifPresent(account -> reservationReportCachingAgent.getAccounts().add(account));
       }
     }
   }
