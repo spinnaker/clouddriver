@@ -28,11 +28,10 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient;
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job;
-import com.netflix.spinnaker.clouddriver.titus.client.model.TerminateJobRequest;
+import com.netflix.spinnaker.clouddriver.titus.client.model.ResizeJobRequest;
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials;
-import com.netflix.spinnaker.clouddriver.titus.deploy.description.DestroyTitusJobDescription;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
+import com.netflix.spinnaker.clouddriver.titus.deploy.description.ResizeTitusServerGroupDescription;
+import com.netflix.spinnaker.kork.exceptions.UserException;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Value;
@@ -42,12 +41,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJobCommand> {
+public class ResizeTitusJob implements SagaAction<ResizeTitusJob.ResizeTitusJobCommand> {
   private final AccountCredentialsProvider accountCredentialsProvider;
   private final TitusClientProvider titusClientProvider;
 
   @Autowired
-  public DestroyTitusJob(
+  public ResizeTitusJob(
       AccountCredentialsProvider accountCredentialsProvider,
       TitusClientProvider titusClientProvider) {
     this.accountCredentialsProvider = accountCredentialsProvider;
@@ -56,12 +55,12 @@ public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJ
 
   @NotNull
   @Override
-  public Result apply(@NotNull DestroyTitusJob.DestroyTitusJobCommand command, @NotNull Saga saga) {
+  public Result apply(@NotNull ResizeTitusJob.ResizeTitusJobCommand command, @NotNull Saga saga) {
     saga.log(
-        "Destroying Titus Job %s:%s:%s",
+        "Resizing Titus Job %s:%s:%s",
         command.description.getAccount(),
         command.description.getRegion(),
-        command.description.getJobId());
+        command.description.getServerGroupName());
 
     AccountCredentials accountCredentials =
         accountCredentialsProvider.getCredentials(command.description.getAccount());
@@ -70,45 +69,46 @@ public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJ
         titusClientProvider.getTitusClient(
             (NetflixTitusCredentials) accountCredentials, command.description.getRegion());
 
-    Job job = fetchJob(titusClient, command.description.getJobId());
-    if (job != null) {
-      titusClient.terminateJob(
-          (TerminateJobRequest)
-              new TerminateJobRequest()
-                  .withJobId(job.getId())
-                  .withUser(command.description.getUser()));
-
-      saga.log(
-          "Destroyed Titus Job %s:%s:%s",
-          command.description.getAccount(),
-          command.description.getRegion(),
-          command.description.getJobId());
-    } else {
-      saga.log("No titus job found");
+    Job job = titusClient.findJobByName(command.description.getServerGroupName());
+    if (job == null) {
+      throw new UserException(
+          "No titus server group named '" + command.description.getServerGroupName() + "' found");
     }
+
+    boolean shouldToggleScalingFlags = !job.isInService();
+    if (shouldToggleScalingFlags) {
+      titusClient.setAutoscaleEnabled(job.getId(), true);
+    }
+
+    titusClient.resizeJob(
+        (ResizeJobRequest)
+            new ResizeJobRequest()
+                .withInstancesDesired(command.description.getCapacity().getDesired())
+                .withInstancesMin(command.description.getCapacity().getMin())
+                .withInstancesMax(command.description.getCapacity().getMax())
+                .withUser(command.description.getUser())
+                .withJobId(job.getId()));
+
+    if (shouldToggleScalingFlags) {
+      titusClient.setAutoscaleEnabled(job.getId(), false);
+    }
+
+    saga.log(
+        "Resized Titus Job %s:%s:%s",
+        command.description.getAccount(),
+        command.description.getRegion(),
+        command.description.getServerGroupName());
 
     return new Result();
   }
 
-  private Job fetchJob(TitusClient titusClient, String jobId) {
-    try {
-      return titusClient.getJobAndAllRunningAndCompletedTasks(jobId);
-    } catch (StatusRuntimeException e) {
-      if (e.getStatus().getCode() == Status.NOT_FOUND.getCode()) {
-        return null;
-      }
-
-      throw e;
-    }
-  }
-
-  @Builder(builderClassName = "DestroyTitusJobCommandBuilder", toBuilder = true)
+  @Builder(builderClassName = "ResizeTitusJobCommandBuilder", toBuilder = true)
   @JsonDeserialize(
-      builder = DestroyTitusJob.DestroyTitusJobCommand.DestroyTitusJobCommandBuilder.class)
-  @JsonTypeName("destroyTitusJobCommand")
+      builder = ResizeTitusJob.ResizeTitusJobCommand.ResizeTitusJobCommandBuilder.class)
+  @JsonTypeName("resizeTitusJobCommand")
   @Value
-  public static class DestroyTitusJobCommand implements SagaCommand {
-    @Nonnull DestroyTitusJobDescription description;
+  public static class ResizeTitusJobCommand implements SagaCommand {
+    @Nonnull ResizeTitusServerGroupDescription description;
 
     @NonFinal EventMetadata metadata;
 
@@ -118,6 +118,6 @@ public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJ
     }
 
     @JsonPOJOBuilder(withPrefix = "")
-    public static class DestroyTitusJobCommandBuilder {}
+    public static class ResizeTitusJobCommandBuilder {}
   }
 }

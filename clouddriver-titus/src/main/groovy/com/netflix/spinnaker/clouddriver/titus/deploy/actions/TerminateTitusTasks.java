@@ -27,12 +27,9 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.clouddriver.titus.TitusClientProvider;
 import com.netflix.spinnaker.clouddriver.titus.client.TitusClient;
-import com.netflix.spinnaker.clouddriver.titus.client.model.Job;
-import com.netflix.spinnaker.clouddriver.titus.client.model.TerminateJobRequest;
+import com.netflix.spinnaker.clouddriver.titus.client.model.TerminateTasksAndShrinkJobRequest;
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials;
-import com.netflix.spinnaker.clouddriver.titus.deploy.description.DestroyTitusJobDescription;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
+import com.netflix.spinnaker.clouddriver.titus.deploy.description.TerminateTitusInstancesDescription;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Value;
@@ -42,12 +39,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJobCommand> {
+public class TerminateTitusTasks
+    implements SagaAction<TerminateTitusTasks.TerminateTitusTasksCommand> {
   private final AccountCredentialsProvider accountCredentialsProvider;
   private final TitusClientProvider titusClientProvider;
 
   @Autowired
-  public DestroyTitusJob(
+  public TerminateTitusTasks(
       AccountCredentialsProvider accountCredentialsProvider,
       TitusClientProvider titusClientProvider) {
     this.accountCredentialsProvider = accountCredentialsProvider;
@@ -56,12 +54,13 @@ public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJ
 
   @NotNull
   @Override
-  public Result apply(@NotNull DestroyTitusJob.DestroyTitusJobCommand command, @NotNull Saga saga) {
+  public Result apply(
+      @NotNull TerminateTitusTasks.TerminateTitusTasksCommand command, @NotNull Saga saga) {
     saga.log(
-        "Destroying Titus Job %s:%s:%s",
+        "Terminating Titus Tasks %s:%s:%s",
         command.description.getAccount(),
         command.description.getRegion(),
-        command.description.getJobId());
+        command.description.getInstanceIds());
 
     AccountCredentials accountCredentials =
         accountCredentialsProvider.getCredentials(command.description.getAccount());
@@ -70,45 +69,29 @@ public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJ
         titusClientProvider.getTitusClient(
             (NetflixTitusCredentials) accountCredentials, command.description.getRegion());
 
-    Job job = fetchJob(titusClient, command.description.getJobId());
-    if (job != null) {
-      titusClient.terminateJob(
-          (TerminateJobRequest)
-              new TerminateJobRequest()
-                  .withJobId(job.getId())
-                  .withUser(command.description.getUser()));
+    titusClient.terminateTasksAndShrink(
+        new TerminateTasksAndShrinkJobRequest()
+            .withTaskIds(command.description.getInstanceIds())
+            .withShrink(false)
+            .withUser(command.description.getUser()));
 
-      saga.log(
-          "Destroyed Titus Job %s:%s:%s",
-          command.description.getAccount(),
-          command.description.getRegion(),
-          command.description.getJobId());
-    } else {
-      saga.log("No titus job found");
-    }
+    saga.log(
+        "Terminated Titus Instances %s:%s:%s",
+        command.description.getAccount(),
+        command.description.getRegion(),
+        command.description.getInstanceIds());
 
     return new Result();
   }
 
-  private Job fetchJob(TitusClient titusClient, String jobId) {
-    try {
-      return titusClient.getJobAndAllRunningAndCompletedTasks(jobId);
-    } catch (StatusRuntimeException e) {
-      if (e.getStatus().getCode() == Status.NOT_FOUND.getCode()) {
-        return null;
-      }
-
-      throw e;
-    }
-  }
-
-  @Builder(builderClassName = "DestroyTitusJobCommandBuilder", toBuilder = true)
+  @Builder(builderClassName = "TerminateTitusTasksCommandBuilder", toBuilder = true)
   @JsonDeserialize(
-      builder = DestroyTitusJob.DestroyTitusJobCommand.DestroyTitusJobCommandBuilder.class)
-  @JsonTypeName("destroyTitusJobCommand")
+      builder =
+          TerminateTitusTasks.TerminateTitusTasksCommand.TerminateTitusTasksCommandBuilder.class)
+  @JsonTypeName("terminateTitusTasksCommand")
   @Value
-  public static class DestroyTitusJobCommand implements SagaCommand {
-    @Nonnull DestroyTitusJobDescription description;
+  public static class TerminateTitusTasksCommand implements SagaCommand {
+    @Nonnull TerminateTitusInstancesDescription description;
 
     @NonFinal EventMetadata metadata;
 
@@ -118,6 +101,6 @@ public class DestroyTitusJob implements SagaAction<DestroyTitusJob.DestroyTitusJ
     }
 
     @JsonPOJOBuilder(withPrefix = "")
-    public static class DestroyTitusJobCommandBuilder {}
+    public static class TerminateTitusTasksCommandBuilder {}
   }
 }
