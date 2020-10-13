@@ -172,6 +172,12 @@ class CopyLastAsgAtomicOperation implements AtomicOperation<DeploymentResult> {
           if (!launchTemplateData.networkInterfaces?.empty && launchTemplateData.networkInterfaces*.associatePublicIpAddress?.any()) {
             associatePublicIpAddress = true
           }
+          if (!launchTemplateData.networkInterfaces?.empty) {
+            def networkInterface = launchTemplateData.networkInterfaces.find({it.deviceIndex == 0 })
+            if (networkInterface != null) {
+              securityGroups = networkInterface.groups
+            }
+          }
         } else {
           def ancestorLaunchConfiguration = sourceRegionScopedProvider
             .asgService.getLaunchConfiguration(ancestorAsg.launchConfigurationName)
