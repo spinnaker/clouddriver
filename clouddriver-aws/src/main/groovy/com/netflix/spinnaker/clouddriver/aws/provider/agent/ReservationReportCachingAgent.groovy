@@ -50,6 +50,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
+import com.netflix.spinnaker.credentials.CredentialsRepository
 import groovy.util.logging.Slf4j
 import org.springframework.context.ApplicationContext
 
@@ -79,10 +80,9 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
 
   final AmazonClientProvider amazonClientProvider
   final AmazonS3DataProvider amazonS3DataProvider
-  final Collection<NetflixAmazonCredentials> accounts
+  final CredentialsRepository<NetflixAmazonCredentials> credentialsRepository;
   final ObjectMapper objectMapper
   final AccountReservationDetailSerializer accountReservationDetailSerializer
-  final Set<String> vpcOnlyAccounts
   final MetricsSupport metricsSupport
   final Registry registry
 
@@ -90,13 +90,13 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
   ReservationReportCachingAgent(Registry registry,
                                 AmazonClientProvider amazonClientProvider,
                                 AmazonS3DataProvider amazonS3DataProvider,
-                                Collection<NetflixAmazonCredentials> accounts,
+                                CredentialsRepository<NetflixAmazonCredentials> credentialsRepository,
                                 ObjectMapper objectMapper,
                                 ExecutorService reservationReportPool,
                                 ApplicationContext ctx) {
     this.amazonClientProvider = amazonClientProvider
     this.amazonS3DataProvider = amazonS3DataProvider
-    this.accounts = accounts
+    this.credentialsRepository = credentialsRepository
 
     def module = new SimpleModule()
     accountReservationDetailSerializer = new AccountReservationDetailSerializer()
@@ -105,7 +105,6 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
     this.objectMapper = objectMapper.copy().enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).registerModule(module)
     this.reservationReportPool = reservationReportPool
     this.ctx = ctx
-    this.vpcOnlyAccounts = determineVpcOnlyAccounts()
     this.metricsSupport = new MetricsSupport(objectMapper, registry, { getCacheView() })
     this.registry = registry
   }
@@ -173,14 +172,13 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
   }
 
   public Collection<NetflixAmazonCredentials> getAccounts() {
-    return accounts;
+    return credentialsRepository.getAll();
   }
 
   @Override
   CacheResult loadData(ProviderCache providerCache) {
     long startTime = System.currentTimeMillis()
     log.info("Describing items in ${agentType}")
-
     ConcurrentHashMap<String, OverallReservationDetail> reservations = new ConcurrentHashMap<>()
     ConcurrentHashMap<String, Collection<String>> errorsByRegion = new ConcurrentHashMap<>()
 
@@ -319,7 +317,7 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
             def osType = operatingSystemType(it.productDescription)
             def reservation = getReservation(region.name, it.availabilityZone, osType.name, it.instanceType)
             reservation.totalReserved.addAndGet(it.instanceCount)
-
+            def vpcOnlyAccounts = determineVpcOnlyAccounts()
             if (osType.isVpc || vpcOnlyAccounts.contains(credentials.name)) {
               reservation.getAccount(credentials.name).reservedVpc.addAndGet(it.instanceCount)
             } else {

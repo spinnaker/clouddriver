@@ -21,7 +21,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.discovery.AwsEurekaSupport;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -47,7 +47,7 @@ public class InstanceTerminationLifecycleWorkerProvider {
 
   private final ObjectMapper objectMapper;
   private final AmazonClientProvider amazonClientProvider;
-  private final AccountCredentialsProvider accountCredentialsProvider;
+  private final CredentialsRepository<NetflixAmazonCredentials> credentialsRepository;
   private final InstanceTerminationConfigurationProperties properties;
   private final Provider<AwsEurekaSupport> discoverySupport;
   private final Registry registry;
@@ -56,13 +56,13 @@ public class InstanceTerminationLifecycleWorkerProvider {
   InstanceTerminationLifecycleWorkerProvider(
       @Qualifier("amazonObjectMapper") ObjectMapper objectMapper,
       AmazonClientProvider amazonClientProvider,
-      AccountCredentialsProvider accountCredentialsProvider,
+      CredentialsRepository<NetflixAmazonCredentials> credentialsRepository,
       InstanceTerminationConfigurationProperties properties,
       Provider<AwsEurekaSupport> discoverySupport,
       Registry registry) {
     this.objectMapper = objectMapper;
     this.amazonClientProvider = amazonClientProvider;
-    this.accountCredentialsProvider = accountCredentialsProvider;
+    this.credentialsRepository = credentialsRepository;
     this.properties = properties;
     this.discoverySupport = discoverySupport;
     this.registry = registry;
@@ -71,8 +71,7 @@ public class InstanceTerminationLifecycleWorkerProvider {
   @PostConstruct
   public void start() {
     NetflixAmazonCredentials credentials =
-        (NetflixAmazonCredentials)
-            accountCredentialsProvider.getCredentials(properties.getAccountName());
+        credentialsRepository.getOne(properties.getAccountName());
     ExecutorService executorService =
         Executors.newFixedThreadPool(
             credentials.getRegions().size(),
@@ -89,7 +88,7 @@ public class InstanceTerminationLifecycleWorkerProvider {
                   new InstanceTerminationLifecycleWorker(
                       objectMapper,
                       amazonClientProvider,
-                      accountCredentialsProvider,
+                      credentialsRepository,
                       new InstanceTerminationConfigurationProperties(
                           properties.getAccountName(),
                           properties
