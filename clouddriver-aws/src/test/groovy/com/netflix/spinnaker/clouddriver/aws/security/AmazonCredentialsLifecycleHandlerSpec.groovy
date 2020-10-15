@@ -18,29 +18,32 @@
 package com.netflix.spinnaker.clouddriver.aws.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
+import com.netflix.spectator.api.DefaultRegistry
+import com.netflix.spinnaker.cats.agent.AgentProvider
+import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
 import com.netflix.spinnaker.clouddriver.aws.TestCredential
+import com.netflix.spinnaker.clouddriver.aws.edda.EddaApiFactory
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsCleanupProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ImageCachingAgent
+import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.credentials.CredentialsRepository
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import spock.lang.Shared
 import spock.lang.Specification
 
+import java.util.concurrent.ExecutorService
+
 class AmazonCredentialsLifecycleHandlerSpec extends Specification {
   @Shared
-  def awsCleanupProvider = Spy(AwsCleanupProvider) {
-    removeAgentsForAccounts(_) >> void
-  }
+  def awsCleanupProvider = new AwsCleanupProvider()
   @Shared
-  def awsInfrastructureProvider = Spy(AwsInfrastructureProvider) {
-    removeAgentsForAccounts(_) >> void
-  }
+  def awsInfrastructureProvider = new AwsInfrastructureProvider()
   @Shared
-  def objectMapper = Mock(ObjectMapper) {
-    enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS) >> Mock(ObjectMapper)
-  }
+  def awsProvider = new AwsProvider(credentialsRepository)
+  @Shared
+  def objectMapper = new ObjectMapper()
   @Shared
   def credOne = TestCredential.named('one')
   @Shared
@@ -82,5 +85,34 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
 
     then:
     !handler.publicRegions.contains("us-west-2")
+  }
+
+  def 'it should add agents'() {
+    def awsProvider = new AwsProvider(credentialsRepository)
+    def awsInfrastructureProvider = new AwsInfrastructureProvider()
+    def awsCleanupProvider = new AwsCleanupProvider()
+    def amazonCloudProvider = new AmazonCloudProvider()
+    def registry = new DefaultRegistry()
+    def eddaApiFactory = new EddaApiFactory()
+    def dynamicConfigService = Mock(DynamicConfigService) {
+      isEnabled("aws.features.cloud-formation", false) >> false
+      isEnabled("aws.features.launch-templates", false) >> false
+    }
+    Optional<ExecutorService> reservationReportPool = Optional.empty()
+    Optional<Collection<AgentProvider>> agentProviders = Optional.empty()
+    def deployDefaults = new  AwsConfiguration.DeployDefaults()
+    def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
+      amazonCloudProvider, null, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
+      credentialsRepository)
+    def credThree = TestCredential.named('three')
+
+    when:
+    handler.credentialsAdded(credThree)
+
+    then:
+    awsInfrastructureProvider.getAgents().size() == 12
+    awsProvider.getAgents().size() == 18
+    handler.publicRegions.size() == 2
+    handler.awsInfraRegions.size() == 2
   }
 }
