@@ -194,7 +194,6 @@ public final class YandexServerGroupCachingAgent
   @Nullable
   @Override
   public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-
     try {
       String serverGroupName = (String) data.get("serverGroupName");
       if (serverGroupName == null || !getAccountName().equals(data.get("account"))) {
