@@ -103,7 +103,7 @@ public final class YandexServerGroupCachingAgent
   private static final ImmutableSet<AgentDataType> PROVIDER_DATA_TYPES =
       ImmutableSet.of(
           Authority.AUTHORITATIVE.forType(TYPE),
-          Authority.INFORMATIVE.forType(CLUSTERS.getNs()),
+          Authority.AUTHORITATIVE.forType(CLUSTERS.getNs()),
           Authority.INFORMATIVE.forType(LOAD_BALANCERS.getNs()));
 
   private String onDemandAgentType = getAgentType() + "-OnDemand";
