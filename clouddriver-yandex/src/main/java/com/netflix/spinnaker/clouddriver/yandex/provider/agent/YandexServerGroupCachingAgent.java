@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.yandex.provider.agent;
 
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.AutoScalePolicy;
 import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.CpuUtilizationRule;
 import static com.netflix.spinnaker.clouddriver.yandex.model.YandexCloudServerGroup.CustomRule;
@@ -104,6 +105,7 @@ public final class YandexServerGroupCachingAgent
       ImmutableSet.of(
           Authority.AUTHORITATIVE.forType(TYPE),
           Authority.AUTHORITATIVE.forType(CLUSTERS.getNs()),
+          Authority.AUTHORITATIVE.forType(APPLICATIONS.getNs()),
           Authority.INFORMATIVE.forType(LOAD_BALANCERS.getNs()));
 
   private String onDemandAgentType = getAgentType() + "-OnDemand";
