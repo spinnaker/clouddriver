@@ -453,9 +453,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
     applicationAccountRegions           | application   | accountName | region      || matches
     "foo:test:us-east-1"                | "foo"         | "test"      | "us-east-1" || true
     "foo:test:us-east-1,us-west-2"      | "foo"         | "test"      | "eu-west-1" || false
-    "regex=^foo.*:prod:us-east-1"       | "foobar"      | "prod"      | "us-east-1" || true
-    "regex=^foo.*:prod:us-east-1"       | "foobar"      | "test"      | "us-east-1" || false
-    "regex=^cass.*:prod:us-east-1"      | "cass_l"      | "prod"      | "us-east-1" || true
+    "foo:prod:us-east-1"                | "foo"         | "test"      | "us-east-1" || false
   }
 
   static Subnet subnet(String subnetId) {
