@@ -113,8 +113,20 @@ class AmazonServerGroup implements ServerGroup, Serializable {
       securityGroups = (Set<String>) launchConfig.securityGroups
     }
 
-    if (launchTemplate && launchTemplate.containsKey("securityGroups")) {
-      securityGroups = (Set<String>) launchConfig.securityGroups
+    if (launchTemplate) {
+      def ltData = launchTemplate.get("launchTemplateData")
+      def groupIds = (Set<String>) ltData["securityGroupIds"]
+
+      if (groupIds?.size()) {
+        securityGroups = (Set<String>) groupIds
+      }
+
+      if (!groupIds?.size()) {
+        def networkInterface = ltData["networkInterfaces"].find({ it["deviceIndex"] == 0 })
+        if (networkInterface != null) {
+          securityGroups = (Set<String>) networkInterface["groups"]
+        }
+      }
     }
 
     return securityGroups
