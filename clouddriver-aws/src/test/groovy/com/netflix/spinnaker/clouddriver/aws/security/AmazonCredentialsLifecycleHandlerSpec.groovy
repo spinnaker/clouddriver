@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.aws.security
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.cats.agent.AgentProvider
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
@@ -27,6 +28,8 @@ import com.netflix.spinnaker.clouddriver.aws.provider.AwsCleanupProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ImageCachingAgent
+import com.netflix.spinnaker.clouddriver.aws.provider.agent.ReservationReportCachingAgent
+import com.netflix.spinnaker.clouddriver.model.ReservationReport
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.credentials.CredentialsRepository
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
@@ -34,14 +37,22 @@ import spock.lang.Shared
 import spock.lang.Specification
 
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadFactory
+import java.util.stream.Collectors
 
 class AmazonCredentialsLifecycleHandlerSpec extends Specification {
-  @Shared
-  def awsCleanupProvider = new AwsCleanupProvider()
-  @Shared
-  def awsInfrastructureProvider = new AwsInfrastructureProvider()
-  @Shared
-  def awsProvider = new AwsProvider(credentialsRepository)
+  AwsCleanupProvider awsCleanupProvider
+  AwsInfrastructureProvider awsInfrastructureProvider
+  AwsProvider awsProvider
+  Optional<Collection<AgentProvider>> agentProviders = Optional.empty()
+  def amazonCloudProvider = new AmazonCloudProvider()
+  def registry = new DefaultRegistry()
+  def eddaApiFactory = new EddaApiFactory()
+  def dynamicConfigService = Mock(DynamicConfigService) {
+    isEnabled("aws.features.cloud-formation", false) >> false
+    isEnabled("aws.features.launch-templates", false) >> false
+  }
   @Shared
   def objectMapper = new ObjectMapper()
   @Shared
@@ -52,12 +63,17 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
   def credentialsRepository = Mock(CredentialsRepository) {
     getAll() >> [credOne, credTwo]
   }
+  def setup() {
+    awsCleanupProvider = new AwsCleanupProvider()
+    awsInfrastructureProvider = new AwsInfrastructureProvider()
+    awsProvider = new AwsProvider(credentialsRepository)
+
+  }
 
 
   def 'it should replace current public image caching agent'() {
     def imageCachingAgentOne = new ImageCachingAgent(null, credOne, "us-east-1", objectMapper, null, true, null)
     def imageCachingAgentTwo = new ImageCachingAgent(null, credTwo, "us-east-1", objectMapper, null, false, null)
-    def awsProvider = new AwsProvider(credentialsRepository)
     awsProvider.addAgents([imageCachingAgentOne, imageCachingAgentTwo])
     def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
       null, null, null, null, null, null, null, null, null, null, null, null, null, null,
@@ -73,7 +89,6 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
   def 'it should remove region not used by public image caching agent'() {
     def imageCachingAgentOne = new ImageCachingAgent(null, credOne, "us-west-2", objectMapper, null, true, null)
     def imageCachingAgentTwo = new ImageCachingAgent(null, credTwo, "us-east-1", objectMapper, null, false, null)
-    def awsProvider = new AwsProvider(credentialsRepository)
     awsProvider.addAgents([imageCachingAgentOne, imageCachingAgentTwo])
     def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
       null, null, null, null, null, null, null, null, null, null, null, null, null, null,
@@ -88,18 +103,9 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
   }
 
   def 'it should add agents'() {
-    def awsProvider = new AwsProvider(credentialsRepository)
-    def awsInfrastructureProvider = new AwsInfrastructureProvider()
-    def awsCleanupProvider = new AwsCleanupProvider()
-    def amazonCloudProvider = new AmazonCloudProvider()
-    def registry = new DefaultRegistry()
-    def eddaApiFactory = new EddaApiFactory()
-    def dynamicConfigService = Mock(DynamicConfigService) {
-      isEnabled("aws.features.cloud-formation", false) >> false
-      isEnabled("aws.features.launch-templates", false) >> false
-    }
-    Optional<ExecutorService> reservationReportPool = Optional.empty()
-    Optional<Collection<AgentProvider>> agentProviders = Optional.empty()
+    Optional<ExecutorService> reservationReportPool = Optional.of(
+      Mock(ExecutorService)
+    )
     def deployDefaults = new  AwsConfiguration.DeployDefaults()
     def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
       amazonCloudProvider, null, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
@@ -111,8 +117,49 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
 
     then:
     awsInfrastructureProvider.getAgents().size() == 12
-    awsProvider.getAgents().size() == 18
+    awsProvider.getAgents().size() == 19
     handler.publicRegions.size() == 2
     handler.awsInfraRegions.size() == 2
+    handler.reservationReportCachingAgentScheduled
+  }
+
+  def 'it should not add reservation caching agents'() {
+    Optional<ExecutorService> reservationReportPool = Optional.of(
+      Mock(ExecutorService)
+    )
+    def deployDefaults = new  AwsConfiguration.DeployDefaults()
+    def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
+      amazonCloudProvider, null, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
+      credentialsRepository)
+    def credThree = TestCredential.named('three')
+    awsProvider.addAgents(Collections.singletonList(Mock(ReservationReportCachingAgent)))
+
+    when:
+    handler.credentialsAdded(credThree)
+
+    then:
+    awsProvider.getAgents().stream().filter({ agent -> agent instanceof ReservationReportCachingAgent })
+      .collect(Collectors.toList()).size() == 1
+    handler.reservationReportCachingAgentScheduled
+  }
+
+  def 'subsequent call should not add reservation caching agents'() {
+    Optional<ExecutorService> reservationReportPool = Optional.of(
+      Mock(ExecutorService)
+    )
+    def deployDefaults = new  AwsConfiguration.DeployDefaults()
+    def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
+      amazonCloudProvider, null, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
+      credentialsRepository)
+    def credThree = TestCredential.named('three')
+    handler.reservationReportCachingAgentScheduled = true
+
+    when:
+    handler.credentialsAdded(credThree)
+
+    then:
+    awsProvider.getAgents().stream().filter({ agent -> agent instanceof ReservationReportCachingAgent })
+    .collect(Collectors.toList()).isEmpty()
+    handler.reservationReportCachingAgentScheduled
   }
 }

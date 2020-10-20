@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.aws.provider.AwsCleanupProvider;
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider;
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider;
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ImageCachingAgent;
+import com.netflix.spinnaker.clouddriver.aws.provider.agent.ReservationReportCachingAgent;
 import com.netflix.spinnaker.clouddriver.aws.provider.config.ProviderHelpers;
 import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonS3DataProvider;
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults;
@@ -78,10 +79,12 @@ public class AmazonCredentialsLifecycleHandler
       credentialsRepository; // Circular dependency.
   protected Set<String> publicRegions = new HashSet<>();
   protected Set<String> awsInfraRegions = new HashSet<>();
+  protected boolean reservationReportCachingAgentScheduled = false;
 
   @Override
   public void credentialsAdded(@NotNull NetflixAmazonCredentials credentials) {
     scheduleAgents(credentials);
+    scheduleReservationReportCachingAgent();
   }
 
   @Override
@@ -205,5 +208,27 @@ public class AmazonCredentialsLifecycleHandler
             awsConfigurationProperties);
 
     awsCleanupProvider.addAgents(newlyAddedAgents);
+  }
+
+  private void scheduleReservationReportCachingAgent() {
+    if (reservationReportPool.isPresent() && !reservationReportCachingAgentScheduled) {
+      for (Agent agent : awsProvider.getAgents()) {
+        if (agent instanceof ReservationReportCachingAgent) {
+          reservationReportCachingAgentScheduled = true;
+          return;
+        }
+      }
+      awsProvider.addAgents(
+          Collections.singleton(
+              new ReservationReportCachingAgent(
+                  registry,
+                  amazonClientProvider,
+                  amazonS3DataProvider,
+                  credentialsRepository,
+                  objectMapper,
+                  reservationReportPool.get(),
+                  ctx)));
+      reservationReportCachingAgentScheduled = true;
+    }
   }
 }

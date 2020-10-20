@@ -47,7 +47,6 @@ import com.netflix.spinnaker.clouddriver.aws.provider.agent.EddaLoadBalancerCach
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ImageCachingAgent;
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.InstanceCachingAgent;
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.LaunchConfigCachingAgent;
-import com.netflix.spinnaker.clouddriver.aws.provider.agent.ReservationReportCachingAgent;
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ReservedInstancesCachingAgent;
 import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonS3DataProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
@@ -57,7 +56,11 @@ import com.netflix.spinnaker.clouddriver.security.ProviderUtils;
 import com.netflix.spinnaker.config.AwsConfiguration;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -210,17 +213,6 @@ public class ProviderHelpers {
                   amazonClientProvider, credentials, region.getName(), objectMapper, registry));
         }
       }
-    }
-    if (reservationReportPool.isPresent() && awsProvider.getAgentScheduler() == null) {
-      newlyAddedAgents.add(
-          new ReservationReportCachingAgent(
-              registry,
-              amazonClientProvider,
-              amazonS3DataProvider,
-              credentialsRepository,
-              objectMapper,
-              reservationReportPool.get(),
-              ctx));
     }
     agentProviders.ifPresent(
         providers ->
