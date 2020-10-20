@@ -145,7 +145,9 @@ public class DefaultProviderCache implements ProviderCache {
         previousSet = new HashSet<>();
       }
       if (cacheResult.getCacheResults().containsKey(type)) {
-        cacheDataType(type, sourceAgentType, cacheResult.getCacheResults().get(type));
+        if (authoritativeTypes.contains(type)) {
+          cacheDataType(type, sourceAgentType, cacheResult.getCacheResults().get(type));
+        }
         for (CacheData data : cacheResult.getCacheResults().get(type)) {
           previousSet.remove(data.getId());
         }
