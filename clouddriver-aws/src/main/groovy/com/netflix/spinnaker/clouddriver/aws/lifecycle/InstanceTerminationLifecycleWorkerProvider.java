@@ -33,9 +33,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 
 @Component
+@DependsOn("amazonCredentialsLoader")
 @ConditionalOnExpression(
     "${aws.lifecycle-subscribers.instance-termination.enabled:false} && ${caching.write-enabled:true}")
 public class InstanceTerminationLifecycleWorkerProvider {
