@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.model
 
+import com.amazonaws.services.ec2.model.RequestLaunchTemplateData
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonIgnore
@@ -114,18 +115,17 @@ class AmazonServerGroup implements ServerGroup, Serializable {
     }
 
     if (launchTemplate) {
-      def ltData = launchTemplate.get("launchTemplateData")
-      def groupIds = (Set<String>) ltData["securityGroupIds"]
+      def launchTemplateData = (RequestLaunchTemplateData) launchTemplate.get("launchTemplateData")
+      def securityGroupIds = (Set<String>) launchTemplateData?.securityGroupIds ?: []
 
-      if (groupIds?.size()) {
-        securityGroups = (Set<String>) groupIds
+      if (securityGroupIds?.size()) {
+        securityGroups = (Set<String>) securityGroupIds
       }
 
-      if (!groupIds?.size()) {
-        def networkInterface = ltData["networkInterfaces"].find({ it["deviceIndex"] == 0 })
-        if (networkInterface != null) {
-          securityGroups = (Set<String>) networkInterface["groups"]
-        }
+      if (!securityGroupIds?.size()) {
+        def networkInterface = launchTemplateData?.networkInterfaces?.find({ it["deviceIndex"] == 0 })
+        def groups = networkInterface?.groups ?: []
+        securityGroups = (Set<String>) groups
       }
     }
 
