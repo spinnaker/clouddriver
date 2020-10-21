@@ -22,13 +22,16 @@ import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.clouddriver.core.provider.agent.ExternalHealthProvider
+import com.netflix.spinnaker.clouddriver.docker.registry.provider.DockerRegistryProviderUtils
+import com.netflix.spinnaker.clouddriver.docker.registry.cache.Keys as DockerRegistryCacheKeys
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroupProvider
+import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
+import com.netflix.spinnaker.clouddriver.titus.TitusUtils
 import com.netflix.spinnaker.clouddriver.titus.caching.Keys
 import com.netflix.spinnaker.clouddriver.titus.caching.TitusCachingProvider
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.AwsLookupUtil
-import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchema
 import com.netflix.spinnaker.clouddriver.titus.caching.utils.CachingSchemaUtil
 import com.netflix.spinnaker.clouddriver.titus.client.model.Job
 import com.netflix.spinnaker.clouddriver.titus.client.model.Task
@@ -39,9 +42,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-
 import javax.inject.Provider
-
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
 import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*
 
@@ -56,6 +57,8 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
 
   private final Provider<AwsLookupUtil> awsLookupUtil
   private final Provider<CachingSchemaUtil> cachingSchemaUtil
+  private final DefaultAccountCredentialsProvider accountCredentialsProvider
+
 
   @Autowired
   TitusClusterProvider(TitusCloudProvider titusCloudProvider,
@@ -63,13 +66,16 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
                        Cache cacheView,
                        ObjectMapper objectMapper,
                        Provider<AwsLookupUtil> awsLookupUtil,
-                       Provider<CachingSchemaUtil> cachingSchemaUtil) {
+                       Provider<CachingSchemaUtil> cachingSchemaUtil,
+                       DefaultAccountCredentialsProvider accountCredentialsProvider) {
     this.titusCloudProvider = titusCloudProvider
     this.cacheView = cacheView
     this.titusCachingProvider = titusCachingProvider
     this.objectMapper = objectMapper
     this.awsLookupUtil = awsLookupUtil
     this.cachingSchemaUtil = cachingSchemaUtil
+    this.accountCredentialsProvider = accountCredentialsProvider
+
   }
 
   @Autowired(required = false)
@@ -184,6 +190,18 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     serverGroup.placement.region = region
     serverGroup.scalingPolicies = serverGroupData.attributes.scalingPolicies
     serverGroup.targetGroups = serverGroupData.attributes.targetGroups
+
+    serverGroup.buildInfo.jenkins = [:]
+    def imageAttributes = getTaggedImageAttributes(account, job)
+    if (imageAttributes != null && !imageAttributes.isEmpty()) {
+      imageAttributes = imageAttributes.first()
+      Map<String, String> jenkins = ["name"  : Optional.ofNullable(imageAttributes.jenkinsJob).orElse("NA"),
+                                     "number": Optional.ofNullable(imageAttributes.buildNumber).orElse("NA"),
+                                     "host"  : Optional.ofNullable(imageAttributes.jenkinsHost).orElse("NA")
+      ]
+      serverGroup.buildInfo.jenkins = jenkins
+    }
+
     if (includeDetails) {
       serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns), Collections.singletonList(serverGroupData)).values()
       if (serverGroup.targetGroups) {
@@ -193,6 +211,20 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     serverGroup.accountId = awsLookupUtil.get().awsAccountId(account, region)
     serverGroup.awsAccount = awsLookupUtil.get().lookupAccount(account, region)?.awsAccount
     serverGroup
+  }
+
+  private List<Map<String, String>> getTaggedImageAttributes(String account, Job job) {
+    try {
+      // Infer registry from account configuration
+      String registry = TitusUtils.getRegistry(accountCredentialsProvider, account)
+      String key = DockerRegistryCacheKeys.getTaggedImageKey(registry, job.applicationName, job.version)
+      Set<CacheData> images = DockerRegistryProviderUtils
+        .getAllMatchingKeyPattern(cacheView, DockerRegistryCacheKeys.Namespace.TAGGED_IMAGE.getNs(), key)
+      return images.collect { it.attributes }
+    }
+    catch (Exception e) {
+      log.error("Failed to fetch tagged image attributes ", e)
+    }
   }
 
   @Override
@@ -299,7 +331,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
 
       Job job
       if (instanceEntry.attributes.job != null || (instanceEntry.attributes.jobId != null &&
-          jobData.containsKey(instanceEntry.attributes.jobId))) {
+        jobData.containsKey(instanceEntry.attributes.jobId))) {
         if (instanceEntry.relationships[SERVER_GROUPS.ns]
           && !instanceEntry.relationships[SERVER_GROUPS.ns].empty) {
           // job needs to be loaded because it was cached separately
