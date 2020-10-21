@@ -466,10 +466,17 @@ class AutoScalingWorker {
 
     for (appAccountRegion in applicationAccountRegions) {
       if (appAccountRegion && appAccountRegion.contains(":")) {
-        def (app, account, regions) = appAccountRegion.split(":")
-        if (app == application && account == accountName && region in (regions as String).split(",")) {
-          return true
+        try {
+          def (app, account, regions) = appAccountRegion.split(":")
+          if (app == application && account == accountName && region in (regions as String).split(",")) {
+            return true
+          }
+        } catch (Exception e) {
+          log.warn("Unable to verify if application is allowed in shouldSetLaunchTemplate: ${appAccountRegion}")
+          return false
         }
+
+
       }
     }
 
