@@ -191,16 +191,18 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     serverGroup.scalingPolicies = serverGroupData.attributes.scalingPolicies
     serverGroup.targetGroups = serverGroupData.attributes.targetGroups
 
-    serverGroup.buildInfo.jenkins = [:]
-    def imageAttributes = getTaggedImageAttributes(account, job)
-    if (imageAttributes != null && !imageAttributes.isEmpty()) {
-      imageAttributes = imageAttributes.first()
-      Map<String, String> jenkins = ["name"  : Optional.ofNullable(imageAttributes.jenkinsJob).orElse("NA"),
-                                     "number": Optional.ofNullable(imageAttributes.buildNumber).orElse("NA"),
-                                     "host"  : Optional.ofNullable(imageAttributes.jenkinsHost).orElse("NA")
-      ]
-      serverGroup.buildInfo.jenkins = jenkins
-    }
+    getTaggedImageAttributes(account, job).ifPresentOrElse(
+      { it ->
+        serverGroup.buildInfo.jenkins =
+          [
+            "name"  : it.jenkinsJob ?: "NA",
+            "number": it.buildNumber ?: "NA",
+            "host"  : it.jenkinsHost ?: "NA"
+          ]
+
+      },
+      { serverGroup.buildInfo.jenkins = [:] }
+    )
 
     if (includeDetails) {
       serverGroup.instances = translateInstances(resolveRelationshipData(serverGroupData, INSTANCES.ns), Collections.singletonList(serverGroupData)).values()
@@ -213,7 +215,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
     serverGroup
   }
 
-  private List<Map<String, String>> getTaggedImageAttributes(String account, Job job) {
+  private Optional<Map<String, String>> getTaggedImageAttributes(String account, Job job) {
     try {
       // Infer registry from account configuration
       String registry = TitusUtils.getRegistry(accountCredentialsProvider, account)

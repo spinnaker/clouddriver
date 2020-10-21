@@ -57,7 +57,6 @@ public class TitusUtils {
   public static String getRegistry(
       @Nonnull AccountCredentialsProvider accountCredentialsProvider, @Nonnull String credentials) {
     AccountCredentials accountCredentials = accountCredentialsProvider.getCredentials(credentials);
-    // Assert that AccountCredentials of NetflixTitusCredentials type
     TitusUtils.assertTitusAccountCredentialsType(accountCredentials);
     return (((NetflixTitusCredentials) accountCredentials).getRegistry());
   }
