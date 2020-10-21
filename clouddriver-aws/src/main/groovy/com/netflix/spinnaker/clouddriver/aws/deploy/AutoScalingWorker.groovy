@@ -472,7 +472,7 @@ class AutoScalingWorker {
             return true
           }
         } catch (Exception e) {
-          log.warn("Unable to verify if application is allowed in shouldSetLaunchTemplate: ${appAccountRegion}")
+          log.error("Unable to verify if application is allowed in shouldSetLaunchTemplate: ${appAccountRegion}")
           return false
         }
 
