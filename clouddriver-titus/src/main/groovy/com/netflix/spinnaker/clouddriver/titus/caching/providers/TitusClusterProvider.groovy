@@ -26,8 +26,9 @@ import com.netflix.spinnaker.clouddriver.docker.registry.provider.DockerRegistry
 import com.netflix.spinnaker.clouddriver.docker.registry.cache.Keys as DockerRegistryCacheKeys
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
 import com.netflix.spinnaker.clouddriver.model.ServerGroupProvider
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import com.netflix.spinnaker.clouddriver.titus.TitusCloudProvider
+import com.netflix.spinnaker.clouddriver.titus.TitusException
 import com.netflix.spinnaker.clouddriver.titus.TitusUtils
 import com.netflix.spinnaker.clouddriver.titus.caching.Keys
 import com.netflix.spinnaker.clouddriver.titus.caching.TitusCachingProvider
@@ -57,7 +58,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
 
   private final Provider<AwsLookupUtil> awsLookupUtil
   private final Provider<CachingSchemaUtil> cachingSchemaUtil
-  private final DefaultAccountCredentialsProvider accountCredentialsProvider
+  private final AccountCredentialsProvider accountCredentialsProvider
 
 
   @Autowired
@@ -67,7 +68,7 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
                        ObjectMapper objectMapper,
                        Provider<AwsLookupUtil> awsLookupUtil,
                        Provider<CachingSchemaUtil> cachingSchemaUtil,
-                       DefaultAccountCredentialsProvider accountCredentialsProvider) {
+                       AccountCredentialsProvider accountCredentialsProvider) {
     this.titusCloudProvider = titusCloudProvider
     this.cacheView = cacheView
     this.titusCachingProvider = titusCachingProvider
@@ -195,9 +196,9 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
       { it ->
         serverGroup.buildInfo.jenkins =
           [
-            "name"  : it.jenkinsJob ?: "NA",
-            "number": it.buildNumber ?: "NA",
-            "host"  : it.jenkinsHost ?: "NA"
+            "name"  : it.jenkinsJob,
+            "number": it.buildNumber,
+            "host"  : it.jenkinsHost
           ]
 
       },
@@ -222,11 +223,16 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
       String key = DockerRegistryCacheKeys.getTaggedImageKey(registry, job.applicationName, job.version)
       Set<CacheData> images = DockerRegistryProviderUtils
         .getAllMatchingKeyPattern(cacheView, DockerRegistryCacheKeys.Namespace.TAGGED_IMAGE.getNs(), key)
-      return images.collect { it.attributes }
+      List<Map<String, String>> allAttributes = images.collect {it.attributes }
+      if(allAttributes.size() >1) {
+        throw new TitusException("More than 1 tagged image found, Expected 1, but got ${allAttributes.size()}")
+      }
+      else return Optional.of(allAttributes.first())
     }
     catch (Exception e) {
       log.error("Failed to fetch tagged image attributes ", e)
     }
+    return Optional.empty()
   }
 
   @Override
