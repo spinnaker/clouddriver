@@ -17,6 +17,9 @@
 
 package com.netflix.spinnaker.clouddriver.aws.security;
 
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.model.DescribeAccountAttributesRequest;
+import com.amazonaws.services.ec2.model.DescribeAccountAttributesResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.Agent;
@@ -85,6 +88,9 @@ public class AmazonCredentialsLifecycleHandler
   public void credentialsAdded(@NotNull NetflixAmazonCredentials credentials) {
     scheduleAgents(credentials);
     scheduleReservationReportCachingAgent();
+    if (reservationReportCachingAgentScheduled) {
+      addVPCOnlyAccountMapping(credentials);
+    }
   }
 
   @Override
@@ -97,6 +103,9 @@ public class AmazonCredentialsLifecycleHandler
   public void credentialsDeleted(@NotNull NetflixAmazonCredentials credentials) {
     replaceCurrentImageCachingAgent(credentials);
     unscheduleAgents(credentials);
+    if (reservationReportCachingAgentScheduled) {
+      deleteVPCOnlyAccountMapping(credentials);
+    }
   }
 
   private void replaceCurrentImageCachingAgent(NetflixAmazonCredentials credentials) {
@@ -156,6 +165,9 @@ public class AmazonCredentialsLifecycleHandler
     scheduleAWSProviderAgents(credentials);
     scheduleAwsInfrastructureProviderAgents(credentials);
     scheduleAwsCleanupAgents(credentials);
+    if (reservationReportCachingAgentScheduled) {
+      addVPCOnlyAccountMapping(credentials);
+    }
   }
 
   private void scheduleAwsInfrastructureProviderAgents(NetflixAmazonCredentials credentials) {
@@ -230,5 +242,39 @@ public class AmazonCredentialsLifecycleHandler
                   ctx)));
       reservationReportCachingAgentScheduled = true;
     }
+  }
+
+  private void addVPCOnlyAccountMapping(NetflixAmazonCredentials credentials) {
+    ReservationReportCachingAgent reservationReportCachingAgent =
+        awsProvider.getAgents().stream()
+            .filter(agent -> agent instanceof ReservationReportCachingAgent)
+            .map(agent -> (ReservationReportCachingAgent) agent)
+            .findFirst()
+            .orElse(null);
+    if (reservationReportCachingAgent != null) {
+      AmazonEC2 amazonEC2 =
+          amazonClientProvider.getAmazonEC2(credentials, credentials.getRegions().get(0).getName());
+      DescribeAccountAttributesResult describeAccountAttributesResult =
+          amazonEC2.describeAccountAttributes(
+              new DescribeAccountAttributesRequest().withAttributeNames("supported-platforms"));
+      reservationReportCachingAgent.addVPCOnlyAccounts(
+          credentials.getName(),
+          describeAccountAttributesResult
+              .getAccountAttributes()
+              .get(0)
+              .getAttributeValues()
+              .stream()
+              .allMatch(attribute -> "VPC".equals(attribute.getAttributeValue())));
+    }
+  }
+
+  private void deleteVPCOnlyAccountMapping(NetflixAmazonCredentials credentials) {
+    awsProvider.getAgents().stream()
+        .filter(agent -> agent instanceof ReservationReportCachingAgent)
+        .map(agent -> (ReservationReportCachingAgent) agent)
+        .findFirst()
+        .ifPresent(
+            reservationReportCachingAgent ->
+                reservationReportCachingAgent.deleteVPCOnlyAccounts(credentials.getName()));
   }
 }

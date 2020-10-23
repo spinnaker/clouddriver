@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider.agent
 
-import com.amazonaws.services.ec2.model.DescribeAccountAttributesRequest
+
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -85,6 +85,7 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
   final AccountReservationDetailSerializer accountReservationDetailSerializer
   final MetricsSupport metricsSupport
   final Registry registry
+  final Map<String, Boolean> vpcOnlyAccounts = new ConcurrentHashMap<>()
 
 
   ReservationReportCachingAgent(Registry registry,
@@ -107,23 +108,6 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
     this.ctx = ctx
     this.metricsSupport = new MetricsSupport(objectMapper, registry, { getCacheView() })
     this.registry = registry
-  }
-
-  private Set<String> determineVpcOnlyAccounts() {
-    def vpcOnlyAccounts = []
-
-    accounts.each { credentials ->
-      def amazonEC2 = amazonClientProvider.getAmazonEC2(credentials, credentials.regions[0].name)
-      def describeAccountAttributesResult = amazonEC2.describeAccountAttributes(
-        new DescribeAccountAttributesRequest().withAttributeNames("supported-platforms")
-      )
-      if (describeAccountAttributesResult.accountAttributes[0].attributeValues*.attributeValue == ["VPC"]) {
-        vpcOnlyAccounts << credentials.name
-      }
-    }
-
-    log.info("VPC Only Accounts: ${vpcOnlyAccounts.join(", ")}")
-    return vpcOnlyAccounts
   }
 
   @Override
@@ -317,8 +301,7 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
             def osType = operatingSystemType(it.productDescription)
             def reservation = getReservation(region.name, it.availabilityZone, osType.name, it.instanceType)
             reservation.totalReserved.addAndGet(it.instanceCount)
-            def vpcOnlyAccounts = determineVpcOnlyAccounts()
-            if (osType.isVpc || vpcOnlyAccounts.contains(credentials.name)) {
+            if (osType.isVpc || vpcOnlyAccounts.get(credentials.getName())) {
               reservation.getAccount(credentials.name).reservedVpc.addAndGet(it.instanceCount)
             } else {
               reservation.getAccount(credentials.name).reserved.addAndGet(it.instanceCount)
@@ -429,6 +412,18 @@ class ReservationReportCachingAgent implements CachingAgent, CustomScheduledAgen
       this.cacheView = ctx.getBean(Cache)
     }
     this.cacheView
+  }
+
+  public void addVPCOnlyAccounts(String accountName, Boolean vpcOnly) {
+    vpcOnlyAccounts.put(accountName, vpcOnly)
+  }
+
+  public void deleteVPCOnlyAccounts(String account) {
+    vpcOnlyAccounts.remove(account)
+  }
+
+  protected getVPCOnlyaccounts() {
+    return Collections.unmodifiableMap(vpcOnlyAccounts)
   }
 
   static class AccountReservationDetailSerializer extends JsonSerializer<AmazonReservationReport.AccountReservationDetail> {

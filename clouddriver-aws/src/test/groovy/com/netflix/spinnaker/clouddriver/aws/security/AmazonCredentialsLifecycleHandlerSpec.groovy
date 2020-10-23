@@ -17,8 +17,11 @@
 
 package com.netflix.spinnaker.clouddriver.aws.security
 
+import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.AccountAttribute
+import com.amazonaws.services.ec2.model.AccountAttributeValue
+import com.amazonaws.services.ec2.model.DescribeAccountAttributesResult
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spinnaker.cats.agent.AgentProvider
 import com.netflix.spinnaker.clouddriver.aws.AmazonCloudProvider
@@ -29,16 +32,12 @@ import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ImageCachingAgent
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.ReservationReportCachingAgent
-import com.netflix.spinnaker.clouddriver.model.ReservationReport
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.credentials.CredentialsRepository
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
-import spock.lang.Shared
 import spock.lang.Specification
 
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.ThreadFactory
 import java.util.stream.Collectors
 
 class AmazonCredentialsLifecycleHandlerSpec extends Specification {
@@ -53,21 +52,22 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
     isEnabled("aws.features.cloud-formation", false) >> false
     isEnabled("aws.features.launch-templates", false) >> false
   }
-  @Shared
   def objectMapper = new ObjectMapper()
-  @Shared
   def credOne = TestCredential.named('one')
-  @Shared
   def credTwo = TestCredential.named('two')
-  @Shared
+  def credThree = TestCredential.named('three')
   def credentialsRepository = Mock(CredentialsRepository) {
     getAll() >> [credOne, credTwo]
   }
+  Optional<ExecutorService> reservationReportPool = Optional.of(
+    Mock(ExecutorService)
+  )
+  def deployDefaults = new  AwsConfiguration.DeployDefaults()
+
   def setup() {
     awsCleanupProvider = new AwsCleanupProvider()
     awsInfrastructureProvider = new AwsInfrastructureProvider()
     awsProvider = new AwsProvider(credentialsRepository)
-
   }
 
 
@@ -103,12 +103,17 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
   }
 
   def 'it should add agents'() {
-    Optional<ExecutorService> reservationReportPool = Optional.of(
-      Mock(ExecutorService)
-    )
-    def deployDefaults = new  AwsConfiguration.DeployDefaults()
+    def amazonEC2 = Mock(AmazonEC2) {
+      describeAccountAttributes(_) >> new DescribeAccountAttributesResult().withAccountAttributes(
+          new AccountAttribute().withAttributeName("supported-platforms").withAttributeValues(
+            new AccountAttributeValue().withAttributeValue("VPC")
+          ))
+    }
+    def amazonClientProvider = Mock(AmazonClientProvider) {
+      getAmazonEC2(_, _) >> amazonEC2
+    }
     def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
-      amazonCloudProvider, null, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
+      amazonCloudProvider, amazonClientProvider, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
       credentialsRepository)
     def credThree = TestCredential.named('three')
 
@@ -121,33 +126,42 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
     handler.publicRegions.size() == 2
     handler.awsInfraRegions.size() == 2
     handler.reservationReportCachingAgentScheduled
+    def reservationReportCachingAgent = awsProvider.getAgents().stream()
+      .filter({ agent -> agent instanceof ReservationReportCachingAgent })
+      .map({ agent -> (ReservationReportCachingAgent) agent })
+      .findFirst().get()
+    reservationReportCachingAgent.getVpcOnlyAccounts().get("three")
   }
 
-  def 'it should not add reservation caching agents'() {
-    Optional<ExecutorService> reservationReportPool = Optional.of(
-      Mock(ExecutorService)
-    )
-    def deployDefaults = new  AwsConfiguration.DeployDefaults()
+  def 'account should be flagged as not vpc only'() {
+    def amazonEC2 = Mock(AmazonEC2) {
+      describeAccountAttributes(_) >> new DescribeAccountAttributesResult().withAccountAttributes(
+        new AccountAttribute().withAttributeName("supported-platforms").withAttributeValues(
+          new AccountAttributeValue().withAttributeValue("VPC"),
+          new AccountAttributeValue().withAttributeValue("classic")
+        ))
+    }
+    def amazonClientProvider = Mock(AmazonClientProvider) {
+      getAmazonEC2(_, _) >> amazonEC2
+    }
     def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
-      amazonCloudProvider, null, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
+      amazonCloudProvider, amazonClientProvider, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
       credentialsRepository)
     def credThree = TestCredential.named('three')
-    awsProvider.addAgents(Collections.singletonList(Mock(ReservationReportCachingAgent)))
 
     when:
     handler.credentialsAdded(credThree)
 
     then:
-    awsProvider.getAgents().stream().filter({ agent -> agent instanceof ReservationReportCachingAgent })
-      .collect(Collectors.toList()).size() == 1
     handler.reservationReportCachingAgentScheduled
+    def reservationReportCachingAgent = awsProvider.getAgents().stream()
+      .filter({ agent -> agent instanceof ReservationReportCachingAgent })
+      .map({ agent -> (ReservationReportCachingAgent) agent })
+      .findFirst().get()
+    !reservationReportCachingAgent.getVpcOnlyAccounts().get("three")
   }
 
   def 'subsequent call should not add reservation caching agents'() {
-    Optional<ExecutorService> reservationReportPool = Optional.of(
-      Mock(ExecutorService)
-    )
-    def deployDefaults = new  AwsConfiguration.DeployDefaults()
     def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
       amazonCloudProvider, null, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
       credentialsRepository)
@@ -161,5 +175,33 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
     awsProvider.getAgents().stream().filter({ agent -> agent instanceof ReservationReportCachingAgent })
     .collect(Collectors.toList()).isEmpty()
     handler.reservationReportCachingAgentScheduled
+  }
+
+  def 'account should be removed from reservation agent'() {
+    def amazonEC2 = Mock(AmazonEC2) {
+      describeAccountAttributes(_) >> new DescribeAccountAttributesResult().withAccountAttributes(
+        new AccountAttribute().withAttributeName("supported-platforms").withAttributeValues(
+          new AccountAttributeValue().withAttributeValue("VPC")
+        ))
+    }
+    def amazonClientProvider = Mock(AmazonClientProvider) {
+      getAmazonEC2(_, _) >> amazonEC2
+    }
+    def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
+      amazonCloudProvider, amazonClientProvider, null, null, objectMapper, null, eddaApiFactory, null, registry, reservationReportPool, agentProviders, null, dynamicConfigService, deployDefaults,
+      credentialsRepository)
+    def credThree = TestCredential.named('three')
+    handler.credentialsAdded(credThree)
+
+    when:
+    handler.credentialsDeleted(credThree)
+
+    then:
+    handler.reservationReportCachingAgentScheduled
+    def reservationReportCachingAgent = awsProvider.getAgents().stream()
+      .filter({ agent -> agent instanceof ReservationReportCachingAgent })
+      .map({ agent -> (ReservationReportCachingAgent) agent })
+      .findFirst().get()
+    !reservationReportCachingAgent.getVpcOnlyAccounts().get("three")
   }
 }
