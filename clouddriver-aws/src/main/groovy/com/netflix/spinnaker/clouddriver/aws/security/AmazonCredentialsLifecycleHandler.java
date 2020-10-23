@@ -120,38 +120,31 @@ public class AmazonCredentialsLifecycleHandler
             .collect(Collectors.toList());
 
     for (ImageCachingAgent imageCachingAgent : currentImageCachingAgents) {
-      boolean found = false;
-      List<NetflixAmazonCredentials> replacementCredentials =
+      NetflixAmazonCredentials replacementCredentials =
           credentialsRepository.getAll().stream()
+              .filter(cred -> !cred.getName().equals(credentials.getName()))
               .filter(
                   cred ->
                       cred.getRegions().stream()
                           .map(AmazonCredentials.AWSRegion::getName)
                           .collect(Collectors.toSet())
                           .contains(imageCachingAgent.getRegion()))
-              .collect(Collectors.toList());
-      for (NetflixAmazonCredentials creds : replacementCredentials) {
-        ImageCachingAgent nextPublicImageCahcingAgent =
-            awsProvider.getAgents().stream()
-                .filter(
-                    agent ->
-                        agent.handlesAccount(creds.getName())
-                            && agent instanceof ImageCachingAgent
-                            && !((ImageCachingAgent) agent)
-                                .getAccountName()
-                                .equals(credentials.getName()))
-                .map(agent -> (ImageCachingAgent) agent)
-                .findFirst()
-                .orElse(null);
-        if (nextPublicImageCahcingAgent != null) {
-          nextPublicImageCahcingAgent.setIncludePublicImages(true);
-          found = true;
-          break;
-        }
+              .findFirst()
+              .orElse(null);
+      if (replacementCredentials != null) {
+        awsProvider.addAgents(
+            Collections.singletonList(
+                new ImageCachingAgent(
+                    amazonClientProvider,
+                    replacementCredentials,
+                    imageCachingAgent.getRegion(),
+                    objectMapper,
+                    registry,
+                    true,
+                    dynamicConfigService)));
+        continue;
       }
-      if (!found) {
-        publicRegions.remove(imageCachingAgent.getRegion());
-      }
+      publicRegions.remove(imageCachingAgent.getRegion());
     }
   }
 

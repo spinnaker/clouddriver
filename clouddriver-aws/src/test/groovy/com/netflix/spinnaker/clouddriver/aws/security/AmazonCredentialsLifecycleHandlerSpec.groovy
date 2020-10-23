@@ -76,14 +76,17 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
     def imageCachingAgentTwo = new ImageCachingAgent(null, credTwo, "us-east-1", objectMapper, null, false, null)
     awsProvider.addAgents([imageCachingAgentOne, imageCachingAgentTwo])
     def handler = new AmazonCredentialsLifecycleHandler(awsCleanupProvider, awsInfrastructureProvider, awsProvider,
-      null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+      null, null, null, null, objectMapper, null, null, null, null, null, null, null, null, null,
       credentialsRepository)
 
     when:
     handler.credentialsDeleted(credOne)
 
     then:
-    imageCachingAgentTwo.includePublicImages
+    awsProvider.getAgents().stream()
+      .filter({ agent -> agent.handlesAccount("two")})
+      .filter({ agent -> ((ImageCachingAgent) agent).getIncludePublicImages() })
+      .collect(Collectors.toList()).size() == 1
   }
 
   def 'it should remove region not used by public image caching agent'() {
@@ -122,7 +125,7 @@ class AmazonCredentialsLifecycleHandlerSpec extends Specification {
 
     then:
     awsInfrastructureProvider.getAgents().size() == 12
-    awsProvider.getAgents().size() == 19
+    awsProvider.getAgents().size() == 21
     handler.publicRegions.size() == 2
     handler.awsInfraRegions.size() == 2
     handler.reservationReportCachingAgentScheduled

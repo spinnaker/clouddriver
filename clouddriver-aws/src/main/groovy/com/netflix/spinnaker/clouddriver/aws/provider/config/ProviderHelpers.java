@@ -147,10 +147,8 @@ public class ProviderHelpers {
         newlyAddedAgents.add(
             new LaunchConfigCachingAgent(
                 amazonClientProvider, credentials, region.getName(), objectMapper, registry));
-        boolean publicImages = false;
-        if (publicRegions.add(region.getName())) {
-          publicImages = true;
-        }
+
+        // always index private images per account/region
         newlyAddedAgents.add(
             new ImageCachingAgent(
                 amazonClientProvider,
@@ -158,8 +156,23 @@ public class ProviderHelpers {
                 region.getName(),
                 objectMapper,
                 registry,
-                publicImages,
+                false,
                 dynamicConfigService));
+
+        if (!publicRegions.contains(region.getName())) {
+          // only index public images once per region (regardless of account)
+          publicRegions.add(region.getName());
+          newlyAddedAgents.add(
+              new ImageCachingAgent(
+                  amazonClientProvider,
+                  credentials,
+                  region.getName(),
+                  objectMapper,
+                  registry,
+                  true,
+                  dynamicConfigService));
+        }
+
         newlyAddedAgents.add(
             new InstanceCachingAgent(
                 amazonClientProvider, credentials, region.getName(), objectMapper, registry));
