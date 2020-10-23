@@ -401,25 +401,35 @@ class AutoScalingWorker {
     // This is a comma separated list of applications to exclude
     String excludedApps = dynamicConfigService
       .getConfig(String.class, "aws.features.launch-templates.excluded-applications", "")
-    if (application in excludedApps.split(",")) {
-      return false
-    }
-
-    // Application allow list with the following format:
-    // app1:account:region1,region2,app2:account:region1
-    // This allows more control over what account and region pairs to enable for this deployment.
-    String allowedApps = dynamicConfigService
-      .getConfig(String.class, "aws.features.launch-templates.allowed-applications", "")
-    for (appAccountRegion in allowedApps.split(",")) {
-      if (appAccountRegion && appAccountRegion.contains(":")) {
-        def (app, account, regions) = appAccountRegion.split(":")
-        if (app == application && account == credentials.name && this.region in (regions as String).split(",")) {
-          return true
-        }
+    for (excludedApp in excludedApps.split(",")) {
+      if (excludedApp.trim() == application) {
+        return false
       }
     }
 
-    // Final check is an allow list for account/region pairs with the following format:
+    // This is a comma separated list of accounts to exclude
+    String excludedAccounts = dynamicConfigService.getConfig(String.class, "aws.features.launch-templates.excluded-accounts", "")
+    for (excludedAccount in excludedAccounts.split(",")) {
+      if (excludedAccount.trim() == credentials.name) {
+        return false
+      }
+    }
+
+    // Allows everything that is not excluded
+    if (dynamicConfigService.isEnabled("aws.features.launch-templates.all-applications", false)) {
+      return true
+    }
+
+    // Application allow list with the following format:
+    // app1:account:region1,app2:account:region1
+    // This allows more control over what account and region pairs to enable for this deployment.
+    String allowedApps = dynamicConfigService
+      .getConfig(String.class, "aws.features.launch-templates.allowed-applications", "")
+    if (matchesAppAccountAndRegion(application, credentials.name, region, allowedApps.split(","))) {
+      return true
+    }
+
+    // An allow list for account/region pairs with the following format:
     // account:region
     String allowedAccountsAndRegions = dynamicConfigService
       .getConfig(String.class, "aws.features.launch-templates.allowed-accounts-regions", "")
@@ -429,6 +439,44 @@ class AutoScalingWorker {
         if (account.trim() == credentials.name && region.trim() == this.region) {
           return true
         }
+      }
+    }
+
+    // This is a comma separated list of accounts to allow
+    String allowedAccounts = dynamicConfigService.getConfig(String.class, "aws.features.launch-templates.allowed-accounts", "")
+    for (allowedAccount in allowedAccounts.split(",")) {
+      if (allowedAccount.trim() == credentials.name) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * Helper function to parse and match an array of app:account:region1,...,app:account,region
+   * to the specified application, account and region
+   * Used to flag launch template feature and rollout
+   */
+  static boolean matchesAppAccountAndRegion(
+    String application, String accountName, String region, String... applicationAccountRegions) {
+    if (!applicationAccountRegions) {
+      return false
+    }
+
+    for (appAccountRegion in applicationAccountRegions) {
+      if (appAccountRegion && appAccountRegion.contains(":")) {
+        try {
+          def (app, account, regions) = appAccountRegion.split(":")
+          if (app == application && account == accountName && region in (regions as String).split(",")) {
+            return true
+          }
+        } catch (Exception e) {
+          log.error("Unable to verify if application is allowed in shouldSetLaunchTemplate: ${appAccountRegion}")
+          return false
+        }
+
+
       }
     }
 

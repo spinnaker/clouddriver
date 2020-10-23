@@ -15,7 +15,8 @@
 
 package com.netflix.spinnaker.clouddriver.ecs;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -32,18 +33,17 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
-import org.junit.Test;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit4.SpringRunner;
 
-@RunWith(SpringRunner.class)
 @SpringBootTest(
     classes = {Main.class},
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -51,8 +51,11 @@ import org.springframework.test.context.junit4.SpringRunner;
 public class EcsSpec {
   protected static final String TEST_OPERATIONS_LOCATION =
       "src/integration/resources/testoperations";
+  protected static final String TEST_ARTIFACTS_LOCATION = "src/integration/resources/testartifacts";
   protected final String ECS_ACCOUNT_NAME = "ecs-account";
   protected final String TEST_REGION = "us-west-2";
+  protected final int TASK_RETRY_SECONDS = 3;
+  protected static final String CREATE_SG_TEST_PATH = "/ecs/ops/createServerGroup";
 
   @Value("${ecs.enabled}")
   Boolean ecsEnabled;
@@ -62,7 +65,9 @@ public class EcsSpec {
 
   @LocalServerPort private int port;
 
-  @MockBean AmazonClientProvider mockAwsProvider;
+  @Autowired AccountCredentialsRepository accountCredentialsRepository;
+
+  @MockBean protected AmazonClientProvider mockAwsProvider;
 
   @MockBean AmazonAccountsSynchronizer mockAccountsSyncer;
 
@@ -89,6 +94,10 @@ public class EcsSpec {
     return new String(Files.readAllBytes(Paths.get(TEST_OPERATIONS_LOCATION, path)));
   }
 
+  protected String generateStringFromTestArtifactFile(String path) throws IOException {
+    return new String(Files.readAllBytes(Paths.get(TEST_ARTIFACTS_LOCATION, path)));
+  }
+
   protected String getTestUrl(String path) {
     return "http://localhost:" + port + path;
   }
@@ -102,5 +111,51 @@ public class EcsSpec {
     dataMap.put(namespace, dataPoints);
 
     return new DefaultCacheResult(dataMap);
+  }
+
+  protected void retryUntilTrue(BooleanSupplier func, String failMsg, int retrySeconds)
+      throws InterruptedException {
+    for (int i = 0; i < retrySeconds; i++) {
+      if (!func.getAsBoolean()) {
+        Thread.sleep(1000);
+      } else {
+        return;
+      }
+    }
+    fail(failMsg);
+  }
+
+  protected void setEcsAccountCreds() {
+    AmazonCredentials.AWSRegion testRegion = new AmazonCredentials.AWSRegion(TEST_REGION, null);
+
+    NetflixAssumeRoleAmazonCredentials ecsCreds =
+        new NetflixAssumeRoleAmazonCredentials(
+            ECS_ACCOUNT_NAME,
+            "test",
+            "test",
+            "123456789012",
+            null,
+            true,
+            Collections.singletonList(testRegion),
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            false,
+            "SpinnakerManaged",
+            "SpinnakerSession",
+            false,
+            "");
+
+    accountCredentialsRepository.save(ECS_ACCOUNT_NAME, ecsCreds);
   }
 }
