@@ -34,6 +34,8 @@ dependencies {
   annotationProcessor "org.projectlombok:lombok"
   testAnnotationProcessor "org.projectlombok:lombok"
 
+  compileOnly "org.postgresql:postgresql:42.2.18" // Temp
+
   implementation "com.netflix.frigga:frigga"
   implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
   implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"

@@ -48,11 +48,19 @@ class CatsSqlAdminController(
     )
 
     val tablesTruncated = mutableListOf<String>()
-    val sql = "show tables like 'cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%'"
 
     conn.use { c ->
       val jooq = DSL.using(c, SQLDialect.MYSQL)
-      val rs = jooq.fetch(sql).intoResultSet()
+      val rs = when (jooq.dialect()) {
+        SQLDialect.POSTGRES ->
+          jooq.select(DSL.field("tablename"))
+            .from(DSL.table("pg_catalog.pg_tables"))
+            .where(DSL.field("tablename").like("cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%"))
+            .fetch()
+            .intoResultSet()
+        else ->
+          jooq.fetch("show tables like 'cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%'").intoResultSet()
+      }
 
       while (rs.next()) {
         val table = rs.getString(1)
@@ -83,11 +91,19 @@ class CatsSqlAdminController(
     )
 
     val tablesDropped = mutableListOf<String>()
-    val sql = "show tables like 'cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%'"
 
     conn.use { c ->
       val jooq = DSL.using(c, SQLDialect.MYSQL)
-      val rs = jooq.fetch(sql).intoResultSet()
+      val rs = when (jooq.dialect()) {
+        SQLDialect.POSTGRES ->
+          jooq.select(DSL.field("tablename"))
+            .from(DSL.table("pg_catalog.pg_tables"))
+            .where(DSL.field("tablename").like("cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%"))
+            .fetch()
+            .intoResultSet()
+        else ->
+          jooq.fetch("show tables like 'cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%'").intoResultSet()
+      }
 
       while (rs.next()) {
         val table = rs.getString(1)

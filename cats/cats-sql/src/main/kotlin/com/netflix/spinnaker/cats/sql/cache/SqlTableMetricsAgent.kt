@@ -8,6 +8,8 @@ import com.netflix.spinnaker.clouddriver.sql.SqlAgent
 import java.time.Clock
 import java.util.concurrent.TimeUnit
 import org.jooq.DSLContext
+import org.jooq.SQLDialect
+import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.table
 import org.slf4j.LoggerFactory
 
@@ -41,7 +43,16 @@ class SqlTableMetricsAgent(
       "cats_v${SqlSchemaVersion.current()}_${namespace}_"
     }
 
-    val rs = jooq.fetch("show tables like '$baseName%'").intoResultSet()
+    val rs = when (jooq.dialect()) {
+      SQLDialect.POSTGRES ->
+        jooq.select(field("tablename"))
+          .from(table("pg_catalog.pg_tables"))
+          .where(field("tablename").like("$baseName%"))
+          .fetch()
+          .intoResultSet()
+      else ->
+        jooq.fetch("show tables like '$baseName%'").intoResultSet()
+    }
 
     while (rs.next()) {
       val tableName = rs.getString(1)

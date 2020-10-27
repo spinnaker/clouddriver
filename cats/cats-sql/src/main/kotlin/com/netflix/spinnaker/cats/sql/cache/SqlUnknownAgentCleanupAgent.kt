@@ -29,6 +29,7 @@ import java.sql.SQLException
 import java.util.concurrent.TimeUnit
 import org.jooq.DSLContext
 import org.jooq.Field
+import org.jooq.SQLDialect
 import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.table
 import org.slf4j.LoggerFactory
@@ -91,7 +92,17 @@ class SqlUnknownAgentCleanupAgent(
     }
     log.debug("Checking table '$tableName' for '$dataType' data cleanup")
 
-    val tableExists = jooq.fetch("show tables like '$tableName'").intoResultSet()
+    val tableExists = when (jooq.dialect()) {
+      SQLDialect.POSTGRES ->
+        jooq.select(field("tablename"))
+          .from(table("pg_catalog.pg_tables"))
+          .where(field("tablename").like("$tableName%"))
+          .fetch()
+          .intoResultSet()
+      else ->
+        jooq.fetch("show tables like '$tableName%'").intoResultSet()
+    }
+
     if (!tableExists.next()) {
       log.debug("Table '$tableName' not found")
       state.touchedTables.add(tableName)

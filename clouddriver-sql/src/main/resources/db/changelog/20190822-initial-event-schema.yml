@@ -26,7 +26,7 @@ databaseChangeLog:
                     unique: true
               - column:
                   name: version
-                  type: bigint(20)
+                  type: bigint
                   constraints:
                     nullable: false
               - column:
@@ -97,12 +97,12 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: sequence
-                  type: bigint(20)
+                  type: bigint
                   constraints:
                     nullable: false
               - column:
                   name: originating_version
-                  type: bigint(20)
+                  type: bigint
                   constraints:
                     nullable: false
               - column:

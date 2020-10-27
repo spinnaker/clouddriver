@@ -6,6 +6,7 @@ import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.DefaultJsonCacheData
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter
 import com.netflix.spinnaker.cats.cache.WriteableCache
+import com.netflix.spinnaker.cats.sql.SqlUtil
 import com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND
 import com.netflix.spinnaker.config.SqlConstraints
 import com.netflix.spinnaker.config.coroutineThreadPrefix
@@ -35,6 +36,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.jooq.Condition
 import org.jooq.DSLContext
+import org.jooq.Field
+import org.jooq.SQLDialect
 import org.jooq.exception.DataAccessException
 import org.jooq.exception.SQLDialectNotSupportedException
 import org.jooq.impl.DSL.field
@@ -583,12 +586,25 @@ class SqlCache(
           chunk.forEach {
             values(it, sqlNames.checkAgentName(agent), apps[it], hashes[it], bodies[it], now)
           }
-
-          onDuplicateKeyUpdate()
-            .set(field("application"), MySQLDSL.values(field("application")) as Any)
-            .set(field("body_hash"), MySQLDSL.values(field("body_hash")) as Any)
-            .set(field("body"), MySQLDSL.values(field("body")) as Any)
-            .set(field("last_updated"), MySQLDSL.values(field("last_updated")) as Any)
+            .run {
+              when (jooq.dialect()) {
+                SQLDialect.POSTGRES ->
+                  onConflict(field("id"), field("agent"))
+                    .doUpdate()
+                    .set(field("application"), excluded(field("application")) as Any)
+                    .set(field("body_hash"), excluded(field("body_hash")) as Any)
+                    .set(field("body"), excluded(field("body")) as Any)
+                    .set(field("last_updated"), excluded(field("last_updated")) as Any)
+                    .execute()
+                else ->
+                  onDuplicateKeyUpdate()
+                    .set(field("application"), MySQLDSL.values(field("application")) as Any)
+                    .set(field("body_hash"), MySQLDSL.values(field("body_hash")) as Any)
+                    .set(field("body"), MySQLDSL.values(field("body")) as Any)
+                    .set(field("last_updated"), MySQLDSL.values(field("last_updated")) as Any)
+                    .execute()
+              }
+            }
         }
 
         withRetry(RetryCategory.WRITE) {
@@ -659,6 +675,10 @@ class SqlCache(
     evictAll(type, toDelete)
 
     return result
+  }
+
+  private fun <T> excluded(values: Field<T>): Field<T> {
+    return field("excluded.{0}", values.dataType, values)
   }
 
   private fun storeInformative(type: String, items: MutableCollection<CacheData>, cleanup: Boolean): StoreResult {
@@ -854,14 +874,8 @@ class SqlCache(
     if (!createdTables.contains(type)) {
       try {
         withRetry(RetryCategory.WRITE) {
-          jooq.execute(
-            "CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(type)} " +
-              "LIKE cats_v${schemaVersion}_resource_template"
-          )
-          jooq.execute(
-            "CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(type)} " +
-              "LIKE cats_v${schemaVersion}_rel_template"
-          )
+          SqlUtil.createTableLike(jooq, sqlNames.resourceTableName(type), "cats_v${schemaVersion}_resource_template")
+          SqlUtil.createTableLike(jooq, sqlNames.relTableName(type), "cats_v${schemaVersion}_rel_template")
         }
 
         createdTables.add(type)
@@ -873,14 +887,8 @@ class SqlCache(
       // TODO not sure if best schema for onDemand
       try {
         withRetry(RetryCategory.WRITE) {
-          jooq.execute(
-            "CREATE TABLE IF NOT EXISTS ${sqlNames.resourceTableName(onDemandType)} " +
-              "LIKE cats_v${schemaVersion}_resource_template"
-          )
-          jooq.execute(
-            "CREATE TABLE IF NOT EXISTS ${sqlNames.relTableName(onDemandType)} " +
-              "LIKE cats_v${schemaVersion}_rel_template"
-          )
+          SqlUtil.createTableLike(jooq, sqlNames.resourceTableName(onDemandType), "cats_v${schemaVersion}_resource_template")
+          SqlUtil.createTableLike(jooq, sqlNames.relTableName(onDemandType), "cats_v${schemaVersion}_rel_template")
         }
 
         createdTables.add(onDemandType)
