@@ -41,7 +41,7 @@ dependencies {
   implementation "com.netflix.spinnaker.kork:kork-config"
   implementation "com.netflix.spinnaker.kork:kork-web"
   implementation("com.netflix.spinnaker.kork:kork-plugins")
-  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.netflix.spinnaker.kork:kork-moniker"
   implementation "commons-io:commons-io"
   implementation "io.reactivex:rxjava"
   implementation "io.swagger:swagger-annotations"
@@ -51,9 +51,11 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-starter-json"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "org.springframework.cloud:spring-cloud-context"
-  runtimeOnly "org.springframework.cloud:spring-cloud-config-server"
 
   runtimeOnly "com.netflix.spinnaker.kork:kork-runtime"
+  if (!gradle.hasProperty("excludeSpringConfigServer")) {
+    runtimeOnly project(":clouddriver-configserver")
+  }
 
   testImplementation project(":clouddriver-elasticsearch")
 
@@ -64,23 +66,4 @@ dependencies {
   gradle.includedCloudProviderProjects.each {
     implementation project(":${it}")
   }
-
-  // clouddriver-elasticsearch and clouddriver-elasticsearch-aws pin different
-  // versions of elasticsearch. In order to include both of these, we need to
-  // explicitly pick which version we want.
-  // This picks the versions from clouddriver-elasticsearch-aws because that is
-  // what was being picked before Gradle required being explicit here, but we
-  // should investigate whether we can get these to the same version.
-//  constraints {
-//    implementation("io.searchbox:jest") {
-//      version {
-//        strictly "2.0.3"
-//      }
-//    }
-//    implementation("org.elasticsearch:elasticsearch") {
-//      version {
-//        strictly "2.4.1"
-//      }
-//    }
-//  }
 }

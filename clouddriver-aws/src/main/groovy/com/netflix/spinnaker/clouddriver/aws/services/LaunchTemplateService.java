@@ -21,22 +21,7 @@ import static java.util.Comparator.comparing;
 
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
 import com.amazonaws.services.ec2.AmazonEC2;
-import com.amazonaws.services.ec2.model.CreateLaunchTemplateRequest;
-import com.amazonaws.services.ec2.model.CreateLaunchTemplateVersionRequest;
-import com.amazonaws.services.ec2.model.CreateLaunchTemplateVersionResult;
-import com.amazonaws.services.ec2.model.DescribeLaunchTemplateVersionsRequest;
-import com.amazonaws.services.ec2.model.DescribeLaunchTemplateVersionsResult;
-import com.amazonaws.services.ec2.model.LaunchTemplate;
-import com.amazonaws.services.ec2.model.LaunchTemplateBlockDeviceMappingRequest;
-import com.amazonaws.services.ec2.model.LaunchTemplateEbsBlockDeviceRequest;
-import com.amazonaws.services.ec2.model.LaunchTemplateIamInstanceProfileSpecificationRequest;
-import com.amazonaws.services.ec2.model.LaunchTemplateInstanceMarketOptionsRequest;
-import com.amazonaws.services.ec2.model.LaunchTemplateInstanceMetadataOptionsRequest;
-import com.amazonaws.services.ec2.model.LaunchTemplateInstanceNetworkInterfaceSpecificationRequest;
-import com.amazonaws.services.ec2.model.LaunchTemplateSpotMarketOptionsRequest;
-import com.amazonaws.services.ec2.model.LaunchTemplateVersion;
-import com.amazonaws.services.ec2.model.LaunchTemplatesMonitoringRequest;
-import com.amazonaws.services.ec2.model.RequestLaunchTemplateData;
+import com.amazonaws.services.ec2.model.*;
 import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder.LaunchConfigurationSettings;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties;
@@ -69,7 +54,8 @@ public class LaunchTemplateService {
       NetflixAmazonCredentials credentials,
       ModifyServerGroupLaunchTemplateDescription description,
       LaunchTemplateVersion sourceVersion) {
-    RequestLaunchTemplateData data = launchTemplateData(credentials, description, sourceVersion);
+    RequestLaunchTemplateData data =
+        buildLaunchTemplateData(credentials, description, sourceVersion);
     CreateLaunchTemplateVersionResult result =
         ec2.createLaunchTemplateVersion(
             new CreateLaunchTemplateVersionRequest()
@@ -77,23 +63,6 @@ public class LaunchTemplateService {
                 .withLaunchTemplateId(sourceVersion.getLaunchTemplateId())
                 .withLaunchTemplateData(data));
     return result.getLaunchTemplateVersion();
-  }
-
-  public List<LaunchTemplateBlockDeviceMappingRequest> buildDeviceMapping(
-      List<AmazonBlockDevice> amazonBlockDevices) {
-    final List<LaunchTemplateBlockDeviceMappingRequest> mappings = new ArrayList<>();
-    for (AmazonBlockDevice blockDevice : amazonBlockDevices) {
-      LaunchTemplateBlockDeviceMappingRequest mapping =
-          new LaunchTemplateBlockDeviceMappingRequest().withDeviceName(blockDevice.getDeviceName());
-      if (blockDevice.getVirtualName() != null) {
-        mapping.setVirtualName(blockDevice.getVirtualName());
-      } else {
-        mapping.setEbs(getLaunchTemplateEbsBlockDeviceRequest(blockDevice));
-      }
-
-      mappings.add(mapping);
-    }
-    return mappings;
   }
 
   public Optional<LaunchTemplateVersion> getLaunchTemplateVersion(
@@ -131,14 +100,14 @@ public class LaunchTemplateService {
       String launchTemplateName,
       Boolean requireIMDSv2,
       Boolean associateIPv6Address) {
-    final RequestLaunchTemplateData request =
+    final RequestLaunchTemplateData data =
         buildLaunchTemplateData(settings, launchTemplateName, requireIMDSv2, associateIPv6Address);
     return retrySupport.retry(
         () -> {
           final CreateLaunchTemplateRequest launchTemplateRequest =
               new CreateLaunchTemplateRequest()
                   .withLaunchTemplateName(launchTemplateName)
-                  .withLaunchTemplateData(request);
+                  .withLaunchTemplateData(data);
           return ec2.createLaunchTemplate(launchTemplateRequest).getLaunchTemplate();
         },
         3,
@@ -146,71 +115,103 @@ public class LaunchTemplateService {
         false);
   }
 
-  public RequestLaunchTemplateData launchTemplateData(
+  /**
+   * Build launch template data for launch template modification i.e. new launch template version
+   */
+  private RequestLaunchTemplateData buildLaunchTemplateData(
       NetflixAmazonCredentials credentials,
       ModifyServerGroupLaunchTemplateDescription description,
       LaunchTemplateVersion launchTemplateVersion) {
-    String base64UserData =
-        (localFileUserDataProperties != null && !localFileUserDataProperties.isEnabled())
-            ? launchTemplateVersion.getLaunchTemplateData().getUserData()
-            : null;
-
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(description.getImageId())
             .withKernelId(description.getKernelId())
             .withInstanceType(description.getInstanceType())
             .withRamDiskId(description.getRamdiskId())
-            .withEbsOptimized(description.getEbsOptimized())
-            .withKeyName(description.getKeyPair())
             .withIamInstanceProfile(
                 new LaunchTemplateIamInstanceProfileSpecificationRequest()
-                    .withName(description.getIamRole()))
-            .withMonitoring(
-                new LaunchTemplatesMonitoringRequest()
-                    .withEnabled(description.getInstanceMonitoring()));
+                    .withName(description.getIamRole()));
 
-    UserDataRequest userDataRequest =
-        UserDataRequest.builder()
-            .launchTemplate(true)
-            .asgName(description.getAsgName())
-            .launchSettingName(launchTemplateVersion.getLaunchTemplateName())
-            .region(description.getRegion())
-            .account(description.getAccount())
-            .environment(credentials.getEnvironment())
-            .accountType(credentials.getAccountType())
-            .iamRole(description.getIamRole())
-            .imageId(description.getImageId())
-            .build();
+    if (description.getEbsOptimized() != null) {
+      request.setEbsOptimized(description.getEbsOptimized());
+    }
 
-    request.withUserData(userDataRequest.getUserData(userDataProviders, base64UserData));
+    if (description.getInstanceMonitoring() != null) {
+      request.setMonitoring(
+          new LaunchTemplatesMonitoringRequest().withEnabled(description.getInstanceMonitoring()));
+    }
+
+    /*
+     Copy over the original user data only if the UserDataProviders behavior is disabled.
+     This is to avoid having duplicate user data.
+    */
+    String base64UserData =
+        (localFileUserDataProperties != null && !localFileUserDataProperties.isEnabled())
+            ? launchTemplateVersion.getLaunchTemplateData().getUserData()
+            : null;
+    setUserData(
+        request,
+        description.getAsgName(),
+        launchTemplateVersion.getLaunchTemplateName(),
+        description.getRegion(),
+        description.getAccount(),
+        credentials.getEnvironment(),
+        credentials.getAccountType(),
+        description.getIamRole(),
+        description.getImageId(),
+        base64UserData);
 
     // block device mappings
-    request.setBlockDeviceMappings(buildDeviceMapping(description.getBlockDevices()));
+    if (description.getBlockDevices() != null) {
+      request.setBlockDeviceMappings(buildDeviceMapping(description.getBlockDevices()));
+    }
 
     // metadata options
-    if (description.getRequireIMDV2()) {
+    if (description.getRequireIMDV2() != null) {
       request.setMetadataOptions(
-          new LaunchTemplateInstanceMetadataOptionsRequest().withHttpTokens("required"));
+          new LaunchTemplateInstanceMetadataOptionsRequest()
+              .withHttpTokens(description.getRequireIMDV2() ? "required" : ""));
     }
 
     // instance market options
-    request.withInstanceMarketOptions(
-        new LaunchTemplateInstanceMarketOptionsRequest()
-            .withSpotOptions(
-                new LaunchTemplateSpotMarketOptionsRequest()
-                    .withMaxPrice(description.getSpotPrice())));
+    setSpotInstanceMarketOptions(request, description.getSpotPrice());
 
     // network interfaces
-    request.withNetworkInterfaces(
-        new LaunchTemplateInstanceNetworkInterfaceSpecificationRequest()
-            .withAssociatePublicIpAddress(description.getAssociatePublicIpAddress())
-            .withIpv6AddressCount(description.getAssociateIPv6Address() ? 1 : 0)
-            .withGroups(description.getSecurityGroups())
-            .withDeviceIndex(0));
-    return request;
+    LaunchTemplateInstanceNetworkInterfaceSpecificationRequest networkInterfaceRequest =
+        new LaunchTemplateInstanceNetworkInterfaceSpecificationRequest();
+
+    LaunchTemplateInstanceNetworkInterfaceSpecification defaultInterface;
+    List<LaunchTemplateInstanceNetworkInterfaceSpecification> networkInterfaces =
+        launchTemplateVersion.getLaunchTemplateData().getNetworkInterfaces();
+    if (networkInterfaces != null && !networkInterfaces.isEmpty()) {
+      defaultInterface =
+          networkInterfaces.stream()
+              .filter(i -> i.getDeviceIndex() == 0)
+              .findFirst()
+              .orElseGet(LaunchTemplateInstanceNetworkInterfaceSpecification::new);
+    } else {
+      defaultInterface = new LaunchTemplateInstanceNetworkInterfaceSpecification();
+    }
+
+    if (description.getAssociateIPv6Address() != null) {
+      networkInterfaceRequest.setIpv6AddressCount(
+          description.getAssociateIPv6Address() || defaultInterface.getIpv6AddressCount() > 0
+              ? 1
+              : 0);
+    }
+
+    if (description.getAssociatePublicIpAddress() != null) {
+      networkInterfaceRequest.setAssociatePublicIpAddress(
+          description.getAssociatePublicIpAddress());
+    }
+
+    networkInterfaceRequest.setDeviceIndex(0);
+    networkInterfaceRequest.setGroups(description.getSecurityGroups());
+
+    return request.withNetworkInterfaces(networkInterfaceRequest);
   }
 
+  /** Build launch template data for new launch template creation */
   private RequestLaunchTemplateData buildLaunchTemplateData(
       LaunchConfigurationSettings settings,
       String launchTemplateName,
@@ -231,21 +232,17 @@ public class LaunchTemplateService {
                 new LaunchTemplatesMonitoringRequest()
                     .withEnabled(settings.getInstanceMonitoring()));
 
-    UserDataRequest userDataRequest =
-        UserDataRequest.builder()
-            .launchTemplate(true)
-            .asgName(settings.getBaseName())
-            .launchSettingName(launchTemplateName)
-            .region(settings.getRegion())
-            .account(settings.getAccount())
-            .environment(settings.getEnvironment())
-            .accountType(settings.getAccountType())
-            .iamRole(settings.getIamRole())
-            .imageId(settings.getAmi())
-            .build();
-
-    request.withUserData(
-        userDataRequest.getUserData(userDataProviders, settings.getBase64UserData()));
+    setUserData(
+        request,
+        settings.getBaseName(),
+        launchTemplateName,
+        settings.getRegion(),
+        settings.getAccount(),
+        settings.getEnvironment(),
+        settings.getAccountType(),
+        settings.getIamRole(),
+        settings.getAmi(),
+        settings.getBase64UserData());
 
     // block device mappings
     request.setBlockDeviceMappings(buildDeviceMapping(settings.getBlockDevices()));
@@ -257,11 +254,7 @@ public class LaunchTemplateService {
     }
 
     // instance market options
-    request.withInstanceMarketOptions(
-        new LaunchTemplateInstanceMarketOptionsRequest()
-            .withSpotOptions(
-                new LaunchTemplateSpotMarketOptionsRequest()
-                    .withMaxPrice(settings.getSpotPrice())));
+    setSpotInstanceMarketOptions(request, settings.getSpotPrice());
 
     // network interfaces
     request.withNetworkInterfaces(
@@ -270,7 +263,66 @@ public class LaunchTemplateService {
             .withIpv6AddressCount(associateIPv6Address ? 1 : 0)
             .withGroups(settings.getSecurityGroups())
             .withDeviceIndex(0));
+
     return request;
+  }
+
+  /**
+   * Set instance market options, required when launching spot instances
+   * https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplatedata-instancemarketoptions.html
+   */
+  private void setSpotInstanceMarketOptions(
+      RequestLaunchTemplateData request, String maxSpotPrice) {
+    if (maxSpotPrice != null) {
+      request.setInstanceMarketOptions(
+          new LaunchTemplateInstanceMarketOptionsRequest()
+              .withMarketType("spot")
+              .withSpotOptions(
+                  new LaunchTemplateSpotMarketOptionsRequest().withMaxPrice(maxSpotPrice)));
+    }
+  }
+
+  private void setUserData(
+      RequestLaunchTemplateData request,
+      String asgName,
+      String launchTemplateName,
+      String region,
+      String account,
+      String env,
+      String accType,
+      String iamRole,
+      String imageId,
+      String base64UserData) {
+    final UserDataRequest userDataRequest =
+        UserDataRequest.builder()
+            .launchTemplate(true)
+            .asgName(asgName)
+            .launchSettingName(launchTemplateName)
+            .region(region)
+            .account(account)
+            .environment(env)
+            .accountType(accType)
+            .iamRole(iamRole)
+            .imageId(imageId)
+            .build();
+    request.setUserData(userDataRequest.getUserData(userDataProviders, base64UserData));
+  }
+
+  private List<LaunchTemplateBlockDeviceMappingRequest> buildDeviceMapping(
+      List<AmazonBlockDevice> amazonBlockDevices) {
+    final List<LaunchTemplateBlockDeviceMappingRequest> mappings = new ArrayList<>();
+    for (AmazonBlockDevice blockDevice : amazonBlockDevices) {
+      LaunchTemplateBlockDeviceMappingRequest mapping =
+          new LaunchTemplateBlockDeviceMappingRequest().withDeviceName(blockDevice.getDeviceName());
+      if (blockDevice.getVirtualName() != null) {
+        mapping.setVirtualName(blockDevice.getVirtualName());
+      } else {
+        mapping.setEbs(getLaunchTemplateEbsBlockDeviceRequest(blockDevice));
+      }
+
+      mappings.add(mapping);
+    }
+    return mappings;
   }
 
   private LaunchTemplateEbsBlockDeviceRequest getLaunchTemplateEbsBlockDeviceRequest(

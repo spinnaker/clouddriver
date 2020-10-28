@@ -19,16 +19,16 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.description;
 
 public class ModifyServerGroupLaunchTemplateDescription
     extends ModifyAsgLaunchConfigurationDescription {
-  private boolean requireIMDV2 = false;
+  private Boolean requireIMDV2;
   private String kernelId;
   private String imageId;
-  private boolean associateIPv6Address;
+  private Boolean associateIPv6Address;
 
-  public boolean getRequireIMDV2() {
+  public Boolean getRequireIMDV2() {
     return requireIMDV2;
   }
 
-  public void setRequireIMDV2(boolean requireIMDV2) {
+  public void setRequireIMDV2(Boolean requireIMDV2) {
     this.requireIMDV2 = requireIMDV2;
   }
 
@@ -48,7 +48,7 @@ public class ModifyServerGroupLaunchTemplateDescription
     this.imageId = imageId;
   }
 
-  public boolean getAssociateIPv6Address() {
+  public Boolean getAssociateIPv6Address() {
     return associateIPv6Address;
   }
 

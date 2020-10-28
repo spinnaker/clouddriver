@@ -21,6 +21,8 @@ import com.amazonaws.services.autoscaling.model.AutoScalingGroup;
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.LaunchTemplateBlockDeviceMapping;
+import com.amazonaws.services.ec2.model.LaunchTemplateIamInstanceProfileSpecification;
+import com.amazonaws.services.ec2.model.LaunchTemplateInstanceMarketOptions;
 import com.amazonaws.services.ec2.model.LaunchTemplateVersion;
 import com.amazonaws.services.ec2.model.ResponseLaunchTemplateData;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -39,7 +41,7 @@ import com.netflix.spinnaker.clouddriver.event.EventMetadata;
 import com.netflix.spinnaker.clouddriver.saga.SagaCommand;
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -59,12 +61,12 @@ public class PrepareModifyServerGroupLaunchTemplate
     implements SagaAction<
         PrepareModifyServerGroupLaunchTemplate.PrepareModifyServerGroupLaunchTemplateCommand> {
   private final BlockDeviceConfig blockDeviceConfig;
-  private final AccountCredentialsRepository credentialsRepository;
+  private final CredentialsRepository<NetflixAmazonCredentials> credentialsRepository;
   private final RegionScopedProviderFactory regionScopedProviderFactory;
 
   public PrepareModifyServerGroupLaunchTemplate(
       BlockDeviceConfig blockDeviceConfig,
-      AccountCredentialsRepository credentialsRepository,
+      CredentialsRepository<NetflixAmazonCredentials> credentialsRepository,
       RegionScopedProviderFactory regionScopedProviderFactory) {
     this.blockDeviceConfig = blockDeviceConfig;
     this.credentialsRepository = credentialsRepository;
@@ -90,13 +92,21 @@ public class PrepareModifyServerGroupLaunchTemplate
         getLaunchTemplateVersion(autoScalingGroup, regionScopedProvider);
     ResponseLaunchTemplateData launchTemplateData = launchTemplateVersion.getLaunchTemplateData();
 
-    String spotPrice = description.getSpotPrice();
+    LaunchTemplateInstanceMarketOptions marketOptions =
+        launchTemplateData.getInstanceMarketOptions();
+    String maxPrice = null;
+    if (marketOptions != null && marketOptions.getSpotOptions() != null) {
+      maxPrice = marketOptions.getSpotOptions().getMaxPrice();
+    }
+
+    String spotPrice = Optional.ofNullable(description.getSpotPrice()).orElse(maxPrice);
     if (spotPrice != null && spotPrice.equals("")) {
       // a spotPrice of "" indicates that it should be removed regardless of value on source
       // launch template
       description.setSpotPrice(null);
     }
 
+    description.setSpotPrice(spotPrice);
     if (description.getImageId() == null) {
       saga.log("Resolving Image Id for " + description.getAmiName());
       // resolve imageId
@@ -110,20 +120,35 @@ public class PrepareModifyServerGroupLaunchTemplate
       description.setImageId(imageId.get());
     }
 
-    Set<String> securityGroup =
+    Set<String> securityGroups =
         new HashSet<>(
             Optional.ofNullable(description.getSecurityGroups()).orElse(new ArrayList<String>()));
 
     if (description.getSecurityGroupsAppendOnly() != null
         && description.getSecurityGroupsAppendOnly()) {
       // append security groups
-      securityGroup.addAll(launchTemplateData.getSecurityGroupIds());
+      securityGroups.addAll(launchTemplateData.getSecurityGroupIds());
     }
 
-    List<AmazonBlockDevice> blockDevices = description.getBlockDevices();
-
     // if we are changing instance types and don't have explicitly supplied block device mappings
-    String instanceType = description.getInstanceType();
+    String instanceType =
+        Optional.ofNullable(description.getInstanceType())
+            .orElseGet(launchTemplateData::getInstanceType);
+    LaunchTemplateIamInstanceProfileSpecification iamInstanceProfile =
+        launchTemplateData.getIamInstanceProfile();
+    String iamRole = null;
+    if (iamInstanceProfile != null) {
+      iamRole = iamInstanceProfile.getName();
+    }
+
+    description.setIamRole(Optional.ofNullable(description.getIamRole()).orElse(iamRole));
+    description.setKeyPair(
+        Optional.ofNullable(description.getIamRole()).orElseGet(launchTemplateData::getKeyName));
+    description.setRamdiskId(
+        Optional.ofNullable(description.getRamdiskId())
+            .orElseGet(launchTemplateData::getRamDiskId));
+
+    List<AmazonBlockDevice> blockDevices = description.getBlockDevices();
     if (blockDevices == null
         && instanceType != null
         && !instanceType.equals(launchTemplateData.getInstanceType())) {

@@ -46,7 +46,8 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
+import com.netflix.spinnaker.credentials.CredentialsRepository
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 
@@ -73,26 +74,29 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
   }
 
   private final RegionScopedProviderFactory regionScopedProviderFactory
-  private final AccountCredentialsRepository accountCredentialsRepository
+  private final CredentialsRepository<NetflixAmazonCredentials> accountCredentialsRepository
   private final AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider
   private final AwsConfiguration.DeployDefaults deployDefaults
   private final ScalingPolicyCopier scalingPolicyCopier
   private final BlockDeviceConfig blockDeviceConfig
+  private final DynamicConfigService dynamicConfigService
 
   private List<CreateServerGroupEvent> deployEvents = []
 
   BasicAmazonDeployHandler(RegionScopedProviderFactory regionScopedProviderFactory,
-                           AccountCredentialsRepository accountCredentialsRepository,
+                           CredentialsRepository<NetflixAmazonCredentials> accountCredentialsRepository,
                            AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider,
                            AwsConfiguration.DeployDefaults deployDefaults,
                            ScalingPolicyCopier scalingPolicyCopier,
-                           BlockDeviceConfig blockDeviceConfig) {
+                           BlockDeviceConfig blockDeviceConfig,
+                           DynamicConfigService dynamicConfigService) {
     this.regionScopedProviderFactory = regionScopedProviderFactory
     this.accountCredentialsRepository = accountCredentialsRepository
     this.amazonServerGroupProvider = amazonServerGroupProvider
     this.deployDefaults = deployDefaults
     this.scalingPolicyCopier = scalingPolicyCopier
     this.blockDeviceConfig = blockDeviceConfig
+    this.dynamicConfigService = dynamicConfigService
   }
 
   @Override
@@ -242,8 +246,8 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
       validateInstanceType(ami, description.instanceType)
 
       def account = accountCredentialsRepository.getOne(description.credentials.name)
-      if (!(account instanceof NetflixAmazonCredentials)) {
-        throw new IllegalArgumentException("Unsupported account type ${account.class.simpleName} for this operation")
+      if (account == null) {
+        throw new IllegalArgumentException("Account with name ${description.credentials.name} could not be found.")
       }
 
       if (description.useAmiBlockDeviceMappings) {
@@ -304,7 +308,8 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         lifecycleHooks: getLifecycleHooks(account, description),
         setLaunchTemplate: description.setLaunchTemplate,
         requireIMDSv2: description.requireIMDSv2,
-        associateIPv6Address: description.associateIPv6Address
+        associateIPv6Address: description.associateIPv6Address,
+        dynamicConfigService: dynamicConfigService
       )
 
       def asgName = autoScalingWorker.deploy()
@@ -538,7 +543,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
                                                                                            BasicAmazonDeployDescription.Source source) {
     if (source.account && source.region && source.asgName) {
       def sourceRegion = source.region
-      def sourceAsgCredentials = accountCredentialsRepository.getOne(source.account) as NetflixAmazonCredentials
+      def sourceAsgCredentials = accountCredentialsRepository.getOne(source.account)
       def regionScopedProvider = regionScopedProviderFactory.forRegion(sourceAsgCredentials, sourceRegion)
 
       def sourceAsgs = regionScopedProvider.autoScaling.describeAutoScalingGroups(

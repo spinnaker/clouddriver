@@ -144,8 +144,12 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
     if (account == null || region == null) {
       return null;
     }
-    CloudFoundrySpace space =
-        this.getClient().getOrganizations().findSpaceByRegion(region).orElse(null);
+
+    if (!this.getAccountName().equals(account)) {
+      return null;
+    }
+
+    CloudFoundrySpace space = this.getClient().getSpaces().findSpaceByRegion(region).orElse(null);
     if (space == null) {
       return null;
     }
@@ -191,7 +195,7 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<String> keys =
         providerCache.filterIdentifiers(
             ON_DEMAND.getNs(), Keys.getServerGroupKey(this.getAccountName(), "*", "*"));
