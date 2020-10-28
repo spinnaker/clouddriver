@@ -223,8 +223,12 @@ class TitusClusterProvider implements ClusterProvider<TitusCluster>, ServerGroup
       String key = DockerRegistryCacheKeys.getTaggedImageKey(registry, job.applicationName, job.version)
       Set<CacheData> images = DockerRegistryProviderUtils
         .getAllMatchingKeyPattern(cacheView, DockerRegistryCacheKeys.Namespace.TAGGED_IMAGE.getNs(), key)
-      List<Map<String, String>> allAttributes = images.collect {it.attributes }
-      if(allAttributes.size() >1) {
+      List<Map<String, String>> allAttributes = images.collect { it.attributes }
+      if (allAttributes.size() == 0 ) {
+        log.debug("Tagged image attributes not found for key: ${key}")
+        return Optional.empty()
+      }
+      if (allAttributes.size() > 1) {
         throw new TitusException("More than 1 tagged image found, Expected 1, but got ${allAttributes.size()}")
       }
       else return Optional.of(allAttributes.first())
