@@ -140,8 +140,6 @@ public class CreateServerGroupWithArtifactsSpec extends EcsSpec {
         generateStringFromTestFile("/createServerGroup-artifact-EC2-targetGroupMappings.json");
     String expectedServerGroupName = "ecs-integArtifactsEC2TgMappingsStack-detailTest-v000";
 
-    setEcsAccountCreds();
-
     ByteArrayInputStream byteArrayInputStreamOfArtifactsForEC2Type =
         new ByteArrayInputStream(
             generateStringFromTestArtifactFile(
@@ -237,8 +235,6 @@ public class CreateServerGroupWithArtifactsSpec extends EcsSpec {
     String requestBody =
         generateStringFromTestFile("/createServerGroup-artifact-FARGATE-targetGroupMappings.json");
     String expectedServerGroupName = "ecs-integArtifactsFargateTgMappingsStack-detailTest-v000";
-
-    setEcsAccountCreds();
 
     ByteArrayInputStream byteArrayInputStreamOfArtifactsForFargateType =
         new ByteArrayInputStream(
