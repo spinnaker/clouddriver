@@ -80,7 +80,8 @@ metadata:
       new KubernetesSpinnakerKindMap(ImmutableList.of(new KubernetesDeploymentHandler(), new KubernetesReplicaSetHandler(), new KubernetesServiceHandler())),
       new KubernetesManifestNamer(),
       manifest,
-      [])
+      [],
+      false)
     def optional = kubernetesCacheData.toCacheData().stream().filter({
       cd -> cd.id == Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name)
     }).findFirst()

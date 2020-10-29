@@ -141,6 +141,15 @@ class KubernetesCacheUtils {
     return getRelationships(ImmutableList.of(cacheData), spinnakerKind).get(cacheData.getId());
   }
 
+  /** Gets the data for all relationships for a single CacheData item. */
+  ImmutableCollection<CacheData> getAllRelationships(CacheData cacheData) {
+    ImmutableList.Builder<CacheData> result = ImmutableList.builder();
+    cacheData
+        .getRelationships()
+        .forEach((kind, relationships) -> result.addAll(getRelationships(cacheData, kind)));
+    return result.build();
+  }
+
   /**
    * Gets the data for all relationships of a given Spinnaker kind for a collection of CacheData
    * items.
