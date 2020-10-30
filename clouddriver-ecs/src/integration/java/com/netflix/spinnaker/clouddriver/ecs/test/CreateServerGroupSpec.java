@@ -22,6 +22,16 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScalingClient;
+import com.amazonaws.services.applicationautoscaling.model.*;
+import com.amazonaws.services.applicationautoscaling.model.Alarm;
+import com.amazonaws.services.applicationautoscaling.model.PutScalingPolicyRequest;
+import com.amazonaws.services.applicationautoscaling.model.PutScalingPolicyResult;
+import com.amazonaws.services.applicationautoscaling.model.ScalingPolicy;
+import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
+import com.amazonaws.services.cloudwatch.model.DescribeAlarmsRequest;
+import com.amazonaws.services.cloudwatch.model.DescribeAlarmsResult;
+import com.amazonaws.services.cloudwatch.model.MetricAlarm;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.*;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
@@ -32,6 +42,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsSpec;
 import io.restassured.http.ContentType;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +56,9 @@ public class CreateServerGroupSpec extends EcsSpec {
 
   private AmazonECS mockECS = mock(AmazonECS.class);
   private AmazonElasticLoadBalancing mockELB = mock(AmazonElasticLoadBalancing.class);
+  private AWSApplicationAutoScalingClient mockAWSApplicationAutoScalingClient =
+      mock(AWSApplicationAutoScalingClient.class);
+  private AmazonCloudWatch mockAmazonCloudWatchClient = mock(AmazonCloudWatch.class);
 
   @BeforeEach
   public void setup() {
@@ -85,6 +99,59 @@ public class CreateServerGroupSpec extends EcsSpec {
 
                   return new DescribeTargetGroupsResult().withTargetGroups(testTg);
                 });
+
+    when(mockAWSApplicationAutoScalingClient.describeScalableTargets(
+            any(DescribeScalableTargetsRequest.class)))
+        .thenAnswer(
+            (Answer<DescribeScalableTargetsResult>)
+                invocation -> {
+                  ScalableTarget scalableTarget =
+                      new ScalableTarget()
+                          .withMaxCapacity(1)
+                          .withMinCapacity(1)
+                          .withResourceId("service/default/sample-webapp");
+                  return new DescribeScalableTargetsResult().withScalableTargets(scalableTarget);
+                });
+
+    when(mockAWSApplicationAutoScalingClient.describeScalingPolicies(
+            any(DescribeScalingPoliciesRequest.class)))
+        .thenAnswer(
+            (Answer<DescribeScalingPoliciesResult>)
+                invocation -> {
+                  Alarm alarm =
+                      new Alarm()
+                          .withAlarmARN("arn:aws:cloudwatch:us-east-1:123456789012:alarm:myalarm")
+                          .withAlarmName("myalarm");
+                  ScalingPolicy scalablePolicy =
+                      new ScalingPolicy()
+                          .withResourceId("service/default/sample-webapp")
+                          .withPolicyName("ecsTestPolicy")
+                          .withPolicyARN(
+                              "arn:aws:autoscaling:us-west-2:012345678910:scalingPolicy:6d8972f3-efc8-437c-92d1-6270f29a66e7:resource/ecs/service/default/web-app:policyName/web-app-cpu-gt-75")
+                          .withAlarms(Arrays.asList(alarm));
+                  return new DescribeScalingPoliciesResult()
+                      .withScalingPolicies(Arrays.asList(scalablePolicy));
+                });
+
+    when(mockAWSApplicationAutoScalingClient.putScalingPolicy(any(PutScalingPolicyRequest.class)))
+        .thenReturn(
+            new PutScalingPolicyResult()
+                .withPolicyARN(
+                    "arn:aws:autoscaling:us-west-2:012345678910:scalingPolicy:6d8972f3-efc8-437c-92d1-6270f29a66e7:resource/ecs/service/default/web-app:policyName/web-app-cpu-gt-75"));
+
+    when(mockAmazonCloudWatchClient.describeAlarms(any(DescribeAlarmsRequest.class)))
+        .thenReturn(
+            new DescribeAlarmsResult()
+                .withMetricAlarms(
+                    Arrays.asList(new MetricAlarm().withAlarmName("TargetTracking-myalarm"))));
+
+    when(mockAwsProvider.getAmazonApplicationAutoScaling(
+            any(NetflixAmazonCredentials.class), anyString(), anyBoolean()))
+        .thenReturn(mockAWSApplicationAutoScalingClient);
+
+    when(mockAwsProvider.getAmazonCloudWatch(
+            any(NetflixAmazonCredentials.class), anyString(), anyBoolean()))
+        .thenReturn(mockAmazonCloudWatchClient);
 
     when(mockAwsProvider.getAmazonElasticLoadBalancingV2(
             any(NetflixAmazonCredentials.class), anyString(), anyBoolean()))
@@ -364,5 +431,99 @@ public class CreateServerGroupSpec extends EcsSpec {
         },
         String.format("Failed to observe task failure after %s seconds", TASK_RETRY_SECONDS),
         TASK_RETRY_SECONDS);
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given description w/ inputs, EC2 launch type, and legacy target group "
+          + "with Auto Scaling Group, successfully submit createServerGroup operation"
+          + "\n===")
+  @Test
+  public void createServerGroup_InputsEc2LegacyTargetGroupWithAutoScalingGroupTest()
+      throws IOException, InterruptedException {
+
+    // given
+    String url = getTestUrl(CREATE_SG_TEST_PATH);
+    String requestBody =
+        generateStringFromTestFile(
+            "/createServerGroup-inputs-ec2-LegacyTargetGroup-autoScalingGroup.json");
+    String expectedServerGroupName = "ecs-integInputsEc2LegacyTargetGroupWithAutoScalingGroup";
+    setEcsAccountCreds();
+
+    // when
+    String taskId =
+        given()
+            .contentType(ContentType.JSON)
+            .body(requestBody)
+            .when()
+            .post(url)
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("id", notNullValue())
+            .body("resourceUri", containsString("/task/"))
+            .extract()
+            .path("id");
+
+    retryUntilTrue(
+        () -> {
+          List<Object> taskHistory =
+              get(getTestUrl("/task/" + taskId))
+                  .then()
+                  .contentType(ContentType.JSON)
+                  .extract()
+                  .path("history");
+          if (taskHistory
+              .toString()
+              .contains(String.format("Done creating 1 of %s-v000", expectedServerGroupName))) {
+            return true;
+          }
+          return false;
+        },
+        String.format("Failed to detect service creation in %s seconds", TASK_RETRY_SECONDS),
+        TASK_RETRY_SECONDS);
+
+    // then
+    ArgumentCaptor<RegisterTaskDefinitionRequest> registerTaskDefArgs =
+        ArgumentCaptor.forClass(RegisterTaskDefinitionRequest.class);
+    verify(mockECS).registerTaskDefinition(registerTaskDefArgs.capture());
+    RegisterTaskDefinitionRequest seenTaskDefRequest = registerTaskDefArgs.getValue();
+    assertEquals(expectedServerGroupName, seenTaskDefRequest.getFamily());
+    assertEquals(1, seenTaskDefRequest.getContainerDefinitions().size());
+
+    ArgumentCaptor<DescribeTargetGroupsRequest> elbArgCaptor =
+        ArgumentCaptor.forClass(DescribeTargetGroupsRequest.class);
+    verify(mockELB).describeTargetGroups(elbArgCaptor.capture());
+
+    ArgumentCaptor<CreateServiceRequest> createServiceArgs =
+        ArgumentCaptor.forClass(CreateServiceRequest.class);
+    verify(mockECS).createService(createServiceArgs.capture());
+    CreateServiceRequest seenCreateServRequest = createServiceArgs.getValue();
+    assertEquals("EC2", seenCreateServRequest.getLaunchType());
+    assertEquals(expectedServerGroupName + "-v000", seenCreateServRequest.getServiceName());
+    assertEquals(1, seenCreateServRequest.getLoadBalancers().size());
+    LoadBalancer serviceLB = seenCreateServRequest.getLoadBalancers().get(0);
+    assertEquals("v000", serviceLB.getContainerName());
+    assertEquals(80, serviceLB.getContainerPort().intValue());
+    assertEquals(
+        "integInputsEc2LegacyTargetGroupWithAutoScaling-cluster",
+        seenCreateServRequest.getCluster());
+
+    ArgumentCaptor<PutScalingPolicyRequest> scalableTargetsRequestArgumentCaptor =
+        ArgumentCaptor.forClass(PutScalingPolicyRequest.class);
+    verify(mockAWSApplicationAutoScalingClient)
+        .putScalingPolicy(scalableTargetsRequestArgumentCaptor.capture());
+    PutScalingPolicyRequest seenDescribeScalableTargetsRequest =
+        scalableTargetsRequestArgumentCaptor.getValue();
+    assertEquals("createdServiceTestPolicy", seenDescribeScalableTargetsRequest.getPolicyName());
+    assertEquals(
+        "service/integInputsEc2LegacyTargetGroupWithAutoScaling-cluster/createdService",
+        seenDescribeScalableTargetsRequest.getResourceId());
+
+    ArgumentCaptor<DescribeAlarmsRequest> describeAlarmsRequestArgsCaptor =
+        ArgumentCaptor.forClass(DescribeAlarmsRequest.class);
+    verify(mockAmazonCloudWatchClient).describeAlarms(describeAlarmsRequestArgsCaptor.capture());
+    DescribeAlarmsRequest describeAlarmsRequest = describeAlarmsRequestArgsCaptor.getValue();
+    assertEquals("myalarm", describeAlarmsRequest.getAlarmNames().get(0));
   }
 }
