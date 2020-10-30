@@ -50,7 +50,7 @@ public class ForceDestroyWatchdog extends ExecuteWatchdog {
     try {
       Thread.sleep(GRACE_PERIOD_MS);
     } catch (InterruptedException e) {
-      // nothing to do
+      Thread.currentThread().interrupt();
     }
 
     if (process.isAlive()) {
