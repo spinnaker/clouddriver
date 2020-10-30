@@ -18,7 +18,10 @@ package com.netflix.spinnaker.clouddriver.aws.security.config;
 
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A mutable credentials configurations structure suitable for transformation into concrete
@@ -71,6 +74,21 @@ public class CredentialsConfig {
       clone.setDeprecated(getDeprecated());
 
       return clone;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (!(o instanceof Region)) return false;
+
+      Region region = (Region) o;
+
+      return Objects.equals(name, region.name);
+    }
+
+    @Override
+    public int hashCode() {
+      return name != null ? name.hashCode() : 0;
     }
   }
 
@@ -128,6 +146,32 @@ public class CredentialsConfig {
 
     public void setDefaultResult(String defaultResult) {
       this.defaultResult = defaultResult;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (!(o instanceof LifecycleHook)) return false;
+
+      LifecycleHook that = (LifecycleHook) o;
+
+      if (!Objects.equals(name, that.name)) return false;
+      if (!Objects.equals(roleARN, that.roleARN)) return false;
+      if (!Objects.equals(notificationTargetARN, that.notificationTargetARN)) return false;
+      if (!Objects.equals(lifecycleTransition, that.lifecycleTransition)) return false;
+      if (!Objects.equals(heartbeatTimeout, that.heartbeatTimeout)) return false;
+      return Objects.equals(defaultResult, that.defaultResult);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = name != null ? name.hashCode() : 0;
+      result = 31 * result + (roleARN != null ? roleARN.hashCode() : 0);
+      result = 31 * result + (notificationTargetARN != null ? notificationTargetARN.hashCode() : 0);
+      result = 31 * result + (lifecycleTransition != null ? lifecycleTransition.hashCode() : 0);
+      result = 31 * result + (heartbeatTimeout != null ? heartbeatTimeout.hashCode() : 0);
+      result = 31 * result + (defaultResult != null ? defaultResult.hashCode() : 0);
+      return result;
     }
   }
 
@@ -210,6 +254,9 @@ public class CredentialsConfig {
     }
 
     public void setRegions(List<Region> regions) {
+      if (regions != null) {
+        regions.sort(Comparator.comparing(Region::getName));
+      }
       this.regions = regions;
     }
 
@@ -218,6 +265,9 @@ public class CredentialsConfig {
     }
 
     public void setDefaultSecurityGroups(List<String> defaultSecurityGroups) {
+      if (defaultSecurityGroups != null) {
+        Collections.sort(defaultSecurityGroups);
+      }
       this.defaultSecurityGroups = defaultSecurityGroups;
     }
 
@@ -347,6 +397,62 @@ public class CredentialsConfig {
 
     public void setLambdaEnabled(Boolean lambdaEnabled) {
       this.lambdaEnabled = lambdaEnabled;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (!(o instanceof Account)) return false;
+
+      Account account = (Account) o;
+
+      if (!Objects.equals(lambdaEnabled, account.lambdaEnabled)) return false;
+      if (allowPrivateThirdPartyImages != account.allowPrivateThirdPartyImages) return false;
+      if (!Objects.equals(defaultKeyPair, account.defaultKeyPair)) return false;
+      if (!Objects.equals(enabled, account.enabled)) return false;
+      if (!Objects.equals(regions, account.regions)) return false;
+      if (!Objects.equals(defaultSecurityGroups, account.defaultSecurityGroups)) return false;
+      if (!Objects.equals(permissions, account.permissions)) return false;
+      if (!Objects.equals(edda, account.edda)) return false;
+      if (!Objects.equals(eddaEnabled, account.eddaEnabled)) return false;
+      if (!Objects.equals(discovery, account.discovery)) return false;
+      if (!Objects.equals(discoveryEnabled, account.discoveryEnabled)) return false;
+      if (!Objects.equals(front50, account.front50)) return false;
+      if (!Objects.equals(front50Enabled, account.front50Enabled)) return false;
+      if (!Objects.equals(bastionHost, account.bastionHost)) return false;
+      if (!Objects.equals(bastionEnabled, account.bastionEnabled)) return false;
+      if (!Objects.equals(assumeRole, account.assumeRole)) return false;
+      if (!Objects.equals(sessionName, account.sessionName)) return false;
+      if (!Objects.equals(externalId, account.externalId)) return false;
+      if (!Objects.equals(lifecycleHooks, account.lifecycleHooks)) return false;
+      if (!Objects.equals(accountId, account.accountId)) return false;
+      return (Objects.equals(name, account.name));
+    }
+
+    @Override
+    public int hashCode() {
+      int result = name.hashCode();
+      result = 31 * result + accountId.hashCode();
+      result = 31 * result + (defaultKeyPair != null ? defaultKeyPair.hashCode() : 0);
+      result = 31 * result + (enabled != null ? enabled.hashCode() : 0);
+      result = 31 * result + (regions != null ? regions.hashCode() : 0);
+      result = 31 * result + (defaultSecurityGroups != null ? defaultSecurityGroups.hashCode() : 0);
+      result = 31 * result + (permissions != null ? permissions.hashCode() : 0);
+      result = 31 * result + (edda != null ? edda.hashCode() : 0);
+      result = 31 * result + (eddaEnabled != null ? eddaEnabled.hashCode() : 0);
+      result = 31 * result + (lambdaEnabled != null ? lambdaEnabled.hashCode() : 0);
+      result = 31 * result + (discovery != null ? discovery.hashCode() : 0);
+      result = 31 * result + (discoveryEnabled != null ? discoveryEnabled.hashCode() : 0);
+      result = 31 * result + (front50 != null ? front50.hashCode() : 0);
+      result = 31 * result + (front50Enabled != null ? front50Enabled.hashCode() : 0);
+      result = 31 * result + (bastionHost != null ? bastionHost.hashCode() : 0);
+      result = 31 * result + (bastionEnabled != null ? bastionEnabled.hashCode() : 0);
+      result = 31 * result + (assumeRole != null ? assumeRole.hashCode() : 0);
+      result = 31 * result + (sessionName != null ? sessionName.hashCode() : 0);
+      result = 31 * result + (externalId != null ? externalId.hashCode() : 0);
+      result = 31 * result + (lifecycleHooks != null ? lifecycleHooks.hashCode() : 0);
+      result = 31 * result + (allowPrivateThirdPartyImages ? 1 : 0);
+      return result;
     }
   }
 
