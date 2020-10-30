@@ -39,7 +39,6 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
-import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.kork.core.RetrySupport
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
@@ -48,7 +47,6 @@ import groovy.util.logging.Slf4j
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.function.Supplier
-import java.util.regex.Pattern
 
 /**
  * A worker class dedicated to the deployment of "applications", following many of Netflix's common AWS conventions.
@@ -107,6 +105,7 @@ class AutoScalingWorker {
   private Boolean setLaunchTemplate
   private Boolean requireIMDSv2
   private Boolean associateIPv6Address
+  private Boolean unlimitedCpuCredits
 
   private int minInstances
   private int maxInstances
@@ -126,7 +125,7 @@ class AutoScalingWorker {
    *    <li>Looking up security group ids for the names provided as "securityGroups";</li>
    *    <li>Look up an ancestor ASG based on Netflix naming conventions, and bring its security groups to the new ASG;</li>
    *    <li>Retrieve user data from all available {@link com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider}s;</li>
-   *    <li>Create the ASG's Launch Configuration with User Data and Security Groups;</li>
+   *    <li>Create the ASG's Launch Configuration or Launch Template with User Data and Security Groups;</li>
    *    <li>Create a new ASG in the subnets found from the optionally supplied subnetType.</li>
    *  </ol>
    *
@@ -185,9 +184,15 @@ class AutoScalingWorker {
 
       final LaunchTemplate launchTemplate = regionScopedProvider
         .getLaunchTemplateService()
-        .createLaunchTemplate(settings, DefaultLaunchConfigurationBuilder.createName(settings), requireIMDSv2, associateIPv6Address)
+        .createLaunchTemplate(
+              settings,
+              DefaultLaunchConfigurationBuilder.createName(settings),
+              requireIMDSv2,
+              associateIPv6Address,
+              unlimitedCpuCredits)
       launchTemplateSpecification = new LaunchTemplateSpecification(
-        launchTemplateId: launchTemplate.launchTemplateId, version: launchTemplate.latestVersionNumber)
+              launchTemplateId: launchTemplate.launchTemplateId,
+              version: launchTemplate.latestVersionNumber)
     } else {
       launchConfigName = regionScopedProvider.getLaunchConfigurationBuilder().buildLaunchConfiguration(application, subnetType, settings, legacyUdf)
     }
@@ -402,12 +407,27 @@ class AutoScalingWorker {
     // This is a comma separated list of applications to exclude
     String excludedApps = dynamicConfigService
       .getConfig(String.class, "aws.features.launch-templates.excluded-applications", "")
-    if (matchesAppAccountAndRegion(application, credentials.name, region, excludedApps.split(","))) {
-      return false
+    for (excludedApp in excludedApps.split(",")) {
+      if (excludedApp.trim() == application) {
+        return false
+      }
+    }
+
+    // This is a comma separated list of accounts to exclude
+    String excludedAccounts = dynamicConfigService.getConfig(String.class, "aws.features.launch-templates.excluded-accounts", "")
+    for (excludedAccount in excludedAccounts.split(",")) {
+      if (excludedAccount.trim() == credentials.name) {
+        return false
+      }
+    }
+
+    // Allows everything that is not excluded
+    if (dynamicConfigService.isEnabled("aws.features.launch-templates.all-applications", false)) {
+      return true
     }
 
     // Application allow list with the following format:
-    // app1:account:region1,region2,app2:account:region1
+    // app1:account:region1,app2:account:region1
     // This allows more control over what account and region pairs to enable for this deployment.
     String allowedApps = dynamicConfigService
       .getConfig(String.class, "aws.features.launch-templates.allowed-applications", "")
@@ -415,7 +435,7 @@ class AutoScalingWorker {
       return true
     }
 
-    // Final check is an allow list for account/region pairs with the following format:
+    // An allow list for account/region pairs with the following format:
     // account:region
     String allowedAccountsAndRegions = dynamicConfigService
       .getConfig(String.class, "aws.features.launch-templates.allowed-accounts-regions", "")
@@ -428,11 +448,19 @@ class AutoScalingWorker {
       }
     }
 
+    // This is a comma separated list of accounts to allow
+    String allowedAccounts = dynamicConfigService.getConfig(String.class, "aws.features.launch-templates.allowed-accounts", "")
+    for (allowedAccount in allowedAccounts.split(",")) {
+      if (allowedAccount.trim() == credentials.name) {
+        return true
+      }
+    }
+
     return false
   }
 
   /**
-   * Helper function to parse and match an array of app:account:region1,...,regex=app:account,region
+   * Helper function to parse and match an array of app:account:region1,...,app:account,region
    * to the specified application, account and region
    * Used to flag launch template feature and rollout
    */
@@ -444,17 +472,17 @@ class AutoScalingWorker {
 
     for (appAccountRegion in applicationAccountRegions) {
       if (appAccountRegion && appAccountRegion.contains(":")) {
-        def (app, account, regions) = appAccountRegion.split(":")
-        // To avoid an ever long list of applications, a regex can be used to specify a group of apps. ex: regex=^cas
-        String regex = null
-        if (app.startsWith("regex=")) {
-          regex = ((String) app).substring(((String) app).indexOf("=") + 1)
+        try {
+          def (app, account, regions) = appAccountRegion.split(":")
+          if (app == application && account == accountName && region in (regions as String).split(",")) {
+            return true
+          }
+        } catch (Exception e) {
+          log.error("Unable to verify if application is allowed in shouldSetLaunchTemplate: ${appAccountRegion}")
+          return false
         }
 
-        boolean matchedApp = (regex && Pattern.matches(regex, application) || !regex && app == application)
-        if (matchedApp && account == accountName && region in (regions as String).split(",")) {
-          return true
-        }
+
       }
     }
 

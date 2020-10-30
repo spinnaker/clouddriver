@@ -41,6 +41,25 @@ public class LaunchTemplateService {
   private final LocalFileUserDataProperties localFileUserDataProperties;
   private final RetrySupport retrySupport = new RetrySupport();
 
+  /**
+   * Traditional Amazon EC2 instance types provide fixed CPU utilization, while burstable
+   * performance instances provide a baseline level of CPU utilization with the ability to burst CPU
+   * utilization above the baseline level. The baseline utilization and ability to burst are
+   * governed by CPU credits.
+   *
+   * <p>CPU credits can be configured with 2 modes: (1) unlimited: Can sustain high CPU utilization
+   * for any period of time whenever required. If the average CPU usage over a rolling 24-hour
+   * period exceeds the baseline, charges for surplus credits will apply. (2) standard: Suited to
+   * workloads with an average CPU utilization that is consistently below the baseline CPU
+   * utilization of the instance. To burst above the baseline, the instance spends credits that it
+   * has accrued in its CPU credit balance.
+   *
+   * <p>https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html
+   */
+  private static final String UNLIMITED_CPU_CREDITS = "unlimited";
+
+  private static final String STANDARD_CPU_CREDITS = "standard";
+
   public LaunchTemplateService(
       AmazonEC2 ec2,
       List<UserDataProvider> userDataProviders,
@@ -54,7 +73,8 @@ public class LaunchTemplateService {
       NetflixAmazonCredentials credentials,
       ModifyServerGroupLaunchTemplateDescription description,
       LaunchTemplateVersion sourceVersion) {
-    RequestLaunchTemplateData data = launchTemplateData(credentials, description, sourceVersion);
+    RequestLaunchTemplateData data =
+        buildLaunchTemplateData(credentials, description, sourceVersion);
     CreateLaunchTemplateVersionResult result =
         ec2.createLaunchTemplateVersion(
             new CreateLaunchTemplateVersionRequest()
@@ -62,23 +82,6 @@ public class LaunchTemplateService {
                 .withLaunchTemplateId(sourceVersion.getLaunchTemplateId())
                 .withLaunchTemplateData(data));
     return result.getLaunchTemplateVersion();
-  }
-
-  public List<LaunchTemplateBlockDeviceMappingRequest> buildDeviceMapping(
-      List<AmazonBlockDevice> amazonBlockDevices) {
-    final List<LaunchTemplateBlockDeviceMappingRequest> mappings = new ArrayList<>();
-    for (AmazonBlockDevice blockDevice : amazonBlockDevices) {
-      LaunchTemplateBlockDeviceMappingRequest mapping =
-          new LaunchTemplateBlockDeviceMappingRequest().withDeviceName(blockDevice.getDeviceName());
-      if (blockDevice.getVirtualName() != null) {
-        mapping.setVirtualName(blockDevice.getVirtualName());
-      } else {
-        mapping.setEbs(getLaunchTemplateEbsBlockDeviceRequest(blockDevice));
-      }
-
-      mappings.add(mapping);
-    }
-    return mappings;
   }
 
   public Optional<LaunchTemplateVersion> getLaunchTemplateVersion(
@@ -115,15 +118,17 @@ public class LaunchTemplateService {
       LaunchConfigurationSettings settings,
       String launchTemplateName,
       Boolean requireIMDSv2,
-      Boolean associateIPv6Address) {
-    final RequestLaunchTemplateData request =
-        buildLaunchTemplateData(settings, launchTemplateName, requireIMDSv2, associateIPv6Address);
+      Boolean associateIPv6Address,
+      Boolean unlimitedCpuCredits) {
+    final RequestLaunchTemplateData data =
+        buildLaunchTemplateData(
+            settings, launchTemplateName, requireIMDSv2, associateIPv6Address, unlimitedCpuCredits);
     return retrySupport.retry(
         () -> {
           final CreateLaunchTemplateRequest launchTemplateRequest =
               new CreateLaunchTemplateRequest()
                   .withLaunchTemplateName(launchTemplateName)
-                  .withLaunchTemplateData(request);
+                  .withLaunchTemplateData(data);
           return ec2.createLaunchTemplate(launchTemplateRequest).getLaunchTemplate();
         },
         3,
@@ -131,10 +136,32 @@ public class LaunchTemplateService {
         false);
   }
 
-  public RequestLaunchTemplateData launchTemplateData(
+  /**
+   * Build launch template data for launch template modification i.e. new launch template version
+   */
+  private RequestLaunchTemplateData buildLaunchTemplateData(
       NetflixAmazonCredentials credentials,
       ModifyServerGroupLaunchTemplateDescription description,
       LaunchTemplateVersion launchTemplateVersion) {
+    RequestLaunchTemplateData request =
+        new RequestLaunchTemplateData()
+            .withImageId(description.getImageId())
+            .withKernelId(description.getKernelId())
+            .withInstanceType(description.getInstanceType())
+            .withRamDiskId(description.getRamdiskId())
+            .withIamInstanceProfile(
+                new LaunchTemplateIamInstanceProfileSpecificationRequest()
+                    .withName(description.getIamRole()));
+
+    if (description.getEbsOptimized() != null) {
+      request.setEbsOptimized(description.getEbsOptimized());
+    }
+
+    if (description.getInstanceMonitoring() != null) {
+      request.setMonitoring(
+          new LaunchTemplatesMonitoringRequest().withEnabled(description.getInstanceMonitoring()));
+    }
+
     /*
      Copy over the original user data only if the UserDataProviders behavior is disabled.
      This is to avoid having duplicate user data.
@@ -143,40 +170,17 @@ public class LaunchTemplateService {
         (localFileUserDataProperties != null && !localFileUserDataProperties.isEnabled())
             ? launchTemplateVersion.getLaunchTemplateData().getUserData()
             : null;
-
-    RequestLaunchTemplateData request =
-        new RequestLaunchTemplateData()
-            .withImageId(description.getImageId())
-            .withKernelId(description.getKernelId())
-            .withInstanceType(description.getInstanceType())
-            .withRamDiskId(description.getRamdiskId());
-
-    if (description.getEbsOptimized() != null) {
-      request.setEbsOptimized(description.getEbsOptimized());
-    }
-
-    request.setIamInstanceProfile(
-        new LaunchTemplateIamInstanceProfileSpecificationRequest()
-            .withName(description.getIamRole()));
-    if (description.getInstanceMonitoring() != null) {
-      request.setMonitoring(
-          new LaunchTemplatesMonitoringRequest().withEnabled(description.getInstanceMonitoring()));
-    }
-
-    UserDataRequest userDataRequest =
-        UserDataRequest.builder()
-            .launchTemplate(true)
-            .asgName(description.getAsgName())
-            .launchSettingName(launchTemplateVersion.getLaunchTemplateName())
-            .region(description.getRegion())
-            .account(description.getAccount())
-            .environment(credentials.getEnvironment())
-            .accountType(credentials.getAccountType())
-            .iamRole(description.getIamRole())
-            .imageId(description.getImageId())
-            .build();
-
-    request.withUserData(userDataRequest.getUserData(userDataProviders, base64UserData));
+    setUserData(
+        request,
+        description.getAsgName(),
+        launchTemplateVersion.getLaunchTemplateName(),
+        description.getRegion(),
+        description.getAccount(),
+        credentials.getEnvironment(),
+        credentials.getAccountType(),
+        description.getIamRole(),
+        description.getImageId(),
+        base64UserData);
 
     // block device mappings
     if (description.getBlockDevices() != null) {
@@ -191,19 +195,17 @@ public class LaunchTemplateService {
     }
 
     // instance market options
-    request.withInstanceMarketOptions(
-        new LaunchTemplateInstanceMarketOptionsRequest()
-            .withSpotOptions(
-                new LaunchTemplateSpotMarketOptionsRequest()
-                    .withMaxPrice(description.getSpotPrice())));
+    setSpotInstanceMarketOptions(request, description.getSpotPrice());
+
+    setCreditSpecification(request, description.getUnlimitedCpuCredits());
 
     // network interfaces
     LaunchTemplateInstanceNetworkInterfaceSpecificationRequest networkInterfaceRequest =
         new LaunchTemplateInstanceNetworkInterfaceSpecificationRequest();
-    List<LaunchTemplateInstanceNetworkInterfaceSpecification> networkInterfaces =
-        launchTemplateVersion.getLaunchTemplateData().getNetworkInterfaces();
 
     LaunchTemplateInstanceNetworkInterfaceSpecification defaultInterface;
+    List<LaunchTemplateInstanceNetworkInterfaceSpecification> networkInterfaces =
+        launchTemplateVersion.getLaunchTemplateData().getNetworkInterfaces();
     if (networkInterfaces != null && !networkInterfaces.isEmpty()) {
       defaultInterface =
           networkInterfaces.stream()
@@ -232,11 +234,13 @@ public class LaunchTemplateService {
     return request.withNetworkInterfaces(networkInterfaceRequest);
   }
 
+  /** Build launch template data for new launch template creation */
   private RequestLaunchTemplateData buildLaunchTemplateData(
       LaunchConfigurationSettings settings,
       String launchTemplateName,
       Boolean requireIMDSv2,
-      Boolean associateIPv6Address) {
+      Boolean associateIPv6Address,
+      Boolean unlimitedCpuCredits) {
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(settings.getAmi())
@@ -252,21 +256,17 @@ public class LaunchTemplateService {
                 new LaunchTemplatesMonitoringRequest()
                     .withEnabled(settings.getInstanceMonitoring()));
 
-    UserDataRequest userDataRequest =
-        UserDataRequest.builder()
-            .launchTemplate(true)
-            .asgName(settings.getBaseName())
-            .launchSettingName(launchTemplateName)
-            .region(settings.getRegion())
-            .account(settings.getAccount())
-            .environment(settings.getEnvironment())
-            .accountType(settings.getAccountType())
-            .iamRole(settings.getIamRole())
-            .imageId(settings.getAmi())
-            .build();
-
-    request.withUserData(
-        userDataRequest.getUserData(userDataProviders, settings.getBase64UserData()));
+    setUserData(
+        request,
+        settings.getBaseName(),
+        launchTemplateName,
+        settings.getRegion(),
+        settings.getAccount(),
+        settings.getEnvironment(),
+        settings.getAccountType(),
+        settings.getIamRole(),
+        settings.getAmi(),
+        settings.getBase64UserData());
 
     // block device mappings
     request.setBlockDeviceMappings(buildDeviceMapping(settings.getBlockDevices()));
@@ -278,11 +278,9 @@ public class LaunchTemplateService {
     }
 
     // instance market options
-    request.withInstanceMarketOptions(
-        new LaunchTemplateInstanceMarketOptionsRequest()
-            .withSpotOptions(
-                new LaunchTemplateSpotMarketOptionsRequest()
-                    .withMaxPrice(settings.getSpotPrice())));
+    setSpotInstanceMarketOptions(request, settings.getSpotPrice());
+
+    setCreditSpecification(request, unlimitedCpuCredits);
 
     // network interfaces
     request.withNetworkInterfaces(
@@ -291,7 +289,76 @@ public class LaunchTemplateService {
             .withIpv6AddressCount(associateIPv6Address ? 1 : 0)
             .withGroups(settings.getSecurityGroups())
             .withDeviceIndex(0));
+
     return request;
+  }
+
+  /** Set credit option for burstable performance instances to 'unlimited' only if explicitly set */
+  private void setCreditSpecification(
+      RequestLaunchTemplateData request, Boolean unlimitedCpuCredits) {
+    if (unlimitedCpuCredits != null) {
+      request.setCreditSpecification(
+          new CreditSpecificationRequest()
+              .withCpuCredits(unlimitedCpuCredits ? UNLIMITED_CPU_CREDITS : STANDARD_CPU_CREDITS));
+    }
+  }
+
+  /**
+   * Set instance market options, required when launching spot instances
+   * https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-launchtemplatedata-instancemarketoptions.html
+   */
+  private void setSpotInstanceMarketOptions(
+      RequestLaunchTemplateData request, String maxSpotPrice) {
+    if (maxSpotPrice != null) {
+      request.setInstanceMarketOptions(
+          new LaunchTemplateInstanceMarketOptionsRequest()
+              .withMarketType("spot")
+              .withSpotOptions(
+                  new LaunchTemplateSpotMarketOptionsRequest().withMaxPrice(maxSpotPrice)));
+    }
+  }
+
+  private void setUserData(
+      RequestLaunchTemplateData request,
+      String asgName,
+      String launchTemplateName,
+      String region,
+      String account,
+      String env,
+      String accType,
+      String iamRole,
+      String imageId,
+      String base64UserData) {
+    final UserDataRequest userDataRequest =
+        UserDataRequest.builder()
+            .launchTemplate(true)
+            .asgName(asgName)
+            .launchSettingName(launchTemplateName)
+            .region(region)
+            .account(account)
+            .environment(env)
+            .accountType(accType)
+            .iamRole(iamRole)
+            .imageId(imageId)
+            .build();
+    request.setUserData(userDataRequest.getUserData(userDataProviders, base64UserData));
+  }
+
+  private List<LaunchTemplateBlockDeviceMappingRequest> buildDeviceMapping(
+      List<AmazonBlockDevice> amazonBlockDevices) {
+    final List<LaunchTemplateBlockDeviceMappingRequest> mappings = new ArrayList<>();
+    for (AmazonBlockDevice blockDevice : amazonBlockDevices) {
+      LaunchTemplateBlockDeviceMappingRequest mapping =
+          new LaunchTemplateBlockDeviceMappingRequest().withDeviceName(blockDevice.getDeviceName());
+      if (blockDevice.getVirtualName() != null) {
+        mapping.setVirtualName(blockDevice.getVirtualName());
+      } else {
+        mapping.setEbs(getLaunchTemplateEbsBlockDeviceRequest(blockDevice));
+      }
+
+      mappings.add(mapping);
+    }
+    return mappings;
   }
 
   private LaunchTemplateEbsBlockDeviceRequest getLaunchTemplateEbsBlockDeviceRequest(

@@ -18,13 +18,14 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.validators;
 
 import com.netflix.spinnaker.clouddriver.aws.AmazonOperation;
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.deploy.ValidationErrors;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -33,12 +34,12 @@ import org.springframework.stereotype.Component;
 @Component("modifyServerGroupLaunchTemplateDescriptionValidator")
 public class ModifyServerGroupLaunchTemplateValidator
     extends AmazonDescriptionValidationSupport<ModifyServerGroupLaunchTemplateDescription> {
-  private final AccountCredentialsProvider accountCredentialsProvider;
+  private final CredentialsRepository<NetflixAmazonCredentials> credentialsRepository;
 
   @Autowired
   public ModifyServerGroupLaunchTemplateValidator(
-      AccountCredentialsProvider accountCredentialsProvider) {
-    this.accountCredentialsProvider = accountCredentialsProvider;
+      CredentialsRepository<NetflixAmazonCredentials> credentialsRepository) {
+    this.credentialsRepository = credentialsRepository;
   }
 
   @Override
@@ -54,8 +55,8 @@ public class ModifyServerGroupLaunchTemplateValidator
           "credentials", "modifyservergrouplaunchtemplatedescription.credentials.empty");
     } else {
       AccountCredentials credentials =
-          accountCredentialsProvider.getCredentials(description.getCredentials().getName());
-      if (!(credentials instanceof AmazonCredentials)) {
+          credentialsRepository.getOne(description.getCredentials().getName());
+      if (credentials == null) {
         errors.rejectValue(
             "credentials", "modifyservergrouplaunchtemplatedescription.credentials.invalid");
       }
@@ -82,6 +83,14 @@ public class ModifyServerGroupLaunchTemplateValidator
       for (AmazonBlockDevice device : description.getBlockDevices()) {
         BasicAmazonDeployDescriptionValidator.BlockDeviceRules.validate(device, errors);
       }
+    }
+
+    // unlimitedCpuCredits (set to true / false) is valid only with supported instance types
+    if (description.getUnlimitedCpuCredits() != null
+        && !InstanceTypeUtils.isBurstingSupported(description.getInstanceType())) {
+      errors.rejectValue(
+          "unlimitedCpuCredits",
+          "modifyservergrouplaunchtemplatedescription.bursting.not.supported.by.instanceType");
     }
   }
 }
