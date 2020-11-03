@@ -131,9 +131,12 @@ class DestroyAsgAtomicOperation implements AtomicOperation<Void> {
             new DeleteLaunchTemplateRequest(launchTemplateId: launchTemplateId))
         }
       } catch (AmazonAutoScalingException e) {
-        String msg = e.message.toLowerCase()
         // Ignore not found exception
-        if (!msg.contains("not found") && !msg.contains("does not exist")) {
+        if (lcName && !e.message.toLowerCase().contains("launch configuration name not found") {
+          throw e
+        }
+
+        if (launchTemplateId && !e.message.contains("InvalidLaunchTemplateId.NotFound")) {
           throw e
         }
       }
