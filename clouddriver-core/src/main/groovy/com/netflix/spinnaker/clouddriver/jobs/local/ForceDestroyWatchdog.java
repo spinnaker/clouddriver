@@ -27,6 +27,8 @@ import org.apache.commons.exec.Watchdog;
 @Slf4j
 public class ForceDestroyWatchdog extends ExecuteWatchdog {
 
+  private static final long GRACE_PERIOD_MS = 250;
+
   private final long timeout;
   private Process process;
 
@@ -44,10 +46,17 @@ public class ForceDestroyWatchdog extends ExecuteWatchdog {
   @Override
   public synchronized void timeoutOccured(final Watchdog w) {
     super.timeoutOccured(w);
+
+    try {
+      Thread.sleep(GRACE_PERIOD_MS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+
     if (process.isAlive()) {
       log.warn(
           "Timeout: Waited {} ms for process to finish and process is still alive after sending SIGTERM signal. Sending SIGKILL.",
-          timeout);
+          timeout + GRACE_PERIOD_MS);
       process.destroyForcibly();
     }
   }
