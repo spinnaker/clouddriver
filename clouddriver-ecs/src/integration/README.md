@@ -11,7 +11,7 @@ $> ./gradlew :clouddriver-ecs:integrationTest
 
 ## Guidance for modifying this package
 
-### Adding new tests
+### When to add a new test
 
 New Amazon ECS provider features of significant scope should include an integration test which exercises new functionality.
 Examples of qualifying changes include (but are not limited to):
