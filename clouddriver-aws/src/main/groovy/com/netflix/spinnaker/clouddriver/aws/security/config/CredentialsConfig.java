@@ -16,15 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.aws.security.config;
 
-import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
-import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import lombok.EqualsAndHashCode;
 import static lombok.EqualsAndHashCode.Include;
 
+import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
+import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
+import lombok.EqualsAndHashCode;
 
 /**
  * A mutable credentials configurations structure suitable for transformation into concrete
