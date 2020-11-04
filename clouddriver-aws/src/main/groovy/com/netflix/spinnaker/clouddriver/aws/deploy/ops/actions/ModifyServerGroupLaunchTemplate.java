@@ -22,7 +22,7 @@ import com.amazonaws.services.ec2.model.LaunchTemplateVersion;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
-import com.netflix.spinnaker.clouddriver.aws.deploy.BlockDeviceConfig;
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.ModifyServerGroupLaunchTemplateAtomicOperation.LaunchTemplateException;
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.actions.UpdateAutoScalingGroup.UpdateAutoScalingGroupCommand;
@@ -33,7 +33,7 @@ import com.netflix.spinnaker.clouddriver.event.EventMetadata;
 import com.netflix.spinnaker.clouddriver.saga.SagaCommand;
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaAction;
 import com.netflix.spinnaker.clouddriver.saga.models.Saga;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 import lombok.Builder;
@@ -46,12 +46,12 @@ import org.springframework.stereotype.Component;
 public class ModifyServerGroupLaunchTemplate
     implements SagaAction<ModifyServerGroupLaunchTemplate.ModifyServerGroupLaunchTemplateCommand> {
   private final BlockDeviceConfig blockDeviceConfig;
-  private final AccountCredentialsRepository credentialsRepository;
+  private final CredentialsRepository<NetflixAmazonCredentials> credentialsRepository;
   private final RegionScopedProviderFactory regionScopedProviderFactory;
 
   public ModifyServerGroupLaunchTemplate(
       BlockDeviceConfig blockDeviceConfig,
-      AccountCredentialsRepository credentialsRepository,
+      CredentialsRepository<NetflixAmazonCredentials> credentialsRepository,
       RegionScopedProviderFactory regionScopedProviderFactory) {
     this.blockDeviceConfig = blockDeviceConfig;
     this.credentialsRepository = credentialsRepository;
