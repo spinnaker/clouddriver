@@ -18,6 +18,9 @@ package com.netflix.spinnaker.clouddriver.aws.security.config;
 
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
+import lombok.EqualsAndHashCode;
+import static lombok.EqualsAndHashCode.Include;
+
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -28,8 +31,9 @@ import java.util.Objects;
  * credentials implementations.
  */
 public class CredentialsConfig {
+  @EqualsAndHashCode(onlyExplicitlyIncluded = true)
   public static class Region {
-    private String name;
+    @Include private String name;
     private List<String> availabilityZones;
     private List<String> preferredZones;
     private Boolean deprecated;
@@ -75,30 +79,16 @@ public class CredentialsConfig {
 
       return clone;
     }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof Region)) return false;
-
-      Region region = (Region) o;
-
-      return Objects.equals(name, region.name);
-    }
-
-    @Override
-    public int hashCode() {
-      return name != null ? name.hashCode() : 0;
-    }
   }
 
+  @EqualsAndHashCode(onlyExplicitlyIncluded = true)
   public static class LifecycleHook {
-    private String name;
-    private String roleARN;
-    private String notificationTargetARN;
-    private String lifecycleTransition;
-    private Integer heartbeatTimeout;
-    private String defaultResult;
+    @Include private String name;
+    @Include private String roleARN;
+    @Include private String notificationTargetARN;
+    @Include private String lifecycleTransition;
+    @Include private Integer heartbeatTimeout;
+    @Include private String defaultResult;
 
     public String getName() {
       return name;
@@ -147,59 +137,34 @@ public class CredentialsConfig {
     public void setDefaultResult(String defaultResult) {
       this.defaultResult = defaultResult;
     }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof LifecycleHook)) return false;
-
-      LifecycleHook that = (LifecycleHook) o;
-
-      if (!Objects.equals(name, that.name)) return false;
-      if (!Objects.equals(roleARN, that.roleARN)) return false;
-      if (!Objects.equals(notificationTargetARN, that.notificationTargetARN)) return false;
-      if (!Objects.equals(lifecycleTransition, that.lifecycleTransition)) return false;
-      if (!Objects.equals(heartbeatTimeout, that.heartbeatTimeout)) return false;
-      return Objects.equals(defaultResult, that.defaultResult);
-    }
-
-    @Override
-    public int hashCode() {
-      int result = name != null ? name.hashCode() : 0;
-      result = 31 * result + (roleARN != null ? roleARN.hashCode() : 0);
-      result = 31 * result + (notificationTargetARN != null ? notificationTargetARN.hashCode() : 0);
-      result = 31 * result + (lifecycleTransition != null ? lifecycleTransition.hashCode() : 0);
-      result = 31 * result + (heartbeatTimeout != null ? heartbeatTimeout.hashCode() : 0);
-      result = 31 * result + (defaultResult != null ? defaultResult.hashCode() : 0);
-      return result;
-    }
   }
 
+  @EqualsAndHashCode(onlyExplicitlyIncluded = true)
   public static class Account implements CredentialsDefinition {
-    private String name;
-    private String environment;
-    private String accountType;
-    private String accountId;
-    private String defaultKeyPair;
-    private Boolean enabled;
-    private List<Region> regions;
-    private List<String> defaultSecurityGroups;
+    @Include private String name;
+    @Include private String environment;
+    @Include private String accountType;
+    @Include private String accountId;
+    @Include private String defaultKeyPair;
+    @Include private Boolean enabled;
+    @Include private List<Region> regions;
+    @Include private List<String> defaultSecurityGroups;
     private List<String> requiredGroupMembership;
-    private Permissions.Builder permissions;
-    private String edda;
-    private Boolean eddaEnabled;
-    private Boolean lambdaEnabled;
-    private String discovery;
-    private Boolean discoveryEnabled;
-    private String front50;
-    private Boolean front50Enabled;
-    private String bastionHost;
-    private Boolean bastionEnabled;
-    private String assumeRole;
-    private String sessionName;
-    private String externalId;
-    private List<LifecycleHook> lifecycleHooks;
-    private boolean allowPrivateThirdPartyImages;
+    @Include private Permissions.Builder permissions;
+    @Include private String edda;
+    @Include private Boolean eddaEnabled;
+    @Include private Boolean lambdaEnabled;
+    @Include private String discovery;
+    @Include private Boolean discoveryEnabled;
+    @Include private String front50;
+    @Include private Boolean front50Enabled;
+    @Include private String bastionHost;
+    @Include private Boolean bastionEnabled;
+    @Include private String assumeRole;
+    @Include private String sessionName;
+    @Include private String externalId;
+    @Include private List<LifecycleHook> lifecycleHooks;
+    @Include private boolean allowPrivateThirdPartyImages;
 
     public String getName() {
       return name;
@@ -397,62 +362,6 @@ public class CredentialsConfig {
 
     public void setLambdaEnabled(Boolean lambdaEnabled) {
       this.lambdaEnabled = lambdaEnabled;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof Account)) return false;
-
-      Account account = (Account) o;
-
-      if (!Objects.equals(lambdaEnabled, account.lambdaEnabled)) return false;
-      if (allowPrivateThirdPartyImages != account.allowPrivateThirdPartyImages) return false;
-      if (!Objects.equals(defaultKeyPair, account.defaultKeyPair)) return false;
-      if (!Objects.equals(enabled, account.enabled)) return false;
-      if (!Objects.equals(regions, account.regions)) return false;
-      if (!Objects.equals(defaultSecurityGroups, account.defaultSecurityGroups)) return false;
-      if (!Objects.equals(permissions, account.permissions)) return false;
-      if (!Objects.equals(edda, account.edda)) return false;
-      if (!Objects.equals(eddaEnabled, account.eddaEnabled)) return false;
-      if (!Objects.equals(discovery, account.discovery)) return false;
-      if (!Objects.equals(discoveryEnabled, account.discoveryEnabled)) return false;
-      if (!Objects.equals(front50, account.front50)) return false;
-      if (!Objects.equals(front50Enabled, account.front50Enabled)) return false;
-      if (!Objects.equals(bastionHost, account.bastionHost)) return false;
-      if (!Objects.equals(bastionEnabled, account.bastionEnabled)) return false;
-      if (!Objects.equals(assumeRole, account.assumeRole)) return false;
-      if (!Objects.equals(sessionName, account.sessionName)) return false;
-      if (!Objects.equals(externalId, account.externalId)) return false;
-      if (!Objects.equals(lifecycleHooks, account.lifecycleHooks)) return false;
-      if (!Objects.equals(accountId, account.accountId)) return false;
-      return (Objects.equals(name, account.name));
-    }
-
-    @Override
-    public int hashCode() {
-      int result = name.hashCode();
-      result = 31 * result + accountId.hashCode();
-      result = 31 * result + (defaultKeyPair != null ? defaultKeyPair.hashCode() : 0);
-      result = 31 * result + (enabled != null ? enabled.hashCode() : 0);
-      result = 31 * result + (regions != null ? regions.hashCode() : 0);
-      result = 31 * result + (defaultSecurityGroups != null ? defaultSecurityGroups.hashCode() : 0);
-      result = 31 * result + (permissions != null ? permissions.hashCode() : 0);
-      result = 31 * result + (edda != null ? edda.hashCode() : 0);
-      result = 31 * result + (eddaEnabled != null ? eddaEnabled.hashCode() : 0);
-      result = 31 * result + (lambdaEnabled != null ? lambdaEnabled.hashCode() : 0);
-      result = 31 * result + (discovery != null ? discovery.hashCode() : 0);
-      result = 31 * result + (discoveryEnabled != null ? discoveryEnabled.hashCode() : 0);
-      result = 31 * result + (front50 != null ? front50.hashCode() : 0);
-      result = 31 * result + (front50Enabled != null ? front50Enabled.hashCode() : 0);
-      result = 31 * result + (bastionHost != null ? bastionHost.hashCode() : 0);
-      result = 31 * result + (bastionEnabled != null ? bastionEnabled.hashCode() : 0);
-      result = 31 * result + (assumeRole != null ? assumeRole.hashCode() : 0);
-      result = 31 * result + (sessionName != null ? sessionName.hashCode() : 0);
-      result = 31 * result + (externalId != null ? externalId.hashCode() : 0);
-      result = 31 * result + (lifecycleHooks != null ? lifecycleHooks.hashCode() : 0);
-      result = 31 * result + (allowPrivateThirdPartyImages ? 1 : 0);
-      return result;
     }
   }
 
