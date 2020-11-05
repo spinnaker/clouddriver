@@ -104,12 +104,22 @@ public class InvokeLambdaAtomicOperation
   private String getPayloadFromArtifact(Artifact artifact) {
     Path directory = createEmptyDirectory();
     File payloadFile = downloadFileToDirectory(artifact, directory);
+    String payloadString;
 
     try {
-      return FileUtils.readFileToString(payloadFile, "UTF8");
+      payloadString = FileUtils.readFileToString(payloadFile, "UTF8");
     } catch (IOException e) {
       throw new LambdaOperationException("Unable to read Artifact file to string.");
+    } finally {
+      try {
+        FileUtils.cleanDirectory(directory.toFile());
+        FileUtils.forceDelete(directory.toFile());
+      } catch (Exception e) {
+        throw new LambdaOperationException("Unable to clean up and delete directory.");
+      }
     }
+
+    return payloadString;
   }
 
   private Path createEmptyDirectory() {
