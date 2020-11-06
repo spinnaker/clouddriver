@@ -40,16 +40,17 @@ class InstanceTargetGroupState {
   private HealthState deriveHealthState() {
     //ELBv2 has concrete states: unused -> initial -> healthy    -> draining
     //                                            \-> unhealthy -/
-    if (state == 'healthy') {
-      return HealthState.Up
+    switch (state) {
+      case 'healthy':
+        return HealthState.Up
+      case 'initial':
+        return HealthState.Starting
+      case 'unused':
+        return HealthState.OutOfService
+      case 'draining':
+        return HealthState.Draining
+      default:
+        return HealthState.Down
     }
-
-    if (state == 'initial') {
-      return HealthState.Starting
-    }
-    if (state == 'unused' || state == 'draining') {
-      return HealthState.OutOfService
-    }
-    return HealthState.Down
   }
 }
