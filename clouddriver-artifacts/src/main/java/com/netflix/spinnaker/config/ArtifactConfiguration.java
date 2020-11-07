@@ -42,7 +42,7 @@ public class ArtifactConfiguration {
     log.info("Initializing okHttpClient for Artifact provider");
     OkHttpClient client = new OkHttpClient();
     client.setConnectTimeout(properties.getConnectTimeoutMs(), TimeUnit.MILLISECONDS);
-    client.setRetryOnConnectionFailure(true);
+    client.setRetryOnConnectionFailure(properties.isRetryOnConnectionFailure());
     return client;
   }
 }

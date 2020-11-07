@@ -10,4 +10,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 class ArtifactProviderProperties {
   long connectTimeoutMs;
   long readTimeoutMs;
+  boolean retryOnConnectionFailure;
 }
