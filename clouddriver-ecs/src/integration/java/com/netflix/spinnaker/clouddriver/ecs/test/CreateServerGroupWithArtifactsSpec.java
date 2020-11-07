@@ -330,8 +330,6 @@ public class CreateServerGroupWithArtifactsSpec extends EcsSpec {
     String requestBody =
         generateStringFromTestFile("/createServerGroup-artifact-EC2-targetGroupMappings.json");
 
-    setEcsAccountCreds();
-
     ByteArrayInputStream byteArrayInputStreamOfArtifactsForEC2Type =
         new ByteArrayInputStream(
             generateStringFromTestArtifactFile(

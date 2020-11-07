@@ -372,7 +372,6 @@ public class CreateServerGroupSpec extends EcsSpec {
     String requestBody =
         generateStringFromTestFile("/createServerGroup-inputs-ec2-withoutLoadBalacing.json");
     String expectedServerGroupName = "ecs-integInputsEc2NoLoadBalancing";
-    setEcsAccountCreds();
 
     // when
     String taskId =
@@ -438,7 +437,6 @@ public class CreateServerGroupSpec extends EcsSpec {
     String requestBody =
         generateStringFromTestFile("/createServerGroup-inputs-ec2-serviceDiscovery.json");
     String expectedServerGroupName = "ecs-integInputsEc2WithServiceDiscovery";
-    setEcsAccountCreds();
 
     // when
     String taskId =
