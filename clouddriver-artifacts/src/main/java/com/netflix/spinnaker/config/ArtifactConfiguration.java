@@ -17,6 +17,9 @@
 package com.netflix.spinnaker.config;
 
 import com.squareup.okhttp.OkHttpClient;
+import java.util.concurrent.TimeUnit;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -25,13 +28,21 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Component;
 
 @Configuration
-@EnableConfigurationProperties
+@EnableConfigurationProperties(ArtifactProviderProperties.class)
 @EnableScheduling
+@RequiredArgsConstructor
 @Component
 @ComponentScan("com.netflix.spinnaker.clouddriver.artifacts")
+@Slf4j
 public class ArtifactConfiguration {
+  private final ArtifactProviderProperties properties;
+
   @Bean
   OkHttpClient okHttpClient() {
-    return new OkHttpClient();
+    log.info("Initializing okHttpClient for Artifact provider");
+    OkHttpClient client = new OkHttpClient();
+    client.setConnectTimeout(properties.getConnectTimeoutMs(), TimeUnit.MILLISECONDS);
+    client.setRetryOnConnectionFailure(true);
+    return client;
   }
 }
