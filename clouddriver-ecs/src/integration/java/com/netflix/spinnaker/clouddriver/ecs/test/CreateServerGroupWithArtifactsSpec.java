@@ -319,4 +319,133 @@ public class CreateServerGroupWithArtifactsSpec extends EcsSpec {
     assertEquals(80, serviceLB.getContainerPort().intValue());
     assertEquals("integArtifactsFargateTgMappings-cluster", seenCreateServRequest.getCluster());
   }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given description w/ task def artifacts, EC2 launch type, and target group mappings, "
+          + "with multiple load balancers and multiple containers successfully submit createServerGroup operation"
+          + "\n===")
+  @Test
+  public void createServerGroup_ArtifactsEC2TgMappingsWithMultipleLBsAndContainersTest()
+      throws IOException, InterruptedException {
+
+    // given
+    String url = getTestUrl(CREATE_SG_TEST_PATH);
+    String requestBody =
+        generateStringFromTestFile(
+            "/createServerGroup-artifact-EC2-TGMappings-multipleLBsAndContainers.json");
+    String expectedServerGroupName =
+        "ecs-integArtifactsEC2TgMappingsStackWithMultipleLBsAndContainers-detailTest-v000";
+
+    setEcsAccountCreds();
+
+    ByteArrayInputStream byteArrayInputStreamOfArtifactsForEC2Type =
+        new ByteArrayInputStream(
+            generateStringFromTestArtifactFile(
+                    "/createServerGroup-artifact-EC2-TGMappings-multipleLBsAndContainers-artifactFile.json")
+                .getBytes());
+
+    when(mockArtifactDownloader.download(any(Artifact.class)))
+        .thenReturn(byteArrayInputStreamOfArtifactsForEC2Type);
+
+    String taskId =
+        given()
+            .contentType(ContentType.JSON)
+            .body(requestBody)
+            .when()
+            .post(url)
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("id", notNullValue())
+            .body("resourceUri", containsString("/task/"))
+            .extract()
+            .path("id");
+
+    retryUntilTrue(
+        () -> {
+          List<Object> taskHistory =
+              get(getTestUrl("/task/" + taskId))
+                  .then()
+                  .contentType(ContentType.JSON)
+                  .extract()
+                  .path("history");
+          if (taskHistory
+              .toString()
+              .contains(String.format("Done creating 1 of %s", expectedServerGroupName))) {
+            return true;
+          }
+          return false;
+        },
+        String.format("Failed to detect service creation in %s seconds", TASK_RETRY_SECONDS),
+        TASK_RETRY_SECONDS);
+
+    ArgumentCaptor<RegisterTaskDefinitionRequest> registerTaskDefArgs =
+        ArgumentCaptor.forClass(RegisterTaskDefinitionRequest.class);
+    verify(mockECS).registerTaskDefinition(registerTaskDefArgs.capture());
+    RegisterTaskDefinitionRequest seenTaskDefRequest = registerTaskDefArgs.getValue();
+    assertEquals(expectedServerGroupName, seenTaskDefRequest.getFamily() + "-v000");
+    assertEquals(2, seenTaskDefRequest.getContainerDefinitions().size());
+    assertEquals(
+        80,
+        seenTaskDefRequest
+            .getContainerDefinitions()
+            .get(0)
+            .getPortMappings()
+            .get(0)
+            .getContainerPort());
+    assertEquals(
+        84,
+        seenTaskDefRequest
+            .getContainerDefinitions()
+            .get(1)
+            .getPortMappings()
+            .get(0)
+            .getContainerPort());
+    assertEquals(
+        "arn:aws:iam:::executionRole/testExecutionRole:1",
+        seenTaskDefRequest.getExecutionRoleArn());
+    assertEquals("arn:aws:iam:::role/testTaskRole:1", seenTaskDefRequest.getTaskRoleArn());
+    assertEquals("application1", seenTaskDefRequest.getContainerDefinitions().get(0).getName());
+    assertEquals("application2", seenTaskDefRequest.getContainerDefinitions().get(1).getName());
+    assertEquals(
+        "awslogs",
+        seenTaskDefRequest.getContainerDefinitions().get(0).getLogConfiguration().getLogDriver());
+    assertEquals(
+        "spinnaker-ecs-demo",
+        seenTaskDefRequest
+            .getContainerDefinitions()
+            .get(0)
+            .getLogConfiguration()
+            .getOptions()
+            .get("awslogs-group"));
+
+    ArgumentCaptor<DescribeTargetGroupsRequest> elbArgCaptor =
+        ArgumentCaptor.forClass(DescribeTargetGroupsRequest.class);
+    verify(mockELB, times(2)).describeTargetGroups(elbArgCaptor.capture());
+
+    ArgumentCaptor<CreateServiceRequest> createServiceArgs =
+        ArgumentCaptor.forClass(CreateServiceRequest.class);
+    verify(mockECS).createService(createServiceArgs.capture());
+    CreateServiceRequest seenCreateServRequest = createServiceArgs.getValue();
+    assertEquals("EC2", seenCreateServRequest.getLaunchType());
+    assertEquals(expectedServerGroupName, seenCreateServRequest.getServiceName());
+    assertEquals(2, seenCreateServRequest.getLoadBalancers().size());
+    LoadBalancer serviceLB1 = seenCreateServRequest.getLoadBalancers().get(0);
+    LoadBalancer serviceLB2 = seenCreateServRequest.getLoadBalancers().get(1);
+
+    assertEquals("application2", serviceLB1.getContainerName());
+    assertEquals(84, serviceLB1.getContainerPort().intValue());
+    assertEquals(
+        "arn:aws:elasticloadbalancing:::targetgroup/integArtifactEC2TgMappings-targetGroupForPort84/76tgredfc",
+        serviceLB1.getTargetGroupArn());
+    assertEquals("application1", serviceLB2.getContainerName());
+    assertEquals(80, serviceLB2.getContainerPort().intValue());
+    assertEquals(
+        "arn:aws:elasticloadbalancing:::targetgroup/integArtifactEC2TgMappings-targetGroupForPort80/76tgredfc",
+        serviceLB2.getTargetGroupArn());
+    assertEquals(
+        "integArtifactEC2TgMappingskWithMultipleLBsAndContainers-cluster",
+        seenCreateServRequest.getCluster());
+  }
 }
