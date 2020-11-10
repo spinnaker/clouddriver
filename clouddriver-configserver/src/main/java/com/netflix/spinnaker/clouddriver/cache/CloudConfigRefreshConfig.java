@@ -40,6 +40,8 @@ import org.springframework.context.annotation.*;
 @EnableConfigurationProperties(CloudConfigRefreshProperties.class)
 public class CloudConfigRefreshConfig {
 
+  private DoesntExist doesntExist;
+
   @Configuration
   @Conditional(RemoteConfigSourceConfigured.class)
   @EnableConfigServer
