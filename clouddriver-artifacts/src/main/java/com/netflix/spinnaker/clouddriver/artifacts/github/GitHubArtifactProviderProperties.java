@@ -27,5 +27,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("artifacts.github")
 final class GitHubArtifactProviderProperties implements ArtifactProvider<GitHubArtifactAccount> {
   private boolean enabled;
+  long connectTimeoutMs;
+  long readTimeoutMs;
   private List<GitHubArtifactAccount> accounts = new ArrayList<>();
 }

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squareup.okhttp.OkHttpClient;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +45,18 @@ class GitHubArtifactConfiguration {
         .map(
             a -> {
               try {
-                return new GitHubArtifactCredentials(a, okHttpClient, objectMapper);
+                if (gitHubArtifactProviderProperties.getConnectTimeoutMs() != 0) {
+                  OkHttpClient extendedTimeoutClient = okHttpClient.clone();
+                  extendedTimeoutClient.setConnectTimeout(
+                      gitHubArtifactProviderProperties.getConnectTimeoutMs(),
+                      TimeUnit.MILLISECONDS);
+                  extendedTimeoutClient.setReadTimeout(
+                      gitHubArtifactProviderProperties.getReadTimeoutMs(), TimeUnit.MILLISECONDS);
+                  return new GitHubArtifactCredentials(a, extendedTimeoutClient, objectMapper);
+                } else {
+                  return new GitHubArtifactCredentials(a, okHttpClient, objectMapper);
+                }
+
               } catch (Exception e) {
                 log.warn("Failure instantiating GitHub artifact account {}: ", a, e);
                 return null;
