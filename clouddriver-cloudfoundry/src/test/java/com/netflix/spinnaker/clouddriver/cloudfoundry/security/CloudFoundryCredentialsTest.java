@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryClient;
-import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Organizations;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
 import java.util.List;
@@ -40,7 +39,6 @@ import org.junit.jupiter.api.Test;
 public class CloudFoundryCredentialsTest {
 
   private final CacheRepository cacheRepository = mock(CacheRepository.class);
-  private final Organizations organizations = mock(Organizations.class);
   private final CloudFoundryClient cloudFoundryClient = new MockCloudFoundryClient();
 
   @Test
