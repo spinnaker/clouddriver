@@ -135,12 +135,16 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
   }
 
   public Collection<Map<String, String>> getRegions() {
-    if (!filteredSpaces.isEmpty()) {
-      return filteredSpaces.stream()
-          .map(space -> singletonMap("name", space.getRegion()))
-          .collect(Collectors.toList());
-    }
     return spaceSupplier.get().stream()
+        .filter(
+            s -> {
+              if (!filteredSpaces.isEmpty()) {
+                List<String> filteredRegions =
+                    filteredSpaces.stream().map(fs -> fs.getRegion()).collect(toList());
+                return filteredRegions.contains(s.getRegion());
+              }
+              return true;
+            })
         .map(space -> singletonMap("name", space.getRegion()))
         .collect(toList());
   }
@@ -230,11 +234,6 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
             this.getCredentials()
                 .getSpaces()
                 .findAllBySpaceNamesAndOrgNames(null, singletonList(orgName));
-        if (allSpacesByOrg.isEmpty())
-          throw new IllegalArgumentException(
-              "Organization '"
-                  + orgName
-                  + "' returned with no spaces and was provided as a filter. Organization must exist and have spaces.");
         spaces.addAll(allSpacesByOrg);
       } else {
         for (String spaceName : locationFilter.get(orgName)) {
@@ -257,7 +256,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
 
     if (spaces.isEmpty())
       throw new IllegalArgumentException(
-          "The locationFilter had Orgs and/or Spaces but we found no spaces as a result. Spaces must not be null or empty when a locationFilter is included.");
+          "The locationFilter had Orgs and/or Spaces but CloudFoundry returned no spaces as a result. Spaces must not be null or empty when a locationFilter is included.");
 
     return ImmutableList.copyOf(spaces);
   }

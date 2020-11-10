@@ -198,41 +198,4 @@ public class CloudFoundryCredentialsTest {
         .hasMessageContaining(
             "The locationFilter had Orgs and/or Spaces but we found no spaces as a result. Spaces must not be null or empty when a locationFilter is included.");
   }
-
-  @Test
-  void fakeOrgLocationFilterShouldThrowError() {
-    CloudFoundryCredentials credentials =
-        new CloudFoundryCredentials(
-            "test",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            false,
-            500,
-            cacheRepository,
-            null,
-            ForkJoinPool.commonPool(),
-            emptyMap()) {
-          public CloudFoundryClient getClient() {
-            return cloudFoundryClient;
-          }
-
-          public CloudFoundryClient getCredentials() {
-            return cloudFoundryClient;
-          }
-        };
-
-    Map<String, Set<String>> locationFilter = ImmutableMap.of("org", emptySet());
-
-    when(cloudFoundryClient.getSpaces().findAllBySpaceNamesAndOrgNames(any(), any()))
-        .thenReturn(emptyList());
-    Exception e =
-        assertThrows(Exception.class, () -> credentials.createFilteredSpaces(locationFilter));
-    assertThat(e)
-        .hasMessageContaining(
-            "Organization 'org' returned with no spaces and was provided as a filter. Organization must exist and have spaces.");
-  }
 }
