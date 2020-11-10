@@ -19,17 +19,18 @@ package com.netflix.spinnaker.clouddriver.kubernetes.converter.manifest;
 
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.DEPLOY_MANIFEST;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesV2ArtifactProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesDeployManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.manifest.KubernetesDeployManifestOperation;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsConverter;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -40,30 +41,29 @@ import org.springframework.stereotype.Component;
 
 @KubernetesOperation(DEPLOY_MANIFEST)
 @Component
-public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsCredentialsSupport {
+public class KubernetesDeployManifestConverter
+    extends AbstractAtomicOperationsCredentialsConverter<KubernetesNamedAccountCredentials> {
 
   private static final String KIND_VALUE_LIST = "list";
   private static final String KIND_LIST_ITEMS_KEY = "items";
 
-  private final KubernetesV2ArtifactProvider artifactProvider;
+  private final ResourceVersioner resourceVersioner;
 
   @Autowired
   public KubernetesDeployManifestConverter(
-      AccountCredentialsProvider accountCredentialsProvider,
-      ObjectMapper objectMapper,
-      KubernetesV2ArtifactProvider artifactProvider) {
-    this.setAccountCredentialsProvider(accountCredentialsProvider);
-    this.setObjectMapper(objectMapper);
-    this.artifactProvider = artifactProvider;
+      CredentialsRepository<KubernetesNamedAccountCredentials> credentialsRepository,
+      ResourceVersioner resourceVersioner) {
+    this.setCredentialsRepository(credentialsRepository);
+    this.resourceVersioner = resourceVersioner;
   }
 
   @Override
-  public AtomicOperation convertOperation(Map input) {
-    return new KubernetesDeployManifestOperation(convertDescription(input), artifactProvider);
+  public AtomicOperation<OperationResult> convertOperation(Map<String, Object> input) {
+    return new KubernetesDeployManifestOperation(convertDescription(input), resourceVersioner);
   }
 
   @Override
-  public KubernetesDeployManifestDescription convertDescription(Map input) {
+  public KubernetesDeployManifestDescription convertDescription(Map<String, Object> input) {
     KubernetesDeployManifestDescription mainDescription =
         KubernetesAtomicOperationConverterHelper.convertDescription(
             input, this, KubernetesDeployManifestDescription.class);

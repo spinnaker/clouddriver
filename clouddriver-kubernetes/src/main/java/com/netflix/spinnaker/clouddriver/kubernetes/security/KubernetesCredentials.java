@@ -68,13 +68,14 @@ import javax.annotation.Nullable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class KubernetesCredentials {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesCredentials.class);
   private static final int CRD_EXPIRY_SECONDS = 30;
   private static final int NAMESPACE_EXPIRY_SECONDS = 30;
 
@@ -108,8 +109,6 @@ public class KubernetesCredentials {
 
   @Include @Getter private final boolean onlySpinnakerManaged;
 
-  @Include @Getter private final boolean liveManifestCalls;
-
   @Include private final boolean checkPermissionsOnStartup;
 
   @Include @Getter private final List<KubernetesCachingPolicy> cachingPolicies;
@@ -124,7 +123,7 @@ public class KubernetesCredentials {
 
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
   private final KubernetesKindRegistry kindRegistry;
-  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+  @Getter private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final PermissionValidator permissionValidator;
   private final Supplier<ImmutableMap<KubernetesKind, KubernetesKindProperties>> crdSupplier =
       Suppliers.memoizeWithExpiration(this::crdSupplier, CRD_EXPIRY_SECONDS, TimeUnit.SECONDS);
@@ -184,7 +183,6 @@ public class KubernetesCredentials {
     this.context = managedAccount.getContext();
 
     this.onlySpinnakerManaged = managedAccount.isOnlySpinnakerManaged();
-    this.liveManifestCalls = managedAccount.isLiveManifestCalls();
     this.checkPermissionsOnStartup = managedAccount.isCheckPermissionsOnStartup();
     this.cachingPolicies = managedAccount.getCachingPolicies();
 
@@ -211,6 +209,7 @@ public class KubernetesCredentials {
               .build(key -> supplier.get());
     }
 
+    @Override
     public T get() {
       return cache.get(CACHE_KEY);
     }

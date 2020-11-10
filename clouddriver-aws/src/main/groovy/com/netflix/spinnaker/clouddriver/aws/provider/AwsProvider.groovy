@@ -16,26 +16,26 @@
 
 package com.netflix.spinnaker.clouddriver.aws.provider
 
-import com.netflix.spinnaker.cats.agent.Agent
-import com.netflix.spinnaker.cats.agent.AgentSchedulerAware
+
 import com.netflix.spinnaker.cats.cache.Cache
+import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.cache.KeyParser
 import com.netflix.spinnaker.clouddriver.cache.SearchableProvider
-import com.netflix.spinnaker.clouddriver.eureka.provider.agent.EurekaAwareProvider
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
-import com.netflix.spinnaker.clouddriver.aws.data.Keys
 import com.netflix.spinnaker.clouddriver.core.provider.agent.HealthProvidingCachingAgent
+import com.netflix.spinnaker.clouddriver.eureka.provider.agent.EurekaAwareProvider
+import com.netflix.spinnaker.clouddriver.security.BaseProvider
+import com.netflix.spinnaker.credentials.CredentialsRepository
 
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.*
 
-class AwsProvider extends AgentSchedulerAware implements SearchableProvider, EurekaAwareProvider {
+class AwsProvider extends BaseProvider implements SearchableProvider, EurekaAwareProvider {
 
   public static final String PROVIDER_NAME = AwsProvider.name
 
   final KeyParser keyParser = new Keys()
 
-  final AccountCredentialsRepository accountCredentialsRepository
+  final CredentialsRepository<NetflixAmazonCredentials> credentialsRepository
 
   final Set<String> defaultCaches = [
     LOAD_BALANCERS.ns,
@@ -55,12 +55,11 @@ class AwsProvider extends AgentSchedulerAware implements SearchableProvider, Eur
     (new AmazonSearchableResource(INSTANCES.ns)): new InstanceSearchResultHydrator(),
   ]
 
-  final Collection<Agent> agents
   private Collection<HealthProvidingCachingAgent> healthAgents
 
-  AwsProvider(AccountCredentialsRepository accountCredentialsRepository, Collection<Agent> agents) {
-    this.agents = agents
-    this.accountCredentialsRepository = accountCredentialsRepository
+  AwsProvider(CredentialsRepository<NetflixAmazonCredentials> credentialsRepository) {
+    super()
+    this.credentialsRepository = credentialsRepository
     synchronizeHealthAgents()
   }
 
@@ -76,9 +75,7 @@ class AwsProvider extends AgentSchedulerAware implements SearchableProvider, Eur
   }
 
   Collection<HealthProvidingCachingAgent> getHealthAgents() {
-    def allHealthAgents = []
-    allHealthAgents.addAll(this.healthAgents)
-    Collections.unmodifiableCollection(allHealthAgents)
+    Collections.unmodifiableCollection(this.healthAgents)
   }
 
   @Override
@@ -91,7 +88,7 @@ class AwsProvider extends AgentSchedulerAware implements SearchableProvider, Eur
     return Optional.of(keyParser)
   }
 
-  private static class InstanceSearchResultHydrator implements SearchableProvider.SearchResultHydrator {
+  private static class InstanceSearchResultHydrator implements SearchResultHydrator {
     @Override
     Map<String, String> hydrateResult(Cache cacheView, Map<String, String> result, String id) {
       def item = cacheView.get(INSTANCES.ns, id)
@@ -133,15 +130,13 @@ class AwsProvider extends AgentSchedulerAware implements SearchableProvider, Eur
 
   private String getCredentialName(String accountId, boolean allowMultipleEurekaPerAccount, String eurekaAccountName) {
     if (allowMultipleEurekaPerAccount) {
-      def credentialName = accountCredentialsRepository.all.find {
-        it instanceof NetflixAmazonCredentials && it.accountId == accountId && it.name == eurekaAccountName
-      }?.name
-      if (credentialName) {
-        return credentialName
+      def credentials = credentialsRepository.getOne(eurekaAccountName)
+      if (credentials && credentials.accountId == accountId) {
+        return credentials.getName()
       }
     }
-    return accountCredentialsRepository.all.find {
-      it instanceof NetflixAmazonCredentials && it.accountId == accountId
+    return credentialsRepository.all.find {
+      it.accountId == accountId
     }?.name
   }
 

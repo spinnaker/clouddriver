@@ -76,11 +76,12 @@ public class CreateLambdaAtomicOperation
         combineAppDetail(description.getAppName(), description.getFunctionName()));
     request.setDescription(description.getDescription());
     request.setHandler(description.getHandler());
-    request.setMemorySize(description.getMemory());
+    request.setMemorySize(description.getMemorySize());
     request.setPublish(description.getPublish());
     request.setRole(description.getRole());
     request.setRuntime(description.getRuntime());
     request.setTimeout(description.getTimeout());
+    request.setLayers(description.getLayers());
 
     request.setCode(code);
     request.setTags(objTag);
@@ -99,7 +100,7 @@ public class CreateLambdaAtomicOperation
     if (!description.getDeadLetterConfig().getTargetArn().isEmpty()) {
       request.setDeadLetterConfig(description.getDeadLetterConfig());
     }
-    request.setKMSKeyArn(description.getEncryptionKMSKeyArn());
+    request.setKMSKeyArn(description.getKmskeyArn());
     request.setTracingConfig(description.getTracingConfig());
 
     CreateFunctionResult result = client.createFunction(request);

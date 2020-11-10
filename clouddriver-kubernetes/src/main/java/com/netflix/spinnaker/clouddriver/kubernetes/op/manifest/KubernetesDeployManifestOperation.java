@@ -22,9 +22,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.ReplaceResult;
-import com.netflix.spinnaker.clouddriver.kubernetes.artifact.KubernetesArtifactConverter;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.ArtifactProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.*;
@@ -40,21 +40,23 @@ import com.netflix.spinnaker.moniker.Moniker;
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class KubernetesDeployManifestOperation implements AtomicOperation<OperationResult> {
+  private static final Logger log =
+      LoggerFactory.getLogger(KubernetesDeployManifestOperation.class);
   private final KubernetesDeployManifestDescription description;
   private final KubernetesCredentials credentials;
-  private final ArtifactProvider provider;
+  private final ResourceVersioner resourceVersioner;
   @Nonnull private final String accountName;
   private static final String OP_NAME = "DEPLOY_KUBERNETES_MANIFEST";
 
   public KubernetesDeployManifestOperation(
-      KubernetesDeployManifestDescription description, ArtifactProvider provider) {
+      KubernetesDeployManifestDescription description, ResourceVersioner resourceVersioner) {
     this.description = description;
     this.credentials = description.getCredentials().getCredentials();
-    this.provider = provider;
+    this.resourceVersioner = resourceVersioner;
     this.accountName = description.getCredentials().getName();
   }
 
@@ -63,14 +65,22 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
   }
 
   @Override
-  public OperationResult operate(List _unused) {
+  public OperationResult operate(List<OperationResult> _unused) {
     getTask().updateStatus(OP_NAME, "Beginning deployment of manifest...");
 
     List<KubernetesManifest> inputManifests = description.getManifests();
     List<KubernetesManifest> deployManifests = new ArrayList<>();
     if (inputManifests == null || inputManifests.isEmpty()) {
-      log.warn("Relying on deprecated single manifest input: " + description.getManifest());
-      inputManifests = ImmutableList.of(description.getManifest());
+      // The stage currently only supports using the `manifests` field but we need to continue to
+      // check `manifest` for backwards compatibility until all existing stages have been updated.
+      @SuppressWarnings("deprecation")
+      KubernetesManifest manifest = description.getManifest();
+      log.warn(
+          "Relying on deprecated single manifest input (account: {}, kind: {}, name: {})",
+          accountName,
+          manifest.getKind(),
+          manifest.getName());
+      inputManifests = ImmutableList.of(manifest);
     }
 
     inputManifests = inputManifests.stream().filter(Objects::nonNull).collect(Collectors.toList());
@@ -86,8 +96,11 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
     }
 
     List<Artifact> artifacts = new ArrayList<>();
-    artifacts.addAll(requiredArtifacts);
+    // Optional artifacts are intentionally added before required artifacts. This is to ensure that
+    // when artifact replacement occurs the required artifacts are not overwritten by optional
+    // artifacts.
     artifacts.addAll(optionalArtifacts);
+    artifacts.addAll(requiredArtifacts);
 
     Set<Artifact> boundArtifacts = new HashSet<>();
 
@@ -95,15 +108,6 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       if (credentials.getKindProperties(manifest.getKind()).isNamespaced()
           && !Strings.isNullOrEmpty(description.getNamespaceOverride())) {
         manifest.setNamespace(description.getNamespaceOverride());
-      }
-
-      KubernetesResourceProperties properties = findResourceProperties(manifest);
-      KubernetesHandler deployer = properties.getHandler();
-      if (deployer == null) {
-        throw new IllegalArgumentException(
-            "No deployer available for Kubernetes object kind '"
-                + manifest.getKind().toString()
-                + "', unable to continue.");
       }
 
       KubernetesManifestAnnotater.validateAnnotationsForRolloutStrategies(
@@ -114,7 +118,9 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
               OP_NAME,
               "Swapping out artifacts in " + manifest.getFullResourceName() + " from context...");
       ReplaceResult replaceResult =
-          deployer.replaceArtifacts(manifest, artifacts, description.getAccount());
+          findResourceProperties(manifest)
+              .getHandler()
+              .replaceArtifacts(manifest, artifacts, description.getAccount());
       deployManifests.add(replaceResult.getManifest());
       boundArtifacts.addAll(replaceResult.getBoundArtifacts());
     }
@@ -150,25 +156,18 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       KubernetesResourceProperties properties = findResourceProperties(manifest);
       KubernetesManifestStrategy strategy = KubernetesManifestAnnotater.getStrategy(manifest);
 
-      KubernetesArtifactConverter converter =
-          KubernetesArtifactConverter.getInstance(isVersioned(properties, strategy));
-      KubernetesHandler deployer = properties.getHandler();
+      OptionalInt version =
+          isVersioned(properties, strategy)
+              ? resourceVersioner.getVersion(manifest, credentials)
+              : OptionalInt.empty();
 
       Moniker moniker = cloneMoniker(description.getMoniker());
+      version.ifPresent(moniker::setSequence);
       if (Strings.isNullOrEmpty(moniker.getCluster())) {
         moniker.setCluster(manifest.getFullResourceName());
       }
 
-      Artifact artifact = converter.toArtifact(provider, manifest, description.getAccount());
-
-      String version = artifact.getVersion();
-      if (Strings.nullToEmpty(version).startsWith("v")) {
-        try {
-          moniker.setSequence(Integer.valueOf(version.substring(1)));
-        } catch (NumberFormatException e) {
-          log.warn("Malformed moniker version {}", version, e);
-        }
-      }
+      Artifact artifact = ArtifactConverter.toArtifact(manifest, description.getAccount(), version);
 
       getTask()
           .updateStatus(
@@ -178,6 +177,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
                   + " with artifact, relationships & moniker...");
       KubernetesManifestAnnotater.annotateManifest(manifest, artifact);
 
+      KubernetesHandler deployer = properties.getHandler();
       if (strategy.isUseSourceCapacity() && deployer instanceof CanScale) {
         Double replicas = KubernetesSourceCapacity.getSourceCapacity(manifest, credentials);
         if (replicas != null) {
@@ -192,7 +192,7 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
       }
 
       credentials.getNamer().applyMoniker(manifest, moniker);
-      manifest.setName(converter.getDeployedName(artifact));
+      manifest.setName(artifact.getReference());
 
       getTask()
           .updateStatus(

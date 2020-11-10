@@ -21,7 +21,6 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
@@ -32,16 +31,16 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryCli
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider;
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
 import io.vavr.collection.HashMap;
 import io.vavr.collection.List;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ForkJoinPool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
@@ -64,7 +63,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                             .build());
                   });
 
-      when(cloudFoundryClient.getOrganizations().findSpaceByRegion(any()))
+      when(cloudFoundryClient.getSpaces().findSpaceByRegion(any()))
           .thenReturn(
               Optional.of(
                   CloudFoundrySpace.builder()
@@ -79,7 +78,18 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     }
 
     return new CloudFoundryCredentials(
-        name, "", "", "", "", "", "", false, 500, 16, cacheRepository, null) {
+        name,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        false,
+        500,
+        cacheRepository,
+        null,
+        ForkJoinPool.commonPool()) {
       public CloudFoundryClient getClient() {
         return cloudFoundryClient;
       }
@@ -99,18 +109,12 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                               account, List.of("test").asJava(), "applications: [{instances: 42}]"))
                   .asJava()));
 
-  private final AccountCredentialsRepository accountCredentialsRepository =
-      new MapBackedAccountCredentialsRepository();
+  private final CredentialsRepository<CloudFoundryCredentials> credentialsRepository =
+      new MapBackedCredentialsRepository<>(CloudFoundryProvider.PROVIDER_ID, null);
 
   {
-    accounts
-        .toStream()
-        .forEach(
-            account -> accountCredentialsRepository.update(account, createCredentials(account)));
+    accounts.toStream().forEach(account -> credentialsRepository.save(createCredentials(account)));
   }
-
-  private final AccountCredentialsProvider accountCredentialsProvider =
-      new DefaultAccountCredentialsProvider(accountCredentialsRepository);
 
   private final DeployCloudFoundryServerGroupAtomicOperationConverter converter =
       new DeployCloudFoundryServerGroupAtomicOperationConverter(
@@ -118,8 +122,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
 
   @BeforeEach
   void initializeClassUnderTest() {
-    converter.setAccountCredentialsProvider(accountCredentialsProvider);
-    converter.setObjectMapper(new ObjectMapper());
+    converter.setCredentialsRepository(credentialsRepository);
   }
 
   @Test

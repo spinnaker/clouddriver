@@ -37,6 +37,8 @@ import com.netflix.spinnaker.clouddriver.saga.persistence.SagaRepository
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import com.netflix.spinnaker.clouddriver.security.AllowedAccountsValidator
 import com.netflix.spinnaker.kork.web.context.RequestContextProvider
+import com.netflix.spinnaker.kork.web.exceptions.ExceptionMessageDecorator
+import com.netflix.spinnaker.kork.web.exceptions.ExceptionSummaryService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
@@ -54,8 +56,8 @@ class DeployConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(DeployHandlerRegistry)
-  DeployHandlerRegistry deployHandlerRegistry() {
-    new DefaultDeployHandlerRegistry()
+  DeployHandlerRegistry deployHandlerRegistry(List<DeployHandler> deployHandlers) {
+    new DefaultDeployHandlerRegistry(deployHandlers)
   }
 
   @Bean
@@ -67,7 +69,8 @@ class DeployConfiguration {
     Optional<Collection<OperationEventHandler>> operationEventHandlers,
     ObjectMapper objectMapper,
     ExceptionClassifier exceptionClassifier,
-    RequestContextProvider contextProvider
+    RequestContextProvider contextProvider,
+    ExceptionSummaryService exceptionSummaryService
   ) {
     new DefaultOrchestrationProcessor(
       taskRepository,
@@ -76,7 +79,8 @@ class DeployConfiguration {
       operationEventHandlers,
       objectMapper,
       exceptionClassifier,
-      contextProvider
+      contextProvider,
+      exceptionSummaryService
     )
   }
 
@@ -100,7 +104,8 @@ class DeployConfiguration {
     AccountCredentialsRepository accountCredentialsRepository,
     Optional<SagaRepository> sagaRepository,
     Registry registry,
-    ObjectMapper objectMapper
+    ObjectMapper objectMapper,
+    ExceptionMessageDecorator exceptionMessageDecorator
   ) {
     return new OperationsService(
       atomicOperationsRegistry,
@@ -110,7 +115,8 @@ class DeployConfiguration {
       accountCredentialsRepository,
       sagaRepository,
       registry,
-      objectMapper
+      objectMapper,
+      exceptionMessageDecorator
     )
   }
 }

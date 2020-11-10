@@ -19,14 +19,15 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesAtomicOperationDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
+import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsConverter;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 
 public class KubernetesAtomicOperationConverterHelper {
   public static <T extends KubernetesAtomicOperationDescription> T convertDescription(
-      Map input,
-      AbstractAtomicOperationsCredentialsSupport credentialsSupport,
+      Map<String, Object> input,
+      AbstractAtomicOperationsCredentialsConverter<KubernetesNamedAccountCredentials>
+          credentialsSupport,
       Class<T> targetDescriptionType) {
     String account = (String) input.get("account");
     String removedAccount = (String) input.remove("credentials");

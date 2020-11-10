@@ -1,7 +1,8 @@
-FROM alpine:3.11
+FROM alpine:3.12
 LABEL maintainer="sig-platform@spinnaker.io"
 
-ENV KUBECTL_VERSION v1.17.6
+# KUBECTL_VERSION kept one minor version behind latest to maximise compatibility overlap
+ENV KUBECTL_VERSION v1.18.10
 
 RUN apk --no-cache add --update bash wget unzip openjdk11 'python2>2.7.9' && \
   wget -nv https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.zip && \
@@ -20,7 +21,7 @@ RUN wget https://amazon-eks.s3.us-west-2.amazonaws.com/1.16.8/2020-04-16/bin/lin
   ln -sf /usr/local/bin/aws-iam-authenticator /usr/local/bin/heptio-authenticator-aws
 
 RUN apk -v --update add py-pip && \
-  pip install --upgrade awscli==1.16.258 s3cmd==2.0.1 python-magic && \
+  pip install --upgrade awscli==1.18.152 s3cmd==2.0.2 python-magic && \
   apk -v --purge del py-pip && \
   rm /var/cache/apk/*
 

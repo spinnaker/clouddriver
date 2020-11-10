@@ -1,3 +1,16 @@
+sourceSets {
+  integration {
+    java.srcDirs = ["src/integration/java"]
+    resources.srcDirs = ["src/integration/resources"]
+    compileClasspath += main.output + test.output
+  }
+}
+
+configurations {
+  integrationImplementation.extendsFrom testImplementation
+  integrationRuntime.extendsFrom testRuntime
+}
+
 dependencies {
   implementation project(":cats:cats-core")
   implementation project(":clouddriver-api")
@@ -18,6 +31,8 @@ dependencies {
   implementation "com.netflix.spinnaker.fiat:fiat-api:$fiatVersion"
   implementation "com.netflix.spinnaker.fiat:fiat-core:$fiatVersion"
   implementation "com.netflix.spinnaker.kork:kork-artifacts"
+  implementation "com.netflix.spinnaker.kork:kork-credentials"
+  implementation "com.netflix.spinnaker.kork:kork-credentials-api"
   implementation "com.netflix.spinnaker.kork:kork-exceptions"
   implementation "com.squareup.okhttp:okhttp"
   implementation "com.squareup.okhttp:okhttp-apache"
@@ -37,4 +52,26 @@ dependencies {
   testImplementation "org.objenesis:objenesis"
   testImplementation "org.spockframework:spock-core"
   testImplementation "org.spockframework:spock-spring"
+
+  integrationImplementation project(":clouddriver-web")
+  integrationImplementation "org.springframework:spring-test"
+  integrationImplementation "org.testcontainers:mysql"
+  integrationImplementation "mysql:mysql-connector-java"
+  integrationImplementation sourceSets.test.output
+  integrationImplementation sourceSets.main.output
+  integrationImplementation ("io.rest-assured:rest-assured:4.0.0") {
+    exclude group: "org.codehaus.groovy", module: "groovy" // use kork's version
+  }
+}
+
+task integrationTest(type: Test) {
+  description = "Runs Amazon ECS provider integration tests."
+  group = 'verification'
+
+  environment "PROJECT_ROOT", project.rootDir.toString()
+  useJUnitPlatform()
+
+  testClassesDirs = sourceSets.integration.output.classesDirs
+  classpath = sourceSets.integration.runtimeClasspath
+  shouldRunAfter test
 }

@@ -47,12 +47,20 @@ public class DeleteLambdaAtomicOperation
         (LambdaFunction) lambdaFunctionProvider.getFunction(account, region, functionName);
 
     AWSLambda client = getLambdaClient();
-    DeleteFunctionRequest request =
-        new DeleteFunctionRequest().withFunctionName(cache.getFunctionArn());
 
-    DeleteFunctionResult result = client.deleteFunction(request);
-    updateTaskStatus("Finished deletion of AWS Lambda Function  Operation...");
+    if (cache != null && client != null) {
+      DeleteFunctionRequest request =
+          new DeleteFunctionRequest().withFunctionName(cache.getFunctionArn());
 
-    return result;
+      request.withQualifier(description.getQualifier());
+
+      DeleteFunctionResult result = client.deleteFunction(request);
+
+      updateTaskStatus("Finished deletion of AWS Lambda Function  Operation...");
+
+      return result;
+    }
+
+    return null;
   }
 }

@@ -49,14 +49,20 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AmazonLaunchTemplateCachingAgent implements CachingAgent, AccountAware {
+  private final Logger log = LoggerFactory.getLogger(getClass());
   private final AmazonClientProvider amazonClientProvider;
   private final NetflixAmazonCredentials account;
   private final ObjectMapper objectMapper;
   private final String region;
+
+  private static final String[] DEFAULT_VERSIONS = new String[] {"$Default", "$Latest"};
 
   private static final TypeReference<Map<String, Object>> ATTRIBUTES =
       new TypeReference<Map<String, Object>>() {};
@@ -85,7 +91,7 @@ public class AmazonLaunchTemplateCachingAgent implements CachingAgent, AccountAw
     final AmazonEC2 ec2 = amazonClientProvider.getAmazonEC2(account, region);
     final List<LaunchTemplate> launchTemplates = getLaunchTemplates(ec2);
     final List<LaunchTemplateVersion> launchTemplateVersions =
-        getLaunchTemplateVersions(ec2, launchTemplates);
+        getLaunchTemplateVersions(ec2, DEFAULT_VERSIONS);
     final List<CacheData> cachedData = new ArrayList<>();
     for (LaunchTemplate launchTemplate : launchTemplates) {
       Set<LaunchTemplateVersion> versions =
@@ -94,15 +100,15 @@ public class AmazonLaunchTemplateCachingAgent implements CachingAgent, AccountAw
               .collect(toSet());
 
       // store the latest template version info
-      LaunchTemplateVersion latest =
+      Optional<LaunchTemplateVersion> latest =
           versions.stream()
               .filter(v -> v.getVersionNumber().equals(launchTemplate.getLatestVersionNumber()))
-              .findFirst()
-              .orElseThrow(
-                  () ->
-                      new IllegalStateException(
-                          String.format(
-                              "No latest version found for template %s", launchTemplate)));
+              .findFirst();
+
+      if (latest.isEmpty()) {
+        log.debug("No latest version found for template {}", launchTemplate);
+        continue;
+      }
 
       String key =
           Keys.getLaunchTemplateKey(
@@ -110,7 +116,7 @@ public class AmazonLaunchTemplateCachingAgent implements CachingAgent, AccountAw
       Map<String, Object> attributes = objectMapper.convertValue(launchTemplate, ATTRIBUTES);
 
       attributes.put("application", Keys.parse(key).get("application"));
-      attributes.put("latestVersion", latest);
+      attributes.put("latestVersion", latest.get());
 
       // include version info
       attributes.put("versions", versions);
@@ -147,24 +153,11 @@ public class AmazonLaunchTemplateCachingAgent implements CachingAgent, AccountAw
     return launchTemplates;
   }
 
-  /** Gets Launch template versions */
-  private List<LaunchTemplateVersion> getLaunchTemplateVersions(
-      AmazonEC2 ec2, List<LaunchTemplate> launchTemplates) {
-    final List<LaunchTemplateVersion> launchTemplateVersions = new ArrayList<>();
-    for (LaunchTemplate launchTemplate : launchTemplates) {
-      launchTemplateVersions.addAll(getLaunchTemplateVersions(ec2, launchTemplate));
-    }
-
-    return launchTemplateVersions;
-  }
-
   /** Gets a list of ec2 Launch template versions for a Launch template */
-  private List<LaunchTemplateVersion> getLaunchTemplateVersions(
-      AmazonEC2 ec2, LaunchTemplate template) {
+  private List<LaunchTemplateVersion> getLaunchTemplateVersions(AmazonEC2 ec2, String... versions) {
     final List<LaunchTemplateVersion> launchTemplateVersions = new ArrayList<>();
     final DescribeLaunchTemplateVersionsRequest request =
-        new DescribeLaunchTemplateVersionsRequest()
-            .withLaunchTemplateId(template.getLaunchTemplateId());
+        new DescribeLaunchTemplateVersionsRequest().withVersions(versions);
     while (true) {
       final DescribeLaunchTemplateVersionsResult result =
           ec2.describeLaunchTemplateVersions(request);

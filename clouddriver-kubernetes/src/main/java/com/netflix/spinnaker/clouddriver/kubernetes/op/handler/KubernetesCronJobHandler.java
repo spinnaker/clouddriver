@@ -22,8 +22,8 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.op.handler.Kubernetes
 import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.kubernetes.artifact.Replacer;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCoreCachingAgent;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesV2CachingAgentFactory;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.SpinnakerKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
@@ -44,6 +44,8 @@ public class KubernetesCronJobHandler extends KubernetesHandler
         Replacer.dockerImage(),
         Replacer.configMapVolume(),
         Replacer.secretVolume(),
+        Replacer.configMapProjectedVolume(),
+        Replacer.secretProjectedVolume(),
         Replacer.configMapEnv(),
         Replacer.secretEnv(),
         Replacer.configMapKeyValue(),
@@ -80,7 +82,7 @@ public class KubernetesCronJobHandler extends KubernetesHandler
   }
 
   @Override
-  protected KubernetesV2CachingAgentFactory cachingAgentFactory() {
+  protected KubernetesCachingAgentFactory cachingAgentFactory() {
     return KubernetesCoreCachingAgent::new;
   }
 

@@ -249,7 +249,10 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
 
     log.info("onDemand cache refresh (data: ${data}, evictions: ${evictions}, cacheResult: ${cacheResultAsJson})")
     return new OnDemandAgent.OnDemandResult(
-      sourceAgentType: getOnDemandAgentType(), cacheResult: cacheResult, evictions: evictions
+      sourceAgentType: getOnDemandAgentType(),
+      cacheResult: cacheResult,
+      evictions: evictions,
+      authoritativeTypes: types.findAll { it.authority == AgentDataType.Authority.AUTHORITATIVE }.collect { it.typeName }
     )
   }
 
@@ -459,7 +462,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     def keys = providerCache.filterIdentifiers(ON_DEMAND.ns, Keys.getServerGroupKey("*", "*", account.name, region))
     return fetchPendingOnDemandRequests(providerCache, keys)
   }

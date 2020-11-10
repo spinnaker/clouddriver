@@ -28,18 +28,20 @@ rootProject.name = "clouddriver"
 def cloudProviderProjects = [
 //  'alicloud' : [':clouddriver-alicloud'],
   'appengine':  [':clouddriver-appengine', ':clouddriver-google-common'],
-  'aws': [':clouddriver-aws', ':clouddriver-ecs', ':clouddriver-eureka', ':clouddriver-elasticsearch-aws', ':clouddriver-lambda'], // Pull cd-eureka separate "Discover" platform, along with cd-consul?
-//  'azure': [':clouddriver-azure'],
+  'aws': [':clouddriver-aws', ':clouddriver-ecs', ':clouddriver-eureka', ':clouddriver-lambda'], // Pull cd-eureka separate "Discover" platform, along with cd-consul?
+  'aws-minimal': [':clouddriver-aws', ':clouddriver-eureka'],
+  'azure': [':clouddriver-azure'],
   'cloudfoundry': [':clouddriver-cloudfoundry'],
 //  'dcos': [':clouddriver-dcos'],
   'gce': [':clouddriver-consul', ':clouddriver-google', ':clouddriver-google-common'],
   'huaweicloud': [':clouddriver-huaweicloud'],
   'kubernetes': [':clouddriver-kubernetes'],
-//  'oracle': [':clouddriver-oracle'],
-  'tencentcloud': [':clouddriver-tencentcloud']
+  'oracle': [':clouddriver-oracle'],
+  'tencentcloud': [':clouddriver-tencentcloud'],
+  'yandex': [':clouddriver-yandex']
 ]
 cloudProviderProjects.put('gcp', cloudProviderProjects['appengine'] + cloudProviderProjects['gce'] + cloudProviderProjects['kubernetes'])
-cloudProviderProjects.put('titus', cloudProviderProjects['aws'] + ':clouddriver-titus' + ':clouddriver-docker')
+cloudProviderProjects.put('titus', cloudProviderProjects['aws-minimal'] + ':clouddriver-titus' + ':clouddriver-docker')
 cloudProviderProjects.put('all', cloudProviderProjects.collectMany {_, proj -> proj}) // Include all cloud providers.
 
 String icp = settings.ext.has('includeCloudProviders') ? settings.ext.get('includeCloudProviders') : 'all'
@@ -55,15 +57,16 @@ include 'cats:cats-core',
   'cats:cats-test',
   'cats:cats-sql',
   'clouddriver-api',
+  'clouddriver-api-tck',
   'clouddriver-artifacts',
   'clouddriver-bom',
+  'clouddriver-configserver',
   'clouddriver-core',
   'clouddriver-core-tck',
   'clouddriver-elasticsearch',
   'clouddriver-event',
   'clouddriver-saga',
   'clouddriver-saga-test',
-  'clouddriver-scattergather',
   'clouddriver-security',
   'clouddriver-sql',
   'clouddriver-sql-mysql',

@@ -48,9 +48,9 @@ class UpsertSecurityGroupAtomicOperationUnitSpec extends Specification {
   )
 
 
-  final securityGroupLookup = Mock(SecurityGroupLookupFactory.SecurityGroupLookup)
+  def securityGroupLookup = Mock(SecurityGroupLookupFactory.SecurityGroupLookup)
 
-  final securityGroupLookupFactory = Stub(SecurityGroupLookupFactory) {
+  def securityGroupLookupFactory = Stub(SecurityGroupLookupFactory) {
     getInstance(_) >> securityGroupLookup
   }
 
@@ -346,7 +346,7 @@ class UpsertSecurityGroupAtomicOperationUnitSpec extends Specification {
 
     then:
     IllegalStateException ex = thrown()
-    ex.message == "The following security groups do not exist: 'bar' in 'test' vpc-123"
+    ex.message == "The following security groups do not exist: 'bar' in 'test' vpc-123 (ignoreSelfReferencingRules: true)"
   }
 
   void "should two-phase create self-referential security group in vpc"() {

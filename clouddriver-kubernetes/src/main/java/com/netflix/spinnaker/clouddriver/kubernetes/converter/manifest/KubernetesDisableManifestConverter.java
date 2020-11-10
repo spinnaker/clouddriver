@@ -22,22 +22,25 @@ import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.D
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesEnableDisableManifestDescription;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.manifest.KubernetesDisableManifestOperation;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
+import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsConverter;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @KubernetesOperation(DISABLE_MANIFEST)
 @Component
-public class KubernetesDisableManifestConverter extends AbstractAtomicOperationsCredentialsSupport {
+public class KubernetesDisableManifestConverter
+    extends AbstractAtomicOperationsCredentialsConverter<KubernetesNamedAccountCredentials> {
   @Override
-  public AtomicOperation convertOperation(Map input) {
+  public AtomicOperation<OperationResult> convertOperation(Map<String, Object> input) {
     return new KubernetesDisableManifestOperation(convertDescription(input));
   }
 
   @Override
-  public KubernetesEnableDisableManifestDescription convertDescription(Map input) {
+  public KubernetesEnableDisableManifestDescription convertDescription(Map<String, Object> input) {
     return KubernetesAtomicOperationConverterHelper.convertDescription(
         input, this, KubernetesEnableDisableManifestDescription.class);
   }
