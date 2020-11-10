@@ -196,6 +196,6 @@ public class CloudFoundryCredentialsTest {
         assertThrows(Exception.class, () -> credentials.createFilteredSpaces(locationFilter));
     assertThat(e)
         .hasMessageContaining(
-            "The locationFilter had Orgs and/or Spaces but we found no spaces as a result. Spaces must not be null or empty when a locationFilter is included.");
+            "The locationFilter had Orgs and/or Spaces but CloudFoundry returned no spaces as a result. Spaces must not be null or empty when a locationFilter is included.");
   }
 }
