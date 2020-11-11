@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.cats.sql.controllers
 
+import com.netflix.spinnaker.cats.sql.SqlUtil
 import com.netflix.spinnaker.cats.sql.cache.SqlSchemaVersion
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import com.netflix.spinnaker.kork.sql.config.SqlProperties
@@ -51,16 +52,7 @@ class CatsSqlAdminController(
 
     conn.use { c ->
       val jooq = DSL.using(c, SQLDialect.MYSQL)
-      val rs = when (jooq.dialect()) {
-        SQLDialect.POSTGRES ->
-          jooq.select(DSL.field("tablename"))
-            .from(DSL.table("pg_catalog.pg_tables"))
-            .where(DSL.field("tablename").like("cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%"))
-            .fetch()
-            .intoResultSet()
-        else ->
-          jooq.fetch("show tables like 'cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%'").intoResultSet()
-      }
+      val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%")
 
       while (rs.next()) {
         val table = rs.getString(1)
@@ -94,16 +86,7 @@ class CatsSqlAdminController(
 
     conn.use { c ->
       val jooq = DSL.using(c, SQLDialect.MYSQL)
-      val rs = when (jooq.dialect()) {
-        SQLDialect.POSTGRES ->
-          jooq.select(DSL.field("tablename"))
-            .from(DSL.table("pg_catalog.pg_tables"))
-            .where(DSL.field("tablename").like("cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%"))
-            .fetch()
-            .intoResultSet()
-        else ->
-          jooq.fetch("show tables like 'cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%'").intoResultSet()
-      }
+      val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%")
 
       while (rs.next()) {
         val table = rs.getString(1)

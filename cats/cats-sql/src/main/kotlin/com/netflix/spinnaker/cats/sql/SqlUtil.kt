@@ -18,17 +18,32 @@ package com.netflix.spinnaker.cats.sql
 
 import org.jooq.DSLContext
 import org.jooq.SQLDialect
+import org.jooq.impl.DSL
+import java.sql.ResultSet
 
 object SqlUtil {
 
-  fun createTableLike(jooq: DSLContext, tablename: String, template: String) {
+  fun createTableLike(jooq: DSLContext, baseName: String, template: String) {
     when (jooq.dialect()) {
       SQLDialect.POSTGRES ->
-        jooq.execute("CREATE TABLE IF NOT EXISTS $tablename (LIKE $template INCLUDING ALL)")
+        jooq.execute("CREATE TABLE IF NOT EXISTS $baseName (LIKE $template INCLUDING ALL)")
       else ->
         jooq.execute(
-          "CREATE TABLE IF NOT EXISTS $tablename LIKE $template"
+          "CREATE TABLE IF NOT EXISTS $baseName LIKE $template"
         )
+    }
+  }
+
+  fun getTablesLike(jooq: DSLContext, baseName: String): ResultSet {
+    return when (jooq.dialect()) {
+      SQLDialect.POSTGRES ->
+        jooq.select(DSL.field("tablename"))
+          .from(DSL.table("pg_catalog.pg_tables"))
+          .where(DSL.field("tablename").like("$baseName%"))
+          .fetch()
+          .intoResultSet()
+      else ->
+        jooq.fetch("show tables like '$baseName%'").intoResultSet()
     }
   }
 }
