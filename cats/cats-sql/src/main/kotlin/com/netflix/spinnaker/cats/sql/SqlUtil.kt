@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.cats.sql
 
 import org.jooq.DSLContext
+import org.jooq.Field
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 import java.sql.ResultSet
@@ -45,5 +46,9 @@ object SqlUtil {
       else ->
         jooq.fetch("show tables like '$baseName%'").intoResultSet()
     }
+  }
+
+  fun <T> excluded(values: Field<T>): Field<T> {
+    return DSL.field("excluded.{0}", values.dataType, values)
   }
 }

@@ -51,7 +51,7 @@ const val coroutineThreadPrefix = "catsSql"
 @Configuration
 @ConditionalOnProperty("sql.cache.enabled")
 @Import(DefaultSqlConfiguration::class)
-@EnableConfigurationProperties(SqlAgentProperties::class, SqlConstraints::class)
+@EnableConfigurationProperties(SqlAgentProperties::class, SqlConstraintsProperties::class)
 @ComponentScan("com.netflix.spinnaker.cats.sql.controllers")
 class SqlCacheConfiguration {
 
@@ -97,7 +97,7 @@ class SqlCacheConfiguration {
     sqlProperties: SqlProperties,
     cacheMetrics: SqlCacheMetrics,
     dynamicConfigService: DynamicConfigService,
-    sqlConstraints: SqlConstraints,
+    sqlConstraintsProperties: SqlConstraintsProperties,
     mapper: ObjectMapper,
     @Value("\${sql.cache.async-pool-size:0}") poolSize: Int,
     @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?
@@ -132,7 +132,7 @@ class SqlCacheConfiguration {
       tableNamespace,
       cacheMetrics,
       dynamicConfigService,
-      sqlConstraints
+      SqlConstraints(SqlConstraintsInitializer.getDefaultSqlConstraints(jooq.dialect()), sqlConstraintsProperties)
     )
   }
 

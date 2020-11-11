@@ -591,10 +591,10 @@ class SqlCache(
                 SQLDialect.POSTGRES ->
                   onConflict(field("id"), field("agent"))
                     .doUpdate()
-                    .set(field("application"), excluded(field("application")) as Any)
-                    .set(field("body_hash"), excluded(field("body_hash")) as Any)
-                    .set(field("body"), excluded(field("body")) as Any)
-                    .set(field("last_updated"), excluded(field("last_updated")) as Any)
+                    .set(field("application"), SqlUtil.excluded(field("application")) as Any)
+                    .set(field("body_hash"), SqlUtil.excluded(field("body_hash")) as Any)
+                    .set(field("body"), SqlUtil.excluded(field("body")) as Any)
+                    .set(field("last_updated"), SqlUtil.excluded(field("last_updated")) as Any)
                     .execute()
                 else ->
                   onDuplicateKeyUpdate()
@@ -675,10 +675,6 @@ class SqlCache(
     evictAll(type, toDelete)
 
     return result
-  }
-
-  private fun <T> excluded(values: Field<T>): Field<T> {
-    return field("excluded.{0}", values.dataType, values)
   }
 
   private fun storeInformative(type: String, items: MutableCollection<CacheData>, cleanup: Boolean): StoreResult {
