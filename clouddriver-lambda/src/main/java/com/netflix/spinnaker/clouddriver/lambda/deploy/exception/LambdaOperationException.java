@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Netflix, Inc.
+ * Copyright 2020 Amazon.com, Inc. or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,14 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.model;
+package com.netflix.spinnaker.clouddriver.lambda.deploy.exception;
 
-public enum HealthState {
-  Failed,
-  Down,
-  OutOfService,
-  Unknown,
-  Starting,
-  Succeeded,
-  Up,
-  Draining;
+public class LambdaOperationException extends RuntimeException {
+  public LambdaOperationException(String message) {
+    super(message);
+  }
 
-  public static HealthState fromString(final String name) {
-    for (HealthState state : values()) {
-      if (state.name().equalsIgnoreCase(name)) {
-        return state;
-      }
-    }
-    return Unknown;
+  public LambdaOperationException(String message, Throwable cause) {
+    super(message, cause);
   }
 }
