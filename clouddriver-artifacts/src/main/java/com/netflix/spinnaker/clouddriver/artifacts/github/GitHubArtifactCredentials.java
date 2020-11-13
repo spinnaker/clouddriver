@@ -27,14 +27,14 @@ import com.netflix.spinnaker.clouddriver.artifacts.config.SimpleHttpArtifactCred
 import com.netflix.spinnaker.clouddriver.artifacts.exceptions.FailedDownloadException;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import com.squareup.okhttp.HttpUrl;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.ResponseBody;
-import java.io.IOException;
-import javax.annotation.Nullable;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
+import okhttp3.HttpUrl;
+import okhttp3.ResponseBody;
+import javax.annotation.Nullable;
+import java.io.IOException;
 
 @NonnullByDefault
 @Slf4j
@@ -46,7 +46,7 @@ final class GitHubArtifactCredentials extends SimpleHttpArtifactCredentials<GitH
   @JsonIgnore private final ObjectMapper objectMapper;
 
   GitHubArtifactCredentials(
-      GitHubArtifactAccount account, OkHttpClient okHttpClient, ObjectMapper objectMapper) {
+    GitHubArtifactAccount account, OkHttpClient okHttpClient, ObjectMapper objectMapper) {
     super(okHttpClient, account);
     this.name = account.getName();
     this.objectMapper = objectMapper;

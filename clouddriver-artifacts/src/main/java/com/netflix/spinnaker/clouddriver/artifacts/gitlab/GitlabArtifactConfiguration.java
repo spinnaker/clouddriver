@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.gitlab;
 
-import com.squareup.okhttp.OkHttpClient;
+import okhttp3.OkHttpClient;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;

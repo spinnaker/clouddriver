@@ -18,13 +18,13 @@
 package com.netflix.spinnaker.clouddriver.artifacts.github;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.squareup.okhttp.OkHttpClient;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -48,18 +48,18 @@ class GitHubArtifactConfiguration {
                 if (gitHubArtifactProviderProperties.getConnectTimeoutMs() > 0
                     || gitHubArtifactProviderProperties.getReadTimeoutMs() > 0) {
 
-                  OkHttpClient extendedTimeoutClient = okHttpClient.clone();
+                  OkHttpClient.Builder extendedTimeoutClientBuilder = okHttpClient.newBuilder();
                   if (gitHubArtifactProviderProperties.getConnectTimeoutMs() > 0) {
-                    extendedTimeoutClient.setConnectTimeout(
+                    extendedTimeoutClientBuilder.connectTimeout(
                         gitHubArtifactProviderProperties.getConnectTimeoutMs(),
                         TimeUnit.MILLISECONDS);
                   }
 
                   if (gitHubArtifactProviderProperties.getReadTimeoutMs() > 0) {
-                    extendedTimeoutClient.setReadTimeout(
+                    extendedTimeoutClientBuilder.readTimeout(
                         gitHubArtifactProviderProperties.getReadTimeoutMs(), TimeUnit.MILLISECONDS);
                   }
-                  return new GitHubArtifactCredentials(a, extendedTimeoutClient, objectMapper);
+                  return new GitHubArtifactCredentials(a, extendedTimeoutClientBuilder.build(), objectMapper);
                 } else {
                   return new GitHubArtifactCredentials(a, okHttpClient, objectMapper);
                 }
