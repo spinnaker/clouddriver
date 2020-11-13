@@ -18,10 +18,8 @@
 package com.netflix.spinnaker.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -33,10 +31,9 @@ import org.springframework.stereotype.Component;
 @ComponentScan("com.netflix.spinnaker.clouddriver.artifacts")
 @Slf4j
 public class ArtifactConfiguration {
-  @JsonIgnore
-  private final OkHttpClient okHttpClient;
+  @JsonIgnore private final OkHttpClient okHttpClient;
 
-  public ArtifactConfiguration(OkHttpClient okHttpClient){
+  public ArtifactConfiguration(OkHttpClient okHttpClient) {
     log.info("Initializing okHttpClient for Artifact provider");
     this.okHttpClient = okHttpClient;
   }

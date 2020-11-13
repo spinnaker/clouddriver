@@ -59,7 +59,8 @@ class GitHubArtifactConfiguration {
                     extendedTimeoutClientBuilder.readTimeout(
                         gitHubArtifactProviderProperties.getReadTimeoutMs(), TimeUnit.MILLISECONDS);
                   }
-                  return new GitHubArtifactCredentials(a, extendedTimeoutClientBuilder.build(), objectMapper);
+                  return new GitHubArtifactCredentials(
+                      a, extendedTimeoutClientBuilder.build(), objectMapper);
                 } else {
                   return new GitHubArtifactCredentials(a, okHttpClient, objectMapper);
                 }
