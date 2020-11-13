@@ -1,25 +1,26 @@
 /*
- * Copyright 2020 Coveo, Inc.
+ * Copyright 2020 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package com.netflix.spinnaker.clouddriver.controllers;
+package com.netflix.spinnaker.clouddriver.kubernetes.controllers;
 
-import com.netflix.spinnaker.clouddriver.model.RawResource;
-import com.netflix.spinnaker.clouddriver.model.RawResourceProvider;
-import java.util.*;
-import java.util.stream.Collectors;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesRawResource;
+import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesRawResourceProvider;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PostAuthorize;
@@ -32,20 +33,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 class RawResourceController {
-  private final List<RawResourceProvider> rawResourceProviders;
+  private final KubernetesRawResourceProvider rawResourceProvider;
 
   @Autowired
-  public RawResourceController(Optional<List<RawResourceProvider>> rawResourceProviders) {
-    this.rawResourceProviders = rawResourceProviders.orElse(Collections.emptyList());
+  public RawResourceController(KubernetesRawResourceProvider rawResourceProvider) {
+    this.rawResourceProvider = rawResourceProvider;
   }
 
   @PreAuthorize("hasPermission(#application, 'APPLICATION', 'READ')")
   @PostAuthorize("@authorizationSupport.filterForAccounts(returnObject)")
   @RequestMapping(value = "/applications/{application}/rawResources", method = RequestMethod.GET)
-  List<RawResource> list(@PathVariable String application) {
-    return rawResourceProviders.stream()
-        .map(p -> p.getApplicationRawResources(application))
-        .flatMap(Collection::stream)
-        .collect(Collectors.toList());
+  List<KubernetesRawResource> list(@PathVariable String application) {
+    return new ArrayList<>(rawResourceProvider.getApplicationRawResources(application));
   }
 }

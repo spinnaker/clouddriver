@@ -21,19 +21,19 @@ import static com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.LogicalK
 
 import com.google.common.collect.ImmutableSet;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys.ApplicationCacheKey;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesRawResource;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.RawResourcesEndpointConfig;
-import com.netflix.spinnaker.clouddriver.model.RawResourceProvider;
-import java.util.*;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesRawResourceProvider implements RawResourceProvider {
+public class KubernetesRawResourceProvider {
   private final KubernetesCacheUtils cacheUtils;
   private final RawResourcesEndpointConfig configuration;
 
@@ -45,12 +45,6 @@ public class KubernetesRawResourceProvider implements RawResourceProvider {
     this.configuration.validate();
   }
 
-  @Override
-  public String getCloudProvider() {
-    return KubernetesCloudProvider.ID;
-  }
-
-  @Override
   public Set<KubernetesRawResource> getApplicationRawResources(String application) {
     return cacheUtils
         .getSingleEntry(APPLICATIONS.toString(), ApplicationCacheKey.createKey(application))
@@ -62,8 +56,8 @@ public class KubernetesRawResourceProvider implements RawResourceProvider {
 
   private Set<KubernetesRawResource> fromRawResourceCacheData(
       Collection<CacheData> rawResourceData) {
-    List<String> kinds = configuration.getKinds();
-    List<String> omitKinds = configuration.getOmitKinds();
+    Set<String> kinds = configuration.getKinds();
+    Set<String> omitKinds = configuration.getOmitKinds();
     return rawResourceData.stream()
         .map(KubernetesRawResource::fromCacheData)
         .filter(Objects::nonNull)

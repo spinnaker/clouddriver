@@ -17,14 +17,14 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.config;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.Data;
 
 @Data
 public class RawResourcesEndpointConfig {
-  private List<String> kinds = new ArrayList<>();
-  private List<String> omitKinds = new ArrayList<>();
+  private Set<String> kinds = new HashSet<>();
+  private Set<String> omitKinds = new HashSet<>();
 
   public void validate() {
     if (!omitKinds.isEmpty() && !kinds.isEmpty()) {

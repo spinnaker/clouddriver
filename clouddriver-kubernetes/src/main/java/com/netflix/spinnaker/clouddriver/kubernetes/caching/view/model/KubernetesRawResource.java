@@ -25,7 +25,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCach
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
-import com.netflix.spinnaker.clouddriver.model.*;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -35,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Value
-public final class KubernetesRawResource implements KubernetesResource, RawResource {
+public final class KubernetesRawResource implements KubernetesResource {
   private static final Logger log = LoggerFactory.getLogger(KubernetesRawResource.class);
   private final String account;
   private final String name;
@@ -46,6 +45,7 @@ public final class KubernetesRawResource implements KubernetesResource, RawResou
   private final Map<String, String> labels;
   private final Moniker moniker;
   private final Long createdTime;
+  private final String cloudProvider;
 
   private KubernetesRawResource(KubernetesManifest manifest, String key, Moniker moniker) {
     this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
@@ -57,6 +57,7 @@ public final class KubernetesRawResource implements KubernetesResource, RawResou
     this.labels = ImmutableMap.copyOf(manifest.getLabels());
     this.moniker = moniker;
     this.createdTime = manifest.getCreationTimestampEpochMillis();
+    this.cloudProvider = KubernetesCloudProvider.ID;
   }
 
   @Nullable
@@ -73,10 +74,5 @@ public final class KubernetesRawResource implements KubernetesResource, RawResou
 
   public String getRegion() {
     return namespace;
-  }
-
-  @Override
-  public String getCloudProvider() {
-    return KubernetesCloudProvider.ID;
   }
 }
