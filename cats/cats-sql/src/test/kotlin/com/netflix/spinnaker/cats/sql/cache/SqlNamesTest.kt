@@ -31,7 +31,7 @@ class SqlNamesTest : JUnit5Minutests {
 
   fun tests() = rootContext<SqlNames> {
     fixture {
-      SqlNames(sqlConstraints = SqlConstraints(SqlConstraintsInitializer.getDefaultSqlConstraints(SQLDialect.MYSQL), SqlConstraintsProperties()))
+      SqlNames(sqlConstraints = SqlConstraintsInitializer.getDefaultSqlConstraints(SQLDialect.MYSQL))
     }
 
     listOf(
