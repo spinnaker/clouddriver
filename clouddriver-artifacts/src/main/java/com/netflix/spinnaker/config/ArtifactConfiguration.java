@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.config;
 
+import com.netflix.spinnaker.okhttp.OkHttpClientConfigurationProperties;
 import com.squareup.okhttp.OkHttpClient;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
@@ -35,14 +36,29 @@ import org.springframework.stereotype.Component;
 @ComponentScan("com.netflix.spinnaker.clouddriver.artifacts")
 @Slf4j
 public class ArtifactConfiguration {
-  private final ArtifactProviderProperties properties;
+  private final ArtifactProviderProperties providerProperties;
 
   @Bean
-  OkHttpClient okHttpClient() {
+  OkHttpClient okHttpClient(
+      OkHttpClientConfigurationProperties okHttpClientConfigurationProperties) {
     log.info("Initializing okHttpClient for Artifact provider");
+    long connectionTimeout =
+        providerProperties.getConnectTimeoutMs() > 0
+            ? providerProperties.getConnectTimeoutMs()
+            : okHttpClientConfigurationProperties.getConnectTimeoutMs();
+    long readTimeout =
+        providerProperties.getReadTimeoutMs() > 0
+            ? providerProperties.getReadTimeoutMs()
+            : okHttpClientConfigurationProperties.getReadTimeoutMs();
+    boolean retryOnConnectionFailure =
+        providerProperties.isRetryOnConnectionFailure()
+            || okHttpClientConfigurationProperties.isRetryOnConnectionFailure();
+
     OkHttpClient client = new OkHttpClient();
-    client.setConnectTimeout(properties.getConnectTimeoutMs(), TimeUnit.MILLISECONDS);
-    client.setRetryOnConnectionFailure(properties.isRetryOnConnectionFailure());
+    client.setConnectTimeout(connectionTimeout, TimeUnit.MILLISECONDS);
+    client.setReadTimeout(readTimeout, TimeUnit.MILLISECONDS);
+    client.setRetryOnConnectionFailure(retryOnConnectionFailure);
+
     return client;
   }
 }

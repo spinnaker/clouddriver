@@ -45,13 +45,20 @@ class GitHubArtifactConfiguration {
         .map(
             a -> {
               try {
-                if (gitHubArtifactProviderProperties.getConnectTimeoutMs() != 0) {
+                if (gitHubArtifactProviderProperties.getConnectTimeoutMs() > 0
+                    || gitHubArtifactProviderProperties.getReadTimeoutMs() > 0) {
+
                   OkHttpClient extendedTimeoutClient = okHttpClient.clone();
-                  extendedTimeoutClient.setConnectTimeout(
-                      gitHubArtifactProviderProperties.getConnectTimeoutMs(),
-                      TimeUnit.MILLISECONDS);
-                  extendedTimeoutClient.setReadTimeout(
-                      gitHubArtifactProviderProperties.getReadTimeoutMs(), TimeUnit.MILLISECONDS);
+                  if (gitHubArtifactProviderProperties.getConnectTimeoutMs() > 0) {
+                    extendedTimeoutClient.setConnectTimeout(
+                        gitHubArtifactProviderProperties.getConnectTimeoutMs(),
+                        TimeUnit.MILLISECONDS);
+                  }
+
+                  if (gitHubArtifactProviderProperties.getReadTimeoutMs() > 0) {
+                    extendedTimeoutClient.setReadTimeout(
+                        gitHubArtifactProviderProperties.getReadTimeoutMs(), TimeUnit.MILLISECONDS);
+                  }
                   return new GitHubArtifactCredentials(a, extendedTimeoutClient, objectMapper);
                 } else {
                   return new GitHubArtifactCredentials(a, okHttpClient, objectMapper);
