@@ -86,6 +86,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   final ObjectMapper objectMapper
   final Registry registry
   final EddaTimeoutConfig eddaTimeoutConfig
+  final AmazonCachingAgentFilter amazonCachingAgentFilter
 
   final OnDemandMetricsSupport metricsSupport
 
@@ -95,7 +96,8 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
                       String region,
                       ObjectMapper objectMapper,
                       Registry registry,
-                      EddaTimeoutConfig eddaTimeoutConfig) {
+                      EddaTimeoutConfig eddaTimeoutConfig,
+                      AmazonCachingAgentFilter amazonCachingAgentFilter) {
     this.amazonCloudProvider = amazonCloudProvider
     this.amazonClientProvider = amazonClientProvider
     this.account = account
@@ -104,6 +106,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
     this.registry = registry
     this.eddaTimeoutConfig = eddaTimeoutConfig
     this.metricsSupport = new OnDemandMetricsSupport(registry, this, "${amazonCloudProvider.id}:${OnDemandType.ServerGroup}")
+    this.amazonCachingAgentFilter = amazonCachingAgentFilter
   }
 
   @Override
@@ -305,6 +308,17 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
 
     // A non-null status indicates that the ASG is in the process of being destroyed (no sense indexing)
     asgs = asgs.findAll { it.status == null }
+
+    // filter asg if there is any filter configuration established
+    if (amazonCachingAgentFilter.hasTagFilter()) {
+      asgs = asgs.findAll { asg ->
+        def asgTags = asg.tags?.collect {
+          new AmazonCachingAgentFilter.ResourceTag(it.key, it.value)
+        }
+
+        return amazonCachingAgentFilter.shouldRetainResource(asgTags)
+      }
+    }
 
     new AutoScalingGroupsResults(start: start, asgs: asgs)
   }

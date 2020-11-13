@@ -20,6 +20,7 @@ import com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import com.netflix.spinnaker.cats.agent.CachingAgent
 import com.netflix.spinnaker.cats.agent.RunnableAgent
 import com.netflix.spinnaker.cats.provider.ProviderRegistry
+import com.netflix.spinnaker.cats.sql.SqlUtil
 import com.netflix.spinnaker.clouddriver.cache.CustomScheduledAgent
 import com.netflix.spinnaker.clouddriver.core.provider.CoreProvider
 import com.netflix.spinnaker.clouddriver.sql.SqlAgent
@@ -92,16 +93,7 @@ class SqlUnknownAgentCleanupAgent(
     }
     log.debug("Checking table '$tableName' for '$dataType' data cleanup")
 
-    val tableExists = when (jooq.dialect()) {
-      SQLDialect.POSTGRES ->
-        jooq.select(field("tablename"))
-          .from(table("pg_catalog.pg_tables"))
-          .where(field("tablename").like("$tableName%"))
-          .fetch()
-          .intoResultSet()
-      else ->
-        jooq.fetch("show tables like '$tableName%'").intoResultSet()
-    }
+    val tableExists = SqlUtil.getTablesLike(jooq, tableName)
 
     if (!tableExists.next()) {
       log.debug("Table '$tableName' not found")

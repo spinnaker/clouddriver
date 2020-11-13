@@ -63,7 +63,7 @@ dependencies {
   testImplementation "org.testcontainers:mysql"
   testImplementation "org.testcontainers:postgresql"
   testImplementation "mysql:mysql-connector-java"
-  testImplementation "org.postgresql:postgresql:42.2.8"
+  testImplementation "org.postgresql:postgresql"
 }
 
 test {

@@ -52,7 +52,7 @@ class CatsSqlAdminController(
 
     conn.use { c ->
       val jooq = DSL.using(c, SQLDialect.MYSQL)
-      val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_%")
+      val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_")
 
       while (rs.next()) {
         val table = rs.getString(1)
@@ -86,7 +86,7 @@ class CatsSqlAdminController(
 
     conn.use { c ->
       val jooq = DSL.using(c, SQLDialect.MYSQL)
-      val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${dropNamespace}_%")
+      val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${dropNamespace}_")
 
       while (rs.next()) {
         val table = rs.getString(1)

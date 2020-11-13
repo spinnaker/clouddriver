@@ -79,6 +79,10 @@ class SqlCacheConfiguration {
       .build(providers)
   }
 
+  @Bean
+  fun sqlConstraints(jooq: DSLContext, sqlConstraintsProperties: SqlConstraintsProperties): SqlConstraints =
+    SqlConstraints(SqlConstraintsInitializer.getDefaultSqlConstraints(jooq.dialect()), sqlConstraintsProperties)
+
   /**
    * sql.cache.async.poolSize: If set to a positive integer, a fixed thread pool of this size is created
    * as part of a coroutineContext. If sql.cache.maxQueryConcurrency is also >1 (default value: 4),
@@ -97,7 +101,7 @@ class SqlCacheConfiguration {
     sqlProperties: SqlProperties,
     cacheMetrics: SqlCacheMetrics,
     dynamicConfigService: DynamicConfigService,
-    sqlConstraintsProperties: SqlConstraintsProperties,
+    sqlConstraints: SqlConstraints,
     mapper: ObjectMapper,
     @Value("\${sql.cache.async-pool-size:0}") poolSize: Int,
     @Value("\${sql.table-namespace:#{null}}") tableNamespace: String?
@@ -132,7 +136,7 @@ class SqlCacheConfiguration {
       tableNamespace,
       cacheMetrics,
       dynamicConfigService,
-      SqlConstraints(SqlConstraintsInitializer.getDefaultSqlConstraints(jooq.dialect()), sqlConstraintsProperties)
+      sqlConstraints
     )
   }
 
