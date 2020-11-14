@@ -29,6 +29,8 @@ import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+import java.time.Instant
+
 @RestController
 @RequestMapping("/dockerRegistry/images")
 class DockerRegistryImageLookupController {
@@ -51,7 +53,7 @@ class DockerRegistryImageLookupController {
       Keys.getTaggedImageKey(account, repository, "*")
     ).sort { a, b ->
       if (credentials.sortTagsByDate) {
-        b.attributes.date <=> a.attributes.date
+        b.attributes.date.epochSecond <=> a.attributes.date.epochSecond
       } else {
         a.id <=> b.id
       }
