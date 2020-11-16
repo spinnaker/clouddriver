@@ -29,6 +29,7 @@ import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -45,7 +46,11 @@ final class KubernetesManifestContainerBuilder {
     KubernetesResourceProperties properties = credentials.getResourcePropertyRegistry().get(kind);
 
     Function<KubernetesManifest, String> lastEventTimestamp =
-        (m) -> (String) m.getOrDefault("lastTimestamp", m.getOrDefault("firstTimestamp", "n/a"));
+        (m) ->
+            Optional.ofNullable(
+                    (String)
+                        m.getOrDefault("lastTimestamp", m.getOrDefault("firstTimestamp", "n/a")))
+                .orElse("n/a");
 
     events =
         events.stream()
