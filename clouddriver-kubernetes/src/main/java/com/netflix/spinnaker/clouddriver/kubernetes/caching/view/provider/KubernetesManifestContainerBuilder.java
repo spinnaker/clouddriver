@@ -17,6 +17,8 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider;
 
+import static java.util.Comparator.*;
+
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model.KubernetesManifestContainer;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
@@ -29,7 +31,6 @@ import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -46,16 +47,12 @@ final class KubernetesManifestContainerBuilder {
     KubernetesResourceProperties properties = credentials.getResourcePropertyRegistry().get(kind);
 
     Function<KubernetesManifest, String> lastEventTimestamp =
-        (m) ->
-            Optional.ofNullable(
-                    (String)
-                        m.getOrDefault("lastTimestamp", m.getOrDefault("firstTimestamp", "n/a")))
-                .orElse("n/a");
+        (m) -> (String) m.getOrDefault("lastTimestamp", m.getOrDefault("firstTimestamp", "n/a"));
 
-    events =
-        events.stream()
-            .sorted(Comparator.comparing(lastEventTimestamp))
-            .collect(Collectors.toList());
+    Comparator<KubernetesManifest> eventComparator =
+        nullsLast(comparing(lastEventTimestamp, nullsLast(naturalOrder())));
+
+    events = events.stream().sorted(eventComparator).collect(Collectors.toList());
 
     Moniker moniker = KubernetesManifestAnnotater.getMoniker(manifest);
 
