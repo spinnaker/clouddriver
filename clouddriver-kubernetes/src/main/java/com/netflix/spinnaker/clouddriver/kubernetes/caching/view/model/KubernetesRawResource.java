@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.kubernetes.caching.view.model;
 
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys;
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.agent.KubernetesCacheDataConverter;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion;
@@ -45,7 +44,6 @@ public final class KubernetesRawResource implements KubernetesResource {
   private final Map<String, String> labels;
   private final Moniker moniker;
   private final Long createdTime;
-  private final String cloudProvider;
 
   private KubernetesRawResource(KubernetesManifest manifest, String key, Moniker moniker) {
     this.account = ((Keys.InfrastructureCacheKey) Keys.parseKey(key).get()).getAccount();
@@ -57,7 +55,6 @@ public final class KubernetesRawResource implements KubernetesResource {
     this.labels = ImmutableMap.copyOf(manifest.getLabels());
     this.moniker = moniker;
     this.createdTime = manifest.getCreationTimestampEpochMillis();
-    this.cloudProvider = KubernetesCloudProvider.ID;
   }
 
   @Nullable
