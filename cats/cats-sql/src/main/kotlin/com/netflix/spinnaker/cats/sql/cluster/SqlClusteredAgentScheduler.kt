@@ -183,18 +183,19 @@ class SqlClusteredAgentScheduler(
 
       val now = System.currentTimeMillis()
       while (existingLocks.next()) {
-        if (now > existingLocks.getLong("lock_expiry")) {
+        val lockExpiry = existingLocks.getLong("lock_expiry")
+        if (now > lockExpiry) {
           try {
             jooq.deleteFrom(table(lockTable))
               .where(
                 field("agent_name").eq(existingLocks.getString("agent_name"))
-                  .and(field("lock_expiry").eq(existingLocks.getString("lock_expiry")))
+                  .and(field("lock_expiry").eq(lockExpiry))
               )
               .execute()
           } catch (e: SQLException) {
             log.error(
               "Failed deleting agent lock ${existingLocks.getString("agent_name")} with expiry " +
-                existingLocks.getString("lock_expiry"),
+                lockExpiry,
               e
             )
 

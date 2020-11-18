@@ -30,7 +30,6 @@ import java.sql.SQLException
 import java.util.concurrent.TimeUnit
 import org.jooq.DSLContext
 import org.jooq.Field
-import org.jooq.SQLDialect
 import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.table
 import org.slf4j.LoggerFactory

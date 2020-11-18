@@ -2,6 +2,7 @@ databaseChangeLog:
   - changeSet:
       id: create-event-aggregates-table
       author: robzienert
+      validCheckSum: 8:99ad0fa01e0a2f5a2d66e015a58dccfd
       changes:
         - createTable:
             tableName: event_aggregates
@@ -75,6 +76,7 @@ databaseChangeLog:
   - changeSet:
       id: create-events-table
       author: robzienert
+      validCheckSum: 8:f41e5362ca2d12053be0053d7019dd9c
       changes:
         - createTable:
             tableName: events
