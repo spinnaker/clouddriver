@@ -27,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.Kuberne
 import com.netflix.spinnaker.clouddriver.kubernetes.validator.KubernetesValidationUtil;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import java.util.List;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -34,7 +35,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class KubernetesDeployManifestValidator
     extends DescriptionValidator<KubernetesDeployManifestDescription> {
-  @Autowired AccountCredentialsProvider provider;
+
+  AccountCredentialsProvider provider;
+
+  @Autowired
+  public KubernetesDeployManifestValidator(AccountCredentialsProvider provider) {
+    this.provider = provider;
+  }
 
   @Override
   public void validate(
@@ -52,7 +59,9 @@ public class KubernetesDeployManifestValidator
       if (manifest == null) {
         continue;
       }
-
+      if (!StringUtils.isBlank(description.getNamespaceOverride())) {
+        manifest.setNamespace(description.getNamespaceOverride());
+      }
       if (!util.validateCredentials(provider, description.getAccount(), manifest)) {
         return;
       }
