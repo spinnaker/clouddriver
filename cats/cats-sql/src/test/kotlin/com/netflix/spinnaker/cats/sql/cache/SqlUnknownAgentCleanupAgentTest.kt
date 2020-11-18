@@ -112,7 +112,7 @@ class SqlUnknownAgentCleanupAgentTest : JUnit5Minutests {
   }
 
   fun defaultSqlNames() : SqlNames =
-    SqlNames(sqlConstraints = SqlConstraints(SqlConstraintsInitializer.getDefaultSqlConstraints(SQLDialect.MYSQL), SqlConstraintsProperties()))
+    SqlNames(sqlConstraints = SqlConstraintsInitializer.getDefaultSqlConstraints(SQLDialect.MYSQL))
 
 
   private inner class Fixture {
