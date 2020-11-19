@@ -105,6 +105,7 @@ public class DeployManifestIT extends BaseTest {
 
     // ------------------------- then --------------------------
     resp.then().statusCode(400);
+    assertTrue(resp.body().asString().contains("wrongNamespace"));
   }
 
   @DisplayName(
