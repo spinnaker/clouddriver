@@ -47,10 +47,7 @@ object SqlConstraintsInitializer {
         // https://www.postgresql.org/docs/current/limits.html
         SqlConstraints(63, Int.MAX_VALUE, Int.MAX_VALUE)
       else ->
-        SqlConstraints(
-          64,
-          // 352 * 2 + 64 (max rel_type length) == 768; 768 * 4 (utf8mb4) == 3072 == Aurora's max index length
-          352, 127
-        )
+        // 352 * 2 + 64 (max rel_type length) == 768; 768 * 4 (utf8mb4) == 3072 == Aurora's max index length
+        SqlConstraints(64, 352, 127)
     }
 }

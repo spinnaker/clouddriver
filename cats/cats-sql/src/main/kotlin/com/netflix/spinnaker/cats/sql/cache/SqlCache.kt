@@ -36,7 +36,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.jooq.Condition
 import org.jooq.DSLContext
-import org.jooq.Field
 import org.jooq.SQLDialect
 import org.jooq.exception.DataAccessException
 import org.jooq.exception.SQLDialectNotSupportedException
@@ -585,26 +584,24 @@ class SqlCache(
         insert.apply {
           chunk.forEach {
             values(it, sqlNames.checkAgentName(agent), apps[it], hashes[it], bodies[it], now)
-          }
-            .run {
-              when (jooq.dialect()) {
-                SQLDialect.POSTGRES ->
-                  onConflict(field("id"), field("agent"))
-                    .doUpdate()
-                    .set(field("application"), SqlUtil.excluded(field("application")) as Any)
-                    .set(field("body_hash"), SqlUtil.excluded(field("body_hash")) as Any)
-                    .set(field("body"), SqlUtil.excluded(field("body")) as Any)
-                    .set(field("last_updated"), SqlUtil.excluded(field("last_updated")) as Any)
-                    .execute()
-                else ->
-                  onDuplicateKeyUpdate()
-                    .set(field("application"), MySQLDSL.values(field("application")) as Any)
-                    .set(field("body_hash"), MySQLDSL.values(field("body_hash")) as Any)
-                    .set(field("body"), MySQLDSL.values(field("body")) as Any)
-                    .set(field("last_updated"), MySQLDSL.values(field("last_updated")) as Any)
-                    .execute()
-              }
+            when (jooq.dialect()) {
+              SQLDialect.POSTGRES ->
+                onConflict(field("id"), field("agent"))
+                  .doUpdate()
+                  .set(field("application"), SqlUtil.excluded(field("application")) as Any)
+                  .set(field("body_hash"), SqlUtil.excluded(field("body_hash")) as Any)
+                  .set(field("body"), SqlUtil.excluded(field("body")) as Any)
+                  .set(field("last_updated"), SqlUtil.excluded(field("last_updated")) as Any)
+                  .execute()
+              else ->
+                onDuplicateKeyUpdate()
+                  .set(field("application"), MySQLDSL.values(field("application")) as Any)
+                  .set(field("body_hash"), MySQLDSL.values(field("body_hash")) as Any)
+                  .set(field("body"), MySQLDSL.values(field("body")) as Any)
+                  .set(field("last_updated"), MySQLDSL.values(field("last_updated")) as Any)
+                  .execute()
             }
+          }
         }
 
         withRetry(RetryCategory.WRITE) {
