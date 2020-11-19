@@ -143,7 +143,7 @@ class ServerGroupController {
       }
     }
     if (serverGroup.launchTemplate && serverGroup.launchTemplate.launchTemplateData) {
-      instanceType = serverGroup.launchTemplate.launchTemplateData.instanceType
+      sg.instanceType = serverGroup.launchTemplate.launchTemplateData.instanceType
     }
     sg.account = cluster.accountName
 
