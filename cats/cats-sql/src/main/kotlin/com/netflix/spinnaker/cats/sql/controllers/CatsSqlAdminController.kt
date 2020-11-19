@@ -6,7 +6,6 @@ import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import com.netflix.spinnaker.kork.sql.config.SqlProperties
 import com.netflix.spinnaker.security.AuthenticatedRequest
 import java.sql.DriverManager
-import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -51,7 +50,7 @@ class CatsSqlAdminController(
     val tablesTruncated = mutableListOf<String>()
 
     conn.use { c ->
-      val jooq = DSL.using(c, SQLDialect.MYSQL)
+      val jooq = DSL.using(c, properties.getDefaultConnectionPoolProperties().dialect)
       val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${truncateNamespace}_")
 
       while (rs.next()) {
@@ -85,7 +84,7 @@ class CatsSqlAdminController(
     val tablesDropped = mutableListOf<String>()
 
     conn.use { c ->
-      val jooq = DSL.using(c, SQLDialect.MYSQL)
+      val jooq = DSL.using(c, properties.getDefaultConnectionPoolProperties().dialect)
       val rs = SqlUtil.getTablesLike(jooq, "cats_v${SqlSchemaVersion.current()}_${dropNamespace}_")
 
       while (rs.next()) {

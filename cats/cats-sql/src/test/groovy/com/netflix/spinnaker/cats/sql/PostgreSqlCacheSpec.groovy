@@ -57,7 +57,7 @@ class PostgreSqlCacheSpec extends SqlCacheSpec {
       "test",
       Mock(SqlCacheMetrics),
       dynamicConfigService,
-      new SqlConstraintsInitializer().getDefaultSqlConstraints(SQLDialect.MYSQL)
+      new SqlConstraintsInitializer().getDefaultSqlConstraints(SQLDialect.POSTGRES)
     )
   }
 

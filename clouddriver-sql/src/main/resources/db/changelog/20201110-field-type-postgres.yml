@@ -27,10 +27,6 @@ databaseChangeLog:
             columnName: task_id
             newDataType: varchar(36)
             tableName: task_results
-#        - modifyDataType:
-#            columnName: body
-#            newDataType: text
-#            tableName: task_results
         - modifyDataType:
             columnName: id
             newDataType: text
