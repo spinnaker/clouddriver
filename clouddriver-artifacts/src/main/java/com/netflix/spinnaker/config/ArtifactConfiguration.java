@@ -17,9 +17,11 @@
 
 package com.netflix.spinnaker.config;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -28,13 +30,20 @@ import org.springframework.stereotype.Component;
 @Configuration
 @EnableScheduling
 @Component
+@EnableConfigurationProperties(ArtifactProviderProperties.class)
 @ComponentScan("com.netflix.spinnaker.clouddriver.artifacts")
 @Slf4j
 public class ArtifactConfiguration {
-  @JsonIgnore private final OkHttpClient okHttpClient;
 
-  public ArtifactConfiguration(OkHttpClient okHttpClient) {
-    log.info("Initializing okHttpClient for Artifact provider");
-    this.okHttpClient = okHttpClient;
+  @Bean
+  OkHttpClient okHttpClient(
+      OkHttp3ClientConfiguration okHttp3ClientConfiguration,
+      ArtifactProviderProperties properties) {
+    log.info("Initializing for Artifact provider okhttp client");
+    OkHttpClient.Builder builder = okHttp3ClientConfiguration.create();
+    builder.readTimeout(properties.getReadTimeoutMs(), TimeUnit.MILLISECONDS);
+    builder.connectTimeout(properties.getConnectTimeoutMs(), TimeUnit.MILLISECONDS);
+    builder.retryOnConnectionFailure(properties.isRetryOnConnectionFailure());
+    return builder.build();
   }
 }
