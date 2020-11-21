@@ -63,6 +63,7 @@ final class GitRepoArtifactCredentials implements ArtifactCredentials {
   private final String sshKnownHostsFilePath;
   private final boolean sshTrustUnknownHosts;
   private final AuthType authType;
+  private final int timeout;
 
   private enum AuthType {
     HTTP,
@@ -80,6 +81,7 @@ final class GitRepoArtifactCredentials implements ArtifactCredentials {
     this.sshPrivateKeyPassphrase = account.getSshPrivateKeyPassphrase();
     this.sshKnownHostsFilePath = account.getSshKnownHostsFilePath();
     this.sshTrustUnknownHosts = account.isSshTrustUnknownHosts();
+    this.timeout = account.getTimeout();
 
     if (!username.isEmpty() && !password.isEmpty()) {
       authType = AuthType.HTTP;
@@ -126,11 +128,16 @@ final class GitRepoArtifactCredentials implements ArtifactCredentials {
   private Git clone(Artifact artifact, Path stagingPath, String remoteRef) throws GitAPIException {
     // TODO(ethanfrogers): add support for clone history depth once jgit supports it
 
-    return addAuthentication(Git.cloneRepository())
-        .setURI(artifact.getReference())
-        .setDirectory(stagingPath.toFile())
-        .setBranch(remoteRef)
-        .call();
+    CloneCommand cloneCommand =
+        addAuthentication(Git.cloneRepository())
+            .setURI(artifact.getReference())
+            .setDirectory(stagingPath.toFile())
+            .setBranch(remoteRef);
+
+    if (timeout > 0) {
+      cloneCommand.setTimeout(timeout);
+    }
+    return cloneCommand.call();
   }
 
   private void archiveToOutputStream(

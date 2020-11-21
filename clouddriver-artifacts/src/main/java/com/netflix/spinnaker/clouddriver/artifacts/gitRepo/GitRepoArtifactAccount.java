@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactAccount;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import javax.annotation.ParametersAreNullableByDefault;
 import lombok.Builder;
+import lombok.Setter;
 import lombok.Value;
 import org.springframework.boot.context.properties.ConstructorBinding;
 
@@ -35,6 +36,7 @@ final class GitRepoArtifactAccount implements ArtifactAccount {
   private final String sshPrivateKeyPassphrase;
   private final String sshKnownHostsFilePath;
   private final boolean sshTrustUnknownHosts;
+  @Setter private final int timeout;
 
   @Builder
   @ConstructorBinding
@@ -47,7 +49,8 @@ final class GitRepoArtifactAccount implements ArtifactAccount {
       String sshPrivateKeyFilePath,
       String sshPrivateKeyPassphrase,
       String sshKnownHostsFilePath,
-      boolean sshTrustUnknownHosts) {
+      boolean sshTrustUnknownHosts,
+      int timeout) {
     this.name = Strings.nullToEmpty(name);
     this.username = Strings.nullToEmpty(username);
     this.password = Strings.nullToEmpty(password);
@@ -56,5 +59,6 @@ final class GitRepoArtifactAccount implements ArtifactAccount {
     this.sshPrivateKeyPassphrase = Strings.nullToEmpty(sshPrivateKeyPassphrase);
     this.sshKnownHostsFilePath = Strings.nullToEmpty(sshKnownHostsFilePath);
     this.sshTrustUnknownHosts = sshTrustUnknownHosts;
+    this.timeout = timeout;
   }
 }
