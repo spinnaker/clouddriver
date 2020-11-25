@@ -17,13 +17,20 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.config;
 
 import com.google.common.base.Strings;
+import com.netflix.spinnaker.clouddriver.config.PropertiesMapExtractor;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
+import com.netflix.spinnaker.fiat.model.Authorization;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
 
 @Data
+@Slf4j
 public class KubernetesConfigurationProperties {
   private static final int DEFAULT_CACHE_THREADS = 1;
   private List<ManagedAccount> accounts = new ArrayList<>();
@@ -71,6 +78,87 @@ public class KubernetesConfigurationProperties {
         throw new IllegalArgumentException(
             "At most one of 'kinds' and 'omitKinds' can be specified");
       }
+    }
+  }
+
+  public KubernetesConfigurationProperties() {}
+
+  public KubernetesConfigurationProperties(PropertiesMapExtractor propertiesMapExtractor) {
+    Map<String, Object> originalPropertiesMap = propertiesMapExtractor.getPropertiesMap();
+    Map<String, Object> accountPropertiesMap = null;
+    String propertyRegex =
+        "kubernetes\\.accounts\\[(\\d+)\\]\\.(\\w+)(\\[(\\d+)\\])?(\\.(\\w+))?(\\[(\\d+)\\])?";
+    BeanWrapper wrapper = null, crdWrapper = null;
+    Permissions.Builder accountPermissions = null;
+    boolean accountExist = false, permissionsExist = false, crdExist = false;
+    Pattern iPattern = Pattern.compile(propertyRegex);
+    Matcher match;
+    String propertyName;
+    int currentAccIndex = 0, tempPropertyIndex;
+    int currentCrdIndex = 0, tempCrdIndex = 0;
+    Object value;
+    for (Map.Entry<String, Object> entry : originalPropertiesMap.entrySet()) {
+      value = entry.getValue();
+      match = iPattern.matcher(entry.getKey());
+      if (match.matches() && value != null && value != "") {
+        tempPropertyIndex = Integer.parseInt(match.group(1));
+        propertyName = match.group(2);
+        if (tempPropertyIndex != currentAccIndex) {
+          // settle previous account
+          wrapper.setPropertyValues(accountPropertiesMap);
+          // setup for new Account
+          currentAccIndex = tempPropertyIndex;
+          accountExist = false;
+          permissionsExist = false;
+          currentCrdIndex = 0;
+          crdExist = false;
+        }
+        if (!accountExist) {
+          wrapper = new BeanWrapperImpl(ManagedAccount.class);
+          getAccounts().add((ManagedAccount) wrapper.getWrappedInstance());
+          accountExist = true;
+          accountPropertiesMap = new HashMap<>();
+        }
+        if (propertyName.equals("permissions")) {
+          if (!permissionsExist) {
+            accountPermissions = new Permissions.Builder();
+            accountPropertiesMap.put("permissions", accountPermissions);
+            permissionsExist = true;
+          }
+          accountPermissions
+              .computeIfAbsent(Authorization.valueOf(match.group(6)), a -> new ArrayList<>())
+              .add((String) value); // match.group(6) is Authorization string
+        } else if (propertyName.equals("customResources")) {
+          tempCrdIndex = Integer.parseInt(match.group(4)); // match.group(4) is the index of crd
+          if (currentCrdIndex != tempCrdIndex) {
+            currentCrdIndex = tempCrdIndex;
+            crdExist = false;
+          }
+          if (!crdExist) {
+            crdWrapper = new BeanWrapperImpl(CustomKubernetesResource.class);
+            accountPropertiesMap.put(
+                "customResources[" + currentCrdIndex + "]", crdWrapper.getWrappedInstance());
+            crdExist = true;
+          }
+          crdWrapper.setPropertyValue(
+              match.group(6),
+              entry.getValue()); // match.group(6) is a property of CustomKubernetesResource
+        } else {
+          if (propertyName.equals("kubeconfigFile")) {
+            if (((String) value).startsWith("configServer:")) {
+              value = propertiesMapExtractor.resolveConfigServerFilePath((String) value);
+            }
+          }
+          accountPropertiesMap.put(
+              entry.getKey().substring(entry.getKey().indexOf(propertyName)), value);
+        }
+      } else {
+        log.debug("Ignoring the unexpected property:" + entry.getKey());
+      }
+    }
+    // setting last account properties
+    if (accountPropertiesMap != null) {
+      wrapper.setPropertyValues(accountPropertiesMap);
     }
   }
 }
