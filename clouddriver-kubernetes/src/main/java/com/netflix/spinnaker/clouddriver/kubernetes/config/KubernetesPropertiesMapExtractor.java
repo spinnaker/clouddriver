@@ -46,10 +46,12 @@ public class KubernetesPropertiesMapExtractor implements PropertiesMapExtractor 
         return map;
       }
       if (propertySource.getSource() instanceof BootstrapPropertySource) {
-        BootstrapPropertySource<Map<String, Object>> bootstrapPropertySource =
-            (BootstrapPropertySource<Map<String, Object>>) propertySource.getSource();
-        map = bootstrapPropertySource.getSource();
-        return map;
+        BootstrapPropertySource bootstrapPropertySource =
+            (BootstrapPropertySource) propertySource.getSource();
+        if (bootstrapPropertySource.getSource() instanceof Map) {
+          map = (Map<String, Object>) bootstrapPropertySource.getSource();
+          return map;
+        }
       }
     }
     throw new RuntimeException("No BootstrapPropertySource found!!!!");
