@@ -383,7 +383,7 @@ public class ProjectClustersService {
       this.job = job;
       this.buildNumber = buildNumber;
       this.deployed = deployed;
-      this.images = (images == null) ? images : new ArrayList(images);
+      this.images = (images == null) ? new ArrayList() : new ArrayList(images);
     }
   }
 
