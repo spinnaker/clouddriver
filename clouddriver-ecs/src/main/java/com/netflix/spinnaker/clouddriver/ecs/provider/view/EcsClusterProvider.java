@@ -22,9 +22,9 @@ import com.amazonaws.services.ecs.model.DescribeClustersRequest;
 import com.amazonaws.services.ecs.model.DescribeClustersResult;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsClusterCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
+import com.netflix.spinnaker.clouddriver.ecs.security.NetflixECSCredentials;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +34,7 @@ import org.springframework.stereotype.Component;
 public class EcsClusterProvider {
 
   private EcsClusterCacheClient ecsClusterCacheClient;
-  @Autowired private CredentialsRepository<NetflixAmazonCredentials> credentialsRepository;
+  @Autowired private CredentialsRepository<NetflixECSCredentials> credentialsRepository;
   @Autowired private AmazonClientProvider amazonClientProvider;
   private static final int EcsClusterDescriptionMaxSize = 100;
 
@@ -48,48 +48,45 @@ public class EcsClusterProvider {
   }
 
   public Collection<Cluster> getAllEcsClustersDescription(String account, String region) {
-    List<String> clusters = new ArrayList<>();
-    List<Cluster> response = new ArrayList<>();
-    int clusterCount = 0;
+    List<String> clusterNames = new ArrayList<>();
+    List<Cluster> clusters = new ArrayList<>();
 
     Collection<EcsCluster> ecsClusters = ecsClusterCacheClient.getAll();
-
-    if (ecsClusters.size() > 0) {
+    AmazonECS client = getAmazonEcsClient(account, region);
+    if (ecsClusters.size() > 0 && ecsClusters != null) {
       for (EcsCluster ecsCluster : ecsClusters) {
-        clusters.add(ecsCluster.getName());
-        clusterCount++;
-
-        if (clusterCount % EcsClusterDescriptionMaxSize == 0) {
-          AmazonECS client = getAmazonEcsClient(account, region);
-          DescribeClustersRequest describeClustersRequest =
-              new DescribeClustersRequest().withClusters(clusters);
-          DescribeClustersResult describeClustersResult =
-              client.describeClusters(describeClustersRequest);
-          for (Cluster cluster : describeClustersResult.getClusters()) {
-            response.add(cluster);
-          }
-          clusters.clear();
+        clusterNames.add(ecsCluster.getName());
+        if (clusterNames.size() % EcsClusterDescriptionMaxSize == 0) {
+          clusters = getDescribeClusters(client, clusterNames, clusters);
+          clusterNames.clear();
         }
       }
-      if (clusterCount % EcsClusterDescriptionMaxSize != 0) {
-        AmazonECS client = getAmazonEcsClient(account, region);
-        DescribeClustersRequest describeClustersRequest =
-            new DescribeClustersRequest().withClusters(clusters);
-        DescribeClustersResult describeClustersResult =
-            client.describeClusters(describeClustersRequest);
-        for (Cluster cluster : describeClustersResult.getClusters()) {
-          response.add(cluster);
-        }
+      if (clusterNames.size() % EcsClusterDescriptionMaxSize != 0) {
+        clusters = getDescribeClusters(client, clusterNames, clusters);
       }
     }
-    return response;
+    return clusters;
   }
 
   private AmazonECS getAmazonEcsClient(String account, String region) {
-    NetflixAmazonCredentials credentials = credentialsRepository.getOne(account);
-    if (!(credentials instanceof NetflixAmazonCredentials)) {
+    NetflixECSCredentials credentials = credentialsRepository.getOne(account);
+    if (!(credentials instanceof NetflixECSCredentials)) {
       throw new IllegalArgumentException("Invalid credentials:" + account + ":" + region);
     }
     return amazonClientProvider.getAmazonEcs(credentials, region, true);
+  }
+
+  private List<Cluster> getDescribeClusters(
+      AmazonECS client, List<String> clusterNames, List<Cluster> clusters) {
+    DescribeClustersRequest describeClustersRequest =
+        new DescribeClustersRequest().withClusters(clusterNames);
+    DescribeClustersResult describeClustersResult =
+        client.describeClusters(describeClustersRequest);
+    if (describeClustersResult.getClusters().size() > 0) {
+      for (Cluster cluster : describeClustersResult.getClusters()) {
+        clusters.add(cluster);
+      }
+    }
+    return clusters;
   }
 }
