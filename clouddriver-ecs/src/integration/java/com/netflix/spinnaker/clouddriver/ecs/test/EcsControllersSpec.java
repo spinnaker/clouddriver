@@ -18,14 +18,21 @@ package com.netflix.spinnaker.clouddriver.ecs.test;
 import static io.restassured.RestAssured.get;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.Cluster;
+import com.amazonaws.services.ecs.model.DescribeClustersRequest;
+import com.amazonaws.services.ecs.model.DescribeClustersResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderRegistry;
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsSpec;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
@@ -39,6 +46,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class EcsControllersSpec extends EcsSpec {
 
   @Autowired private ProviderRegistry providerRegistry;
+
+  private AmazonECS mockECS = mock(AmazonECS.class);
 
   @DisplayName(".\n===\n" + "Given cached ECS cluster, retrieve it from /ecs/ecsClusters" + "\n===")
   @Test
@@ -95,30 +104,20 @@ public class EcsControllersSpec extends EcsSpec {
     DefaultCacheResult testResult = buildCacheResult(attributes, testNamespace, clusterKey);
     ecsCache.addCacheResult("TestAgent", Collections.singletonList(testNamespace), testResult);
 
-    String testClusterName1 = "spinnaker-deployment-cluster";
-    String clusterKey1 = Keys.getClusterKey(ECS_ACCOUNT_NAME, TEST_REGION, testClusterName1);
-    Map<String, Object> attributes1 = new HashMap<>();
-    attributes1.put("account", ECS_ACCOUNT_NAME);
-    attributes1.put("region", TEST_REGION);
-    attributes1.put("clusterArn", "arn:aws:ecs:::cluster/" + testClusterName1);
-    attributes1.put("clusterName", testClusterName1);
-
-    DefaultCacheResult testResult1 = buildCacheResult(attributes1, testNamespace, clusterKey1);
-    ecsCache.addCacheResult("TestAgent", Collections.singletonList(testNamespace), testResult1);
-
-    String testClusterName2 = "TestCluster";
-    String clusterKey2 = Keys.getClusterKey(ECS_ACCOUNT_NAME, TEST_REGION, testClusterName2);
-    Map<String, Object> attributes2 = new HashMap<>();
-    attributes2.put("account", ECS_ACCOUNT_NAME);
-    attributes2.put("region", TEST_REGION);
-    attributes2.put("clusterArn", "arn:aws:ecs:::cluster/" + testClusterName2);
-    attributes2.put("clusterName", testClusterName2);
-
-    DefaultCacheResult testResult2 = buildCacheResult(attributes2, testNamespace, clusterKey2);
-    ecsCache.addCacheResult("TestAgent", Collections.singletonList(testNamespace), testResult2);
+    when(mockAwsProvider.getAmazonEcs(
+            any(NetflixAmazonCredentials.class), anyString(), anyBoolean()))
+        .thenReturn(mockECS);
+    Cluster clusterDecription =
+        new Cluster()
+            .withClusterArn("arn:aws:ecs:::cluster/" + testClusterName)
+            .withStatus("ACTIVE")
+            .withCapacityProviders("FARGATE", "FARGATE-SPOT")
+            .withClusterName(testClusterName);
+    when(mockECS.describeClusters(any(DescribeClustersRequest.class)))
+        .thenReturn(new DescribeClustersResult().withClusters(clusterDecription));
 
     // when
-    String testUrl = getTestUrl("/ecs/ecsDescribeClusters/ecs-account/us-west-2");
+    String testUrl = getTestUrl("/ecs/ecsDescribeClusters/" + ECS_ACCOUNT_NAME + "/" + TEST_REGION);
 
     Response response =
         get(testUrl).then().statusCode(200).contentType(ContentType.JSON).extract().response();
@@ -136,22 +135,6 @@ public class EcsControllersSpec extends EcsSpec {
     assertTrue(clusterDescription.getClusterArn().contains(testClusterName));
     assertTrue(clusterDescription.getCapacityProviders().size() == 2);
     assertTrue(clusterDescription.getStatus().equals("ACTIVE"));
-
-    Cluster clusterDescription1 =
-        (clusters.stream().filter(cluster -> cluster.getClusterName().equals(testClusterName1)))
-            .findAny()
-            .get();
-    assertTrue(clusterDescription1.getClusterArn().contains(testClusterName1));
-    assertTrue(clusterDescription1.getCapacityProviders().size() == 0);
-    assertTrue(clusterDescription1.getStatus().equals("ACTIVE"));
-
-    Cluster clusterDescription2 =
-        (clusters.stream().filter(cluster -> cluster.getClusterName().equals(testClusterName2)))
-            .findAny()
-            .get();
-    assertTrue(clusterDescription2.getClusterArn().contains(testClusterName2));
-    assertTrue(clusterDescription2.getCapacityProviders().size() == 2);
-    assertTrue(clusterDescription2.getStatus().equals("ACTIVE"));
   }
 
   @DisplayName(".\n===\n" + "Given cached ECS secret, retrieve it from /ecs/secrets" + "\n===")
