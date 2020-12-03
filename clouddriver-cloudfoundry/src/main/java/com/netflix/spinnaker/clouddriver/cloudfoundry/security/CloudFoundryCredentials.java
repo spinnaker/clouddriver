@@ -16,13 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.security;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonMap;
+import static java.util.Collections.*;
 import static java.util.stream.Collectors.toList;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryApiException;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.CloudFoundryClient;
@@ -34,6 +34,7 @@ import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,8 @@ import lombok.extern.slf4j.Slf4j;
   "password",
   "spaceSupplier",
   "cacheRepository",
+  "forkJoinPool",
+  "filteredSpaces",
   "spacesLive"
 })
 public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFoundryClient> {
@@ -80,6 +83,8 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
 
   private final ForkJoinPool forkJoinPool;
 
+  private final List<CloudFoundrySpace> filteredSpaces;
+
   public CloudFoundryCredentials(
       String name,
       String appsManagerUri,
@@ -92,7 +97,8 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
       Integer resultsPerPage,
       CacheRepository cacheRepository,
       Permissions permissions,
-      ForkJoinPool forkJoinPool) {
+      ForkJoinPool forkJoinPool,
+      Map<String, Set<String>> spaceFilter) {
     this.name = name;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -105,6 +111,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
     this.cacheRepository = cacheRepository;
     this.permissions = permissions == null ? Permissions.EMPTY : permissions;
     this.forkJoinPool = forkJoinPool;
+    this.filteredSpaces = createFilteredSpaces(spaceFilter);
   }
 
   public CloudFoundryClient getCredentials() {
@@ -130,6 +137,15 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
 
   public Collection<Map<String, String>> getRegions() {
     return spaceSupplier.get().stream()
+        .filter(
+            s -> {
+              if (!filteredSpaces.isEmpty()) {
+                List<String> filteredRegions =
+                    filteredSpaces.stream().map(fs -> fs.getRegion()).collect(toList());
+                return filteredRegions.contains(s.getRegion());
+              }
+              return true;
+            })
         .map(space -> singletonMap("name", space.getRegion()))
         .collect(toList());
   }
@@ -142,7 +158,7 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
     return getSpacesLive();
   }
 
-  public List<CloudFoundrySpace> getSpacesLive() {
+  private List<CloudFoundrySpace> getSpacesLive() {
     try {
       return getClient().getSpaces().all();
     } catch (CloudFoundryApiException e) {
@@ -203,5 +219,44 @@ public class CloudFoundryCredentials extends AbstractAccountCredentials<CloudFou
         Supplier<U> supplier, long expirySeconds, TimeUnit timeUnit) {
       return new Memoizer<>(supplier, expirySeconds, timeUnit);
     }
+  }
+
+  protected List<CloudFoundrySpace> createFilteredSpaces(Map<String, Set<String>> spaceFilter) {
+    List<CloudFoundrySpace> spaces = new ArrayList<>();
+    if (spaceFilter.isEmpty() || spaceFilter == null) {
+      return emptyList();
+    }
+
+    Set<String> filteredRegions = new HashSet<>();
+    // IF an Org is provided without spaces -> add all spaces for the ORG
+    for (String orgName : spaceFilter.keySet()) {
+      if (spaceFilter.get(orgName).isEmpty() || spaceFilter.get(orgName) == null) {
+        List<CloudFoundrySpace> allSpacesByOrg =
+            this.getCredentials()
+                .getSpaces()
+                .findAllBySpaceNamesAndOrgNames(null, singletonList(orgName));
+        spaces.addAll(allSpacesByOrg);
+      } else {
+        for (String spaceName : spaceFilter.get(orgName)) {
+          filteredRegions.add(orgName + " > " + spaceName);
+        }
+      }
+    }
+    // IF an Org is provided with spaces -> add all spaces that are in the ORG and filteredRegions
+    List<CloudFoundrySpace> allSpaces =
+        this.getCredentials()
+            .getSpaces()
+            .findAllBySpaceNamesAndOrgNames(
+                spaceFilter.values().stream().flatMap(l -> l.stream()).collect(Collectors.toList()),
+                List.copyOf(spaceFilter.keySet()));
+    allSpaces.stream()
+        .filter(s -> filteredRegions.contains(s.getRegion()))
+        .forEach(s -> spaces.add(s));
+
+    if (spaces.isEmpty())
+      throw new IllegalArgumentException(
+          "The spaceFilter had Orgs and/or Spaces but CloudFoundry returned no spaces as a result. Spaces must not be null or empty when a spaceFilter is included.");
+
+    return ImmutableList.copyOf(spaces);
   }
 }

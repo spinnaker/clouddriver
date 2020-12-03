@@ -31,6 +31,7 @@ import com.netflix.spinnaker.clouddriver.aws.provider.AwsCleanupProvider;
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsInfrastructureProvider;
 import com.netflix.spinnaker.clouddriver.aws.provider.AwsProvider;
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonApplicationLoadBalancerCachingAgent;
+import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonCachingAgentFilter;
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonCertificateCachingAgent;
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonCloudFormationCachingAgent;
 import com.netflix.spinnaker.clouddriver.aws.provider.agent.AmazonElasticIpCachingAgent;
@@ -122,6 +123,7 @@ public class ProviderHelpers {
       ObjectMapper objectMapper,
       Registry registry,
       EddaTimeoutConfig eddaTimeoutConfig,
+      AmazonCachingAgentFilter amazonCachingAgentFilter,
       AwsProvider awsProvider,
       AmazonCloudProvider amazonCloudProvider,
       DynamicConfigService dynamicConfigService,
@@ -143,7 +145,8 @@ public class ProviderHelpers {
                 region.getName(),
                 objectMapper,
                 registry,
-                eddaTimeoutConfig));
+                eddaTimeoutConfig,
+                amazonCachingAgentFilter));
         newlyAddedAgents.add(
             new LaunchConfigCachingAgent(
                 amazonClientProvider, credentials, region.getName(), objectMapper, registry));
@@ -184,7 +187,8 @@ public class ProviderHelpers {
                 region.getName(),
                 eddaApiFactory.createApi(credentials.getEdda(), region.getName()),
                 objectMapper,
-                registry));
+                registry,
+                amazonCachingAgentFilter));
         newlyAddedAgents.add(
             new AmazonApplicationLoadBalancerCachingAgent(
                 amazonCloudProvider,
@@ -194,7 +198,8 @@ public class ProviderHelpers {
                 eddaApiFactory.createApi(credentials.getEdda(), region.getName()),
                 objectMapper,
                 registry,
-                eddaTimeoutConfig));
+                eddaTimeoutConfig,
+                amazonCachingAgentFilter));
         newlyAddedAgents.add(
             new ReservedInstancesCachingAgent(
                 amazonClientProvider, credentials, region.getName(), objectMapper, registry));
@@ -253,7 +258,7 @@ public class ProviderHelpers {
         }
       }
     }
-    if (awsCleanupProvider.getAgentScheduler() != null) {
+    if (awsCleanupProvider.getAgentScheduler() == null) {
       if (awsConfigurationProperties.getCleanup().getAlarms().getEnabled()) {
         newlyAddedAgents.add(
             new CleanupAlarmsAgent(
