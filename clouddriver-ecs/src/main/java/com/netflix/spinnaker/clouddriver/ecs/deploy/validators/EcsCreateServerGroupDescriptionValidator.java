@@ -101,8 +101,14 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
       rejectValue(errors, "placementStrategySequence", "not.nullable");
     }
 
-    if (createServerGroupDescription.getApplication() == null) {
-      rejectValue(errors, "application", "not.nullable");
+    if (createServerGroupDescription.getMoniker() == null) {
+      if (createServerGroupDescription.getApplication() == null) {
+        rejectValue(errors, "application", "not.nullable");
+      }
+    } else {
+      if (createServerGroupDescription.getMoniker().getApp() == null) {
+        rejectValue(errors, "moniker.app", "not.nullable");
+      }
     }
 
     if (createServerGroupDescription.getEcsClusterName() == null) {

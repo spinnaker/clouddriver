@@ -25,6 +25,7 @@ import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
+import com.netflix.spinnaker.moniker.Moniker
 
 class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec {
 
@@ -302,7 +303,6 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     def description = (CreateServerGroupDescription) getDescription()
     description.placementStrategySequence = null
     description.availabilityZones = null
-    description.application = null
     description.ecsClusterName = null
     description.dockerImageAddress = null
     description.credentials = null
@@ -312,12 +312,13 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.capacity.setDesired(null)
     description.capacity.setMin(null)
     description.capacity.setMax(null)
+    description.moniker.app = null;
     return description
   }
 
   @Override
   Set<String> notNullableProperties() {
-    ['placementStrategySequence', 'availabilityZones', 'application',
+    ['placementStrategySequence', 'availabilityZones', 'moniker.app',
      'ecsClusterName', 'dockerImageAddress', 'credentials', 'containerPort', 'computeUnits',
      'reservedMemory', 'capacity.desired', 'capacity.min', 'capacity.max']
   }
@@ -362,7 +363,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.credentials = TestCredential.named('test')
     description.region = 'us-west-1'
 
-    description.application = 'my-app'
+    description.moniker = Moniker.builder().app('my-app').build();
     description.ecsClusterName = 'mycluster'
     description.iamRole = 'iam-role-arn'
     description.containerPort = 1337
