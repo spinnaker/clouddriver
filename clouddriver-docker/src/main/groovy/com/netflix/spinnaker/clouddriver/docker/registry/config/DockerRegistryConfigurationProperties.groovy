@@ -58,6 +58,8 @@ class DockerRegistryConfigurationProperties {
     List<String> skip
     // a file listing all repositories to index
     String catalogFile
+    // Allow filter the repositories by a regular expression
+    String regex
   }
 
   List<ManagedAccount> accounts = []

@@ -52,6 +52,7 @@ class DockerRegistryClient {
     long clientTimeoutMillis
     int paginateSize
     String catalogFile
+    String regex
     boolean insecureRegistry
     DockerOkClientProvider okClientProvider
 
@@ -105,6 +106,12 @@ class DockerRegistryClient {
       return this
     }
 
+    Builder regex(String regex) {
+      this.regex = regex
+      return this
+    }
+
+
     Builder insecureRegistry(boolean insecureRegistry) {
       this.insecureRegistry = insecureRegistry
       return this
@@ -121,11 +128,11 @@ class DockerRegistryClient {
         throw new IllegalArgumentException('Error, at most one of "password", "passwordFile", "passwordCommand" or "dockerconfigFile" can be specified')
       }
       if (password || passwordCommand) {
-        return new DockerRegistryClient(address, email, username, password, passwordCommand, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+        return new DockerRegistryClient(address, email, username, password, passwordCommand, clientTimeoutMillis, paginateSize, catalogFile, regex, insecureRegistry, okClientProvider)
       } else if (passwordFile) {
-        return new DockerRegistryClient(address, email, username, passwordFile, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+        return new DockerRegistryClient(address, email, username, passwordFile, clientTimeoutMillis, paginateSize, catalogFile, regex,  insecureRegistry, okClientProvider)
       } else {
-        return new DockerRegistryClient(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+        return new DockerRegistryClient(address, clientTimeoutMillis, paginateSize, catalogFile, regex, insecureRegistry, okClientProvider)
       }
     }
 
@@ -140,6 +147,7 @@ class DockerRegistryClient {
   DockerRegistryService registryService
   GsonConverter converter
   String catalogFile
+  String regex
 
   final static String userAgent = DockerUserAgent.getUserAgent()
   final int paginateSize
@@ -152,6 +160,7 @@ class DockerRegistryClient {
                        long clientTimeoutMillis,
                        int paginateSize,
                        String catalogFile,
+                       String regex,
                        boolean insecureRegistry,
                        DockerOkClientProvider okClientProvider) {
 
@@ -167,6 +176,7 @@ class DockerRegistryClient {
     this.converter = new GsonConverter(new GsonBuilder().create())
     this.address = address
     this.catalogFile = catalogFile
+    this.regex = regex
   }
 
   DockerRegistryClient(String address,
@@ -177,9 +187,10 @@ class DockerRegistryClient {
                        long clientTimeoutMillis,
                        int paginateSize,
                        String catalogFile,
+                       String regex,
                        boolean insecureRegistry,
                        DockerOkClientProvider okClientProvider) {
-    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, regex, insecureRegistry, okClientProvider)
     this.tokenService = new DockerBearerTokenService(username, password, passwordCommand)
     this.email = email
   }
@@ -191,9 +202,10 @@ class DockerRegistryClient {
                        long clientTimeoutMillis,
                        int paginateSize,
                        String catalogFile,
+                       String regex,
                        boolean insecureRegistry,
                        DockerOkClientProvider okClientProvider) {
-    this(address, clientTimeoutMillis, paginateSize, catalogFile, insecureRegistry, okClientProvider)
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, regex, insecureRegistry, okClientProvider)
     this.tokenService = new DockerBearerTokenService(username, passwordFile)
     this.email = email
   }
@@ -343,6 +355,9 @@ class DockerRegistryClient {
     def nextPath = findNextLink(response?.headers)
     def catalog = (DockerRegistryCatalog) converter.fromBody(response.body, DockerRegistryCatalog)
 
+    if(regex) {
+      catalog.repositories = catalog.repositories.findAll { it ==~ regex }
+    }
     if (nextPath) {
       def nextCatalog = getCatalog(nextPath)
       catalog.repositories.addAll(nextCatalog.repositories)

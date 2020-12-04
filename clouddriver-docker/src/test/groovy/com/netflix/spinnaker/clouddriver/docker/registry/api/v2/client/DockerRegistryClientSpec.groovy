@@ -40,7 +40,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient should request a real set of tags."() {
     when:
-      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", false)
+      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", "", false)
       DockerRegistryTags result = client.getTags(REPOSITORY1)
 
     then:
@@ -50,7 +50,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient should validate that it is pointing at a v2 endpoint."() {
     when:
-      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", false)
+      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", "", false)
       // Can only fail due to an exception thrown here.
       client.checkV2Availability()
 
@@ -60,7 +60,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient invoked with insecureRegistry=true"() {
     when:
-      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", true)
+      client = new DockerRegistryClient("https://index.docker.io", "", "", "", TimeUnit.MINUTES.toMillis(1), 100, "", "", true)
       DockerRegistryTags result = client.getTags(REPOSITORY1)
 
     then:
