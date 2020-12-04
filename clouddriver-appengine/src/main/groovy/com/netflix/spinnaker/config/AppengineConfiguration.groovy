@@ -16,16 +16,16 @@
 
 package com.netflix.spinnaker.config
 
+import com.netflix.spinnaker.clouddriver.appengine.AppengineCloudProvider
 import com.netflix.spinnaker.clouddriver.appengine.config.AppengineConfigurationProperties
 import com.netflix.spinnaker.clouddriver.appengine.health.AppengineHealthIndicator
-import com.netflix.spinnaker.clouddriver.appengine.security.AppengineCredentialsInitializer
+import com.netflix.spinnaker.clouddriver.appengine.provider.AppengineProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Import
 import org.springframework.scheduling.annotation.EnableScheduling
 
 @Configuration
@@ -33,7 +33,6 @@ import org.springframework.scheduling.annotation.EnableScheduling
 @EnableScheduling
 @ConditionalOnProperty("appengine.enabled")
 @ComponentScan(["com.netflix.spinnaker.clouddriver.appengine"])
-@Import([ AppengineCredentialsInitializer ])
 class AppengineConfiguration {
   @Bean
   @ConfigurationProperties("appengine")
@@ -44,5 +43,10 @@ class AppengineConfiguration {
   @Bean
   AppengineHealthIndicator appengineHealthIndicator() {
     new AppengineHealthIndicator()
+  }
+
+  @Bean
+  AppengineProvider appengineProvider(AppengineCloudProvider cloudProvider) {
+    new AppengineProvider(cloudProvider)
   }
 }
