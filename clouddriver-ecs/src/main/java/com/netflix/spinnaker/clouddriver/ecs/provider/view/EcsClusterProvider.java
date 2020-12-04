@@ -50,19 +50,24 @@ public class EcsClusterProvider {
   public Collection<Cluster> getAllEcsClustersDescription(String account, String region) {
     List<String> clusterNames = new ArrayList<>();
     List<Cluster> clusters = new ArrayList<>();
-
     Collection<EcsCluster> ecsClusters = ecsClusterCacheClient.getAll();
     AmazonECS client = getAmazonEcsClient(account, region);
     if (ecsClusters.size() > 0 && ecsClusters != null) {
       for (EcsCluster ecsCluster : ecsClusters) {
         clusterNames.add(ecsCluster.getName());
         if (clusterNames.size() % EcsClusterDescriptionMaxSize == 0) {
-          clusters = getDescribeClusters(client, clusterNames, clusters);
+          List<Cluster> describeClusterResponse = getDescribeClusters(client, clusterNames);
+          if (describeClusterResponse.size() > 0) {
+            clusters.addAll(describeClusterResponse);
+          }
           clusterNames.clear();
         }
       }
       if (clusterNames.size() % EcsClusterDescriptionMaxSize != 0) {
-        clusters = getDescribeClusters(client, clusterNames, clusters);
+        List<Cluster> describeClusterResponse = getDescribeClusters(client, clusterNames);
+        if (describeClusterResponse.size() > 0) {
+          clusters.addAll(describeClusterResponse);
+        }
       }
     }
     return clusters;
@@ -76,17 +81,11 @@ public class EcsClusterProvider {
     return amazonClientProvider.getAmazonEcs(credentials, region, true);
   }
 
-  private List<Cluster> getDescribeClusters(
-      AmazonECS client, List<String> clusterNames, List<Cluster> clusters) {
+  private List<Cluster> getDescribeClusters(AmazonECS client, List<String> clusterNames) {
     DescribeClustersRequest describeClustersRequest =
         new DescribeClustersRequest().withClusters(clusterNames);
     DescribeClustersResult describeClustersResult =
         client.describeClusters(describeClustersRequest);
-    if (describeClustersResult.getClusters().size() > 0) {
-      for (Cluster cluster : describeClustersResult.getClusters()) {
-        clusters.add(cluster);
-      }
-    }
-    return clusters;
+    return describeClustersResult.getClusters();
   }
 }
