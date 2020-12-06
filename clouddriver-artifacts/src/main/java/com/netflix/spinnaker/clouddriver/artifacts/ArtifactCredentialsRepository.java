@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.artifacts;
 
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
+import com.netflix.spinnaker.clouddriver.artifacts.exceptions.ArtifactCredentialsException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -46,19 +47,19 @@ public class ArtifactCredentialsRepository {
         .findFirst()
         .orElseThrow(
             () ->
-                new IllegalArgumentException(
+                new ArtifactCredentialsException(
                     "No credentials with name '" + accountName + "' could be found."));
   }
 
   public ArtifactCredentials getCredentials(String accountName, String type) {
     if (Strings.isNullOrEmpty(accountName)) {
-      throw new IllegalArgumentException(
+      throw new ArtifactCredentialsException(
           "An artifact account must be supplied to download this artifact: " + accountName);
     }
 
     ArtifactCredentials credentials = getCredentials(accountName);
     if (!credentials.handlesType(type)) {
-      throw new IllegalArgumentException(
+      throw new ArtifactCredentialsException(
           "Artifact credentials '"
               + accountName
               + "' cannot handle artifacts of type '"
