@@ -281,6 +281,10 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
       throw new IllegalArgumentException("repositories and catalogFile may not be specified together.")
     }
 
+    if(regex && (repositories || catalogFile)){
+      throw new IllegalArgumentException("regex may not be specified at the same time than repositories or catalogFile.")
+    }
+
     this.accountName = accountName
     this.environment = environment
     this.accountType = accountType
