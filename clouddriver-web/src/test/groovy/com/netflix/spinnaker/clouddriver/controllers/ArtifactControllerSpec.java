@@ -28,19 +28,21 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.clouddriver.Main;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.context.WebApplicationContext;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
+@WebAppConfiguration
 @SpringBootTest(classes = Main.class)
 @TestPropertySource(
     properties = {
@@ -56,7 +58,7 @@ public class ArtifactControllerSpec {
 
   @Autowired private ObjectMapper objectMapper;
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     this.mvc = webAppContextSetup(webApplicationContext).build();
   }
