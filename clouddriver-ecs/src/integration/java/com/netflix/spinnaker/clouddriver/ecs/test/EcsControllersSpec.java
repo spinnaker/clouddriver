@@ -40,7 +40,8 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.util.*;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class EcsControllersSpec extends EcsSpec {
@@ -50,16 +51,17 @@ public class EcsControllersSpec extends EcsSpec {
   private AmazonECS mockECS = mock(AmazonECS.class);
 
   @DisplayName(".\n===\n" + "Given cached ECS cluster, retrieve it from /ecs/ecsClusters" + "\n===")
-  @Test
-  public void getEcsClustersTest() {
+  @ParameterizedTest
+  @ValueSource(strings = {ECS_ACCOUNT_NAME, ECS_MONIKER_ACCOUNT_NAME})
+  public void getEcsClustersTest(String accountName) {
     // given
     ProviderCache ecsCache = providerRegistry.getProviderCache(EcsProvider.NAME);
     String testClusterName = "integ-test-cluster";
     String testNamespace = Keys.Namespace.ECS_CLUSTERS.ns;
 
-    String clusterKey = Keys.getClusterKey(ECS_ACCOUNT_NAME, TEST_REGION, testClusterName);
+    String clusterKey = Keys.getClusterKey(accountName, TEST_REGION, testClusterName);
     Map<String, Object> attributes = new HashMap<>();
-    attributes.put("account", ECS_ACCOUNT_NAME);
+    attributes.put("account", accountName);
     attributes.put("region", TEST_REGION);
     attributes.put("clusterArn", "arn:aws:ecs:::cluster/" + testClusterName);
     attributes.put("clusterName", testClusterName);
@@ -78,7 +80,7 @@ public class EcsControllersSpec extends EcsSpec {
     // TODO: serialize into expected return type to validate API contract hasn't changed
     String responseStr = response.asString();
     assertTrue(responseStr.contains(testClusterName));
-    assertTrue(responseStr.contains(ECS_ACCOUNT_NAME));
+    assertTrue(responseStr.contains(accountName));
     assertTrue(responseStr.contains(TEST_REGION));
   }
 
@@ -138,18 +140,19 @@ public class EcsControllersSpec extends EcsSpec {
   }
 
   @DisplayName(".\n===\n" + "Given cached ECS secret, retrieve it from /ecs/secrets" + "\n===")
-  @Test
-  public void getEcsSecretsTest() {
+  @ParameterizedTest
+  @ValueSource(strings = {ECS_ACCOUNT_NAME, ECS_MONIKER_ACCOUNT_NAME})
+  public void getEcsSecretsTest(String accountName) {
     // given
     ProviderCache ecsCache = providerRegistry.getProviderCache(EcsProvider.NAME);
     String testSecretName = "tut/secret";
     String testNamespace = Keys.Namespace.SECRETS.ns;
     String testSecretArn = "arn:aws:secretsmanager:region:aws_account_id:secret:tut/sevret-jiObOV";
 
-    String secretKey = Keys.getClusterKey(ECS_ACCOUNT_NAME, TEST_REGION, testSecretName);
+    String secretKey = Keys.getClusterKey(accountName, TEST_REGION, testSecretName);
     String url = getTestUrl("/ecs/secrets");
     Map<String, Object> attributes = new HashMap<>();
-    attributes.put("account", ECS_ACCOUNT_NAME);
+    attributes.put("account", accountName);
     attributes.put("region", TEST_REGION);
     attributes.put("secretName", testSecretName);
     attributes.put("secretArn", testSecretArn);
@@ -164,7 +167,7 @@ public class EcsControllersSpec extends EcsSpec {
     assertNotNull(response);
 
     String responseStr = response.asString();
-    assertTrue(responseStr.contains(ECS_ACCOUNT_NAME));
+    assertTrue(responseStr.contains(accountName));
     assertTrue(responseStr.contains(TEST_REGION));
     assertTrue(responseStr.contains(testSecretName));
     assertTrue(responseStr.contains(testSecretArn));
@@ -174,8 +177,9 @@ public class EcsControllersSpec extends EcsSpec {
       ".\n===\n"
           + "Given cached service disc registry, retrieve it from /ecs/serviceDiscoveryRegistries"
           + "\n===")
-  @Test
-  public void getServiceDiscoveryRegistriesTest() {
+  @ParameterizedTest
+  @ValueSource(strings = {ECS_ACCOUNT_NAME, ECS_MONIKER_ACCOUNT_NAME})
+  public void getServiceDiscoveryRegistriesTest(String accountName) {
     // given
     ProviderCache ecsCache = providerRegistry.getProviderCache(EcsProvider.NAME);
     String testRegistryId = "spinnaker-registry";
@@ -184,10 +188,10 @@ public class EcsControllersSpec extends EcsSpec {
         "arn:aws:servicediscovery:region:aws_account_id:service/srv-utcrh6wavdkggqtk";
 
     String serviceDiscoveryRegistryKey =
-        Keys.getServiceDiscoveryRegistryKey(ECS_ACCOUNT_NAME, TEST_REGION, testRegistryId);
+        Keys.getServiceDiscoveryRegistryKey(accountName, TEST_REGION, testRegistryId);
     String url = getTestUrl("/ecs/serviceDiscoveryRegistries");
     Map<String, Object> attributes = new HashMap<>();
-    attributes.put("account", ECS_ACCOUNT_NAME);
+    attributes.put("account", accountName);
     attributes.put("region", TEST_REGION);
     attributes.put("serviceName", "spinnaker-demo");
     attributes.put("serviceId", "srv-v001");
@@ -204,7 +208,7 @@ public class EcsControllersSpec extends EcsSpec {
     assertNotNull(response);
 
     String responseStr = response.asString();
-    assertTrue(responseStr.contains(ECS_ACCOUNT_NAME));
+    assertTrue(responseStr.contains(accountName));
     assertTrue(responseStr.contains(TEST_REGION));
     assertTrue(responseStr.contains("spinnaker-demo"));
     assertTrue(responseStr.contains("srv-v001"));
