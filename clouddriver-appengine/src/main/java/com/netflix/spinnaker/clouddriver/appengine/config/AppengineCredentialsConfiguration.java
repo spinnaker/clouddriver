@@ -80,7 +80,7 @@ public class AppengineCredentialsConfiguration {
                         .jsonPath(a.getJsonPath())
                         .requiredGroupMembership(a.getRequiredGroupMembership())
                         .permissions(a.getPermissions().build())
-                        .serviceAccountEmail(a.getServiceAccountEmail())
+                        .serviceAccountEmail(a.getComputedServiceAccountEmail())
                         .localRepositoryDirectory(a.getLocalRepositoryDirectory())
                         .gitHttpsUsername(a.getGitHttpsUsername())
                         .gitHttpsPassword(a.getGitHttpsPassword())

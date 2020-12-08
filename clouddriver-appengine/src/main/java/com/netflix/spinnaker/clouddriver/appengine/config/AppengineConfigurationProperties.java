@@ -40,11 +40,12 @@ public class AppengineConfigurationProperties {
   private String gcloudPath;
 
   @Data
-  @EqualsAndHashCode
+  @EqualsAndHashCode(callSuper = true)
   public static class ManagedAccount extends GoogleCommonManagedAccount {
     public static final String metadataUrl = "http://metadata.google.internal/computeMetadata/v1";
 
     private String serviceAccountEmail;
+    @EqualsAndHashCode.Exclude private String computedServiceAccountEmail;
     private String localRepositoryDirectory = "/var/tmp/clouddriver";
     private String gitHttpsUsername;
     private String gitHttpsPassword;
@@ -71,7 +72,9 @@ public class AppengineConfigurationProperties {
             setProject(node.get("project_id").asText());
           }
           if (StringUtils.isEmpty(serviceAccountEmail)) {
-            this.serviceAccountEmail = node.get("client_email").asText();
+            this.computedServiceAccountEmail = node.get("client_email").asText();
+          } else {
+            this.computedServiceAccountEmail = serviceAccountEmail;
           }
 
         } catch (Exception e) {
@@ -84,7 +87,7 @@ public class AppengineConfigurationProperties {
           if (StringUtils.isEmpty(getProject())) {
             setProject(responseToString(metadataService.getProject()));
           }
-          this.serviceAccountEmail =
+          this.computedServiceAccountEmail =
               responseToString(metadataService.getApplicationDefaultServiceAccountEmail());
         } catch (Exception e) {
           throw new RuntimeException(
