@@ -18,8 +18,11 @@ package com.netflix.spinnaker.clouddriver.appengine.config;
 
 import com.netflix.spinnaker.clouddriver.appengine.AppengineJobExecutor;
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.security.CredentialsInitializerSynchronizable;
 import com.netflix.spinnaker.credentials.CredentialsTypeBaseConfiguration;
 import com.netflix.spinnaker.credentials.CredentialsTypeProperties;
+import com.netflix.spinnaker.credentials.definition.AbstractCredentialsLoader;
+import com.netflix.spinnaker.credentials.poller.Poller;
 import com.netflix.spinnaker.kork.configserver.ConfigFileService;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -100,5 +103,17 @@ public class AppengineCredentialsConfiguration {
                 })
             .defaultCredentialsSource(configurationProperties::getAccounts)
             .build());
+  }
+
+  @Bean
+  public CredentialsInitializerSynchronizable appengineCredentialsInitializerSynchronizable(
+      AbstractCredentialsLoader<AppengineNamedAccountCredentials> loader) {
+    final Poller<AppengineNamedAccountCredentials> poller = new Poller<>(loader);
+    return new CredentialsInitializerSynchronizable() {
+      @Override
+      public void synchronize() {
+        poller.run();
+      }
+    };
   }
 }
