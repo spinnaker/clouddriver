@@ -27,6 +27,9 @@ class KubernetesConfigurationPropertiesSpec extends Specification {
   @Unroll
   void "two accounts' properties are properly bound to KubernetesConfigurationProperties"() {
     when:
+    def RAW_REC_KIND_0 = "role"
+    def RAW_REC_KIND_1 = "roleBinding"
+    def RAW_REC_KIND_2 = "clusterRoleBinding"
     def ACC_0_NAME = "k8s-acc-0"
     def ACC_0_READ_0 = "acc-0-read-0-role"
     def ACC_0_READ_1 = "acc-0-read-1-role"
@@ -57,44 +60,46 @@ class KubernetesConfigurationPropertiesSpec extends Specification {
     def ACC_1_CRD_0_NAMESPACED = false
     def ACC_1_CRD_1_K8S_KIND = "Route"
     def ACC_1_CRD_1_VERSIONED = true
-    def map = new ImmutableMap.Builder()
-      .put("kubernetes.accounts[0].name", ACC_0_NAME)
-      .put("kubernetes.accounts[0].permissions.READ[0]", ACC_0_READ_0)
-      .put("kubernetes.accounts[0].permissions.READ[1]", ACC_0_READ_1)
-      .put("kubernetes.accounts[0].permissions.WRITE[0]", ACC_0_WRITE_0)
-      .put("kubernetes.accounts[0].permissions.WRITE[1]", ACC_0_WRITE_1)
-      .put("kubernetes.accounts[0].cacheThreads", ACC_0_CACHE_THREADS)
-      .put("kubernetes.accounts[0].namespaces[0]", ACC_0_NS_0)
-      .put("kubernetes.accounts[0].namespaces[1]", ACC_0_NS_1)
-      .put("kubernetes.accounts[0].omitKinds[0]", ACC_0_OMIT_KIND_0)
-      .put("kubernetes.accounts[0].omitKinds[1]", ACC_0_OMIT_KIND_1)
-      .put("kubernetes.accounts[0].kubeconfigFile",ACC_0_KUBECONFIG)
-      .put("kubernetes.accounts[0].customResources[0].kubernetesKind",ACC_0_CRD_0_K8S_KIND)
-      .put("kubernetes.accounts[0].customResources[0].namespaced", ACC_0_CRD_0_NAMESPACED)
-      .put("kubernetes.accounts[0].customResources[1].kubernetesKind",ACC_0_CRD_1_K8S_KIND)
-      .put("kubernetes.accounts[0].customResources[1].versioned",ACC_0_CRD_1_VERSIONED)
-      .put("kubernetes.accounts[1].name", ACC_1_NAME)
-      .put("kubernetes.accounts[1].permissions.READ[0]", ACC_1_READ_0)
-      .put("kubernetes.accounts[1].permissions.READ[1]", ACC_1_READ_1)
-      .put("kubernetes.accounts[1].permissions.WRITE[0]", ACC_1_WRITE_0)
-      .put("kubernetes.accounts[1].permissions.WRITE[1]", ACC_1_WRITE_1)
-      .put("kubernetes.accounts[1].cacheThreads", ACC_1_CACHE_THREADS)
-      .put("kubernetes.accounts[1].omitNamespaces[0]", ACC_1_OMIT_NS_0)
-      .put("kubernetes.accounts[1].omitNamespaces[1]", ACC_1_OMIT_NS_1)
-      .put("kubernetes.accounts[1].kinds[0]", ACC_1_KIND_0)
-      .put("kubernetes.accounts[1].kinds[1]", ACC_1_KIND_1)
-      .put("kubernetes.accounts[1].kubeconfigFile",ACC_1_KUBECONFIG)
-      .put("kubernetes.accounts[1].customResources[0].kubernetesKind",ACC_1_CRD_0_K8S_KIND)
-      .put("kubernetes.accounts[1].customResources[0].namespaced", ACC_1_CRD_0_NAMESPACED)
-      .put("kubernetes.accounts[1].customResources[1].kubernetesKind",ACC_1_CRD_1_K8S_KIND)
-      .put("kubernetes.accounts[1].customResources[1].versioned",ACC_1_CRD_1_VERSIONED)
-      .build()
-    def propertiesMapExtractor = Mock(KubernetesPropertiesMapExtractor)
-    propertiesMapExtractor.getPropertiesMap() >> map
+    def map = new HashMap()
+      map.put("kubernetes.rawResourcesEndpointConfig.kinds[0]", RAW_REC_KIND_0)
+      map.put("kubernetes.rawResourcesEndpointConfig.kinds[1]", RAW_REC_KIND_1)
+      map.put("kubernetes.rawResourcesEndpointConfig.kinds[2]", RAW_REC_KIND_2)
+      map.put("kubernetes.accounts[0].name", ACC_0_NAME)
+      map.put("kubernetes.accounts[0].permissions.READ[0]", ACC_0_READ_0)
+      map.put("kubernetes.accounts[0].permissions.READ[1]", ACC_0_READ_1)
+      map.put("kubernetes.accounts[0].permissions.WRITE[0]", ACC_0_WRITE_0)
+      map.put("kubernetes.accounts[0].permissions.WRITE[1]", ACC_0_WRITE_1)
+      map.put("kubernetes.accounts[0].cacheThreads", ACC_0_CACHE_THREADS)
+      map.put("kubernetes.accounts[0].namespaces[0]", ACC_0_NS_0)
+      map.put("kubernetes.accounts[0].namespaces[1]", ACC_0_NS_1)
+      map.put("kubernetes.accounts[0].omitKinds[0]", ACC_0_OMIT_KIND_0)
+      map.put("kubernetes.accounts[0].omitKinds[1]", ACC_0_OMIT_KIND_1)
+      map.put("kubernetes.accounts[0].kubeconfigFile",ACC_0_KUBECONFIG)
+      map.put("kubernetes.accounts[0].customResources[0].kubernetesKind",ACC_0_CRD_0_K8S_KIND)
+      map.put("kubernetes.accounts[0].customResources[0].namespaced", ACC_0_CRD_0_NAMESPACED)
+      map.put("kubernetes.accounts[0].customResources[1].kubernetesKind",ACC_0_CRD_1_K8S_KIND)
+      map.put("kubernetes.accounts[0].customResources[1].versioned",ACC_0_CRD_1_VERSIONED)
+      map.put("kubernetes.accounts[1].name", ACC_1_NAME)
+      map.put("kubernetes.accounts[1].permissions.READ[0]", ACC_1_READ_0)
+      map.put("kubernetes.accounts[1].permissions.READ[1]", ACC_1_READ_1)
+      map.put("kubernetes.accounts[1].permissions.WRITE[0]", ACC_1_WRITE_0)
+      map.put("kubernetes.accounts[1].permissions.WRITE[1]", ACC_1_WRITE_1)
+      map.put("kubernetes.accounts[1].cacheThreads", ACC_1_CACHE_THREADS)
+      map.put("kubernetes.accounts[1].omitNamespaces[0]", ACC_1_OMIT_NS_0)
+      map.put("kubernetes.accounts[1].omitNamespaces[1]", ACC_1_OMIT_NS_1)
+      map.put("kubernetes.accounts[1].kinds[0]", ACC_1_KIND_0)
+      map.put("kubernetes.accounts[1].kinds[1]", ACC_1_KIND_1)
+      map.put("kubernetes.accounts[1].kubeconfigFile",ACC_1_KUBECONFIG)
+      map.put("kubernetes.accounts[1].customResources[0].kubernetesKind",ACC_1_CRD_0_K8S_KIND)
+      map.put("kubernetes.accounts[1].customResources[0].namespaced", ACC_1_CRD_0_NAMESPACED)
+      map.put("kubernetes.accounts[1].customResources[1].kubernetesKind",ACC_1_CRD_1_K8S_KIND)
+      map.put("kubernetes.accounts[1].customResources[1].versioned",ACC_1_CRD_1_VERSIONED)
 
-    def k8sConfig = new KubernetesConfigurationProperties(propertiesMapExtractor)
+    def kubernetesConfigProvider = new BootstrapKubernetesConfigurationProvider()
+    def k8sConfig = kubernetesConfigProvider.getKubernetesConfigurationProperties(map)
 
     then:
+    k8sConfig.rawResourcesEndpointConfig.kinds == [RAW_REC_KIND_0, RAW_REC_KIND_1, RAW_REC_KIND_2] as Set
     k8sConfig.accounts.size() == 2
     k8sConfig.accounts.get(0).name == ACC_0_NAME
     k8sConfig.accounts.get(0).permissions.get(Authorization.READ) == [ACC_0_READ_0, ACC_0_READ_1]
@@ -123,22 +128,22 @@ class KubernetesConfigurationPropertiesSpec extends Specification {
   }
 
   @Unroll
-  void "configServer functionality works"() {
+  void "rawResourcesEndpointConfig's omitKinds set is initialized as expected"() {
     when:
-    def ACC_NAME = "k8s-acc-0"
-    def KUBECONFIG_CONFIG_SERVER = "configserver:dev.config"
-    def KUBECONFIG = "/tmp/config/dev.config"
-    def map = new ImmutableMap.Builder()
-      .put("kubernetes.accounts[0].name", ACC_NAME)
-      .put("kubernetes.accounts[0].kubeconfigFile", KUBECONFIG_CONFIG_SERVER)
-      .build()
-    def propertiesMapExtractor = Mock(KubernetesPropertiesMapExtractor)
-    propertiesMapExtractor.getPropertiesMap() >> map
-    propertiesMapExtractor.resolveConfigServerFilePath(KUBECONFIG_CONFIG_SERVER) >> KUBECONFIG
+    def RAW_REC_OMIT_KIND_0 = "role"
+    def RAW_REC_OMIT_KIND_1 = "roleBinding"
+    def RAW_REC_OMIT_KIND_2 = "clusterRoleBinding"
+    def map = new HashMap()
+      map.put("kubernetes.rawResourcesEndpointConfig.omitKinds[0]", RAW_REC_OMIT_KIND_0)
+      map.put("kubernetes.rawResourcesEndpointConfig.omitKinds[1]", RAW_REC_OMIT_KIND_1)
+      map.put("kubernetes.rawResourcesEndpointConfig.omitKinds[2]", RAW_REC_OMIT_KIND_2)
 
-    def k8sConfig = new KubernetesConfigurationProperties(propertiesMapExtractor)
+    def kubernetesConfigProvider = new BootstrapKubernetesConfigurationProvider()
+    def k8sConfig = kubernetesConfigProvider.getKubernetesConfigurationProperties(map)
 
     then:
-    k8sConfig.accounts.get(0).kubeconfigFile == KUBECONFIG
+    k8sConfig.rawResourcesEndpointConfig.omitKinds ==
+      [RAW_REC_OMIT_KIND_0, RAW_REC_OMIT_KIND_1, RAW_REC_OMIT_KIND_2] as Set
   }
+
 }

@@ -17,9 +17,9 @@
 
 package com.netflix.spinnaker.config;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.config.BootstrapKubernetesConfigurationProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesPropertiesMapExtractor;
-import com.netflix.spinnaker.clouddriver.model.PropertiesMapExtractor;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -27,19 +27,19 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConditionalOnProperty({"kubernetes.enabled", "custom.kubernetes.constructor.enabled"})
+@ConditionalOnProperty({"kubernetes.enabled", "kubernetes.customPropertyBindingEnabled"})
 public class KubernetesCustomBinderConfiguration {
 
   @Bean
-  public KubernetesPropertiesMapExtractor kubernetesPropertiesMapExtractor(
+  public BootstrapKubernetesConfigurationProvider bootstrapKubernetesConfigurationProvider(
       ConfigurableApplicationContext context) {
-    return new KubernetesPropertiesMapExtractor(context);
+    return new BootstrapKubernetesConfigurationProvider(context);
   }
 
   @Bean
   @RefreshScope
   public KubernetesConfigurationProperties kubernetesConfigurationProperties(
-      PropertiesMapExtractor propertiesMapExtractor) {
-    return new KubernetesConfigurationProperties(propertiesMapExtractor);
+      KubernetesConfigurationProvider kubernetesConfigurationProvider) {
+    return new KubernetesConfigurationProperties(kubernetesConfigurationProvider);
   }
 }

@@ -15,12 +15,8 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.model;
+package com.netflix.spinnaker.clouddriver.kubernetes.config;
 
-import java.util.Map;
-
-public interface PropertiesMapExtractor {
-  Map<String, Object> getPropertiesMap();
-
-  String resolveConfigServerFilePath(String key);
+public interface KubernetesConfigurationProvider {
+  KubernetesConfigurationProperties getKubernetesConfigurationProperties();
 }
