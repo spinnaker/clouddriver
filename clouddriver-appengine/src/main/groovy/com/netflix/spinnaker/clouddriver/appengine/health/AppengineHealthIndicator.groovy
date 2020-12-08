@@ -17,7 +17,7 @@
 package com.netflix.spinnaker.clouddriver.appengine.health
 
 import com.netflix.spinnaker.clouddriver.appengine.security.AppengineNamedAccountCredentials
-import com.netflix.spinnaker.credentials.CredentialsRepository
+import com.netflix.spinnaker.credentials.CredentialsTypeBaseConfiguration
 import groovy.transform.InheritConstructors
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -36,7 +36,7 @@ class AppengineHealthIndicator implements HealthIndicator {
   private static final Logger LOG = LoggerFactory.getLogger(AppengineHealthIndicator)
 
   @Autowired
-  CredentialsRepository<AppengineNamedAccountCredentials> credentialsRepository
+  CredentialsTypeBaseConfiguration<AppengineNamedAccountCredentials, ?> credentialsTypeBaseConfiguration
 
   private final AtomicReference<Exception> lastException = new AtomicReference<>(null)
 
@@ -54,7 +54,7 @@ class AppengineHealthIndicator implements HealthIndicator {
   @Scheduled(fixedDelay = 300000L)
   void checkHealth() {
     try {
-      credentialsRepository.all.forEach({
+      credentialsTypeBaseConfiguration.credentialsRepository?.all?.forEach({
         try {
           /*
             Location is the only App Engine resource guaranteed to exist.
