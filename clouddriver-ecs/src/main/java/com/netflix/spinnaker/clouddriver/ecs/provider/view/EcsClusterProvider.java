@@ -27,9 +27,12 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
 import com.netflix.spinnaker.clouddriver.ecs.security.NetflixECSCredentials;
 import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.*;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
 public class EcsClusterProvider {
 
@@ -47,25 +50,33 @@ public class EcsClusterProvider {
     return ecsClusterCacheClient.getAll();
   }
 
-  public Collection<Cluster> getAllEcsClustersDescription(String account, String region) {
+  // TODO include[] input of Describe Cluster is not part of this implementation, need to implement
+  // in the future.
+  public Collection<Cluster> getAllEcsClusterDetails(String account, String region) {
     List<String> clusterNames = new ArrayList<>();
-    List<Cluster> clusters = new ArrayList<>();
-    Collection<EcsCluster> ecsClusters = ecsClusterCacheClient.getAll();
+    Collection<Cluster> clusters = new ArrayList<>();
+    Collection<EcsCluster> filteredEcsClusters =
+        ecsClusterCacheClient.getAll().stream()
+            .filter(
+                cluster ->
+                    cluster.getRegion().equals(region) && cluster.getAccount().equals(account))
+            .collect(Collectors.toList());
     AmazonECS client = getAmazonEcsClient(account, region);
-    if (ecsClusters.size() > 0 && ecsClusters != null) {
-      for (EcsCluster ecsCluster : ecsClusters) {
+    if (filteredEcsClusters != null && filteredEcsClusters.size() > 0) {
+      for (EcsCluster ecsCluster : filteredEcsClusters) {
         clusterNames.add(ecsCluster.getName());
         if (clusterNames.size() % EcsClusterDescriptionMaxSize == 0) {
-          List<Cluster> describeClusterResponse = getDescribeClusters(client, clusterNames);
-          if (describeClusterResponse.size() > 0) {
+          List<Cluster> describeClusterResponse =
+              makeCallToGetDescribeClusters(client, clusterNames);
+          if (!describeClusterResponse.isEmpty()) {
             clusters.addAll(describeClusterResponse);
           }
           clusterNames.clear();
         }
       }
       if (clusterNames.size() % EcsClusterDescriptionMaxSize != 0) {
-        List<Cluster> describeClusterResponse = getDescribeClusters(client, clusterNames);
-        if (describeClusterResponse.size() > 0) {
+        List<Cluster> describeClusterResponse = makeCallToGetDescribeClusters(client, clusterNames);
+        if (!describeClusterResponse.isEmpty()) {
           clusters.addAll(describeClusterResponse);
         }
       }
@@ -81,11 +92,28 @@ public class EcsClusterProvider {
     return amazonClientProvider.getAmazonEcs(credentials, region, true);
   }
 
+  private List<Cluster> makeCallToGetDescribeClusters(AmazonECS client, List<String> clusterNames) {
+    List<Cluster> describeClusterResponse = getDescribeClusters(client, clusterNames);
+    if (describeClusterResponse.size() > 0) {
+      return describeClusterResponse;
+    }
+    return Collections.emptyList();
+  }
+
   private List<Cluster> getDescribeClusters(AmazonECS client, List<String> clusterNames) {
     DescribeClustersRequest describeClustersRequest =
         new DescribeClustersRequest().withClusters(clusterNames);
     DescribeClustersResult describeClustersResult =
         client.describeClusters(describeClustersRequest);
+    if (describeClustersResult == null) {
+      log.error(
+          "Describe Cluster call returned with empty response. Please check your inputs (account, region and cluster list)");
+      return Collections.emptyList();
+    } else if (!describeClustersResult.getFailures().isEmpty()) {
+      log.error(
+          "Describe Cluster call responded with failure(s):"
+              + describeClustersResult.getFailures());
+    }
     return describeClustersResult.getClusters();
   }
 }

@@ -56,7 +56,7 @@ public class EcsControllersSpec extends EcsSpec {
           + "of the cluster from /ecs/ecsDescribeClusters/{account}/{region}"
           + "\n===")
   @Test
-  public void getEcsDescribeClustersTest() throws JsonProcessingException {
+  public void getAllEcsClusterDetailsTest() throws JsonProcessingException {
     // given
     ProviderCache ecsCache = providerRegistry.getProviderCache(EcsProvider.NAME);
     String testClusterName = "example-app-test-Cluster-NSnYsTXmCfV2";
@@ -79,13 +79,14 @@ public class EcsControllersSpec extends EcsSpec {
         new Cluster()
             .withClusterArn("arn:aws:ecs:::cluster/" + testClusterName)
             .withStatus("ACTIVE")
-            .withCapacityProviders("FARGATE", "FARGATE-SPOT")
+            .withCapacityProviders("FARGATE", "FARGATE_SPOT")
             .withClusterName(testClusterName);
     when(mockECS.describeClusters(any(DescribeClustersRequest.class)))
         .thenReturn(new DescribeClustersResult().withClusters(clusterDecription));
 
     // when
-    String testUrl = getTestUrl("/ecs/ecsDescribeClusters/" + ECS_ACCOUNT_NAME + "/" + TEST_REGION);
+    String testUrl =
+        getTestUrl("/ecs/getAllEcsClusterDetails/" + ECS_ACCOUNT_NAME + "/" + TEST_REGION);
 
     Response response =
         get(testUrl).then().statusCode(200).contentType(ContentType.JSON).extract().response();
@@ -104,7 +105,7 @@ public class EcsControllersSpec extends EcsSpec {
     assertTrue(clusterDescription.getCapacityProviders().size() == 2);
     assertTrue(clusterDescription.getStatus().equals("ACTIVE"));
     assertTrue(clusterDescription.getCapacityProviders().contains("FARGATE"));
-    assertTrue(clusterDescription.getCapacityProviders().contains("FARGATE-SPOT"));
+    assertTrue(clusterDescription.getCapacityProviders().contains("FARGATE_SPOT"));
   }
 
   @DisplayName(".\n===\n" + "Given cached ECS cluster, retrieve it from /ecs/ecsClusters" + "\n===")
