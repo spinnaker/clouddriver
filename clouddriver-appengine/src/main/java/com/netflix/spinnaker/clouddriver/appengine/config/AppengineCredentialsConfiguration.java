@@ -97,7 +97,8 @@ public class AppengineCredentialsConfiguration {
                         .cachingIntervalSeconds(a.getCachingIntervalSeconds())
                         .build();
                   } catch (Exception e) {
-                    log.info("Could not load account $managedAccount.name for App Engine", e);
+                    log.info(
+                        String.format("Could not load account %s for App Engine", a.getName()), e);
                     return null;
                   }
                 })
