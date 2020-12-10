@@ -514,6 +514,8 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
       Set<String> currentClusters = new HashSet<>();
       Set<String> currentServerGroups = new HashSet<>();
 
+      Map<String, List<String>> jobIdsByServerGroupKey = new HashMap<>();
+
       Map<String, Job> jobs;
 
       if (state.savedSnapshot) {
@@ -572,6 +574,7 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
 
                     List<String> jobLoadBalancers =
                         allLoadBalancers.getOrDefault(job.getId(), emptyList());
+
                     return new ServerGroupData(
                         new com.netflix.spinnaker.clouddriver.titus.client.model.Job(
                             job, EMPTY_LIST),
@@ -609,6 +612,8 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
             cacheCluster(data, clusterCache);
             cacheServerGroup(data, serverGroupCache);
             cacheImage(data, imageCache);
+            addJobIdsByServerGroupKey(data, jobIdsByServerGroupKey);
+
             for (Task task : (Set<Task>) state.tasks.getOrDefault(data.job.getId(), EMPTY_SET)) {
               InstanceData instanceData =
                   new InstanceData(
@@ -676,6 +681,11 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
       cacheResults.put(TARGET_GROUPS.ns, targetGroupCache.values());
       cacheResults.put(IMAGES.ns, imageCache.values());
       cacheResults.put(INSTANCES.ns, instancesCache.values());
+
+      // No need to log this on incremental updates
+      if (!state.savedSnapshot) {
+        logDuplicateServerGroups(jobIdsByServerGroupKey, serverGroupCache);
+      }
 
       String action = state.savedSnapshot ? "Incrementally updating" : "Snapshot caching";
 
@@ -747,6 +757,15 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
       relationships.computeIfAbsent(IMAGES.ns, key -> new HashSet<>()).add(data.imageKey);
       relationships.computeIfAbsent(INSTANCES.ns, key -> new HashSet<>()).addAll(data.taskKeys);
       serverGroups.put(data.serverGroupKey, serverGroupCache);
+    }
+
+    private void addJobIdsByServerGroupKey(
+        ServerGroupData data, Map<String, List<String>> jobIdsByServerGroupKey) {
+      if (jobIdsByServerGroupKey.containsKey(data.serverGroupKey)) {
+        jobIdsByServerGroupKey.get(data.serverGroupKey).add(data.job.getId());
+      } else {
+        jobIdsByServerGroupKey.put(data.serverGroupKey, List.of(data.job.getId()));
+      }
     }
 
     private void cacheImage(ServerGroupData data, Map<String, CacheData> images) {
@@ -1054,5 +1073,44 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
       }
     }
     return asgName;
+  }
+
+  /**
+   * For each server group with more than 1 job ID, log out all all the duplicate IDs, and log the
+   * final cached job ID too.
+   */
+  private void logDuplicateServerGroups(
+      Map<String, List<String>> seenServerGroupByJobIds, Map<String, CacheData> serverGroupCache) {
+    seenServerGroupByJobIds.entrySet().stream()
+        .filter(it -> it.getValue().size() > 1)
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+        .forEach(
+            (key, value) -> {
+              Job cachedJob = null;
+              try {
+                cachedJob = (Job) serverGroupCache.get(key).getAttributes().get("job");
+              } catch (Exception e) {
+                log.error(
+                    "Error retrieving duplicate server group {} from server group cache.",
+                    key,
+                    e.getCause());
+              }
+
+              if (cachedJob != null) {
+                log.error(
+                    "Duplicate Titus server groups found {} with job IDs [{}].  Cached server "
+                        + "group job ID is {}",
+                    key,
+                    value,
+                    cachedJob.getId());
+              } else {
+                // In theory, this should never happen.
+                log.error(
+                    "Duplicate Titus server groups found {} with job IDs [{}].  No corresponding "
+                        + "cached server groups found.",
+                    key,
+                    value);
+              }
+            });
   }
 }
