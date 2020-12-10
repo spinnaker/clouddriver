@@ -86,7 +86,7 @@ public class EcsControllersSpec extends EcsSpec {
 
     // when
     String testUrl =
-        getTestUrl("/ecs/getAllEcsClusterDetails/" + ECS_ACCOUNT_NAME + "/" + TEST_REGION);
+        getTestUrl("/ecs/getEcsClusterDescriptions/" + ECS_ACCOUNT_NAME + "/" + TEST_REGION);
 
     Response response =
         get(testUrl).then().statusCode(200).contentType(ContentType.JSON).extract().response();

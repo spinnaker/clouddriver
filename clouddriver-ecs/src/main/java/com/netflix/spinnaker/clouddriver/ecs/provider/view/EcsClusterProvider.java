@@ -20,6 +20,7 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.Cluster;
 import com.amazonaws.services.ecs.model.DescribeClustersRequest;
 import com.amazonaws.services.ecs.model.DescribeClustersResult;
+import com.google.common.collect.Lists;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsClusterCacheClient;
@@ -39,7 +40,8 @@ public class EcsClusterProvider {
   private EcsClusterCacheClient ecsClusterCacheClient;
   @Autowired private CredentialsRepository<NetflixECSCredentials> credentialsRepository;
   @Autowired private AmazonClientProvider amazonClientProvider;
-  private static final int EcsClusterDescriptionMaxSize = 100;
+  private static final int EcsClusterDescriptionMaxSize =
+      100; // Describe Cluster API accepts only 100 cluster Names at a time as an input.
 
   @Autowired
   public EcsClusterProvider(Cache cacheView) {
@@ -52,31 +54,22 @@ public class EcsClusterProvider {
 
   // TODO include[] input of Describe Cluster is not part of this implementation, need to implement
   // in the future.
-  public Collection<Cluster> getAllEcsClusterDetails(String account, String region) {
-    List<String> clusterNames = new ArrayList<>();
+  public Collection<Cluster> getEcsClusterDescriptions(String account, String region) {
     Collection<Cluster> clusters = new ArrayList<>();
-    Collection<EcsCluster> filteredEcsClusters =
+    List<String> filteredEcsClusters =
         ecsClusterCacheClient.getAll().stream()
             .filter(
                 cluster ->
                     cluster.getRegion().equals(region) && cluster.getAccount().equals(account))
+            .map(cluster -> cluster.getName())
             .collect(Collectors.toList());
+    List<List<String>> batchClusterList =
+        Lists.partition(filteredEcsClusters, EcsClusterDescriptionMaxSize);
     AmazonECS client = getAmazonEcsClient(account, region);
-    if (filteredEcsClusters != null && filteredEcsClusters.size() > 0) {
-      for (EcsCluster ecsCluster : filteredEcsClusters) {
-        clusterNames.add(ecsCluster.getName());
-        if (clusterNames.size() % EcsClusterDescriptionMaxSize == 0) {
-          List<Cluster> describeClusterResponse =
-              makeCallToGetDescribeClusters(client, clusterNames);
-          if (!describeClusterResponse.isEmpty()) {
-            clusters.addAll(describeClusterResponse);
-          }
-          clusterNames.clear();
-        }
-      }
-      if (clusterNames.size() % EcsClusterDescriptionMaxSize != 0) {
-        List<Cluster> describeClusterResponse = makeCallToGetDescribeClusters(client, clusterNames);
-        if (!describeClusterResponse.isEmpty()) {
+    if (!batchClusterList.isEmpty()) {
+      for (List<String> batchClusters : batchClusterList) {
+        List<Cluster> describeClusterResponse = getDescribeClusters(client, batchClusters);
+        if (describeClusterResponse != null) {
           clusters.addAll(describeClusterResponse);
         }
       }
@@ -90,14 +83,6 @@ public class EcsClusterProvider {
       throw new IllegalArgumentException("Invalid credentials:" + account + ":" + region);
     }
     return amazonClientProvider.getAmazonEcs(credentials, region, true);
-  }
-
-  private List<Cluster> makeCallToGetDescribeClusters(AmazonECS client, List<String> clusterNames) {
-    List<Cluster> describeClusterResponse = getDescribeClusters(client, clusterNames);
-    if (describeClusterResponse.size() > 0) {
-      return describeClusterResponse;
-    }
-    return Collections.emptyList();
   }
 
   private List<Cluster> getDescribeClusters(AmazonECS client, List<String> clusterNames) {

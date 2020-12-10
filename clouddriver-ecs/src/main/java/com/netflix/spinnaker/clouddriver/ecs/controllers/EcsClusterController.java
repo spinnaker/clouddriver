@@ -40,9 +40,9 @@ public class EcsClusterController {
     return ecsClusterProvider.getAllEcsClusters();
   }
 
-  @RequestMapping(value = {"/ecs/getAllEcsClusterDetails/{account}/{region}"})
-  public Collection<Cluster> getAllEcsClusterDetails(
+  @RequestMapping(value = {"/ecs/getEcsClusterDescriptions/{account}/{region}"})
+  public Collection<Cluster> getEcsClusterDescriptions(
       @PathVariable String account, @PathVariable String region) {
-    return ecsClusterProvider.getAllEcsClusterDetails(account, region);
+    return ecsClusterProvider.getEcsClusterDescriptions(account, region);
   }
 }
