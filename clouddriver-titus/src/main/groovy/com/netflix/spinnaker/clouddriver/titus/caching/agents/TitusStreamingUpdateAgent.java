@@ -762,8 +762,8 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
     private void addJobIdsByServerGroupKey(
         ServerGroupData data, Map<String, List<String>> jobIdsByServerGroupKey) {
       jobIdsByServerGroupKey
-        .computeIfAbsent(data.serverGroupKey, k -> new ArrayList<>())
-        .add(data.job.getId());
+          .computeIfAbsent(data.serverGroupKey, k -> new ArrayList<>())
+          .add(data.job.getId());
     }
 
     private void cacheImage(ServerGroupData data, Map<String, CacheData> images) {
@@ -1081,16 +1081,15 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
       Map<String, List<String>> seenServerGroupByJobIds, Map<String, CacheData> serverGroupCache) {
     seenServerGroupByJobIds.entrySet().stream()
         .filter(it -> it.getValue().size() > 1)
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         .forEach(
-            (key, value) -> {
+            (entry) -> {
               Job cachedJob = null;
               try {
-                cachedJob = (Job) serverGroupCache.get(key).getAttributes().get("job");
+                cachedJob = (Job) serverGroupCache.get(entry.getKey()).getAttributes().get("job");
               } catch (Exception e) {
                 log.error(
                     "Error retrieving duplicate server group {} from server group cache.",
-                    key,
+                    entry.getKey(),
                     e.getCause());
               }
 
@@ -1098,16 +1097,16 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
                 log.error(
                     "Duplicate Titus server groups found {} with job IDs [{}].  Cached server "
                         + "group job ID is {}",
-                    key,
-                    value,
+                    entry.getKey(),
+                    entry.getValue(),
                     cachedJob.getId());
               } else {
                 // In theory, this should never happen.
                 log.error(
                     "Duplicate Titus server groups found {} with job IDs [{}].  No corresponding "
                         + "cached server groups found.",
-                    key,
-                    value);
+                    entry.getKey(),
+                    entry.getValue());
               }
             });
   }
