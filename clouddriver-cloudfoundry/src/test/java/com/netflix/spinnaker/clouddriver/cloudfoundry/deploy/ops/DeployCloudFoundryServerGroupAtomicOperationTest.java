@@ -165,10 +165,10 @@ class DeployCloudFoundryServerGroupAtomicOperationTest
             getDeployCloudFoundryServerGroupDescription(true).getApplicationAttributes(),
             HashMap.of("token", "ASDF").toJavaMap());
     inOrder.verify(apps).uploadPackageBits(eq("serverGroupId_package"), any());
+    inOrder.verify(cloudFoundryClient.getServiceInstances()).createServiceBinding(any());
     inOrder.verify(apps).createBuild("serverGroupId_package");
     inOrder.verify(apps).scaleApplication("serverGroupId", 7, 1024, 2048);
     inOrder.verify(apps).updateProcess("serverGroupId", null, "http", "/health");
-    inOrder.verify(cloudFoundryClient.getServiceInstances()).createServiceBinding(any());
     inOrder.verify(apps, calls.get()).startApplication("serverGroupId");
   }
 

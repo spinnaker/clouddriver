@@ -93,14 +93,14 @@ public class DeployCloudFoundryServerGroupAtomicOperation
       }
     }
 
+    createServiceBindings(serverGroup, description);
+
     buildDroplet(packageId, serverGroup.getId(), description);
     scaleApplication(serverGroup.getId(), description);
     if (description.getApplicationAttributes().getHealthCheckType() != null
         || description.getApplicationAttributes().getCommand() != null) {
       updateProcess(serverGroup.getId(), description);
     }
-
-    createServiceBindings(serverGroup, description);
 
     if (!mapRoutes(
         description,
