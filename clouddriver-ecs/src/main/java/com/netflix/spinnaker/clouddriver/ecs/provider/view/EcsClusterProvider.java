@@ -91,11 +91,11 @@ public class EcsClusterProvider {
     DescribeClustersResult describeClustersResult =
         client.describeClusters(describeClustersRequest);
     if (describeClustersResult == null) {
-      log.error(
+      log.warn(
           "Describe Cluster call returned with empty response. Please check your inputs (account, region and cluster list)");
       return Collections.emptyList();
     } else if (!describeClustersResult.getFailures().isEmpty()) {
-      log.error(
+      log.warn(
           "Describe Cluster call responded with failure(s):"
               + describeClustersResult.getFailures());
     }
