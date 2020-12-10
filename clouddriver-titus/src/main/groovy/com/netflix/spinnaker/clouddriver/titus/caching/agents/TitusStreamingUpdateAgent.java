@@ -761,11 +761,9 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
 
     private void addJobIdsByServerGroupKey(
         ServerGroupData data, Map<String, List<String>> jobIdsByServerGroupKey) {
-      if (jobIdsByServerGroupKey.containsKey(data.serverGroupKey)) {
-        jobIdsByServerGroupKey.get(data.serverGroupKey).add(data.job.getId());
-      } else {
-        jobIdsByServerGroupKey.put(data.serverGroupKey, List.of(data.job.getId()));
-      }
+      jobIdsByServerGroupKey
+        .computeIfAbsent(data.serverGroupKey, k -> new ArrayList<>())
+        .add(data.job.getId());
     }
 
     private void cacheImage(ServerGroupData data, Map<String, CacheData> images) {
