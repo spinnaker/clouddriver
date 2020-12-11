@@ -93,7 +93,7 @@ class EcsClusterProviderSpec extends Specification {
     ecsClusters.size() == numberOfClusters
     ecsClusters*.getClusterName().containsAll(clusterNames)
     ecsClusters*.getCapacityProviders()*.get(0).contains("FARGATE")
-    ecsClusters*.getCapacityProviders()*.get(0).contains("FARGATE_SPOT")
+    ecsClusters*.getCapacityProviders()*.get(1).contains("FARGATE_SPOT")
   }
 
   def 'should get no clusters'() {
