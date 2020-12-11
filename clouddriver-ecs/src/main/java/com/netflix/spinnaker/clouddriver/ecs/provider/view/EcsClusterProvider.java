@@ -63,8 +63,10 @@ public class EcsClusterProvider {
                     account.equals(cluster.getAccount()) && region.equals(cluster.getRegion()))
             .map(cluster -> cluster.getName())
             .collect(Collectors.toList());
+    log.info("Total number of items in the filteredEcsCluster(s): {}", filteredEcsClusters.size());
     List<List<String>> batchClusterList =
         Lists.partition(filteredEcsClusters, EcsClusterDescriptionMaxSize);
+    log.info("filteredEcsCluster(s) item(s) split among {} partition(s)", batchClusterList.size());
     AmazonECS client = getAmazonEcsClient(account, region);
     for (List<String> batchClusters : batchClusterList) {
       List<Cluster> describeClusterResponse = getDescribeClusters(client, batchClusters);

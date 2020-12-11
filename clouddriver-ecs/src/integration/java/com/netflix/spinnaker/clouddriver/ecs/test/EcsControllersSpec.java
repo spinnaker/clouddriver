@@ -103,8 +103,8 @@ public class EcsControllersSpec extends EcsSpec {
             .findAny()
             .get();
     assertTrue(clusterDescription.getClusterArn().contains(testClusterName));
-    assertEquals(clusterDescription.getCapacityProviders().size(), 2);
-    assertEquals(clusterDescription.getStatus(), "ACTIVE");
+    assertEquals(2, clusterDescription.getCapacityProviders().size());
+    assertEquals("ACTIVE", clusterDescription.getStatus());
     assertTrue(clusterDescription.getCapacityProviders().contains("FARGATE"));
     assertTrue(clusterDescription.getCapacityProviders().contains("FARGATE_SPOT"));
   }
