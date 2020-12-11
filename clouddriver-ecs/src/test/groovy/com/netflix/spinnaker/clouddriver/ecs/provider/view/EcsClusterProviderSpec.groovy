@@ -96,6 +96,76 @@ class EcsClusterProviderSpec extends Specification {
     ecsClusters*.getCapacityProviders()*.get(1).contains("FARGATE_SPOT")
   }
 
+  def 'should get multiple cluster descriptions filtered based on the account and region'() {
+    given:
+    int numberOfClusters = 3
+    Set<String> clusterNames = new HashSet<>()
+    Collection<CacheData> cacheData = new HashSet<>()
+    Collection<Cluster> clustersResponse = new ArrayList<>()
+    clusterNames.add("example-app-test-Cluster-NSnYsTXmCfV2")
+    clusterNames.add("TestCluster")
+    clusterNames.add("spinnaker-deployment-cluster")
+
+    for (int x = 0; x < 2; x++) {
+      String clusterKey = Keys.getClusterKey(ACCOUNT, REGION, clusterNames[x])
+      Map<String, Object> attributes = new HashMap<>()
+      attributes.put("account", ACCOUNT)
+      attributes.put("region", REGION)
+      attributes.put("clusterArn", "arn:aws:ecs:::cluster/" + clusterNames[x])
+      attributes.put("clusterName", clusterNames[x])
+
+      cacheData.add(new DefaultCacheData(clusterKey, attributes, Collections.emptyMap()))
+    }
+    //Purposely adding cluster with the different region to the cache data.
+    String clusterKey = Keys.getClusterKey(ACCOUNT, "us-east-1", clusterNames[2])
+    Map<String, Object> attributes = new HashMap<>()
+    attributes.put("account", ACCOUNT)
+    attributes.put("region", "us-east-1")
+    attributes.put("clusterArn", "arn:aws:ecs:::cluster/" + clusterNames[2])
+    attributes.put("clusterName", clusterNames[2])
+
+    cacheData.add(new DefaultCacheData(clusterKey, attributes, Collections.emptyMap()))
+
+
+    cacheView.getAll(_) >> cacheData
+
+    //Adding onnly two clusters in the response which belongs to the expected region.
+    for (int x = 0; x < 2; x++) {
+      Cluster cluster = new Cluster()
+        .withCapacityProviders("FARGATE", "FARGATE_SPOT").withStatus("ACTIVE")
+        .withDefaultCapacityProviderStrategy().withPendingTasksCount(0)
+        .withActiveServicesCount(0).withClusterArn("arn:aws:ecs:::cluster/" + clusterNames[x]).withClusterName(clusterNames[x])
+
+      clustersResponse.add(cluster)
+    }
+    def credentials = Mock(NetflixECSCredentials)
+    def amazonEcs = Mock(AmazonECS)
+    mockAwsProvider = Mock(AmazonClientProvider)
+    credentialsRepository = Mock(CredentialsRepository)
+
+    credentialsRepository.getOne(_) >> credentials
+    and:
+    ecsClusterProvider.credentialsRepository = credentialsRepository
+
+    mockAwsProvider.getAmazonEcs(_, _, _) >> amazonEcs
+    and:
+    ecsClusterProvider.amazonClientProvider = mockAwsProvider;
+
+    amazonEcs.describeClusters(_) >> new DescribeClustersResult().withClusters(clustersResponse)
+
+    when:
+    def ecsClusters = ecsClusterProvider.getEcsClusterDescriptions(ACCOUNT, REGION)
+
+    then:
+    // numberOfClusters - 1 justifies that we added 3 clusters to the cache, two with the us-west-2 which is the expected region
+    // and one with the us-east-1 which will be filtered out from the filtering logic in  ecsClusterProvider.getEcsClusterDescriptions
+    ecsClusters.size() == numberOfClusters - 1
+    ecsClusters*.getClusterName().contains(clusterNames[0])
+    ecsClusters*.getClusterName().contains(clusterNames[1])
+    ecsClusters*.getCapacityProviders()*.get(0).contains("FARGATE")
+    ecsClusters*.getCapacityProviders()*.get(1).contains("FARGATE_SPOT")
+  }
+
   def 'should get no clusters'() {
     given:
     cacheView.getAll(_) >> Collections.emptySet()
