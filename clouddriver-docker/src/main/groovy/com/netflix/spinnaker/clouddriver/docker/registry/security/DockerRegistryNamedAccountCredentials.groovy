@@ -52,7 +52,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
     List<String> repositories
     List<String> skip
     String catalogFile
-    String regex
+    String repositoriesRegex
     DockerOkClientProvider dockerOkClientProvider
 
     Builder() {}
@@ -167,8 +167,8 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
       return this
     }
 
-    Builder regex(String regex) {
-      this.regex = regex
+    Builder repositoriesRegex(String repositoriesRegex) {
+      this.repositoriesRegex = repositoriesRegex
       return this
     }
 
@@ -197,7 +197,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
                                                        trackDigests,
                                                        sortTagsByDate,
                                                        catalogFile,
-                                                       regex,
+                                                       repositoriesRegex,
                                                        insecureRegistry,
                                                        dockerOkClientProvider)
     }
@@ -222,7 +222,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
                                         boolean trackDigests,
                                         boolean sortTagsByDate,
                                         String catalogFile,
-                                        String regex,
+                                        String repositoriesRegex,
                                         boolean insecureRegistry,
                                         DockerOkClientProvider dockerOkClientProvider) {
     this(accountName,
@@ -244,7 +244,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
          trackDigests,
          sortTagsByDate,
          catalogFile,
-         regex,
+         repositoriesRegex,
          insecureRegistry,
          null,
          dockerOkClientProvider)
@@ -269,7 +269,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
                                         boolean trackDigests,
                                         boolean sortTagsByDate,
                                         String catalogFile,
-                                        String regex,
+                                        String repositoriesRegex,
                                         boolean insecureRegistry,
                                         List<String> requiredGroupMembership,
                                         DockerOkClientProvider dockerOkClientProvider) {
@@ -281,8 +281,8 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
       throw new IllegalArgumentException("repositories and catalogFile may not be specified together.")
     }
 
-    if(regex && (repositories || catalogFile)){
-      throw new IllegalArgumentException("regex may not be specified at the same time than repositories or catalogFile.")
+    if(repositoriesRegex && (repositories || catalogFile)){
+      throw new IllegalArgumentException("repositoriesRegex may not be specified at the same time than repositories or catalogFile.")
     }
 
     this.accountName = accountName
@@ -321,7 +321,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
     this.username = username
     this.password = password
     this.email = email
-    this.regex = regex
+    this.repositoriesRegex = repositoriesRegex
     this.trackDigests = trackDigests
     this.sortTagsByDate = sortTagsByDate
     this.insecureRegistry = insecureRegistry;
@@ -386,7 +386,7 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
         .clientTimeoutMillis(clientTimeoutMillis)
         .paginateSize(paginateSize)
         .catalogFile(catalogFile)
-        .regex(regex)
+        .repositoriesRegex(repositoriesRegex)
         .insecureRegistry(insecureRegistry)
         .okClientProvider(dockerOkClientProvider)
         .build()
@@ -426,6 +426,6 @@ class DockerRegistryNamedAccountCredentials extends AbstractAccountCredentials<D
   final List<String> requiredGroupMembership
   final List<String> skip
   final String catalogFile
-  final String regex
+  final String repositoriesRegex
   final DockerOkClientProvider dockerOkClientProvider
 }

@@ -69,7 +69,7 @@ class DockerRegistryCredentialsInitializer {
           .email(managedAccount.email)
           .passwordFile(managedAccount.passwordFile)
           .catalogFile(managedAccount.catalogFile)
-          .regex(managedAccount.regex)
+          .repositoriesRegex(managedAccount.repositoriesRegex)
           .dockerconfigFile(managedAccount.dockerconfigFile)
           .cacheThreads(managedAccount.cacheThreads)
           .cacheIntervalSeconds(managedAccount.cacheIntervalSeconds)
