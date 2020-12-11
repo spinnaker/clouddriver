@@ -40,8 +40,8 @@ public class EcsClusterProvider {
   private EcsClusterCacheClient ecsClusterCacheClient;
   @Autowired private CredentialsRepository<NetflixECSCredentials> credentialsRepository;
   @Autowired private AmazonClientProvider amazonClientProvider;
-  private static final int EcsClusterDescriptionMaxSize =
-      100; // Describe Cluster API accepts only 100 cluster Names at a time as an input.
+  // Describe Cluster API accepts only 100 cluster Names at a time as an input.
+  private static final int EcsClusterDescriptionMaxSize = 100;
 
   @Autowired
   public EcsClusterProvider(Cache cacheView) {
@@ -60,7 +60,7 @@ public class EcsClusterProvider {
         ecsClusterCacheClient.getAll().stream()
             .filter(
                 cluster ->
-                    cluster.getRegion().equals(region) && cluster.getAccount().equals(account))
+                    account.equals(cluster.getAccount()) && region.equals(cluster.getRegion()))
             .map(cluster -> cluster.getName())
             .collect(Collectors.toList());
     List<List<String>> batchClusterList =

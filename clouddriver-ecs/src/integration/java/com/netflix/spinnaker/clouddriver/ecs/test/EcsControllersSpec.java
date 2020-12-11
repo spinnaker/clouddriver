@@ -16,6 +16,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.test;
 
 import static io.restassured.RestAssured.get;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
@@ -86,7 +87,7 @@ public class EcsControllersSpec extends EcsSpec {
 
     // when
     String testUrl =
-        getTestUrl("/ecs/getEcsClusterDescriptions/" + ECS_ACCOUNT_NAME + "/" + TEST_REGION);
+        getTestUrl("/ecs/ecsClusterDescriptions/" + ECS_ACCOUNT_NAME + "/" + TEST_REGION);
 
     Response response =
         get(testUrl).then().statusCode(200).contentType(ContentType.JSON).extract().response();
@@ -102,8 +103,8 @@ public class EcsControllersSpec extends EcsSpec {
             .findAny()
             .get();
     assertTrue(clusterDescription.getClusterArn().contains(testClusterName));
-    assertTrue(clusterDescription.getCapacityProviders().size() == 2);
-    assertTrue(clusterDescription.getStatus().equals("ACTIVE"));
+    assertEquals(clusterDescription.getCapacityProviders().size(), 2);
+    assertEquals(clusterDescription.getStatus(), "ACTIVE");
     assertTrue(clusterDescription.getCapacityProviders().contains("FARGATE"));
     assertTrue(clusterDescription.getCapacityProviders().contains("FARGATE_SPOT"));
   }
