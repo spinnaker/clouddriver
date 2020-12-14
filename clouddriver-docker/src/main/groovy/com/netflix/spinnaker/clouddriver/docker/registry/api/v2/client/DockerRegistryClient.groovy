@@ -198,6 +198,24 @@ class DockerRegistryClient {
   DockerRegistryClient(String address,
                        String email,
                        String username,
+                       String password,
+                       String passwordCommand,
+                       long clientTimeoutMillis,
+                       int paginateSize,
+                       String catalogFile,
+                       String repositoriesRegex,
+                       boolean insecureRegistry,
+                       DockerOkClientProvider okClientProvider,
+                       DockerRegistryService dockerRegistryService) {
+    this(address, clientTimeoutMillis, paginateSize, catalogFile, repositoriesRegex, insecureRegistry, okClientProvider)
+    this.tokenService = new DockerBearerTokenService(username, password, passwordCommand)
+    this.email = email
+    this.registryService = dockerRegistryService;
+  }
+
+  DockerRegistryClient(String address,
+                       String email,
+                       String username,
                        File passwordFile,
                        long clientTimeoutMillis,
                        int paginateSize,
