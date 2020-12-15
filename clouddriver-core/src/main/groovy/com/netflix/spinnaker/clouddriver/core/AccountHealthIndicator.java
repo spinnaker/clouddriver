@@ -20,9 +20,13 @@ import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spectator.api.patterns.PolledMeter;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -45,6 +49,11 @@ public abstract class AccountHealthIndicator<T extends AccountCredentials>
   @Nonnull private Health health = new Health.Builder().up().build();
   @Nonnull private final AtomicLong unhealthyAccounts = new AtomicLong(0);
 
+  @Value("${clouddriver.account-threads:-1}")
+  private int threads;
+
+  private ForkJoinPool customThreadPool;
+
   /**
    * Create an {@code AccountHealthIndicator} reporting metrics to the supplied registry, using the
    * supplied id.
@@ -65,19 +74,37 @@ public abstract class AccountHealthIndicator<T extends AccountCredentials>
     return health;
   }
 
+  private Runnable getRunnable(ImmutableMap.Builder<String, String> builder, boolean isParallel) {
+    return () ->
+        StreamSupport.stream(getAccounts().spliterator(), isParallel)
+            .map(a -> Map.entry(a.getName(), accountHealth(a)))
+            .filter(entry -> entry.getValue().isPresent())
+            .map(entry -> Map.entry(entry.getKey(), entry.getValue().get()))
+            .forEach(builder::put);
+  }
+
   @Scheduled(fixedDelay = 300000L)
   public void checkHealth() {
-    long errors = 0;
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    for (T account : getAccounts()) {
-      Optional<String> error = accountHealth(account);
-      if (error.isPresent()) {
-        errors++;
-        builder.put(account.getName(), error.get());
+
+    boolean isParallel = threads > 1;
+    Runnable runnable = getRunnable(builder, isParallel);
+    if (isParallel) {
+      if (customThreadPool == null) {
+        customThreadPool = new ForkJoinPool(threads);
       }
+      try {
+        customThreadPool.submit(runnable).get();
+      } catch (InterruptedException | ExecutionException e) {
+        return;
+      }
+    } else {
+      runnable.run();
     }
-    unhealthyAccounts.set(errors);
-    health = new Health.Builder().up().withDetails(builder.build()).build();
+
+    ImmutableMap failingAccounts = builder.build();
+    unhealthyAccounts.set(failingAccounts.size());
+    health = new Health.Builder().up().withDetails(failingAccounts).build();
   }
 
   /**
