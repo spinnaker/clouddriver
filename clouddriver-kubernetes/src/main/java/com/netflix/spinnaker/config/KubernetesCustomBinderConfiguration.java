@@ -19,7 +19,8 @@ package com.netflix.spinnaker.config;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.config.BootstrapKubernetesConfigurationProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
-import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProvider;
+import com.netflix.spinnaker.kork.configserver.CloudConfigResourceService;
+import com.netflix.spinnaker.kork.secrets.SecretManager;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -27,19 +28,22 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConditionalOnProperty({"kubernetes.enabled", "kubernetes.customPropertyBindingEnabled"})
+@ConditionalOnProperty({"kubernetes.enabled", "kubernetes.custom-property-binding-enabled"})
 public class KubernetesCustomBinderConfiguration {
 
   @Bean
   public BootstrapKubernetesConfigurationProvider bootstrapKubernetesConfigurationProvider(
-      ConfigurableApplicationContext context) {
-    return new BootstrapKubernetesConfigurationProvider(context);
+      ConfigurableApplicationContext context,
+      CloudConfigResourceService configResourceService,
+      SecretManager secretManager) {
+    return new BootstrapKubernetesConfigurationProvider(
+        context, configResourceService, secretManager);
   }
 
   @Bean
   @RefreshScope
   public KubernetesConfigurationProperties kubernetesConfigurationProperties(
-      KubernetesConfigurationProvider kubernetesConfigurationProvider) {
-    return new KubernetesConfigurationProperties(kubernetesConfigurationProvider);
+      BootstrapKubernetesConfigurationProvider bootstrapKubernetesConfigurationProvider) {
+    return bootstrapKubernetesConfigurationProvider.getKubernetesConfigurationProperties();
   }
 }

@@ -16,7 +16,6 @@
  */
 package com.netflix.spinnaker.clouddriver.kubernetes.config;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
@@ -24,14 +23,12 @@ import java.util.*;
 import lombok.Data;
 
 @Data
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class KubernetesConfigurationProperties {
   private static final int DEFAULT_CACHE_THREADS = 1;
   private List<ManagedAccount> accounts = new ArrayList<>();
   private RawResourcesEndpointConfig rawResourcesEndpointConfig = new RawResourcesEndpointConfig();
 
   @Data
-  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class ManagedAccount implements CredentialsDefinition {
     private String name;
     private String environment;
@@ -76,22 +73,5 @@ public class KubernetesConfigurationProperties {
             "At most one of 'kinds' and 'omitKinds' can be specified");
       }
     }
-  }
-
-  public KubernetesConfigurationProperties() {}
-
-  /**
-   * For larger number of Kubernetes accounts, SpringBoot based properties binding is taking tens of
-   * minutes, hence this custom constructor for KubernetesConfigurationProperties is needed.
-   *
-   * @param kubernetesConfigurationProvider This provides the KubernetesConfigurationProperties
-   *     object
-   */
-  public KubernetesConfigurationProperties(
-      KubernetesConfigurationProvider kubernetesConfigurationProvider) {
-    KubernetesConfigurationProperties kubernetesConfigurationProperties =
-        kubernetesConfigurationProvider.getKubernetesConfigurationProperties();
-    rawResourcesEndpointConfig = kubernetesConfigurationProperties.getRawResourcesEndpointConfig();
-    accounts = kubernetesConfigurationProperties.getAccounts();
   }
 }

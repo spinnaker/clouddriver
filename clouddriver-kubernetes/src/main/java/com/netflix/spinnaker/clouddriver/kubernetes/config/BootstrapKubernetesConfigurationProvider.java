@@ -17,44 +17,54 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.wnameless.json.flattener.JsonFlattener;
 import com.github.wnameless.json.unflattener.JsonUnflattener;
 import com.netflix.spinnaker.kork.configserver.CloudConfigResourceService;
-import com.netflix.spinnaker.kork.configserver.ConfigFileLoadingException;
+import com.netflix.spinnaker.kork.secrets.EncryptedSecret;
+import com.netflix.spinnaker.kork.secrets.SecretManager;
+import com.netflix.spinnaker.kork.secrets.SecretSession;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import org.springframework.beans.BeansException;
+import java.util.NoSuchElementException;
+import org.springframework.boot.context.properties.bind.BindResult;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.bind.PropertySourcesPlaceholdersResolver;
+import org.springframework.boot.context.properties.source.ConfigurationPropertySource;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 import org.springframework.cloud.bootstrap.config.BootstrapPropertySource;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertySource;
 
 /**
- * For larger number of Kubernetes accounts, SpringBoot implementation of properties binding is
- * inefficient, hence a custom constructor for KubernetesConfigurationProperties is written. This
- * class fetches the flattened kubernetes properties from Spring Cloud Config's
- * BootstrapPropertySource and creates a KubernetesConfigurationProperties object. Also adds support
- * to existing "configserver:" feature along with caching ability. The main objective of this
- * implementation is to reduce the clouddriver loading time when large number of dynamic accounts
- * are configured. So some of the features provided by SpringBoot and clouddriver modules do not
- * work. Here are the limitations: 1. The properties in the yaml file must use camel case 2.
- * Property placeholders don't work. 3. "encryptedFile:" and "encrypted:" notations don't work 4.
- * "configserver:" works only for kubeconfig files
+ * For larger number of Kubernetes accounts, as-is SpringBoot implementation of properties binding
+ * is inefficient, hence a custom logic for KubernetesConfigurationProperties is written but it
+ * still uses SpringBoot's Binder class. BootstrapKubernetesConfigurationProvider class fetches the
+ * flattened kubernetes properties from Spring Cloud Config's BootstrapPropertySource and creates a
+ * KubernetesConfigurationProperties object.
  */
-public class BootstrapKubernetesConfigurationProvider implements KubernetesConfigurationProvider {
-
+public class BootstrapKubernetesConfigurationProvider {
   private final ConfigurableApplicationContext applicationContext;
   private CloudConfigResourceService configResourceService;
+  private SecretSession secretSession;
   private Map<String, String> configServerCache;
+  private ObjectMapper objectMapper = new ObjectMapper();
 
   public BootstrapKubernetesConfigurationProvider(
-      ConfigurableApplicationContext applicationContext) {
+      ConfigurableApplicationContext applicationContext,
+      CloudConfigResourceService configResourceService,
+      SecretManager secretManager) {
     this.applicationContext = applicationContext;
+    this.configResourceService = configResourceService;
+    this.secretSession = new SecretSession(secretManager);
   }
 
-  @Override
   public KubernetesConfigurationProperties getKubernetesConfigurationProperties() {
     return getKubernetesConfigurationProperties(getPropertiesMap());
   }
@@ -62,26 +72,70 @@ public class BootstrapKubernetesConfigurationProvider implements KubernetesConfi
   @SuppressWarnings("unchecked")
   public KubernetesConfigurationProperties getKubernetesConfigurationProperties(
       Map<String, Object> kubernetesPropertiesMap) {
-    ObjectMapper objectMapper = new ObjectMapper();
-    // remove the keys having blank string values
-    kubernetesPropertiesMap.values().removeAll(Collections.singleton(""));
+    KubernetesConfigurationProperties k8sConfigProps = new KubernetesConfigurationProperties();
+    BindResult<?> result;
 
+    // unflatten
     Map<String, Object> propertiesMap =
         (Map<String, Object>)
             JsonUnflattener.unflattenAsMap(kubernetesPropertiesMap).get("kubernetes");
 
-    KubernetesConfigurationProperties kubernetesConfigurationProperties =
-        objectMapper.convertValue(propertiesMap, KubernetesConfigurationProperties.class);
+    // loop through each account and bind
+    for (Map<String, Object> unflattendAcc :
+        ((List<Map<String, Object>>) propertiesMap.get("accounts"))) {
+      result =
+          bind(getFlatMap(unflattendAcc), KubernetesConfigurationProperties.ManagedAccount.class);
+      k8sConfigProps
+          .getAccounts()
+          .add((KubernetesConfigurationProperties.ManagedAccount) result.get());
+    }
 
-    kubernetesConfigurationProperties
-        .getAccounts()
-        .forEach(
-            acc -> {
-              if (acc.getKubeconfigFile().startsWith("configserver:")) {
-                acc.setKubeconfigFile(resolveConfigServerFilePath(acc.getKubeconfigFile()));
-              }
-            });
-    return kubernetesConfigurationProperties;
+    try {
+      propertiesMap.remove("accounts"); // accounts are already processed above
+      result = bind(getFlatMap(propertiesMap), KubernetesConfigurationProperties.class);
+      k8sConfigProps.setRawResourcesEndpointConfig(
+          ((KubernetesConfigurationProperties) result.get()).getRawResourcesEndpointConfig());
+      // mappings to any future fields similar to rawResourcesEndpointConfig go here
+    } catch (NoSuchElementException e) {
+      // this binding error occurs when rawResourcesEndpointConfig is not supplied.
+      // ignoring it as rawResourcesEndpointConfig is not a mandatory configuration
+    }
+    System.out.println("-----------" + k8sConfigProps.toString());
+    return k8sConfigProps;
+  }
+
+  private BindResult<?> bind(Map<String, Object> propertiesMap, Class<?> clazz) {
+    resolveSpecialCases(propertiesMap);
+    ConfigurationPropertySource configurationPropertySource =
+        new MapConfigurationPropertySource(propertiesMap);
+    Iterable<ConfigurationPropertySource> sourceIterable =
+        () -> Collections.singleton(configurationPropertySource).iterator();
+    Binder binder =
+        new Binder(
+            sourceIterable,
+            new PropertySourcesPlaceholdersResolver(applicationContext.getEnvironment()));
+    return binder.bind("", Bindable.of(clazz));
+  }
+
+  private void resolveSpecialCases(Map<String, Object> propertiesMap) {
+    String result;
+    for (Map.Entry<String, Object> entry : propertiesMap.entrySet()) {
+      if (entry.getValue() instanceof String) {
+        result = resolveConfigServerPattern((String) entry.getValue());
+        result = resolveEncryptedPattern(result);
+        entry.setValue(result);
+      }
+    }
+  }
+
+  private Map<String, Object> getFlatMap(Map<String, Object> unflatMap) {
+    try {
+      return JsonFlattener.flattenAsMap(objectMapper.writeValueAsString(unflatMap));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(
+          "Error occurred while building KubernetesConfigurationProperties object: "
+              + e.getMessage());
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -106,17 +160,22 @@ public class BootstrapKubernetesConfigurationProvider implements KubernetesConfi
     throw new RuntimeException("No BootstrapPropertySource found!!!!");
   }
 
+  private String resolveEncryptedPattern(String possiblePattern) {
+    if (possiblePattern.startsWith(EncryptedSecret.ENCRYPTED_STRING_PREFIX)) {
+      possiblePattern = secretSession.decrypt(possiblePattern);
+    }
+    return possiblePattern;
+  }
+
+  private String resolveConfigServerPattern(String possiblePattern) {
+    if (possiblePattern.startsWith("configserver:")) {
+      possiblePattern = resolveConfigServerFilePath(possiblePattern);
+    }
+    return possiblePattern;
+  }
+
   private String resolveConfigServerFilePath(String key) {
     String filePath;
-
-    if (configResourceService == null) {
-      try {
-        configResourceService = applicationContext.getBean(CloudConfigResourceService.class);
-      } catch (BeansException e) {
-        throw new ConfigFileLoadingException(
-            "Config Server repository not configured for resource \"" + key + "\"");
-      }
-    }
 
     if (cacheContainsKey(key)) {
       filePath = configServerCache.get(key);
