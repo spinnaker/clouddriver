@@ -100,7 +100,6 @@ public class BootstrapKubernetesConfigurationProvider {
       // this binding error occurs when rawResourcesEndpointConfig is not supplied.
       // ignoring it as rawResourcesEndpointConfig is not a mandatory configuration
     }
-    System.out.println("-----------" + k8sConfigProps.toString());
     return k8sConfigProps;
   }
 
