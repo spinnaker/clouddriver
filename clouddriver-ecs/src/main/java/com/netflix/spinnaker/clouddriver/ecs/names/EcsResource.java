@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Google, Inc.
+ * Copyright 2020 Expedia, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,19 +12,19 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package com.netflix.spinnaker.clouddriver.exceptions;
+package com.netflix.spinnaker.clouddriver.ecs.names;
 
-import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
-import retrofit.RetrofitError;
+import com.amazonaws.services.ecs.model.Tag;
+import java.util.List;
 
-// todo(mneterval): move to kork-exceptions
+public interface EcsResource {
 
-/** Wraps an exception of kind {@link RetrofitError.Kind} NETWORK. */
-@NonnullByDefault
-public final class SpinnakerNetworkException extends SpinnakerServerException {
-  public SpinnakerNetworkException(RetrofitError e) {
-    super(e);
-  }
+  String getName();
+
+  void setName(String name);
+
+  List<Tag> getResourceTags();
 }
