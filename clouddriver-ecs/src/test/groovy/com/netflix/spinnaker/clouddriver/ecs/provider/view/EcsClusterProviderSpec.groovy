@@ -129,7 +129,7 @@ class EcsClusterProviderSpec extends Specification {
 
     cacheView.getAll(_) >> cacheData
 
-    //Adding onnly two clusters in the response which belongs to the expected region.
+    //Adding only two clusters in the response which belongs to the expected region.
     for (int x = 0; x < 2; x++) {
       Cluster cluster = new Cluster()
         .withCapacityProviders("FARGATE", "FARGATE_SPOT").withStatus("ACTIVE")

@@ -52,8 +52,8 @@ public class EcsClusterProvider {
     return ecsClusterCacheClient.getAll();
   }
 
-  // TODO include[] input of Describe Cluster is not part of this implementation, need to implement
-  // in the future.
+  // TODO include[] input of Describe Cluster is not a part of this implementation, need to
+  // implement in the future if additional properties are needed.
   public Collection<Cluster> getEcsClusterDescriptions(String account, String region) {
     Collection<Cluster> clusters = new ArrayList<>();
     List<String> filteredEcsClusters =
