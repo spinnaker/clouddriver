@@ -58,6 +58,16 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
     validateCredentials(createServerGroupDescription, errors, "credentials");
     validateCapacity(errors, createServerGroupDescription.getCapacity());
 
+    if (createServerGroupDescription.getSubnetTypes() != null
+        && createServerGroupDescription.getSubnetTypes().size() > 0) {
+      if (StringUtils.isNotBlank(createServerGroupDescription.getSubnetType())) {
+        errors.rejectValue(
+            "subnetTypes",
+            errorKey + "." + "subnetTypes" + "." + "invalid",
+            "SubnetType (string) cannot be specified when SubnetTypes (list) is specified. Please use SubnetTypes (list)");
+      }
+    }
+
     if (createServerGroupDescription.getAvailabilityZones() != null) {
       if (createServerGroupDescription.getAvailabilityZones().size() != 1) {
         rejectValue(errors, "availabilityZones", "must.have.only.one");
@@ -201,20 +211,20 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
 
   private void validateComputeOptions(
       CreateServerGroupDescription createServerGroupDescription, ValidationErrors errors) {
-    if (createServerGroupDescription.getCapacityProviderStrategies() != null
-        && !createServerGroupDescription.getCapacityProviderStrategies().isEmpty()) {
+    if (createServerGroupDescription.getCapacityProviderStrategy() != null
+        && !createServerGroupDescription.getCapacityProviderStrategy().isEmpty()) {
       if (!StringUtils.isBlank(createServerGroupDescription.getLaunchType())) {
         errors.rejectValue(
             "launchType",
             errorKey + "." + "launchType" + "." + "invalid",
-            "LaunchType cannot be specified when CapacityProviderStrategies are specified.");
+            "LaunchType cannot be specified when CapacityProviderStrategy are specified.");
       }
-    } else if (createServerGroupDescription.getCapacityProviderStrategies() == null
+    } else if (createServerGroupDescription.getCapacityProviderStrategy() == null
         && StringUtils.isBlank(createServerGroupDescription.getLaunchType())) {
       errors.rejectValue(
           "launchType",
           errorKey + "." + "launchType" + "." + "invalid",
-          "LaunchType or CapacityProviderStrategies must be specified.");
+          "LaunchType or CapacityProviderStrategy must be specified.");
     }
   }
 

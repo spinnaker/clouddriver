@@ -191,7 +191,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
       weight: 1
     )
     def description = getDescription()
-    description.capacityProviderStrategies = [capacityProviderStrategy]
+    description.capacityProviderStrategy = [capacityProviderStrategy]
     description.launchType = 'FARGATE'
     def errors = Mock(ValidationErrors)
 
@@ -199,13 +199,27 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue('launchType', 'createServerGroupDescription.launchType.invalid', 'LaunchType cannot be specified when CapacityProviderStrategies are specified.')
+    1 * errors.rejectValue('launchType', 'createServerGroupDescription.launchType.invalid', 'LaunchType cannot be specified when CapacityProviderStrategy are specified.')
+  }
+
+  void 'should fail when subnet type and subnet types are both defined'() {
+    given:
+    def description = getDescription()
+    description.subnetType = 'public'
+    description.subnetTypes = ['public', 'private']
+    def errors = Mock(ValidationErrors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('subnetTypes', 'createServerGroupDescription.subnetTypes.invalid', 'SubnetType (string) cannot be specified when SubnetTypes (list) is specified. Please use SubnetTypes (list)')
   }
 
   void 'should fail when neither launch type or capacity provider strategy are defined'() {
     given:
     def description = getDescription()
-    description.capacityProviderStrategies = null
+    description.capacityProviderStrategy = null
     description.launchType = null
     def errors = Mock(ValidationErrors)
 
@@ -213,7 +227,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue('launchType', 'createServerGroupDescription.launchType.invalid', 'LaunchType or CapacityProviderStrategies must be specified.')
+    1 * errors.rejectValue('launchType', 'createServerGroupDescription.launchType.invalid', 'LaunchType or CapacityProviderStrategy must be specified.')
   }
 
   void 'target group mappings should fail when container name is specified but load balancer is missing'() {
