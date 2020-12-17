@@ -30,13 +30,13 @@ public class CreateCloudFoundryServiceBindingDescription
     extends AbstractCloudFoundryServerGroupDescription {
 
   private CloudFoundrySpace space;
-  private List<ServiceBindingRequests> serviceBindingRequests;
+  private List<ServiceBindingRequest> serviceBindingRequests;
   private boolean restageRequired = true;
   private boolean restartRequired;
 
   @Data
   @AllArgsConstructor
-  public static class ServiceBindingRequests {
+  public static class ServiceBindingRequest {
     private String serviceInstanceName;
     private Map<String, Object> parameters;
     private boolean updatable;
