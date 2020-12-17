@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
-public class CreateCloudFoundryServiceBindingRequestsAtomicOperationTest
+public class CreateCloudFoundryServiceBindingRequestAtomicOperationTest
     extends AbstractCloudFoundryAtomicOperationTest {
 
   OperationPoller poller = mock(OperationPoller.class);
@@ -59,8 +59,8 @@ public class CreateCloudFoundryServiceBindingRequestsAtomicOperationTest
     desc.setClient(client);
     desc.setRestageRequired(true);
     desc.setServerGroupName("app1");
-    CreateCloudFoundryServiceBindingDescription.ServiceBindingRequests binding =
-        new CreateCloudFoundryServiceBindingDescription.ServiceBindingRequests(
+    CreateCloudFoundryServiceBindingDescription.ServiceBindingRequest binding =
+        new CreateCloudFoundryServiceBindingDescription.ServiceBindingRequest(
             "service1", null, false);
     desc.setServiceBindingRequests(Collections.singletonList(binding));
 
@@ -106,8 +106,8 @@ public class CreateCloudFoundryServiceBindingRequestsAtomicOperationTest
     desc.setClient(client);
     desc.setRestageRequired(true);
     desc.setServerGroupName("app1");
-    CreateCloudFoundryServiceBindingDescription.ServiceBindingRequests binding =
-        new CreateCloudFoundryServiceBindingDescription.ServiceBindingRequests(
+    CreateCloudFoundryServiceBindingDescription.ServiceBindingRequest binding =
+        new CreateCloudFoundryServiceBindingDescription.ServiceBindingRequest(
             "service1", null, false);
     desc.setServiceBindingRequests(Collections.singletonList(binding));
 
