@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client
 
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers
 import org.mockito.Mockito
 import retrofit.client.Response
 import retrofit.mime.TypedByteArray
@@ -72,16 +74,16 @@ class DockerRegistryClientSpec extends Specification {
   }
 
   void "DockerRegistryClient uses correct user agent"() {
-    setup:
-    DockerRegistryClient.DockerRegistryService mockService = Mockito.mock(DockerRegistryClient.DockerRegistryService.class);
+    def mockService  = Mock(DockerRegistryClient.DockerRegistryService);
+    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",false, defaultDockerOkClientProvider, mockService)
 
     when:
-    client = new DockerRegistryClient("https://index.docker.io","email@email.com","user","password", "", TimeUnit.MINUTES.toMillis(1),100,"","",true, defaultDockerOkClientProvider, mockService)
+    client.checkV2Availability()
     def userAgent = client.userAgent
 
     then:
     userAgent.startsWith("Spinnaker")
-    //1 * client.registryService.getTags(_, _, userAgent)
+    1 * mockService.checkVersion(_,_)
   }
 
   void "Filtering by regular expression."() {
