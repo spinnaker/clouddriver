@@ -317,10 +317,10 @@ public class CreateServerGroupAtomicOperation
       }
     }
 
-    if (description.getCapacityProviderStrategies() != null
-        && !description.getCapacityProviderStrategies().isEmpty()) {
+    if (description.getCapacityProviderStrategy() != null
+        && !description.getCapacityProviderStrategy().isEmpty()) {
 
-      for (CapacityProviderStrategyItem cpStrategy : description.getCapacityProviderStrategies()) {
+      for (CapacityProviderStrategyItem cpStrategy : description.getCapacityProviderStrategy()) {
         if (FARGATE.equals(cpStrategy.getCapacityProvider())
             || FARGATE_SPOT.equals(cpStrategy.getCapacityProvider())) {
           request.setRequiresCompatibilities(Arrays.asList(FARGATE));
@@ -407,9 +407,9 @@ public class CreateServerGroupAtomicOperation
       if (templateExecutionRole == null || templateExecutionRole.isEmpty()) {
         requestTemplate.setExecutionRoleArn(ecsServiceRole);
       }
-    } else if (description.getCapacityProviderStrategies() != null
-        && !description.getCapacityProviderStrategies().isEmpty()) {
-      for (CapacityProviderStrategyItem cpStrategy : description.getCapacityProviderStrategies()) {
+    } else if (description.getCapacityProviderStrategy() != null
+        && !description.getCapacityProviderStrategy().isEmpty()) {
+      for (CapacityProviderStrategyItem cpStrategy : description.getCapacityProviderStrategy()) {
         if (FARGATE.equals(cpStrategy.getCapacityProvider())
             || FARGATE_SPOT.equals(cpStrategy.getCapacityProvider())) {
           String templateExecutionRole = requestTemplate.getExecutionRoleArn();
@@ -576,11 +576,11 @@ public class CreateServerGroupAtomicOperation
 
     if (AWSVPC_NETWORK_MODE.equals(description.getNetworkMode())) {
       Collection<String> subnetIds =
-          subnetSelector.resolveSubnetsIds(
+          subnetSelector.resolveSubnetsIdsForMultipleSubnetTypes(
               description.getAccount(),
               description.getRegion(),
               description.getAvailabilityZones().get(description.getRegion()),
-              description.getSubnetType());
+              getSubnetTypes());
       Collection<String> vpcIds =
           subnetSelector.getSubnetVpcIds(
               description.getAccount(), description.getRegion(), subnetIds);
@@ -605,9 +605,9 @@ public class CreateServerGroupAtomicOperation
 
     if (!StringUtils.isEmpty(description.getLaunchType())) {
       request.withLaunchType(description.getLaunchType());
-    } else if (description.getCapacityProviderStrategies() != null
-        && !description.getCapacityProviderStrategies().isEmpty()) {
-      request.withCapacityProviderStrategy(description.getCapacityProviderStrategies());
+    } else if (description.getCapacityProviderStrategy() != null
+        && !description.getCapacityProviderStrategy().isEmpty()) {
+      request.withCapacityProviderStrategy(description.getCapacityProviderStrategy());
     }
 
     if (!StringUtils.isEmpty(description.getPlatformVersion())) {
@@ -770,6 +770,19 @@ public class CreateServerGroupAtomicOperation
               + " role does not have a trust relationship to ecs-tasks.amazonaws.com.");
     }
     return response;
+  }
+
+  private Set<String> getSubnetTypes() {
+    Set<String> subnetTypes = new HashSet<>();
+
+    if (description.getSubnetTypes() != null && !description.getSubnetTypes().isEmpty()) {
+      subnetTypes.addAll(description.getSubnetTypes());
+    }
+
+    if (StringUtils.isNotBlank(description.getSubnetType())) {
+      subnetTypes.add(description.getSubnetType());
+    }
+    return subnetTypes;
   }
 
   private DeploymentResult makeDeploymentResult(Service service) {
