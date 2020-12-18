@@ -16,9 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.client
 
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers
-import org.mockito.Mockito
+import com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth.DockerBearerTokenService
 import retrofit.client.Response
 import retrofit.mime.TypedByteArray
 import retrofit.mime.TypedInput
@@ -38,13 +36,30 @@ class DockerRegistryClientSpec extends Specification {
   DockerRegistryClient client
   DockerOkClientProvider defaultDockerOkClientProvider = new DefaultDockerOkClientProvider()
 
+  def stubbedRegistryService = Stub(DockerRegistryClient.DockerRegistryService){
+    String tagsJson = "{\"name\":\"library/ubuntu\",\"tags\":[\"latest\",\"xenial\",\"rolling\"]}"
+    TypedInput tagsTypedInput = new TypedByteArray("application/json", tagsJson.getBytes())
+    Response tagsResponse = new Response("/v2/{repository}/tags/list",200, "nothing", Collections.EMPTY_LIST, tagsTypedInput)
+    getTags(_,_,_) >> tagsResponse
+
+    String checkJson = "{}"
+    TypedInput checkTypedInput = new TypedByteArray("application/json", checkJson.getBytes())
+    Response checkResponse = new Response("/v2/",200, "nothing", Collections.EMPTY_LIST, checkTypedInput)
+    checkVersion(_,_) >> checkResponse
+
+    String json = "{\"repositories\":[\"armory-io/armorycommons\",\"armory/aquascan\",\"other/keel\"]}"
+    TypedInput catalogTypedInput = new TypedByteArray("application/json", json.getBytes())
+    Response catalogResponse = new Response("/v2/_catalog/",200, "nothing", Collections.EMPTY_LIST, catalogTypedInput)
+    getCatalog(_,_,_) >> catalogResponse
+  }
+
   def setupSpec() {
 
   }
 
   void "DockerRegistryClient should request a real set of tags."() {
     when:
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",false, defaultDockerOkClientProvider)
+    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",false, defaultDockerOkClientProvider, stubbedRegistryService)
     def result = client.getTags(REPOSITORY1)
 
     then:
@@ -54,7 +69,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient should validate that it is pointing at a v2 endpoint."() {
     when:
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",false, defaultDockerOkClientProvider)
+    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",false, defaultDockerOkClientProvider, stubbedRegistryService)
     // Can only fail due to an exception thrown here.
     client.checkV2Availability()
 
@@ -64,7 +79,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient invoked with insecureRegistry=true"() {
     when:
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",true, defaultDockerOkClientProvider)
+    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",true, defaultDockerOkClientProvider, stubbedRegistryService)
     DockerRegistryTags result = client.getTags(REPOSITORY1)
 
     then:
@@ -85,19 +100,12 @@ class DockerRegistryClientSpec extends Specification {
     1 * mockService.checkVersion(_,_)
   }
 
-  void "Filtering by regular expression."() {
-    setup:
-    DockerRegistryClient.DockerRegistryService mockService = Mockito.mock(DockerRegistryClient.DockerRegistryService.class);
-
-    String json = "{\"repositories\":[\"armory-io/armorycommons\",\"armory/aquascan\",\"other/keel\"]}"
-    TypedInput inp = new TypedByteArray("application/json", json.getBytes())
-    Response response = new Response("/v2/_catalog/",200, "nothing", Collections.EMPTY_LIST, inp)
-    Mockito.when(mockService.getCatalog(Mockito.anyInt(), Mockito.anyString(), Mockito.anyString())).thenReturn(response)
-
+  void "DockerRegistryClient should filter repositories by regular expression."() {
     when:
-    client = new DockerRegistryClient("https://index.docker.io","email@email.com","user","password", "", TimeUnit.MINUTES.toMillis(1),100,"","",true, defaultDockerOkClientProvider, mockService)
+    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",true, defaultDockerOkClientProvider, stubbedRegistryService)
+    client.tokenService = Mock(DockerBearerTokenService)
     def original = client.getCatalog().repositories.size()
-    client = new DockerRegistryClient("https://index.docker.io","email@email.com","user","password", "", TimeUnit.MINUTES.toMillis(1),100,"","armory\\/.*",true, defaultDockerOkClientProvider, mockService)
+    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","armory\\/.*",true, defaultDockerOkClientProvider, stubbedRegistryService)
     def filtered = client.getCatalog().repositories.size()
 
     then:
