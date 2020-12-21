@@ -22,6 +22,7 @@ import retrofit.mime.TypedByteArray
 import retrofit.mime.TypedInput
 import spock.lang.Shared
 import spock.lang.Specification
+
 import java.util.concurrent.TimeUnit
 
 /*
@@ -34,7 +35,7 @@ class DockerRegistryClientSpec extends Specification {
 
   @Shared
   DockerRegistryClient client
-  DockerOkClientProvider defaultDockerOkClientProvider = new DefaultDockerOkClientProvider()
+  def dockerBearerTokenService = Mock(DockerBearerTokenService)
 
   def stubbedRegistryService = Stub(DockerRegistryClient.DockerRegistryService){
     String tagsJson = "{\"name\":\"library/ubuntu\",\"tags\":[\"latest\",\"xenial\",\"rolling\"]}"
@@ -59,7 +60,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient should request a real set of tags."() {
     when:
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",false, defaultDockerOkClientProvider, stubbedRegistryService)
+    client = new DockerRegistryClient("https://index.docker.io",100,"","",stubbedRegistryService, dockerBearerTokenService)
     def result = client.getTags(REPOSITORY1)
 
     then:
@@ -69,7 +70,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient should validate that it is pointing at a v2 endpoint."() {
     when:
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",false, defaultDockerOkClientProvider, stubbedRegistryService)
+    client = new DockerRegistryClient("https://index.docker.io",100,"","",stubbedRegistryService, dockerBearerTokenService)
     // Can only fail due to an exception thrown here.
     client.checkV2Availability()
 
@@ -79,7 +80,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient invoked with insecureRegistry=true"() {
     when:
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",true, defaultDockerOkClientProvider, stubbedRegistryService)
+    client = new DockerRegistryClient("https://index.docker.io",100,"","",stubbedRegistryService, dockerBearerTokenService)
     DockerRegistryTags result = client.getTags(REPOSITORY1)
 
     then:
@@ -89,7 +90,7 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient uses correct user agent"() {
     def mockService  = Mock(DockerRegistryClient.DockerRegistryService);
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",false, defaultDockerOkClientProvider, mockService)
+    client = new DockerRegistryClient("https://index.docker.io",100,"","",mockService, dockerBearerTokenService)
 
     when:
     client.checkV2Availability()
@@ -102,10 +103,9 @@ class DockerRegistryClientSpec extends Specification {
 
   void "DockerRegistryClient should filter repositories by regular expression."() {
     when:
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","",true, defaultDockerOkClientProvider, stubbedRegistryService)
-    client.tokenService = Mock(DockerBearerTokenService)
+    client = new DockerRegistryClient("https://index.docker.io",100,"","",stubbedRegistryService, dockerBearerTokenService)
     def original = client.getCatalog().repositories.size()
-    client = new DockerRegistryClient("https://index.docker.io","","","", "", TimeUnit.MINUTES.toMillis(1),100,"","armory\\/.*",true, defaultDockerOkClientProvider, stubbedRegistryService)
+    client = new DockerRegistryClient("https://index.docker.io",100,"","armory\\/.*",stubbedRegistryService, dockerBearerTokenService)
     def filtered = client.getCatalog().repositories.size()
 
     then:

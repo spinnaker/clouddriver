@@ -196,20 +196,17 @@ class DockerRegistryClient {
   }
 
   DockerRegistryClient(String address,
-                       String email,
-                       String username,
-                       String password,
-                       String passwordCommand,
-                       long clientTimeoutMillis,
                        int paginateSize,
                        String catalogFile,
                        String repositoriesRegex,
-                       boolean insecureRegistry,
-                       DockerOkClientProvider okClientProvider,
-                       DockerRegistryService dockerRegistryService) {
-    this(address, clientTimeoutMillis, paginateSize, catalogFile, repositoriesRegex, insecureRegistry, okClientProvider)
-    this.tokenService = new DockerBearerTokenService(username, password, passwordCommand)
-    this.email = email
+                       DockerRegistryService dockerRegistryService,
+                       DockerBearerTokenService dockerBearerTokenService) {
+    this.paginateSize = paginateSize
+    this.converter = new GsonConverter(new GsonBuilder().create())
+    this.address = address
+    this.catalogFile = catalogFile
+    this.repositoriesRegex = repositoriesRegex
+    this.tokenService = dockerBearerTokenService
     this.registryService = dockerRegistryService;
   }
 
