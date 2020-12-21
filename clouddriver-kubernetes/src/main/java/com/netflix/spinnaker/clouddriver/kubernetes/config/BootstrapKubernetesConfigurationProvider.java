@@ -55,6 +55,7 @@ public class BootstrapKubernetesConfigurationProvider {
   private SecretSession secretSession;
   private Map<String, String> configServerCache;
   private ObjectMapper objectMapper = new ObjectMapper();
+  private final String FIRST_ACCOUNT_NAME_KEY = "kubernetes.accounts[0].name";
 
   public BootstrapKubernetesConfigurationProvider(
       ConfigurableApplicationContext applicationContext,
@@ -146,13 +147,17 @@ public class BootstrapKubernetesConfigurationProvider {
 
       if (propertySource instanceof BootstrapPropertySource) {
         map = (Map<String, Object>) propertySource.getSource();
-        return map;
+        if (map.containsKey(FIRST_ACCOUNT_NAME_KEY)) {
+          return map;
+        }
       }
 
       if (propertySource.getSource() instanceof BootstrapPropertySource) {
         BootstrapPropertySource<Map<String, Object>> bootstrapPropertySource =
             (BootstrapPropertySource<Map<String, Object>>) propertySource.getSource();
-        return bootstrapPropertySource.getSource();
+        if (bootstrapPropertySource.containsProperty(FIRST_ACCOUNT_NAME_KEY)) {
+          return bootstrapPropertySource.getSource();
+        }
       }
     }
 

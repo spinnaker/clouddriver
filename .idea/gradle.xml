@@ -1,11 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="useAutoImport" value="true" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/cats" />
+            <option value="$PROJECT_DIR$/cats/cats-core" />
+            <option value="$PROJECT_DIR$/cats/cats-redis" />
+            <option value="$PROJECT_DIR$/cats/cats-sql" />
+            <option value="$PROJECT_DIR$/cats/cats-test" />
+            <option value="$PROJECT_DIR$/clouddriver-api" />
+            <option value="$PROJECT_DIR$/clouddriver-api-tck" />
+            <option value="$PROJECT_DIR$/clouddriver-appengine" />
+            <option value="$PROJECT_DIR$/clouddriver-artifacts" />
+            <option value="$PROJECT_DIR$/clouddriver-aws" />
+            <option value="$PROJECT_DIR$/clouddriver-azure" />
+            <option value="$PROJECT_DIR$/clouddriver-bom" />
+            <option value="$PROJECT_DIR$/clouddriver-cloudfoundry" />
+            <option value="$PROJECT_DIR$/clouddriver-configserver" />
+            <option value="$PROJECT_DIR$/clouddriver-consul" />
+            <option value="$PROJECT_DIR$/clouddriver-core" />
+            <option value="$PROJECT_DIR$/clouddriver-core-tck" />
+            <option value="$PROJECT_DIR$/clouddriver-docker" />
+            <option value="$PROJECT_DIR$/clouddriver-ecs" />
+            <option value="$PROJECT_DIR$/clouddriver-elasticsearch" />
+            <option value="$PROJECT_DIR$/clouddriver-eureka" />
+            <option value="$PROJECT_DIR$/clouddriver-event" />
+            <option value="$PROJECT_DIR$/clouddriver-google" />
+            <option value="$PROJECT_DIR$/clouddriver-google-common" />
+            <option value="$PROJECT_DIR$/clouddriver-huaweicloud" />
+            <option value="$PROJECT_DIR$/clouddriver-kubernetes" />
+            <option value="$PROJECT_DIR$/clouddriver-lambda" />
+            <option value="$PROJECT_DIR$/clouddriver-oracle" />
+            <option value="$PROJECT_DIR$/clouddriver-saga" />
+            <option value="$PROJECT_DIR$/clouddriver-saga-test" />
+            <option value="$PROJECT_DIR$/clouddriver-security" />
+            <option value="$PROJECT_DIR$/clouddriver-sql" />
+            <option value="$PROJECT_DIR$/clouddriver-sql-mysql" />
+            <option value="$PROJECT_DIR$/clouddriver-sql-postgres" />
+            <option value="$PROJECT_DIR$/clouddriver-tencentcloud" />
+            <option value="$PROJECT_DIR$/clouddriver-titus" />
+            <option value="$PROJECT_DIR$/clouddriver-web" />
+            <option value="$PROJECT_DIR$/clouddriver-yandex" />
+          </set>
+        </option>
       </GradleProjectSettings>
     </option>
   </component>
