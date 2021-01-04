@@ -725,6 +725,6 @@ public class Applications {
   }
 
   public void restageApplication(String appGuid) {
-    safelyCall(() -> api.restageApplication(appGuid));
+    safelyCall(() -> api.restageApplication(appGuid, ""));
   }
 }

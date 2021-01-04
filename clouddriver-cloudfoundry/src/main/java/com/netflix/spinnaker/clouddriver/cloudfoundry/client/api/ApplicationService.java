@@ -116,5 +116,5 @@ public interface ApplicationService {
   Response setCurrentDroplet(@Path("guid") String appGuid, @Body ToOneRelationship body);
 
   @POST("/v2/apps/{guid}/restage")
-  Response restageApplication(@Path("guid") String appGuid);
+  Response restageApplication(@Path("guid") String appGuid, @Body Object dummy);
 }

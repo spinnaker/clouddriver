@@ -23,9 +23,12 @@ import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
+@AllArgsConstructor
+@NoArgsConstructor
 public class CreateCloudFoundryServiceBindingDescription
     extends AbstractCloudFoundryServerGroupDescription {
 
@@ -36,6 +39,7 @@ public class CreateCloudFoundryServiceBindingDescription
 
   @Data
   @AllArgsConstructor
+  @NoArgsConstructor
   public static class ServiceBindingRequest {
     private String serviceInstanceName;
     private Map<String, Object> parameters;

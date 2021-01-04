@@ -96,8 +96,10 @@ public class CreateCloudFoundryServiceBindingAtomicOperation implements AtomicOp
     bindings.forEach(b -> description.getClient().getServiceInstances().createServiceBinding(b));
 
     if (description.isRestageRequired()) {
+      getTask().updateStatus(PHASE, "Restaging application '" + description.getServerGroupName());
       description.getClient().getApplications().restageApplication(description.getServerGroupId());
     } else {
+      getTask().updateStatus(PHASE, "Restarting application '" + description.getServerGroupName());
       description.getClient().getApplications().stopApplication(description.getServerGroupId());
       operationPoller.waitForOperation(
           () ->
