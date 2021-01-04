@@ -94,7 +94,7 @@ public class CreateCloudFoundryServiceBindingRequestAtomicOperationTest
         .has(
             status(
                 "Created Cloud Foundry service bindings between application 'app1' and services: [service1]"),
-            atIndex(2));
+            atIndex(3));
   }
 
   @Test
@@ -141,6 +141,6 @@ public class CreateCloudFoundryServiceBindingRequestAtomicOperationTest
         .has(
             status(
                 "Created Cloud Foundry service bindings between application 'app1' and services: [service1]"),
-            atIndex(2));
+            atIndex(3));
   }
 }
