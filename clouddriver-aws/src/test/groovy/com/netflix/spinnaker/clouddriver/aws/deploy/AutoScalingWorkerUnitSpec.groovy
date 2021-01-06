@@ -90,7 +90,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
     mockAutoScalingWorker.deploy()
 
     then:
-    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null) >> launchConfigName
+    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null, null) >> launchConfigName
     1 * mockAutoScalingWorker.createAutoScalingGroup(expectedAsgName, launchConfigName, null) >> {}
     (sequence == null ? 1 : 0) * clusterProvider.getCluster('myasg', 'test', 'myasg-stack-details') >> { null }
     0 * clusterProvider._
@@ -202,7 +202,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
     String asgName = autoScalingWorker.deploy()
 
     then:
-    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null) >> 'lcName'
+    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null, null) >> 'lcName'
     1 * clusterProvider.getCluster('myasg', 'test', 'myasg') >> {
       new Cluster.SimpleCluster(type: 'aws', serverGroups: [
         sG('myasg-v011', 0, 'us-east-1'), sG('myasg-v099', 1, 'us-west-1')
@@ -332,7 +332,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
 
     then:
     noExceptionThrown()
-    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null) >> "myasg-12345"
+    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null, null) >> "myasg-12345"
     1 * autoScaling.createAutoScalingGroup(_) >> { throw new AlreadyExistsException("Already exists, man") }
     1 * autoScaling.describeAutoScalingGroups(_) >> {
       new DescribeAutoScalingGroupsResult(
@@ -367,7 +367,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
 
     then:
     thrown(AlreadyExistsException)
-    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null) >> "myasg-12345"
+    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null, null) >> "myasg-12345"
     _ * autoScaling.createAutoScalingGroup(_) >> { throw new AlreadyExistsException("Already exists, man") }
     _ * autoScaling.describeAutoScalingGroups(_) >> {
       new DescribeAutoScalingGroupsResult(
@@ -401,7 +401,7 @@ class AutoScalingWorkerUnitSpec extends Specification {
 
     then:
     thrown(AlreadyExistsException)
-    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null) >> "myasg-12345"
+    1 * lcBuilder.buildLaunchConfiguration('myasg', null, _, null, null) >> "myasg-12345"
     _ * autoScaling.createAutoScalingGroup(_) >> { throw new AlreadyExistsException("Already exists, man") }
     _ * autoScaling.describeAutoScalingGroups(_) >> {
       new DescribeAutoScalingGroupsResult(

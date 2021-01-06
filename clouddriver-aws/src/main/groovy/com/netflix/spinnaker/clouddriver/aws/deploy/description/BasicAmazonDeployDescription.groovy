@@ -51,6 +51,7 @@ class BasicAmazonDeployDescription extends AbstractAmazonCredentialsDescription 
   Boolean ebsOptimized
   String base64UserData
   Boolean legacyUdf
+  boolean overrideDefaultUserData
 
   /**
    * When set to true, the created server group will use a launch template instead of a launch configuration.

@@ -160,13 +160,14 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       existing
     }
 
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, overrideDefaultUserData ->
       assert appName == app
       assert subnetType == null
       assert settings.ami == newAmi
       assert settings.iamRole == existing.iamRole
       assert settings.suffix == null
       assert legacyUdf == null
+      assert overrideDefaultUserData == false
 
       return newLc
     }
@@ -223,12 +224,13 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
 
       existing
     }
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, overrideDefaultUserData ->
       assert appName == app
       assert subnetType == null
       assert settings.suffix == null
       assert settings.instanceMonitoring == false
       assert legacyUdf == null
+      assert overrideDefaultUserData == false
 
       return newLc
     }
@@ -281,12 +283,13 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
 
       existing
     }
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, overrideDefaultUserData ->
       assert appName == app
       assert subnetType == null
       assert settings.suffix == null
       assert settings.classicLinkVpcId == "vpc-456"
       assert legacyUdf == null
+      assert overrideDefaultUserData == false
 
       return newLc
     }
@@ -333,8 +336,9 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
 
       existing
     }
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, overrideDefaultUserData ->
       assert settings.securityGroups == ['sg-1', 'sg-2', 'sg-3']
+      assert overrideDefaultUserData == false
       return newLc
     }
 
@@ -381,7 +385,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       existing
     }
 
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, overrideDefaultUserData ->
       assert appName == app
       assert subnetType == null
       assert settings.iamRole == existing.iamRole
@@ -389,6 +393,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       assert legacyUdf == null
       assert settings.instanceType == 'm4.xlarge'
       assert settings.blockDevices == blockDeviceConfig.getBlockDevicesForInstanceType('m4.xlarge')
+      assert overrideDefaultUserData == false
 
       return newLc
     }
@@ -446,7 +451,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       existing
     }
 
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, overrideDefaultUserData ->
       assert appName == app
       assert subnetType == null
       assert settings.iamRole == existing.iamRole
@@ -454,6 +459,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       assert legacyUdf == null
       assert settings.instanceType == 'm4.xlarge'
       assert settings.blockDevices == blockDevices
+      assert overrideDefaultUserData == false
 
       return newLc
     }
@@ -513,7 +519,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       existing
     }
 
-    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _) >> { appName, subnetType, settings, legacyUdf ->
+    1 * lcBuilder.buildLaunchConfiguration(_, _, _, _, _) >> { appName, subnetType, settings, legacyUdf, overrideDefaultUserData ->
       assert appName == app
       assert subnetType == null
       assert settings.iamRole == existing.iamRole
@@ -521,6 +527,7 @@ class ModifyAsgLaunchConfigurationOperationSpec extends Specification {
       assert legacyUdf == null
       assert settings.instanceType == 'm4.xlarge'
       assert settings.blockDevices == blockDeviceConfig.getBlockDevicesForInstanceType('m4.xlarge')
+      assert overrideDefaultUserData == false
 
       return newLc
     }

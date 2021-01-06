@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.userdata
 
 import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder.LaunchConfigurationSettings
+import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider.UserDataRequest
 import spock.lang.Specification
 
 class LocalFileUserDataProviderSpec extends Specification {
@@ -46,6 +47,16 @@ class LocalFileUserDataProviderSpec extends Specification {
       environment: ENVIRONMENT,
       accountType: ACCOUNT_TYPE)
 
+  static final UserDataRequest REQUEST = UserDataRequest
+    .builder()
+    .asgName(SETTINGS.baseName)
+    .launchSettingName(LAUNCH_CONFIG_NAME)
+    .environment(SETTINGS.environment)
+    .region(SETTINGS.region)
+    .account(SETTINGS.account)
+    .accountType(SETTINGS.accountType)
+    .build()
+
   void "replaces expected strings"() {
     given:
     LocalFileUserDataProvider localFileUserDataProvider = GroovySpy()
@@ -54,7 +65,7 @@ class LocalFileUserDataProviderSpec extends Specification {
     localFileUserDataProvider.assembleUserData(legacyUdf, _, _, _) >> getRawUserData()
 
     when:
-    def userData = localFileUserDataProvider.getUserData(LAUNCH_CONFIG_NAME, SETTINGS, null)
+    def userData = localFileUserDataProvider.getUserData(REQUEST)
 
     then:
     userData == getFormattedUserData(expectedEnvironment)
@@ -106,5 +117,4 @@ class LocalFileUserDataProviderSpec extends Specification {
       "export LAUNCH_CONFIG=${LAUNCH_CONFIG_NAME}",
     ].join('\n')
   }
-
 }

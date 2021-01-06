@@ -25,8 +25,8 @@ import com.amazonaws.services.ec2.model.*;
 import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder.LaunchConfigurationSettings;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties;
-import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider.UserDataRequest;
+import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.kork.core.RetrySupport;
@@ -37,7 +37,7 @@ import java.util.Optional;
 
 public class LaunchTemplateService {
   private final AmazonEC2 ec2;
-  private final List<UserDataProvider> userDataProviders;
+  private final UserDataProviderAggregator userDataProviderAggregator;
   private final LocalFileUserDataProperties localFileUserDataProperties;
   private final RetrySupport retrySupport = new RetrySupport();
 
@@ -62,10 +62,10 @@ public class LaunchTemplateService {
 
   public LaunchTemplateService(
       AmazonEC2 ec2,
-      List<UserDataProvider> userDataProviders,
+      UserDataProviderAggregator userDataProviderAggregator,
       LocalFileUserDataProperties localFileUserDataProperties) {
     this.ec2 = ec2;
-    this.userDataProviders = userDataProviders;
+    this.userDataProviderAggregator = userDataProviderAggregator;
     this.localFileUserDataProperties = localFileUserDataProperties;
   }
 
@@ -119,10 +119,16 @@ public class LaunchTemplateService {
       String launchTemplateName,
       Boolean requireIMDSv2,
       Boolean associateIPv6Address,
-      Boolean unlimitedCpuCredits) {
+      Boolean unlimitedCpuCredits,
+      boolean overrideDefaultUserData) {
     final RequestLaunchTemplateData data =
         buildLaunchTemplateData(
-            settings, launchTemplateName, requireIMDSv2, associateIPv6Address, unlimitedCpuCredits);
+            settings,
+            launchTemplateName,
+            requireIMDSv2,
+            associateIPv6Address,
+            unlimitedCpuCredits,
+            overrideDefaultUserData);
     return retrySupport.retry(
         () -> {
           final CreateLaunchTemplateRequest launchTemplateRequest =
@@ -180,7 +186,8 @@ public class LaunchTemplateService {
         credentials.getAccountType(),
         description.getIamRole(),
         description.getImageId(),
-        base64UserData);
+        base64UserData,
+        description.isOverrideDefaultUserData());
 
     // block device mappings
     if (description.getBlockDevices() != null) {
@@ -240,7 +247,8 @@ public class LaunchTemplateService {
       String launchTemplateName,
       Boolean requireIMDSv2,
       Boolean associateIPv6Address,
-      Boolean unlimitedCpuCredits) {
+      Boolean unlimitedCpuCredits,
+      boolean overrideDefaultUserData) {
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(settings.getAmi())
@@ -266,7 +274,8 @@ public class LaunchTemplateService {
         settings.getAccountType(),
         settings.getIamRole(),
         settings.getAmi(),
-        settings.getBase64UserData());
+        settings.getBase64UserData(),
+        overrideDefaultUserData);
 
     // block device mappings
     request.setBlockDeviceMappings(buildDeviceMapping(settings.getBlockDevices()));
@@ -328,7 +337,8 @@ public class LaunchTemplateService {
       String accType,
       String iamRole,
       String imageId,
-      String base64UserData) {
+      String base64UserData,
+      boolean overrideDefaultUserData) {
     final UserDataRequest userDataRequest =
         UserDataRequest.builder()
             .launchTemplate(true)
@@ -340,8 +350,9 @@ public class LaunchTemplateService {
             .accountType(accType)
             .iamRole(iamRole)
             .imageId(imageId)
+            .overrideDefaultUserData(overrideDefaultUserData)
             .build();
-    request.setUserData(userDataRequest.getUserData(userDataProviders, base64UserData));
+    request.setUserData(userDataProviderAggregator.aggregate(base64UserData, userDataRequest));
   }
 
   private List<LaunchTemplateBlockDeviceMappingRequest> buildDeviceMapping(

@@ -40,6 +40,7 @@ class ModifyAsgLaunchConfigurationDescription extends AbstractAmazonCredentialsD
   List<String> classicLinkVpcSecurityGroups
   Boolean legacyUdf
   String base64UserData
+  boolean overrideDefaultUserData
 
   List<AmazonBlockDevice> blockDevices
   List<String> securityGroups

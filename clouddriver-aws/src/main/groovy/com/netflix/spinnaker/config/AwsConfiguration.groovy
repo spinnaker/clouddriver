@@ -30,6 +30,7 @@ import com.netflix.spinnaker.clouddriver.aws.deploy.scalingpolicy.ScalingPolicyC
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.NullOpUserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider
+import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator
 import com.netflix.spinnaker.clouddriver.aws.event.AfterResizeEventHandler
 import com.netflix.spinnaker.clouddriver.aws.event.DefaultAfterResizeEventHandler
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
@@ -107,6 +108,11 @@ class AwsConfiguration {
   @ConditionalOnProperty(value = 'udf.enabled', matchIfMissing = true)
   UserDataProvider userDataProvider() {
     new LocalFileUserDataProvider()
+  }
+
+  @Bean
+  UserDataProviderAggregator userDataProviderAggregator(List<UserDataProvider> userDataProviders) {
+    return new UserDataProviderAggregator(userDataProviders)
   }
 
   @Bean

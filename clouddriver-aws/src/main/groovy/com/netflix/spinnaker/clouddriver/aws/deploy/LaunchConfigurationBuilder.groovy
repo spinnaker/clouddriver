@@ -66,5 +66,5 @@ interface LaunchConfigurationBuilder {
    * @param whether to explicitly use or not use legacyUdf mode - can be null which will fall through to application default
    * @return the name of the new launch configuration
    */
-  String buildLaunchConfiguration(String application, String subnetType, LaunchConfigurationSettings settings, Boolean legacyUdf)
+  String buildLaunchConfiguration(String application, String subnetType, LaunchConfigurationSettings settings, Boolean legacyUdf, boolean overrideDefaultUserData)
 }

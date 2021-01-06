@@ -76,6 +76,7 @@ class AutoScalingWorker {
   private String keyPair
   private String base64UserData
   private Boolean legacyUdf
+  private boolean overrideDefaultUserData
   private Integer sequence
   private Boolean ignoreSequence
   private Boolean startDisabled
@@ -189,12 +190,13 @@ class AutoScalingWorker {
               DefaultLaunchConfigurationBuilder.createName(settings),
               requireIMDSv2,
               associateIPv6Address,
-              unlimitedCpuCredits)
+              unlimitedCpuCredits,
+              overrideDefaultUserData)
       launchTemplateSpecification = new LaunchTemplateSpecification(
               launchTemplateId: launchTemplate.launchTemplateId,
               version: launchTemplate.latestVersionNumber)
     } else {
-      launchConfigName = regionScopedProvider.getLaunchConfigurationBuilder().buildLaunchConfiguration(application, subnetType, settings, legacyUdf)
+      launchConfigName = regionScopedProvider.getLaunchConfigurationBuilder().buildLaunchConfiguration(application, subnetType, settings, legacyUdf, overrideDefaultUserData)
     }
 
     task.updateStatus AWS_PHASE, "Deploying ASG: $asgName"

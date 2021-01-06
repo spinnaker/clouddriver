@@ -18,14 +18,6 @@ package com.netflix.spinnaker.clouddriver.aws.deploy.userdata;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
-import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder.LaunchConfigurationSettings;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.Value;
 
@@ -34,37 +26,13 @@ import lombok.Value;
  * process
  */
 public interface UserDataProvider {
+
   /**
-   * Returns user data that will be applied to a new instance. The launch configuration will not
-   * have been created at this point in the workflow, but the name is provided, as it may be needed
-   * when building user data detail.
+   * Provide user data from the specified request.
    *
-   * @deprecated use getUserData(launchConfigName, settings, legacyUdf) instead
+   * @param userDataRequest {@link UserDataRequest}
+   * @return String
    */
-  @Deprecated
-  default String getUserData(
-      String asgName,
-      String launchConfigName,
-      String region,
-      String account,
-      String environment,
-      String accountType,
-      Boolean legacyUdf) {
-    return "";
-  }
-
-  default String getUserData(
-      String launchConfigName, LaunchConfigurationSettings settings, Boolean legacyUdf) {
-    return getUserData(
-        settings.getBaseName(),
-        launchConfigName,
-        settings.getRegion(),
-        settings.getAccount(),
-        settings.getEnvironment(),
-        settings.getAccountType(),
-        legacyUdf);
-  }
-
   default String getUserData(UserDataRequest userDataRequest) {
     return "";
   }
@@ -81,33 +49,11 @@ public interface UserDataProvider {
     String accountType;
     Boolean launchTemplate;
     Boolean legacyUdf;
+    boolean overrideDefaultUserData;
     String iamRole;
     String imageId;
 
     @JsonPOJOBuilder(withPrefix = "")
     public static class UserDataRequestBuilder {}
-
-    public String getUserData(List<UserDataProvider> providers, String base64UserData) {
-      List<String> allUserData = new ArrayList<>();
-      if (providers != null) {
-        allUserData = providers.stream().map(p -> p.getUserData(this)).collect(Collectors.toList());
-      }
-
-      String data = String.join("\n", allUserData);
-
-      byte[] bytes = Base64.getDecoder().decode(Optional.ofNullable(base64UserData).orElse(""));
-
-      String userDataDecoded = new String(bytes, StandardCharsets.UTF_8);
-      String result = String.join("\n", Arrays.asList(data, userDataDecoded));
-      if (result.startsWith("\n")) {
-        result = result.trim();
-      }
-
-      if (result.isEmpty()) {
-        return null;
-      }
-
-      return Base64.getEncoder().encodeToString(result.getBytes(StandardCharsets.UTF_8));
-    }
   }
 }
