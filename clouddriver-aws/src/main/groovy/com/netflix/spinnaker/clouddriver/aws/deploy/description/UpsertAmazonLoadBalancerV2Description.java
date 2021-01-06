@@ -335,6 +335,8 @@ public class UpsertAmazonLoadBalancerV2Description extends UpsertAmazonLoadBalan
     private String stickinessType;
     private Integer stickinessDuration;
     private Boolean proxyProtocolV2;
+    private Boolean deregistrationDelayConnectionTermination;
+
     /** The following attribute is supported only if the target is a Lambda function. */
     private Boolean multiValueHeadersEnabled;
 
@@ -384,6 +386,15 @@ public class UpsertAmazonLoadBalancerV2Description extends UpsertAmazonLoadBalan
 
     public void setMultiValueHeadersEnabled(Boolean multiValueHeadersEnabled) {
       this.multiValueHeadersEnabled = multiValueHeadersEnabled;
+    }
+
+    public Boolean getDeregistrationDelayConnectionTermination() {
+      return deregistrationDelayConnectionTermination;
+    }
+
+    public void setDeregistrationDelayConnectionTermination(
+        Boolean deregistrationDelayConnectionTermination) {
+      this.deregistrationDelayConnectionTermination = deregistrationDelayConnectionTermination;
     }
   }
 
