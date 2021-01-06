@@ -345,6 +345,8 @@ public class KubectlJobExecutor {
   @Nullable
   public KubernetesManifest get(
       KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
+    log.debug(
+        "Getting information for {} of Kind {} in namespace {}", name, kind.toString(), namespace);
     List<String> command = kubectlNamespacedGet(credentials, ImmutableList.of(kind), namespace);
     command.add(name);
 
@@ -356,19 +358,36 @@ public class KubectlJobExecutor {
       }
 
       throw new KubectlException(
-          "Failed to read " + kind + " from " + namespace + ": " + status.getError());
+          "Failed to get: "
+              + name
+              + " of kind: "
+              + kind
+              + " from namespace: "
+              + namespace
+              + ": "
+              + status.getError());
     }
 
     try {
       return gson.fromJson(status.getOutput(), KubernetesManifest.class);
     } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
+      throw new KubectlException(
+          "Failed to parse kubectl output for: "
+              + name
+              + " of kind: "
+              + kind
+              + " in namespace: "
+              + namespace
+              + ": "
+              + e.getMessage(),
+          e);
     }
   }
 
   @Nonnull
   public ImmutableList<KubernetesManifest> eventsFor(
       KubernetesCredentials credentials, KubernetesKind kind, String namespace, String name) {
+    log.debug("Getting events for {} of Kind {} in namespace {}", name, kind.toString(), namespace);
     List<String> command =
         kubectlNamespacedGet(credentials, ImmutableList.of(KubernetesKind.EVENT), namespace);
     command.add("--field-selector");
@@ -377,12 +396,13 @@ public class KubectlJobExecutor {
             "involvedObject.name=%s,involvedObject.kind=%s",
             name, StringUtils.capitalize(kind.toString())));
 
+    log.debug("running command {}", command);
     JobResult<ImmutableList<KubernetesManifest>> status =
         jobExecutor.runJob(new JobRequest(command), parseManifestList());
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       throw new KubectlException(
-          "Failed to read events from " + namespace + ": " + status.getError());
+          "Failed to read events for: " + " from " + namespace + ": " + status.getError());
     }
 
     if (status.getError().contains("No resources found")) {
@@ -398,8 +418,10 @@ public class KubectlJobExecutor {
       List<KubernetesKind> kinds,
       String namespace,
       KubernetesSelectorList selectors) {
+    log.debug("Getting list of kinds {} in namespace {}", kinds, namespace);
     List<String> command = kubectlNamespacedGet(credentials, kinds, namespace);
     if (selectors.isNotEmpty()) {
+      log.debug("with selectors: {}", selectors.toString());
       command.add("-l=" + selectors.toString());
     }
 
@@ -419,6 +441,7 @@ public class KubectlJobExecutor {
   }
 
   public KubernetesManifest deploy(KubernetesCredentials credentials, KubernetesManifest manifest) {
+    log.info("Deploying manifest {}", manifest.getName());
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -437,18 +460,16 @@ public class KubectlJobExecutor {
                 new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
-      throw new KubectlException("Deploy failed: " + status.getError());
+      throw new KubectlException(
+          "Deploy failed for manifest: " + manifest.getName() + " . Error: " + status.getError());
     }
 
-    try {
-      return gson.fromJson(status.getOutput(), KubernetesManifest.class);
-    } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
-    }
+    return getKubernetesManifestFromJobResult(status, manifest);
   }
 
   public KubernetesManifest replace(
       KubernetesCredentials credentials, KubernetesManifest manifest) {
+    log.info("Replacing manifest {}", manifest.getName());
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -468,19 +489,18 @@ public class KubectlJobExecutor {
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
       if (status.getError().contains(NOT_FOUND_STRING)) {
-        throw new KubectlNotFoundException("Replace failed: " + status.getError());
+        throw new KubectlNotFoundException(
+            "Replace failed for manifest: " + manifest.getName() + ". Error: " + status.getError());
       }
-      throw new KubectlException("Replace failed: " + status.getError());
+      throw new KubectlException(
+          "Replace failed for manifest: " + manifest.getName() + ". Error: " + status.getError());
     }
 
-    try {
-      return gson.fromJson(status.getOutput(), KubernetesManifest.class);
-    } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
-    }
+    return getKubernetesManifestFromJobResult(status, manifest);
   }
 
   public KubernetesManifest create(KubernetesCredentials credentials, KubernetesManifest manifest) {
+    log.info("Creating manifest {}", manifest.getName());
     List<String> command = kubectlAuthPrefix(credentials);
 
     String manifestAsJson = gson.toJson(manifest);
@@ -499,13 +519,28 @@ public class KubectlJobExecutor {
                 new ByteArrayInputStream(manifestAsJson.getBytes(StandardCharsets.UTF_8))));
 
     if (status.getResult() != JobResult.Result.SUCCESS) {
-      throw new KubectlException("Create failed: " + status.getError());
+      throw new KubectlException(
+          "Create failed for manifest: " + manifest.getName() + ". Error: " + status.getError());
     }
 
+    return getKubernetesManifestFromJobResult(status, manifest);
+  }
+
+  private KubernetesManifest getKubernetesManifestFromJobResult(
+      JobResult<String> status, KubernetesManifest inputManifest) {
     try {
-      return gson.fromJson(status.getOutput(), KubernetesManifest.class);
+      KubernetesManifest returnedManifest =
+          gson.fromJson(status.getOutput(), KubernetesManifest.class);
+      returnedManifest.setOutput(status.getOutput());
+      returnedManifest.setErrorLogs(status.getError());
+      return returnedManifest;
     } catch (JsonSyntaxException e) {
-      throw new KubectlException("Failed to parse kubectl output: " + e.getMessage(), e);
+      throw new KubectlException(
+          "Failed to parse kubectl output for manifest: "
+              + inputManifest.getName()
+              + ". Error: "
+              + e.getMessage(),
+          e);
     }
   }
 
@@ -698,7 +733,8 @@ public class KubectlJobExecutor {
         return null;
       }
 
-      throw new KubectlException("Patch failed: " + errMsg);
+      throw new KubectlException(
+          "Patch failed for: " + name + " in namespace: " + namespace + ": " + errMsg);
     }
 
     return null;

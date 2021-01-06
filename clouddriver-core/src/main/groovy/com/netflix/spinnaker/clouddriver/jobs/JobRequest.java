@@ -21,9 +21,12 @@ import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import org.apache.commons.exec.CommandLine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Getter
 public class JobRequest {
+  private static final Logger log = LoggerFactory.getLogger(JobRequest.class);
   private final List<String> tokenizedCommand;
   private final CommandLine commandLine;
   private final Map<String, String> environment;
@@ -39,6 +42,7 @@ public class JobRequest {
 
   public JobRequest(
       List<String> tokenizedCommand, Map<String, String> environment, InputStream inputStream) {
+    log.debug("running command {}", tokenizedCommand);
     this.tokenizedCommand = tokenizedCommand;
     this.commandLine = createCommandLine(tokenizedCommand);
     this.environment = environment;

@@ -383,4 +383,24 @@ public class KubernetesManifest extends HashMap<String, Object> {
       return KubernetesKind.from(kind, kubernetesApiGroup);
     }
   }
+
+  @JsonIgnore
+  public void setOutput(String output) {
+    put("stdOut", output);
+  }
+
+  @JsonIgnore
+  public void setErrorLogs(String errorLogs) {
+    put("stdError", errorLogs);
+  }
+
+  @JsonIgnore
+  public Optional<String> getOutput() {
+    return Optional.ofNullable((String) get("stdOut"));
+  }
+
+  @JsonIgnore
+  public Optional<String> getErrorLogs() {
+    return Optional.ofNullable((String) get("stdError"));
+  }
 }

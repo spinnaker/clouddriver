@@ -96,4 +96,15 @@ public interface Task {
 
   /** Updates the status of a failed Task to running in response to a retry operation. */
   void retry();
+
+  /**
+   * This method is used to capture any output produced by the task.
+   *
+   * @param stdOut - captures std output
+   * @param stdError - captures errors
+   */
+  void updateOutput(String manifest, String phase, String stdOut, String stdError);
+
+  /** @return */
+  List<? extends TaskOutput> getOutputs();
 }

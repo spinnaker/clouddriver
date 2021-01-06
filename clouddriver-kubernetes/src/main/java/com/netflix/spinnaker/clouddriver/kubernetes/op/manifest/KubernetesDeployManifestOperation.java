@@ -66,7 +66,9 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
 
   @Override
   public OperationResult operate(List<OperationResult> _unused) {
-    getTask().updateStatus(OP_NAME, "Beginning deployment of manifest...");
+    getTask()
+        .updateStatus(
+            OP_NAME, "Beginning deployment of manifests in account " + accountName + " ...");
 
     List<KubernetesManifest> inputManifests = description.getManifests();
     List<KubernetesManifest> deployManifests = new ArrayList<>();
@@ -205,16 +207,48 @@ public class KubernetesDeployManifestOperation implements AtomicOperation<Operat
           .updateStatus(
               OP_NAME,
               "Submitting manifest " + manifest.getFullResourceName() + " to kubernetes master...");
-      log.debug("Manifest in {} to be deployed: {}", accountName, manifest);
-      result.merge(deployer.deploy(credentials, manifest, strategy.getDeployStrategy()));
+      try {
+        OperationResult manifestOperationResult =
+            deployer.deploy(credentials, manifest, strategy.getDeployStrategy());
+        // deploy returns a new OperationsResult with the manifest added to it - so at this point,
+        // its
+        // size will be 1
+        if (manifestOperationResult.getManifests().size() == 1) {
+          Optional<KubernetesManifest> returnedManifest =
+              manifestOperationResult.getManifests().stream().findFirst();
+          returnedManifest.ifPresent(
+              kubernetesManifest ->
+                  getTask()
+                      .updateOutput(
+                          kubernetesManifest.getFullResourceName(),
+                          OP_NAME,
+                          kubernetesManifest.getOutput().orElse(null),
+                          kubernetesManifest.getErrorLogs().orElse(null)));
+        }
+        result.merge(manifestOperationResult);
+      } catch (Exception e) {
+        getTask().updateOutput(manifest.getFullResourceName(), OP_NAME, null, e.toString());
+        throw e;
+      }
 
       result.getCreatedArtifacts().add(artifact);
+      getTask()
+          .updateStatus(
+              OP_NAME,
+              "Deploy manifest task completed successfully for manifest "
+                  + manifest.getFullResourceName()
+                  + " in account "
+                  + accountName);
     }
 
     result.getBoundArtifacts().addAll(boundArtifacts);
     result.removeSensitiveKeys(credentials.getResourcePropertyRegistry());
 
-    getTask().updateStatus(OP_NAME, "Deploy manifest task completed successfully.");
+    getTask()
+        .updateStatus(
+            OP_NAME,
+            "Deploy manifest task completed successfully for all manifests in account "
+                + accountName);
     return result;
   }
 
