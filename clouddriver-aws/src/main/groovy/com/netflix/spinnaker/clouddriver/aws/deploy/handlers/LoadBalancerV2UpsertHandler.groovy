@@ -402,7 +402,7 @@ class LoadBalancerV2UpsertHandler {
     }
 
     def currentIpAddressType = loadBalancer.ipAddressType
-    if (ipAddressType  &&  ipAddressType != currentIpAddressType && (loadBalancer.type == 'application' || loadBalancer.type == 'network')) {
+    if (ipAddressType && ipAddressType != currentIpAddressType && (loadBalancer.type == 'application' || loadBalancer.type == 'network')) {
       def newIpAddressType = loadBalancer.scheme == 'internal' ? 'ipv4' : ipAddressType
        loadBalancing.setIpAddressType(new SetIpAddressTypeRequest(
          loadBalancerArn: loadBalancerArn,
