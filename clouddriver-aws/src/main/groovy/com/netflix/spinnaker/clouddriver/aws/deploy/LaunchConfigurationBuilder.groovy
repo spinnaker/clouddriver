@@ -64,6 +64,7 @@ interface LaunchConfigurationBuilder {
    * @param subnetType the subnet type for security groups in the launch configuration
    * @param settings the settings for the launch configuration
    * @param whether to explicitly use or not use legacyUdf mode - can be null which will fall through to application default
+   * @param overrideDefaultUserData - whether to allow the user supplied user data to override any default user data
    * @return the name of the new launch configuration
    */
   String buildLaunchConfiguration(String application, String subnetType, LaunchConfigurationSettings settings, Boolean legacyUdf, boolean overrideDefaultUserData)

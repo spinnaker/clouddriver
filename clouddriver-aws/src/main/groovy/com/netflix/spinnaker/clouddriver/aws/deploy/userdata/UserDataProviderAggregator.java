@@ -27,9 +27,11 @@ public class UserDataProviderAggregator {
    * The result is such that the user supplied base64 encoded user data is always appended last to
    * the user data.
    *
-   * <p>Note, if the {@link UserDataProvider.UserDataRequest} has the boolean
-   * overrideDefaultUserData set to true, then the user data from the providers is skipped and the
-   * user supplied base64 encoded user data is used as the override.
+   * <p>Note, if the {@link UserDataProvider.UserDataRequest} parameter overrideDefaultUserData is
+   * true, then the user data from the providers is skipped and the user supplied base64 encoded
+   * user data is used as the override. If this is the case, the standard set of user data format
+   * tokens ("%%app%%, for example) are replaced in the user data - effectively processing the user
+   * data as a UDF template.
    *
    * @param base64UserData String
    * @param userDataRequest {@link UserDataProvider.UserDataRequest}
