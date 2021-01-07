@@ -32,11 +32,12 @@ class UserDataProviderAggregatorSpec extends Specification {
       .region(REGION)
       .account(ACCOUNT)
       .accountType(ACCOUNT_TYPE)
+      .base64UserData("ZXhwb3J0IFVTRVJEQVRBPTEK")
       .build()
 
     when:
     //export USERDATA=1
-    String result = userDataProviderAggregator.aggregate("ZXhwb3J0IFVTRVJEQVRBPTEK", request)
+    String result = userDataProviderAggregator.aggregate(request)
 
     then:
     //a
@@ -56,6 +57,7 @@ class UserDataProviderAggregatorSpec extends Specification {
       .account(ACCOUNT)
       .accountType(ACCOUNT_TYPE)
       .overrideDefaultUserData(true)
+      .base64UserData("TkVURkxJWF9BQ0NPVU5UPSIlJWFjY291bnQlJSIKTkVURkxJWF9BQ0NPVU5UX1RZUEU9IiUlYWNjb3VudHR5cGUlJSIKTkVURkxJWF9FTlZJUk9OTUVOVD0iJSVlbnYlJSIKTkVURkxJWF9BUFA9IiUlYXBwJSUiCk5FVEZMSVhfQVBQVVNFUj0iJSVhcHAlJSIKTkVURkxJWF9TVEFDSz0iJSVzdGFjayUlIgpORVRGTElYX0NMVVNURVI9IiUlY2x1c3RlciUlIgpORVRGTElYX0RFVEFJTD0iJSVkZXRhaWwlJSIKTkVURkxJWF9BVVRPX1NDQUxFX0dST1VQPSIlJWF1dG9ncnAlJSIKTkVURkxJWF9MQVVOQ0hfQ09ORklHPSIlJWxhdW5jaGNvbmZpZyUlIgpORVRGTElYX0xBVU5DSF9URU1QTEFURT0iJSVsYXVuY2h0ZW1wbGF0ZSUlIgpFQzJfUkVHSU9OPSIlJXJlZ2lvbiUlIg==")
       .build()
 
     when:
@@ -71,7 +73,7 @@ class UserDataProviderAggregatorSpec extends Specification {
     //NETFLIX_LAUNCH_CONFIG="%%launchconfig%%"
     //NETFLIX_LAUNCH_TEMPLATE="%%launchtemplate%%"
     //EC2_REGION="%%region%%"
-    String result = userDataProviderAggregator.aggregate("TkVURkxJWF9BQ0NPVU5UPSIlJWFjY291bnQlJSIKTkVURkxJWF9BQ0NPVU5UX1RZUEU9IiUlYWNjb3VudHR5cGUlJSIKTkVURkxJWF9FTlZJUk9OTUVOVD0iJSVlbnYlJSIKTkVURkxJWF9BUFA9IiUlYXBwJSUiCk5FVEZMSVhfQVBQVVNFUj0iJSVhcHAlJSIKTkVURkxJWF9TVEFDSz0iJSVzdGFjayUlIgpORVRGTElYX0NMVVNURVI9IiUlY2x1c3RlciUlIgpORVRGTElYX0RFVEFJTD0iJSVkZXRhaWwlJSIKTkVURkxJWF9BVVRPX1NDQUxFX0dST1VQPSIlJWF1dG9ncnAlJSIKTkVURkxJWF9MQVVOQ0hfQ09ORklHPSIlJWxhdW5jaGNvbmZpZyUlIgpORVRGTElYX0xBVU5DSF9URU1QTEFURT0iJSVsYXVuY2h0ZW1wbGF0ZSUlIgpFQzJfUkVHSU9OPSIlJXJlZ2lvbiUlIg==", request)
+    String result = userDataProviderAggregator.aggregate(request)
 
     then:
     //NETFLIX_ACCOUNT="account"

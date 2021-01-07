@@ -351,8 +351,10 @@ public class LaunchTemplateService {
             .iamRole(iamRole)
             .imageId(imageId)
             .overrideDefaultUserData(overrideDefaultUserData)
+            .base64UserData(base64UserData)
             .build();
-    request.setUserData(userDataProviderAggregator.aggregate(base64UserData, userDataRequest));
+
+    request.setUserData(userDataProviderAggregator.aggregate(userDataRequest));
   }
 
   private List<LaunchTemplateBlockDeviceMappingRequest> buildDeviceMapping(

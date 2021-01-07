@@ -50,6 +50,7 @@ public interface UserDataProvider {
     Boolean launchTemplate;
     Boolean legacyUdf;
     boolean overrideDefaultUserData;
+    String base64UserData;
     String iamRole;
     String imageId;
 

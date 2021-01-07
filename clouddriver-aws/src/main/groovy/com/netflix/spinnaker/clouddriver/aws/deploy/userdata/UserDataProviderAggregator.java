@@ -33,11 +33,10 @@ public class UserDataProviderAggregator {
    * tokens ("%%app%%, for example) are replaced in the user data - effectively processing the user
    * data as a UDF template.
    *
-   * @param base64UserData String
    * @param userDataRequest {@link UserDataProvider.UserDataRequest}
    * @return String
    */
-  public String aggregate(String base64UserData, UserDataProvider.UserDataRequest userDataRequest) {
+  public String aggregate(UserDataProvider.UserDataRequest userDataRequest) {
     List<String> allUserData = new ArrayList<>();
     if (providers != null && (!userDataRequest.isOverrideDefaultUserData())) {
       allUserData =
@@ -45,7 +44,9 @@ public class UserDataProviderAggregator {
     }
     String data = String.join("\n", allUserData);
 
-    byte[] bytes = Base64.getDecoder().decode(Optional.ofNullable(base64UserData).orElse(""));
+    byte[] bytes =
+        Base64.getDecoder()
+            .decode(Optional.ofNullable(userDataRequest.getBase64UserData()).orElse(""));
     String userDataDecoded = new String(bytes, StandardCharsets.UTF_8);
 
     if (userDataRequest.isOverrideDefaultUserData()) {

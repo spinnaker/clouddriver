@@ -182,9 +182,10 @@ class DefaultLaunchConfigurationBuilder implements LaunchConfigurationBuilder {
         .imageId(settings.ami)
         .legacyUdf(legacyUdf)
         .overrideDefaultUserData(overrideDefaultUserData)
+        .base64UserData(settings.base64UserData)
         .build()
 
-    return userDataProviderAggregator.aggregate(settings.base64UserData, userDataRequest)
+    return userDataProviderAggregator.aggregate(userDataRequest)
   }
 
   static LaunchConfigurationSettings setAppSecurityGroup(
