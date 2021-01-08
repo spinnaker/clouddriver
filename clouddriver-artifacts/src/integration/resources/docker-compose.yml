@@ -1,0 +1,9 @@
+version: '2'
+services:
+  web:
+    image: gitea/gitea:1.12.6
+    volumes:
+      - ./gitea_data:/data
+    ports:
+      - "3000:3000"
+      - "22:22"

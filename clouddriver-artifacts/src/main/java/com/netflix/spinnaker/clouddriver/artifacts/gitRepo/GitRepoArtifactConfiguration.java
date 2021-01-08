@@ -16,11 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.gitRepo;
 
+import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -35,17 +36,13 @@ class GitRepoArtifactConfiguration {
   private final GitRepoArtifactProviderProperties gitRepoArtifactProviderProperties;
 
   @Bean
-  List<? extends GitRepoArtifactCredentials> gitRepoArtifactCredentials() {
+  List<? extends GitRepoArtifactCredentials> gitRepoArtifactCredentials(
+      @Value("${artifacts.git-repo.git-executable:git}") String gitExecutable,
+      JobExecutor jobExecutor) {
+
     return gitRepoArtifactProviderProperties.getAccounts().stream()
-        .map(
-            a -> {
-              try {
-                return new GitRepoArtifactCredentials(a);
-              } catch (Exception e) {
-                return null;
-              }
-            })
-        .filter(Objects::nonNull)
+        .map(a -> new GitJobExecutor(a, jobExecutor, gitExecutable))
+        .map(GitRepoArtifactCredentials::new)
         .collect(Collectors.toList());
   }
 }

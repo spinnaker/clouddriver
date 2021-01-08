@@ -1,0 +1,54 @@
+artifacts:
+  git-repo:
+    enabled: true
+    git-executable: ${GIT_WRAPPER}
+    accounts:
+      - name: basic-auth
+        username: test
+        password: test
+      - name: token-auth
+        token: 880bc704abe506265bb2e95d07ac8ccc31665d8d
+      - name: ssh-auth
+        sshPrivateKeyFilePath: ${SSH_KEYS}/id_rsa_test
+        sshPrivateKeyPassphrase: "@!JrUj3e6HyL#"
+        sshTrustUnknownHosts: false
+
+logging.level.com.netflix.spinnaker.clouddriver.artifacts.gitRepo: DEBUG
+
+spring:
+  application:
+    name: clouddriver
+
+sql:
+  enabled: true
+  taskRepository:
+    enabled: true
+  cache:
+    enabled: true
+    readBatchSize: 500
+    writeBatchSize: 300
+  scheduler:
+    enabled: true
+  connectionPools:
+    default:
+      default: true
+      jdbcUrl: jdbc:tc:mysql:5.7.22://somehostname:someport/clouddriver?user=root?password=&
+    tasks:
+      jdbcUrl: jdbc:tc:mysql:5.7.22://somehostname:someport/clouddriver?user=root?password=&
+  migration:
+    jdbcUrl: jdbc:tc:mysql:5.7.22://somehostname:someport/clouddriver?user=root?password=&
+
+redis:
+  enabled: false
+  cache:
+    enabled: false
+  scheduler:
+    enabled: false
+  taskRepository:
+    enabled: false
+
+services:
+  fiat:
+    baseUrl: http://fiat.net
+  front50:
+    baseUrl: http://front50.net

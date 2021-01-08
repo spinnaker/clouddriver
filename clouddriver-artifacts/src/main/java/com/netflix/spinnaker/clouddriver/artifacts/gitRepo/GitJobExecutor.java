@@ -1,0 +1,254 @@
+/*
+ * Copyright 2020 Armory, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package com.netflix.spinnaker.clouddriver.artifacts.gitRepo;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
+import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
+import com.netflix.spinnaker.clouddriver.jobs.JobResult;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.util.*;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
+import org.springframework.util.StringUtils;
+
+@Slf4j
+public class GitJobExecutor {
+
+  @Getter private final GitRepoArtifactAccount account;
+  private final JobExecutor jobExecutor;
+  private final String gitExecutable;
+  private final AuthType authType;
+
+  private enum AuthType {
+    USER_PASS,
+    TOKEN,
+    SSH,
+    NONE
+  }
+
+  public GitJobExecutor(
+      GitRepoArtifactAccount account, JobExecutor jobExecutor, String gitExecutable) {
+    this.account = account;
+    this.jobExecutor = jobExecutor;
+    this.gitExecutable = gitExecutable;
+    if (!StringUtils.isEmpty(account.getUsername())
+        && !StringUtils.isEmpty(account.getPassword())) {
+      authType = AuthType.USER_PASS;
+    } else if (!StringUtils.isEmpty(account.getToken())) {
+      authType = AuthType.TOKEN;
+    } else if (!StringUtils.isEmpty(account.getSshPrivateKeyFilePath())) {
+      authType = AuthType.SSH;
+    } else {
+      authType = AuthType.NONE;
+    }
+  }
+
+  public void clone(String repoUrl, String branch, Path destination) throws IOException {
+    if (!isValidReference(repoUrl)) {
+      throw new IllegalArgumentException(
+          "Git reference \""
+              + repoUrl
+              + "\" is invalid for credentials with auth type "
+              + authType);
+    }
+    FileUtils.deleteDirectory(destination.toFile());
+    FileUtils.forceMkdir(destination.toFile());
+    log.info("Cloning git/repo {} into {}", repoUrl, destination.toString());
+
+    String cloneCommand =
+        gitExecutable + " clone --branch " + branch + " --depth 1 " + repoUrlWithAuth(repoUrl);
+
+    List<String> command = new ArrayList<>();
+    addAuthCmdPrefix(command);
+    addMainCmd(command, cloneCommand);
+    addAuthCmdSuffix(command);
+
+    log.debug("Executing command: \"{}\"", String.join(" ", command));
+
+    JobResult<String> result =
+        jobExecutor.runJob(
+            new JobRequest(command, addAuthEnvVars(System.getenv()), destination.toFile()));
+    if (result.getResult() != JobResult.Result.SUCCESS) {
+      throw new IOException(
+          "Failed to clone repository "
+              + repoUrl
+              + " into "
+              + destination
+              + ". Error: "
+              + result.getError()
+              + " Output: "
+              + result.getOutput());
+    }
+  }
+
+  public void archive(Path localClone, String branch, String subDir, Path outputFile)
+      throws IOException {
+    List<String> command = new ArrayList<>();
+    command.add(gitExecutable);
+    command.add("archive");
+    command.add("--format");
+    command.add("tgz");
+    command.add("--output");
+    command.add(outputFile.toString());
+    command.add(branch);
+    if (!StringUtils.isEmpty(subDir)) {
+      command.add(subDir);
+    }
+
+    log.debug("Executing command: \"{}\"", String.join(" ", command));
+
+    JobResult<String> result = jobExecutor.runJob(new JobRequest(command, localClone.toFile()));
+    if (result.getResult() != JobResult.Result.SUCCESS) {
+      throw new IOException(
+          "Failed to archive repository from "
+              + localClone
+              + ". Error: "
+              + result.getError()
+              + " Output: "
+              + result.getOutput());
+    }
+  }
+
+  private boolean isValidReference(String reference) {
+    if (authType == AuthType.USER_PASS || authType == AuthType.TOKEN) {
+      return reference.startsWith("http");
+    }
+    if (authType == AuthType.SSH) {
+      return reference.startsWith("ssh://") || reference.startsWith("git@");
+    }
+    return true;
+  }
+
+  private void addAuthCmdPrefix(List<String> command) {
+    switch (authType) {
+      case USER_PASS:
+      case TOKEN:
+        // "sh" is used so that environment variables are honored as part of the command
+        command.add("sh");
+        command.add("-c");
+        return;
+      case SSH:
+        command.add("ssh-agent");
+        command.add("sh");
+        command.add("-c");
+        String sshCmd = "'";
+        if (!StringUtils.isEmpty(account.getSshPrivateKeyPassphrase())) {
+          sshCmd += "echo \"$GIT_SSH_KEY_PWD\" | ";
+        }
+        sshCmd += "DISPLAY= ssh-add ";
+        sshCmd += account.getSshPrivateKeyFilePath();
+        sshCmd += " ; ";
+        command.add(sshCmd);
+        return;
+      default:
+    }
+  }
+
+  private void addMainCmd(List<String> command, String mainCmd) {
+    if (authType != AuthType.SSH) {
+      command.add(mainCmd);
+      return;
+    }
+    String lastPart = command.remove(command.size() - 1);
+    command.add(lastPart + mainCmd);
+  }
+
+  private void addAuthCmdSuffix(List<String> command) {
+    if (authType != AuthType.SSH) {
+      return;
+    }
+    String lastPart = command.remove(command.size() - 1);
+    command.add(lastPart + "'");
+  }
+
+  private String repoUrlWithAuth(String repoUrl) {
+    if (authType != AuthType.USER_PASS && authType != AuthType.TOKEN) {
+      return repoUrl;
+    }
+
+    String authPart;
+    if (authType == AuthType.USER_PASS) {
+      authPart = "$GIT_USER:$GIT_PASS";
+    } else {
+      authPart = "token:$GIT_TOKEN";
+    }
+
+    try {
+      URI uri = new URI(repoUrl);
+      return String.format(
+          "%s://%s@%s%s%s",
+          uri.getScheme(),
+          authPart,
+          uri.getHost(),
+          (uri.getPort() > 0 ? ":" + uri.getPort() : ""),
+          uri.getRawPath());
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Malformed git repo url " + repoUrl, e);
+    }
+  }
+
+  private Map<String, String> addAuthEnvVars(Map<String, String> env) {
+    Map<String, String> result = new HashMap<>(env);
+    result.put("GIT_USER", encodeURIComponent(account.getUsername()));
+    result.put("GIT_PASS", encodeURIComponent(account.getPassword()));
+    result.put("GIT_TOKEN", encodeURIComponent(account.getToken()));
+    result.put("GIT_SSH_KEY_PWD", encodeURIComponent(account.getSshPrivateKeyPassphrase()));
+
+    result.put("GIT_CURL_VERBOSE", "1");
+    result.put("GIT_TRACE", "1");
+    return result;
+  }
+
+  private static String encodeURIComponent(String s) {
+    if (StringUtils.isEmpty(s)) {
+      return s;
+    }
+    String result;
+    result =
+        URLEncoder.encode(s, UTF_8)
+            .replaceAll("\\+", "%20")
+            .replaceAll("\\*", "%2A")
+            .replaceAll("\\%21", "!")
+            .replaceAll("\\%27", "'")
+            .replaceAll("\\%28", "(")
+            .replaceAll("\\%29", ")")
+            .replaceAll("\\%7E", "~");
+    return result;
+  }
+
+  private InputStream buildCmdInputStream() {
+    switch (authType) {
+      case USER_PASS:
+      case TOKEN:
+        return new ByteArrayInputStream(account.getPassword().getBytes(Charset.defaultCharset()));
+      case NONE:
+      default:
+        return new ByteArrayInputStream(new byte[0]);
+    }
+  }
+}

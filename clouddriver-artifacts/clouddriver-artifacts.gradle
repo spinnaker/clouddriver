@@ -1,5 +1,22 @@
+plugins {
+  id 'com.adarshr.test-logger' version '2.1.0'
+}
+
 tasks.compileGroovy.enabled = false
-sourceSets.main.java.srcDirs = ['src/main/java']
+sourceSets {
+  main {
+    java.srcDirs = ['src/main/java']
+  }
+  integration {
+    java.srcDirs = ["src/integration/java"]
+    resources.srcDirs = ["src/integration/resources"]
+  }
+}
+
+configurations {
+  integrationImplementation.extendsFrom testImplementation
+  integrationRuntime.extendsFrom testRuntime
+}
 
 dependencies {
   implementation project(":clouddriver-api")
@@ -37,4 +54,38 @@ dependencies {
   testImplementation "org.junit.jupiter:junit-jupiter-params"
   testImplementation "ru.lanwen.wiremock:wiremock-junit5:1.2.0"
   testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+
+  integrationImplementation project(":clouddriver-web")
+  integrationImplementation "org.springframework.boot:spring-boot-starter-test"
+  integrationImplementation "org.testcontainers:testcontainers"
+  integrationImplementation "org.testcontainers:mysql"
+  integrationImplementation "org.testcontainers:junit-jupiter"
+  integrationImplementation "mysql:mysql-connector-java"
+  integrationImplementation ("io.rest-assured:rest-assured:4.0.0") {
+    // Exclude groovy pulled in by rest-assured, so we use kork's version
+    exclude group: "org.codehaus.groovy", module: "groovy"
+  }
+}
+
+task integrationTest(type: Test) {
+  description = 'Runs artifacts integration tests.'
+  group = 'verification'
+
+  useJUnitPlatform()
+
+  environment "BUILD_DIR", buildDir
+  environment "GIT_WRAPPER", "${project.rootDir.toString()}/clouddriver-artifacts/src/integration/resources/git-wrapper.sh"
+  environment "SSH_KEYS", "${project.rootDir.toString()}/clouddriver-artifacts/src/integration/resources/ssh"
+
+  testClassesDirs = sourceSets.integration.output.classesDirs
+  classpath = sourceSets.integration.runtimeClasspath
+  shouldRunAfter test
+
+  testlogger {
+    theme 'standard'
+    showStandardStreams true
+    showPassedStandardStreams false
+    showFailedStandardStreams true
+    showPassed false
+  }
 }
