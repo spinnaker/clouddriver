@@ -30,7 +30,7 @@ public class UserDataProviderAggregator {
    * <p>Note, if the {@link UserDataProvider.UserDataRequest} parameter overrideDefaultUserData is
    * true, then the user data from the providers is skipped and the user supplied base64 encoded
    * user data is used as the override. If this is the case, the standard set of user data format
-   * tokens ("%%app%%, for example) are replaced in the user data - effectively processing the user
+   * tokens ("%%app%%", for example) are replaced in the user data - effectively processing the user
    * data as a UDF template.
    *
    * @param userDataRequest {@link UserDataProvider.UserDataRequest}
