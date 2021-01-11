@@ -38,7 +38,7 @@ public class UserDataProviderAggregator {
    */
   public String aggregate(UserDataProvider.UserDataRequest userDataRequest) {
     List<String> allUserData = new ArrayList<>();
-    if (providers != null && (!userDataRequest.isOverrideDefaultUserData())) {
+    if (providers != null && !userDataRequest.isOverrideDefaultUserData()) {
       allUserData =
           providers.stream().map(p -> p.getUserData(userDataRequest)).collect(Collectors.toList());
     }
