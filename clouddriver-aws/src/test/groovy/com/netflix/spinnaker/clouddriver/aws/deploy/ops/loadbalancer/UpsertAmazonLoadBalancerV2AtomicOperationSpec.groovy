@@ -109,7 +109,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     ],
     subnetType: "internal",
     idleTimeout: 60,
-    deletionProtection: true,
+    deletionProtection: true
   )
   UpsertAmazonLoadBalancerV2Description descriptionWithNoAttributes = new UpsertAmazonLoadBalancerV2Description(
     loadBalancerType: AmazonLoadBalancerType.APPLICATION,
@@ -232,7 +232,9 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * mockSubnetAnalyzer.getSubnetIdsForZones(['us-east-1a'], 'internal', SubnetTarget.ELB, 1) >> ["subnet-1"]
     1 * loadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest(names: ["foo-main-frontend"])) >>
       new DescribeLoadBalancersResult(loadBalancers: existingLoadBalancers)
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     1 * loadBalancing.createLoadBalancer(new CreateLoadBalancerRequest(
+      ipAddressType: 'ipv4',
       name: "foo-main-frontend",
       subnets: ["subnet-1"],
       securityGroups: ["sg-1234"],
@@ -282,6 +284,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     0 * _
   }
 
@@ -301,6 +304,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
       loadBalancerArn: loadBalancerArn,
       securityGroups: ["sg-1234"]
     ))
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     1 * loadBalancing.describeTargetGroups(new DescribeTargetGroupsRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeTargetGroupsResult(targetGroups: existingTargetGroups)
     1 * loadBalancing.createTargetGroup(_ as CreateTargetGroupRequest) >> new CreateTargetGroupResult(targetGroups: [targetGroup])
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
@@ -350,6 +354,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
       assert request.targetGroupArn == "test:target:group:arn"
       return new ModifyTargetGroupAttributesResult()
     }
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     0 * _
   }
 
@@ -376,7 +381,9 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * mockSubnetAnalyzer.getSubnetIdsForZones(['us-east-1a'], 'internal', SubnetTarget.ELB, 1) >> ["subnet-1"]
     1 * loadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest(names: ["foo-main-frontend"])) >>
       new DescribeLoadBalancersResult(loadBalancers: existingLoadBalancers)
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     1 * loadBalancing.createLoadBalancer(new CreateLoadBalancerRequest(
+      ipAddressType: 'ipv4',
       name: "foo-main-frontend",
       subnets: ["subnet-1"],
       scheme: "internal",
@@ -441,6 +448,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: nlbLoadBalancerAttributes]
     1 * loadBalancing.modifyTargetGroupAttributes(_ as ModifyTargetGroupAttributesRequest)
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     0 * _
   }
 
@@ -466,6 +474,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     0 * _
   }
 
@@ -503,6 +512,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     0 * _
   }
 
@@ -529,6 +539,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     0 * _
   }
 
@@ -556,6 +567,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.describeListeners(new DescribeListenersRequest(loadBalancerArn: loadBalancerArn)) >> new DescribeListenersResult(listeners: existingListeners)
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: []))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     0 * _
     thrown AtomicOperationException
   }
@@ -583,6 +595,7 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * loadBalancing.deleteListener(new DeleteListenerRequest(listenerArn: listenerArn))
     1 * loadBalancing.createListener(new CreateListenerRequest(loadBalancerArn: loadBalancerArn, port: 80, protocol: "HTTP", defaultActions: [new Action(targetGroupArn: targetGroupArn, type: ActionTypeEnum.Forward, order: 1)]))
     1 * loadBalancing.describeLoadBalancerAttributes(_) >> [attributes: loadBalancerAttributes]
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     0 * _
   }
 
@@ -604,7 +617,9 @@ class UpsertAmazonLoadBalancerV2AtomicOperationSpec extends Specification {
     1 * mockSubnetAnalyzer.getSubnetIdsForZones(['us-east-1a'], 'internet-facing', SubnetTarget.ELB, 1) >> ["subnet-1"]
     1 * loadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest(names: ["foo-main-frontend"])) >>
       new DescribeLoadBalancersResult(loadBalancers: existingLoadBalancers)
+    1 * loadBalancing.setIpAddressType(new SetIpAddressTypeRequest (loadBalancerArn: loadBalancerArn, ipAddressType: 'ipv4')) >> new SetIpAddressTypeResult(ipAddressType: 'ipv4')
     1 * loadBalancing.createLoadBalancer(new CreateLoadBalancerRequest(
+      ipAddressType: "ipv4",
       name: "foo-main-frontend",
       subnets: ["subnet-1"],
       securityGroups: ["sg-1234"],

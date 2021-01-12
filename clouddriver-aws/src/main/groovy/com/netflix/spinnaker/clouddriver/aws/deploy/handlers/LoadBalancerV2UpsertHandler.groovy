@@ -389,7 +389,8 @@ class LoadBalancerV2UpsertHandler {
                                  DeployDefaults deployDefaults,
                                  Integer idleTimeout,
                                  Boolean deletionProtection,
-                                 Boolean loadBalancingCrossZone
+                                 Boolean loadBalancingCrossZone,
+                                 String ipAddressType
   ) {
     def amazonErrors = []
     def loadBalancerName = loadBalancer.loadBalancerName
@@ -407,6 +408,16 @@ class LoadBalancerV2UpsertHandler {
         ))
         task.updateStatus BASE_PHASE, "Security groups updated on ${loadBalancerName}."
       }
+    }
+
+    def currentIpAddressType = loadBalancer.ipAddressType
+    if (ipAddressType && ipAddressType != currentIpAddressType && (loadBalancer.type == 'application' || loadBalancer.type == 'network')) {
+      def newIpAddressType = loadBalancer.scheme == 'internal' ? 'ipv4' : ipAddressType
+       loadBalancing.setIpAddressType(new SetIpAddressTypeRequest(
+         loadBalancerArn: loadBalancerArn,
+         ipAddressType: newIpAddressType
+       ))
+      task.updateStatus BASE_PHASE, "IP Address type updated ${loadBalancerName}."
     }
 
     // Update load balancer attributes
@@ -568,8 +579,15 @@ class LoadBalancerV2UpsertHandler {
                                          String type,
                                          Integer idleTimeout,
                                          boolean deletionProtection,
-                                         boolean loadBalancingCrossZone) {
-    def request = new CreateLoadBalancerRequest().withName(loadBalancerName)
+                                         boolean loadBalancingCrossZone,
+                                         String ipAddressType
+  ) {
+    def request = new CreateLoadBalancerRequest().withName(loadBalancerName);
+
+    if (ipAddressType && (type == 'application' || type == 'network')) {
+      def addressType = isInternal ? 'ipv4' : ipAddressType
+      request.withIpAddressType(addressType)
+    }
 
     // Networking Related
     if (subnetIds) {
@@ -602,7 +620,7 @@ class LoadBalancerV2UpsertHandler {
     List<LoadBalancer> loadBalancers = result.getLoadBalancers()
     if (loadBalancers != null && loadBalancers.size() > 0) {
       createdLoadBalancer = loadBalancers.get(0)
-      updateLoadBalancer(loadBalancing, createdLoadBalancer, securityGroups, targetGroups, listeners, deployDefaults, idleTimeout, deletionProtection, loadBalancingCrossZone)
+      updateLoadBalancer(loadBalancing, createdLoadBalancer, securityGroups, targetGroups, listeners, deployDefaults, idleTimeout, deletionProtection, loadBalancingCrossZone, ipAddressType)
     }
 
     createdLoadBalancer
