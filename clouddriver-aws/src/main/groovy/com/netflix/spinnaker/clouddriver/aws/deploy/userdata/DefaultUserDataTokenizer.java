@@ -14,10 +14,7 @@ public class DefaultUserDataTokenizer implements UserDataTokenizer {
 
   @Override
   public String replaceTokens(
-      Names names,
-      UserDataInput userDataInput,
-      String rawUserData,
-      Boolean legacyUdf) {
+      Names names, UserDataInput userDataInput, String rawUserData, Boolean legacyUdf) {
     String stack = isPresent(names.getStack()) ? names.getStack() : "";
     String cluster = isPresent(names.getCluster()) ? names.getCluster() : "";
     String revision = isPresent(names.getRevision()) ? names.getRevision() : "";

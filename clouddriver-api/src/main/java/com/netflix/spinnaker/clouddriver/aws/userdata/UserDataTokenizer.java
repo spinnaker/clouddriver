@@ -8,10 +8,9 @@ public interface UserDataTokenizer extends SpinnakerExtensionPoint {
 
   /**
    * If this instance supports the specified tokenizer.
-   * @param tokenizerName - the tokenizer the instance supports.  The default tokenizer is
-   *                        "default" and will be found first if multiple "default" supporting
-   *                        user data tokenizers are found.
    *
+   * @param tokenizerName - the tokenizer the instance supports. The default tokenizer is "default"
+   *     and will be found first if multiple "default" supporting user data tokenizers are found.
    * @return boolean
    */
   boolean supports(String tokenizerName);
@@ -26,8 +25,5 @@ public interface UserDataTokenizer extends SpinnakerExtensionPoint {
    * @return String
    */
   String replaceTokens(
-    Names names,
-    UserDataInput userDataInput,
-    String rawUserData,
-    Boolean legacyUdf);
+      Names names, UserDataInput userDataInput, String rawUserData, Boolean legacyUdf);
 }
