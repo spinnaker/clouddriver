@@ -5,7 +5,7 @@ import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataInput;
 import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride;
 import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataProvider;
 import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataTokenizer;
-import com.netflix.spinnaker.kork.exceptions.SystemException;
+import com.netflix.spinnaker.kork.exceptions.UserException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,19 +51,22 @@ public class UserDataProviderAggregator {
 
     // If override default user data then we process tokens
     if (userDataInput.getUserDataOverride().isEnabled()) {
-      UserDataTokenizer userDataTokenizer =
+      List<UserDataTokenizer> udts =
           tokenizers.stream()
               .filter(it -> it.supports(userDataInput.getUserDataOverride().getTokenizerName()))
-              .findFirst()
-              .orElseThrow(
-                  () ->
-                      new SystemException(
-                          "Unable to find supporting user data tokenizer for {}",
-                          userDataInput.getUserDataOverride().getTokenizerName()));
+              .collect(Collectors.toList());
 
-      userDataDecoded =
-          userDataTokenizer.replaceTokens(
-              Names.parseName(userDataInput.getAsgName()), userDataInput, userDataDecoded, false);
+      if (udts.isEmpty()) {
+        throw new UserException(
+            "Unable to find supporting user data tokenizer for {}",
+            userDataInput.getUserDataOverride().getTokenizerName());
+      }
+
+      for (UserDataTokenizer t : udts) {
+        userDataDecoded =
+            t.replaceTokens(
+                Names.parseName(userDataInput.getAsgName()), userDataInput, userDataDecoded, false);
+      }
       return result(Collections.singletonList(userDataDecoded));
     }
 

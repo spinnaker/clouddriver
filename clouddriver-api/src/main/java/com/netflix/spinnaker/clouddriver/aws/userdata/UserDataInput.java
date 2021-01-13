@@ -3,6 +3,7 @@ package com.netflix.spinnaker.clouddriver.aws.userdata;
 import lombok.Builder;
 import lombok.Value;
 
+/** Input object when providing or tokenizing user data. */
 @Builder
 @Value
 public class UserDataInput {

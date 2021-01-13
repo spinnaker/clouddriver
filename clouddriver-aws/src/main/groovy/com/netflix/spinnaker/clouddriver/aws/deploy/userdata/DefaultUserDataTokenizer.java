@@ -8,11 +8,6 @@ import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataTokenizer;
 public class DefaultUserDataTokenizer implements UserDataTokenizer {
 
   @Override
-  public boolean supports(String tokenizerName) {
-    return tokenizerName.equals("default");
-  }
-
-  @Override
   public String replaceTokens(
       Names names, UserDataInput userDataInput, String rawUserData, Boolean legacyUdf) {
     String stack = isPresent(names.getStack()) ? names.getStack() : "";
