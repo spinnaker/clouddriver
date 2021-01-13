@@ -16,21 +16,33 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.userdata
 
 import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataInput
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataProvider
 import com.netflix.spinnaker.clouddriver.core.services.Front50Service
+import com.netflix.spinnaker.kork.annotations.VisibleForTesting
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
-import org.springframework.beans.factory.annotation.Autowired
 
 class LocalFileUserDataProvider implements UserDataProvider {
   private static final INSERTION_MARKER = '\nexport EC2_REGION='
 
-  @Autowired
-  LocalFileUserDataProperties localFileUserDataProperties
+  @VisibleForTesting LocalFileUserDataProperties localFileUserDataProperties
+  @VisibleForTesting Front50Service front50Service
+  @VisibleForTesting DefaultUserDataTokenizer defaultUserDataTokenizer
 
-  @Autowired
-  Front50Service front50Service
+  @VisibleForTesting
+  LocalFileUserDataProvider(){}
+
+  LocalFileUserDataProvider(LocalFileUserDataProperties localFileUserDataProperties,
+                            Front50Service front50Service,
+                            DefaultUserDataTokenizer defaultUserDataTokenizer) {
+    this.localFileUserDataProperties = localFileUserDataProperties
+    this.front50Service = front50Service
+    this.defaultUserDataTokenizer = defaultUserDataTokenizer
+  }
+
 
   boolean isLegacyUdf(String account, String applicationName) {
     Closure<Boolean> result = {
@@ -66,11 +78,11 @@ class LocalFileUserDataProvider implements UserDataProvider {
   }
 
   @Override
-  String getUserData(UserDataRequest userDataRequest) {
-    def names = Names.parseName(userDataRequest.asgName)
-    boolean useLegacyUdf = userDataRequest.legacyUdf != null ? userDataRequest.legacyUdf : isLegacyUdf(userDataRequest.account, names.app)
-    def rawUserData = assembleUserData(useLegacyUdf, names, userDataRequest.region, userDataRequest.account)
-    String userData = UserDataTokenizer.replaceTokens(names, userDataRequest, rawUserData, useLegacyUdf)
+  String getUserData(UserDataInput userDataInput) {
+    def names = Names.parseName(userDataInput.asgName)
+    boolean useLegacyUdf = userDataInput.legacyUdf != null ? userDataInput.legacyUdf : isLegacyUdf(userDataInput.account, names.app)
+    def rawUserData = assembleUserData(useLegacyUdf, names, userDataInput.region, userDataInput.account)
+    String userData = defaultUserDataTokenizer.replaceTokens(names, userDataInput, rawUserData, useLegacyUdf)
     return addAdditionalEnvVars(names, userData)
   }
 

@@ -1,10 +1,18 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.userdata
 
+import com.amazonaws.services.ec2.model.UserData
+import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataInput
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataProvider
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataTokenizer
+import org.apache.commons.io.IOUtils
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class UserDataProviderAggregatorSpec extends Specification {
 
-  UserDataProviderAggregator userDataProviderAggregator = new UserDataProviderAggregator([new UserDataProviderA(), new UserDataProviderB()])
+  UserDataProviderAggregator userDataProviderAggregator = new UserDataProviderAggregator([new UserDataProviderA(), new UserDataProviderB()], [new DefaultUserDataTokenizer(), new CustomTokenizer()])
 
   static final String APP = 'app'
   static final String STACK = 'stack'
@@ -24,7 +32,7 @@ class UserDataProviderAggregatorSpec extends Specification {
 
   void "User data is aggregated correctly; a -> b -> user supplied user data"() {
     given:
-    UserDataProvider.UserDataRequest request = UserDataProvider.UserDataRequest
+    UserDataInput request = UserDataInput
       .builder()
       .asgName(ASG_NAME)
       .launchSettingName(LAUNCH_CONFIG_NAME)
@@ -32,6 +40,7 @@ class UserDataProviderAggregatorSpec extends Specification {
       .region(REGION)
       .account(ACCOUNT)
       .accountType(ACCOUNT_TYPE)
+      .userDataOverride(new UserDataOverride())
       .base64UserData("ZXhwb3J0IFVTRVJEQVRBPTEK")
       .build()
 
@@ -46,9 +55,16 @@ class UserDataProviderAggregatorSpec extends Specification {
     result == "YQpiCmV4cG9ydCBVU0VSREFUQT0xCg=="
   }
 
-  void "User data is overrode with the user supplied base64 encoded user data and tokens are replaced correctly "() {
+  @Unroll
+  void "User data is overrode with the user supplied base64 encoded user data and tokens are replaced correctly - #userDataFileName"() {
     given:
-    UserDataProvider.UserDataRequest request = UserDataProvider.UserDataRequest
+    String tokenizedUserdata = IOUtils.toString(getClass().getResourceAsStream("${userDataFileName}-tokenized.txt"))
+    String expectedResult = Base64.getEncoder().encodeToString(tokenizedUserdata.getBytes("utf-8"))
+
+    String userdata = IOUtils.toString(getClass().getResourceAsStream("${userDataFileName}.txt"))
+    String base64String = Base64.getEncoder().encodeToString(userdata.getBytes("utf-8"))
+
+    UserDataInput request = UserDataInput
       .builder()
       .asgName(ASG_NAME)
       .launchSettingName(LAUNCH_CONFIG_NAME)
@@ -56,50 +72,46 @@ class UserDataProviderAggregatorSpec extends Specification {
       .region(REGION)
       .account(ACCOUNT)
       .accountType(ACCOUNT_TYPE)
-      .overrideDefaultUserData(true)
-      .base64UserData("TkVURkxJWF9BQ0NPVU5UPSIlJWFjY291bnQlJSIKTkVURkxJWF9BQ0NPVU5UX1RZUEU9IiUlYWNjb3VudHR5cGUlJSIKTkVURkxJWF9FTlZJUk9OTUVOVD0iJSVlbnYlJSIKTkVURkxJWF9BUFA9IiUlYXBwJSUiCk5FVEZMSVhfQVBQVVNFUj0iJSVhcHAlJSIKTkVURkxJWF9TVEFDSz0iJSVzdGFjayUlIgpORVRGTElYX0NMVVNURVI9IiUlY2x1c3RlciUlIgpORVRGTElYX0RFVEFJTD0iJSVkZXRhaWwlJSIKTkVURkxJWF9BVVRPX1NDQUxFX0dST1VQPSIlJWF1dG9ncnAlJSIKTkVURkxJWF9MQVVOQ0hfQ09ORklHPSIlJWxhdW5jaGNvbmZpZyUlIgpORVRGTElYX0xBVU5DSF9URU1QTEFURT0iJSVsYXVuY2h0ZW1wbGF0ZSUlIgpFQzJfUkVHSU9OPSIlJXJlZ2lvbiUlIg==")
+      .userDataOverride(userDataOverride)
+      .base64UserData(base64String)
       .build()
 
     when:
-    //NETFLIX_ACCOUNT="%%account%%"
-    //NETFLIX_ACCOUNT_TYPE="%%accounttype%%"
-    //NETFLIX_ENVIRONMENT="%%env%%"
-    //NETFLIX_APP="%%app%%"
-    //NETFLIX_APPUSER="%%app%%"
-    //NETFLIX_STACK="%%stack%%"
-    //NETFLIX_CLUSTER="%%cluster%%"
-    //NETFLIX_DETAIL="%%detail%%"
-    //NETFLIX_AUTO_SCALE_GROUP="%%autogrp%%"
-    //NETFLIX_LAUNCH_CONFIG="%%launchconfig%%"
-    //NETFLIX_LAUNCH_TEMPLATE="%%launchtemplate%%"
-    //EC2_REGION="%%region%%"
     String result = userDataProviderAggregator.aggregate(request)
 
     then:
-    //NETFLIX_ACCOUNT="account"
-    //NETFLIX_ACCOUNT_TYPE="accountType"
-    //NETFLIX_ENVIRONMENT="environment"
-    //NETFLIX_APP="app"
-    //NETFLIX_APPUSER="app"
-    //NETFLIX_STACK="stack"
-    //NETFLIX_CLUSTER="app-stack-detail-c0countries-d0devPhase-h0hardware-p0partners-r099-z0zone"
-    //NETFLIX_DETAIL="detail-c0countries-d0devPhase-h0hardware-p0partners-r099-z0zone"
-    //NETFLIX_AUTO_SCALE_GROUP="app-stack-detail-c0countries-d0devPhase-h0hardware-p0partners-r099-z0zone"
-    //NETFLIX_LAUNCH_CONFIG="launchConfigName"
-    //NETFLIX_LAUNCH_TEMPLATE=""
-    //EC2_REGION="region"
-    result == "TkVURkxJWF9BQ0NPVU5UPSJhY2NvdW50IgpORVRGTElYX0FDQ09VTlRfVFlQRT0iYWNjb3VudFR5cGUiCk5FVEZMSVhfRU5WSVJPTk1FTlQ9ImVudmlyb25tZW50IgpORVRGTElYX0FQUD0iYXBwIgpORVRGTElYX0FQUFVTRVI9ImFwcCIKTkVURkxJWF9TVEFDSz0ic3RhY2siCk5FVEZMSVhfQ0xVU1RFUj0iYXBwLXN0YWNrLWRldGFpbC1jMGNvdW50cmllcy1kMGRldlBoYXNlLWgwaGFyZHdhcmUtcDBwYXJ0bmVycy1yMDk5LXowem9uZSIKTkVURkxJWF9ERVRBSUw9ImRldGFpbC1jMGNvdW50cmllcy1kMGRldlBoYXNlLWgwaGFyZHdhcmUtcDBwYXJ0bmVycy1yMDk5LXowem9uZSIKTkVURkxJWF9BVVRPX1NDQUxFX0dST1VQPSJhcHAtc3RhY2stZGV0YWlsLWMwY291bnRyaWVzLWQwZGV2UGhhc2UtaDBoYXJkd2FyZS1wMHBhcnRuZXJzLXIwOTktejB6b25lIgpORVRGTElYX0xBVU5DSF9DT05GSUc9ImxhdW5jaENvbmZpZ05hbWUiCk5FVEZMSVhfTEFVTkNIX1RFTVBMQVRFPSIiCkVDMl9SRUdJT049InJlZ2lvbiI="
+    result == expectedResult
+
+    where:
+    userDataOverride                                             | userDataFileName
+    new UserDataOverride(enabled: true)                          | "default-token-userdata"
+    new UserDataOverride(enabled: true, tokenizerName: "custom") | "custom-token-userdata"
   }
 }
 
 class UserDataProviderA implements UserDataProvider {
-  String getUserData(UserDataRequest userDataRequest) {
+  String getUserData(UserDataInput userDataRequest) {
     return "a"
   }
 }
 
 class UserDataProviderB implements UserDataProvider {
-  String getUserData(UserDataRequest userDataRequest) {
+  String getUserData(UserDataInput userDataRequest) {
     return "b"
+  }
+}
+
+class CustomTokenizer implements UserDataTokenizer {
+
+  @Override
+  boolean supports(String tokenizerName) {
+    return tokenizerName == "custom"
+  }
+
+  @Override
+  String replaceTokens(Names names, UserDataInput userDataInput, String rawUserData, Boolean legacyUdf) {
+    return rawUserData
+        .replace("%%custom_token_a%%", "custom-a")
+        .replace("%%custom_token_b%%", "custom-b")
   }
 }

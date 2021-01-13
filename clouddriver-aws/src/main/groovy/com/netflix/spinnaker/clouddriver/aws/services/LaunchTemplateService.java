@@ -25,10 +25,11 @@ import com.amazonaws.services.ec2.model.*;
 import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder.LaunchConfigurationSettings;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties;
-import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider.UserDataRequest;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataInput;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride;
 import com.netflix.spinnaker.kork.core.RetrySupport;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -120,7 +121,7 @@ public class LaunchTemplateService {
       Boolean requireIMDSv2,
       Boolean associateIPv6Address,
       Boolean unlimitedCpuCredits,
-      boolean overrideDefaultUserData) {
+      UserDataOverride userDataOverride) {
     final RequestLaunchTemplateData data =
         buildLaunchTemplateData(
             settings,
@@ -128,7 +129,7 @@ public class LaunchTemplateService {
             requireIMDSv2,
             associateIPv6Address,
             unlimitedCpuCredits,
-            overrideDefaultUserData);
+            userDataOverride);
     return retrySupport.retry(
         () -> {
           final CreateLaunchTemplateRequest launchTemplateRequest =
@@ -187,7 +188,7 @@ public class LaunchTemplateService {
         description.getIamRole(),
         description.getImageId(),
         base64UserData,
-        description.isOverrideDefaultUserData());
+        description.getUserDataOverride());
 
     // block device mappings
     if (description.getBlockDevices() != null) {
@@ -248,7 +249,7 @@ public class LaunchTemplateService {
       Boolean requireIMDSv2,
       Boolean associateIPv6Address,
       Boolean unlimitedCpuCredits,
-      boolean overrideDefaultUserData) {
+      UserDataOverride userDataOverride) {
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(settings.getAmi())
@@ -275,7 +276,7 @@ public class LaunchTemplateService {
         settings.getIamRole(),
         settings.getAmi(),
         settings.getBase64UserData(),
-        overrideDefaultUserData);
+        userDataOverride);
 
     // block device mappings
     request.setBlockDeviceMappings(buildDeviceMapping(settings.getBlockDevices()));
@@ -338,9 +339,9 @@ public class LaunchTemplateService {
       String iamRole,
       String imageId,
       String base64UserData,
-      boolean overrideDefaultUserData) {
-    final UserDataRequest userDataRequest =
-        UserDataRequest.builder()
+      UserDataOverride userDataOverride) {
+    final UserDataInput userDataRequest =
+        UserDataInput.builder()
             .launchTemplate(true)
             .asgName(asgName)
             .launchSettingName(launchTemplateName)
@@ -350,7 +351,7 @@ public class LaunchTemplateService {
             .accountType(accType)
             .iamRole(iamRole)
             .imageId(imageId)
-            .overrideDefaultUserData(overrideDefaultUserData)
+            .userDataOverride(userDataOverride)
             .base64UserData(base64UserData)
             .build();
 

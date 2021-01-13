@@ -1,6 +1,12 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.userdata;
 
 import com.netflix.frigga.Names;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataInput;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataProvider;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataTokenizer;
+import com.netflix.spinnaker.kork.exceptions.SystemException;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,9 +22,11 @@ import java.util.stream.Collectors;
 public class UserDataProviderAggregator {
 
   private final List<UserDataProvider> providers;
+  private final List<UserDataTokenizer> tokenizers;
 
-  public UserDataProviderAggregator(List<UserDataProvider> providers) {
+  public UserDataProviderAggregator(List<UserDataProvider> providers, List<UserDataTokenizer> tokenizers) {
     this.providers = providers;
+    this.tokenizers = tokenizers;
   }
 
   /**
@@ -27,37 +35,47 @@ public class UserDataProviderAggregator {
    * The result is such that the user supplied base64 encoded user data is always appended last to
    * the user data.
    *
-   * <p>Note, if the {@link UserDataProvider.UserDataRequest} parameter overrideDefaultUserData is
-   * true, then the user data from the providers is skipped and the user supplied base64 encoded
-   * user data is used as the override. If this is the case, the standard set of user data format
-   * tokens ("%%app%%", for example) are replaced in the user data - effectively processing the user
-   * data as a UDF template.
+   * <p>Note, if {@link UserDataOverride#isEnabled()} is true, then the user data from the
+   * providers is skipped and the user supplied base64 encoded user data is used as the override.
+   * If this is the case, user data format tokens (either a custom or default set) are
+   * replaced in the user data - effectively processing the user data as a UDF template.
    *
-   * @param userDataRequest {@link UserDataProvider.UserDataRequest}
+   * @param userDataInput {@link UserDataInput}
    * @return String
    */
-  public String aggregate(UserDataProvider.UserDataRequest userDataRequest) {
-    List<String> allUserData = new ArrayList<>();
-    if (providers != null && !userDataRequest.isOverrideDefaultUserData()) {
-      allUserData =
-          providers.stream().map(p -> p.getUserData(userDataRequest)).collect(Collectors.toList());
-    }
-    String data = String.join("\n", allUserData);
-
+  public String aggregate(UserDataInput userDataInput) {
     byte[] bytes =
         Base64.getDecoder()
-            .decode(Optional.ofNullable(userDataRequest.getBase64UserData()).orElse(""));
+            .decode(Optional.ofNullable(userDataInput.getBase64UserData()).orElse(""));
     String userDataDecoded = new String(bytes, StandardCharsets.UTF_8);
 
-    if (userDataRequest.isOverrideDefaultUserData()) {
+    //If override default user data then we process tokens
+    if (userDataInput.getUserDataOverride().isEnabled()) {
+      UserDataTokenizer userDataTokenizer = tokenizers
+        .stream()
+        .filter(it -> it.supports(userDataInput.getUserDataOverride().getTokenizerName()))
+        .findFirst()
+        .orElseThrow(
+          () ->
+            new SystemException(
+              "Unable to find supporting user data tokenizer for {}",
+              userDataInput.getUserDataOverride().getTokenizerName()));
+
       userDataDecoded =
-          UserDataTokenizer.replaceTokens(
-              Names.parseName(userDataRequest.getAsgName()),
-              userDataRequest,
+        userDataTokenizer.replaceTokens(
+              Names.parseName(userDataInput.getAsgName()),
+              userDataInput,
               userDataDecoded,
               false);
       return result(Collections.singletonList(userDataDecoded));
     }
+
+    List<String> allUserData = new ArrayList<>();
+    if (providers != null && !userDataInput.getUserDataOverride().isEnabled()) {
+      allUserData =
+        providers.stream().map(p -> p.getUserData(userDataInput)).collect(Collectors.toList());
+    }
+    String data = String.join("\n", allUserData);
 
     return result(Arrays.asList(data, userDataDecoded));
   }

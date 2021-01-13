@@ -37,6 +37,7 @@ import com.netflix.spinnaker.clouddriver.aws.model.SubnetData
 import com.netflix.spinnaker.clouddriver.aws.model.SubnetTarget
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
@@ -76,7 +77,7 @@ class AutoScalingWorker {
   private String keyPair
   private String base64UserData
   private Boolean legacyUdf
-  private boolean overrideDefaultUserData
+  private UserDataOverride userDataOverride
   private Integer sequence
   private Boolean ignoreSequence
   private Boolean startDisabled
@@ -191,12 +192,12 @@ class AutoScalingWorker {
               requireIMDSv2,
               associateIPv6Address,
               unlimitedCpuCredits,
-              overrideDefaultUserData)
+              userDataOverride)
       launchTemplateSpecification = new LaunchTemplateSpecification(
               launchTemplateId: launchTemplate.launchTemplateId,
               version: launchTemplate.latestVersionNumber)
     } else {
-      launchConfigName = regionScopedProvider.getLaunchConfigurationBuilder().buildLaunchConfiguration(application, subnetType, settings, legacyUdf, overrideDefaultUserData)
+      launchConfigName = regionScopedProvider.getLaunchConfigurationBuilder().buildLaunchConfiguration(application, subnetType, settings, legacyUdf, userDataOverride)
     }
 
     task.updateStatus AWS_PHASE, "Deploying ASG: $asgName"

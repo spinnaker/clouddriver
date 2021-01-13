@@ -24,10 +24,11 @@ import com.amazonaws.services.autoscaling.model.Ebs
 import com.amazonaws.services.autoscaling.model.InstanceMonitoring
 import com.amazonaws.services.autoscaling.model.LaunchConfiguration
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataInput
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties
-import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.clouddriver.aws.services.AsgService
 import com.netflix.spinnaker.clouddriver.aws.services.SecurityGroupService
@@ -132,11 +133,11 @@ class DefaultLaunchConfigurationBuilder implements LaunchConfigurationBuilder {
    * @return the name of the new launch configuration
    */
   @Override
-  String buildLaunchConfiguration(String application, String subnetType, LaunchConfigurationSettings settings, Boolean legacyUdf, boolean overrideDefaultUserData) {
+  String buildLaunchConfiguration(String application, String subnetType, LaunchConfigurationSettings settings, Boolean legacyUdf, UserDataOverride userDataOverride) {
     settings = setAppSecurityGroup(application, subnetType, deployDefaults, securityGroupService, settings)
 
     String name = createName(settings)
-    String userData = getUserData(name, settings, legacyUdf, overrideDefaultUserData)
+    String userData = getUserData(name, settings, legacyUdf, userDataOverride)
     createLaunchConfiguration(name, userData, settings)
   }
 
@@ -168,9 +169,9 @@ class DefaultLaunchConfigurationBuilder implements LaunchConfigurationBuilder {
     }
   }
 
-  private String getUserData(String launchConfigName, LaunchConfigurationSettings settings, Boolean legacyUdf, boolean overrideDefaultUserData) {
-    UserDataProvider.UserDataRequest userDataRequest =
-      UserDataProvider.UserDataRequest.builder()
+  private String getUserData(String launchConfigName, LaunchConfigurationSettings settings, Boolean legacyUdf, UserDataOverride userDataOverride) {
+    UserDataInput userDataRequest =
+      UserDataInput.builder()
         .launchTemplate(false)
         .asgName(settings.baseName)
         .launchSettingName(launchConfigName)
@@ -181,7 +182,7 @@ class DefaultLaunchConfigurationBuilder implements LaunchConfigurationBuilder {
         .iamRole(settings.iamRole)
         .imageId(settings.ami)
         .legacyUdf(legacyUdf)
-        .overrideDefaultUserData(overrideDefaultUserData)
+        .userDataOverride(userDataOverride)
         .base64UserData(settings.base64UserData)
         .build()
 

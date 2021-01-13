@@ -1,22 +1,21 @@
 package com.netflix.spinnaker.clouddriver.aws.deploy.userdata;
 
+import com.google.common.base.Strings;
 import com.netflix.frigga.Names;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataInput;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataTokenizer;
 
-/** Utility class to replace tokens in user data templates. */
-public class UserDataTokenizer {
+public class DefaultUserDataTokenizer implements UserDataTokenizer {
 
-  /**
-   * Replaces the tokens that are present in the supplied user data.
-   *
-   * @param names {@link Names}
-   * @param userDataRequest {@link UserDataProvider.UserDataRequest}
-   * @param rawUserData The user data to replace tokens in
-   * @param legacyUdf
-   * @return String
-   */
-  static String replaceTokens(
+  @Override
+  public boolean supports(String tokenizerName) {
+    return tokenizerName.equals("default");
+  }
+
+  @Override
+  public String replaceTokens(
       Names names,
-      UserDataProvider.UserDataRequest userDataRequest,
+      UserDataInput userDataInput,
       String rawUserData,
       Boolean legacyUdf) {
     String stack = isPresent(names.getStack()) ? names.getStack() : "";
@@ -31,15 +30,15 @@ public class UserDataTokenizer {
     // Replace the tokens & return the result
     String result =
         rawUserData
-            .replace("%%account%%", userDataRequest.getAccount())
-            .replace("%%accounttype%%", userDataRequest.getAccountType())
+            .replace("%%account%%", userDataInput.getAccount())
+            .replace("%%accounttype%%", userDataInput.getAccountType())
             .replace(
                 "%%env%%",
                 (legacyUdf != null && legacyUdf)
-                    ? userDataRequest.getAccount()
-                    : userDataRequest.getEnvironment())
+                    ? userDataInput.getAccount()
+                    : userDataInput.getEnvironment())
             .replace("%%app%%", names.getApp())
-            .replace("%%region%%", userDataRequest.getRegion())
+            .replace("%%region%%", userDataInput.getRegion())
             .replace("%%group%%", names.getGroup())
             .replace("%%autogrp%%", names.getGroup())
             .replace("%%revision%%", revision)
@@ -52,15 +51,15 @@ public class UserDataTokenizer {
             .replace("%%detail%%", detail)
             .replace("%%tier%%", "");
 
-    if (userDataRequest.getLaunchTemplate() != null && userDataRequest.getLaunchTemplate()) {
+    if (userDataInput.getLaunchTemplate() != null && userDataInput.getLaunchTemplate()) {
       result =
           result
-              .replace("%%launchtemplate%%", userDataRequest.getLaunchSettingName())
+              .replace("%%launchtemplate%%", userDataInput.getLaunchSettingName())
               .replace("%%launchconfig%%", "");
     } else {
       result =
           result
-              .replace("%%launchconfig%%", userDataRequest.getLaunchSettingName())
+              .replace("%%launchconfig%%", userDataInput.getLaunchSettingName())
               .replace("%%launchtemplate%%", "");
     }
 
@@ -68,6 +67,6 @@ public class UserDataTokenizer {
   }
 
   private static boolean isPresent(String value) {
-    return value != null && !value.isBlank();
+    return !Strings.isNullOrEmpty(value);
   }
 }
