@@ -1,11 +1,11 @@
 /*
- * Copyright 2017 Armory, Inc.
+ * Copyright 2020 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,19 +15,17 @@
  *
  */
 
-package com.netflix.spinnaker.clouddriver.artifacts.github;
+package com.netflix.spinnaker.config;
 
-import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactProvider;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Data
-@ConfigurationProperties("artifacts.github")
-final class GitHubArtifactProviderProperties implements ArtifactProvider<GitHubArtifactAccount> {
-  private boolean enabled;
+@ConfigurationProperties("artifacts")
+@Slf4j
+class ArtifactProviderProperties {
   long connectTimeoutMs;
   long readTimeoutMs;
-  private List<GitHubArtifactAccount> accounts = new ArrayList<>();
+  boolean retryOnConnectionFailure = true;
 }

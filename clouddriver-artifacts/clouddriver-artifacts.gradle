@@ -14,6 +14,8 @@ dependencies {
   implementation "com.google.apis:google-api-services-storage:v1-rev141-1.25.0"
   implementation 'com.google.auth:google-auth-library-oauth2-http'
   implementation "com.netflix.frigga:frigga"
+  implementation "com.netflix.spinnaker.kork:kork-core"
+  implementation "com.netflix.spinnaker.kork:kork-web"
   implementation "com.netflix.spinnaker.kork:kork-artifacts"
   implementation "com.netflix.spinnaker.kork:kork-annotations"
   implementation "com.netflix.spinnaker.kork:kork-exceptions"
