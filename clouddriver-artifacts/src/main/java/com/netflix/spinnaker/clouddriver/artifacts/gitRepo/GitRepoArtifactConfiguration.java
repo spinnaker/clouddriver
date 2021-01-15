@@ -16,12 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.artifacts.gitRepo;
 
-import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
-import java.util.List;
-import java.util.stream.Collectors;
+import com.netflix.spinnaker.credentials.CredentialsTypeProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -36,13 +33,22 @@ class GitRepoArtifactConfiguration {
   private final GitRepoArtifactProviderProperties gitRepoArtifactProviderProperties;
 
   @Bean
-  List<? extends GitRepoArtifactCredentials> gitRepoArtifactCredentials(
-      @Value("${artifacts.git-repo.git-executable:git}") String gitExecutable,
-      JobExecutor jobExecutor) {
-
-    return gitRepoArtifactProviderProperties.getAccounts().stream()
-        .map(a -> new GitJobExecutor(a, jobExecutor, gitExecutable))
-        .map(GitRepoArtifactCredentials::new)
-        .collect(Collectors.toList());
+  public CredentialsTypeProperties<GitRepoArtifactCredentials, GitRepoArtifactAccount>
+      gitCredentialsProperties() {
+    return CredentialsTypeProperties.<GitRepoArtifactCredentials, GitRepoArtifactAccount>builder()
+        .type(GitRepoArtifactCredentials.CREDENTIALS_TYPE)
+        .credentialsClass(GitRepoArtifactCredentials.class)
+        .credentialsDefinitionClass(GitRepoArtifactAccount.class)
+        .defaultCredentialsSource(gitRepoArtifactProviderProperties::getAccounts)
+        .credentialsParser(
+            a -> {
+              try {
+                return new GitRepoArtifactCredentials(a);
+              } catch (Exception e) {
+                log.warn("Failure instantiating git artifact account {}: ", a, e);
+                return null;
+              }
+            })
+        .build();
   }
 }
