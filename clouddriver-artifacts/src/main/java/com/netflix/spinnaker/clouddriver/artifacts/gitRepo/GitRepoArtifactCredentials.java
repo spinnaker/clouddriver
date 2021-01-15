@@ -52,7 +52,7 @@ import org.eclipse.jgit.util.FS;
 @NonnullByDefault
 @Slf4j
 public class GitRepoArtifactCredentials implements ArtifactCredentials {
-  public static final String CREDENTIALS_TYPE = "artifacts-git";
+  public static final String CREDENTIALS_TYPE = "git/repo";
   @Getter private final ImmutableList<String> types = ImmutableList.of("git/repo");
 
   @Getter private final String name;
