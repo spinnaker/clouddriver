@@ -44,7 +44,7 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {"spring.config.location = classpath:clouddriver.yml"})
 public class GitRepoTest {
 
-  private static GiteaContainer giteaContainer = new GiteaContainer();
+  private static final GiteaContainer giteaContainer = new GiteaContainer();
   @LocalServerPort int port;
 
   static {
@@ -117,7 +117,7 @@ public class GitRepoTest {
           + "Given a gitrepo account with ssh keys\n"
           + "When sending download artifact request\n"
           + "Then the repo is downloaded\n===")
-  //  @Test
+  @Test
   public void shouldDownloadGitRepoWithSsh() throws IOException, InterruptedException {
     // given
     Map<String, Object> body =

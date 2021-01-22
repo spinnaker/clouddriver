@@ -28,10 +28,8 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
 
   private static final String DOCKER_IMAGE = "gitea/gitea:1.12.6";
   private static final String REPO_NAME = "test";
-  private static final String REPO_PATH = "/tmp/test_repo";
   private static final String USER = "test";
   private static final String PASS = "test";
-  private String baseUrl;
 
   public GiteaContainer() {
     super(DOCKER_IMAGE);
@@ -54,7 +52,7 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
   }
 
   private void initRepo() {
-    baseUrl = "http://" + this.getContainerIpAddress() + ":" + this.getMappedPort(3000);
+    String baseUrl = "http://" + this.getContainerIpAddress() + ":" + this.getMappedPort(3000);
 
     Map<String, Object> body =
         ImmutableMap.of("auto_init", true, "name", REPO_NAME, "private", true);

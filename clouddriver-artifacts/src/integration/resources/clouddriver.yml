@@ -12,6 +12,7 @@ artifacts:
         sshPrivateKeyFilePath: ${SSH_KEYS}/id_rsa_test
         sshPrivateKeyPassphrase: "@!JrUj3e6HyL#"
         sshTrustUnknownHosts: false
+        sshKnownHostsFilePath: ${SSH_KEYS}/known_hosts
 
 logging.level.com.netflix.spinnaker.clouddriver.artifacts.gitRepo: DEBUG
 

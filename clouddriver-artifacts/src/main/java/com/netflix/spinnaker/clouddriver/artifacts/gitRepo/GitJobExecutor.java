@@ -22,27 +22,32 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.netflix.spinnaker.clouddriver.jobs.JobExecutor;
 import com.netflix.spinnaker.clouddriver.jobs.JobRequest;
 import com.netflix.spinnaker.clouddriver.jobs.JobResult;
-import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.util.StringUtils;
 
 @Slf4j
 public class GitJobExecutor {
 
+  private static final String SSH_KEY_PWD_ENV_VAR = "SSH_KEY_PWD";
+  private static Path genericAskPassBinary;
+
   @Getter private final GitRepoArtifactAccount account;
   private final JobExecutor jobExecutor;
   private final String gitExecutable;
   private final AuthType authType;
+  private final Path askPassBinary;
 
   private enum AuthType {
     USER_PASS,
@@ -52,7 +57,8 @@ public class GitJobExecutor {
   }
 
   public GitJobExecutor(
-      GitRepoArtifactAccount account, JobExecutor jobExecutor, String gitExecutable) {
+      GitRepoArtifactAccount account, JobExecutor jobExecutor, String gitExecutable)
+      throws IOException {
     this.account = account;
     this.jobExecutor = jobExecutor;
     this.gitExecutable = gitExecutable;
@@ -66,6 +72,7 @@ public class GitJobExecutor {
     } else {
       authType = AuthType.NONE;
     }
+    askPassBinary = initAskPass();
   }
 
   public void clone(String repoUrl, String branch, Path destination) throws IOException {
@@ -83,16 +90,13 @@ public class GitJobExecutor {
     String cloneCommand =
         gitExecutable + " clone --branch " + branch + " --depth 1 " + repoUrlWithAuth(repoUrl);
 
-    List<String> command = new ArrayList<>();
-    addAuthCmdPrefix(command);
-    addMainCmd(command, cloneCommand);
-    addAuthCmdSuffix(command);
-
+    List<String> command = cmdToList(cloneCommand);
     log.debug("Executing command: \"{}\"", String.join(" ", command));
 
     JobResult<String> result =
         jobExecutor.runJob(
-            new JobRequest(command, addAuthEnvVars(System.getenv()), destination.toFile()));
+            new JobRequest(command, addEnvVars(System.getenv()), destination.toFile()));
+
     if (result.getResult() != JobResult.Result.SUCCESS) {
       throw new IOException(
           "Failed to clone repository "
@@ -108,6 +112,7 @@ public class GitJobExecutor {
 
   public void archive(Path localClone, String branch, String subDir, Path outputFile)
       throws IOException {
+
     List<String> command = new ArrayList<>();
     command.add(gitExecutable);
     command.add("archive");
@@ -123,6 +128,7 @@ public class GitJobExecutor {
     log.debug("Executing command: \"{}\"", String.join(" ", command));
 
     JobResult<String> result = jobExecutor.runJob(new JobRequest(command, localClone.toFile()));
+
     if (result.getResult() != JobResult.Result.SUCCESS) {
       throw new IOException(
           "Failed to archive repository from "
@@ -132,6 +138,45 @@ public class GitJobExecutor {
               + " Output: "
               + result.getOutput());
     }
+  }
+
+  /**
+   * For SSH authentication if the private key is password protected, SSH_ASKPASS binary is used to
+   * supply the password. https://git-scm.com/docs/gitcredentials#_requesting_credentials
+   */
+  private Path initAskPass() throws IOException {
+    if (authType != AuthType.SSH) {
+      return null;
+    }
+
+    if (!StringUtils.isEmpty(account.getSshPrivateKeyPassphraseCmd())) {
+      File pwdCmd = new File(account.getSshPrivateKeyPassphraseCmd());
+      if (!pwdCmd.exists() || !pwdCmd.isFile()) {
+        throw new IOException(
+            "SshPrivateKeyPassphraseCmd doesn't exist or is not a file: "
+                + account.getSshPrivateKeyPassphraseCmd());
+      }
+      return Paths.get(account.getSshPrivateKeyPassphraseCmd());
+    }
+
+    if (genericAskPassBinary == null) {
+      File askpass = File.createTempFile("askpass", null);
+      if (!askpass.setExecutable(true)) {
+        throw new IOException(
+            "Unable to make executable askpass script at " + askpass.toPath().toString());
+      }
+
+      // Default way for supplying the password of a private ssh key is to echo an env var with the
+      // password.
+      // This env var is set at runtime when executing git commands that need it.
+      FileUtils.writeStringToFile(
+          askpass,
+          "#!/bin/sh\n" + "echo \"$" + SSH_KEY_PWD_ENV_VAR + "\"",
+          Charset.defaultCharset());
+      genericAskPassBinary = askpass.toPath();
+    }
+
+    return genericAskPassBinary;
   }
 
   private boolean isValidReference(String reference) {
@@ -144,46 +189,22 @@ public class GitJobExecutor {
     return true;
   }
 
-  private void addAuthCmdPrefix(List<String> command) {
+  private List<String> cmdToList(String cmd) {
+    List<String> cmdList = new ArrayList<>();
     switch (authType) {
       case USER_PASS:
       case TOKEN:
-        // "sh" is used so that environment variables are honored as part of the command
-        command.add("sh");
-        command.add("-c");
-        return;
+        // "sh" subshell is used so that environment variables can be used as part of the command
+        cmdList.add("sh");
+        cmdList.add("-c");
+        cmdList.add(cmd);
+        break;
       case SSH:
-        command.add("ssh-agent");
-        command.add("sh");
-        command.add("-c");
-        String sshCmd = "'";
-        if (!StringUtils.isEmpty(account.getSshPrivateKeyPassphrase())) {
-          sshCmd += "echo \"$GIT_SSH_KEY_PWD\" | ";
-        }
-        sshCmd += "DISPLAY= ssh-add ";
-        sshCmd += account.getSshPrivateKeyFilePath();
-        sshCmd += " ; ";
-        command.add(sshCmd);
-        return;
       default:
+        cmdList.addAll(Arrays.asList(cmd.split(" ")));
+        break;
     }
-  }
-
-  private void addMainCmd(List<String> command, String mainCmd) {
-    if (authType != AuthType.SSH) {
-      command.add(mainCmd);
-      return;
-    }
-    String lastPart = command.remove(command.size() - 1);
-    command.add(lastPart + mainCmd);
-  }
-
-  private void addAuthCmdSuffix(List<String> command) {
-    if (authType != AuthType.SSH) {
-      return;
-    }
-    String lastPart = command.remove(command.size() - 1);
-    command.add(lastPart + "'");
+    return cmdList;
   }
 
   private String repoUrlWithAuth(String repoUrl) {
@@ -212,16 +233,46 @@ public class GitJobExecutor {
     }
   }
 
-  private Map<String, String> addAuthEnvVars(Map<String, String> env) {
+  private Map<String, String> addEnvVars(Map<String, String> env) {
     Map<String, String> result = new HashMap<>(env);
-    result.put("GIT_USER", encodeURIComponent(account.getUsername()));
-    result.put("GIT_PASS", encodeURIComponent(account.getPassword()));
-    result.put("GIT_TOKEN", encodeURIComponent(account.getToken()));
-    result.put("GIT_SSH_KEY_PWD", encodeURIComponent(account.getSshPrivateKeyPassphrase()));
 
-    result.put("GIT_CURL_VERBOSE", "1");
-    result.put("GIT_TRACE", "1");
+    switch (authType) {
+      case USER_PASS:
+        result.put("GIT_USER", encodeURIComponent(account.getUsername()));
+        result.put("GIT_PASS", encodeURIComponent(account.getPassword()));
+        break;
+      case TOKEN:
+        result.put("GIT_TOKEN", encodeURIComponent(account.getToken()));
+        break;
+      case SSH:
+        result.put("GIT_SSH_COMMAND", buildSshCommand());
+        result.put("SSH_ASKPASS", askPassBinary.toString());
+        result.put("DISPLAY", ":0");
+        if (!StringUtils.isEmpty(account.getSshPrivateKeyPassphrase())) {
+          result.put(SSH_KEY_PWD_ENV_VAR, account.getSshPrivateKeyPassphrase());
+        }
+        break;
+    }
+
+    if (log.isDebugEnabled()) {
+      result.put("GIT_CURL_VERBOSE", "1");
+      result.put("GIT_TRACE", "1");
+    }
     return result;
+  }
+
+  @NotNull
+  private String buildSshCommand() {
+    String gitSshCmd = "setsid ssh";
+    if (account.isSshTrustUnknownHosts()) {
+      gitSshCmd += "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no";
+    } else if (!StringUtils.isEmpty(account.getSshKnownHostsFilePath())) {
+      gitSshCmd += " -o UserKnownHostsFile=" + account.getSshKnownHostsFilePath();
+    }
+    if (!StringUtils.isEmpty(account.getSshPrivateKeyFilePath())) {
+      gitSshCmd += " -i " + account.getSshPrivateKeyFilePath();
+    }
+    return gitSshCmd;
   }
 
   private static String encodeURIComponent(String s) {
@@ -233,22 +284,11 @@ public class GitJobExecutor {
         URLEncoder.encode(s, UTF_8)
             .replaceAll("\\+", "%20")
             .replaceAll("\\*", "%2A")
-            .replaceAll("\\%21", "!")
-            .replaceAll("\\%27", "'")
-            .replaceAll("\\%28", "(")
-            .replaceAll("\\%29", ")")
-            .replaceAll("\\%7E", "~");
+            .replaceAll("%21", "!")
+            .replaceAll("%27", "'")
+            .replaceAll("%28", "(")
+            .replaceAll("%29", ")")
+            .replaceAll("%7E", "~");
     return result;
-  }
-
-  private InputStream buildCmdInputStream() {
-    switch (authType) {
-      case USER_PASS:
-      case TOKEN:
-        return new ByteArrayInputStream(account.getPassword().getBytes(Charset.defaultCharset()));
-      case NONE:
-      default:
-        return new ByteArrayInputStream(new byte[0]);
-    }
   }
 }
