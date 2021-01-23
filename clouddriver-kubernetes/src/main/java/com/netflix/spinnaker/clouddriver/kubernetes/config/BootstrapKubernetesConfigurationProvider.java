@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wnameless.json.flattener.JsonFlattener;
 import com.github.wnameless.json.unflattener.JsonUnflattener;
+import com.netflix.spinnaker.clouddriver.kubernetes.sharding.KubernetesShardingFilter;
 import com.netflix.spinnaker.kork.configserver.CloudConfigResourceService;
 import com.netflix.spinnaker.kork.secrets.EncryptedSecret;
 import com.netflix.spinnaker.kork.secrets.SecretManager;
@@ -30,6 +31,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.bind.BindResult;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -49,20 +52,26 @@ import org.springframework.core.env.PropertySource;
  * KubernetesConfigurationProperties object.
  */
 public class BootstrapKubernetesConfigurationProvider {
+  private static final Logger logger =
+      LoggerFactory.getLogger(BootstrapKubernetesConfigurationProvider.class);
   private final ConfigurableApplicationContext applicationContext;
   private CloudConfigResourceService configResourceService;
   private SecretSession secretSession;
   private Map<String, String> configServerCache;
   private ObjectMapper objectMapper = new ObjectMapper();
   private final String FIRST_ACCOUNT_NAME_KEY = "kubernetes.accounts[0].name";
+  private KubernetesShardingFilter kubernetesShardingFilter;
 
   public BootstrapKubernetesConfigurationProvider(
       ConfigurableApplicationContext applicationContext,
       CloudConfigResourceService configResourceService,
-      SecretManager secretManager) {
+      SecretManager secretManager,
+      KubernetesShardingFilter kubernetesShardingFilter) {
     this.applicationContext = applicationContext;
     this.configResourceService = configResourceService;
     this.secretSession = new SecretSession(secretManager);
+    this.kubernetesShardingFilter = kubernetesShardingFilter;
+    logger.info("custom-property-binding-enabled for Kubernetes accounts");
   }
 
   public KubernetesConfigurationProperties getKubernetesConfigurationProperties() {
@@ -74,6 +83,7 @@ public class BootstrapKubernetesConfigurationProvider {
       Map<String, Object> kubernetesPropertiesMap) {
     KubernetesConfigurationProperties k8sConfigProps = new KubernetesConfigurationProperties();
     BindResult<?> result;
+    KubernetesConfigurationProperties.ManagedAccount account;
 
     // unflatten
     Map<String, Object> propertiesMap =
@@ -85,9 +95,10 @@ public class BootstrapKubernetesConfigurationProvider {
         ((List<Map<String, Object>>) propertiesMap.get("accounts"))) {
       result =
           bind(getFlatMap(unflattendAcc), KubernetesConfigurationProperties.ManagedAccount.class);
-      k8sConfigProps
-          .getAccounts()
-          .add((KubernetesConfigurationProperties.ManagedAccount) result.get());
+      account = (KubernetesConfigurationProperties.ManagedAccount) result.get();
+      if (kubernetesShardingFilter.applyFilter(account)) {
+        k8sConfigProps.getAccounts().add(account);
+      }
     }
 
     return k8sConfigProps;
