@@ -19,15 +19,19 @@ package com.netflix.spinnaker.config;
 
 import com.netflix.spinnaker.clouddriver.kubernetes.config.BootstrapKubernetesConfigurationProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.kubernetes.sharding.KubernetesShardingFilter;
 import com.netflix.spinnaker.kork.configserver.CloudConfigResourceService;
 import com.netflix.spinnaker.kork.secrets.SecretManager;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@EnableConfigurationProperties
 @ConditionalOnProperty({"kubernetes.enabled", "kubernetes.custom-property-binding-enabled"})
 public class KubernetesCustomBinderConfiguration {
 
@@ -35,9 +39,10 @@ public class KubernetesCustomBinderConfiguration {
   public BootstrapKubernetesConfigurationProvider bootstrapKubernetesConfigurationProvider(
       ConfigurableApplicationContext context,
       CloudConfigResourceService configResourceService,
-      SecretManager secretManager) {
+      SecretManager secretManager,
+      KubernetesShardingFilter kubernetesShardingFilter) {
     return new BootstrapKubernetesConfigurationProvider(
-        context, configResourceService, secretManager);
+        context, configResourceService, secretManager, kubernetesShardingFilter);
   }
 
   @Bean
@@ -45,5 +50,11 @@ public class KubernetesCustomBinderConfiguration {
   public KubernetesConfigurationProperties kubernetesConfigurationProperties(
       BootstrapKubernetesConfigurationProvider bootstrapKubernetesConfigurationProvider) {
     return bootstrapKubernetesConfigurationProvider.getKubernetesConfigurationProperties();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(KubernetesShardingFilter.class)
+  KubernetesShardingFilter noopKubernetesShardingFilter() {
+    return account -> true;
   }
 }
