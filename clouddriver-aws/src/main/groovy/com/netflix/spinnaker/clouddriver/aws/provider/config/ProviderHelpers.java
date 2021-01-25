@@ -141,10 +141,17 @@ public class ProviderHelpers {
         newlyAddedAgents.add(
             new LaunchConfigCachingAgent(
                 amazonClientProvider, credentials, region.getName(), objectMapper, registry));
-        boolean publicImages = false;
         if (!publicRegions.contains(region.getName())) {
-          publicImages = true;
           publicRegions.add(region.getName());
+          newlyAddedAgents.add(
+              new ImageCachingAgent(
+                  amazonClientProvider,
+                  credentials,
+                  region.getName(),
+                  objectMapper,
+                  registry,
+                  true,
+                  dynamicConfigService));
         }
         newlyAddedAgents.add(
             new ImageCachingAgent(
@@ -153,7 +160,7 @@ public class ProviderHelpers {
                 region.getName(),
                 objectMapper,
                 registry,
-                publicImages,
+                false,
                 dynamicConfigService));
         newlyAddedAgents.add(
             new InstanceCachingAgent(
