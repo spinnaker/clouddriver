@@ -113,8 +113,9 @@ public class GitJobExecutor {
   public void archive(Path localClone, String branch, String subDir, Path outputFile)
       throws IOException {
 
-List<String> command = Arrays.asList(
-  gitExecutable , "archive", "--format", "tgz", "--output", outputFile.toString(), branch);
+    List<String> command =
+        Arrays.asList(
+            gitExecutable, "archive", "--format", "tgz", "--output", outputFile.toString(), branch);
     if (!StringUtils.isEmpty(subDir)) {
       command.add(subDir);
     }
