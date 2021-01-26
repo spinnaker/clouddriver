@@ -71,6 +71,7 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
   AzureExtensionCustomScriptSettings customScriptsSettings
   Boolean enableInboundNAT = false
   List<VirtualMachineScaleSetDataDisk> dataDisks
+  String windowsTimeZone
 
   static class AzureScaleSetSku {
     String name
@@ -192,6 +193,8 @@ class AzureServerGroupDescription extends AzureResourceOpsDescription implements
 
     azureSG.region = scaleSet.location()
     azureSG.upgradePolicy = getPolicyFromMode(scaleSet.upgradePolicy().mode().name())
+
+    azureSG.windowsTimeZone = scaleSet.virtualMachineProfile()?.osProfile()?.windowsConfiguration()?.timeZone()
 
     // Get the image reference data
     def storageProfile = scaleSet.virtualMachineProfile()?.storageProfile()

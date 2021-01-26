@@ -109,7 +109,7 @@ class AzureServerGroupResourceTemplate {
   interface TemplateVariables {}
 
   static class CoreServerGroupTemplateVariables implements TemplateVariables {
-    final String apiVersion = "2018-10-01"
+    final String apiVersion = "2019-03-01"
     String publicIPAddressName = ""
     String publicIPAddressID = ""
     String publicIPAddressType = ""
@@ -458,6 +458,23 @@ class AzureServerGroupResourceTemplate {
     }
   }
 
+  static class ScaleSetOsProfileWindowsConfiguration extends ScaleSetOsProfileProperty implements ScaleSetOsProfile {
+    OsProfileWindowsConfiguration windowsConfiguration
+
+    ScaleSetOsProfileWindowsConfiguration(AzureServerGroupDescription description) {
+      super(description)
+      windowsConfiguration = new OsProfileWindowsConfiguration(description)
+    }
+  }
+
+  static class OsProfileWindowsConfiguration {
+    String timeZone
+
+    OsProfileWindowsConfiguration(AzureServerGroupDescription description) {
+      timeZone = description.windowsTimeZone
+    }
+  }
+
   static class ScaleSetOsProfileLinuxConfiguration extends ScaleSetOsProfileProperty implements ScaleSetOsProfile {
     OsProfileLinuxConfiguration linuxConfiguration
 
@@ -651,10 +668,13 @@ class AzureServerGroupResourceTemplate {
         new ScaleSetCustomManagedImageStorageProfile(description) :
         new ScaleSetStorageProfile(description)
 
-      if(description.credentials.useSshPublicKey){
+      if (description.credentials.useSshPublicKey) {
         osProfile = new ScaleSetOsProfileLinuxConfiguration(description)
       }
-      else{
+      else if (description.windowsTimeZone) {
+        osProfile = new ScaleSetOsProfileWindowsConfiguration(description)
+      }
+      else {
         osProfile = new ScaleSetOsProfileProperty(description)
       }
 
