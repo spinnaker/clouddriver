@@ -47,6 +47,7 @@ interface LaunchConfigurationBuilder {
     boolean instanceMonitoring
     List<AmazonBlockDevice> blockDevices
     List<String> securityGroups
+    Map<String, String> blockDeviceTags
   }
 
   /**

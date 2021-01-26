@@ -110,7 +110,7 @@ class ModifyAsgLaunchConfigurationOperation implements AtomicOperation<Void> {
           [deviceName: it.deviceName, virtualName: it.virtualName, size: it.size]
         }.sort { it.deviceName }
 
-        if (blockDevicesForSourceLaunchConfig == blockDevicesForSourceInstanceType) {
+        if (blockDevicesForSourceLaunclhConfig == blockDevicesForSourceInstanceType) {
           // use default block mappings for the new instance type (since default block mappings were used on the previous instance type)
           props.blockDevices = blockDeviceConfig.getBlockDevicesForInstanceType(description.instanceType)
         }

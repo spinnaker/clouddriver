@@ -31,9 +31,7 @@ import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.kork.core.RetrySupport;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class LaunchTemplateService {
   private final AmazonEC2 ec2;
@@ -241,6 +239,15 @@ public class LaunchTemplateService {
       Boolean requireIMDSv2,
       Boolean associateIPv6Address,
       Boolean unlimitedCpuCredits) {
+    LaunchTemplateTagSpecificationRequest lter = new LaunchTemplateTagSpecificationRequest();
+    lter.setResourceType(ResourceType.Volume.toString());
+
+    Map<String, String> blockDeviceTags = settings.getBlockDeviceTags();
+    List<Tag> tags = new ArrayList<>();
+    for (Map.Entry<String, String> entry : blockDeviceTags.entrySet()) {
+      tags.add(new Tag().withKey(entry.getKey()).withValue(entry.getValue()));
+    }
+    lter.setTags(tags);
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(settings.getAmi())
@@ -249,6 +256,7 @@ public class LaunchTemplateService {
             .withRamDiskId(settings.getRamdiskId())
             .withEbsOptimized(settings.getEbsOptimized())
             .withKeyName(settings.getKeyPair())
+            .withTagSpecifications(lter)
             .withIamInstanceProfile(
                 new LaunchTemplateIamInstanceProfileSpecificationRequest()
                     .withName(settings.getIamRole()))
