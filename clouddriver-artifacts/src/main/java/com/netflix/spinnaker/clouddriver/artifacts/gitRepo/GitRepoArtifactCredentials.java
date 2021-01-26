@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import java.io.Closeable;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
 
 @NonnullByDefault
 @Slf4j
@@ -60,17 +62,20 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
     String remoteRef = artifactVersion(artifact);
     Path stagingPath =
         Paths.get(System.getProperty("java.io.tmpdir"), UUID.randomUUID().toString());
-
-    executor.clone(repoReference, remoteRef, stagingPath);
     String repoBasename = getRepoBasename(repoReference);
     Path outputFile = Paths.get(stagingPath.toString(), repoBasename + ".tgz");
 
-    log.info("Creating archive for git/repo {}", repoReference);
+    // delete temporary files before returning
+    try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
+      executor.clone(repoReference, remoteRef, stagingPath);
 
-    executor.archive(
-        Paths.get(stagingPath.toString(), repoBasename), remoteRef, subPath, outputFile);
+      log.info("Creating archive for git/repo {}", repoReference);
 
-    return new FileInputStream(outputFile.toFile());
+      executor.archive(
+          Paths.get(stagingPath.toString(), repoBasename), remoteRef, subPath, outputFile);
+
+      return new FileInputStream(outputFile.toFile());
+    }
   }
 
   private String getRepoBasename(String url) {
