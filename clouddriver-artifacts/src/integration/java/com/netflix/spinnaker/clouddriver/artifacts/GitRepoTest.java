@@ -114,6 +114,34 @@ public class GitRepoTest {
 
   @DisplayName(
       ".\n===\n"
+          + "Given a git repo url without '.git' suffix\n"
+          + "When sending download artifact request\n"
+          + "Then the repo is downloaded\n===")
+  @Test
+  public void shouldDownloadGitRepoWithoutUrlSuffix() throws IOException, InterruptedException {
+    // given
+    Map<String, Object> body =
+        ImmutableMap.of(
+            "artifactAccount", "token-auth",
+            "reference", giteaContainer.httpUrl().replaceAll(".git$", ""),
+            "type", "git/repo",
+            "version", "master");
+
+    // when
+    Response response =
+        given().body(body).contentType("application/json").put(baseUrl() + "/artifacts/fetch");
+    if (response.statusCode() != 200) {
+      response.prettyPrint();
+    }
+    assertEquals(200, response.statusCode());
+
+    // then
+    byte[] bytes = response.getBody().asByteArray();
+    assertBytesHaveReadmeFile(bytes);
+  }
+
+  @DisplayName(
+      ".\n===\n"
           + "Given a gitrepo account with ssh keys\n"
           + "When sending download artifact request\n"
           + "Then the repo is downloaded\n===")

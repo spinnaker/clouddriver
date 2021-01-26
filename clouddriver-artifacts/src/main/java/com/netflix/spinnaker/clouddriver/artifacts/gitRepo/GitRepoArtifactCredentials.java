@@ -38,7 +38,7 @@ import org.apache.commons.io.FileUtils;
 @Slf4j
 public class GitRepoArtifactCredentials implements ArtifactCredentials {
   public static final String CREDENTIALS_TYPE = "git/repo";
-  private static final Pattern GIT_URL_PATTERN = Pattern.compile("^.*/(.*)\\.git$");
+  private static final Pattern GENERIC_URL_PATTERN = Pattern.compile("^.*/(.*)$");
 
   @Getter private final ImmutableList<String> types = ImmutableList.of("git/repo");
   @Getter private final String name;
@@ -79,12 +79,12 @@ public class GitRepoArtifactCredentials implements ArtifactCredentials {
   }
 
   private String getRepoBasename(String url) {
-    Matcher matcher = GIT_URL_PATTERN.matcher(url);
+    Matcher matcher = GENERIC_URL_PATTERN.matcher(url);
     if (!matcher.matches()) {
       throw new IllegalArgumentException(
-          "Git repo url " + url + " doesn't match regex " + GIT_URL_PATTERN);
+          "Git repo url " + url + " doesn't match regex " + GENERIC_URL_PATTERN);
     }
-    return matcher.group(1);
+    return matcher.group(1).replaceAll("\\.git$", "");
   }
 
   private String artifactSubPath(Artifact artifact) {
