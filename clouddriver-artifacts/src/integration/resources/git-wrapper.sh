@@ -7,8 +7,6 @@
 
 set -e
 
-echo "$@" >> /tmp/git-log
-
 git_args=$@
 
 # Change local paths for paths inside the container, and copy any needed files
@@ -34,9 +32,11 @@ function pre_process() {
   fi
 
   docker exec -i "$container_name" mkdir -p "$SSH_KEYS"
-  docker cp "${SSH_KEYS}/known_hosts" "$container_name":"${SSH_KEYS}/known_hosts"
   docker cp "${SSH_KEYS}/id_rsa_test" "$container_name":"${SSH_KEYS}/id_rsa_test"
   docker exec -i "$container_name" chmod 600 "${SSH_KEYS}/id_rsa_test"
+
+  docker exec -i "$container_name" mkdir -p "$BUILD_DIR/ssh"
+  docker cp "${BUILD_DIR}/ssh/known_hosts" "$container_name":"${BUILD_DIR}/ssh/known_hosts"
 
   if [[ -n "${SSH_ASKPASS}" ]] ; then
     docker exec -i "$container_name" mkdir -p "$(dirname "$SSH_ASKPASS")"
@@ -46,8 +46,6 @@ function pre_process() {
 }
 
 function execute() {
-  echo "docker exec -i $container_name git $git_args" >> /tmp/git-log
-  echo "GIT_SSH_COMMAND: $GIT_SSH_COMMAND, SSH_ASKPASS: $SSH_ASKPASS SSH_KEY_PWD: $SSH_KEY_PWD DISPLAY: $DISPLAY" >> /tmp/git-log
   docker exec -i -e GIT_SSH_COMMAND -e SSH_ASKPASS -e SSH_KEY_PWD -e DISPLAY -e GIT_CURL_VERBOSE -e GIT_TRACE "$container_name" git $git_args
 }
 

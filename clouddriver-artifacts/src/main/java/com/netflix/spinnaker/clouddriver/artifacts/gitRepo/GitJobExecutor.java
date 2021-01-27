@@ -260,7 +260,7 @@ public class GitJobExecutor {
   private String buildSshCommand() {
     String gitSshCmd = "setsid ssh";
     if (account.isSshTrustUnknownHosts()) {
-      gitSshCmd += "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no";
+      gitSshCmd += " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no";
     } else if (!StringUtils.isEmpty(account.getSshKnownHostsFilePath())) {
       gitSshCmd += " -o UserKnownHostsFile=" + account.getSshKnownHostsFilePath();
     }

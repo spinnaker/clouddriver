@@ -168,6 +168,35 @@ public class GitRepoTest {
     assertBytesHaveReadmeFile(bytes);
   }
 
+  @DisplayName(
+      ".\n===\n"
+          + "Given a gitrepo account with ssh keys\n"
+          + "  And a known_hosts file\n"
+          + "When sending download artifact request\n"
+          + "Then the repo is downloaded\n===")
+  @Test
+  public void shouldDownloadGitRepoWithSshAndKnownHosts() throws IOException, InterruptedException {
+    // given
+    Map<String, Object> body =
+        ImmutableMap.of(
+            "artifactAccount", "ssh-auth-known-hosts",
+            "reference", giteaContainer.sshUrl(),
+            "type", "git/repo",
+            "version", "master");
+
+    // when
+    Response response =
+        given().body(body).contentType("application/json").put(baseUrl() + "/artifacts/fetch");
+    if (response.statusCode() != 200) {
+      response.prettyPrint();
+    }
+    assertEquals(200, response.statusCode());
+
+    // then
+    byte[] bytes = response.getBody().asByteArray();
+    assertBytesHaveReadmeFile(bytes);
+  }
+
   private void assertBytesHaveReadmeFile(byte[] bytes) throws IOException, InterruptedException {
     Path archive = Paths.get(System.getenv("BUILD_DIR"), "downloads", "repo.tgz");
     if (archive.toFile().getParentFile().exists()) {
