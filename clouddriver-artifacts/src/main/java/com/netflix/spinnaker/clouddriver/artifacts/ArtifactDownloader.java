@@ -18,6 +18,8 @@
 package com.netflix.spinnaker.clouddriver.artifacts;
 
 import com.netflix.spinnaker.kork.artifacts.model.Artifact;
+import com.netflix.spinnaker.kork.exceptions.MissingCredentialsException;
+import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import lombok.RequiredArgsConstructor;
@@ -29,8 +31,12 @@ public class ArtifactDownloader {
   private final ArtifactCredentialsRepository artifactCredentialsRepository;
 
   public InputStream download(Artifact artifact) throws IOException {
-    return artifactCredentialsRepository
-        .getCredentials(artifact.getArtifactAccount(), artifact.getType())
-        .download(artifact);
+    try {
+      return artifactCredentialsRepository
+          .getCredentialsForType(artifact.getArtifactAccount(), artifact.getType())
+          .download(artifact);
+    } catch (MissingCredentialsException e) {
+      throw new NotFoundException(e);
+    }
   }
 }

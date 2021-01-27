@@ -22,22 +22,25 @@ import static java.util.Comparator.comparing;
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.*;
-import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder.LaunchConfigurationSettings;
+import com.netflix.spinnaker.clouddriver.aws.deploy.AutoScalingWorker.AsgConfiguration;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties;
-import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider;
-import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider.UserDataRequest;
+import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataInput;
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride;
 import com.netflix.spinnaker.kork.core.RetrySupport;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class LaunchTemplateService {
   private final AmazonEC2 ec2;
-  private final List<UserDataProvider> userDataProviders;
+  private final UserDataProviderAggregator userDataProviderAggregator;
   private final LocalFileUserDataProperties localFileUserDataProperties;
   private final RetrySupport retrySupport = new RetrySupport();
 
@@ -62,10 +65,10 @@ public class LaunchTemplateService {
 
   public LaunchTemplateService(
       AmazonEC2 ec2,
-      List<UserDataProvider> userDataProviders,
+      UserDataProviderAggregator userDataProviderAggregator,
       LocalFileUserDataProperties localFileUserDataProperties) {
     this.ec2 = ec2;
-    this.userDataProviders = userDataProviders;
+    this.userDataProviderAggregator = userDataProviderAggregator;
     this.localFileUserDataProperties = localFileUserDataProperties;
   }
 
@@ -115,14 +118,10 @@ public class LaunchTemplateService {
   }
 
   public LaunchTemplate createLaunchTemplate(
-      LaunchConfigurationSettings settings,
-      String launchTemplateName,
-      Boolean requireIMDSv2,
-      Boolean associateIPv6Address,
-      Boolean unlimitedCpuCredits) {
+      AsgConfiguration asgConfig, String asgName, String launchTemplateName) {
     final RequestLaunchTemplateData data =
-        buildLaunchTemplateData(
-            settings, launchTemplateName, requireIMDSv2, associateIPv6Address, unlimitedCpuCredits);
+        buildLaunchTemplateData(asgConfig, asgName, launchTemplateName);
+    log.debug("Creating launch template with name {}", launchTemplateName);
     return retrySupport.retry(
         () -> {
           final CreateLaunchTemplateRequest launchTemplateRequest =
@@ -180,7 +179,8 @@ public class LaunchTemplateService {
         credentials.getAccountType(),
         description.getIamRole(),
         description.getImageId(),
-        base64UserData);
+        base64UserData,
+        description.getUserDataOverride());
 
     // block device mappings
     if (description.getBlockDevices() != null) {
@@ -236,58 +236,55 @@ public class LaunchTemplateService {
 
   /** Build launch template data for new launch template creation */
   private RequestLaunchTemplateData buildLaunchTemplateData(
-      LaunchConfigurationSettings settings,
-      String launchTemplateName,
-      Boolean requireIMDSv2,
-      Boolean associateIPv6Address,
-      Boolean unlimitedCpuCredits) {
+      AsgConfiguration asgConfig, String asgName, String launchTemplateName) {
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
-            .withImageId(settings.getAmi())
-            .withKernelId(settings.getKernelId())
-            .withInstanceType(settings.getInstanceType())
-            .withRamDiskId(settings.getRamdiskId())
-            .withEbsOptimized(settings.getEbsOptimized())
-            .withKeyName(settings.getKeyPair())
+            .withImageId(asgConfig.getAmi())
+            .withKernelId(asgConfig.getKernelId())
+            .withInstanceType(asgConfig.getInstanceType())
+            .withRamDiskId(asgConfig.getRamdiskId())
+            .withEbsOptimized(asgConfig.getEbsOptimized())
+            .withKeyName(asgConfig.getKeyPair())
             .withIamInstanceProfile(
                 new LaunchTemplateIamInstanceProfileSpecificationRequest()
-                    .withName(settings.getIamRole()))
+                    .withName(asgConfig.getIamRole()))
             .withMonitoring(
                 new LaunchTemplatesMonitoringRequest()
-                    .withEnabled(settings.getInstanceMonitoring()));
+                    .withEnabled(asgConfig.getInstanceMonitoring()));
 
     setUserData(
         request,
-        settings.getBaseName(),
+        asgName,
         launchTemplateName,
-        settings.getRegion(),
-        settings.getAccount(),
-        settings.getEnvironment(),
-        settings.getAccountType(),
-        settings.getIamRole(),
-        settings.getAmi(),
-        settings.getBase64UserData());
+        asgConfig.getRegion(),
+        asgConfig.getCredentials().getName(),
+        asgConfig.getCredentials().getEnvironment(),
+        asgConfig.getCredentials().getAccountType(),
+        asgConfig.getIamRole(),
+        asgConfig.getAmi(),
+        asgConfig.getBase64UserData(),
+        asgConfig.getUserDataOverride());
 
     // block device mappings
-    request.setBlockDeviceMappings(buildDeviceMapping(settings.getBlockDevices()));
+    request.setBlockDeviceMappings(buildDeviceMapping(asgConfig.getBlockDevices()));
 
     // metadata options
-    if (requireIMDSv2 != null && requireIMDSv2) {
+    if (asgConfig.getRequireIMDSv2() != null && asgConfig.getRequireIMDSv2()) {
       request.setMetadataOptions(
           new LaunchTemplateInstanceMetadataOptionsRequest().withHttpTokens("required"));
     }
 
     // instance market options
-    setSpotInstanceMarketOptions(request, settings.getSpotPrice());
+    setSpotInstanceMarketOptions(request, asgConfig.getSpotMaxPrice());
 
-    setCreditSpecification(request, unlimitedCpuCredits);
+    setCreditSpecification(request, asgConfig.getUnlimitedCpuCredits());
 
     // network interfaces
     request.withNetworkInterfaces(
         new LaunchTemplateInstanceNetworkInterfaceSpecificationRequest()
-            .withAssociatePublicIpAddress(settings.getAssociatePublicIpAddress())
-            .withIpv6AddressCount(associateIPv6Address ? 1 : 0)
-            .withGroups(settings.getSecurityGroups())
+            .withAssociatePublicIpAddress(asgConfig.getAssociatePublicIpAddress())
+            .withIpv6AddressCount(asgConfig.getAssociateIPv6Address() ? 1 : 0)
+            .withGroups(asgConfig.getSecurityGroups())
             .withDeviceIndex(0));
 
     return request;
@@ -328,9 +325,10 @@ public class LaunchTemplateService {
       String accType,
       String iamRole,
       String imageId,
-      String base64UserData) {
-    final UserDataRequest userDataRequest =
-        UserDataRequest.builder()
+      String base64UserData,
+      UserDataOverride userDataOverride) {
+    final UserDataInput userDataRequest =
+        UserDataInput.builder()
             .launchTemplate(true)
             .asgName(asgName)
             .launchSettingName(launchTemplateName)
@@ -340,8 +338,11 @@ public class LaunchTemplateService {
             .accountType(accType)
             .iamRole(iamRole)
             .imageId(imageId)
+            .userDataOverride(userDataOverride)
+            .base64UserData(base64UserData)
             .build();
-    request.setUserData(userDataRequest.getUserData(userDataProviders, base64UserData));
+
+    request.setUserData(userDataProviderAggregator.aggregate(userDataRequest));
   }
 
   private List<LaunchTemplateBlockDeviceMappingRequest> buildDeviceMapping(
