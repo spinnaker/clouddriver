@@ -229,7 +229,10 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
           def applicationName = names.app
           def clusterName = names.cluster
           def instances = instancesByServerGroup[serverGroup] ?: []
-
+          // Let's try out a new ServerGroupKey
+          // Turns out that did not work b/c the interface for getServerGroup is pretty set...
+          // What if I can just add the loadBalancer if the key already exists.
+          // def serverGroupKey = Keys.getServerGroupKeyWithLoadBalancer(accountName, serverGroupName, credentials.region, loadBalancerName)
           def serverGroupKey = Keys.getServerGroupKey(accountName, serverGroupName, credentials.region)
           def applicationKey = Keys.getApplicationKey(applicationName)
           def clusterKey = Keys.getClusterKey(accountName, applicationName, clusterName)
@@ -264,14 +267,25 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
             keys
           })
 
+          if (cachedServerGroups.containsKey(serverGroupKey)) {
+            log.info("serverGroup: ${serverGroupName} already exist")
+          }
+
           cachedServerGroups[serverGroupKey].with {
             attributes.name = serverGroupName
             def isDisabled = !loadBalancer.getSplit().getAllocations().containsKey(serverGroupName);
-            attributes.serverGroup = new AppengineServerGroup(serverGroup,
-                                                              accountName,
-                                                              credentials.region,
-                                                              loadBalancerName,
-                                                              isDisabled)
+            if (attributes.serverGroup == null) {
+              log.info("creating new serverGroup: ${serverGroup}")
+              attributes.serverGroup = new AppengineServerGroup(serverGroup,
+                accountName,
+                credentials.region,
+                loadBalancerName,
+                isDisabled)
+            } else {
+              log.info("updating serverGroup: ${serverGroup}")
+              // How the hell would I now handle groups that was deleted?.
+              attributes.serverGroup.update(serverGroup, accountName, credentials.region, loadBalancerName, isDisabled)
+            }
             relationships[APPLICATIONS.ns].add(applicationKey)
             relationships[CLUSTERS.ns].add(clusterKey)
             relationships[INSTANCES.ns].addAll(instanceKeys)
@@ -288,10 +302,15 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
     }
 
     log.info("Caching ${cachedApplications.size()} applications in ${agentType}")
+    log.info("Applications ${cachedApplications}")
     log.info("Caching ${cachedClusters.size()} clusters in ${agentType}")
+    log.info("Clusters: ${cachedClusters}")
     log.info("Caching ${cachedServerGroups.size()} server groups in ${agentType}")
+    log.info("ServerGroups: ${cachedServerGroups}")
     log.info("Caching ${cachedLoadBalancers.size()} load balancers in ${agentType}")
+    log.info("LoadBalancers:  ${cachedLoadBalancers}")
     log.info("Caching ${cachedInstances.size()} instances in ${agentType}")
+    log.info("Instances: ${cachedInstances}")
 
     new DefaultCacheResult([
       (APPLICATIONS.ns): cachedApplications.values(),

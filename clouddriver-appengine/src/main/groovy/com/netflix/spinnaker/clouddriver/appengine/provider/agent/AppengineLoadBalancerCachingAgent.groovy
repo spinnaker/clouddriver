@@ -180,6 +180,7 @@ class AppengineLoadBalancerCachingAgent extends AbstractAppengineCachingAgent im
 
     services.each { Service service ->
       def loadBalancerKey = Keys.getLoadBalancerKey(accountName, service.getId())
+      log.info("loadBalancerKey: ${loadBalancerKey}, serviceID: ${service.getId()}")
       def loadBalancerName = service.getId()
       def onDemandData = onDemandKeep ? onDemandKeep[loadBalancerKey] : null
 

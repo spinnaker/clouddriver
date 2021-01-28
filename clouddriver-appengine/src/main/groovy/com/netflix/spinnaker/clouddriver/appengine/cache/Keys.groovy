@@ -134,4 +134,15 @@ class Keys {
     Names names = Names.parseName(serverGroupName)
     "$AppengineCloudProvider.ID:${Namespace.SERVER_GROUPS}:${names.cluster}:${account}:${region}:${names.group}"
   }
+
+  static String getServerGroupKeyWithLoadBalancer(String account, String serverGroupName, String region, String loadBalancer) {
+    Names names = Names.parseName(serverGroupName)
+    // What does the group stand for?
+    "$AppengineCloudProvider.ID:${Namespace.SERVER_GROUPS}:${names.cluster}:${account}:${region}:${loadBalancer}:${names.group}"
+  }
+
+  static String getLoadBalancersForServerGroup(String account, String serverGroupName, String region) {
+    Names names = Names.parseName(serverGroupName)
+    "$AppengineCloudProvider.ID:${Namespace.APPLICATIONS}:relationships:appengine:applications:${serverGroupName}:${Namespace.LOAD_BALANCERS}:int82/AppengineServerGroupCachingAgent"
+  }
 }
