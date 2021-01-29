@@ -96,8 +96,10 @@ public class SubmitTitusJob extends AbstractTitusDeployAction
                 if (isServiceExceptionRetryable(description, e)) {
                   String statusDescription = e.getStatus().getDescription();
                   if (statusDescription != null
-                      && statusDescription.contains(
-                          "Job sequence id reserved by another pending job")) {
+                      && (statusDescription.contains(
+                              "Job sequence id reserved by another pending job")
+                          || statusDescription.contains(
+                              "Constraint violation - job with group sequence"))) {
                     nextServerGroupName[0] =
                         TitusJobNameResolver.resolveJobName(titusClient, description);
                     saga.log("Retrying with job name %s", nextServerGroupName[0]);
