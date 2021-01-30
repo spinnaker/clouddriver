@@ -25,8 +25,6 @@ import com.netflix.spinnaker.clouddriver.appengine.AppengineCloudProvider
 import com.netflix.spinnaker.clouddriver.appengine.cache.Keys
 import com.netflix.spinnaker.clouddriver.appengine.model.*
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
@@ -34,7 +32,6 @@ import static com.netflix.spinnaker.clouddriver.appengine.cache.Keys.Namespace.*
 
 @Component
 class AppengineClusterProvider implements ClusterProvider<AppengineCluster> {
-
   @Autowired
   Cache cacheView
 
@@ -53,7 +50,6 @@ class AppengineClusterProvider implements ClusterProvider<AppengineCluster> {
       return []
     }
 
-    logger.warn("Was here!!")
     Collection<String> clusterKeys = application.relationships[CLUSTERS.ns]
       .findAll { Keys.parse(it).account == account }
     Collection<CacheData> clusterData = cacheView.getAll(CLUSTERS.ns, clusterKeys)
@@ -83,11 +79,7 @@ class AppengineClusterProvider implements ClusterProvider<AppengineCluster> {
   @Override
   AppengineServerGroup getServerGroup(String account, String region, String serverGroupName, boolean includeDetails) {
     String serverGroupKey = Keys.getServerGroupKey(account, serverGroupName, region)
-    String loadBalancersKey = Keys.getLoadBalancersForServerGroup(account, serverGroupName, region)
     CacheData serverGroupData = cacheView.get(SERVER_GROUPS.ns, serverGroupKey)
-//   CacheData loadBalancerGroupData = cacheView.get(APPLICATIONS.ns, loadBalancersKey)
-//   CacheData application = cacheView.get(APPLICATIONS.ns, serverGroupName);
-//   CacheData allApps = cacheView.getAll(APPLICATIONS.ns)
 
     if (!serverGroupData) {
       return null
