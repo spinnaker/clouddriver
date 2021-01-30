@@ -35,7 +35,7 @@ public interface ApplicationService {
       @Query("page") Integer page,
       @Query("per_page") Integer perPage,
       @Query("names") List<String> names,
-      @Query("space_guids") List<String> spaceGuids);
+      @Query("space_guids") String spaceGuids);
 
   @GET("/v3/apps/{guid}")
   Application findById(@Path("guid") String guid);
@@ -114,4 +114,7 @@ public interface ApplicationService {
 
   @PATCH("/v3/apps/{guid}/relationships/current_droplet")
   Response setCurrentDroplet(@Path("guid") String appGuid, @Body ToOneRelationship body);
+
+  @POST("/v2/apps/{guid}/restage")
+  Response restageApplication(@Path("guid") String appGuid, @Body Object dummy);
 }

@@ -18,16 +18,20 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.caching.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.cats.cache.CacheData
+import com.google.common.collect.ImmutableList
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
 import com.netflix.spinnaker.clouddriver.kubernetes.caching.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPodMetric
+import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesSpinnakerKindMap
+import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiGroup
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesApiVersion
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKind
-import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesKindProperties
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifestAnnotater
 import com.netflix.spinnaker.clouddriver.kubernetes.names.KubernetesManifestNamer
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesDeploymentHandler
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesReplicaSetHandler
+import com.netflix.spinnaker.clouddriver.kubernetes.op.handler.KubernetesServiceHandler
 import com.netflix.spinnaker.clouddriver.names.NamerRegistry
 import com.netflix.spinnaker.moniker.Moniker
 import org.apache.commons.lang3.tuple.Pair
@@ -39,8 +43,6 @@ import spock.lang.Unroll
 class KubernetesCacheDataConvertSpec extends Specification {
   def mapper = new ObjectMapper()
   def yaml = new Yaml(new SafeConstructor())
-  def ACCOUNT = "my-account"
-  def NAMESPACE = "spinnaker"
 
   KubernetesManifest stringToManifest(String input) {
     return mapper.convertValue(yaml.load(input), KubernetesManifest.class)
@@ -76,10 +78,11 @@ metadata:
     KubernetesCacheDataConverter.convertAsResource(
       kubernetesCacheData,
       account,
-      KubernetesKindProperties.create(kind, true),
+      new KubernetesSpinnakerKindMap(ImmutableList.of(new KubernetesDeploymentHandler(), new KubernetesReplicaSetHandler(), new KubernetesServiceHandler())),
       new KubernetesManifestNamer(),
       manifest,
-      [])
+      [],
+      false)
     def optional = kubernetesCacheData.toCacheData().stream().filter({
       cd -> cd.id == Keys.InfrastructureCacheKey.createKey(kind, account, namespace, name)
     }).findFirst()
@@ -107,6 +110,63 @@ metadata:
     KubernetesKind.REPLICA_SET | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "one-app"   | "the-cluster" | "some-namespace" | "a-name-v000"
     KubernetesKind.DEPLOYMENT  | KubernetesApiVersion.EXTENSIONS_V1BETA1 | "my-account"      | "one-app"   | "the-cluster" | "some-namespace" | "a-name"
     KubernetesKind.SERVICE     | KubernetesApiVersion.V1                 | "another-account" | "your-app"  | null          | "some-namespace" | "what-name"
+  }
+
+  @Unroll
+  void  "given an unclassified resource, application relationships are only cached if `cacheAllRelationships` is set: #cacheAllRelationships"() {
+    setup:
+    def apiGroup = "any.resource.com"
+    def kind = "MyCRD"
+    def qualifiedKind = KubernetesKind.from("MyCRD", KubernetesApiGroup.fromString(apiGroup))
+    def name = "my-crd"
+    def namespace = "my-namespace"
+    def application = "one-app"
+    def cluster = "the-cluster"
+    def account = "my-account"
+    def rawManifest = """
+apiVersion: ${apiGroup}/v1
+kind: $kind
+metadata:
+  name: $name
+  namespace: $namespace
+"""
+
+    def moniker = Moniker.builder()
+      .app(application)
+      .cluster(cluster)
+      .build()
+
+    NamerRegistry.lookup()
+      .withProvider(KubernetesCloudProvider.ID)
+      .withAccount(account)
+      .setNamer(KubernetesManifest, new KubernetesManifestNamer())
+
+    def manifest = stringToManifest(rawManifest)
+    KubernetesManifestAnnotater.annotateManifest(manifest, moniker)
+
+    when:
+    KubernetesCacheData kubernetesCacheData = new KubernetesCacheData()
+    KubernetesCacheDataConverter.convertAsResource(
+      kubernetesCacheData,
+      account,
+      new KubernetesSpinnakerKindMap(ImmutableList.of(new KubernetesDeploymentHandler(), new KubernetesReplicaSetHandler(), new KubernetesServiceHandler())),
+      new KubernetesManifestNamer(),
+      manifest,
+      [],
+      cacheAllRelationships
+    )
+    def optional = kubernetesCacheData.toCacheData().stream().filter({
+      cd -> cd.id == Keys.InfrastructureCacheKey.createKey(qualifiedKind, account, namespace, name)
+    }).findFirst()
+
+    then:
+    optional.isPresent()
+    def relationships =  optional.get().relationships
+    def applicationRelationships = relationships.get(Keys.LogicalKind.APPLICATIONS.toString())
+    applicationRelationships.equals(cacheAllRelationships ? [Keys.ApplicationCacheKey.createKey(application)].toSet() : null);
+
+    where:
+    cacheAllRelationships << [false, true]
   }
 
   @Unroll

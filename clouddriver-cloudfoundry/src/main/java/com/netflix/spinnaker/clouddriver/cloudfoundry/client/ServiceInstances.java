@@ -23,6 +23,7 @@ import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Las
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.LastOperation.Type.*;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance.Type.MANAGED_SERVICE_INSTANCE;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.ServiceInstance.Type.USER_PROVIDED_SERVICE_INSTANCE;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -50,34 +51,31 @@ import org.springframework.util.StringUtils;
 public class ServiceInstances {
   private final ServiceInstanceService api;
   private final ConfigService configApi;
-  private final Organizations orgs;
   private final Spaces spaces;
 
-  public Void createServiceBindingsByName(
-      CloudFoundryServerGroup cloudFoundryServerGroup,
-      @Nullable List<String> serviceInstanceNames) {
-    if (serviceInstanceNames != null && !serviceInstanceNames.isEmpty()) {
-      List<String> serviceInstanceQuery =
-          getServiceQueryParams(serviceInstanceNames, cloudFoundryServerGroup.getSpace());
-      List<Resource<? extends AbstractServiceInstance>> serviceInstances = new ArrayList<>();
-      serviceInstances.addAll(
-          collectPageResources("service instances", pg -> api.all(pg, serviceInstanceQuery)));
-      serviceInstances.addAll(
-          collectPageResources(
-              "service instances", pg -> api.allUserProvided(pg, serviceInstanceQuery)));
+  public void createServiceBinding(CreateServiceBinding createServiceBinding) {
+    try {
+      safelyCall(() -> api.createServiceBinding(createServiceBinding)).get();
+    } catch (CloudFoundryApiException e) {
+      if (e.getErrorCode() == null) throw e;
 
-      if (serviceInstances.size() != serviceInstanceNames.size()) {
-        throw new CloudFoundryApiException(
-            "Number of service instances does not match the number of service names");
-      }
-
-      for (Resource<? extends AbstractServiceInstance> serviceInstance : serviceInstances) {
-        api.createServiceBinding(
-            new CreateServiceBinding(
-                serviceInstance.getMetadata().getGuid(), cloudFoundryServerGroup.getId()));
+      switch (e.getErrorCode()) {
+        case SERVICE_INSTANCE_ALREADY_BOUND:
+          return;
+        default:
+          throw e;
       }
     }
-    return null;
+  }
+
+  public List<Resource<ServiceBinding>> findAllServiceBindingsByApp(String appGuid) {
+    String bindingsQuery = "app_guid:" + appGuid;
+    return collectPageResources(
+        "service bindings", pg -> api.getAllServiceBindings(singletonList(bindingsQuery)));
+  }
+
+  public void deleteServiceBinding(String serviceBindingGuid) {
+    safelyCall(() -> api.deleteServiceBinding(serviceBindingGuid));
   }
 
   private Resource<Service> findServiceByServiceName(String serviceName) {
@@ -107,7 +105,8 @@ public class ServiceInstances {
   }
 
   public List<CloudFoundryService> findAllServicesByRegion(String region) {
-    return orgs.findSpaceByRegion(region)
+    return spaces
+        .findSpaceByRegion(region)
         .map(
             space -> {
               List<Resource<Service>> services =
@@ -127,11 +126,25 @@ public class ServiceInstances {
         .orElse(Collections.emptyList());
   }
 
+  public List<Resource<? extends AbstractServiceInstance>> findAllServicesBySpaceAndNames(
+      CloudFoundrySpace space, List<String> serviceInstanceNames) {
+    if (serviceInstanceNames == null || serviceInstanceNames.isEmpty()) return emptyList();
+    List<String> serviceInstanceQuery = getServiceQueryParams(serviceInstanceNames, space);
+    List<Resource<? extends AbstractServiceInstance>> serviceInstances = new ArrayList<>();
+    serviceInstances.addAll(
+        collectPageResources("service instances", pg -> api.all(pg, serviceInstanceQuery)));
+    serviceInstances.addAll(
+        collectPageResources(
+            "service instances", pg -> api.allUserProvided(pg, serviceInstanceQuery)));
+    return serviceInstances;
+  }
+
   // Visible for testing
   CloudFoundryServiceInstance getOsbServiceInstanceByRegion(
       String region, String serviceInstanceName) {
     CloudFoundrySpace space =
-        orgs.findSpaceByRegion(region)
+        spaces
+            .findSpaceByRegion(region)
             .orElseThrow(() -> new CloudFoundryApiException("Cannot find region '" + region + "'"));
     return Optional.ofNullable(getOsbServiceInstance(space, serviceInstanceName))
         .orElseThrow(
@@ -166,7 +179,8 @@ public class ServiceInstances {
                 throw new CloudFoundryApiException(
                     "Cannot specify 'org > space' as any of the " + gerund + " regions");
               }
-              return orgs.findSpaceByRegion(r)
+              return spaces
+                  .findSpaceByRegion(r)
                   .orElseThrow(
                       () ->
                           new CloudFoundryApiException(
@@ -316,7 +330,8 @@ public class ServiceInstances {
   @Nullable
   public CloudFoundryServiceInstance getServiceInstance(String region, String serviceInstanceName) {
     CloudFoundrySpace space =
-        orgs.findSpaceByRegion(region)
+        spaces
+            .findSpaceByRegion(region)
             .orElseThrow(() -> new CloudFoundryApiException("Cannot find region '" + region + "'"));
     Supplier<CloudFoundryServiceInstance> si =
         () -> Optional.ofNullable(getOsbServiceInstance(space, serviceInstanceName)).orElse(null);

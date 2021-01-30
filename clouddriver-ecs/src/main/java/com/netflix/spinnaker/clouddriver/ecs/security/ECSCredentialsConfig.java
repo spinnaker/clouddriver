@@ -16,16 +16,37 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.security;
 
+import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import java.util.List;
 import lombok.Data;
 
 @Data
 public class ECSCredentialsConfig {
+  String defaultNamingStrategy = "default";
   List<Account> accounts;
 
   @Data
-  public static class Account {
+  public static class Account implements CredentialsDefinition {
     private String name;
     private String awsAccount;
+    private String namingStrategy;
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+
+      Account account = (Account) o;
+
+      if (!name.equals(account.name)) return false;
+      return awsAccount.equals(account.awsAccount);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = name.hashCode();
+      result = 31 * result + awsAccount.hashCode();
+      return result;
+    }
   }
 }

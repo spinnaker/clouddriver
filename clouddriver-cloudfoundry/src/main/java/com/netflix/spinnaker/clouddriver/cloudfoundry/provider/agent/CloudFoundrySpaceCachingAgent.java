@@ -40,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -64,7 +65,18 @@ public class CloudFoundrySpaceCachingAgent extends AbstractCloudFoundryCachingAg
     String accountName = getAccountName();
     log.info("Caching all spaces in Cloud Foundry account " + accountName);
 
-    List<CloudFoundrySpace> spaces = getCredentials().getSpacesLive();
+    List<CloudFoundrySpace> spaces = this.getClient().getSpaces().all();
+
+    if (!this.getCredentials().getFilteredSpaces().isEmpty()) {
+      List<String> filteredRegions =
+          this.getCredentials().getFilteredSpaces().stream()
+              .map(s -> s.getRegion())
+              .collect(Collectors.toList());
+      spaces =
+          spaces.stream()
+              .filter(s -> filteredRegions.contains(s.getRegion()))
+              .collect(Collectors.toList());
+    }
 
     Map<String, Collection<CacheData>> results =
         ImmutableMap.of(
@@ -95,7 +107,7 @@ public class CloudFoundrySpaceCachingAgent extends AbstractCloudFoundryCachingAg
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     return null;
   }
 }

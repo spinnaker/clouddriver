@@ -29,7 +29,8 @@ import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.config.AwsConfiguration.DeployDefaults
 import com.netflix.spinnaker.clouddriver.aws.deploy.AmiIdResolver
 import com.netflix.spinnaker.clouddriver.aws.deploy.AutoScalingWorker
-import com.netflix.spinnaker.clouddriver.aws.deploy.BlockDeviceConfig
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig
 import com.netflix.spinnaker.clouddriver.aws.deploy.ResolvedAmiResult
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.BasicAmazonDeployDescription
 import com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.LoadBalancerLookupHelper
@@ -46,7 +47,8 @@ import com.netflix.spinnaker.clouddriver.deploy.DeployDescription
 import com.netflix.spinnaker.clouddriver.deploy.DeployHandler
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.orchestration.events.CreateServerGroupEvent
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
+import com.netflix.spinnaker.credentials.CredentialsRepository
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import groovy.transform.PackageScope
 import groovy.util.logging.Slf4j
 
@@ -57,42 +59,34 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
   private static final String BASE_PHASE = "DEPLOY"
   private static final String SUBNET_ID_OVERRIDE_TAG = "SPINNAKER_SUBNET_ID_OVERRIDE"
 
-
-  private static final KNOWN_VIRTUALIZATION_FAMILIES = [
-    paravirtual: ['c1', 'c3', 'hi1', 'hs1', 'm1', 'm2', 'm3', 't1'],
-    hvm: ['c3', 'c4', 'd2', 'i2', 'g2', 'r3', 'm3', 'm4', 't2']
-  ]
-
-  // http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSOptimized.html
-  private static final DEFAULT_EBS_OPTIMIZED_FAMILIES = [
-    'c4', 'd2', 'f1', 'g3', 'i3', 'm4', 'p2', 'r4', 'x1'
-  ]
-
   private static Task getTask() {
     TaskRepository.threadLocalTask.get()
   }
 
   private final RegionScopedProviderFactory regionScopedProviderFactory
-  private final AccountCredentialsRepository accountCredentialsRepository
+  private final CredentialsRepository<NetflixAmazonCredentials> accountCredentialsRepository
   private final AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider
   private final AwsConfiguration.DeployDefaults deployDefaults
   private final ScalingPolicyCopier scalingPolicyCopier
   private final BlockDeviceConfig blockDeviceConfig
+  private final DynamicConfigService dynamicConfigService
 
   private List<CreateServerGroupEvent> deployEvents = []
 
   BasicAmazonDeployHandler(RegionScopedProviderFactory regionScopedProviderFactory,
-                           AccountCredentialsRepository accountCredentialsRepository,
+                           CredentialsRepository<NetflixAmazonCredentials> accountCredentialsRepository,
                            AwsConfiguration.AmazonServerGroupProvider amazonServerGroupProvider,
                            AwsConfiguration.DeployDefaults deployDefaults,
                            ScalingPolicyCopier scalingPolicyCopier,
-                           BlockDeviceConfig blockDeviceConfig) {
+                           BlockDeviceConfig blockDeviceConfig,
+                           DynamicConfigService dynamicConfigService) {
     this.regionScopedProviderFactory = regionScopedProviderFactory
     this.accountCredentialsRepository = accountCredentialsRepository
     this.amazonServerGroupProvider = amazonServerGroupProvider
     this.deployDefaults = deployDefaults
     this.scalingPolicyCopier = scalingPolicyCopier
     this.blockDeviceConfig = blockDeviceConfig
+    this.dynamicConfigService = dynamicConfigService
   }
 
   @Override
@@ -239,11 +233,11 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
       if (!ami) {
         throw new IllegalArgumentException("unable to resolve AMI imageId from $description.amiName in $region")
       }
-      validateInstanceType(ami, description.instanceType)
+      InstanceTypeUtils.validateCompatibility(ami.virtualizationType, description.instanceType)
 
       def account = accountCredentialsRepository.getOne(description.credentials.name)
-      if (!(account instanceof NetflixAmazonCredentials)) {
-        throw new IllegalArgumentException("Unsupported account type ${account.class.simpleName} for this operation")
+      if (account == null) {
+        throw new IllegalArgumentException("Account with name ${description.credentials.name} could not be found.")
       }
 
       if (description.useAmiBlockDeviceMappings) {
@@ -260,7 +254,10 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
           desired: description.capacity.desired ?: 0
       )
 
-      def autoScalingWorker = new AutoScalingWorker(
+      def autoScalingWorker = new AutoScalingWorker(regionScopedProvider, dynamicConfigService)
+
+      // build AsgWorker configuration and then call deploy
+      def asgConfig = new AutoScalingWorker.AsgConfiguration(
         application: description.application,
         region: region,
         credentials: description.credentials,
@@ -291,23 +288,26 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         healthCheckGracePeriod: description.healthCheckGracePeriod,
         healthCheckType: description.healthCheckType,
         terminationPolicies: description.terminationPolicies,
-        spotPrice: description.spotPrice,
+        spotMaxPrice: description.spotPrice,
         suspendedProcesses: description.suspendedProcesses,
         kernelId: description.kernelId,
         ramdiskId: description.ramdiskId,
         instanceMonitoring: description.instanceMonitoring,
-        ebsOptimized: description.ebsOptimized == null ? getDefaultEbsOptimizedFlag(description.instanceType) : description.ebsOptimized,
-        regionScopedProvider: regionScopedProvider,
-        base64UserData: description.base64UserData,
+        ebsOptimized: description.ebsOptimized == null ? InstanceTypeUtils.getDefaultEbsOptimizedFlag(description.instanceType) : description.ebsOptimized,
+        base64UserData: description.base64UserData?.trim(),
         legacyUdf: description.legacyUdf,
+        userDataOverride: description.userDataOverride,
         tags: applyAppStackDetailTags(deployDefaults, description).tags,
         lifecycleHooks: getLifecycleHooks(account, description),
         setLaunchTemplate: description.setLaunchTemplate,
         requireIMDSv2: description.requireIMDSv2,
-        associateIPv6Address: description.associateIPv6Address
+        associateIPv6Address: description.associateIPv6Address,
+        unlimitedCpuCredits: getUnlimitedCpuCredits(description.unlimitedCpuCredits, description.instanceType),
+        placement: description.placement,
+        licenseSpecifications: description.licenseSpecifications
       )
 
-      def asgName = autoScalingWorker.deploy()
+      def asgName = autoScalingWorker.deploy(asgConfig)
 
       deploymentResult.serverGroupNames << "${region}:${asgName}".toString()
       deploymentResult.serverGroupNameByRegion[region] = asgName
@@ -488,6 +488,22 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
     return lifecycleHooks
   }
 
+  /**
+   * default unlimitedCpuCredits to false if applicable (i.e. burstable performance instance type), and not specified
+   * Reasoning:
+   * 1) consistent default cpu credits value for burstable performance instance families
+   * AWS default mode if cpu credits is not specified depends on the instance family:
+   *    * t2: standard
+   *    * t3/t3a: unlimited
+   *
+   * 2) let users explicitly choose 'unlimited' bursting which could translate to higher instance costs, depending on usage
+   */
+  @VisibleForTesting
+  static Boolean getUnlimitedCpuCredits(final Boolean unlimitedCpuCredits, final String instanceType) {
+    def isApplicableButNotSpecified = unlimitedCpuCredits == null && InstanceTypeUtils.isBurstingSupported(instanceType)
+    return isApplicableButNotSpecified ? false : unlimitedCpuCredits
+  }
+
   @VisibleForTesting
   @PackageScope
   static List<AmazonBlockDevice> convertBlockDevices(List<BlockDeviceMapping> blockDeviceMappings) {
@@ -538,7 +554,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
                                                                                            BasicAmazonDeployDescription.Source source) {
     if (source.account && source.region && source.asgName) {
       def sourceRegion = source.region
-      def sourceAsgCredentials = accountCredentialsRepository.getOne(source.account) as NetflixAmazonCredentials
+      def sourceAsgCredentials = accountCredentialsRepository.getOne(source.account)
       def regionScopedProvider = regionScopedProviderFactory.forRegion(sourceAsgCredentials, sourceRegion)
 
       def sourceAsgs = regionScopedProvider.autoScaling.describeAutoScalingGroups(
@@ -554,21 +570,6 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
     }
 
     return null
-  }
-
-  private static void validateInstanceType(ResolvedAmiResult ami, String instanceType) {
-    String family = instanceType?.contains('.') ? instanceType.split("\\.")[0] : ''
-    boolean familyIsKnown = KNOWN_VIRTUALIZATION_FAMILIES.containsKey(ami.virtualizationType) &&
-        KNOWN_VIRTUALIZATION_FAMILIES.any { it.value.contains(family) }
-    if (familyIsKnown && !KNOWN_VIRTUALIZATION_FAMILIES[ami.virtualizationType].contains(family)) {
-      throw new IllegalArgumentException("Instance type ${instanceType} does not support " +
-          "virtualization type ${ami.virtualizationType}. Please select a different image or instance type.")
-    }
-  }
-
-  private static boolean getDefaultEbsOptimizedFlag(String instanceType) {
-    String family = instanceType?.contains('.') ? instanceType.split("\\.")[0] : ''
-    return DEFAULT_EBS_OPTIMIZED_FAMILIES.contains(family)
   }
 
   /**

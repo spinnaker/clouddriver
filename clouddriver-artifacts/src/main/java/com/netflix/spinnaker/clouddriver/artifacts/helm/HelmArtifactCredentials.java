@@ -35,14 +35,20 @@ import lombok.extern.slf4j.Slf4j;
 
 @NonnullByDefault
 @Slf4j
-final class HelmArtifactCredentials extends BaseHttpArtifactCredentials<HelmArtifactAccount>
+public class HelmArtifactCredentials extends BaseHttpArtifactCredentials<HelmArtifactAccount>
     implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-helm";
   @Getter private final String name;
-  @Getter private final ImmutableList<String> types = ImmutableList.of("helm/chart");
+  @Getter private final ImmutableList<String> types = ImmutableList.of("helm/chart", "helm/index");
 
   @JsonIgnore private final IndexParser indexParser;
 
-  HelmArtifactCredentials(HelmArtifactAccount account, OkHttpClient okHttpClient) {
+  @Override
+  public boolean handlesType(String type) {
+    return types.contains(type);
+  }
+
+  public HelmArtifactCredentials(HelmArtifactAccount account, OkHttpClient okHttpClient) {
     super(okHttpClient, account);
     this.name = account.getName();
     this.indexParser = new IndexParser(account.getRepository());
@@ -51,6 +57,10 @@ final class HelmArtifactCredentials extends BaseHttpArtifactCredentials<HelmArti
   @Override
   public InputStream download(Artifact artifact) throws IOException {
     InputStream index = downloadIndex();
+
+    if ("helm/index".equals(artifact.getType())) {
+      return index;
+    }
 
     List<String> urls = indexParser.findUrls(index, artifact.getName(), artifact.getVersion());
     ResponseBody downloadResponse;
@@ -97,5 +107,10 @@ final class HelmArtifactCredentials extends BaseHttpArtifactCredentials<HelmArti
       throw new FailedDownloadException(
           "Failed to download index.yaml file in '" + indexParser.getRepository() + "' repository");
     }
+  }
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
   }
 }

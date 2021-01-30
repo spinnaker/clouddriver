@@ -28,6 +28,7 @@ public final class AtomicOperations {
   public static final String RESIZE_SERVER_GROUP = "resizeServerGroup";
   public static final String UPSERT_SERVER_GROUP_TAGS = "upsertServerGroupTags";
   public static final String UPDATE_LAUNCH_CONFIG = "updateLaunchConfig";
+  public static final String UPDATE_LAUNCH_TEMPLATE = "updateLaunchTemplate";
   public static final String UPSERT_SCALING_POLICY = "upsertScalingPolicy";
   public static final String DELETE_SCALING_POLICY = "deleteScalingPolicy";
   public static final String MIGRATE_SERVER_GROUP = "migrateServerGroup";
@@ -104,6 +105,7 @@ public final class AtomicOperations {
   public static final String DESTROY_SERVICE = "destroyService";
   public static final String SHARE_SERVICE = "shareService";
   public static final String UNSHARE_SERVICE = "unshareService";
+  public static final String CREATE_SERVICE_BINDINGS = "createServiceBindings";
 
   // CloudFormation operations
   public static final String DEPLOY_CLOUDFORMATION_STACK = "deployCloudFormation";
@@ -112,4 +114,10 @@ public final class AtomicOperations {
 
   // Launch Config operations
   public static final String DELETE_LAUNCH_CONFIGURATION = "deleteLaunchConfiguration";
+
+  // Launch template operations
+  public static final String DELETE_LAUNCH_TEMPLATE = "deleteLaunchTemplate";
+
+  // AppEngine Config operations
+  public static final String DEPLOY_APPENGINE_CONFIG = "deployAppengineConfiguration";
 }

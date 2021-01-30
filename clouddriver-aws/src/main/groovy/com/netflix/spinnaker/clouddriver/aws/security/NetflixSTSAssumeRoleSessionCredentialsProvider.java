@@ -17,33 +17,67 @@
 package com.netflix.spinnaker.clouddriver.aws.security;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSSessionCredentials;
+import com.amazonaws.auth.AWSSessionCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClient;
+import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.SpinnakerAwsRegionProvider;
+import java.io.Closeable;
 
 public class NetflixSTSAssumeRoleSessionCredentialsProvider
-    extends STSAssumeRoleSessionCredentialsProvider {
+    implements AWSSessionCredentialsProvider, Closeable {
+
   private final String accountId;
+  private final STSAssumeRoleSessionCredentialsProvider delegate;
 
   public NetflixSTSAssumeRoleSessionCredentialsProvider(
       AWSCredentialsProvider longLivedCredentialsProvider,
       String roleArn,
       String roleSessionName,
-      String accountId) {
-    super(longLivedCredentialsProvider, roleArn, roleSessionName);
+      String accountId,
+      String externalId) {
     this.accountId = accountId;
 
-    /**
-     * Need to explicitly set sts region if GovCloud or China as per
-     * https://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/STSAssumeRoleSessionCredentialsProvider.html
-     */
+    var chain = new SpinnakerAwsRegionProvider();
+    var region = chain.getRegion();
+
+    var stsClientBuilder =
+        AWSSecurityTokenServiceClient.builder().withCredentials(longLivedCredentialsProvider);
+
     if (roleArn.contains("aws-us-gov")) {
-      setSTSClientEndpoint("sts.us-gov-west-1.amazonaws.com");
+      stsClientBuilder.withEndpointConfiguration(
+          new EndpointConfiguration("sts.us-gov-west-1.amazonaws.com", region));
+    } else if (roleArn.contains("aws-cn")) {
+      stsClientBuilder.withEndpointConfiguration(
+          new EndpointConfiguration("sts.cn-north-1.amazonaws.com.cn", region));
+    } else {
+      stsClientBuilder.withRegion(region);
     }
-    if (roleArn.contains("aws-cn")) {
-      setSTSClientEndpoint("sts.cn-north-1.amazonaws.com.cn");
-    }
+
+    delegate =
+        new STSAssumeRoleSessionCredentialsProvider.Builder(roleArn, roleSessionName)
+            .withExternalId(externalId)
+            .withStsClient(stsClientBuilder.build())
+            .build();
   }
 
   public String getAccountId() {
     return accountId;
+  }
+
+  @Override
+  public AWSSessionCredentials getCredentials() {
+    return delegate.getCredentials();
+  }
+
+  @Override
+  public void refresh() {
+    delegate.refresh();
+  }
+
+  @Override
+  public void close() {
+    delegate.close();
   }
 }

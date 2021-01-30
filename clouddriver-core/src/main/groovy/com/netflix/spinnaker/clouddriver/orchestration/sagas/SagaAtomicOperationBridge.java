@@ -23,9 +23,11 @@ import com.netflix.spinnaker.clouddriver.saga.SagaService;
 import com.netflix.spinnaker.clouddriver.saga.flow.SagaFlow;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
+import org.slf4j.MDC;
 
 /**
  * A helper class to reduce boilerplate code while integrating Sagas into existing AtomicOperations.
@@ -33,33 +35,44 @@ import lombok.Builder;
 public class SagaAtomicOperationBridge {
 
   private final SagaService sagaService;
+  private final String sagaId;
 
-  public SagaAtomicOperationBridge(SagaService sagaService) {
+  public SagaAtomicOperationBridge(SagaService sagaService, String sagaId) {
     this.sagaService = sagaService;
+    this.sagaId = sagaId;
   }
 
   public <T> T apply(@Nonnull ApplyCommandWrapper applyCommand) {
     final SagaContext sagaContext = applyCommand.sagaContext;
     final Task task = applyCommand.task;
     final String sagaName = applyCommand.sagaName;
-    final String sagaId = Optional.ofNullable(task.getRequestId()).orElse(task.getId());
+
+    // use a random uuid to guarantee a unique saga id (rather than task.getId() or
+    // task.getRequestId()). A sagaId may be provided at construct time due to retries.
+    final String sagaId =
+        Optional.ofNullable(this.sagaId).orElseGet(() -> UUID.randomUUID().toString());
 
     task.addSagaId(SagaId.builder().id(sagaId).name(sagaName).build());
 
     applyCommand.sagaFlow.injectFirst(SnapshotAtomicOperationInput.class);
 
-    return sagaService.applyBlocking(
-        sagaName,
-        sagaId,
-        applyCommand.sagaFlow,
-        SnapshotAtomicOperationInput.SnapshotAtomicOperationInputCommand.builder()
-            .cloudProvider(sagaContext.getCloudProvider())
-            .descriptionName(sagaContext.getDescriptionName())
-            .descriptionInput(sagaContext.getOriginalInput())
-            .description(applyCommand.inputDescription)
-            .priorOutputs(applyCommand.priorOutputs)
-            .nextCommand(applyCommand.initialCommand)
-            .build());
+    try {
+      MDC.put("X-SAGA", sagaName + "/" + sagaId);
+      return sagaService.applyBlocking(
+          sagaName,
+          sagaId,
+          applyCommand.sagaFlow,
+          SnapshotAtomicOperationInput.SnapshotAtomicOperationInputCommand.builder()
+              .cloudProvider(sagaContext.getCloudProvider())
+              .descriptionName(sagaContext.getDescriptionName())
+              .descriptionInput(sagaContext.getOriginalInput())
+              .description(applyCommand.inputDescription)
+              .priorOutputs(applyCommand.priorOutputs)
+              .nextCommand(applyCommand.initialCommand)
+              .build());
+    } finally {
+      MDC.remove("X-SAGA");
+    }
   }
 
   @Builder

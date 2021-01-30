@@ -19,51 +19,53 @@ package com.netflix.spinnaker.clouddriver.kubernetes.converter.manifest;
 
 import static com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations.DEPLOY_MANIFEST;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesOperation;
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.view.provider.KubernetesV2ArtifactProvider;
+import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ResourceVersioner;
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.converters.KubernetesAtomicOperationConverterHelper;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesDeployManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.manifest.KubernetesDeployManifestOperation;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsConverter;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @KubernetesOperation(DEPLOY_MANIFEST)
 @Component
-public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsCredentialsSupport {
+public class KubernetesDeployManifestConverter
+    extends AbstractAtomicOperationsCredentialsConverter<KubernetesNamedAccountCredentials> {
 
   private static final String KIND_VALUE_LIST = "list";
   private static final String KIND_LIST_ITEMS_KEY = "items";
 
-  private final KubernetesV2ArtifactProvider artifactProvider;
+  private final ResourceVersioner resourceVersioner;
 
   @Autowired
   public KubernetesDeployManifestConverter(
-      AccountCredentialsProvider accountCredentialsProvider,
-      ObjectMapper objectMapper,
-      KubernetesV2ArtifactProvider artifactProvider) {
-    this.setAccountCredentialsProvider(accountCredentialsProvider);
-    this.setObjectMapper(objectMapper);
-    this.artifactProvider = artifactProvider;
+      CredentialsRepository<KubernetesNamedAccountCredentials> credentialsRepository,
+      ResourceVersioner resourceVersioner) {
+    this.setCredentialsRepository(credentialsRepository);
+    this.resourceVersioner = resourceVersioner;
   }
 
   @Override
-  public AtomicOperation convertOperation(Map input) {
-    return new KubernetesDeployManifestOperation(convertDescription(input), artifactProvider);
+  public AtomicOperation<OperationResult> convertOperation(Map<String, Object> input) {
+    return new KubernetesDeployManifestOperation(convertDescription(input), resourceVersioner);
   }
 
   @Override
-  public KubernetesDeployManifestDescription convertDescription(Map input) {
+  public KubernetesDeployManifestDescription convertDescription(Map<String, Object> input) {
     KubernetesDeployManifestDescription mainDescription =
         KubernetesAtomicOperationConverterHelper.convertDescription(
             input, this, KubernetesDeployManifestDescription.class);
@@ -90,9 +92,12 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
             .flatMap(
                 singleManifest -> {
                   if (singleManifest == null
-                      || Strings.isNullOrEmpty(singleManifest.getKindName())
-                      || !singleManifest.getKindName().equalsIgnoreCase(KIND_VALUE_LIST)) {
+                      || Strings.isNullOrEmpty(singleManifest.getKindName())) {
                     return Stream.of(singleManifest);
+                  }
+
+                  if (!singleManifest.getKindName().equalsIgnoreCase(KIND_VALUE_LIST)) {
+                    return Stream.of(updateNamespace(mainDescription, singleManifest));
                   }
 
                   Collection<Object> items =
@@ -103,12 +108,27 @@ public class KubernetesDeployManifestConverter extends AbstractAtomicOperationsC
                   }
 
                   return items.stream()
-                      .map(i -> getObjectMapper().convertValue(i, KubernetesManifest.class));
+                      .map(
+                          i -> {
+                            KubernetesManifest manifest =
+                                getObjectMapper().convertValue(i, KubernetesManifest.class);
+                            return updateNamespace(mainDescription, manifest);
+                          });
                 })
             .collect(Collectors.toList());
 
     mainDescription.setManifests(updatedManifestList);
 
     return mainDescription;
+  }
+
+  private KubernetesManifest updateNamespace(
+      KubernetesDeployManifestDescription description, KubernetesManifest manifest) {
+    KubernetesCredentials credentials = description.getCredentials().getCredentials();
+    if (!StringUtils.isBlank(description.getNamespaceOverride())
+        && credentials.getKindProperties(manifest.getKind()).isNamespaced()) {
+      manifest.setNamespace(description.getNamespaceOverride());
+    }
+    return manifest;
   }
 }

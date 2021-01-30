@@ -69,9 +69,14 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   private static final TypeReference<Map<String, Object>> ATTRIBUTES = new TypeReference<Map<String, Object>>() {}
 
   static final Set<AgentDataType> types = Collections.unmodifiableSet([
-    AUTHORITATIVE.forType(CLUSTERS.ns),
     AUTHORITATIVE.forType(SERVER_GROUPS.ns),
-    AUTHORITATIVE.forType(APPLICATIONS.ns),
+    // clusters exist globally and the caching agent only
+    // caches regionally so we can't authoritatively evict
+    // clusters. There is a ClusterCleanupAgent that handles
+    // eviction of clusters that no longer contain
+    // server groups.
+    INFORMATIVE.forType(CLUSTERS.ns),
+    INFORMATIVE.forType(APPLICATIONS.ns),
     INFORMATIVE.forType(LOAD_BALANCERS.ns),
     INFORMATIVE.forType(TARGET_GROUPS.ns),
     INFORMATIVE.forType(LAUNCH_CONFIGS.ns),
@@ -86,6 +91,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   final ObjectMapper objectMapper
   final Registry registry
   final EddaTimeoutConfig eddaTimeoutConfig
+  final AmazonCachingAgentFilter amazonCachingAgentFilter
 
   final OnDemandMetricsSupport metricsSupport
 
@@ -95,7 +101,8 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
                       String region,
                       ObjectMapper objectMapper,
                       Registry registry,
-                      EddaTimeoutConfig eddaTimeoutConfig) {
+                      EddaTimeoutConfig eddaTimeoutConfig,
+                      AmazonCachingAgentFilter amazonCachingAgentFilter) {
     this.amazonCloudProvider = amazonCloudProvider
     this.amazonClientProvider = amazonClientProvider
     this.account = account
@@ -104,6 +111,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
     this.registry = registry
     this.eddaTimeoutConfig = eddaTimeoutConfig
     this.metricsSupport = new OnDemandMetricsSupport(registry, this, "${amazonCloudProvider.id}:${OnDemandType.ServerGroup}")
+    this.amazonCachingAgentFilter = amazonCachingAgentFilter
   }
 
   @Override
@@ -249,7 +257,10 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
 
     log.info("onDemand cache refresh (data: ${data}, evictions: ${evictions}, cacheResult: ${cacheResultAsJson})")
     return new OnDemandAgent.OnDemandResult(
-      sourceAgentType: getOnDemandAgentType(), cacheResult: cacheResult, evictions: evictions
+      sourceAgentType: getOnDemandAgentType(),
+      cacheResult: cacheResult,
+      evictions: evictions,
+      authoritativeTypes: types.findAll { it.authority == AgentDataType.Authority.AUTHORITATIVE }.collect { it.typeName }
     )
   }
 
@@ -302,6 +313,17 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
 
     // A non-null status indicates that the ASG is in the process of being destroyed (no sense indexing)
     asgs = asgs.findAll { it.status == null }
+
+    // filter asg if there is any filter configuration established
+    if (amazonCachingAgentFilter.hasTagFilter()) {
+      asgs = asgs.findAll { asg ->
+        def asgTags = asg.tags?.collect {
+          new AmazonCachingAgentFilter.ResourceTag(it.key, it.value)
+        }
+
+        return amazonCachingAgentFilter.shouldRetainResource(asgTags)
+      }
+    }
 
     new AutoScalingGroupsResults(start: start, asgs: asgs)
   }
@@ -459,7 +481,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     def keys = providerCache.filterIdentifiers(ON_DEMAND.ns, Keys.getServerGroupKey("*", "*", account.name, region))
     return fetchPendingOnDemandRequests(providerCache, keys)
   }

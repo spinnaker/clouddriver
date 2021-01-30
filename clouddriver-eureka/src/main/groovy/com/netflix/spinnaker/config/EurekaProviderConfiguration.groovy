@@ -35,14 +35,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.Bindable
 import org.springframework.boot.context.properties.bind.Binder
-import org.springframework.boot.context.properties.bind.PropertySourcesPlaceholdersResolver
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName
-import org.springframework.boot.context.properties.source.ConfigurationPropertySources
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
-import org.springframework.core.convert.ConversionService
-import org.springframework.core.env.ConfigurableEnvironment
+import org.springframework.core.env.Environment
 import retrofit.converter.Converter
 import retrofit.converter.JacksonConverter
 
@@ -58,10 +55,7 @@ class EurekaProviderConfiguration {
   Registry registry
 
   @Autowired
-  ConversionService conversionService
-
-  @Autowired
-  ConfigurableEnvironment environment
+  Environment environment
 
   @Bean
   @ConfigurationProperties("eureka.provider")
@@ -70,25 +64,16 @@ class EurekaProviderConfiguration {
   }
 
   private OkHttpClientConfigurationProperties eurekaClientConfig() {
-    Binder binder = new Binder(
-      ConfigurationPropertySources.from(environment.propertySources),
-      new PropertySourcesPlaceholdersResolver(environment),
-      conversionService)
-
     OkHttpClientConfigurationProperties properties =
       new OkHttpClientConfigurationProperties(
         propagateSpinnakerHeaders: false,
         connectTimoutMs: 10000,
         keyStore: null,
         trustStore: null)
-    binder.bind(
+    Binder.get(environment).bind(
       ConfigurationPropertyName.of("eureka.readonly.ok-http-client"),
       Bindable.ofInstance(properties))
     return properties
-  }
-
-  private OkHttpClientConfiguration eurekaOkHttpClientConfig() {
-    new OkHttpClientConfiguration(eurekaClientConfig(), new OkHttpMetricsInterceptor({ registry }, true))
   }
 
   private static Converter eurekaConverter() {
@@ -99,8 +84,10 @@ class EurekaProviderConfiguration {
       .enable(MapperFeature.AUTO_DETECT_CREATORS))
   }
 
-  private EurekaApiFactory eurekaApiFactory() {
-    new EurekaApiFactory(eurekaConverter(), eurekaOkHttpClientConfig())
+  private EurekaApiFactory eurekaApiFactory(OkHttpMetricsInterceptorProperties okHttpMetricsInterceptorProperties) {
+    OkHttpClientConfiguration config = new OkHttpClientConfiguration(eurekaClientConfig(),
+      new OkHttpMetricsInterceptor({ registry }, okHttpMetricsInterceptorProperties))
+    return new EurekaApiFactory(eurekaConverter(), config)
   }
 
   @Value('${eureka.poll-interval-millis:15000}')
@@ -111,10 +98,11 @@ class EurekaProviderConfiguration {
 
   @Bean
   EurekaCachingProvider eurekaCachingProvider(EurekaAccountConfigurationProperties eurekaAccountConfigurationProperties,
+                                              OkHttpMetricsInterceptorProperties okHttpMetricsInterceptorProperties,
                                               List<EurekaAwareProvider> eurekaAwareProviderList,
                                               ObjectMapper objectMapper) {
     List<EurekaCachingAgent> agents = []
-    def eurekaApiFactory = eurekaApiFactory()
+    def eurekaApiFactory = eurekaApiFactory(okHttpMetricsInterceptorProperties)
     eurekaAccountConfigurationProperties.accounts.each { EurekaAccountConfigurationProperties.EurekaAccount accountConfig ->
       accountConfig.regions.each { region ->
         String eurekaHost = accountConfig.readOnlyUrl.replaceAll(Pattern.quote('{{region}}'), region)

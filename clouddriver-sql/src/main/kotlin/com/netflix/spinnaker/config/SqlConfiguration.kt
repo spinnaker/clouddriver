@@ -24,6 +24,7 @@ import com.netflix.spinnaker.clouddriver.sql.SqlTaskCleanupAgent
 import com.netflix.spinnaker.clouddriver.sql.SqlTaskRepository
 import com.netflix.spinnaker.clouddriver.sql.event.SqlEventCleanupAgent
 import com.netflix.spinnaker.clouddriver.sql.event.SqlEventRepository
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer
 import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer.SubtypeLocator
 import com.netflix.spinnaker.kork.sql.config.DefaultSqlConfiguration
@@ -51,19 +52,21 @@ class SqlConfiguration {
   @ConditionalOnProperty("sql.task-repository.enabled")
   fun sqlTaskRepository(
     jooq: DSLContext,
-    clock: Clock
+    clock: Clock,
+    objectMapper: ObjectMapper
   ): TaskRepository =
-    SqlTaskRepository(jooq, ObjectMapper(), clock, ConnectionPools.TASKS.value)
+    SqlTaskRepository(jooq, objectMapper, clock, ConnectionPools.TASKS.value)
 
   @Bean
   @ConditionalOnProperty("sql.task-repository.enabled", "sql.task-repository.secondary.enabled")
   fun secondarySqlTaskRepository(
     jooq: DSLContext,
     clock: Clock,
+    objectMapper: ObjectMapper,
     @Value("\${sql.task-repository.secondary.pool-name}") poolName: String
 
   ): TaskRepository =
-    SqlTaskRepository(jooq, ObjectMapper(), clock, poolName)
+    SqlTaskRepository(jooq, objectMapper, clock, poolName)
 
   @Bean
   @ConditionalOnProperty("sql.task-repository.enabled")
@@ -115,8 +118,9 @@ class SqlConfiguration {
   fun sqlEventCleanupAgent(
     jooq: DSLContext,
     registry: Registry,
-    properties: SqlEventCleanupAgentConfigProperties
+    properties: SqlEventCleanupAgentConfigProperties,
+    dynamicConfigService: DynamicConfigService
   ): SqlEventCleanupAgent {
-    return SqlEventCleanupAgent(jooq, registry, properties)
+    return SqlEventCleanupAgent(jooq, registry, properties, dynamicConfigService)
   }
 }

@@ -28,6 +28,7 @@ dependencies {
 
   if (!rootProject.hasProperty("excludeSqlDrivers")) {
     runtimeOnly(project(":clouddriver-sql-mysql"))
+    runtimeOnly(project(":clouddriver-sql-postgres"))
   }
 
   compileOnly "org.projectlombok:lombok"
@@ -41,7 +42,7 @@ dependencies {
   implementation "com.netflix.spinnaker.kork:kork-config"
   implementation "com.netflix.spinnaker.kork:kork-web"
   implementation("com.netflix.spinnaker.kork:kork-plugins")
-  implementation "com.netflix.spinnaker.moniker:moniker"
+  implementation "com.netflix.spinnaker.kork:kork-moniker"
   implementation "commons-io:commons-io"
   implementation "io.reactivex:rxjava"
   implementation "io.swagger:swagger-annotations"
@@ -51,9 +52,11 @@ dependencies {
   implementation "org.springframework.boot:spring-boot-starter-json"
   implementation "org.springframework.boot:spring-boot-starter-web"
   implementation "org.springframework.cloud:spring-cloud-context"
-  runtimeOnly "org.springframework.cloud:spring-cloud-config-server"
 
   runtimeOnly "com.netflix.spinnaker.kork:kork-runtime"
+  if (!gradle.hasProperty("excludeSpringConfigServer")) {
+    runtimeOnly project(":clouddriver-configserver")
+  }
 
   testImplementation project(":clouddriver-elasticsearch")
 

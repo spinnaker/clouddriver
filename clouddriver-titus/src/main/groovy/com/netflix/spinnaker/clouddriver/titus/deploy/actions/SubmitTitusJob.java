@@ -38,9 +38,12 @@ import com.netflix.spinnaker.clouddriver.titus.client.model.SubmitJobRequest;
 import com.netflix.spinnaker.clouddriver.titus.deploy.description.TitusDeployDescription;
 import com.netflix.spinnaker.clouddriver.titus.deploy.events.TitusJobSubmitted;
 import com.netflix.spinnaker.kork.core.RetrySupport;
+import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.time.Duration;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Value;
@@ -83,13 +86,14 @@ public class SubmitTitusJob extends AbstractTitusDeployAction
         titusClientProvider.getTitusClient(description.getCredentials(), description.getRegion());
 
     final SubmitJobRequest submitJobRequest = command.getSubmitJobRequest();
-    final String[] nextServerGroupName = {command.getNextServerGroupName()};
+    String[] nextServerGroupName = {command.getNextServerGroupName()};
 
-    final int[] retryCount = {0};
+    AtomicInteger submissionAttempts = new AtomicInteger();
     String jobUri =
         retrySupport.retry(
             () -> {
               try {
+                submissionAttempts.getAndIncrement();
                 return titusClient.submitJob(submitJobRequest.withJobName(nextServerGroupName[0]));
               } catch (StatusRuntimeException e) {
                 if (isServiceExceptionRetryable(description, e)) {
@@ -97,37 +101,42 @@ public class SubmitTitusJob extends AbstractTitusDeployAction
                   if (statusDescription != null
                       && statusDescription.contains(
                           "Job sequence id reserved by another pending job")) {
-                    try {
-                      Thread.sleep(1000 ^ (int) Math.round(Math.pow(2, retryCount[0])));
-                    } catch (InterruptedException ex) {
-                      // TODO(rz): I feel like this is really bad to do...?
-                      // Sweep this under the rug...
-                    }
-                    retryCount[0]++;
+                    nextServerGroupName[0] =
+                        TitusJobNameResolver.resolveJobName(titusClient, description);
+                    saga.log("Retrying with job name %s", nextServerGroupName[0]);
                   }
-                  nextServerGroupName[0] =
-                      TitusJobNameResolver.resolveJobName(titusClient, description);
+                  // Can't do an exact match on the server group name because the error from Titus
+                  // adds dashes if the server group name does not contain a stack or free form
+                  // details, i.e. testapp---v001
+                  else if (statusDescription != null
+                      && statusDescription.contains(
+                          "Constraint violation - job with group sequence")
+                      && statusDescription.contains("exists")
+                      && submissionAttempts.intValue() > 1) {
 
-                  saga.log("Resolved server group name to '%s'", nextServerGroupName[0]);
+                    String jobId = titusClient.findJobByName(nextServerGroupName[0]).getId();
+                    log.info(
+                        "Retried job submission for job that exists due to previous attempt"
+                            + ", returning jobId {}",
+                        jobId);
+                    return jobId;
+                  }
 
-                  saga.log(
-                      "Retrying with %s after %s attempts", nextServerGroupName[0], retryCount[0]);
                   throw e;
                 }
+
                 if (isStatusCodeRetryable(e.getStatus().getCode())) {
-                  retryCount[0]++;
-                  saga.log("Retrying after %s attempts", retryCount[0]);
                   throw e;
                 } else {
                   log.error(
                       "Could not submit job and not retrying for status {}", e.getStatus(), e);
                   saga.log("Could not submit job %s: %s", e.getStatus(), e.getMessage());
-                  throw e;
+                  throw new SpinnakerException(e).setRetryable(false);
                 }
               }
             },
             8,
-            100,
+            Duration.ofMillis(100),
             true);
 
     if (jobUri == null) {

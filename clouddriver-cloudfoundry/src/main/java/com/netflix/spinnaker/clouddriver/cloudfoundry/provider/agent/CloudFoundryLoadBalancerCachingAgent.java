@@ -65,7 +65,10 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
     long loadDataStart = this.getInternalClock().millis();
     String accountName = getAccountName();
     log.info("Caching all load balancers (routes) in Cloud Foundry account " + accountName);
-    List<CloudFoundryLoadBalancer> loadBalancers = this.getClient().getRoutes().all();
+    List<CloudFoundrySpace> spaceFilters = this.getCredentials().getFilteredSpaces();
+
+    // Once Routes are migrated to v3 we can take advantage of space_guids. Until then...
+    List<CloudFoundryLoadBalancer> loadBalancers = this.getClient().getRoutes().all(spaceFilters);
 
     Collection<CacheData> onDemandCacheData =
         providerCache.getAll(
@@ -165,7 +168,12 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
     if (account == null || region == null || loadBalancerName == null) {
       return null;
     }
-    CloudFoundrySpace space = getClient().getOrganizations().findSpaceByRegion(region).orElse(null);
+
+    if (!this.getAccountName().equals(account)) {
+      return null;
+    }
+
+    CloudFoundrySpace space = getClient().getSpaces().findSpaceByRegion(region).orElse(null);
     if (space == null) {
       return null;
     }
@@ -218,7 +226,7 @@ public class CloudFoundryLoadBalancerCachingAgent extends AbstractCloudFoundryCa
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<String> keys =
         providerCache.filterIdentifiers(ON_DEMAND.getNs(), Keys.getAllLoadBalancers());
     return providerCache.getAll(ON_DEMAND.getNs(), keys, RelationshipCacheFilter.none()).stream()

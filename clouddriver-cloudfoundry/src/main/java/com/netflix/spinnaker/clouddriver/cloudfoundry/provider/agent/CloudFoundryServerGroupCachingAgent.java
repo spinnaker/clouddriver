@@ -73,7 +73,11 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
     String accountName = getAccountName();
     log.info("Caching all resources in Cloud Foundry account " + accountName);
 
-    List<CloudFoundryApplication> apps = this.getClient().getApplications().all();
+    List<String> spaceFilters =
+        this.getCredentials().getFilteredSpaces().stream()
+            .map(s -> s.getId())
+            .collect(Collectors.toList());
+    List<CloudFoundryApplication> apps = this.getClient().getApplications().all(spaceFilters);
     List<CloudFoundryCluster> clusters =
         apps.stream().flatMap(app -> app.getClusters().stream()).collect(Collectors.toList());
     List<CloudFoundryServerGroup> serverGroups =
@@ -144,8 +148,12 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
     if (account == null || region == null) {
       return null;
     }
-    CloudFoundrySpace space =
-        this.getClient().getOrganizations().findSpaceByRegion(region).orElse(null);
+
+    if (!this.getAccountName().equals(account)) {
+      return null;
+    }
+
+    CloudFoundrySpace space = this.getClient().getSpaces().findSpaceByRegion(region).orElse(null);
     if (space == null) {
       return null;
     }
@@ -191,7 +199,7 @@ public class CloudFoundryServerGroupCachingAgent extends AbstractCloudFoundryCac
   }
 
   @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  public Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<String> keys =
         providerCache.filterIdentifiers(
             ON_DEMAND.getNs(), Keys.getServerGroupKey(this.getAccountName(), "*", "*"));

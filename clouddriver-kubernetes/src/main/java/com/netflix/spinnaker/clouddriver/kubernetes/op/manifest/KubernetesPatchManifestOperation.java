@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.kubernetes.artifact.ArtifactReplacer.Re
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesPatchOptions.MergeStrategy;
-import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesResourceProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesManifest;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.manifest.KubernetesPatchManifestDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.op.OperationResult;
@@ -38,9 +37,7 @@ import com.netflix.spinnaker.kork.artifacts.model.Artifact;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class KubernetesPatchManifestOperation implements AtomicOperation<OperationResult> {
   private final KubernetesPatchManifestDescription description;
   private final KubernetesCredentials credentials;
@@ -58,7 +55,7 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
   }
 
   @Override
-  public OperationResult operate(List _unused) {
+  public OperationResult operate(List<OperationResult> _unused) {
     updateStatus("Beginning patching of manifest");
     KubernetesCoordinates objToPatch = description.getPointCoordinates();
 
@@ -139,15 +136,6 @@ public class KubernetesPatchManifestOperation implements AtomicOperation<Operati
   }
 
   private KubernetesHandler findPatchHandler(KubernetesCoordinates objToPatch) {
-    KubernetesResourceProperties properties =
-        credentials.getResourcePropertyRegistry().get(objToPatch.getKind());
-    KubernetesHandler patchHandler = properties.getHandler();
-    if (patchHandler == null) {
-      throw new IllegalArgumentException(
-          "No patch handler available for Kubernetes object kind ' "
-              + objToPatch.getKind()
-              + "', unable to continue");
-    }
-    return patchHandler;
+    return credentials.getResourcePropertyRegistry().get(objToPatch.getKind()).getHandler();
   }
 }

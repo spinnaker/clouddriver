@@ -18,8 +18,11 @@ package com.netflix.spinnaker.clouddriver.aws.deploy
 
 import com.amazonaws.services.autoscaling.AmazonAutoScaling
 import com.amazonaws.services.autoscaling.model.CreateLaunchConfigurationRequest
+import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.DefaultUserDataTokenizer
+import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataOverride
+import com.netflix.spinnaker.clouddriver.aws.userdata.UserDataProvider
 import com.netflix.spinnaker.config.AwsConfiguration
-import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProvider
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice
 import com.netflix.spinnaker.clouddriver.aws.services.AsgService
 import com.netflix.spinnaker.clouddriver.aws.services.SecurityGroupService
@@ -30,21 +33,24 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
   def autoScaling = Mock(AmazonAutoScaling)
   def asgService = Mock(AsgService)
   def securityGroupService = Mock(SecurityGroupService)
+  def userDataOverride = new UserDataOverride()
   def userDataProvider = Stub(UserDataProvider) {
-    getUserData(_, _, _) >> 'userdata'
+    getUserData(_) >> 'userdata'
   }
+  def userDataTokenizer = new DefaultUserDataTokenizer()
+  UserDataProviderAggregator userDataProviderAggregator = new UserDataProviderAggregator([userDataProvider], [userDataTokenizer])
   def deployDefaults = new AwsConfiguration.DeployDefaults()
 
   @Subject
   DefaultLaunchConfigurationBuilder builder = new DefaultLaunchConfigurationBuilder(autoScaling, asgService,
-    securityGroupService, [userDataProvider], null, deployDefaults)
+    securityGroupService, userDataProviderAggregator, null, deployDefaults)
 
   void "should lookup security groups when provided by name"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> ['sg-feef000', 'sg-named']
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> ['sg-feef000', 'sg-named']
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
       assert req.securityGroups.toList().sort() == expectedGroups.toList().sort()
     }
@@ -67,10 +73,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
 
   void "should attach an existing application security group if no security groups provided"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> []
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> []
     1 * securityGroupService.getSecurityGroupNamesFromIds(_) >> [:]
     1 * securityGroupService.getSecurityGroupForApplication(application, subnetType) >> application
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
@@ -94,10 +100,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
 
   void "should add user data to launchconfig with combination from user data provider and description"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> []
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> []
     1 * securityGroupService.getSecurityGroupNamesFromIds(_) >> [:]
     1 * securityGroupService.getSecurityGroupForApplication(application, subnetType) >> application
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
@@ -121,12 +127,42 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
             securityGroups: securityGroups)
   }
 
-  void "should add user data to launchconfig with user data provider if description userdata ommitted"() {
+  void "should only use base64 user data launchconfig when override is set to true"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, new UserDataOverride(enabled: true))
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> []
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType([], null) >> ["sg-123"]
+    1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
+      assert req.getUserData() == expectedUserData
+    }
+    0 * _
+
+    where:
+    override = true
+    application = 'foo'
+    subnetType = null
+    account = 'prod'
+    securityGroups = []
+    expectedGroups = [application]
+    expectedUserData = 'ZXhwb3J0IFVTRVJEQVRBPTEK'
+    settings = new LaunchConfigurationBuilder.LaunchConfigurationSettings(
+      account: 'prod',
+      accountType: 'prod',
+      environment: 'prod',
+      region: 'us-east-1',
+      baseName: 'fooapp-v001',
+      suffix: '20150515',
+      base64UserData: 'ZXhwb3J0IFVTRVJEQVRBPTEK',
+      securityGroups: securityGroups)
+  }
+
+  void "should add user data to launchconfig with user data provider if description userdata ommitted"() {
+    when:
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
+
+    then:
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> []
     1 * securityGroupService.getSecurityGroupNamesFromIds(_) >> [:]
     1 * securityGroupService.getSecurityGroupForApplication(application, subnetType) >> application
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
@@ -151,10 +187,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
 
   void "should create an application security group if none exists and no security groups provided"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> []
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> []
     1 * securityGroupService.getSecurityGroupNamesFromIds(_) >> [:]
     1 * securityGroupService.getSecurityGroupForApplication(application, subnetType) >> null
     1 * securityGroupService.createSecurityGroup(application, subnetType) >> "sg-$application"
@@ -180,10 +216,11 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
 
   void "should attach classic link security group if vpc is linked"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    2 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> ["sg-123", "sg-456"]
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> ["sg-123", "sg-456"]
+    1 * securityGroupService.resolveSecurityGroupIdsInVpc(_, _) >> ["sg-123", "sg-456"]
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
       assert req.classicLinkVPCId == "vpc-123"
       assert req.classicLinkVPCSecurityGroups == ["sg-123", "sg-456"]
@@ -207,10 +244,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
 
   void "should try to look up classic link security group if vpc is linked"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> ["sg-123"]
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> ["sg-123"]
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
       assert req.classicLinkVPCId == "vpc-123"
       assert req.classicLinkVPCSecurityGroups == []
@@ -236,10 +273,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
     deployDefaults.addAppGroupToServerGroup = true
 
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> securityGroups
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> securityGroups
     1 * securityGroupService.getSecurityGroupNamesFromIds(_) >> [(appGroup): securityGroups[0]]
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
       assert req.securityGroups.toList().sort() == expectedGroups.toList().sort()
@@ -266,10 +303,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
     deployDefaults.addAppGroupToServerGroup = true
 
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> securityGroups
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> securityGroups
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
       assert req.securityGroups.toList().sort() == expectedGroups.toList().sort()
     }
@@ -296,10 +333,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
     deployDefaults.addAppGroupToServerGroup = true
 
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> securityGroups
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> securityGroups
     1 * securityGroupService.getSecurityGroupNamesFromIds(_) >> [notappgroup: securityGroups[0]]
     1 * securityGroupService.getSecurityGroupForApplication(application, subnetType) >> appGroup
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
@@ -327,10 +364,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
     deployDefaults.addAppGroupToServerGroup = true
 
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> securityGroups
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> securityGroups
     1 * securityGroupService.getSecurityGroupNamesFromIds(_) >> [:]
     1 * securityGroupService.getSecurityGroupForApplication(application, subnetType) >> null
     1 * securityGroupService.createSecurityGroup(application, subnetType) >> appGroup
@@ -357,10 +394,11 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
 
   void "should look up and attach classic link security group if vpc is linked"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    2 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> ["sg-123"]
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> ["sg-123"]
+    1 * securityGroupService.resolveSecurityGroupIdsInVpc(_, _) >> ["sg-123"]
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->
       assert req.classicLinkVPCId == "vpc-123"
       assert req.classicLinkVPCSecurityGroups == ["sg-123"]
@@ -384,10 +422,10 @@ class DefaultLaunchConfigurationBuilderSpec extends Specification {
 
   void "handles block device mappings"() {
     when:
-    builder.buildLaunchConfiguration(application, subnetType, settings, null)
+    builder.buildLaunchConfiguration(application, subnetType, settings, null, userDataOverride)
 
     then:
-    1 * securityGroupService.resolveSecurityGroupIdsByStrategy(_, _) >> []
+    1 * securityGroupService.resolveSecurityGroupIdsWithSubnetType(_, _) >> []
     1 * securityGroupService.getSecurityGroupNamesFromIds(_) >> [:]
     1 * securityGroupService.getSecurityGroupForApplication(application, subnetType) >> "sg-$application"
     1 * autoScaling.createLaunchConfiguration(_ as CreateLaunchConfigurationRequest) >> { CreateLaunchConfigurationRequest req ->

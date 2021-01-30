@@ -16,12 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.converters;
 
+import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.clouddriver.artifacts.ArtifactCredentialsRepository;
@@ -32,16 +32,13 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.MockCloudFoundryCli
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundryOrganization;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.CloudFoundrySpace;
+import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.CloudFoundryProvider;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.security.CloudFoundryCredentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
-import com.netflix.spinnaker.clouddriver.security.DefaultAccountCredentialsProvider;
-import com.netflix.spinnaker.clouddriver.security.MapBackedAccountCredentialsRepository;
-import io.vavr.collection.HashMap;
-import io.vavr.collection.List;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Optional;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.credentials.MapBackedCredentialsRepository;
+import com.netflix.spinnaker.credentials.NoopCredentialsLifecycleHandler;
+import java.util.*;
+import java.util.concurrent.ForkJoinPool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
@@ -64,7 +61,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                             .build());
                   });
 
-      when(cloudFoundryClient.getOrganizations().findSpaceByRegion(any()))
+      when(cloudFoundryClient.getSpaces().findSpaceByRegion(any()))
           .thenReturn(
               Optional.of(
                   CloudFoundrySpace.builder()
@@ -79,7 +76,19 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
     }
 
     return new CloudFoundryCredentials(
-        name, "", "", "", "", "", "", false, 500, 16, cacheRepository, null) {
+        name,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        false,
+        500,
+        cacheRepository,
+        null,
+        ForkJoinPool.commonPool(),
+        emptyMap()) {
       public CloudFoundryClient getClient() {
         return cloudFoundryClient;
       }
@@ -89,28 +98,26 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
   private List<String> accounts =
       List.of("test", "sourceAccount", "sourceAccount1", "sourceAccount2", "destinationAccount");
 
+  private CredentialsRepository<ArtifactCredentialsFromString>
+      artifactCredentialsFromStringRepository =
+          new MapBackedCredentialsRepository<>(
+              ArtifactCredentialsFromString.ARTIFACT_TYPE, new NoopCredentialsLifecycleHandler<>());
   private final ArtifactCredentialsRepository artifactCredentialsRepository =
       new ArtifactCredentialsRepository(
-          Collections.singletonList(
-              accounts
-                  .map(
-                      account ->
-                          new ArtifactCredentialsFromString(
-                              account, List.of("test").asJava(), "applications: [{instances: 42}]"))
-                  .asJava()));
+          Collections.singletonList(artifactCredentialsFromStringRepository));
 
-  private final AccountCredentialsRepository accountCredentialsRepository =
-      new MapBackedAccountCredentialsRepository();
+  private final CredentialsRepository<CloudFoundryCredentials> credentialsRepository =
+      new MapBackedCredentialsRepository<>(CloudFoundryProvider.PROVIDER_ID, null);
 
   {
-    accounts
-        .toStream()
-        .forEach(
-            account -> accountCredentialsRepository.update(account, createCredentials(account)));
+    accounts.stream()
+        .map(
+            account ->
+                new ArtifactCredentialsFromString(
+                    account, List.of("test"), "applications: [{instances: 42}]"))
+        .forEach(artifactCredentialsFromStringRepository::save);
+    accounts.forEach(account -> credentialsRepository.save(createCredentials(account)));
   }
-
-  private final AccountCredentialsProvider accountCredentialsProvider =
-      new DefaultAccountCredentialsProvider(accountCredentialsRepository);
 
   private final DeployCloudFoundryServerGroupAtomicOperationConverter converter =
       new DeployCloudFoundryServerGroupAtomicOperationConverter(
@@ -118,41 +125,36 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
 
   @BeforeEach
   void initializeClassUnderTest() {
-    converter.setAccountCredentialsProvider(accountCredentialsProvider);
-    converter.setObjectMapper(new ObjectMapper());
+    converter.setCredentialsRepository(credentialsRepository);
   }
 
   @Test
   void convertManifestMapToApplicationAttributes() {
     final Map input =
-        HashMap.of(
-                "applications",
-                List.of(
-                        HashMap.of(
-                                "instances",
-                                7,
-                                "memory",
-                                "1G",
-                                "disk_quota",
-                                "2048M",
-                                "health-check-type",
-                                "http",
-                                "health-check-http-endpoint",
-                                "/health",
-                                "buildpacks",
-                                List.of("buildpack1", "buildpack2").asJava(),
-                                "services",
-                                List.of("service1").asJava(),
-                                "routes",
-                                List.of(HashMap.of("route", "www.example.com/foo").toJavaMap())
-                                    .asJava(),
-                                "env",
-                                HashMap.of("token", "ASDF").toJavaMap(),
-                                "command",
-                                "some-command")
-                            .toJavaMap())
-                    .asJava())
-            .toJavaMap();
+        Map.of(
+            "applications",
+            List.of(
+                Map.of(
+                    "instances",
+                    7,
+                    "memory",
+                    "1G",
+                    "disk_quota",
+                    "2048M",
+                    "health-check-type",
+                    "http",
+                    "health-check-http-endpoint",
+                    "/health",
+                    "buildpacks",
+                    List.of("buildpack1", "buildpack2"),
+                    "services",
+                    List.of("service1"),
+                    "routes",
+                    List.of(Map.of("route", "www.example.com/foo")),
+                    "env",
+                    Map.of("token", "ASDF"),
+                    "command",
+                    "some-command")));
 
     assertThat(converter.convertManifest(input))
         .isEqualToComparingFieldByFieldRecursively(
@@ -162,19 +164,16 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                 .setDiskQuota("2048M")
                 .setHealthCheckType("http")
                 .setHealthCheckHttpEndpoint("/health")
-                .setBuildpacks(List.of("buildpack1", "buildpack2").asJava())
-                .setServices(List.of("service1").asJava())
-                .setRoutes(List.of("www.example.com/foo").asJava())
-                .setEnv(HashMap.of("token", "ASDF").toJavaMap())
+                .setBuildpacks(List.of("buildpack1", "buildpack2"))
+                .setServices(List.of("service1"))
+                .setRoutes(List.of("www.example.com/foo"))
+                .setEnv(Map.of("token", "ASDF"))
                 .setCommand("some-command"));
   }
 
   @Test
   void convertManifestMapToApplicationAttributesUsingDeprecatedBuildpackAttr() {
-    final Map input =
-        HashMap.of(
-                "applications", List.of(HashMap.of("buildpack", "buildpack1").toJavaMap()).asJava())
-            .toJavaMap();
+    final Map input = Map.of("applications", List.of(Map.of("buildpack", "buildpack1")));
 
     assertThat(converter.convertManifest(input))
         .isEqualToComparingFieldByFieldRecursively(
@@ -182,14 +181,12 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
                 .setInstances(1)
                 .setMemory("1024")
                 .setDiskQuota("1024")
-                .setBuildpacks(List.of("buildpack1").asJava()));
+                .setBuildpacks(List.of("buildpack1")));
   }
 
   @Test
   void convertManifestMapToApplicationAttributesUsingDeprecatedBuildpackAttrBlankStringValue() {
-    final Map input =
-        HashMap.of("applications", List.of(HashMap.of("buildpack", "").toJavaMap()).asJava())
-            .toJavaMap();
+    final Map input = Map.of("applications", List.of(Map.of("buildpack", "")));
 
     assertThat(converter.convertManifest(input))
         .isEqualToComparingFieldByFieldRecursively(
@@ -202,8 +199,7 @@ class DeployCloudFoundryServerGroupAtomicOperationConverterTest {
 
   @Test
   void convertManifestMapToApplicationAttributesUsingWithNoBuildpacks() {
-    final Map input =
-        HashMap.of("applications", List.of(Collections.EMPTY_MAP).asJava()).toJavaMap();
+    final Map input = Map.of("applications", List.of(Collections.EMPTY_MAP));
 
     assertThat(converter.convertManifest(input))
         .isEqualToComparingFieldByFieldRecursively(

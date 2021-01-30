@@ -21,7 +21,7 @@ import com.amazonaws.services.autoscaling.model.UpdateAutoScalingGroupRequest
 import com.netflix.frigga.Names
 import com.netflix.spinnaker.config.AwsConfiguration
 import com.netflix.spinnaker.clouddriver.aws.deploy.AmiIdResolver
-import com.netflix.spinnaker.clouddriver.aws.deploy.BlockDeviceConfig
+import com.netflix.spinnaker.clouddriver.aws.deploy.InstanceTypeUtils.BlockDeviceConfig
 import com.netflix.spinnaker.clouddriver.aws.deploy.ResolvedAmiResult
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyAsgLaunchConfigurationDescription
 import com.netflix.spinnaker.clouddriver.aws.services.RegionScopedProviderFactory
@@ -125,7 +125,7 @@ class ModifyAsgLaunchConfigurationOperation implements AtomicOperation<Void> {
     } else {
       newSettings = newSettings.copyWith(suffix: null)
       def name = Names.parseName(description.asgName)
-      def newLc = lcBuilder.buildLaunchConfiguration(name.app, description.subnetType, newSettings, description.legacyUdf)
+      def newLc = lcBuilder.buildLaunchConfiguration(name.app, description.subnetType, newSettings, description.legacyUdf, description.getUserDataOverride())
 
       resultLaunchConfigName = newLc
       def autoScaling = regionScopedProvider.autoScaling

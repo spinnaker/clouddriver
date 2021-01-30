@@ -24,19 +24,29 @@ import org.springframework.validation.annotation.Validated
 @ConfigurationProperties("spinnaker.clouddriver.eventing.cleanup-agent")
 class SqlEventCleanupAgentConfigProperties {
   /**
-   * The frequency, in milliseconds, of how often the cleanup agent will run. Defaults to 30 minutes.
+   * The frequency, in milliseconds, of how often the cleanup agent will run. Defaults to 1 minute.
    */
-  var frequency: Duration = Duration.ofMinutes(30)
+  var frequency: Duration = Duration.ofMinutes(1)
 
   /**
    * The ceiling execution time that the agent should be allowed to run before it will be timed out and available for
-   * reschedule onto a different Clouddriver instance. Defaults to 1 hour.
+   * reschedule onto a different Clouddriver instance. Defaults to 45 seconds.
    */
-  var timeout: Duration = Duration.ofHours(1)
+  var timeout: Duration = Duration.ofSeconds(45)
 
   /**
    * The max age of an [Aggregate]. Defaults to 7 days.
    */
   @Positive
   var maxAggregateAgeDays: Long = 7
+
+  /**
+   * The max number of events to cleanup in each agent invocation. Defaults to 1000.
+   */
+  @Positive
+  var cleanupLimit: Int = EVENT_CLEANUP_LIMIT
+
+  companion object {
+    const val EVENT_CLEANUP_LIMIT = 1_000
+  }
 }

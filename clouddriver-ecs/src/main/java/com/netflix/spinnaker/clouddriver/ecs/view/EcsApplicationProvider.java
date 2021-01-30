@@ -21,10 +21,11 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsApplication;
+import com.netflix.spinnaker.clouddriver.ecs.security.NetflixECSCredentials;
 import com.netflix.spinnaker.clouddriver.model.Application;
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,13 +38,13 @@ import org.springframework.stereotype.Component;
 public class EcsApplicationProvider implements ApplicationProvider {
 
   private final ServiceCacheClient serviceCacheClient;
-  private final AccountCredentialsProvider accountCredentialsProvider;
+  private final CredentialsRepository<NetflixECSCredentials> credentialsRepository;
 
   @Autowired
   public EcsApplicationProvider(
-      AccountCredentialsProvider accountCredentialsProvider,
+      CredentialsRepository<NetflixECSCredentials> credentialsRepository,
       ServiceCacheClient serviceCacheClient) {
-    this.accountCredentialsProvider = accountCredentialsProvider;
+    this.credentialsRepository = credentialsRepository;
     this.serviceCacheClient = serviceCacheClient;
   }
 
@@ -63,12 +64,9 @@ public class EcsApplicationProvider implements ApplicationProvider {
   public Set<Application> getApplications(boolean expand) {
     Set<Application> applications = new HashSet<>();
 
-    for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
-      if (credentials instanceof AmazonCredentials) {
-        Set<Application> retrievedApplications =
-            findApplicationsForAllRegions((AmazonCredentials) credentials, expand);
-        applications.addAll(retrievedApplications);
-      }
+    for (NetflixECSCredentials credentials : credentialsRepository.getAll()) {
+      Set<Application> retrievedApplications = findApplicationsForAllRegions(credentials, expand);
+      applications.addAll(retrievedApplications);
     }
 
     return applications;
@@ -119,10 +117,12 @@ public class EcsApplicationProvider implements ApplicationProvider {
       HashMap<String, Application> applicationHashMap, Service service, boolean expand) {
 
     HashMap<String, String> attributes = new HashMap<>();
-    String appName = service.getApplicationName();
+    Moniker moniker = service.getMoniker();
+
+    String appName = moniker.getApp();
     String serviceName = service.getServiceName();
     String accountName = service.getAccount();
-    attributes.put("name", service.getApplicationName());
+    attributes.put("name", appName);
 
     HashMap<String, Set<String>> clusterNames = new HashMap<>();
     if (expand) {

@@ -21,18 +21,16 @@ import java.util.Collections;
 import java.util.List;
 
 public class TitusRegion {
-  private final String name;
-  private final String account;
-  private final String endpoint;
-  private final Boolean autoscalingEnabled;
-  private final Boolean loadBalancingEnabled;
-  private final List<TitusFaultDomain> faultDomains;
-  private final String applicationName;
-  private final String url;
-  private final int port;
-  private final List<String> featureFlags;
-  private final String eurekaName;
-  private final String eurekaRegion;
+  private String name;
+  private String account;
+  private String endpoint;
+  private List<TitusFaultDomain> faultDomains;
+  private String applicationName;
+  private String url;
+  private int port;
+  private List<String> featureFlags;
+  private String eurekaName;
+  private String eurekaRegion;
 
   private <T> T notNull(T val, String name) {
     if (val == null) {
@@ -41,12 +39,12 @@ public class TitusRegion {
     return val;
   }
 
+  public TitusRegion() {}
+
   public TitusRegion(
       String name,
       String account,
       String endpoint,
-      Boolean autoscalingEnabled,
-      Boolean loadBalancingEnabled,
       List<TitusFaultDomain> faultDomains,
       String applicationName,
       String url,
@@ -57,8 +55,6 @@ public class TitusRegion {
     this.name = notNull(name, "name");
     this.account = notNull(account, "account");
     this.endpoint = EndpointValidator.validateEndpoint(endpoint);
-    this.autoscalingEnabled = autoscalingEnabled;
-    this.loadBalancingEnabled = loadBalancingEnabled;
     this.faultDomains =
         faultDomains == null ? Collections.emptyList() : Collections.unmodifiableList(faultDomains);
     this.applicationName = applicationName;
@@ -81,8 +77,6 @@ public class TitusRegion {
       String name,
       String account,
       String endpoint,
-      Boolean autoscalingEnabled,
-      Boolean loadBalancingEnabled,
       String applicationName,
       String url,
       Integer port,
@@ -93,8 +87,6 @@ public class TitusRegion {
         name,
         account,
         endpoint,
-        autoscalingEnabled,
-        loadBalancingEnabled,
         Collections.emptyList(),
         applicationName,
         url,
@@ -114,14 +106,6 @@ public class TitusRegion {
 
   public String getEndpoint() {
     return endpoint;
-  }
-
-  public Boolean isAutoscalingEnabled() {
-    return autoscalingEnabled;
-  }
-
-  public Boolean isLoadBalancingEnabled() {
-    return loadBalancingEnabled;
   }
 
   public List<TitusFaultDomain> getFaultDomains() {

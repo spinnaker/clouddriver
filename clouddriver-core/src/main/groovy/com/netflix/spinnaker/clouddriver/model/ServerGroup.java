@@ -53,7 +53,9 @@ public interface ServerGroup {
    * @deprecated use #getCloudProvider
    * @return type
    */
-  String getType();
+  default String getType() {
+    return getCloudProvider();
+  }
 
   /** Provider-specific identifier */
   String getCloudProvider();
@@ -120,6 +122,10 @@ public interface ServerGroup {
    */
   @Empty
   Map<String, Object> getLaunchConfig();
+
+  default String getInstanceType() {
+    return null;
+  }
 
   /**
    * A collection of attributes describing the tags of this server group

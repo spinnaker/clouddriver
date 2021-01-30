@@ -16,13 +16,10 @@
 
 package com.netflix.spinnaker.clouddriver.cloudfoundry.config;
 
+import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
-import java.util.ArrayList;
-import java.util.List;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import java.util.*;
+import lombok.*;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -44,6 +41,8 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
 
   private List<ManagedAccount> accounts = new ArrayList<>();
 
+  private int apiRequestParallelism = 100;
+
   @Override
   public void destroy() {
     this.accounts = new ArrayList<>();
@@ -52,7 +51,8 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
   @Getter
   @Setter
   @ToString(exclude = "password")
-  public static class ManagedAccount {
+  @EqualsAndHashCode
+  public static class ManagedAccount implements CredentialsDefinition {
     private String name;
     private String api;
     private String appsManagerUri;
@@ -62,7 +62,12 @@ public class CloudFoundryConfigurationProperties implements DisposableBean {
     private String environment;
     private boolean skipSslValidation;
     private Integer resultsPerPage;
-    private Integer maxCapiConnectionsForCache;
+
+    @Deprecated
+    private Integer
+        maxCapiConnectionsForCache; // Deprecated in favor of cloudfoundry.apiRequestParallelism
+
     private Permissions.Builder permissions = new Permissions.Builder();
+    private Map<String, Set<String>> spaceFilter = Collections.emptyMap();
   }
 }

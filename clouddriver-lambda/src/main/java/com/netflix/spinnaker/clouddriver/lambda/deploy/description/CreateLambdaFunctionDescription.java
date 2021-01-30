@@ -34,8 +34,9 @@ public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescr
   String role;
   String runtime;
   String appName;
+  List<String> layers;
 
-  Integer memory;
+  Integer memorySize;
   Integer timeout;
 
   Map<String, String> tags;
@@ -50,5 +51,5 @@ public class CreateLambdaFunctionDescription extends AbstractLambdaFunctionDescr
 
   DeadLetterConfig deadLetterConfig;
   TracingConfig tracingConfig;
-  String encryptionKMSKeyArn;
+  String kmskeyArn;
 }

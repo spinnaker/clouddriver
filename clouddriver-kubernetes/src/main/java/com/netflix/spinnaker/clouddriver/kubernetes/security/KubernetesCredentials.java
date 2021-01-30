@@ -38,6 +38,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.config.CustomKubernetesResou
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesCachingPolicy;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.KubernetesConfigurationProperties;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
+import com.netflix.spinnaker.clouddriver.kubernetes.config.RawResourcesEndpointConfig;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.AccountResourcePropertyRegistry;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.JsonPatch;
 import com.netflix.spinnaker.clouddriver.kubernetes.description.KubernetesCoordinates;
@@ -68,13 +69,14 @@ import javax.annotation.Nullable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class KubernetesCredentials {
+  private static final Logger log = LoggerFactory.getLogger(KubernetesCredentials.class);
   private static final int CRD_EXPIRY_SECONDS = 30;
   private static final int NAMESPACE_EXPIRY_SECONDS = 30;
 
@@ -88,9 +90,9 @@ public class KubernetesCredentials {
 
   @Include @Getter private final ImmutableList<String> omitNamespaces;
 
-  @Include private final ImmutableSet<KubernetesKind> kinds;
+  @Include @Getter private final ImmutableSet<KubernetesKind> kinds;
 
-  @Include private final ImmutableSet<KubernetesKind> omitKinds;
+  @Include @Getter private final ImmutableSet<KubernetesKind> omitKinds;
 
   @Include @Getter private final List<CustomKubernetesResource> customResources;
 
@@ -108,7 +110,9 @@ public class KubernetesCredentials {
 
   @Include @Getter private final boolean onlySpinnakerManaged;
 
-  @Include @Getter private final boolean liveManifestCalls;
+  @Include @Getter private final boolean cacheAllApplicationRelationships;
+
+  @Include @Getter private final RawResourcesEndpointConfig rawResourcesEndpointConfig;
 
   @Include private final boolean checkPermissionsOnStartup;
 
@@ -124,7 +128,7 @@ public class KubernetesCredentials {
 
   @Getter private final ResourcePropertyRegistry resourcePropertyRegistry;
   private final KubernetesKindRegistry kindRegistry;
-  private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
+  @Getter private final KubernetesSpinnakerKindMap kubernetesSpinnakerKindMap;
   private final PermissionValidator permissionValidator;
   private final Supplier<ImmutableMap<KubernetesKind, KubernetesKindProperties>> crdSupplier =
       Suppliers.memoizeWithExpiration(this::crdSupplier, CRD_EXPIRY_SECONDS, TimeUnit.SECONDS);
@@ -184,7 +188,6 @@ public class KubernetesCredentials {
     this.context = managedAccount.getContext();
 
     this.onlySpinnakerManaged = managedAccount.isOnlySpinnakerManaged();
-    this.liveManifestCalls = managedAccount.isLiveManifestCalls();
     this.checkPermissionsOnStartup = managedAccount.isCheckPermissionsOnStartup();
     this.cachingPolicies = managedAccount.getCachingPolicies();
 
@@ -195,6 +198,8 @@ public class KubernetesCredentials {
 
     this.debug = managedAccount.isDebug();
     this.namer = manifestNamer;
+    this.cacheAllApplicationRelationships = managedAccount.isCacheAllApplicationRelationships();
+    this.rawResourcesEndpointConfig = managedAccount.getRawResourcesEndpointConfig();
   }
 
   /**
@@ -211,6 +216,7 @@ public class KubernetesCredentials {
               .build(key -> supplier.get());
     }
 
+    @Override
     public T get() {
       return cache.get(CACHE_KEY);
     }

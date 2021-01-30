@@ -37,15 +37,16 @@ import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition;
+import com.netflix.spinnaker.clouddriver.ecs.names.MonikerHelper;
+import com.netflix.spinnaker.clouddriver.ecs.security.NetflixECSCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.ecs.services.SubnetSelector;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import java.util.ArrayList;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.moniker.Moniker;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -69,7 +70,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private final TaskDefinitionCacheClient taskDefinitionCacheClient;
   private final EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient;
   private final EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient;
-  private final AccountCredentialsProvider accountCredentialsProvider;
+  private final CredentialsRepository<NetflixECSCredentials> credentialsRepository;
   private final ContainerInformationService containerInformationService;
   private final SubnetSelector subnetSelector;
 
@@ -77,7 +78,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   @Autowired
   public EcsServerClusterProvider(
-      AccountCredentialsProvider accountCredentialsProvider,
+      CredentialsRepository<NetflixECSCredentials> credentialsRepository,
       ContainerInformationService containerInformationService,
       SubnetSelector subnetSelector,
       TaskCacheClient taskCacheClient,
@@ -86,7 +87,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient,
       TaskDefinitionCacheClient taskDefinitionCacheClient,
       EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient) {
-    this.accountCredentialsProvider = accountCredentialsProvider;
+    this.credentialsRepository = credentialsRepository;
     this.containerInformationService = containerInformationService;
     this.subnetSelector = subnetSelector;
     this.taskCacheClient = taskCacheClient;
@@ -124,7 +125,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     Collection<Task> allTasks = taskCacheClient.getAll(credentials.getName(), awsRegion.getName());
 
     for (Service service : services) {
-      String applicationName = service.getApplicationName();
+      final Moniker moniker = service.getMoniker();
+      String applicationName = moniker.getApp();
       String serviceName = service.getServiceName();
 
       if (application != null && !applicationName.equals(application)) {
@@ -158,6 +160,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
               credentials.getName(),
               awsRegion.getName(),
               serviceName,
+              moniker,
               service.getDesiredCount(),
               instances,
               service.getCreatedAt(),
@@ -171,12 +174,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       }
 
       if (clusterMap.containsKey(applicationName)) {
-        String escClusterName = StringUtils.substringBeforeLast(ecsServerGroup.getName(), "-");
+        String ecsServerClusterName = moniker.getCluster();
         boolean found = false;
 
         for (EcsServerCluster cluster : clusterMap.get(applicationName)) {
-          if (cluster.getName().equals(escClusterName)
-              && cluster.getAccountName().equals(credentials.getName())) {
+          if (StringUtils.equals(cluster.getName(), ecsServerClusterName)
+              && StringUtils.equals(cluster.getAccountName(), credentials.getName())) {
             cluster.getServerGroups().add(ecsServerGroup);
             found = true;
             break;
@@ -289,7 +292,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       EcsServerGroup ecsServerGroup) {
     return new EcsServerCluster()
         .setAccountName(credentials.getName())
-        .setName(StringUtils.substringBeforeLast(ecsServerGroup.getName(), "-"))
+        .setName(ecsServerGroup.getMoniker().getCluster())
         .setLoadBalancers(loadBalancers)
         .setServerGroups(Sets.newHashSet(ecsServerGroup));
   }
@@ -298,10 +301,11 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       String account,
       String region,
       String serviceName,
+      Moniker moniker,
       int desiredCount,
       Set<Instance> instances,
       long creationTime,
-      String ecsCluster,
+      String ecsClusterName,
       com.amazonaws.services.ecs.model.TaskDefinition taskDefinition,
       List<String> eniSubnets,
       List<String> eniSecurityGroups) {
@@ -311,7 +315,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     image.setImageId(ecsTaskDefinition.getContainerImage());
     image.setName(ecsTaskDefinition.getContainerImage());
 
-    String scalableTargetId = "service/" + ecsCluster + "/" + serviceName;
+    String scalableTargetId = "service/" + ecsClusterName + "/" + serviceName;
     String scalableTargetKey = Keys.getScalableTargetKey(account, region, scalableTargetId);
     ScalableTarget scalableTarget = scalableTargetCacheClient.get(scalableTargetKey);
     if (scalableTarget == null) {
@@ -382,11 +386,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
             .setImage(image)
             .setInstanceCounts(instanceCounts)
             .setCreatedTime(creationTime)
-            .setEcsCluster(ecsCluster)
+            .setEcsCluster(ecsClusterName)
             .setTaskDefinition(ecsTaskDefinition)
             .setVpcId(vpcId)
             .setSecurityGroups(securityGroups)
-            .setMetricAlarms(metricAlarmNames);
+            .setMetricAlarms(metricAlarmNames)
+            .setMoniker(moniker);
 
     EcsServerGroup.AutoScalingGroup asg =
         new EcsServerGroup.AutoScalingGroup()
@@ -436,27 +441,17 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return instanceCounts;
   }
 
-  private List<AmazonCredentials> getEcsCredentials() {
-    List<AmazonCredentials> ecsCredentialsList = new ArrayList<>();
-    for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
-      if (credentials instanceof AmazonCredentials
-          && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {
-        ecsCredentialsList.add((AmazonCredentials) credentials);
-      }
-    }
-    return ecsCredentialsList;
+  private Set<NetflixECSCredentials> getEcsCredentials() {
+    return credentialsRepository.getAll();
   }
 
   private AmazonCredentials getEcsCredentials(String account) {
-    try {
-      return getEcsCredentials().stream()
-          .filter(credentials -> credentials.getName().equals(account))
-          .findFirst()
-          .get();
-    } catch (NoSuchElementException exception) {
+    NetflixECSCredentials creds = credentialsRepository.getOne(account);
+    if (creds == null) {
       throw new NoSuchElementException(
           String.format("There is no ECS account by the name of '%s'", account));
     }
+    return creds;
   }
 
   @Override
@@ -534,13 +529,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     if (serverGroupName == null) {
       throw new Error("Invalid Server Group");
     }
-    // TODO - remove the application filter.
-    String application = StringUtils.substringBefore(serverGroupName, "-");
+
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
     try {
       AmazonCredentials credentials = getEcsCredentials(account);
-      clusterMap = findClusters(clusterMap, credentials, application);
+      Moniker moniker = MonikerHelper.applicationNameToMoniker(serverGroupName);
+      log.debug("App Name is: " + moniker.getApp());
+      clusterMap = findClusters(clusterMap, credentials, moniker.getApp());
     } catch (NoSuchElementException exception) {
       /* This is ugly, but not sure how else to do it. If we don't have creds due
        *  to not being an ECS account, there's nothing to do here, and we should

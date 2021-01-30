@@ -51,7 +51,8 @@ import org.eclipse.jgit.util.FS;
 
 @NonnullByDefault
 @Slf4j
-final class GitRepoArtifactCredentials implements ArtifactCredentials {
+public class GitRepoArtifactCredentials implements ArtifactCredentials {
+  public static final String CREDENTIALS_TYPE = "artifacts-git";
   @Getter private final ImmutableList<String> types = ImmutableList.of("git/repo");
 
   @Getter private final String name;
@@ -63,6 +64,11 @@ final class GitRepoArtifactCredentials implements ArtifactCredentials {
   private final String sshKnownHostsFilePath;
   private final boolean sshTrustUnknownHosts;
   private final AuthType authType;
+
+  @Override
+  public String getType() {
+    return CREDENTIALS_TYPE;
+  }
 
   private enum AuthType {
     HTTP,
@@ -112,14 +118,15 @@ final class GitRepoArtifactCredentials implements ArtifactCredentials {
 
     try (Closeable ignored = () -> FileUtils.deleteDirectory(stagingPath.toFile())) {
       log.info("Cloning git/repo {} into {}", repoReference, stagingPath.toString());
-      Git localRepository = clone(artifact, stagingPath, remoteRef);
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-      log.info("Creating archive for git/repo {}", repoReference);
-      archiveToOutputStream(localRepository, outputStream, remoteRef, subPath);
+      try (Git localRepository = clone(artifact, stagingPath, remoteRef)) {
+        log.info("Creating archive for git/repo {}", repoReference);
+        archiveToOutputStream(localRepository, outputStream, remoteRef, subPath);
+      } catch (GitAPIException e) {
+        throw new IOException(
+            "Failed to clone or archive git/repo " + repoReference + ": " + e.getMessage());
+      }
       return new ByteArrayInputStream(outputStream.toByteArray());
-    } catch (GitAPIException e) {
-      throw new IOException(
-          "Failed to clone or archive git/repo " + repoReference + ": " + e.getMessage());
     }
   }
 
@@ -152,6 +159,9 @@ final class GitRepoArtifactCredentials implements ArtifactCredentials {
   }
 
   private String artifactSubPath(Artifact artifact) {
+    if (!Strings.nullToEmpty(artifact.getLocation()).isEmpty()) {
+      return artifact.getLocation();
+    }
     return Strings.nullToEmpty((String) artifact.getMetadata("subPath"));
   }
 

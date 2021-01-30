@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.config;
 
 import com.google.common.base.Strings;
+import com.netflix.spinnaker.credentials.definition.CredentialsDefinition;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +29,7 @@ public class KubernetesConfigurationProperties {
   private List<ManagedAccount> accounts = new ArrayList<>();
 
   @Data
-  public static class ManagedAccount {
+  public static class ManagedAccount implements CredentialsDefinition {
     private String name;
     private String environment;
     private String accountType;
@@ -54,8 +55,10 @@ public class KubernetesConfigurationProperties {
     private List<String> kinds = new ArrayList<>();
     private List<String> omitKinds = new ArrayList<>();
     private boolean onlySpinnakerManaged = false;
-    private boolean liveManifestCalls = false;
     private Long cacheIntervalSeconds;
+    private boolean cacheAllApplicationRelationships = false;
+    private RawResourcesEndpointConfig rawResourcesEndpointConfig =
+        new RawResourcesEndpointConfig();
 
     public void validate() {
       if (Strings.isNullOrEmpty(name)) {
@@ -71,6 +74,7 @@ public class KubernetesConfigurationProperties {
         throw new IllegalArgumentException(
             "At most one of 'kinds' and 'omitKinds' can be specified");
       }
+      rawResourcesEndpointConfig.validate();
     }
   }
 }

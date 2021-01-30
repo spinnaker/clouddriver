@@ -36,6 +36,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Package;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v3.Process;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.deploy.description.DeployCloudFoundryServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
+import com.netflix.spinnaker.clouddriver.helpers.AbstractServerGroupNameResolver;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import java.io.File;
 import java.io.IOException;
@@ -74,7 +75,7 @@ public class Applications {
       ApplicationService api,
       Spaces spaces,
       Integer resultsPerPage,
-      int maxConnections) {
+      ForkJoinPool forkJoinPool) {
     this.account = account;
     this.appsManagerUri = appsManagerUri;
     this.metricsUri = metricsUri;
@@ -82,7 +83,7 @@ public class Applications {
     this.spaces = spaces;
     this.resultsPerPage = resultsPerPage;
 
-    this.forkJoinPool = new ForkJoinPool(maxConnections);
+    this.forkJoinPool = forkJoinPool;
     this.serverGroupCache =
         CacheBuilder.newBuilder()
             .build(
@@ -114,11 +115,14 @@ public class Applications {
         .orElse(null);
   }
 
-  public List<CloudFoundryApplication> all() {
+  public List<CloudFoundryApplication> all(List<String> spaceGuids) {
     log.debug("Listing all applications from account {}", this.account);
 
+    String spaceGuidsQ =
+        spaceGuids == null || spaceGuids.isEmpty() ? null : String.join(",", spaceGuids);
+
     List<Application> newCloudFoundryAppList =
-        collectPages("applications", page -> api.all(page, resultsPerPage, null, null));
+        collectPages("applications", page -> api.all(page, resultsPerPage, null, spaceGuidsQ));
 
     log.debug(
         "Fetched {} total apps from foundation account {}",
@@ -231,7 +235,7 @@ public class Applications {
   @Nullable
   public CloudFoundryServerGroup findServerGroupByNameAndSpaceId(String name, String spaceId) {
     Optional<CloudFoundryServerGroup> result =
-        safelyCall(() -> api.all(null, 1, singletonList(name), singletonList(spaceId)))
+        safelyCall(() -> api.all(null, 1, singletonList(name), spaceId))
             .flatMap(page -> page.getResources().stream().findFirst().map(this::map));
     result.ifPresent(sg -> serverGroupCache.put(sg.getId(), sg));
     return result.orElse(null);
@@ -248,7 +252,7 @@ public class Applications {
         .map(CloudFoundryServerGroup::getId)
         .orElseGet(
             () ->
-                safelyCall(() -> api.all(null, 1, singletonList(name), singletonList(spaceId)))
+                safelyCall(() -> api.all(null, 1, singletonList(name), spaceId))
                     .flatMap(
                         page ->
                             page.getResources().stream()
@@ -701,15 +705,26 @@ public class Applications {
 
   public List<Resource<com.netflix.spinnaker.clouddriver.cloudfoundry.client.model.v2.Application>>
       getTakenSlots(String clusterName, String spaceId) {
+    String finalName = buildFinalAsgName(clusterName);
     List<String> filter =
-        asList("name<" + clusterName + "-v9999", "name>=" + clusterName, "space_guid:" + spaceId);
+        asList("name<" + finalName, "name>=" + clusterName, "space_guid:" + spaceId);
     return collectPageResources("applications", page -> api.listAppsFiltered(page, filter, 10))
         .stream()
         .filter(
             app -> {
-              Names names = Names.parseName(app.getEntity().getName());
-              return clusterName.equals(names.getCluster());
+              Names entityNames = Names.parseName(app.getEntity().getName());
+              return clusterName.equals(entityNames.getCluster());
             })
         .collect(Collectors.toList());
+  }
+
+  private String buildFinalAsgName(String clusterName) {
+    Names names = Names.parseName(clusterName);
+    return AbstractServerGroupNameResolver.generateServerGroupName(
+        names.getApp(), names.getStack(), names.getDetail(), 999, false);
+  }
+
+  public void restageApplication(String appGuid) {
+    safelyCall(() -> api.restageApplication(appGuid, ""));
   }
 }

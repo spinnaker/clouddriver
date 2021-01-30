@@ -411,7 +411,7 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
   }
 
   @Override
-  Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
+  Collection<Map<String, Object>> pendingOnDemandRequests(ProviderCache providerCache) {
     def keys = providerCache.getIdentifiers(ON_DEMAND.ns)
     keys = keys.findResults {
       def parse = Keys.parse(it)
