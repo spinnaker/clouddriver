@@ -274,7 +274,11 @@ class AppengineServerGroupCachingAgent extends AbstractAppengineCachingAgent imp
                 loadBalancerName,
                 isDisabled)
             } else {
-              attributes.serverGroup.update(serverGroup, accountName, credentials.region, loadBalancerName, isDisabled)
+              attributes.serverGroup.update(serverGroup,
+                accountName,
+                credentials.region,
+                loadBalancerName,
+                isDisabled)
             }
             relationships[APPLICATIONS.ns].add(applicationKey)
             relationships[CLUSTERS.ns].add(clusterKey)
