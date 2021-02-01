@@ -9,12 +9,12 @@ artifacts:
       - name: token-auth
         token: ${gitea_token}
       - name: ssh-auth
-        sshPrivateKeyFilePath: ${SSH_KEYS}/id_rsa_test
-        sshPrivateKeyPassphrase: "@!JrUj3e6HyL#"
+        sshPrivateKeyFilePath: ${ssh_key_file}
+        sshPrivateKeyPassphrase: ${ssh_key_pass}
         sshTrustUnknownHosts: true
       - name: ssh-auth-known-hosts
-        sshPrivateKeyFilePath: ${SSH_KEYS}/id_rsa_test
-        sshPrivateKeyPassphrase: "@!JrUj3e6HyL#"
+        sshPrivateKeyFilePath: ${ssh_key_file}
+        sshPrivateKeyPassphrase: ${ssh_key_pass}
         sshTrustUnknownHosts: false
         sshKnownHostsFilePath: ${known_hosts}
 

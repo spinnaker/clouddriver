@@ -75,7 +75,6 @@ task integrationTest(type: Test) {
 
   environment "BUILD_DIR", buildDir
   environment "GIT_WRAPPER", "${project.rootDir.toString()}/clouddriver-artifacts/src/integration/resources/git-wrapper.sh"
-  environment "SSH_KEYS", "${project.rootDir.toString()}/clouddriver-artifacts/src/integration/resources/ssh"
 
   testClassesDirs = sourceSets.integration.output.classesDirs
   classpath = sourceSets.integration.runtimeClasspath

@@ -17,10 +17,12 @@
 package com.netflix.spinnaker.clouddriver.artifacts.utils;
 
 import static io.restassured.RestAssured.given;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableMap;
 import io.restassured.response.Response;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
@@ -36,6 +38,9 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
   private static final String REPO_NAME = "test";
   private static final String USER = "test";
   private static final String PASS = "test";
+  private static final String SSH_KEY_PASS = "@!JrU/+j3e6HyL#";
+  private static final Path SSH_KEY_FILE =
+      Paths.get(System.getenv("BUILD_DIR"), "ssh", "id_rsa_test");
 
   public GiteaContainer() {
     super(DOCKER_IMAGE);
@@ -47,10 +52,16 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
     super.start();
     String baseUrl = "http://" + this.getContainerIpAddress() + ":" + this.getMappedPort(3000);
     try {
+      if (SSH_KEY_FILE.toFile().getParentFile().exists()) {
+        FileUtils.forceDelete(SSH_KEY_FILE.toFile().getParentFile());
+        FileUtils.forceMkdir(SSH_KEY_FILE.toFile().getParentFile());
+      }
       createUser(baseUrl);
       String token = createToken(baseUrl);
       System.setProperty("gitea_token", token);
       createSshKey(baseUrl);
+      System.setProperty("ssh_key_file", SSH_KEY_FILE.toString());
+      System.setProperty("ssh_key_pass", SSH_KEY_PASS);
       createRepo(baseUrl);
       Path knownHosts = generateKnownHosts();
       System.setProperty("known_hosts", knownHosts.toString());
@@ -109,11 +120,29 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
     return resp.jsonPath().getString("sha1");
   }
 
-  private void createSshKey(String baseUrl) throws IOException {
+  private void createSshKey(String baseUrl) throws IOException, InterruptedException {
+    ExecResult execResult =
+        execInContainer(
+            "ssh-keygen",
+            "-t",
+            "rsa",
+            "-C",
+            "test@test.com",
+            "-f",
+            "/tmp/id_rsa_test",
+            "-N",
+            SSH_KEY_PASS);
+    assertEquals(
+        0,
+        execResult.getExitCode(),
+        String.format("Stdout: %s\nStderr: %s", execResult.getStdout(), execResult.getStderr()));
+    copyFileFromContainer("/tmp/id_rsa_test", SSH_KEY_FILE.toString());
+    copyFileFromContainer("/tmp/id_rsa_test.pub", SSH_KEY_FILE.toString() + ".pub");
+
     Map<String, Object> body =
         ImmutableMap.of(
             "key",
-            IOUtils.resourceToString("/ssh/id_rsa_test.pub", Charset.defaultCharset()),
+            IOUtils.toString(new FileReader(SSH_KEY_FILE.toString() + ".pub")),
             "read_only",
             true,
             "title",
@@ -149,10 +178,6 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
         execInContainer("ssh-keygen -y -f /data/ssh/ssh_host_rsa_key".split(" "));
     String publicKey = execResult.getStdout();
     Path knownHosts = Paths.get(System.getenv("BUILD_DIR"), "ssh", "known_hosts");
-    if (knownHosts.toFile().getParentFile().exists()) {
-      FileUtils.forceDelete(knownHosts.toFile().getParentFile());
-      FileUtils.forceMkdir(knownHosts.toFile().getParentFile());
-    }
     FileUtils.writeStringToFile(
         knownHosts.toFile(), "localhost " + publicKey, Charset.defaultCharset());
     return knownHosts;

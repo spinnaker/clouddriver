@@ -31,11 +31,10 @@ function pre_process() {
     } >/dev/null 2>&1
   fi
 
-  docker exec -i "$container_name" mkdir -p "$SSH_KEYS"
-  docker cp "${SSH_KEYS}/id_rsa_test" "$container_name":"${SSH_KEYS}/id_rsa_test"
-  docker exec -i "$container_name" chmod 600 "${SSH_KEYS}/id_rsa_test"
-
   docker exec -i "$container_name" mkdir -p "$BUILD_DIR/ssh"
+  docker cp "$BUILD_DIR/ssh/id_rsa_test" "$container_name":"$BUILD_DIR/ssh/id_rsa_test"
+  docker exec -i "$container_name" chmod 600 "$BUILD_DIR/ssh/id_rsa_test"
+
   docker cp "${BUILD_DIR}/ssh/known_hosts" "$container_name":"${BUILD_DIR}/ssh/known_hosts"
 
   if [[ -n "${SSH_ASKPASS}" ]] ; then
