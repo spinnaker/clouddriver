@@ -54,8 +54,8 @@ public class GiteaContainer extends GenericContainer<GiteaContainer> {
     try {
       if (SSH_KEY_FILE.toFile().getParentFile().exists()) {
         FileUtils.forceDelete(SSH_KEY_FILE.toFile().getParentFile());
-        FileUtils.forceMkdir(SSH_KEY_FILE.toFile().getParentFile());
       }
+      FileUtils.forceMkdir(SSH_KEY_FILE.toFile().getParentFile());
       createUser(baseUrl);
       String token = createToken(baseUrl);
       System.setProperty("gitea_token", token);
