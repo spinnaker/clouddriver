@@ -19,53 +19,35 @@ package com.netflix.spinnaker.clouddriver.artifacts;
 
 import com.google.common.base.Strings;
 import com.netflix.spinnaker.clouddriver.artifacts.config.ArtifactCredentials;
-import java.util.Collection;
-import java.util.Collections;
+import com.netflix.spinnaker.credentials.CompositeCredentialsRepository;
+import com.netflix.spinnaker.credentials.CredentialsRepository;
+import com.netflix.spinnaker.kork.exceptions.MissingCredentialsException;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import lombok.Getter;
-import org.springframework.stereotype.Component;
 
-@Component
-public class ArtifactCredentialsRepository {
-  @Getter private final List<ArtifactCredentials> allCredentials;
+public class ArtifactCredentialsRepository
+    extends CompositeCredentialsRepository<ArtifactCredentials> {
 
-  public ArtifactCredentialsRepository(List<List<? extends ArtifactCredentials>> allCredentials) {
-    this.allCredentials =
-        Collections.unmodifiableList(
-            allCredentials.stream()
-                .filter(Objects::nonNull)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList()));
+  public ArtifactCredentialsRepository(
+      List<CredentialsRepository<? extends ArtifactCredentials>> repositories) {
+    super(repositories);
   }
 
-  private ArtifactCredentials getCredentials(String accountName) {
+  public ArtifactCredentials getCredentialsForType(String name, String artifactType) {
+    if (Strings.isNullOrEmpty(name)) {
+      throw new IllegalArgumentException(
+          "An artifact account must be supplied to download this artifact: " + name);
+    }
+
     return getAllCredentials().stream()
-        .filter(e -> e.getName().equals(accountName))
+        .filter(a -> a.getName().equals(name) && a.handlesType(artifactType))
         .findFirst()
         .orElseThrow(
             () ->
-                new IllegalArgumentException(
-                    "No credentials with name '" + accountName + "' could be found."));
-  }
-
-  public ArtifactCredentials getCredentials(String accountName, String type) {
-    if (Strings.isNullOrEmpty(accountName)) {
-      throw new IllegalArgumentException(
-          "An artifact account must be supplied to download this artifact: " + accountName);
-    }
-
-    ArtifactCredentials credentials = getCredentials(accountName);
-    if (!credentials.handlesType(type)) {
-      throw new IllegalArgumentException(
-          "Artifact credentials '"
-              + accountName
-              + "' cannot handle artifacts of type '"
-              + type
-              + "'");
-    }
-
-    return credentials;
+                new MissingCredentialsException(
+                    "Credentials '"
+                        + name
+                        + "' supporting artifact type '"
+                        + artifactType
+                        + "' cannot be found"));
   }
 }
