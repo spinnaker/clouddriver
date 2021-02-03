@@ -100,6 +100,7 @@ import com.netflix.spinnaker.kork.core.RetrySupport
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.jackson.ObjectMapperSubtypeConfigurer
 import com.netflix.spinnaker.kork.jedis.RedisClientDelegate
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer
@@ -114,6 +115,7 @@ import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.core.env.Environment
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import org.springframework.web.client.RestTemplate
 
 import javax.inject.Provider
@@ -392,5 +394,12 @@ class CloudDriverConfig {
     return new ExceptionClassifier(properties, dynamicConfigService)
   }
 
+  @Bean
+  ThreadPoolTaskScheduler threadPoolTaskScheduler(@Value('${scheduling-thread-pool-size:5') int threadPoolSize) {
+    ThreadPoolTaskScheduler threadPoolTaskScheduler = new ThreadPoolTaskScheduler();
+    threadPoolTaskScheduler.setPoolSize(threadPoolSize);
+    threadPoolTaskScheduler.setThreadNamePrefix("ThreadPoolTaskScheduler");
+    return threadPoolTaskScheduler;
+  }
 
 }
