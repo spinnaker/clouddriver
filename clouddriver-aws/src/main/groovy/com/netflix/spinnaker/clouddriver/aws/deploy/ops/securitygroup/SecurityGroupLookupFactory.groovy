@@ -293,8 +293,12 @@ class SecurityGroupLookupFactory {
         DescribeTagsResult tagsResult = amazonEC2.describeTags(describeTagsRequest)
         List<TagDescription> tags1 = tagsResult.getTags()
         Collection<Tag> oldTags = new HashSet()
+        // Filter Spinnaker specific tags, update to other tags might result in permission errors
         tags1.each {
-          it -> oldTags.add(new Tag(it.key, it.value))
+          it ->
+            if(it.key.equals("Name") || description.tags.keySet().contains(it.key)){
+              oldTags.add(new Tag(it.key, it.value))
+            }
         }
 
         DeleteTagsRequest deleteTagsRequest = new DeleteTagsRequest()
