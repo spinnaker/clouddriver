@@ -22,7 +22,7 @@ import static java.util.Comparator.comparing;
 import com.amazonaws.services.autoscaling.model.LaunchTemplateSpecification;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.*;
-import com.netflix.spinnaker.clouddriver.aws.deploy.LaunchConfigurationBuilder.LaunchConfigurationSettings;
+import com.netflix.spinnaker.clouddriver.aws.deploy.AutoScalingWorker.AsgConfiguration;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.ModifyServerGroupLaunchTemplateDescription;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.LocalFileUserDataProperties;
 import com.netflix.spinnaker.clouddriver.aws.deploy.userdata.UserDataProviderAggregator;
@@ -35,7 +35,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
+@Slf4j
 public class LaunchTemplateService {
   private final AmazonEC2 ec2;
   private final UserDataProviderAggregator userDataProviderAggregator;
@@ -116,20 +120,10 @@ public class LaunchTemplateService {
   }
 
   public LaunchTemplate createLaunchTemplate(
-      LaunchConfigurationSettings settings,
-      String launchTemplateName,
-      Boolean requireIMDSv2,
-      Boolean associateIPv6Address,
-      Boolean unlimitedCpuCredits,
-      UserDataOverride userDataOverride) {
+      AsgConfiguration asgConfig, String asgName, String launchTemplateName) {
     final RequestLaunchTemplateData data =
-        buildLaunchTemplateData(
-            settings,
-            launchTemplateName,
-            requireIMDSv2,
-            associateIPv6Address,
-            unlimitedCpuCredits,
-            userDataOverride);
+        buildLaunchTemplateData(asgConfig, asgName, launchTemplateName);
+    log.debug("Creating launch template with name {}", launchTemplateName);
     return retrySupport.retry(
         () -> {
           final CreateLaunchTemplateRequest launchTemplateRequest =
@@ -244,60 +238,80 @@ public class LaunchTemplateService {
 
   /** Build launch template data for new launch template creation */
   private RequestLaunchTemplateData buildLaunchTemplateData(
-      LaunchConfigurationSettings settings,
-      String launchTemplateName,
-      Boolean requireIMDSv2,
-      Boolean associateIPv6Address,
-      Boolean unlimitedCpuCredits,
-      UserDataOverride userDataOverride) {
+      AsgConfiguration asgConfig, String asgName, String launchTemplateName) {
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
-            .withImageId(settings.getAmi())
-            .withKernelId(settings.getKernelId())
-            .withInstanceType(settings.getInstanceType())
-            .withRamDiskId(settings.getRamdiskId())
-            .withEbsOptimized(settings.getEbsOptimized())
-            .withKeyName(settings.getKeyPair())
+            .withImageId(asgConfig.getAmi())
+            .withKernelId(asgConfig.getKernelId())
+            .withInstanceType(asgConfig.getInstanceType())
+            .withRamDiskId(asgConfig.getRamdiskId())
+            .withEbsOptimized(asgConfig.getEbsOptimized())
+            .withKeyName(asgConfig.getKeyPair())
             .withIamInstanceProfile(
                 new LaunchTemplateIamInstanceProfileSpecificationRequest()
-                    .withName(settings.getIamRole()))
+                    .withName(asgConfig.getIamRole()))
             .withMonitoring(
                 new LaunchTemplatesMonitoringRequest()
-                    .withEnabled(settings.getInstanceMonitoring()));
+                    .withEnabled(asgConfig.getInstanceMonitoring()));
+
+    if (asgConfig.getPlacement() != null) {
+      request =
+          request.withPlacement(
+              new LaunchTemplatePlacementRequest()
+                  .withAffinity(asgConfig.getPlacement().getAffinity())
+                  .withAvailabilityZone(asgConfig.getPlacement().getAvailabilityZone())
+                  .withGroupName(asgConfig.getPlacement().getGroupName())
+                  .withHostId(asgConfig.getPlacement().getHostId())
+                  .withTenancy(asgConfig.getPlacement().getTenancy())
+                  .withHostResourceGroupArn(asgConfig.getPlacement().getHostResourceGroupArn())
+                  .withPartitionNumber(asgConfig.getPlacement().getPartitionNumber())
+                  .withSpreadDomain(asgConfig.getPlacement().getSpreadDomain()));
+    }
+
+    if (asgConfig.getLicenseSpecifications() != null) {
+      request =
+          request.withLicenseSpecifications(
+              asgConfig.getLicenseSpecifications().stream()
+                  .map(
+                      licenseSpecification ->
+                          new LaunchTemplateLicenseConfigurationRequest()
+                              .withLicenseConfigurationArn(licenseSpecification.getArn()))
+                  .collect(Collectors.toList()));
+    }
 
     setUserData(
         request,
-        settings.getBaseName(),
+        asgName,
         launchTemplateName,
-        settings.getRegion(),
-        settings.getAccount(),
-        settings.getEnvironment(),
-        settings.getAccountType(),
-        settings.getIamRole(),
-        settings.getAmi(),
-        settings.getBase64UserData(),
-        userDataOverride);
+        asgConfig.getRegion(),
+        asgConfig.getCredentials().getName(),
+        asgConfig.getCredentials().getEnvironment(),
+        asgConfig.getCredentials().getAccountType(),
+        asgConfig.getIamRole(),
+        asgConfig.getAmi(),
+        asgConfig.getBase64UserData(),
+        asgConfig.getUserDataOverride());
 
     // block device mappings
-    request.setBlockDeviceMappings(buildDeviceMapping(settings.getBlockDevices()));
+    request.setBlockDeviceMappings(buildDeviceMapping(asgConfig.getBlockDevices()));
 
     // metadata options
-    if (requireIMDSv2 != null && requireIMDSv2) {
+    if (asgConfig.getRequireIMDSv2() != null && asgConfig.getRequireIMDSv2()) {
       request.setMetadataOptions(
           new LaunchTemplateInstanceMetadataOptionsRequest().withHttpTokens("required"));
     }
 
     // instance market options
-    setSpotInstanceMarketOptions(request, settings.getSpotPrice());
+    setSpotInstanceMarketOptions(request, asgConfig.getSpotMaxPrice());
 
-    setCreditSpecification(request, unlimitedCpuCredits);
+    setCreditSpecification(request, asgConfig.getUnlimitedCpuCredits());
 
     // network interfaces
     request.withNetworkInterfaces(
         new LaunchTemplateInstanceNetworkInterfaceSpecificationRequest()
-            .withAssociatePublicIpAddress(settings.getAssociatePublicIpAddress())
-            .withIpv6AddressCount(associateIPv6Address ? 1 : 0)
-            .withGroups(settings.getSecurityGroups())
+            .withAssociatePublicIpAddress(asgConfig.getAssociatePublicIpAddress())
+            .withIpv6AddressCount(asgConfig.getAssociateIPv6Address() ? 1 : 0)
+            .withGroups(asgConfig.getSecurityGroups())
             .withDeviceIndex(0));
 
     return request;
@@ -319,7 +333,7 @@ public class LaunchTemplateService {
    */
   private void setSpotInstanceMarketOptions(
       RequestLaunchTemplateData request, String maxSpotPrice) {
-    if (maxSpotPrice != null) {
+    if (maxSpotPrice != null && StringUtils.isNotEmpty(maxSpotPrice.trim())) {
       request.setInstanceMarketOptions(
           new LaunchTemplateInstanceMarketOptionsRequest()
               .withMarketType("spot")
@@ -398,6 +412,10 @@ public class LaunchTemplateService {
 
     if (blockDevice.getEncrypted() != null) {
       blockDeviceRequest.setEncrypted(blockDevice.getEncrypted());
+    }
+
+    if (blockDevice.getKmsKeyId() != null) {
+      blockDeviceRequest.setKmsKeyId(blockDevice.getKmsKeyId());
     }
     return blockDeviceRequest;
   }
