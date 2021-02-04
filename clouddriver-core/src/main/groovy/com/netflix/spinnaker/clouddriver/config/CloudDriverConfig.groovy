@@ -395,7 +395,7 @@ class CloudDriverConfig {
   }
 
   @Bean
-  ThreadPoolTaskScheduler threadPoolTaskScheduler(@Value('${scheduling-thread-pool-size:5') int threadPoolSize) {
+  ThreadPoolTaskScheduler threadPoolTaskScheduler(@Value('${scheduling-thread-pool-size:5}') int threadPoolSize) {
     ThreadPoolTaskScheduler threadPoolTaskScheduler = new ThreadPoolTaskScheduler();
     threadPoolTaskScheduler.setPoolSize(threadPoolSize);
     threadPoolTaskScheduler.setThreadNamePrefix("ThreadPoolTaskScheduler");
