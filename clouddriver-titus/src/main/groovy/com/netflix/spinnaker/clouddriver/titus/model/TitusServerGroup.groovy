@@ -42,7 +42,9 @@ class TitusServerGroup implements ServerGroup, Serializable {
   final String type = TitusCloudProvider.ID
   final String cloudProvider = TitusCloudProvider.ID
   String entryPoint
+  List<String> entryPointList
   String cmd
+  List<String> cmdList
   String awsAccount
   String accountId
   String iamProfile
@@ -85,7 +87,9 @@ class TitusServerGroup implements ServerGroup, Serializable {
     image << [dockerImageVersion: job.version]
     image << [dockerImageDigest: job.digest]
     entryPoint = job.entryPoint
+    entryPointList = job.entryPointList
     cmd = job.cmd
+    cmdList = job.cmdList
     iamProfile = job.iamProfile
     resources.cpu = job.cpu
     resources.memory = job.memory

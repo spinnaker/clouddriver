@@ -60,6 +60,13 @@ public class JobDescription {
 
   private String entryPoint;
   private String cmd;
+
+  /** If present this will take precedence over the single entry point */
+  private List<String> entryPointList = null;
+
+  /** If present this will take precedence over the single cmd */
+  private List<String> cmdList = null;
+
   private String iamProfile;
   private String capacityGroup;
   private Efs efs;
@@ -113,7 +120,9 @@ public class JobDescription {
             ? request.getContainerAttributes()
             : new HashMap<>();
     entryPoint = request.getEntryPoint();
+    entryPointList = request.getEntryPointList();
     cmd = request.getCmd();
+    cmdList = request.getCmdList();
     iamProfile = request.getIamProfile();
     capacityGroup = request.getCapacityGroup();
     securityGroups = request.getSecurityGroups();
@@ -358,12 +367,28 @@ public class JobDescription {
     this.entryPoint = entryPoint;
   }
 
+  public List<String> getEntryPointList() {
+    return entryPointList;
+  }
+
+  public void setEntryPointList(List<String> entryPointList) {
+    this.entryPointList = entryPointList;
+  }
+
   public String getCmd() {
     return cmd;
   }
 
   public void setCmd(String cmd) {
     this.cmd = cmd;
+  }
+
+  public List<String> getCmdList() {
+    return cmdList;
+  }
+
+  public void setCmdList(List<String> cmdList) {
+    this.cmdList = cmdList;
   }
 
   public String getIamProfile() {
@@ -546,11 +571,15 @@ public class JobDescription {
 
     containerBuilder.setImage(imageBuilder);
 
-    if (entryPoint != null) {
+    if (entryPointList != null) {
+      containerBuilder.addAllEntryPoint(entryPointList);
+    } else if (entryPoint != null) {
       containerBuilder.addEntryPoint(entryPoint);
     }
 
-    if (cmd != null && !cmd.isEmpty()) {
+    if (cmdList != null) {
+      containerBuilder.addAllCommand(cmdList);
+    } else if (cmd != null && !cmd.isEmpty()) {
       containerBuilder.addCommand(cmd);
     }
 

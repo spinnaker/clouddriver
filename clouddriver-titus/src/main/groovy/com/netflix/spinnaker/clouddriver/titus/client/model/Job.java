@@ -38,7 +38,9 @@ public class Job {
   private String user;
   private String version;
   private String entryPoint;
+  private List<String> entryPointList;
   private String cmd;
+  private List<String> cmdList;
   private String iamProfile;
   private String capacityGroup;
   private Boolean inService;
@@ -131,12 +133,13 @@ public class Job {
     applicationName = grpcJob.getJobDescriptor().getContainer().getImage().getName();
     version = grpcJob.getJobDescriptor().getContainer().getImage().getTag();
     digest = grpcJob.getJobDescriptor().getContainer().getImage().getDigest();
-    entryPoint =
-        grpcJob.getJobDescriptor().getContainer().getEntryPointList().stream()
-            .collect(Collectors.joining(" "));
-    cmd =
-        grpcJob.getJobDescriptor().getContainer().getCommandList().stream()
-            .collect(Collectors.joining(" "));
+
+    entryPointList = new ArrayList<>(grpcJob.getJobDescriptor().getContainer().getEntryPointList());
+    entryPoint = entryPointList.stream().collect(Collectors.joining(" "));
+
+    cmdList = new ArrayList<>(grpcJob.getJobDescriptor().getContainer().getCommandList());
+    cmd = cmdList.stream().collect(Collectors.joining(" "));
+
     capacityGroup = grpcJob.getJobDescriptor().getCapacityGroup();
     cpu = (int) grpcJob.getJobDescriptor().getContainer().getResources().getCpu();
     memory = grpcJob.getJobDescriptor().getContainer().getResources().getMemoryMB();
@@ -374,12 +377,28 @@ public class Job {
     this.entryPoint = entryPoint;
   }
 
+  public List<String> getEntryPointList() {
+    return entryPointList;
+  }
+
+  public void setEntryPointList(List<String> entryPointList) {
+    this.entryPointList = entryPointList;
+  }
+
   public String getCmd() {
     return cmd;
   }
 
   public void setCmd(String cmd) {
     this.cmd = cmd;
+  }
+
+  public List<String> getCmdList() {
+    return cmdList;
+  }
+
+  public void setCmdList(List<String> cmdList) {
+    this.cmdList = cmdList;
   }
 
   public int getInstances() {

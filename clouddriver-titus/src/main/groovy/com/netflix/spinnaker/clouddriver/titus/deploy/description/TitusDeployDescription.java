@@ -44,7 +44,9 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
   private Map<String, String> labels = new LinkedHashMap<>();
   private Map<String, String> containerAttributes = new LinkedHashMap<>();
   private String entryPoint;
+  private List<String> entryPointList;
   private String cmd;
+  private List<String> cmdList;
   private String iamProfile;
   private String capacityGroup;
   private String user;
@@ -127,6 +129,8 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
             .stack(stack)
             .detail(freeFormDetails)
             .entryPoint(entryPoint)
+            .entryPointList(entryPointList)
+            .cmdList(cmdList)
             .iamProfile(iamProfile)
             .capacityGroup(capacityGroup)
             .labels(labels)
@@ -352,12 +356,28 @@ public class TitusDeployDescription extends AbstractTitusCredentialsDescription
     this.entryPoint = entryPoint;
   }
 
+  public List<String> getEntryPointList() {
+    return entryPointList;
+  }
+
+  public void setEntryPointList(List<String> entryPointList) {
+    this.entryPointList = entryPointList;
+  }
+
   public String getCmd() {
     return cmd;
   }
 
   public void setCmd(String cmd) {
     this.cmd = cmd;
+  }
+
+  public List<String> getCmdList() {
+    return cmdList;
+  }
+
+  public void setCmdList(List<String> cmdList) {
+    this.cmdList = cmdList;
   }
 
   public String getIamProfile() {
