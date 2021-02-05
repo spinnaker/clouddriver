@@ -296,7 +296,7 @@ class SecurityGroupLookupFactory {
         // Filter Spinnaker specific tags, update to other tags might result in permission errors
         tags1.each {
           it ->
-            if(it.key.equals("Name") || description.tags.keySet().contains(it.key)){
+            if (it.key.equals("Name") || description.tags.keySet().contains(it.key)) {
               oldTags.add(new Tag(it.key, it.value))
             }
         }
