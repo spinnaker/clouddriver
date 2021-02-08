@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 public class LaunchTemplateService {
@@ -332,7 +333,7 @@ public class LaunchTemplateService {
    */
   private void setSpotInstanceMarketOptions(
       RequestLaunchTemplateData request, String maxSpotPrice) {
-    if (maxSpotPrice != null) {
+    if (maxSpotPrice != null && StringUtils.isNotEmpty(maxSpotPrice.trim())) {
       request.setInstanceMarketOptions(
           new LaunchTemplateInstanceMarketOptionsRequest()
               .withMarketType("spot")
@@ -411,6 +412,10 @@ public class LaunchTemplateService {
 
     if (blockDevice.getEncrypted() != null) {
       blockDeviceRequest.setEncrypted(blockDevice.getEncrypted());
+    }
+
+    if (blockDevice.getKmsKeyId() != null) {
+      blockDeviceRequest.setKmsKeyId(blockDevice.getKmsKeyId());
     }
     return blockDeviceRequest;
   }
