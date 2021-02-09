@@ -5,7 +5,7 @@ LABEL maintainer="sig-platform@spinnaker.io"
 ENV KUBECTL_RELEASE=1.18.10
 ENV AWS_CLI_VERSION=1.18.152
 ENV AWS_CLI_S3_CMD=2.0.2
-ENV AWS_AIM_AUTHENTICATOR_VERSION=0.4.0
+ENV AWS_IAM_AUTHENTICATOR_VERSION=0.5.2
 ENV GOOGLE_CLOUD_SDK_VERSION=313.0.1
 ENV ECR_TOKEN_VERSION=v1.0.2
 ENV GIT_VERSION=2.26.2-r0
@@ -39,7 +39,7 @@ RUN wget -nv https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-c
 RUN wget https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_RELEASE}/bin/linux/amd64/kubectl \
   && chmod +x kubectl \
   && mv ./kubectl /usr/local/bin/kubectl \
-  && wget -O aws-iam-authenticator https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_AIM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_AIM_AUTHENTICATOR_VERSION}_linux_amd64 \
+  && wget -O aws-iam-authenticator https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v${AWS_IAM_AUTHENTICATOR_VERSION}/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_VERSION}_linux_amd64 \
 	&& chmod +x ./aws-iam-authenticator \
 	&& mv ./aws-iam-authenticator /usr/local/bin/aws-iam-authenticator\
     && ln -sf /usr/local/bin/aws-iam-authenticator /usr/local/bin/heptio-authenticator-aws
