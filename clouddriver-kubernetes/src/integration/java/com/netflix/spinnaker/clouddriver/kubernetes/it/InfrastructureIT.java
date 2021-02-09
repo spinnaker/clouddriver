@@ -18,12 +18,13 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.it;
 
 import static io.restassured.RestAssured.get;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.common.base.Splitter;
 import com.netflix.spinnaker.clouddriver.kubernetes.it.utils.KubeTestUtils;
 import io.restassured.response.Response;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -465,6 +466,118 @@ public class InfrastructureIT extends BaseTest {
 
   @DisplayName(
       ".\n===\n"
+          + "Given one deployment of two pods\n"
+          + "When sending get instance request for application, region and name\n"
+          + "Then only one pod should be returned\n===")
+  @Test
+  public void shouldGetInstanceByAccountRegionId() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/deployment.yml")
+            .withValue("metadata.name", deploymentName)
+            .withValue("metadata.namespace", ns)
+            .withValue("spec.replicas", 2)
+            .asList();
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "deployment " + deploymentName);
+
+    List<String> allPodNames =
+        Splitter.on(" ")
+            .splitToList(
+                kubeCluster.execKubectl(
+                    "get -n " + ns + " pod -o=jsonpath='{.items[*].metadata.name}'"));
+    List<String> podNames = new ArrayList<>();
+    for (String name : allPodNames) {
+      if (name.startsWith(deploymentName)) {
+        podNames.add(name);
+      }
+    }
+    assertFalse(podNames.isEmpty());
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url =
+              baseUrl() + "/instances/" + ACCOUNT1_NAME + "/" + ns + "/pod " + podNames.get(0);
+          System.out.println("> Sending get instances request to " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          return resp.jsonPath().getString("displayName").equals(podNames.get(0));
+        },
+        1,
+        TimeUnit.MINUTES,
+        "Waited 1 minute for 'pod "
+            + podNames.get(0)
+            + "' to return from GET /instances/{account}/{region}/{name}/");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes deployment\n"
+          + "When sending get instance logs request for application, region and name\n"
+          + "Then the pod logs should be returned\n===")
+  @Test
+  public void shouldGetInstanceLogs() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    KubeTestUtils.deployIfMissing(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+
+    List<String> allPodNames =
+        Splitter.on(" ")
+            .splitToList(
+                kubeCluster.execKubectl(
+                    "get -n " + ns + " pod -o=jsonpath='{.items[*].metadata.name}'"));
+    List<String> podNames = new ArrayList<>();
+    for (String name : allPodNames) {
+      if (name.startsWith(deploymentName)) {
+        podNames.add(name);
+      }
+    }
+    assertFalse(podNames.isEmpty());
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          String url =
+              baseUrl()
+                  + "/instances/"
+                  + ACCOUNT1_NAME
+                  + "/"
+                  + ns
+                  + "/pod "
+                  + podNames.get(0)
+                  + "/console?provider=kubernetes";
+          System.out.println("> Sending get instance logs request to " + url);
+          Response resp = get(url);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          return resp.jsonPath().getString("output[0].output") != null;
+        },
+        1,
+        TimeUnit.MINUTES,
+        "Waited 1 minute for logs of pod "
+            + podNames.get(0)
+            + " to return from GET /instances/{account}/{region}/{name}/console");
+  }
+
+  @DisplayName(
+      ".\n===\n"
           + "Given a kubernetes service deployed by spinnaker to two accounts\n"
           + "When sending get load balancers request\n"
           + "Then both services should be returned\n===")
@@ -571,5 +684,95 @@ public class InfrastructureIT extends BaseTest {
             + "/"
             + ns
             + "/service other");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes deployment\n"
+          + "When sending get manifest by account, location and name request\n"
+          + "Then only the desired manifest should be returned\n===")
+  @Test
+  public void shouldGetManifestByAccountLocationName() throws InterruptedException, IOException {
+    // ------------------------- given --------------------------
+    KubeTestUtils.deployIfMissing(
+        baseUrl(), ACCOUNT1_NAME, ns, "deployment", deploymentName, APP1_NAME, kubeCluster);
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get manifest request");
+          Response resp =
+              get(
+                  baseUrl()
+                      + "/manifests/"
+                      + ACCOUNT1_NAME
+                      + "/"
+                      + ns
+                      + "/deployment "
+                      + deploymentName);
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          return resp.jsonPath().getString("account").equals(ACCOUNT1_NAME)
+              && resp.jsonPath().getString("location").equals(ns)
+              && resp.jsonPath().getString("name").equals("deployment " + deploymentName);
+        },
+        1,
+        TimeUnit.MINUTES,
+        "Waited 1 minute for GET /manifests/"
+            + ACCOUNT1_NAME
+            + "/"
+            + ns
+            + "/deployment "
+            + deploymentName
+            + " to return valid data");
+  }
+
+  @DisplayName(
+      ".\n===\n"
+          + "Given a kubernetes configmap\n"
+          + "When sending get raw resources request\n"
+          + "Then only the desired manifest should be returned\n===")
+  // TODO: Uncomment after fixing rawResources endpoint
+  //  @Test
+  public void shouldGetRawResources() throws InterruptedException {
+    // ------------------------- given --------------------------
+    List<Map<String, Object>> manifest =
+        KubeTestUtils.loadYaml("classpath:manifests/configmap.yml")
+            .withValue("metadata.name", "myconfig")
+            .withValue("metadata.namespace", ns)
+            .asList();
+    List<Map<String, Object>> body =
+        KubeTestUtils.loadJson("classpath:requests/deploy_manifest.json")
+            .withValue("deployManifest.account", ACCOUNT1_NAME)
+            .withValue("deployManifest.moniker.app", APP1_NAME)
+            .withValue("deployManifest.manifests", manifest)
+            .asList();
+    KubeTestUtils.deployAndWaitStable(baseUrl(), body, ns, "configMap myconfig-v000");
+
+    KubeTestUtils.repeatUntilTrue(
+        () -> {
+          // ------------------------- when --------------------------
+          System.out.println("> Sending get rawResources request");
+          Response resp = get(baseUrl() + "/applications/" + APP1_NAME + "/rawResources");
+
+          // ------------------------- then --------------------------
+          System.out.println(resp.asString());
+          if (resp.statusCode() == 404) {
+            return false;
+          }
+          resp.then().statusCode(200);
+          List<Object> result = resp.jsonPath().getList("$");
+          return result != null && !result.isEmpty();
+        },
+        1,
+        TimeUnit.MINUTES,
+        "Waited 1 minute for GET /applications/"
+            + APP1_NAME
+            + "/rawResources to return valid data");
   }
 }
