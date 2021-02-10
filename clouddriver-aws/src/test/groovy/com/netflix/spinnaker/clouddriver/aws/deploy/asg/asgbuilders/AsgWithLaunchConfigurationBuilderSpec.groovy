@@ -87,7 +87,7 @@ class AsgWithLaunchConfigurationBuilderSpec extends Specification {
       .kernelId(cfg.getKernelId())
       .ramdiskId(cfg.getRamdiskId())
       .ebsOptimized(cfg.getEbsOptimized() != null ? cfg.getEbsOptimized() : false)
-      .spotPrice(cfg.getSpotMaxPrice())
+      .spotMaxPrice(cfg.getSpotMaxPrice())
       .instanceMonitoring(cfg.getInstanceMonitoring() != null ? cfg.getInstanceMonitoring() : false)
       .blockDevices(cfg.getBlockDevices())
       .securityGroups(cfg.getSecurityGroups())
