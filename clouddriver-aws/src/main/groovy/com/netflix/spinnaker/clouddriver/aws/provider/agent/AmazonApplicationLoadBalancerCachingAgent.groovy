@@ -238,13 +238,6 @@ class AmazonApplicationLoadBalancerCachingAgent extends AbstractAmazonLoadBalanc
     } else {
       loadBalancerArnToAttributes = new HashMap<String, List<LoadBalancerAttribute>>()
       for (LoadBalancer loadBalancer : allLoadBalancers) {
-/*        for(int i=0;i<100;i++){
-          log.info("Call AWS LoadBalancer ARN")
-          log.info(loadBalancer.loadBalancerArn)
-          loadBalancing.describeLoadBalancerAttributes(
-            new DescribeLoadBalancerAttributesRequest().withLoadBalancerArn(loadBalancer.loadBalancerArn))
-        }
- */
         loadBalancerArnToAttributes.put(loadBalancer.loadBalancerArn, loadBalancing.describeLoadBalancerAttributes(
           new DescribeLoadBalancerAttributesRequest().withLoadBalancerArn(loadBalancer.loadBalancerArn)).attributes)
       }

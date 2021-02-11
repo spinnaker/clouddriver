@@ -36,8 +36,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -254,7 +254,7 @@ public class LaunchTemplateService {
       AsgConfiguration asgConfig, String asgName, String launchTemplateName) {
     LaunchTemplateTagSpecificationRequest tagSpecificationRequest =
         new LaunchTemplateTagSpecificationRequest();
-        tagSpecificationRequest.setResourceType(ResourceType.Volume.toString());
+    tagSpecificationRequest.setResourceType(ResourceType.Volume.toString());
     RequestLaunchTemplateData request =
         new RequestLaunchTemplateData()
             .withImageId(asgConfig.getAmi())
